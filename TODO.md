@@ -1,0 +1,2 @@
+- [ ] remove tailwind
+- [ ] remove icons
