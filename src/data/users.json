@@ -1,0 +1,902 @@
+[
+	{
+		"id": 1,
+		"username": "user_1",
+		"email": "user1@example.com",
+		"password": "hashed_password_111",
+		"fullName": "User 1 Name",
+		"createdAt": "2024-12-31T21:00:00.000Z",
+		"updatedAt": "2024-12-31T21:00:00.000Z"
+	},
+	{
+		"id": 2,
+		"username": "user_2",
+		"email": "user2@example.com",
+		"password": "hashed_password_222",
+		"fullName": "User 2 Name",
+		"createdAt": "2025-02-01T21:00:00.000Z",
+		"updatedAt": "2025-02-01T21:00:00.000Z"
+	},
+	{
+		"id": 3,
+		"username": "user_3",
+		"email": "user3@example.com",
+		"password": "hashed_password_333",
+		"fullName": "User 3 Name",
+		"createdAt": "2025-03-02T21:00:00.000Z",
+		"updatedAt": "2025-03-02T21:00:00.000Z"
+	},
+	{
+		"id": 4,
+		"username": "user_4",
+		"email": "user4@example.com",
+		"password": "hashed_password_444",
+		"fullName": "User 4 Name",
+		"createdAt": "2025-04-03T21:00:00.000Z",
+		"updatedAt": "2025-04-03T21:00:00.000Z"
+	},
+	{
+		"id": 5,
+		"username": "user_5",
+		"email": "user5@example.com",
+		"password": "hashed_password_555",
+		"fullName": "User 5 Name",
+		"createdAt": "2025-05-04T21:00:00.000Z",
+		"updatedAt": "2025-05-04T21:00:00.000Z"
+	},
+	{
+		"id": 6,
+		"username": "user_6",
+		"email": "user6@example.com",
+		"password": "hashed_password_666",
+		"fullName": "User 6 Name",
+		"createdAt": "2025-06-05T21:00:00.000Z",
+		"updatedAt": "2025-06-05T21:00:00.000Z"
+	},
+	{
+		"id": 7,
+		"username": "user_7",
+		"email": "user7@example.com",
+		"password": "hashed_password_777",
+		"fullName": "User 7 Name",
+		"createdAt": "2025-07-06T21:00:00.000Z",
+		"updatedAt": "2025-07-06T21:00:00.000Z"
+	},
+	{
+		"id": 8,
+		"username": "user_8",
+		"email": "user8@example.com",
+		"password": "hashed_password_888",
+		"fullName": "User 8 Name",
+		"createdAt": "2025-08-07T21:00:00.000Z",
+		"updatedAt": "2025-08-07T21:00:00.000Z"
+	},
+	{
+		"id": 9,
+		"username": "user_9",
+		"email": "user9@example.com",
+		"password": "hashed_password_999",
+		"fullName": "User 9 Name",
+		"createdAt": "2025-09-08T21:00:00.000Z",
+		"updatedAt": "2025-09-08T21:00:00.000Z"
+	},
+	{
+		"id": 10,
+		"username": "user_10",
+		"email": "user10@example.com",
+		"password": "hashed_password_1110",
+		"fullName": "User 10 Name",
+		"createdAt": "2025-10-09T21:00:00.000Z",
+		"updatedAt": "2025-10-09T21:00:00.000Z"
+	},
+	{
+		"id": 11,
+		"username": "user_11",
+		"email": "user11@example.com",
+		"password": "hashed_password_1221",
+		"fullName": "User 11 Name",
+		"createdAt": "2025-11-10T21:00:00.000Z",
+		"updatedAt": "2025-11-10T21:00:00.000Z"
+	},
+	{
+		"id": 12,
+		"username": "user_12",
+		"email": "user12@example.com",
+		"password": "hashed_password_1332",
+		"fullName": "User 12 Name",
+		"createdAt": "2025-12-11T21:00:00.000Z",
+		"updatedAt": "2025-12-11T21:00:00.000Z"
+	},
+	{
+		"id": 13,
+		"username": "user_13",
+		"email": "user13@example.com",
+		"password": "hashed_password_1443",
+		"fullName": "User 13 Name",
+		"createdAt": "2025-01-12T21:00:00.000Z",
+		"updatedAt": "2025-01-12T21:00:00.000Z"
+	},
+	{
+		"id": 14,
+		"username": "user_14",
+		"email": "user14@example.com",
+		"password": "hashed_password_1554",
+		"fullName": "User 14 Name",
+		"createdAt": "2025-02-13T21:00:00.000Z",
+		"updatedAt": "2025-02-13T21:00:00.000Z"
+	},
+	{
+		"id": 15,
+		"username": "user_15",
+		"email": "user15@example.com",
+		"password": "hashed_password_1665",
+		"fullName": "User 15 Name",
+		"createdAt": "2025-03-14T21:00:00.000Z",
+		"updatedAt": "2025-03-14T21:00:00.000Z"
+	},
+	{
+		"id": 16,
+		"username": "user_16",
+		"email": "user16@example.com",
+		"password": "hashed_password_1776",
+		"fullName": "User 16 Name",
+		"createdAt": "2025-04-15T21:00:00.000Z",
+		"updatedAt": "2025-04-15T21:00:00.000Z"
+	},
+	{
+		"id": 17,
+		"username": "user_17",
+		"email": "user17@example.com",
+		"password": "hashed_password_1887",
+		"fullName": "User 17 Name",
+		"createdAt": "2025-05-16T21:00:00.000Z",
+		"updatedAt": "2025-05-16T21:00:00.000Z"
+	},
+	{
+		"id": 18,
+		"username": "user_18",
+		"email": "user18@example.com",
+		"password": "hashed_password_1998",
+		"fullName": "User 18 Name",
+		"createdAt": "2025-06-17T21:00:00.000Z",
+		"updatedAt": "2025-06-17T21:00:00.000Z"
+	},
+	{
+		"id": 19,
+		"username": "user_19",
+		"email": "user19@example.com",
+		"password": "hashed_password_2109",
+		"fullName": "User 19 Name",
+		"createdAt": "2025-07-18T21:00:00.000Z",
+		"updatedAt": "2025-07-18T21:00:00.000Z"
+	},
+	{
+		"id": 20,
+		"username": "user_20",
+		"email": "user20@example.com",
+		"password": "hashed_password_2220",
+		"fullName": "User 20 Name",
+		"createdAt": "2025-08-19T21:00:00.000Z",
+		"updatedAt": "2025-08-19T21:00:00.000Z"
+	},
+	{
+		"id": 21,
+		"username": "user_21",
+		"email": "user21@example.com",
+		"password": "hashed_password_2331",
+		"fullName": "User 21 Name",
+		"createdAt": "2025-09-20T21:00:00.000Z",
+		"updatedAt": "2025-09-20T21:00:00.000Z"
+	},
+	{
+		"id": 22,
+		"username": "user_22",
+		"email": "user22@example.com",
+		"password": "hashed_password_2442",
+		"fullName": "User 22 Name",
+		"createdAt": "2025-10-21T21:00:00.000Z",
+		"updatedAt": "2025-10-21T21:00:00.000Z"
+	},
+	{
+		"id": 23,
+		"username": "user_23",
+		"email": "user23@example.com",
+		"password": "hashed_password_2553",
+		"fullName": "User 23 Name",
+		"createdAt": "2025-11-22T21:00:00.000Z",
+		"updatedAt": "2025-11-22T21:00:00.000Z"
+	},
+	{
+		"id": 24,
+		"username": "user_24",
+		"email": "user24@example.com",
+		"password": "hashed_password_2664",
+		"fullName": "User 24 Name",
+		"createdAt": "2025-12-23T21:00:00.000Z",
+		"updatedAt": "2025-12-23T21:00:00.000Z"
+	},
+	{
+		"id": 25,
+		"username": "user_25",
+		"email": "user25@example.com",
+		"password": "hashed_password_2775",
+		"fullName": "User 25 Name",
+		"createdAt": "2025-01-24T21:00:00.000Z",
+		"updatedAt": "2025-01-24T21:00:00.000Z"
+	},
+	{
+		"id": 26,
+		"username": "user_26",
+		"email": "user26@example.com",
+		"password": "hashed_password_2886",
+		"fullName": "User 26 Name",
+		"createdAt": "2025-02-25T21:00:00.000Z",
+		"updatedAt": "2025-02-25T21:00:00.000Z"
+	},
+	{
+		"id": 27,
+		"username": "user_27",
+		"email": "user27@example.com",
+		"password": "hashed_password_2997",
+		"fullName": "User 27 Name",
+		"createdAt": "2025-03-26T21:00:00.000Z",
+		"updatedAt": "2025-03-26T21:00:00.000Z"
+	},
+	{
+		"id": 28,
+		"username": "user_28",
+		"email": "user28@example.com",
+		"password": "hashed_password_3108",
+		"fullName": "User 28 Name",
+		"createdAt": "2025-04-27T21:00:00.000Z",
+		"updatedAt": "2025-04-27T21:00:00.000Z"
+	},
+	{
+		"id": 29,
+		"username": "user_29",
+		"email": "user29@example.com",
+		"password": "hashed_password_3219",
+		"fullName": "User 29 Name",
+		"createdAt": "2025-04-30T21:00:00.000Z",
+		"updatedAt": "2025-04-30T21:00:00.000Z"
+	},
+	{
+		"id": 30,
+		"username": "user_30",
+		"email": "user30@example.com",
+		"password": "hashed_password_3330",
+		"fullName": "User 30 Name",
+		"createdAt": "2025-06-01T21:00:00.000Z",
+		"updatedAt": "2025-06-01T21:00:00.000Z"
+	},
+	{
+		"id": 31,
+		"username": "user_31",
+		"email": "user31@example.com",
+		"password": "hashed_password_3441",
+		"fullName": "User 31 Name",
+		"createdAt": "2025-07-02T21:00:00.000Z",
+		"updatedAt": "2025-07-02T21:00:00.000Z"
+	},
+	{
+		"id": 32,
+		"username": "user_32",
+		"email": "user32@example.com",
+		"password": "hashed_password_3552",
+		"fullName": "User 32 Name",
+		"createdAt": "2025-08-03T21:00:00.000Z",
+		"updatedAt": "2025-08-03T21:00:00.000Z"
+	},
+	{
+		"id": 33,
+		"username": "user_33",
+		"email": "user33@example.com",
+		"password": "hashed_password_3663",
+		"fullName": "User 33 Name",
+		"createdAt": "2025-09-04T21:00:00.000Z",
+		"updatedAt": "2025-09-04T21:00:00.000Z"
+	},
+	{
+		"id": 34,
+		"username": "user_34",
+		"email": "user34@example.com",
+		"password": "hashed_password_3774",
+		"fullName": "User 34 Name",
+		"createdAt": "2025-10-05T21:00:00.000Z",
+		"updatedAt": "2025-10-05T21:00:00.000Z"
+	},
+	{
+		"id": 35,
+		"username": "user_35",
+		"email": "user35@example.com",
+		"password": "hashed_password_3885",
+		"fullName": "User 35 Name",
+		"createdAt": "2025-11-06T21:00:00.000Z",
+		"updatedAt": "2025-11-06T21:00:00.000Z"
+	},
+	{
+		"id": 36,
+		"username": "user_36",
+		"email": "user36@example.com",
+		"password": "hashed_password_3996",
+		"fullName": "User 36 Name",
+		"createdAt": "2025-12-07T21:00:00.000Z",
+		"updatedAt": "2025-12-07T21:00:00.000Z"
+	},
+	{
+		"id": 37,
+		"username": "user_37",
+		"email": "user37@example.com",
+		"password": "hashed_password_4107",
+		"fullName": "User 37 Name",
+		"createdAt": "2025-01-08T21:00:00.000Z",
+		"updatedAt": "2025-01-08T21:00:00.000Z"
+	},
+	{
+		"id": 38,
+		"username": "user_38",
+		"email": "user38@example.com",
+		"password": "hashed_password_4218",
+		"fullName": "User 38 Name",
+		"createdAt": "2025-02-09T21:00:00.000Z",
+		"updatedAt": "2025-02-09T21:00:00.000Z"
+	},
+	{
+		"id": 39,
+		"username": "user_39",
+		"email": "user39@example.com",
+		"password": "hashed_password_4329",
+		"fullName": "User 39 Name",
+		"createdAt": "2025-03-10T21:00:00.000Z",
+		"updatedAt": "2025-03-10T21:00:00.000Z"
+	},
+	{
+		"id": 40,
+		"username": "user_40",
+		"email": "user40@example.com",
+		"password": "hashed_password_4440",
+		"fullName": "User 40 Name",
+		"createdAt": "2025-04-11T21:00:00.000Z",
+		"updatedAt": "2025-04-11T21:00:00.000Z"
+	},
+	{
+		"id": 41,
+		"username": "user_41",
+		"email": "user41@example.com",
+		"password": "hashed_password_4551",
+		"fullName": "User 41 Name",
+		"createdAt": "2025-05-12T21:00:00.000Z",
+		"updatedAt": "2025-05-12T21:00:00.000Z"
+	},
+	{
+		"id": 42,
+		"username": "user_42",
+		"email": "user42@example.com",
+		"password": "hashed_password_4662",
+		"fullName": "User 42 Name",
+		"createdAt": "2025-06-13T21:00:00.000Z",
+		"updatedAt": "2025-06-13T21:00:00.000Z"
+	},
+	{
+		"id": 43,
+		"username": "user_43",
+		"email": "user43@example.com",
+		"password": "hashed_password_4773",
+		"fullName": "User 43 Name",
+		"createdAt": "2025-07-14T21:00:00.000Z",
+		"updatedAt": "2025-07-14T21:00:00.000Z"
+	},
+	{
+		"id": 44,
+		"username": "user_44",
+		"email": "user44@example.com",
+		"password": "hashed_password_4884",
+		"fullName": "User 44 Name",
+		"createdAt": "2025-08-15T21:00:00.000Z",
+		"updatedAt": "2025-08-15T21:00:00.000Z"
+	},
+	{
+		"id": 45,
+		"username": "user_45",
+		"email": "user45@example.com",
+		"password": "hashed_password_4995",
+		"fullName": "User 45 Name",
+		"createdAt": "2025-09-16T21:00:00.000Z",
+		"updatedAt": "2025-09-16T21:00:00.000Z"
+	},
+	{
+		"id": 46,
+		"username": "user_46",
+		"email": "user46@example.com",
+		"password": "hashed_password_5106",
+		"fullName": "User 46 Name",
+		"createdAt": "2025-10-17T21:00:00.000Z",
+		"updatedAt": "2025-10-17T21:00:00.000Z"
+	},
+	{
+		"id": 47,
+		"username": "user_47",
+		"email": "user47@example.com",
+		"password": "hashed_password_5217",
+		"fullName": "User 47 Name",
+		"createdAt": "2025-11-18T21:00:00.000Z",
+		"updatedAt": "2025-11-18T21:00:00.000Z"
+	},
+	{
+		"id": 48,
+		"username": "user_48",
+		"email": "user48@example.com",
+		"password": "hashed_password_5328",
+		"fullName": "User 48 Name",
+		"createdAt": "2025-12-19T21:00:00.000Z",
+		"updatedAt": "2025-12-19T21:00:00.000Z"
+	},
+	{
+		"id": 49,
+		"username": "user_49",
+		"email": "user49@example.com",
+		"password": "hashed_password_5439",
+		"fullName": "User 49 Name",
+		"createdAt": "2025-01-20T21:00:00.000Z",
+		"updatedAt": "2025-01-20T21:00:00.000Z"
+	},
+	{
+		"id": 50,
+		"username": "user_50",
+		"email": "user50@example.com",
+		"password": "hashed_password_5550",
+		"fullName": "User 50 Name",
+		"createdAt": "2025-02-21T21:00:00.000Z",
+		"updatedAt": "2025-02-21T21:00:00.000Z"
+	},
+	{
+		"id": 51,
+		"username": "user_51",
+		"email": "user51@example.com",
+		"password": "hashed_password_5661",
+		"fullName": "User 51 Name",
+		"createdAt": "2025-03-22T21:00:00.000Z",
+		"updatedAt": "2025-03-22T21:00:00.000Z"
+	},
+	{
+		"id": 52,
+		"username": "user_52",
+		"email": "user52@example.com",
+		"password": "hashed_password_5772",
+		"fullName": "User 52 Name",
+		"createdAt": "2025-04-23T21:00:00.000Z",
+		"updatedAt": "2025-04-23T21:00:00.000Z"
+	},
+	{
+		"id": 53,
+		"username": "user_53",
+		"email": "user53@example.com",
+		"password": "hashed_password_5883",
+		"fullName": "User 53 Name",
+		"createdAt": "2025-05-24T21:00:00.000Z",
+		"updatedAt": "2025-05-24T21:00:00.000Z"
+	},
+	{
+		"id": 54,
+		"username": "user_54",
+		"email": "user54@example.com",
+		"password": "hashed_password_5994",
+		"fullName": "User 54 Name",
+		"createdAt": "2025-06-25T21:00:00.000Z",
+		"updatedAt": "2025-06-25T21:00:00.000Z"
+	},
+	{
+		"id": 55,
+		"username": "user_55",
+		"email": "user55@example.com",
+		"password": "hashed_password_6105",
+		"fullName": "User 55 Name",
+		"createdAt": "2025-07-26T21:00:00.000Z",
+		"updatedAt": "2025-07-26T21:00:00.000Z"
+	},
+	{
+		"id": 56,
+		"username": "user_56",
+		"email": "user56@example.com",
+		"password": "hashed_password_6216",
+		"fullName": "User 56 Name",
+		"createdAt": "2025-08-27T21:00:00.000Z",
+		"updatedAt": "2025-08-27T21:00:00.000Z"
+	},
+	{
+		"id": 57,
+		"username": "user_57",
+		"email": "user57@example.com",
+		"password": "hashed_password_6327",
+		"fullName": "User 57 Name",
+		"createdAt": "2025-08-31T21:00:00.000Z",
+		"updatedAt": "2025-08-31T21:00:00.000Z"
+	},
+	{
+		"id": 58,
+		"username": "user_58",
+		"email": "user58@example.com",
+		"password": "hashed_password_6438",
+		"fullName": "User 58 Name",
+		"createdAt": "2025-10-01T21:00:00.000Z",
+		"updatedAt": "2025-10-01T21:00:00.000Z"
+	},
+	{
+		"id": 59,
+		"username": "user_59",
+		"email": "user59@example.com",
+		"password": "hashed_password_6549",
+		"fullName": "User 59 Name",
+		"createdAt": "2025-11-02T21:00:00.000Z",
+		"updatedAt": "2025-11-02T21:00:00.000Z"
+	},
+	{
+		"id": 60,
+		"username": "user_60",
+		"email": "user60@example.com",
+		"password": "hashed_password_6660",
+		"fullName": "User 60 Name",
+		"createdAt": "2025-12-03T21:00:00.000Z",
+		"updatedAt": "2025-12-03T21:00:00.000Z"
+	},
+	{
+		"id": 61,
+		"username": "user_61",
+		"email": "user61@example.com",
+		"password": "hashed_password_6771",
+		"fullName": "User 61 Name",
+		"createdAt": "2025-01-04T21:00:00.000Z",
+		"updatedAt": "2025-01-04T21:00:00.000Z"
+	},
+	{
+		"id": 62,
+		"username": "user_62",
+		"email": "user62@example.com",
+		"password": "hashed_password_6882",
+		"fullName": "User 62 Name",
+		"createdAt": "2025-02-05T21:00:00.000Z",
+		"updatedAt": "2025-02-05T21:00:00.000Z"
+	},
+	{
+		"id": 63,
+		"username": "user_63",
+		"email": "user63@example.com",
+		"password": "hashed_password_6993",
+		"fullName": "User 63 Name",
+		"createdAt": "2025-03-06T21:00:00.000Z",
+		"updatedAt": "2025-03-06T21:00:00.000Z"
+	},
+	{
+		"id": 64,
+		"username": "user_64",
+		"email": "user64@example.com",
+		"password": "hashed_password_7104",
+		"fullName": "User 64 Name",
+		"createdAt": "2025-04-07T21:00:00.000Z",
+		"updatedAt": "2025-04-07T21:00:00.000Z"
+	},
+	{
+		"id": 65,
+		"username": "user_65",
+		"email": "user65@example.com",
+		"password": "hashed_password_7215",
+		"fullName": "User 65 Name",
+		"createdAt": "2025-05-08T21:00:00.000Z",
+		"updatedAt": "2025-05-08T21:00:00.000Z"
+	},
+	{
+		"id": 66,
+		"username": "user_66",
+		"email": "user66@example.com",
+		"password": "hashed_password_7326",
+		"fullName": "User 66 Name",
+		"createdAt": "2025-06-09T21:00:00.000Z",
+		"updatedAt": "2025-06-09T21:00:00.000Z"
+	},
+	{
+		"id": 67,
+		"username": "user_67",
+		"email": "user67@example.com",
+		"password": "hashed_password_7437",
+		"fullName": "User 67 Name",
+		"createdAt": "2025-07-10T21:00:00.000Z",
+		"updatedAt": "2025-07-10T21:00:00.000Z"
+	},
+	{
+		"id": 68,
+		"username": "user_68",
+		"email": "user68@example.com",
+		"password": "hashed_password_7548",
+		"fullName": "User 68 Name",
+		"createdAt": "2025-08-11T21:00:00.000Z",
+		"updatedAt": "2025-08-11T21:00:00.000Z"
+	},
+	{
+		"id": 69,
+		"username": "user_69",
+		"email": "user69@example.com",
+		"password": "hashed_password_7659",
+		"fullName": "User 69 Name",
+		"createdAt": "2025-09-12T21:00:00.000Z",
+		"updatedAt": "2025-09-12T21:00:00.000Z"
+	},
+	{
+		"id": 70,
+		"username": "user_70",
+		"email": "user70@example.com",
+		"password": "hashed_password_7770",
+		"fullName": "User 70 Name",
+		"createdAt": "2025-10-13T21:00:00.000Z",
+		"updatedAt": "2025-10-13T21:00:00.000Z"
+	},
+	{
+		"id": 71,
+		"username": "user_71",
+		"email": "user71@example.com",
+		"password": "hashed_password_7881",
+		"fullName": "User 71 Name",
+		"createdAt": "2025-11-14T21:00:00.000Z",
+		"updatedAt": "2025-11-14T21:00:00.000Z"
+	},
+	{
+		"id": 72,
+		"username": "user_72",
+		"email": "user72@example.com",
+		"password": "hashed_password_7992",
+		"fullName": "User 72 Name",
+		"createdAt": "2025-12-15T21:00:00.000Z",
+		"updatedAt": "2025-12-15T21:00:00.000Z"
+	},
+	{
+		"id": 73,
+		"username": "user_73",
+		"email": "user73@example.com",
+		"password": "hashed_password_8103",
+		"fullName": "User 73 Name",
+		"createdAt": "2025-01-16T21:00:00.000Z",
+		"updatedAt": "2025-01-16T21:00:00.000Z"
+	},
+	{
+		"id": 74,
+		"username": "user_74",
+		"email": "user74@example.com",
+		"password": "hashed_password_8214",
+		"fullName": "User 74 Name",
+		"createdAt": "2025-02-17T21:00:00.000Z",
+		"updatedAt": "2025-02-17T21:00:00.000Z"
+	},
+	{
+		"id": 75,
+		"username": "user_75",
+		"email": "user75@example.com",
+		"password": "hashed_password_8325",
+		"fullName": "User 75 Name",
+		"createdAt": "2025-03-18T21:00:00.000Z",
+		"updatedAt": "2025-03-18T21:00:00.000Z"
+	},
+	{
+		"id": 76,
+		"username": "user_76",
+		"email": "user76@example.com",
+		"password": "hashed_password_8436",
+		"fullName": "User 76 Name",
+		"createdAt": "2025-04-19T21:00:00.000Z",
+		"updatedAt": "2025-04-19T21:00:00.000Z"
+	},
+	{
+		"id": 77,
+		"username": "user_77",
+		"email": "user77@example.com",
+		"password": "hashed_password_8547",
+		"fullName": "User 77 Name",
+		"createdAt": "2025-05-20T21:00:00.000Z",
+		"updatedAt": "2025-05-20T21:00:00.000Z"
+	},
+	{
+		"id": 78,
+		"username": "user_78",
+		"email": "user78@example.com",
+		"password": "hashed_password_8658",
+		"fullName": "User 78 Name",
+		"createdAt": "2025-06-21T21:00:00.000Z",
+		"updatedAt": "2025-06-21T21:00:00.000Z"
+	},
+	{
+		"id": 79,
+		"username": "user_79",
+		"email": "user79@example.com",
+		"password": "hashed_password_8769",
+		"fullName": "User 79 Name",
+		"createdAt": "2025-07-22T21:00:00.000Z",
+		"updatedAt": "2025-07-22T21:00:00.000Z"
+	},
+	{
+		"id": 80,
+		"username": "user_80",
+		"email": "user80@example.com",
+		"password": "hashed_password_8880",
+		"fullName": "User 80 Name",
+		"createdAt": "2025-08-23T21:00:00.000Z",
+		"updatedAt": "2025-08-23T21:00:00.000Z"
+	},
+	{
+		"id": 81,
+		"username": "user_81",
+		"email": "user81@example.com",
+		"password": "hashed_password_8991",
+		"fullName": "User 81 Name",
+		"createdAt": "2025-09-24T21:00:00.000Z",
+		"updatedAt": "2025-09-24T21:00:00.000Z"
+	},
+	{
+		"id": 82,
+		"username": "user_82",
+		"email": "user82@example.com",
+		"password": "hashed_password_9102",
+		"fullName": "User 82 Name",
+		"createdAt": "2025-10-25T21:00:00.000Z",
+		"updatedAt": "2025-10-25T21:00:00.000Z"
+	},
+	{
+		"id": 83,
+		"username": "user_83",
+		"email": "user83@example.com",
+		"password": "hashed_password_9213",
+		"fullName": "User 83 Name",
+		"createdAt": "2025-11-26T21:00:00.000Z",
+		"updatedAt": "2025-11-26T21:00:00.000Z"
+	},
+	{
+		"id": 84,
+		"username": "user_84",
+		"email": "user84@example.com",
+		"password": "hashed_password_9324",
+		"fullName": "User 84 Name",
+		"createdAt": "2025-12-27T21:00:00.000Z",
+		"updatedAt": "2025-12-27T21:00:00.000Z"
+	},
+	{
+		"id": 85,
+		"username": "user_85",
+		"email": "user85@example.com",
+		"password": "hashed_password_9435",
+		"fullName": "User 85 Name",
+		"createdAt": "2024-12-31T21:00:00.000Z",
+		"updatedAt": "2024-12-31T21:00:00.000Z"
+	},
+	{
+		"id": 86,
+		"username": "user_86",
+		"email": "user86@example.com",
+		"password": "hashed_password_9546",
+		"fullName": "User 86 Name",
+		"createdAt": "2025-02-01T21:00:00.000Z",
+		"updatedAt": "2025-02-01T21:00:00.000Z"
+	},
+	{
+		"id": 87,
+		"username": "user_87",
+		"email": "user87@example.com",
+		"password": "hashed_password_9657",
+		"fullName": "User 87 Name",
+		"createdAt": "2025-03-02T21:00:00.000Z",
+		"updatedAt": "2025-03-02T21:00:00.000Z"
+	},
+	{
+		"id": 88,
+		"username": "user_88",
+		"email": "user88@example.com",
+		"password": "hashed_password_9768",
+		"fullName": "User 88 Name",
+		"createdAt": "2025-04-03T21:00:00.000Z",
+		"updatedAt": "2025-04-03T21:00:00.000Z"
+	},
+	{
+		"id": 89,
+		"username": "user_89",
+		"email": "user89@example.com",
+		"password": "hashed_password_9879",
+		"fullName": "User 89 Name",
+		"createdAt": "2025-05-04T21:00:00.000Z",
+		"updatedAt": "2025-05-04T21:00:00.000Z"
+	},
+	{
+		"id": 90,
+		"username": "user_90",
+		"email": "user90@example.com",
+		"password": "hashed_password_9990",
+		"fullName": "User 90 Name",
+		"createdAt": "2025-06-05T21:00:00.000Z",
+		"updatedAt": "2025-06-05T21:00:00.000Z"
+	},
+	{
+		"id": 91,
+		"username": "user_91",
+		"email": "user91@example.com",
+		"password": "hashed_password_10101",
+		"fullName": "User 91 Name",
+		"createdAt": "2025-07-06T21:00:00.000Z",
+		"updatedAt": "2025-07-06T21:00:00.000Z"
+	},
+	{
+		"id": 92,
+		"username": "user_92",
+		"email": "user92@example.com",
+		"password": "hashed_password_10212",
+		"fullName": "User 92 Name",
+		"createdAt": "2025-08-07T21:00:00.000Z",
+		"updatedAt": "2025-08-07T21:00:00.000Z"
+	},
+	{
+		"id": 93,
+		"username": "user_93",
+		"email": "user93@example.com",
+		"password": "hashed_password_10323",
+		"fullName": "User 93 Name",
+		"createdAt": "2025-09-08T21:00:00.000Z",
+		"updatedAt": "2025-09-08T21:00:00.000Z"
+	},
+	{
+		"id": 94,
+		"username": "user_94",
+		"email": "user94@example.com",
+		"password": "hashed_password_10434",
+		"fullName": "User 94 Name",
+		"createdAt": "2025-10-09T21:00:00.000Z",
+		"updatedAt": "2025-10-09T21:00:00.000Z"
+	},
+	{
+		"id": 95,
+		"username": "user_95",
+		"email": "user95@example.com",
+		"password": "hashed_password_10545",
+		"fullName": "User 95 Name",
+		"createdAt": "2025-11-10T21:00:00.000Z",
+		"updatedAt": "2025-11-10T21:00:00.000Z"
+	},
+	{
+		"id": 96,
+		"username": "user_96",
+		"email": "user96@example.com",
+		"password": "hashed_password_10656",
+		"fullName": "User 96 Name",
+		"createdAt": "2025-12-11T21:00:00.000Z",
+		"updatedAt": "2025-12-11T21:00:00.000Z"
+	},
+	{
+		"id": 97,
+		"username": "user_97",
+		"email": "user97@example.com",
+		"password": "hashed_password_10767",
+		"fullName": "User 97 Name",
+		"createdAt": "2025-01-12T21:00:00.000Z",
+		"updatedAt": "2025-01-12T21:00:00.000Z"
+	},
+	{
+		"id": 98,
+		"username": "user_98",
+		"email": "user98@example.com",
+		"password": "hashed_password_10878",
+		"fullName": "User 98 Name",
+		"createdAt": "2025-02-13T21:00:00.000Z",
+		"updatedAt": "2025-02-13T21:00:00.000Z"
+	},
+	{
+		"id": 99,
+		"username": "user_99",
+		"email": "user99@example.com",
+		"password": "hashed_password_10989",
+		"fullName": "User 99 Name",
+		"createdAt": "2025-03-14T21:00:00.000Z",
+		"updatedAt": "2025-03-14T21:00:00.000Z"
+	},
+	{
+		"id": 100,
+		"username": "user_100",
+		"email": "user100@example.com",
+		"password": "hashed_password_11100",
+		"fullName": "User 100 Name",
+		"createdAt": "2025-04-15T21:00:00.000Z",
+		"updatedAt": "2025-04-15T21:00:00.000Z"
+	}
+]
