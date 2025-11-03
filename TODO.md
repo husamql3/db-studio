@@ -1,2 +1,9 @@
+- [x] add checkboxes
+- [x] resize
+- [ ] actions row
+- [ ] input fields
+- [ ] sidebar 
+  - [ ] select outside to close
+  - [ ] save the open/close status in cookies
 - [ ] remove tailwind
 - [ ] remove icons

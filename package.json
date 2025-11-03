@@ -15,10 +15,12 @@
     "@tailwindcss/vite": "^4.1.16",
     "@tanstack/react-query-devtools": "^5.90.2",
     "@tanstack/react-table": "^8.21.3",
+    "@types/react-window": "^2.0.0",
     "lucide-react": "^0.552.0",
     "pg": "^8.16.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-window": "^2.2.2",
     "tailwindcss": "^4.1.16"
   },
   "devDependencies": {
