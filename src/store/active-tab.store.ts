@@ -1,13 +1,13 @@
 import { create } from "zustand";
 
 type ActiveTabStore = {
-  activeTab: string | null;
-  setActiveTab: (tab: string | null) => void;
-}
+	activeTab: string | null;
+	setActiveTab: (tabName: string | null) => void;
+};
 
 export const useActiveTabStore = create<ActiveTabStore>((set) => ({
-  activeTab: null,
-  setActiveTab: (tab) => {
-    set({ activeTab: tab })
-  },
+	activeTab: "table",
+	setActiveTab: (tabName) => {
+		set({ activeTab: tabName });
+	},
 }));
