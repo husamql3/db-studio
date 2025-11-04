@@ -1,35 +1,41 @@
-import { cn } from "../utils/cn";
+import { useTables } from "@/hooks/use-tables";
+import { SidebarListItem } from "./layout/sidebar-list-item";
+import { useMemo } from "react";
 
-export const TablesList = ({
-	item,
-	selectedIds,
-	onSelect,
-}: {
-	item: { id: string; label: string };
-	selectedIds: Set<string>;
-	onSelect: (id: string) => void;
-}) => {
-	const isSelected = selectedIds.has(item.id);
+export const TablesList = ({ searchTerm }: { searchTerm: string }) => {
+  const { tables } = useTables();
 
-	const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-		e.preventDefault();
-		onSelect(item.id);
-	};
+  const filteredTables = useMemo(() => {
+    if (!tables) return [];
+    if (!searchTerm.trim()) return tables;
 
-	return (
-		<li className="relative">
-			<button
-				type="button"
-				onClick={handleClick}
-				className={cn(
-					"w-full flex gap-2 px-4 py-1.5 text-sm transition-colors text-left",
-					"hover:text-zinc-100 focus:outline-none focus:bg-blue-500/10 focus:text-zinc-100 justify-start items-center",
-					isSelected ? "text-white bg-zinc-800/50" : "text-zinc-400",
-				)}
-			>
-				{isSelected && <span className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
-				<span className="flex-1">{item.label}</span>
-			</button>
-		</li>
-	);
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return tables.filter((table) =>
+      table.tableName.toLowerCase().includes(lowerSearchTerm)
+    );
+  }, [tables, searchTerm]);
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      {filteredTables.length > 0 ? (
+        <ul>
+          {filteredTables.map((table) => (
+            <SidebarListItem
+              key={table.tableName}
+              tableName={table.tableName}
+              rowCount={table.rowCount}
+            />
+          ))}
+        </ul>
+      ) : searchTerm ? (
+        <div className="px-4 py-8 text-center text-sm text-zinc-500">
+          No tables found matching
+        </div>
+      ) : (
+        <div className="px-4 py-8 text-center text-sm text-zinc-500">
+          No tables available
+        </div>
+      )}
+    </div>
+  );
 };

@@ -1,3 +1,11 @@
+- [ ] connect to db
+- [ ] zustand for getting all table count
+- [ ]
+- [ ]
+- [ ]
+
+---
+
 - [x] add checkboxes
 - [x] resize
 - [ ] actions row
