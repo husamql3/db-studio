@@ -2,6 +2,7 @@
 - [x] resize
 - [x] zustand
 - [x] db
+- [ ] update table
 - [ ] actions row
 - [ ] input fields
 - [ ] sort by col

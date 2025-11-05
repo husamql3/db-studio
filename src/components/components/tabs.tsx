@@ -7,10 +7,10 @@ export const Tabs = () => {
 
 	const tabs = [
 		{ id: "table", label: "Table" },
+		{ id: "schema", label: "Schema" },
 		{ id: "indexes", label: "Indexes" },
 		{ id: "runner", label: "Runner" },
 		{ id: "visualizer", label: "Visualizer" },
-		{ id: "schema", label: "Schema" },
 	];
 
 	return (

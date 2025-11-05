@@ -1,5 +1,6 @@
 import { useActiveTableStore } from "@/store/active-table.store";
-import { Header } from "./header";
+import { TableContent } from "./table-content";
+import { TableHeader } from "./table-header";
 
 export const TableTab = () => {
 	const { activeTable } = useActiveTableStore();
@@ -7,18 +8,15 @@ export const TableTab = () => {
 	if (!activeTable) {
 		return (
 			<div className="flex flex-col h-full">
-				<Header />
 				<main className="flex-1 flex items-center justify-center">Select a table to view</main>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col h-full">
-			<Header />
-			<main className="flex-1 flex items-center justify-center">
-				<h1>{activeTable}</h1>
-			</main>
-		</div>
+		<>
+			<TableHeader />
+			<TableContent key={activeTable} activeTable={activeTable} />
+		</>
 	);
 };

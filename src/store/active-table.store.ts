@@ -9,5 +9,6 @@ export const useActiveTableStore = create<ActiveTableStore>((set) => ({
 	activeTable: null,
 	setActiveTable: (tableName) => {
 		set({ activeTable: tableName });
+		console.log("activeTable", tableName);
 	},
 }));

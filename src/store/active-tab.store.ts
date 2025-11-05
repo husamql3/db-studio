@@ -9,5 +9,6 @@ export const useActiveTabStore = create<ActiveTabStore>((set) => ({
 	activeTab: "table",
 	setActiveTab: (tabName) => {
 		set({ activeTab: tabName });
+		console.log("activeTab", tabName);
 	},
 }));
