@@ -55,3 +55,23 @@ export const getTableData = async (tableName: string): Promise<TableData[]> => {
 		throw error;
 	}
 };
+
+// const {
+// 	data: tableColumns,
+// 	isLoading: isLoadingTableColumns,
+// 	error: errorTableColumns,
+// } = useQuery({
+// 	queryKey: ["table-header", activeTable],
+// 	queryFn: () => getTableColumns(activeTable),
+// 	enabled: !!activeTable,
+// });
+
+// const {
+// 	data,
+// 	isLoading: isLoadingTableData,
+// 	error: errorTableData,
+// } = useQuery({
+// 	queryKey: ["table-rows", activeTable],
+// 	queryFn: () => getTableData(activeTable),
+// 	enabled: !!activeTable,
+// });

@@ -6,19 +6,16 @@ export const TableTab = () => {
 	const { activeTable } = useActiveTableStore();
 
 	if (!activeTable) {
-		return (
-			<div className="flex flex-col h-full">
-				<main className="flex-1 flex items-center justify-center">Select a table to view</main>
-			</div>
-		);
+		return <main className="flex-1 flex items-center justify-center">Select a table to view</main>;
 	}
 
 	return (
-		<>
+		<div className="flex flex-col flex-1 h-full overflow-hidden">
 			<TableHeader />
-			<main className="flex-1 flex items-center justify-center text-zinc-100">
-				<Table activeTable={activeTable} />
+
+			<main className="flex-1 overflow-auto">
+				<Table />
 			</main>
-		</>
+		</div>
 	);
 };

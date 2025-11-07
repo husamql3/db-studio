@@ -14,7 +14,7 @@ export const Tabs = () => {
 	];
 
 	return (
-		<div className="h-14 border-b border-zinc-800 divide-x divide-zinc-800 w-full flex items-center bg-black">
+		<div className="border-b border-zinc-800 divide-x divide-zinc-800 w-full flex items-center bg-black">
 			<SidebarToggleButton />
 
 			{/* Tab Navigation */}

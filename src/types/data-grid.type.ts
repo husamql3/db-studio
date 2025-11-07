@@ -105,3 +105,36 @@ export interface SearchState {
 	onNavigateToNextMatch: () => void;
 	onNavigateToPrevMatch: () => void;
 }
+
+export interface CellSelectOption {
+	label: string;
+	value: string;
+}
+
+export type CellType =
+	| {
+			variant: "short-text";
+	  }
+	| {
+			variant: "long-text";
+	  }
+	| {
+			variant: "number";
+			min?: number;
+			max?: number;
+			step?: number;
+	  }
+	| {
+			variant: "select";
+			options: CellSelectOption[];
+	  }
+	| {
+			variant: "multi-select";
+			options: CellSelectOption[];
+	  }
+	| {
+			variant: "checkbox";
+	  }
+	| {
+			variant: "date";
+	  };
