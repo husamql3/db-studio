@@ -1,12 +1,15 @@
-import { usePersonalPreferencesStore } from "@/store/personal-preferences.store";
+import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
 export const SidebarToggleButton = () => {
-	const { sidebar, setSidebarOpen } = usePersonalPreferencesStore();
+	const {
+		sidebar: { isOpen },
+		setSidebarOpen,
+	} = usePersonalPreferencesStore();
 
 	return (
 		<button
 			type="button"
-			onClick={() => setSidebarOpen(!sidebar.isOpen)}
+			onClick={() => setSidebarOpen(!isOpen)}
 			className="aspect-square size-14 border-r border-zinc-800 flex items-center justify-center text-sm font-medium hover:bg-zinc-900 transition-colors text-zinc-400"
 		>
 			<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-6">

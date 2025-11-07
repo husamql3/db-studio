@@ -1,9 +1,5 @@
-import { useActiveTabStore } from "@/store/active-tab.store";
-import { IndexesTab } from "../indexes/indexes-tab";
-import { RunnerTab } from "../runner/runner-tab";
-import { SchemaTab } from "../schema/schema-tab";
-import { TableTab } from "../table/table-tab";
-import { VisualizerTab } from "../visualizer/visualizer-tab";
+import { TableTab } from "@/components/table-grid/table-tab";
+import { useActiveTabStore } from "@/stores/active-tab.store";
 
 export const MainContent = () => {
 	const { activeTab } = useActiveTabStore();
@@ -12,12 +8,12 @@ export const MainContent = () => {
 		case "table":
 			return <TableTab />;
 		case "indexes":
-			return <IndexesTab />;
+			return <h1>Indexes</h1>;
 		case "runner":
-			return <RunnerTab />;
+			return <h1>Runner</h1>;
 		case "visualizer":
-			return <VisualizerTab />;
+			return <h1>Visualizer</h1>;
 		case "schema":
-			return <SchemaTab />;
+			return <h1>Schema</h1>;
 	}
 };

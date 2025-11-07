@@ -1,4 +1,4 @@
-import { useActiveTableStore } from "@/store/active-table.store";
+import { useActiveTableStore } from "@/stores/active-table.store";
 import { cn } from "@/utils/cn";
 
 export const SidebarListItem = ({ tableName, rowCount }: { tableName: string; rowCount: number }) => {

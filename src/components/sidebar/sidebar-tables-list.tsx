@@ -1,20 +1,19 @@
 import { useMemo } from "react";
-
-import { useTables } from "@/hooks/use-tables";
-import { SidebarListItem } from "./sidebar-list-item";
+import { SidebarListItem } from "@/components/sidebar/sidebar-list-item";
+import { useTablesList } from "@/hooks/use-tables-list";
 
 // todo: add loader skeleton
 
 export const TablesList = ({ searchTerm }: { searchTerm: string }) => {
-	const { tables, isLoadingTables } = useTables();
+	const { tablesList, isLoadingTables } = useTablesList();
 
 	const filteredTables = useMemo(() => {
-		if (!tables) return [];
-		if (!searchTerm.trim()) return tables;
+		if (!tablesList) return [];
+		if (!searchTerm.trim()) return tablesList;
 
 		const lowerSearchTerm = searchTerm.toLowerCase();
-		return tables.filter((table) => table.tableName.toLowerCase().includes(lowerSearchTerm));
-	}, [tables, searchTerm]);
+		return tablesList.filter((table) => table.tableName.toLowerCase().includes(lowerSearchTerm));
+	}, [tablesList, searchTerm]);
 
 	return (
 		<div className="flex-1 overflow-y-auto">

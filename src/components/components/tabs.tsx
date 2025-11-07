@@ -1,17 +1,10 @@
-import { useActiveTabStore } from "@/store/active-tab.store";
+import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-button";
+import { useActiveTabStore } from "@/stores/active-tab.store";
 import { cn } from "@/utils/cn";
-import { SidebarToggleButton } from "../sidebar/sidebar-toggle-button";
+import { TABS } from "@/utils/constans";
 
 export const Tabs = () => {
 	const { activeTab, setActiveTab } = useActiveTabStore();
-
-	const tabs = [
-		{ id: "table", label: "Table" },
-		{ id: "schema", label: "Schema" },
-		{ id: "indexes", label: "Indexes" },
-		{ id: "runner", label: "Runner" },
-		{ id: "visualizer", label: "Visualizer" },
-	];
 
 	return (
 		<div className="border-b border-zinc-800 divide-x divide-zinc-800 w-full flex items-center bg-black">
@@ -19,7 +12,7 @@ export const Tabs = () => {
 
 			{/* Tab Navigation */}
 			<div className="flex h-full">
-				{tabs.map(({ id, label }) => (
+				{TABS.map(({ id, label }) => (
 					<button
 						type="button"
 						key={id}

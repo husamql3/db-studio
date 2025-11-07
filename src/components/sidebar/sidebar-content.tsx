@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import { SidebarHeader } from "./sidebar-header";
-import { SidebarSearch } from "./sidebar-search";
-import { TablesList } from "./sidebar-tables-list";
+import { SidebarHeader } from "@/components/sidebar/sidebar-header";
+import { SidebarSearch } from "@/components/sidebar/sidebar-search";
+import { TablesList } from "@/components/sidebar/sidebar-tables-list";
 
 export const SidebarContent = () => {
 	const [searchTerm, setSearchTerm] = useState("");

@@ -1,12 +1,11 @@
+import { MainContent } from "@/components/components/main-content";
+import { Tabs } from "@/components/components/tabs";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { MainContent } from "./components/components/main-content";
-import { Tabs } from "./components/components/tabs";
-import { usePersonalPreferencesStore } from "./store/personal-preferences.store";
-import { cn } from "./utils/cn";
+import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
 const App = () => {
 	const {
-		sidebar: { isPinned },
+		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
 
 	return (
@@ -14,10 +13,10 @@ const App = () => {
 			<Sidebar />
 
 			<div
-				className={cn(
-					"flex-1 flex flex-col transition-all duration-300 ease-out h-full overflow-hidden",
-					isPinned ? "ml-[260px]" : "",
-				)}
+				className="flex-1 flex flex-col h-full overflow-hidden"
+				style={{
+					marginLeft: isPinned ? `${width}px` : 0,
+				}}
 			>
 				<Tabs />
 				<MainContent />

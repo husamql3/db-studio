@@ -1,9 +1,13 @@
 import { Pin, PinOff, Plus } from "lucide-react";
 
-import { usePersonalPreferencesStore } from "@/store/personal-preferences.store";
+import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
 export const SidebarHeader = () => {
-	const { sidebar, toggleSidebarPinned, setSidebarOpen } = usePersonalPreferencesStore();
+	const {
+		sidebar: { isPinned },
+		toggleSidebarPinned,
+		setSidebarOpen,
+	} = usePersonalPreferencesStore();
 
 	return (
 		<div className="flex items-center justify-between h-9 border-b border-zinc-800">
@@ -11,12 +15,12 @@ export const SidebarHeader = () => {
 				type="button"
 				onClick={toggleSidebarPinned}
 				className="size-8 flex items-center justify-center rounded-lg transition-color"
-				title={sidebar.isPinned ? "Unpin sidebar" : "Pin sidebar"}
+				title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
 			>
-				{sidebar.isPinned ? <Pin className="size-4" /> : <PinOff className="size-4" />}
+				{isPinned ? <Pin className="size-4" /> : <PinOff className="size-4" />}
 			</button>
 
-			{!sidebar.isPinned && (
+			{!isPinned && (
 				<button
 					type="button"
 					onClick={() => setSidebarOpen(false)}
