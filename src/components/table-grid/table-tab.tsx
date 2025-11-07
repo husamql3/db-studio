@@ -1,4 +1,5 @@
 import { TableHeader } from "@/components/table-grid/header/table-header";
+import { TableGrid } from "@/components/table-grid/table-grid";
 import { useActiveTableStore } from "@/stores/active-table.store";
 
 export const TableTab = () => {
@@ -10,8 +11,7 @@ export const TableTab = () => {
 	return (
 		<div className="flex flex-col flex-1 h-full overflow-hidden">
 			<TableHeader />
-
-			<main className="flex-1 overflow-auto">{activeTable}</main>
+			<TableGrid />
 		</div>
 	);
 };

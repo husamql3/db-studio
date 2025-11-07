@@ -1,6 +1,6 @@
 import { RefreshCcwIcon } from "lucide-react";
 
-export const RefetchButton = () => {
+export const RefetchBtn = () => {
 	return (
 		<button
 			type="button"
