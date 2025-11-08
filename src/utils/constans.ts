@@ -8,6 +8,7 @@ export const TABS = [
 	{ id: "schema", label: "Schema" },
 	{ id: "indexes", label: "Indexes" },
 	{ id: "runner", label: "Runner" },
+	{ id: "logs", label: "Logs" },
 	{ id: "visualizer", label: "Visualizer" },
 ];
 

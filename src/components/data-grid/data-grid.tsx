@@ -1,8 +1,7 @@
 "use client";
 
 import { flexRender } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
-import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
+import { type ComponentProps, type MouseEvent, useCallback } from "react";
 import { DataGridColumnHeader } from "@/components/data-grid/data-grid-column-header";
 import { DataGridContextMenu } from "@/components/data-grid/data-grid-context-menu";
 import { DataGridRow } from "@/components/data-grid/data-grid-row";
@@ -16,7 +15,6 @@ export function DataGrid<TData>({
 	dataGridRef,
 	headerRef,
 	rowMapRef,
-	footerRef,
 	table,
 	rowVirtualizer,
 	searchState,
@@ -35,18 +33,6 @@ export function DataGrid<TData>({
 	const onGridContextMenu = useCallback((event: MouseEvent<HTMLDivElement>) => {
 		event.preventDefault();
 	}, []);
-
-	const onAddRowKeyDown = useCallback(
-		(event: KeyboardEvent<HTMLDivElement>) => {
-			if (!onRowAdd) return;
-
-			if (event.key === "Enter" || event.key === " ") {
-				event.preventDefault();
-				onRowAdd();
-			}
-		},
-		[onRowAdd],
-	);
 
 	return (
 		<div data-slot="grid-wrapper" className={cn("relative flex w-full flex-col", className)} {...props}>
@@ -148,7 +134,7 @@ export function DataGrid<TData>({
 					})}
 				</div>
 
-				{onRowAdd && (
+				{/* {onRowAdd && (
 					<div
 						role="rowgroup"
 						data-slot="grid-footer"
@@ -180,7 +166,7 @@ export function DataGrid<TData>({
 							</div>
 						</div>
 					</div>
-				)}
+				)} */}
 			</div>
 		</div>
 	);

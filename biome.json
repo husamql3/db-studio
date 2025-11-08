@@ -19,7 +19,8 @@
 		"rules": {
 			"recommended": true,
 			"a11y": {
-				"noStaticElementInteractions": "warn"
+				"noStaticElementInteractions": "warn",
+				"useSemanticElements": "warn"
 			}
 		}
 	},

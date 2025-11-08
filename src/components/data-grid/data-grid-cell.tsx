@@ -5,7 +5,6 @@ import type { Cell, Table } from "@tanstack/react-table";
 import {
 	BooleanCell,
 	CheckboxCell,
-	DateCell,
 	LongTextCell,
 	MultiSelectCell,
 	NumberCell,
@@ -119,19 +118,6 @@ export function DataGridCell<TData>({ cell, table }: DataGridCellProps<TData>) {
 					isSelected={isSelected}
 				/>
 			);
-		case "date":
-			return (
-				<DateCell
-					cell={cell}
-					table={table}
-					rowIndex={rowIndex}
-					columnId={columnId}
-					isEditing={isEditing}
-					isFocused={isFocused}
-					isSelected={isSelected}
-				/>
-			);
-
 		default:
 			return (
 				<ShortTextCell

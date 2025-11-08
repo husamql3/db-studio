@@ -4,19 +4,22 @@
  */
 export enum DataType {
   // Short text - for single-line text input
-  short-text = 'short-text',
+  short_text = 'short-text',
 
   // Long text - for multi-line text input
-  long-text = 'long-text',
+  long_text = 'long-text',
 
   // Boolean - for checkbox/toggle
-  BOOLEAN = 'BOOLEAN',
+  boolean = 'boolean',
 
   // Numeric types - for number input
   number = 'number',
 
   // Array - for array viewer/editor
-  ARRAY = 'ARRAY',
+  array = 'array',
+
+  // Enum - for dropdown/select with predefined values
+  enum = 'enum',
 }
 
 /**
@@ -28,7 +31,7 @@ export function mapPostgresToDataType(pgType: string): DataType {
 
   // Handle array types
   if (normalized.startsWith('array') || normalized.includes('[]')) {
-    return DataType.ARRAY;
+    return DataType.array;
   }
 
   // Numeric types - map to number
@@ -50,7 +53,12 @@ export function mapPostgresToDataType(pgType: string): DataType {
 
   // Boolean
   if (normalized === 'boolean' || normalized === 'bool') {
-    return DataType.BOOLEAN;
+    return DataType.boolean;
+  }
+
+  // Enum types
+  if (normalized.startsWith('user-defined') || normalized === 'enum') {
+    return DataType.enum;
   }
 
   // Long string types (text, xml, json)
@@ -59,7 +67,7 @@ export function mapPostgresToDataType(pgType: string): DataType {
     normalized === 'xml' ||
     normalized === 'json' || normalized === 'jsonb'
   ) {
-    return DataType.long-text;
+    return DataType.long_text;
   }
 
   // Short string types (varchar, char, uuid, date, timestamp, etc.)
@@ -67,7 +75,6 @@ export function mapPostgresToDataType(pgType: string): DataType {
     normalized === 'character varying' || normalized.startsWith('varchar') || normalized.startsWith('character varying(') ||
     normalized === 'character' || normalized.startsWith('char') || normalized.startsWith('character(') || normalized === 'bpchar' ||
     normalized === 'uuid' ||
-    normalized.startsWith('user-defined') || normalized === 'enum' ||
     normalized === 'date' ||
     normalized === 'time' || normalized === 'time without time zone' || normalized.startsWith('time(') ||
     normalized === 'timestamp' || normalized === 'timestamp without time zone' || normalized.startsWith('timestamp(') ||
@@ -78,11 +85,11 @@ export function mapPostgresToDataType(pgType: string): DataType {
     normalized === 'inet' || normalized === 'cidr' ||
     normalized === 'macaddr' || normalized === 'macaddr8'
   ) {
-    return DataType.short-text;
+    return DataType.short_text;
   }
 
   // Default to short-text for unrecognized types
-  return DataType.short-text;
+  return DataType.short_text;
 }
 
 /**
@@ -93,7 +100,12 @@ export function mapMySQLToDataType(mysqlType: string): DataType {
 
   // Boolean (MySQL uses TINYINT(1)) - check this first before numeric
   if (normalized === 'boolean' || normalized === 'bool' || normalized === 'tinyint(1)') {
-    return DataType.BOOLEAN;
+    return DataType.boolean;
+  }
+
+  // Enum types
+  if (normalized.startsWith('enum(') || normalized.startsWith('set(')) {
+    return DataType.enum;
   }
 
   // Numeric types - map to number
@@ -116,23 +128,21 @@ export function mapMySQLToDataType(mysqlType: string): DataType {
     normalized === 'text' || normalized === 'longtext' || normalized === 'mediumtext' || normalized === 'tinytext' ||
     normalized === 'json'
   ) {
-    return DataType.long-text;
+    return DataType.long_text;
   }
 
   // Short string types (varchar, char, date/time, binary, etc.)
   if (
     normalized === 'varchar' || normalized.startsWith('varchar(') ||
     normalized === 'char' || normalized.startsWith('char(') ||
-    normalized.startsWith('enum(') ||
-    normalized.startsWith('set(') ||
     normalized === 'date' ||
     normalized === 'time' || normalized === 'datetime' || normalized === 'timestamp' || normalized === 'year' ||
     normalized === 'blob' || normalized === 'longblob' || normalized === 'mediumblob' ||
     normalized === 'tinyblob' || normalized === 'binary' || normalized === 'varbinary'
   ) {
-    return DataType.short-text;
+    return DataType.short_text;
   }
 
-  return DataType.short-text;
+  return DataType.short_text;
 }
 

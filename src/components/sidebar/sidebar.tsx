@@ -134,6 +134,8 @@ export const Sidebar = () => {
 
 			{/* Resize Handle */}
 			<div
+				role="button"
+				tabIndex={0}
 				onMouseDown={handleMouseDown}
 				className={cn(
 					"absolute top-0 right-0 w-1 h-full cursor-col-resize",
@@ -142,7 +144,7 @@ export const Sidebar = () => {
 				title="Drag to resize"
 			>
 				{/* Visual indicator on hover */}
-				<div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-full" />
+				<div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-full " />
 			</div>
 		</aside>
 	);

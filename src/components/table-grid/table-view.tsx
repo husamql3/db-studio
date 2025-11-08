@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { DataGrid } from "@/components/data-grid/data-grid";
 // import { DataGridKeyboardShortcuts } from "@/components/data-grid/data-grid-keyboard-shortcuts";
 import { useDataGrid } from "@/hooks/use-data-grid";
-import { useActiveTableStore } from "@/stores/active-table.store";
+import { TableHeader } from "./header/table-header";
 
 interface SkateTrick {
 	id: string;
@@ -170,8 +170,7 @@ function generateTrickData(): SkateTrick[] {
 
 const initialData: SkateTrick[] = generateTrickData();
 
-export function TableGrid() {
-	const { activeTable } = useActiveTableStore();
+export function TableView() {
 	const [data, setData] = useState<SkateTrick[]>(initialData);
 
 	const columns = useMemo<ColumnDef<SkateTrick>[]>(
@@ -289,7 +288,7 @@ export function TableGrid() {
 				header: "Attempted at",
 				meta: {
 					cell: {
-						variant: "date",
+						variant: "long-text",
 					},
 				},
 				minSize: 130,
@@ -316,10 +315,10 @@ export function TableGrid() {
 	});
 
 	return (
-		<main className="flex-1 overflow-auto">
+		<div className="flex flex-col flex-1 h-full overflow-hidden">
+			<TableHeader onRowAdd={onRowAdd} />
 			{/* <DataGridKeyboardShortcuts enableSearch={!!dataGridProps.searchState} /> */}
-			<h1>{activeTable}</h1>
-			<DataGrid {...dataGridProps} table={table} />
-		</main>
+			<DataGrid {...dataGridProps} table={table} className="h-full" />
+		</div>
 	);
 }

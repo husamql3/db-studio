@@ -1,5 +1,3 @@
-"use client";
-
 import {
 	type ColumnDef,
 	getCoreRowModel,
@@ -11,7 +9,16 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
-import * as React from "react";
+import {
+	type MouseEvent,
+	type RefObject,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useSyncExternalStore,
+} from "react";
 import { DataGridCell } from "@/components/data-grid/data-grid-cell";
 import { getCellKey, getRowHeightValue, parseCellKey } from "@/lib/data-grid";
 import type {
@@ -32,18 +39,18 @@ const MAX_COLUMN_SIZE = 800;
 const SEARCH_SHORTCUT_KEY = "f";
 const NON_NAVIGABLE_COLUMN_IDS = ["select", "actions"];
 
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-function useLazyRef<T>(fn: () => T): React.RefObject<T> {
-	const ref = React.useRef<T | null>(null);
+function useLazyRef<T>(fn: () => T): RefObject<T> {
+	const ref = useRef<T | null>(null);
 	if (ref.current === null) {
 		ref.current = fn();
 	}
-	return ref as React.RefObject<T>;
+	return ref as RefObject<T>;
 }
 
 function useAsRef<T>(data: T) {
-	const ref = React.useRef<T>(data);
+	const ref = useRef<T>(data);
 
 	useIsomorphicLayoutEffect(() => {
 		ref.current = data;
@@ -77,14 +84,14 @@ interface DataGridStore {
 }
 
 function useStore<T>(store: DataGridStore, selector: (state: DataGridState) => T): T {
-	const getSnapshot = React.useCallback(() => selector(store.getState()), [store, selector]);
+	const getSnapshot = useCallback(() => selector(store.getState()), [store, selector]);
 
-	return React.useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+	return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
 }
 
 interface UseDataGridProps<TData> extends Omit<TableOptions<TData>, "pageCount" | "getCoreRowModel"> {
 	onDataChange?: (data: TData[]) => void;
-	onRowAdd?: (event?: React.MouseEvent<HTMLDivElement>) =>
+	onRowAdd?: (event?: MouseEvent<HTMLDivElement>) =>
 		| Partial<CellPosition>
 		| Promise<Partial<CellPosition>>
 		| null
@@ -98,7 +105,7 @@ interface UseDataGridProps<TData> extends Omit<TableOptions<TData>, "pageCount" 
 	enableSearch?: boolean;
 }
 
-function useDataGrid<TData>({
+export function useDataGrid<TData>({
 	columns,
 	data,
 	onDataChange,
@@ -112,12 +119,11 @@ function useDataGrid<TData>({
 	enableSearch = false,
 	...dataGridProps
 }: UseDataGridProps<TData>) {
-	const dataGridRef = React.useRef<HTMLDivElement>(null);
-	const tableRef = React.useRef<ReturnType<typeof useReactTable<TData>>>(null);
-	const rowVirtualizerRef = React.useRef<Virtualizer<HTMLDivElement, Element>>(null);
-	const headerRef = React.useRef<HTMLDivElement>(null);
-	const rowMapRef = React.useRef<Map<number, HTMLDivElement>>(new Map());
-	const footerRef = React.useRef<HTMLDivElement>(null);
+	const dataGridRef = useRef<HTMLDivElement>(null);
+	const tableRef = useRef<ReturnType<typeof useReactTable<TData>>>(null);
+	const rowVirtualizerRef = useRef<Virtualizer<HTMLDivElement, Element>>(null);
+	const headerRef = useRef<HTMLDivElement>(null);
+	const rowMapRef = useRef<Map<number, HTMLDivElement>>(new Map());
 
 	const dataGridPropsRef = useAsRef(dataGridProps);
 	const listenersRef = useLazyRef(() => new Set<() => void>());
@@ -148,7 +154,7 @@ function useDataGrid<TData>({
 		};
 	});
 
-	const store = React.useMemo<DataGridStore>(() => {
+	const store = useMemo<DataGridStore>(() => {
 		let isBatching = false;
 		let pendingNotification = false;
 
@@ -217,7 +223,7 @@ function useDataGrid<TData>({
 
 	const rowHeightValue = getRowHeightValue(rowHeight);
 
-	const columnIds = React.useMemo(() => {
+	const columnIds = useMemo(() => {
 		return columns
 			.map((c) => {
 				if (c.id) return c.id;
@@ -227,11 +233,11 @@ function useDataGrid<TData>({
 			.filter((id): id is string => Boolean(id));
 	}, [columns]);
 
-	const navigableColumnIds = React.useMemo(() => {
+	const navigableColumnIds = useMemo(() => {
 		return columnIds.filter((c) => !NON_NAVIGABLE_COLUMN_IDS.includes(c));
 	}, [columnIds]);
 
-	const onDataUpdate = React.useCallback(
+	const onDataUpdate = useCallback(
 		(updates: UpdateCell | Array<UpdateCell>) => {
 			const updateArray = Array.isArray(updates) ? updates : [updates];
 
@@ -283,14 +289,14 @@ function useDataGrid<TData>({
 		[data, onDataChange],
 	);
 
-	const getIsCellSelected = React.useCallback(
+	const getIsCellSelected = useCallback(
 		(rowIndex: number, columnId: string) => {
 			return selectionState.selectedCells.has(getCellKey(rowIndex, columnId));
 		},
 		[selectionState.selectedCells],
 	);
 
-	const clearSelection = React.useCallback(() => {
+	const clearSelection = useCallback(() => {
 		store.batch(() => {
 			store.setState("selectionState", {
 				selectedCells: new Set(),
@@ -301,7 +307,7 @@ function useDataGrid<TData>({
 		});
 	}, [store]);
 
-	const selectAll = React.useCallback(() => {
+	const selectAll = useCallback(() => {
 		const allCells = new Set<string>();
 		const currentTable = tableRef.current;
 		const rows = currentTable?.getRowModel().rows ?? [];
@@ -329,7 +335,7 @@ function useDataGrid<TData>({
 		});
 	}, [columnIds, data.length, store]);
 
-	const selectColumn = React.useCallback(
+	const selectColumn = useCallback(
 		(columnId: string) => {
 			const currentTable = tableRef.current;
 			const rows = currentTable?.getRowModel().rows ?? [];
@@ -355,7 +361,7 @@ function useDataGrid<TData>({
 		[data.length, store],
 	);
 
-	const selectRange = React.useCallback(
+	const selectRange = useCallback(
 		(start: CellPosition, end: CellPosition, isSelecting = false) => {
 			const startColIndex = columnIds.indexOf(start.columnId);
 			const endColIndex = columnIds.indexOf(end.columnId);
@@ -385,7 +391,7 @@ function useDataGrid<TData>({
 		[columnIds, store],
 	);
 
-	const focusCell = React.useCallback(
+	const focusCell = useCallback(
 		(rowIndex: number, columnId: string) => {
 			store.batch(() => {
 				store.setState("focusedCell", { rowIndex, columnId });
@@ -403,7 +409,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onRowsDelete = React.useCallback(
+	const onRowsDelete = useCallback(
 		async (rowIndices: number[]) => {
 			if (!onRowsDeleteProp || rowIndices.length === 0) return;
 
@@ -451,7 +457,7 @@ function useDataGrid<TData>({
 		[onRowsDeleteProp, data.length, store, navigableColumnIds, focusCell],
 	);
 
-	const navigateCell = React.useCallback(
+	const navigateCell = useCallback(
 		(direction: NavigationDirection) => {
 			const currentState = store.getState();
 			if (!currentState.focusedCell) return;
@@ -545,15 +551,13 @@ function useDataGrid<TData>({
 					// Check viewport boundaries
 					const containerRect = container.getBoundingClientRect();
 					const headerHeight = headerRef.current?.getBoundingClientRect().height ?? 0;
-					const footerHeight = footerRef.current?.getBoundingClientRect().height ?? 0;
 
 					const viewportTop = containerRect.top + headerHeight + VIEWPORT_OFFSET;
-					const viewportBottom = containerRect.bottom - footerHeight - VIEWPORT_OFFSET;
 
 					// If target row already exists, check if it's visible
 					if (targetRow) {
 						const rowRect = targetRow.getBoundingClientRect();
-						const isFullyVisible = rowRect.top >= viewportTop && rowRect.bottom <= viewportBottom;
+						const isFullyVisible = rowRect.top >= viewportTop;
 
 						if (isFullyVisible) {
 							// Row is fully visible, just focus it
@@ -566,8 +570,6 @@ function useDataGrid<TData>({
 
 						if (direction === "down") {
 							// Scroll just enough to show the row at the bottom
-							const scrollNeeded = rowRect.bottom - viewportBottom;
-							container.scrollTop += scrollNeeded;
 						} else {
 							// Scroll just enough to show the row at the top
 							const scrollNeeded = viewportTop - rowRect.top;
@@ -614,7 +616,7 @@ function useDataGrid<TData>({
 		[store, navigableColumnIds, focusCell, data.length, rowHeightValue],
 	);
 
-	const onCellEditingStart = React.useCallback(
+	const onCellEditingStart = useCallback(
 		(rowIndex: number, columnId: string) => {
 			store.batch(() => {
 				store.setState("focusedCell", { rowIndex, columnId });
@@ -624,7 +626,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onCellEditingStop = React.useCallback(
+	const onCellEditingStop = useCallback(
 		(opts?: { moveToNextRow?: boolean; direction?: NavigationDirection }) => {
 			const currentState = store.getState();
 			const currentEditing = currentState.editingCell;
@@ -655,7 +657,7 @@ function useDataGrid<TData>({
 		[store, data.length, focusCell, navigateCell],
 	);
 
-	const onSearchOpenChange = React.useCallback(
+	const onSearchOpenChange = useCallback(
 		(open: boolean) => {
 			if (open) {
 				store.setState("searchOpen", true);
@@ -686,7 +688,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onSearch = React.useCallback(
+	const onSearch = useCallback(
 		(query: string) => {
 			if (!query.trim()) {
 				store.batch(() => {
@@ -735,9 +737,9 @@ function useDataGrid<TData>({
 		[columnIds, store],
 	);
 
-	const onSearchQueryChange = React.useCallback((query: string) => store.setState("searchQuery", query), [store]);
+	const onSearchQueryChange = useCallback((query: string) => store.setState("searchQuery", query), [store]);
 
-	const onNavigateToPrevMatch = React.useCallback(() => {
+	const onNavigateToPrevMatch = useCallback(() => {
 		const currentState = store.getState();
 		if (currentState.searchMatches.length === 0) return;
 
@@ -759,7 +761,7 @@ function useDataGrid<TData>({
 		}
 	}, [store, focusCell]);
 
-	const onNavigateToNextMatch = React.useCallback(() => {
+	const onNavigateToNextMatch = useCallback(() => {
 		const currentState = store.getState();
 		if (currentState.searchMatches.length === 0) return;
 
@@ -780,14 +782,14 @@ function useDataGrid<TData>({
 		}
 	}, [store, focusCell]);
 
-	const getIsSearchMatch = React.useCallback(
+	const getIsSearchMatch = useCallback(
 		(rowIndex: number, columnId: string) => {
 			return searchMatches.some((match) => match.rowIndex === rowIndex && match.columnId === columnId);
 		},
 		[searchMatches],
 	);
 
-	const getIsActiveSearchMatch = React.useCallback(
+	const getIsActiveSearchMatch = useCallback(
 		(rowIndex: number, columnId: string) => {
 			if (matchIndex < 0) return false;
 			const currentMatch = searchMatches[matchIndex];
@@ -796,7 +798,7 @@ function useDataGrid<TData>({
 		[searchMatches, matchIndex],
 	);
 
-	const blurCell = React.useCallback(() => {
+	const blurCell = useCallback(() => {
 		const currentState = store.getState();
 		if (currentState.editingCell && document.activeElement instanceof HTMLElement) {
 			document.activeElement.blur();
@@ -808,8 +810,8 @@ function useDataGrid<TData>({
 		});
 	}, [store]);
 
-	const onCellClick = React.useCallback(
-		(rowIndex: number, columnId: string, event?: React.MouseEvent) => {
+	const onCellClick = useCallback(
+		(rowIndex: number, columnId: string, event?: MouseEvent) => {
 			// Ignore right-click (button 2) - let onCellContextMenu handle it
 			if (event?.button === 2) {
 				return;
@@ -878,8 +880,8 @@ function useDataGrid<TData>({
 		[store, focusCell, onCellEditingStart, selectRange, clearSelection],
 	);
 
-	const onCellDoubleClick = React.useCallback(
-		(rowIndex: number, columnId: string, event?: React.MouseEvent) => {
+	const onCellDoubleClick = useCallback(
+		(rowIndex: number, columnId: string, event?: MouseEvent) => {
 			if (event?.defaultPrevented) return;
 
 			onCellEditingStart(rowIndex, columnId);
@@ -887,8 +889,8 @@ function useDataGrid<TData>({
 		[onCellEditingStart],
 	);
 
-	const onCellMouseDown = React.useCallback(
-		(rowIndex: number, columnId: string, event: React.MouseEvent) => {
+	const onCellMouseDown = useCallback(
+		(rowIndex: number, columnId: string, event: MouseEvent) => {
 			// Ignore right-click (button 2) - let onCellContextMenu handle it
 			if (event.button === 2) {
 				return;
@@ -915,8 +917,8 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onCellMouseEnter = React.useCallback(
-		(rowIndex: number, columnId: string, _event: React.MouseEvent) => {
+	const onCellMouseEnter = useCallback(
+		(rowIndex: number, columnId: string) => {
 			const currentState = store.getState();
 			if (currentState.selectionState.isSelecting && currentState.selectionState.selectionRange) {
 				const start = currentState.selectionState.selectionRange.start;
@@ -935,7 +937,7 @@ function useDataGrid<TData>({
 		[store, selectRange, focusCell],
 	);
 
-	const onCellMouseUp = React.useCallback(() => {
+	const onCellMouseUp = useCallback(() => {
 		const currentState = store.getState();
 		store.setState("selectionState", {
 			...currentState.selectionState,
@@ -943,8 +945,8 @@ function useDataGrid<TData>({
 		});
 	}, [store]);
 
-	const onCellContextMenu = React.useCallback(
-		(rowIndex: number, columnId: string, event: React.MouseEvent) => {
+	const onCellContextMenu = useCallback(
+		(rowIndex: number, columnId: string, event: MouseEvent) => {
 			event.preventDefault();
 			event.stopPropagation();
 
@@ -977,7 +979,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onContextMenuOpenChange = React.useCallback(
+	const onContextMenuOpenChange = useCallback(
 		(open: boolean) => {
 			if (!open) {
 				const currentMenu = store.getState().contextMenu;
@@ -991,7 +993,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onDataGridKeyDown = React.useCallback(
+	const onDataGridKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			const currentState = store.getState();
 			const { key, ctrlKey, metaKey, shiftKey } = event;
@@ -1161,7 +1163,7 @@ function useDataGrid<TData>({
 		],
 	);
 
-	const onSortingChange = React.useCallback(
+	const onSortingChange = useCallback(
 		(updater: Updater<SortingState>) => {
 			const currentState = store.getState();
 			const newSorting = typeof updater === "function" ? updater(currentState.sorting) : updater;
@@ -1170,7 +1172,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onRowSelectionChange = React.useCallback(
+	const onRowSelectionChange = useCallback(
 		(updater: Updater<RowSelectionState>) => {
 			const currentState = store.getState();
 			const newRowSelection = typeof updater === "function" ? updater(currentState.rowSelection) : updater;
@@ -1203,7 +1205,7 @@ function useDataGrid<TData>({
 		[store, columnIds],
 	);
 
-	const onRowSelect = React.useCallback(
+	const onRowSelect = useCallback(
 		(rowIndex: number, selected: boolean, shiftKey: boolean) => {
 			const currentState = store.getState();
 			const rows = tableRef.current?.getRowModel().rows ?? [];
@@ -1238,7 +1240,7 @@ function useDataGrid<TData>({
 		[store, onRowSelectionChange],
 	);
 
-	const onRowHeightChange = React.useCallback(
+	const onRowHeightChange = useCallback(
 		(updater: Updater<RowHeightValue>) => {
 			const currentState = store.getState();
 			const newRowHeight = typeof updater === "function" ? updater(currentState.rowHeight) : updater;
@@ -1247,7 +1249,7 @@ function useDataGrid<TData>({
 		[store],
 	);
 
-	const onColumnClick = React.useCallback(
+	const onColumnClick = useCallback(
 		(columnId: string) => {
 			if (!enableColumnSelection) {
 				clearSelection();
@@ -1259,7 +1261,7 @@ function useDataGrid<TData>({
 		[enableColumnSelection, selectColumn, clearSelection],
 	);
 
-	const defaultColumn: Partial<ColumnDef<TData>> = React.useMemo(
+	const defaultColumn: Partial<ColumnDef<TData>> = useMemo(
 		() => ({
 			cell: DataGridCell,
 			minSize: MIN_COLUMN_SIZE,
@@ -1268,7 +1270,7 @@ function useDataGrid<TData>({
 		[],
 	);
 
-	const tableOptions = React.useMemo<TableOptions<TData>>(
+	const tableOptions = useMemo<TableOptions<TData>>(
 		() => ({
 			...dataGridPropsRef.current,
 			data,
@@ -1359,7 +1361,7 @@ function useDataGrid<TData>({
 	}
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: we need to memoize the column size vars
-	const columnSizeVars = React.useMemo(() => {
+	const columnSizeVars = useMemo(() => {
 		const headers = table.getFlatHeaders();
 		const colSizes: { [key: string]: number } = {};
 		for (const header of headers) {
@@ -1408,7 +1410,7 @@ function useDataGrid<TData>({
 		rowVirtualizerRef.current = rowVirtualizer;
 	}
 
-	const onScrollToRow = React.useCallback(
+	const onScrollToRow = useCallback(
 		async (opts: Partial<CellPosition>) => {
 			const rowIndex = opts?.rowIndex ?? 0;
 			const columnId = opts?.columnId;
@@ -1438,8 +1440,8 @@ function useDataGrid<TData>({
 		[rowVirtualizer, navigableColumnIds, store],
 	);
 
-	const onRowAdd = React.useCallback(
-		async (event?: React.MouseEvent<HTMLDivElement>) => {
+	const onRowAdd = useCallback(
+		async (event?: MouseEvent<HTMLDivElement>) => {
 			if (!onRowAddProp) return;
 
 			const result = await onRowAddProp(event);
@@ -1464,7 +1466,7 @@ function useDataGrid<TData>({
 		[onRowAddProp, onScrollToRow],
 	);
 
-	const searchState = React.useMemo<SearchState | undefined>(() => {
+	const searchState = useMemo<SearchState | undefined>(() => {
 		if (!enableSearch) return undefined;
 
 		return {
@@ -1491,7 +1493,7 @@ function useDataGrid<TData>({
 		onNavigateToPrevMatch,
 	]);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		const dataGridElement = dataGridRef.current;
 		if (!dataGridElement) return;
 
@@ -1501,7 +1503,7 @@ function useDataGrid<TData>({
 		};
 	}, [onDataGridKeyDown]);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		function onGlobalKeyDown(event: KeyboardEvent) {
 			const dataGridElement = dataGridRef.current;
 			if (!dataGridElement) return;
@@ -1553,7 +1555,7 @@ function useDataGrid<TData>({
 		};
 	}, [enableSearch, onSearchOpenChange, store, clearSelection]);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		const currentState = store.getState();
 		if (autoFocus && data.length > 0 && columns.length > 0 && !currentState.focusedCell) {
 			if (navigableColumnIds.length > 0) {
@@ -1576,8 +1578,8 @@ function useDataGrid<TData>({
 		}
 	}, [autoFocus, data.length, columns.length, store, navigableColumnIds, focusCell]);
 
-	React.useEffect(() => {
-		function onOutsideClick(event: MouseEvent) {
+	useEffect(() => {
+		function onOutsideClick(event: globalThis.MouseEvent) {
 			if (event.button === 2) {
 				return;
 			}
@@ -1604,7 +1606,7 @@ function useDataGrid<TData>({
 		};
 	}, [store, blurCell, clearSelection]);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		function onCleanup() {
 			document.removeEventListener("selectstart", preventSelection);
 			document.removeEventListener("contextmenu", preventContextMenu);
@@ -1658,7 +1660,6 @@ function useDataGrid<TData>({
 		dataGridRef,
 		headerRef,
 		rowMapRef,
-		footerRef,
 		table,
 		rowVirtualizer,
 		searchState,
@@ -1666,5 +1667,3 @@ function useDataGrid<TData>({
 		onRowAdd: onRowAddProp ? onRowAdd : undefined,
 	};
 }
-
-export { useDataGrid, type UseDataGridProps };
