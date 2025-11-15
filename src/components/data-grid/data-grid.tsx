@@ -32,7 +32,7 @@ export function DataGrid<TData>({
 	const onGridContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
 		event.preventDefault();
 	}, []);
-
+	console.log("DataGrid", columns);
 	return (
 		<div
 			data-slot="grid-wrapper"

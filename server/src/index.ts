@@ -20,6 +20,7 @@ app.use("/*", logger());
  */
 app.get("/tables", async (c) => {
 	const tablesList = await getTablesList();
+	console.log("/tables", tablesList);
 	return c.json(tablesList);
 });
 
@@ -30,6 +31,7 @@ app.get("/tables", async (c) => {
 app.get("/tables/:tableName/columns", async (c) => {
 	const tableName = c.req.param("tableName");
 	const columns = await getTableColumns(tableName);
+	console.log("/tables/:tableName/columns", columns);
 	return c.json(columns);
 });
 
@@ -43,6 +45,7 @@ app.get("/tables/:tableName/data", async (c) => {
 	const page = Number(c.req.query("page") || "1");
 	const pageSize = Number(c.req.query("pageSize") || "50");
 	const data = await getTableData(tableName, page, pageSize);
+	// console.log("/tables/:tableName/data", data);
 	return c.json(data);
 });
 

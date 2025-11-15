@@ -1,5 +1,5 @@
 import { db } from "../db.js";
-import { type DataType, mapPostgresToDataType } from "../types/column.types.js";
+import { type DataType, mapPostgresToDataType, standardizeDataTypeLabel } from "../types/column.types.js";
 
 export interface ColumnInfo {
 	columnName: string;
@@ -41,6 +41,7 @@ export const getTableColumns = async (tableName: string): Promise<ColumnInfo[]> 
 		return res.rows.map((r) => ({
 			columnName: r.columnName,
 			dataType: mapPostgresToDataType(r.dataType),
+			dataTypeLabel: standardizeDataTypeLabel(r.dataType),
 			isNullable: r.isNullable,
 			columnDefault: r.columnDefault,
 			isPrimaryKey: r.isPrimaryKey,

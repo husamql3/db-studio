@@ -3,6 +3,7 @@ import type { DataType } from "@/types/table-grid.type";
 export interface ColumnInfo {
 	columnName: string;
 	dataType: DataType;
+	dataTypeLabel: string;
 	isNullable: boolean;
 	columnDefault: string | null;
 	isPrimaryKey: boolean;

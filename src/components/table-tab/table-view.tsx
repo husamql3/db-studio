@@ -30,6 +30,8 @@ export const TableView = () => {
 				header: col.columnName,
 				meta: {
 					cell: getCellVariant(col.dataType),
+					dataTypeLabel: col.dataTypeLabel,
+					isPrimaryKey: col.isPrimaryKey,
 				},
 				minSize: 150,
 			})) ?? []
@@ -40,7 +42,7 @@ export const TableView = () => {
 		columns,
 		data: tableData?.data ?? [],
 		enableSearch: true,
-		// Enable server-side pagination
+		// server-side pagination
 		manualPagination: true,
 		pageCount: tableData?.pagination.totalPages ?? 0,
 		state: {
