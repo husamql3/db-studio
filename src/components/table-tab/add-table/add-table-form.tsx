@@ -37,6 +37,7 @@ export const AddTableForm = () => {
 
 	const onError = (errors: FieldErrors<AddTableFormData>) => {
 		console.log(errors);
+		// todo: show errors in toast
 	};
 
 	const handleCancel = () => {

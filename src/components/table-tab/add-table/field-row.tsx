@@ -1,5 +1,7 @@
 import { XIcon } from "lucide-react";
+import { useFormContext, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import type { AddTableFormData } from "@/types/add-table.type";
 import { AdvancedOptions } from "./advanced-options";
 import { ColumnNameField } from "./column-name-field";
 import { ColumnTypeField } from "./column-type-field";
@@ -15,6 +17,11 @@ export const FieldRow = ({
 	onRemove: () => void;
 	canRemove: boolean;
 }) => {
+	const { control } = useFormContext<AddTableFormData>();
+	const isPrimaryKey = useWatch({
+		control,
+		name: `fields.${index}.isPrimaryKey`,
+	});
 	return (
 		<div className="grid grid-cols-4 gap-4">
 			<ColumnNameField index={index} />
@@ -23,7 +30,7 @@ export const FieldRow = ({
 
 			<div className="flex gap-2">
 				<PrimaryField index={index} />
-				<AdvancedOptions index={index} />
+				{!isPrimaryKey && <AdvancedOptions index={index} />}
 
 				{/* Remove Button */}
 				<div className="flex items-end justify-center">

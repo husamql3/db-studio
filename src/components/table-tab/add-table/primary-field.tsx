@@ -3,8 +3,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { AddTableFormData } from "@/types/add-table.type";
 
 export const PrimaryField = ({ index }: { index: number }) => {
-	const { control, register, setValue } = useFormContext<AddTableFormData>();
-
+	const { watch, control, register, setValue } = useFormContext<AddTableFormData>();
+	const isPrimaryKey = watch(`fields.${index}.isPrimaryKey`);
 	return (
 		<Controller
 			control={control}
@@ -14,10 +14,11 @@ export const PrimaryField = ({ index }: { index: number }) => {
 					<Checkbox
 						id={`fields.${index}.isPrimaryKey`}
 						{...register(`fields.${index}.isPrimaryKey`)}
-						onChange={(e) => {
-							register(`fields.${index}.isPrimaryKey`).onChange(e);
+						onCheckedChange={(checked) => {
+							setValue(`fields.${index}.isPrimaryKey`, Boolean(checked));
 							setValue(`fields.${index}.isNullable`, false);
 						}}
+						checked={isPrimaryKey}
 						className="size-5"
 					/>
 				</div>
