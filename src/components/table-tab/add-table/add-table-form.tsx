@@ -1,6 +1,6 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { CheckIcon, ChevronDownIcon, Settings, XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FieldError } from "@/components/common/field-error";
 import { Sheet } from "@/components/components/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,7 @@ export const AddTableForm = () => {
 	const form = useForm({
 		defaultValues,
 		validators: {
-			onChange: addTableSchema,
+			onSubmit: addTableSchema,
 		},
 		onSubmit: async ({ value }) => {
 			console.log("Form submitted:", value);
@@ -57,27 +57,6 @@ export const AddTableForm = () => {
 
 	const columnType = useStore(form.baseStore, (state) => state.values.columnType);
 	const isPrimaryKey = useStore(form.baseStore, (state) => state.values.isPrimaryKey);
-
-	// Auto-disable nullable when primary key is selected
-	useEffect(() => {
-		if (isPrimaryKey) {
-			form.setFieldValue("isNullable", false);
-		}
-	}, [isPrimaryKey]);
-
-	// Auto-disable identity when serial types are selected
-	useEffect(() => {
-		if (SERIAL_TYPES.includes(columnType)) {
-			form.setFieldValue("isIdentity", false);
-		}
-	}, [columnType]);
-
-	// Auto-disable array when type is not array-compatible
-	useEffect(() => {
-		if (columnType && !ARRAY_COMPATIBLE_TYPES.includes(columnType)) {
-			form.setFieldValue("isArray", false);
-		}
-	}, [columnType]);
 
 	// Helper function to check if an option should be visible
 	const shouldShowOption = (optionName: string) => {
@@ -111,23 +90,22 @@ export const AddTableForm = () => {
 
 	return (
 		<Sheet title="Create a new table" name="add-table">
-			<form className="p-4 space-y-6" onSubmit={handleSubmitForm}>
-				{/* Table Name Field */}
+			<form className="px-5 py-6 space-y-6" onSubmit={handleSubmitForm}>
+				{/* Name Field */}
 				<form.Field name="tableName">
 					{(field) => {
 						return (
-							<div className="flex flex-col gap-2">
-								<Label htmlFor="tableName">Table Name</Label>
-								<Input
-									id="tableName"
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									className={cn(
-										"transition-colors",
-										field.state.meta.errors.length > 0 && "border-destructive ring-destructive ring-1",
-									)}
-								/>
-								<FieldError error={field.state.meta.errors[0]?.message} />
+							<div className="flex gap-24">
+								<Label htmlFor="tableName">Name</Label>
+								<div className="flex-1 space-y-1">
+									<Input
+										id="tableName"
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className={cn(field.state.meta.errors.length > 0 && "border-destructive ring-destructive ring-1")}
+									/>
+									<FieldError error={field.state.meta.errors[0]?.message} />
+								</div>
 							</div>
 						);
 					}}
@@ -150,7 +128,22 @@ export const AddTableForm = () => {
 					</form.Field>
 
 					{/* Column Type Field */}
-					<form.Field name="columnType">
+					<form.Field
+						name="columnType"
+						validators={{
+							onChange: ({ value }) => {
+								// Auto-disable identity when serial types are selected
+								if (SERIAL_TYPES.includes(value)) {
+									form.setFieldValue("isIdentity", false);
+								}
+								// Auto-disable array when type is not array-compatible
+								if (value && !ARRAY_COMPATIBLE_TYPES.includes(value)) {
+									form.setFieldValue("isArray", false);
+								}
+								return undefined;
+							},
+						}}
+					>
 						{(field) => (
 							<div className="flex flex-col gap-2">
 								<Label htmlFor="columnType">Type</Label>
@@ -164,7 +157,6 @@ export const AddTableForm = () => {
 											className="w-full justify-between border-input bg-background px-3 font-normal hover:bg-background"
 										>
 											{field.state.value || "Select type..."}
-
 											<ChevronDownIcon aria-hidden="true" className="-me-1 opacity-60" size={16} />
 										</Button>
 									</PopoverTrigger>
@@ -220,7 +212,18 @@ export const AddTableForm = () => {
 
 					{/* Primary Key + Actions */}
 					<div className="flex gap-2">
-						<form.Field name="isPrimaryKey">
+						<form.Field
+							name="isPrimaryKey"
+							validators={{
+								onChange: ({ value }) => {
+									// Auto-disable nullable when primary key is selected
+									if (value) {
+										form.setFieldValue("isNullable", false);
+									}
+									return undefined;
+								},
+							}}
+						>
 							{(field) => (
 								<div className="flex flex-col gap-2">
 									<Label htmlFor="isPrimaryKey">Primary</Label>
@@ -249,7 +252,7 @@ export const AddTableForm = () => {
 									>
 										<Settings className="h-4 w-4" />
 										{checkedCount > 0 && (
-											<Badge className="absolute -top-2 leading-none left-full -translate-x-1/2 size-5 flex items-center justify-center text-xs">
+											<Badge className="absolute -top-2 leading-0! left-full -translate-x-1/2 size-5 flex items-center justify-center text-xs">
 												{checkedCount > 99 ? "99+" : checkedCount}
 											</Badge>
 										)}
@@ -271,6 +274,7 @@ export const AddTableForm = () => {
 															checked={Boolean(field.state.value)}
 															onCheckedChange={(checked) => field.handleChange(Boolean(checked))}
 															className="data-[state=checked]:bg-blue-600  data-[state=checked]:border-blue-600"
+															type="button"
 														/>
 														<div className="grid gap-1.5 font-normal">
 															<p className="text-sm leading-none font-medium">{option.label}</p>
