@@ -2,8 +2,8 @@ import { MainContent } from "@/components/components/main-content";
 import { Tabs } from "@/components/components/tabs";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { AddRowForm } from "@/components/table-tab/add-row-form";
-// import { AddTableForm } from "@/components/table-tab/_add-table/add-table-form";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { CommandPalette } from "./components/components/command-palette";
 import { AddTableForm } from "./components/table-tab/add-table/add-table-form";
 
 const App = () => {
@@ -25,10 +25,8 @@ const App = () => {
 				<MainContent />
 			</div>
 
-			{/* Add Table Form */}
-			{/* <AddTableForm /> */}
+			<CommandPalette />
 			<AddTableForm />
-			{/* Add Row Form */}
 			<AddRowForm />
 		</div>
 	);

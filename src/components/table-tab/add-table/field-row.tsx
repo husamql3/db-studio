@@ -22,6 +22,7 @@ export const FieldRow = ({
 		control,
 		name: `fields.${index}.isPrimaryKey`,
 	});
+
 	return (
 		<div className="grid grid-cols-4 gap-4">
 			<ColumnNameField index={index} />
