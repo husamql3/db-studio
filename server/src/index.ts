@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { createTable } from "./dao/create-table.dao.js";
 import { getTableColumns } from "./dao/table-columns.dao.js";
 import { getTablesList } from "./dao/table-list.dao.js";
 import { getTableData } from "./dao/tables-data.dao.js";
@@ -47,6 +48,29 @@ app.get("/tables/:tableName/data", async (c) => {
 	const data = await getTableData(tableName, page, pageSize);
 	// console.log("/tables/:tableName/data", data);
 	return c.json(data);
+});
+
+/**
+ * Create Table
+ * POST /tables - Create a new table
+ */
+app.post("/tables", async (c) => {
+	try {
+		const body = await c.req.json();
+		const data = await createTable(body);
+		console.log("body", body);
+		console.log("POST /tables", data);
+		return c.json(data);
+	} catch (error) {
+		console.error("Error creating table:", error);
+		return c.json(
+			{
+				success: false,
+				message: error instanceof Error ? error.message : "Failed to create table",
+			},
+			500,
+		);
+	}
 });
 
 /**

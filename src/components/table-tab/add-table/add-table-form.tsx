@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { Sheet } from "@/components/components/sheet";
+import { useCreateTable } from "@/hooks/use-create-table";
 import { useSheetStore } from "@/stores/sheet.store";
 import { type AddTableFormData, addTableSchema } from "@/types/add-table.type";
 import { FormActions } from "./form-actions";
@@ -11,8 +12,8 @@ const defaultValues: AddTableFormData = {
 	tableName: "",
 	fields: [
 		{
-			columnName: "id",
-			columnType: "SERIAL",
+			columnName: "",
+			columnType: "",
 			defaultValue: "",
 			isPrimaryKey: false,
 			isNullable: true,
@@ -25,6 +26,7 @@ const defaultValues: AddTableFormData = {
 
 export const AddTableForm = () => {
 	const { closeSheet } = useSheetStore();
+	const { createTable, isCreatingTable } = useCreateTable();
 	const methods = useForm({
 		mode: "onSubmit",
 		defaultValues,
@@ -32,7 +34,8 @@ export const AddTableForm = () => {
 	});
 
 	const onSubmit = (data: AddTableFormData) => {
-		console.log(data);
+		createTable(data);
+		methods.reset();
 	};
 
 	const onError = (errors: FieldErrors<AddTableFormData>) => {
@@ -54,7 +57,7 @@ export const AddTableForm = () => {
 				>
 					<TableNameField />
 					<FormContent />
-					<FormActions onCancel={handleCancel} />
+					<FormActions onCancel={handleCancel} isLoading={isCreatingTable} />
 				</form>
 			</FormProvider>
 		</Sheet>

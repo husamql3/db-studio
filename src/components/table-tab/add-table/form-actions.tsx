@@ -1,13 +1,19 @@
 import { Button } from "@/components/ui/button";
 
-export const FormActions = ({ onCancel }: { onCancel: () => void }) => {
+export const FormActions = ({
+	onCancel,
+	isLoading,
+}: {
+	onCancel: () => void;
+	isLoading: boolean;
+}) => {
 	return (
 		<div className="flex justify-end gap-2">
-			<Button type="button" variant="outline" onClick={onCancel}>
+			<Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
 				Cancel
 			</Button>
 
-			<Button type="submit" variant="default">
+			<Button type="submit" variant="default" disabled={isLoading}>
 				Save
 			</Button>
 		</div>

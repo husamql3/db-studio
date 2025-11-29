@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTableList } from "@/services/get-table-list.service";
+import { CACHE_KEYS } from "@/utils/constants/constans";
 
 export const useTablesList = () => {
 	const { data: tablesList, isLoading: isLoadingTables } = useQuery({
-		queryKey: ["tables-list"],
+		queryKey: [CACHE_KEYS.TABLES_LIST],
 		queryFn: () => getTableList(),
 		staleTime: 1000 * 60 * 5, // 15 minutes
 		gcTime: 1000 * 60 * 10, // 10 minutes

@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getTableCols } from "@/services/get-table-cols.service";
+import { CACHE_KEYS } from "@/utils/constants/constans";
 
 export const useTableCols = (tableName: string | null) => {
 	const { data, isLoading, error, refetch } = useQuery({
-		queryKey: ["table-cols", tableName],
+		queryKey: [CACHE_KEYS.TABLE_COLS, tableName],
 		queryFn: () => getTableCols(tableName),
 		staleTime: 0, // 5 minutes
 		enabled: !!tableName,
