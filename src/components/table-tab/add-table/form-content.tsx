@@ -36,16 +36,17 @@ export const FormContent = () => {
 			remove(index);
 		}
 	};
-
 	// Group fields by primary key status
 	const primaryFields = fields
-		.map((field, index) => ({ field, index }))
-		.filter(({ index }) => watchedFields?.[index]?.isPrimaryKey);
-
+	.map((field, index) => ({ field, index }))
+	.filter(({ index }) => watchedFields?.[index]?.isPrimaryKey);
+	
 	const nonPrimaryFields = fields
-		.map((field, index) => ({ field, index }))
-		.filter(({ index }) => !watchedFields?.[index]?.isPrimaryKey);
-
+	.map((field, index) => ({ field, index }))
+	.filter(({ index }) => !watchedFields?.[index]?.isPrimaryKey);
+	
+	// TODO: Composite primary key selected label
+	
 	return (
 		<div className="space-y-2">
 			<div className="grid grid-cols-4 px-2">
