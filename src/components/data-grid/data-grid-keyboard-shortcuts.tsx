@@ -244,14 +244,24 @@ function DataGridKeyboardShortcutsImpl({
 	}, []);
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog
+			open={open}
+			onOpenChange={onOpenChange}
+		>
 			<DialogContent
 				className="max-w-2xl px-0"
 				onOpenAutoFocus={onOpenAutoFocus}
 				showCloseButton={false}
 			>
-				<DialogClose className="absolute top-6 right-6" asChild>
-					<Button variant="ghost" size="icon" className="size-6">
+				<DialogClose
+					className="absolute top-6 right-6"
+					asChild
+				>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-6"
+					>
 						<XIcon />
 					</Button>
 				</DialogClose>
@@ -293,7 +303,10 @@ function DataGridKeyboardShortcutsImpl({
 					) : (
 						<div className="flex flex-col gap-6">
 							{filteredGroups.map((shortcutGroup) => (
-								<div key={shortcutGroup.title} className="flex flex-col gap-2">
+								<div
+									key={shortcutGroup.title}
+									className="flex flex-col gap-2"
+								>
 									<h3 className="font-semibold text-foreground text-sm">
 										{shortcutGroup.title}
 									</h3>

@@ -77,7 +77,11 @@ export const TableView = () => {
 	return (
 		<div className="flex flex-col flex-1 h-full">
 			<TableHeader />
-			<DataGrid {...dataGridProps} table={table} className="h-full" />
+			<DataGrid
+				{...dataGridProps}
+				table={table}
+				className="h-full"
+			/>
 			<TableFooter />
 		</div>
 	);

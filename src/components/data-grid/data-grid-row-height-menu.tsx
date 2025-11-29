@@ -62,8 +62,14 @@ export function DataGridRowHeightMenu<TData>({
 	}, [rowHeight]);
 
 	return (
-		<Select value={rowHeight} onValueChange={onRowHeightChange}>
-			<SelectTrigger size="sm" className="[&_svg:nth-child(2)]:hidden">
+		<Select
+			value={rowHeight}
+			onValueChange={onRowHeightChange}
+		>
+			<SelectTrigger
+				size="sm"
+				className="[&_svg:nth-child(2)]:hidden"
+			>
 				<SelectValue placeholder="Row height">
 					<selectedRowHeight.icon />
 					{selectedRowHeight.label}
@@ -73,7 +79,10 @@ export function DataGridRowHeightMenu<TData>({
 				{rowHeights.map((option) => {
 					const OptionIcon = option.icon;
 					return (
-						<SelectItem key={option.value} value={option.value}>
+						<SelectItem
+							key={option.value}
+							value={option.value}
+						>
 							<OptionIcon className="size-4" />
 							{option.label}
 						</SelectItem>

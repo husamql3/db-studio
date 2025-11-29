@@ -7,19 +7,39 @@ import type { ComponentProps } from "react";
 import { cn } from "@/utils/cn";
 
 function Dialog({ ...props }: ComponentProps<typeof DialogPrimitive.Root>) {
-	return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+	return (
+		<DialogPrimitive.Root
+			data-slot="dialog"
+			{...props}
+		/>
+	);
 }
 
 function DialogTrigger({ ...props }: ComponentProps<typeof DialogPrimitive.Trigger>) {
-	return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+	return (
+		<DialogPrimitive.Trigger
+			data-slot="dialog-trigger"
+			{...props}
+		/>
+	);
 }
 
 function DialogPortal({ ...props }: ComponentProps<typeof DialogPrimitive.Portal>) {
-	return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+	return (
+		<DialogPrimitive.Portal
+			data-slot="dialog-portal"
+			{...props}
+		/>
+	);
 }
 
 function DialogClose({ ...props }: ComponentProps<typeof DialogPrimitive.Close>) {
-	return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+	return (
+		<DialogPrimitive.Close
+			data-slot="dialog-close"
+			{...props}
+		/>
+	);
 }
 
 function DialogOverlay({

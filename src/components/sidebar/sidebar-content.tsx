@@ -13,7 +13,10 @@ export const SidebarContent = () => {
 			<SidebarHeader />
 
 			{/* Sidebar Search */}
-			<SidebarSearch setSearchTerm={setSearchTerm} searchTerm={searchTerm} />
+			<SidebarSearch
+				setSearchTerm={setSearchTerm}
+				searchTerm={searchTerm}
+			/>
 
 			{/* Tables List */}
 			<TablesList searchTerm={searchTerm} />

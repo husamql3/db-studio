@@ -103,7 +103,11 @@ export const AdvancedOptions = ({ index }: { index: number }) => {
 						)}
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent className="w-96 space-y-1" side="bottom" align="end">
+				<DropdownMenuContent
+					className="w-96 space-y-1"
+					side="bottom"
+					align="end"
+				>
 					{ADD_TABLE_OPTIONS.map((option) => {
 						if (!shouldShowOption(option.name)) return null;
 

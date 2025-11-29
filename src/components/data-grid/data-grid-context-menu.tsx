@@ -197,7 +197,10 @@ function ContextMenuImpl<TData>({
 	}, [onRowsDelete, selectionState]);
 
 	return (
-		<DropdownMenu open={contextMenu.open} onOpenChange={onContextMenuOpenChange}>
+		<DropdownMenu
+			open={contextMenu.open}
+			onOpenChange={onContextMenuOpenChange}
+		>
 			<DropdownMenuTrigger style={triggerStyle} />
 			<DropdownMenuContent
 				data-grid-popover=""
@@ -216,7 +219,10 @@ function ContextMenuImpl<TData>({
 				{onRowsDelete && (
 					<>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem variant="destructive" onSelect={onDelete}>
+						<DropdownMenuItem
+							variant="destructive"
+							onSelect={onDelete}
+						>
 							<Trash2Icon />
 							Delete rows
 						</DropdownMenuItem>

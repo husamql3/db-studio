@@ -54,8 +54,14 @@ function CommandInput({
 	...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
 	return (
-		<div className="flex items-center border-input border-b px-5" cmdk-input-wrapper="">
-			<SearchIcon className="me-3 text-muted-foreground/80" size={20} />
+		<div
+			className="flex items-center border-input border-b px-5"
+			cmdk-input-wrapper=""
+		>
+			<SearchIcon
+				className="me-3 text-muted-foreground/80"
+				size={20}
+			/>
 			<CommandPrimitive.Input
 				className={cn(
 					"flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground/70 disabled:cursor-not-allowed disabled:opacity-50",

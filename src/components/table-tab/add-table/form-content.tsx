@@ -58,7 +58,7 @@ export const FormContent = () => {
 			<div className="space-y-2">
 				{/* Primary Key Fields */}
 				{primaryFields.length > 0 && (
-					<div className="bg-primary/10 rounded-lg p-4 space-y-2">
+					<div className="bg-primary/10 rounded-lg px-2 p-3 space-y-2">
 						{primaryFields.map(({ field, index }) => (
 							<FieldRow
 								key={field.id}
@@ -72,7 +72,7 @@ export const FormContent = () => {
 
 				{/* Non-Primary Key Fields */}
 				{nonPrimaryFields.length > 0 && (
-					<div className="space-y-2 p-4">
+					<div className="space-y-2 p-3">
 						{nonPrimaryFields.map(({ field, index }) => (
 							<FieldRow
 								key={field.id}
@@ -86,7 +86,11 @@ export const FormContent = () => {
 			</div>
 
 			<div className="border border-dashed border-input rounded-lg flex justify-center items-center p-6">
-				<Button type="button" variant="secondary" onClick={addField}>
+				<Button
+					type="button"
+					variant="secondary"
+					onClick={addField}
+				>
 					Add New Column
 				</Button>
 			</div>

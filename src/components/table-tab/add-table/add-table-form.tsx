@@ -33,8 +33,8 @@ export const AddTableForm = () => {
 		resolver: zodResolver(addTableSchema),
 	});
 
-	const onSubmit = (data: AddTableFormData) => {
-		createTable(data);
+	const onSubmit = async (data: AddTableFormData) => {
+		await createTable(data);
 		methods.reset();
 	};
 
@@ -49,7 +49,10 @@ export const AddTableForm = () => {
 	};
 
 	return (
-		<Sheet title="Create a new table" name="add-table">
+		<Sheet
+			title="Create a new table"
+			name="add-table"
+		>
 			<FormProvider {...methods}>
 				<form
 					onSubmit={methods.handleSubmit(onSubmit, onError)}
@@ -57,7 +60,10 @@ export const AddTableForm = () => {
 				>
 					<TableNameField />
 					<FormContent />
-					<FormActions onCancel={handleCancel} isLoading={isCreatingTable} />
+					<FormActions
+						onCancel={handleCancel}
+						isLoading={isCreatingTable}
+					/>
 				</form>
 			</FormProvider>
 		</Sheet>

@@ -55,7 +55,10 @@ export const TableFooter = () => {
 					</SelectTrigger>
 					<SelectContent className="[&_*[role=option]]:ps-2 [&_*[role=option]]:pe-8 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:end-2 border-zinc-800">
 						{[5, 10, 25, 50].map((pageSize) => (
-							<SelectItem key={pageSize} value={pageSize.toString()}>
+							<SelectItem
+								key={pageSize}
+								value={pageSize.toString()}
+							>
 								{pageSize}
 							</SelectItem>
 						))}
@@ -65,7 +68,10 @@ export const TableFooter = () => {
 
 			{/* Page number information */}
 			<div className="flex items-center justify-center text-xs text-zinc-400">
-				<p className="whitespace-nowrap" aria-live="polite">
+				<p
+					className="whitespace-nowrap"
+					aria-live="polite"
+				>
 					<span className="text-zinc-200">
 						{(currentPage - 1) * pageSize + 1}-
 						{Math.min(currentPage * pageSize, totalRows)}
@@ -89,7 +95,10 @@ export const TableFooter = () => {
 								disabled={currentPage <= 1 || totalRows === 0}
 								aria-label="Go to first page"
 							>
-								<ChevronFirstIcon size={14} aria-hidden="true" />
+								<ChevronFirstIcon
+									size={14}
+									aria-hidden="true"
+								/>
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -103,7 +112,10 @@ export const TableFooter = () => {
 								disabled={currentPage <= 1 || totalRows === 0}
 								aria-label="Go to previous page"
 							>
-								<ChevronLeftIcon size={14} aria-hidden="true" />
+								<ChevronLeftIcon
+									size={14}
+									aria-hidden="true"
+								/>
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -117,7 +129,10 @@ export const TableFooter = () => {
 								disabled={currentPage >= totalPages || totalRows === 0}
 								aria-label="Go to next page"
 							>
-								<ChevronRightIcon size={14} aria-hidden="true" />
+								<ChevronRightIcon
+									size={14}
+									aria-hidden="true"
+								/>
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -131,7 +146,10 @@ export const TableFooter = () => {
 								disabled={currentPage >= totalPages || totalRows === 0}
 								aria-label="Go to last page"
 							>
-								<ChevronLastIcon size={14} aria-hidden="true" />
+								<ChevronLastIcon
+									size={14}
+									aria-hidden="true"
+								/>
 							</Button>
 						</PaginationItem>
 					</PaginationContent>

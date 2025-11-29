@@ -33,7 +33,10 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 			control={control}
 			name={`fields.${index}.columnType`}
 			render={({ field }) => (
-				<Popover open={typePickerOpen} onOpenChange={setTypePickerOpen}>
+				<Popover
+					open={typePickerOpen}
+					onOpenChange={setTypePickerOpen}
+				>
 					<PopoverTrigger asChild>
 						<Button
 							id={`columnType-${index}`}
@@ -64,7 +67,10 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 							<CommandList>
 								<CommandEmpty>No type found.</CommandEmpty>
 								{Object.entries(PSQL_TYPES).map(([category, types]) => (
-									<CommandGroup key={category} heading={category}>
+									<CommandGroup
+										key={category}
+										heading={category}
+									>
 										{types.map((type) => (
 											<CommandItem
 												key={type.value}
@@ -95,7 +101,10 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 													</span>
 												</div>
 												{field.value === type.value && (
-													<CheckIcon className="ml-auto shrink-0" size={16} />
+													<CheckIcon
+														className="ml-auto shrink-0"
+														size={16}
+													/>
 												)}
 											</CommandItem>
 										))}

@@ -130,7 +130,11 @@ export function DataGridColumnHeader<TData, TValue>({
 					</div>
 					<ChevronDownIcon className="shrink-0 text-muted-foreground" />
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start" sideOffset={0} className="w-60">
+				<DropdownMenuContent
+					align="start"
+					sideOffset={0}
+					className="w-60"
+				>
 					{column.getCanSort() && (
 						<>
 							<DropdownMenuCheckboxItem
@@ -213,7 +217,11 @@ export function DataGridColumnHeader<TData, TValue>({
 				</DropdownMenuContent>
 			</DropdownMenu>
 			{header.column.getCanResize() && (
-				<DataGridColumnResizer header={header} table={table} label={label} />
+				<DataGridColumnResizer
+					header={header}
+					table={table}
+					label={label}
+				/>
 			)}
 		</>
 	);

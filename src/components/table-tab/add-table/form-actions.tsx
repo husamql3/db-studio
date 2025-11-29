@@ -9,11 +9,20 @@ export const FormActions = ({
 }) => {
 	return (
 		<div className="flex justify-end gap-2">
-			<Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+			<Button
+				type="button"
+				variant="outline"
+				onClick={onCancel}
+				disabled={isLoading}
+			>
 				Cancel
 			</Button>
 
-			<Button type="submit" variant="default" disabled={isLoading}>
+			<Button
+				type="submit"
+				variant="default"
+				disabled={isLoading}
+			>
 				Save
 			</Button>
 		</div>

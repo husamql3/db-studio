@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/sidebar/sidebar";
 import { AddRowForm } from "@/components/table-tab/add-row-form";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CommandPalette } from "./components/components/command-palette";
+import { AddForeignKeyForm } from "./components/table-tab/add-table/add-foreign-key/add-foreign-key-form";
 import { AddTableForm } from "./components/table-tab/add-table/add-table-form";
 
 const App = () => {
@@ -26,6 +27,7 @@ const App = () => {
 			</div>
 
 			<CommandPalette />
+			<AddForeignKeyForm />
 			<AddTableForm />
 			<AddRowForm />
 		</div>

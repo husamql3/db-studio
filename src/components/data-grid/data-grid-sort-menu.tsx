@@ -153,7 +153,10 @@ export function DataGridSortMenu<TData>({
 			onValueChange={onSortingChange}
 			getItemValue={(item) => item.id}
 		>
-			<Popover open={open} onOpenChange={setOpen}>
+			<Popover
+				open={open}
+				onOpenChange={setOpen}
+			>
 				<PopoverTrigger asChild>
 					<Button
 						variant="outline"
@@ -180,7 +183,10 @@ export function DataGridSortMenu<TData>({
 					{...props}
 				>
 					<div className="flex flex-col gap-1">
-						<h4 id={labelId} className="font-medium leading-none">
+						<h4
+							id={labelId}
+							className="font-medium leading-none"
+						>
 							{sorting.length > 0 ? "Sort by" : "No sorting applied"}
 						</h4>
 						<p
@@ -293,14 +299,20 @@ function DataTableSortItem({
 	);
 
 	return (
-		<SortableItem value={sort.id} asChild>
+		<SortableItem
+			value={sort.id}
+			asChild
+		>
 			<li
 				id={sortItemId}
 				tabIndex={-1}
 				className="flex items-center gap-2"
 				onKeyDown={onItemKeyDown}
 			>
-				<Popover open={showFieldSelector} onOpenChange={setShowFieldSelector}>
+				<Popover
+					open={showFieldSelector}
+					onOpenChange={setShowFieldSelector}
+				>
 					<PopoverTrigger asChild>
 						<Button
 							id={fieldTriggerId}
@@ -355,7 +367,10 @@ function DataTableSortItem({
 						className="min-w-(--radix-select-trigger-width)"
 					>
 						{SORT_ORDERS.map((order) => (
-							<SelectItem key={order.value} value={order.value}>
+							<SelectItem
+								key={order.value}
+								value={order.value}
+							>
 								{order.label}
 							</SelectItem>
 						))}
@@ -371,7 +386,11 @@ function DataTableSortItem({
 					<Trash2 />
 				</Button>
 				<SortableItemHandle asChild>
-					<Button variant="outline" size="icon" className="size-8 shrink-0 rounded">
+					<Button
+						variant="outline"
+						size="icon"
+						className="size-8 shrink-0 rounded"
+					>
 						<GripVertical />
 					</Button>
 				</SortableItemHandle>

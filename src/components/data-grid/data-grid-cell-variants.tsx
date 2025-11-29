@@ -325,7 +325,10 @@ export function LongTextCell<TData>({
 	}, [isFocused, isEditing, open, meta?.searchOpen, meta?.isScrolling]);
 
 	return (
-		<Popover open={open} onOpenChange={onOpenChange}>
+		<Popover
+			open={open}
+			onOpenChange={onOpenChange}
+		>
 			<PopoverAnchor asChild>
 				<DataGridCellWrapper
 					ref={containerRef}
@@ -586,7 +589,10 @@ export function SelectCell<TData>({
 						className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
 					>
 						{options.map((option) => (
-							<SelectItem key={option.value} value={option.value}>
+							<SelectItem
+								key={option.value}
+								value={option.value}
+							>
 								{option.label}
 							</SelectItem>
 						))}

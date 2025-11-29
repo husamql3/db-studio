@@ -8,19 +8,34 @@ import { cn } from "@/utils/cn";
 function AlertDialog({
 	...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-	return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+	return (
+		<AlertDialogPrimitive.Root
+			data-slot="alert-dialog"
+			{...props}
+		/>
+	);
 }
 
 function AlertDialogTrigger({
 	...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
-	return <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />;
+	return (
+		<AlertDialogPrimitive.Trigger
+			data-slot="alert-dialog-trigger"
+			{...props}
+		/>
+	);
 }
 
 function AlertDialogPortal({
 	...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
-	return <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />;
+	return (
+		<AlertDialogPrimitive.Portal
+			data-slot="alert-dialog-portal"
+			{...props}
+		/>
+	);
 }
 
 function AlertDialogOverlay({
@@ -109,7 +124,10 @@ function AlertDialogAction({
 	...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
 	return (
-		<AlertDialogPrimitive.Action className={cn(buttonVariants(), className)} {...props} />
+		<AlertDialogPrimitive.Action
+			className={cn(buttonVariants(), className)}
+			{...props}
+		/>
 	);
 }
 

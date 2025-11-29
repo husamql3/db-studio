@@ -104,7 +104,10 @@ export function DataGrid<TData>({
 												{flexRender(header.column.columnDef.header, header.getContext())}
 											</div>
 										) : (
-											<DataGridColumnHeader header={header} table={table} />
+											<DataGridColumnHeader
+												header={header}
+												table={table}
+											/>
 										)}
 									</div>
 								);

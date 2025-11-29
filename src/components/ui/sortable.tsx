@@ -321,11 +321,18 @@ function SortableContent(props: SortableContentProps) {
 
 	return (
 		<SortableContentContext.Provider value={true}>
-			<SortableContext items={context.items} strategy={strategyProp ?? context.strategy}>
+			<SortableContext
+				items={context.items}
+				strategy={strategyProp ?? context.strategy}
+			>
 				{withoutSlot ? (
 					children
 				) : (
-					<ContentPrimitive data-slot="sortable-content" {...contentProps} ref={ref}>
+					<ContentPrimitive
+						data-slot="sortable-content"
+						{...contentProps}
+						ref={ref}
+					>
 						{children}
 					</ContentPrimitive>
 				)}

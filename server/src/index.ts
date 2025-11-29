@@ -21,7 +21,7 @@ app.use("/*", logger());
  */
 app.get("/tables", async (c) => {
 	const tablesList = await getTablesList();
-	console.log("/tables", tablesList);
+	console.log("GET /tables", tablesList);
 	return c.json(tablesList);
 });
 
@@ -32,7 +32,7 @@ app.get("/tables", async (c) => {
 app.get("/tables/:tableName/columns", async (c) => {
 	const tableName = c.req.param("tableName");
 	const columns = await getTableColumns(tableName);
-	console.log("/tables/:tableName/columns", columns);
+	console.log("GET /tables/:tableName/columns", columns);
 	return c.json(columns);
 });
 
@@ -57,12 +57,12 @@ app.get("/tables/:tableName/data", async (c) => {
 app.post("/tables", async (c) => {
 	try {
 		const body = await c.req.json();
+		console.log("POST /tables body", body);
 		const data = await createTable(body);
-		console.log("body", body);
 		console.log("POST /tables", data);
 		return c.json(data);
 	} catch (error) {
-		console.error("Error creating table:", error);
+		console.error("POST /tables error:", error);
 		return c.json(
 			{
 				success: false,
