@@ -28,10 +28,10 @@ export const Sheet = ({
 
 	return (
 		<>
-			{/* Background Overlay */}
+			{/* black & blurrred background overlay */}
 			<div
 				className={cn(
-					"fixed inset-0 bg-black/70 transition-opacity duration-300",
+					"fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300",
 					isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
 				)}
 				style={{ zIndex: zIndex }}
@@ -55,7 +55,7 @@ export const Sheet = ({
 				style={{ zIndex: zIndex, width: `${width}px` }}
 			>
 				<div className="flex items-center justify-between border-b border-zinc-800 p-3">
-					<h2 className="text-sm font-medium">{title}</h2>
+					<h2 className="text-sm font-semibold">{title}</h2>
 				</div>
 
 				{children}

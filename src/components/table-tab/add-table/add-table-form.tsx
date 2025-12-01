@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Sheet } from "@/components/components/sheet";
 import { useCreateTable } from "@/hooks/use-create-table";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -21,6 +22,26 @@ const defaultValues: AddTableFormData = {
 			isIdentity: false,
 			isArray: false,
 		},
+		// {
+		// 	columnName: "id",
+		// 	columnType: "uuid",
+		// 	defaultValue: "",
+		// 	isPrimaryKey: false,
+		// 	isNullable: true,
+		// 	isUnique: false,
+		// 	isIdentity: false,
+		// 	isArray: false,
+		// },
+		// {
+		// 	columnName: "created_at",
+		// 	columnType: "timestamp",
+		// 	defaultValue: "now()",
+		// 	isPrimaryKey: false,
+		// 	isNullable: true,
+		// 	isUnique: false,
+		// 	isIdentity: false,
+		// 	isArray: false,
+		// }
 	],
 } as const;
 
@@ -34,13 +55,66 @@ export const AddTableForm = () => {
 	});
 
 	const onSubmit = async (data: AddTableFormData) => {
-		await createTable(data);
-		methods.reset();
+		console.log("onSubmit", data);
+
+		// Filter out empty/invalid foreign keys (keep only null or fully populated ones)
+		const cleanedData = {
+			...data,
+			foreignKeys: data.foreignKeys?.filter((fk) => {
+				// Keep null entries or fully populated foreign keys
+				if (fk === null) return true;
+				return fk.columnName && fk.referencedTable && fk.referencedColumn;
+			}),
+		};
+
+		try {
+			await createTable(cleanedData);
+		} catch (error) {
+			console.error("Error creating table:", error);
+		}
 	};
 
 	const onError = (errors: FieldErrors<AddTableFormData>) => {
-		console.log(errors);
-		// todo: show errors in toast
+		// Show the first validation error found
+		if (errors.tableName?.message) {
+			toast.error(errors.tableName.message);
+			return;
+		}
+
+		// Check fields array for errors
+		if (errors.fields && Array.isArray(errors.fields)) {
+			for (const field of errors.fields) {
+				if (field?.columnName?.message) {
+					toast.error(field.columnName.message);
+					return;
+				}
+				if (field?.columnType?.message) {
+					toast.error(field.columnType.message);
+					return;
+				}
+			}
+		}
+
+		// Check foreignKeys array for errors
+		if (errors.foreignKeys && Array.isArray(errors.foreignKeys)) {
+			for (const fk of errors.foreignKeys) {
+				if (fk?.columnName?.message) {
+					toast.error(fk.columnName.message);
+					return;
+				}
+				if (fk?.referencedTable?.message) {
+					toast.error(fk.referencedTable.message);
+					return;
+				}
+				if (fk?.referencedColumn?.message) {
+					toast.error(fk.referencedColumn.message);
+					return;
+				}
+			}
+		}
+
+		// Fallback generic error
+		toast.error("Please check the form for errors");
 	};
 
 	const handleCancel = () => {

@@ -26,11 +26,27 @@ const foreignKeySchema = z.object({
 export const addTableSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
 	fields: z.array(fieldSchema).min(1, "At least one column is required"),
-	foreignKeys: z.array(foreignKeySchema).optional(),
+	foreignKeys: z.preprocess((val) => {
+		// Preprocess to filter out empty/incomplete foreign keys before validation
+		if (!Array.isArray(val)) return undefined;
+		return val.filter((fk) => {
+			// Remove null entries
+			if (fk === null || fk === undefined) return false;
+			// Remove empty foreign key objects (where all required fields are empty)
+			if (typeof fk === "object") {
+				const hasRequiredFields =
+					fk.columnName && fk.referencedTable && fk.referencedColumn;
+				return hasRequiredFields;
+			}
+			return false;
+		});
+	}, z.array(foreignKeySchema).optional()),
 });
 
 export type FieldData = z.infer<typeof fieldSchema>;
 export type AddTableFormData = z.infer<typeof addTableSchema>;
+
+export type ForeignKeyData = z.infer<typeof foreignKeySchema>;
 
 export type AddTableOption = {
 	name: keyof Pick<FieldData, "isNullable" | "isUnique" | "isIdentity" | "isArray">;

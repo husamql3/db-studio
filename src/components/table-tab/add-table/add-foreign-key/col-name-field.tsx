@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/select";
 import type { AddTableFormData } from "@/types/add-table.type";
 
+// todo: add data types
+
 export const ColNameField = ({ index }: { index: number }) => {
 	const { control, watch } = useFormContext<AddTableFormData>();
 	const columns = watch("fields")?.filter((column) => column.columnName?.trim());
@@ -27,10 +29,17 @@ export const ColNameField = ({ index }: { index: number }) => {
 						}
 					>
 						<SelectTrigger className="w-full">
-							<SelectValue defaultValue="none" />
+							<SelectValue
+								placeholder={columns?.length ? "Select a column" : "No columns found"}
+							/>
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="none">---</SelectItem>
+							<SelectItem
+								value="none"
+								disabled
+							>
+								No columns found
+							</SelectItem>
 							{columns.map((column) => (
 								<SelectItem
 									key={column.columnName}

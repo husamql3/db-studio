@@ -7,14 +7,18 @@ import { ReferencedColField } from "./referenced-col-field";
 import { RemoveActionSelector } from "./remove-action-selector";
 import { UpdateActionSelector } from "./update-action-selector";
 
+// todo: add data types
+
 export const ForeignKeySelectorField = ({ index }: { index: number }) => {
 	const { control, watch } = useFormContext<AddTableFormData>();
+	const referencedTable = watch(`foreignKeys.${index}.referencedTable`);
+
 	const foreignKeyData = useWatch({
 		control,
 		name: `foreignKeys.${index}`,
 	});
 
-	if (!foreignKeyData) return null;
+	if (!referencedTable || !foreignKeyData) return null;
 
 	return (
 		<div className="flex flex-col gap-4">

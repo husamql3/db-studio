@@ -13,13 +13,35 @@ import {
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTablesList } from "@/hooks/use-tables-list";
-import type { AddTableFormData } from "@/types/add-table.type";
+import type { AddTableFormData, ForeignKeyData } from "@/types/add-table.type";
 import { cn } from "@/utils/cn";
 
 export const ReferencedTableField = ({ index }: { index: number }) => {
 	const [open, setOpen] = useState<boolean>(false);
 	const { tablesList, isLoadingTables } = useTablesList();
-	const { control } = useFormContext<AddTableFormData>();
+	const { control, watch, setValue, getValues } = useFormContext<AddTableFormData>();
+
+	const columnName = watch(`fields.${index}.columnName`);
+
+	// Ensure foreign key entry exists at this index
+	const ensureForeignKeyExists = () => {
+		const currentForeignKeys = getValues("foreignKeys") || [];
+		if (!currentForeignKeys[index]) {
+			// Pad the array with nulls if necessary
+			const paddedArray: ForeignKeyData[] = [...currentForeignKeys];
+			// while (paddedArray.length < index) {
+			// 	paddedArray.push(null);
+			// }
+			paddedArray.push({
+				columnName: "",
+				referencedTable: "",
+				referencedColumn: "",
+				onUpdate: "NO ACTION" as const,
+				onDelete: "NO ACTION" as const,
+			});
+			setValue("foreignKeys", paddedArray);
+		}
+	};
 
 	return (
 		<Controller
@@ -29,7 +51,13 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="referencedTable">Select a table to reference to</Label>
 					<Popover
-						onOpenChange={setOpen}
+						onOpenChange={(isOpen) => {
+							if (isOpen) {
+								// Create foreign key entry when opening the popover
+								ensureForeignKeyExists();
+							}
+							setOpen(isOpen);
+						}}
 						open={open}
 					>
 						<PopoverTrigger asChild>
@@ -73,6 +101,11 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 														...field.value,
 														referencedTable: table.tableName,
 													});
+
+													//* set the column name field to the column name of the referenced table
+													setValue(`foreignKeys.${index}.columnName`, columnName);
+													console.log(`foreignKeys.${index}.columnName`, columnName);
+
 													setOpen(false);
 												}}
 												value={table.tableName}

@@ -1,4 +1,5 @@
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import { Alert } from "@/components/common/alerts";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { AddTableFormData } from "@/types/add-table.type";
@@ -10,6 +11,11 @@ export const FormContent = () => {
 	const { fields, append, remove } = useFieldArray({
 		control,
 		name: "fields",
+	});
+
+	const { remove: removeForeignKeys } = useFieldArray({
+		control,
+		name: "foreignKeys",
 	});
 
 	// Watch all isPrimaryKey values reactively
@@ -34,6 +40,7 @@ export const FormContent = () => {
 	const removeField = (index: number) => {
 		if (fields.length > 1) {
 			remove(index);
+			removeForeignKeys(index);
 		}
 	};
 	// Group fields by primary key status
@@ -49,6 +56,16 @@ export const FormContent = () => {
 
 	return (
 		<div className="space-y-2">
+			{/* Composite primary key selected label */}
+			{primaryFields.length > 1 && (
+				<Alert
+					variant="info"
+					title="Composite primary key selected"
+					className="mb-6"
+				/>
+			)}
+
+			{/* Fields table */}
 			<div className="grid grid-cols-4 px-2">
 				<Label className="text-xs">Column Name</Label>
 				<Label className="text-xs">Column Type</Label>

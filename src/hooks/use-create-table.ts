@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CACHE_KEYS } from "@/utils/constants/constans";
 
@@ -22,7 +23,7 @@ export const useCreateTable = () => {
 	const { closeSheet } = useSheetStore();
 	const queryClient = useQueryClient();
 
-	const { mutateAsync: createTable, isPending: isCreatingTable } = useMutation({
+	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
 		mutationFn: async (data: AddTableFormData) => {
 			const res = await fetch("/api/tables", {
 				method: "POST",
@@ -36,6 +37,7 @@ export const useCreateTable = () => {
 				console.log("Error:", errorData);
 				throw new Error(errorData.message || "Failed to create table");
 			}
+			console.log(data);
 			return res.json();
 		},
 		onSuccess: async (data) => {
@@ -52,11 +54,19 @@ export const useCreateTable = () => {
 			closeSheet();
 			console.log("Table created successfully:", data);
 		},
-		onError: (error) => {
+		onError: (error: Error & { detail?: string }) => {
 			console.error("Error creating table:", error);
-			// TODO: Show error toast
 		},
 	});
+
+	const createTable = async (data: AddTableFormData) => {
+		return toast.promise(createTableMutation(data), {
+			loading: "Creating table...",
+			success: (result) => result.message || "Table created successfully",
+			error: (error: Error & { detail?: string }) =>
+				error.detail || error.message || "Failed to create table",
+		});
+	};
 
 	return {
 		createTable,

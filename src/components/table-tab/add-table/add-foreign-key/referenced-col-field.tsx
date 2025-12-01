@@ -27,7 +27,6 @@ export const ReferencedColField = ({ index }: { index: number }) => {
 			name={`foreignKeys.${index}`}
 			render={({ field }) => (
 				<Select
-					defaultValue="none"
 					value={field.value?.referencedColumn}
 					onValueChange={(value) =>
 						field.onChange({ ...field.value, referencedColumn: value })
@@ -36,22 +35,32 @@ export const ReferencedColField = ({ index }: { index: number }) => {
 				>
 					<SelectTrigger
 						className="w-full flex-1"
-						disabled={isLoadingTableCols}
+						disabled={isLoadingTableCols || !tableCols?.length}
 					>
-						<SelectValue defaultValue="none" />
+						<SelectValue
+							placeholder={tableCols?.length ? "Select a column" : "No columns found"}
+						/>
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="none">---</SelectItem>
-						{tableCols
-							?.filter((column) => column.columnName?.trim())
-							.map((column) => (
-								<SelectItem
-									key={column.columnName}
-									value={column.columnName}
-								>
-									{column.columnName}
-								</SelectItem>
-							))}
+						{tableCols && tableCols.length > 0 && isLoadingTableCols ? (
+							<SelectItem
+								value="none"
+								disabled
+							>
+								No columns found
+							</SelectItem>
+						) : (
+							tableCols
+								?.filter((column) => column.columnName?.trim())
+								.map((column) => (
+									<SelectItem
+										key={column.columnName}
+										value={column.columnName}
+									>
+										{column.columnName}
+									</SelectItem>
+								))
+						)}
 					</SelectContent>
 				</Select>
 			)}

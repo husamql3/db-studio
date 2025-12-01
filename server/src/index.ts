@@ -63,10 +63,15 @@ app.post("/tables", async (c) => {
 		return c.json(data);
 	} catch (error) {
 		console.error("POST /tables error:", error);
+		const errorDetail =
+			error && typeof error === "object" && "detail" in error
+				? (error as { detail?: string }).detail
+				: undefined;
 		return c.json(
 			{
 				success: false,
 				message: error instanceof Error ? error.message : "Failed to create table",
+				detail: errorDetail,
 			},
 			500,
 		);
