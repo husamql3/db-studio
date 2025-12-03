@@ -34,6 +34,12 @@ export const AddRecordField = ({
 	const { openSheet, setRecordReference } = useSheetStore();
 
 	const renderInputField = (field: ControllerRenderProps<AddRecordFormData, string>) => {
+		// Create a safe field object that ensures value is never undefined
+		const safeField = {
+			...field,
+			value: field.value ?? "",
+		};
+
 		if (isForeignKey) {
 			return (
 				<div className="flex flex-col gap-2">
@@ -42,7 +48,7 @@ export const AddRecordField = ({
 							id={columnName}
 							placeholder={columnDefault ?? ""}
 							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-							{...field}
+							{...safeField}
 						/>
 
 						<TooltipProvider delayDuration={0}>
@@ -95,7 +101,7 @@ export const AddRecordField = ({
 					id={columnName}
 					type="number"
 					placeholder={columnDefault ?? "0"}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -125,7 +131,7 @@ export const AddRecordField = ({
 					id={columnName}
 					placeholder={columnDefault ?? ""}
 					rows={4}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -137,7 +143,7 @@ export const AddRecordField = ({
 					id={columnName}
 					placeholder={columnDefault ?? '{"key": "value"}'}
 					rows={6}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -168,7 +174,7 @@ export const AddRecordField = ({
 					type="text"
 					placeholder={columnDefault ?? "00000000-0000-0000-0000-000000000000"}
 					pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -180,7 +186,7 @@ export const AddRecordField = ({
 					id={columnName}
 					placeholder={columnDefault ?? '["item1", "item2"]'}
 					rows={3}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -214,7 +220,7 @@ export const AddRecordField = ({
 				<Input
 					id={columnName}
 					placeholder={columnDefault ?? ""}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -226,7 +232,7 @@ export const AddRecordField = ({
 					id={columnName}
 					type="text"
 					placeholder={columnDefault ?? "1 day"}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -237,7 +243,7 @@ export const AddRecordField = ({
 				<Input
 					id={columnName}
 					type="file"
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -262,7 +268,7 @@ export const AddRecordField = ({
 									? "08:00:2b:01:02:03"
 									: "08:00:2b:01:02:03:04:05"
 					}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -284,7 +290,7 @@ export const AddRecordField = ({
 								? "{A,B,C}"
 								: "((x1,y1),(x2,y2),...)"
 					}
-					{...field}
+					{...safeField}
 				/>
 			);
 		}
@@ -295,7 +301,7 @@ export const AddRecordField = ({
 				id={columnName}
 				type="text"
 				placeholder={columnDefault ?? ""}
-				{...field}
+				{...safeField}
 			/>
 		);
 	};

@@ -15,6 +15,7 @@ export const useCreateRecord = () => {
 
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
 		mutationFn: async (data: AddRecordFormData) => {
+			console.log("payload", data);
 			const res = await fetch("/api/records", {
 				method: "POST",
 				headers: {

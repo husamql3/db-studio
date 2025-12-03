@@ -44,8 +44,6 @@ export const ReferencedTable = ({
 	);
 	const { tableData, isLoadingTableData } = useTableData(tableName);
 
-	console.log(referencedColumn);
-
 	const columns = useMemo(() => {
 		return (
 			tableCols?.map((item) => ({

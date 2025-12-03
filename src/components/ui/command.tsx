@@ -51,11 +51,17 @@ function CommandDialog({
 
 function CommandInput({
 	className,
+	wrapperClassName,
 	...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+	wrapperClassName?: string;
+}) {
 	return (
 		<div
-			className="flex items-center border-input border-b px-5"
+			className={cn(
+				"flex items-center border-input border-b px-5 flex-1 w-full",
+				wrapperClassName,
+			)}
 			cmdk-input-wrapper=""
 		>
 			<SearchIcon
