@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { SidebarListItem } from "@/components/sidebar/sidebar-list-item";
 import { useTablesList } from "@/hooks/use-tables-list";
-
-// todo: add loader skeleton
+import { Spinner } from "../ui/spinner";
 
 export const TablesList = ({ searchTerm }: { searchTerm: string }) => {
 	const { tablesList, isLoadingTables } = useTablesList();
@@ -20,8 +19,8 @@ export const TablesList = ({ searchTerm }: { searchTerm: string }) => {
 	return (
 		<div className="flex-1 overflow-y-auto py-3">
 			{isLoadingTables ? (
-				<div className="px-4 py-8 text-center text-sm text-zinc-500">
-					Loading tables...
+				<div className="flex items-center justify-center h-full">
+					<Spinner size="size-6" />
 				</div>
 			) : filteredTables.length > 0 ? (
 				<ul>

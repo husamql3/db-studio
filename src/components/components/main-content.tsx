@@ -15,5 +15,7 @@ export const MainContent = () => {
 			return <h1>Visualizer</h1>;
 		case "schema":
 			return <h1>Schema</h1>;
+		case "assistant":
+			return <h1>Assistant</h1>;
 	}
 };

@@ -10,6 +10,7 @@ export const TABS = [
 	{ id: "runner", label: "Runner" },
 	{ id: "logs", label: "Logs" },
 	{ id: "visualizer", label: "Visualizer" },
+	{ id: "assistant", label: "Assistant" },
 ];
 
 //* table constants

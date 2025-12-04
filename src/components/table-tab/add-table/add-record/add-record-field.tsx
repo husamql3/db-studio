@@ -197,7 +197,7 @@ export const AddRecordField = ({
 					<Input
 						id={columnName}
 						type="text"
-						placeholder={columnDefault ?? "00000000-0000-0000-0000-000000000000"}
+						placeholder={columnDefault ?? ""}
 						pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
 						{...safeField}
