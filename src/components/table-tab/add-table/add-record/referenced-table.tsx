@@ -5,16 +5,11 @@ import {
 	type Row,
 	useReactTable,
 } from "@tanstack/react-table";
-import {
-	ArrowLeftIcon,
-	ArrowRightIcon,
-	ArrowUpDown,
-	FilterIcon,
-	Loader2,
-} from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, ArrowUpDown, FilterIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
 	Table,
 	TableBody,
@@ -75,7 +70,7 @@ export const ReferencedTable = ({
 	if (isLoadingTableCols || isLoadingTableData) {
 		return (
 			<div className="flex items-center justify-center h-full">
-				<Loader2 className="size-4 animate-spin" />
+				<Spinner size="size-8" />
 			</div>
 		);
 	}

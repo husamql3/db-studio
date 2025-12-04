@@ -8,6 +8,7 @@ import { useActiveTableStore } from "@/stores/active-table.store";
 import { useSearchParamsUtils } from "@/utils/search-params";
 import { getCellVariant } from "@/utils/table-grid.helpers";
 import { DataGrid } from "../data-grid/data-grid";
+import { Spinner } from "../ui/spinner";
 import { TableHeader } from "./header/table-header";
 import { TableEmpty } from "./table-empty";
 import { TableFooter } from "./table-footer";
@@ -70,7 +71,11 @@ export const TableView = () => {
 	const hasNoData = !tableData?.data || tableData.data.length === 0;
 
 	if (isLoadingTableCols || isLoadingTableData) {
-		return <main className="flex-1 flex items-center justify-center">Loading...</main>;
+		return (
+			<main className="flex-1 flex items-center justify-center">
+				<Spinner size="size-8" />
+			</main>
+		);
 	}
 
 	if (hasNoData) {
