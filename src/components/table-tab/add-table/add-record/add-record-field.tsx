@@ -1,4 +1,4 @@
-import { Link, RefreshCw } from "lucide-react";
+import { Clock, Link, RefreshCw } from "lucide-react";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -154,15 +154,39 @@ export const AddRecordField = ({
 			dataTypeLabel === "timestamp" ||
 			dataTypeLabel === "timestamptz"
 		) {
-			// todo: add arrow down for the date picker
 			return (
-				<DatePicker
-					value={field.value ? new Date(field.value) : undefined}
-					onChange={(date) =>
-						field.onChange(date ? date.toISOString().split("T")[0] : "")
-					}
-					placeholder={columnDefault ?? "Select a date"}
-				/>
+				<div className="flex">
+					<DatePicker
+						value={field.value ? new Date(field.value) : undefined}
+						onChange={(date) =>
+							field.onChange(date ? date.toISOString().split("T")[0] : "")
+						}
+						placeholder={columnDefault ?? "Select a date"}
+						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+					/>
+					<TooltipProvider delayDuration={0}>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									aria-label="Set to now"
+									className="inline-flex w-9 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:bg-accent hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+									type="button"
+									onClick={() => {
+										const today = new Date().toISOString().split("T")[0];
+										field.onChange(today);
+									}}
+								>
+									<Clock
+										aria-hidden="true"
+										className="size-4"
+										size={16}
+									/>
+								</button>
+							</TooltipTrigger>
+							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				</div>
 			);
 		}
 
