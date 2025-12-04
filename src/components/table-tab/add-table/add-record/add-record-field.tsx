@@ -1,4 +1,4 @@
-import { Link } from "lucide-react";
+import { Link, RefreshCw } from "lucide-react";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -169,13 +169,38 @@ export const AddRecordField = ({
 		// UUID type
 		if (dataTypeLabel === "uuid") {
 			return (
-				<Input
-					id={columnName}
-					type="text"
-					placeholder={columnDefault ?? "00000000-0000-0000-0000-000000000000"}
-					pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-					{...safeField}
-				/>
+				<div className="flex">
+					<Input
+						id={columnName}
+						type="text"
+						placeholder={columnDefault ?? "00000000-0000-0000-0000-000000000000"}
+						pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+						{...safeField}
+					/>
+					<TooltipProvider delayDuration={0}>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									aria-label="Generate UUID"
+									className="inline-flex w-9 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:bg-accent hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+									type="button"
+									onClick={() => {
+										const generatedUUID = crypto.randomUUID();
+										field.onChange(generatedUUID);
+									}}
+								>
+									<RefreshCw
+										aria-hidden="true"
+										className="size-4"
+										size={16}
+									/>
+								</button>
+							</TooltipTrigger>
+							<TooltipContent className="px-2 py-1 text-xs">Generate UUID</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				</div>
 			);
 		}
 
