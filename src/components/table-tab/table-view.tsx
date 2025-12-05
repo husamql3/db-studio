@@ -5,7 +5,6 @@ import { useDataGrid } from "@/hooks/use-data-grid";
 import { useTableData } from "@/hooks/use-table-data";
 import { queries } from "@/providers/queries";
 import { useActiveTableStore } from "@/stores/active-table.store";
-import { useSearchParamsUtils } from "@/utils/search-params";
 import { getCellVariant } from "@/utils/table-grid.helpers";
 import { DataGrid } from "../data-grid/data-grid";
 import { Spinner } from "../ui/spinner";
@@ -14,10 +13,16 @@ import { TableEmpty } from "./table-empty";
 import { TableFooter } from "./table-footer";
 
 export const TableView = () => {
-	const { activeTable } = useActiveTableStore();
-	const { getParamAsNumber, setParams } = useSearchParamsUtils();
-	const pageSize = getParamAsNumber("pageSize") ?? 50;
-	const page = getParamAsNumber("page") ?? 1;
+	const {
+		activeTable,
+		page,
+		pageSize,
+		sortColumn,
+		sortOrder,
+		setPage,
+		setPageSize,
+		setSorting,
+	} = useActiveTableStore();
 
 	const { data: tableCols, isLoading: isLoadingTableCols } = useQuery(
 		queries.tableCols(activeTable ?? ""),
@@ -52,18 +57,31 @@ export const TableView = () => {
 				pageIndex: page - 1,
 				pageSize,
 			},
+			sorting: sortColumn ? [{ id: sortColumn, desc: sortOrder === "desc" }] : [],
 		},
 		onPaginationChange: (updater) => {
 			const currentPagination = { pageIndex: page - 1, pageSize };
 			const newPagination =
 				typeof updater === "function" ? updater(currentPagination) : updater;
-			setParams(
-				{
-					page: newPagination.pageIndex + 1,
-					pageSize: newPagination.pageSize,
-				},
-				true,
-			);
+
+			if (newPagination.pageSize !== pageSize) {
+				setPageSize(newPagination.pageSize);
+			} else {
+				setPage(newPagination.pageIndex + 1);
+			}
+		},
+		onSortingChange: (updater) => {
+			const currentSorting = sortColumn
+				? [{ id: sortColumn, desc: sortOrder === "desc" }]
+				: [];
+			const newSorting =
+				typeof updater === "function" ? updater(currentSorting) : updater;
+
+			if (newSorting.length > 0) {
+				setSorting(newSorting[0].id, newSorting[0].desc ? "desc" : "asc");
+			} else {
+				setSorting(null, "asc");
+			}
 		},
 	});
 
@@ -79,7 +97,12 @@ export const TableView = () => {
 	}
 
 	if (hasNoData) {
-		return <TableEmpty />;
+		return (
+			<div className="flex flex-col flex-1 h-full">
+				<TableHeader />
+				<TableEmpty />
+			</div>
+		);
 	}
 
 	return (

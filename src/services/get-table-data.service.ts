@@ -14,6 +14,8 @@ export const getTableData = async (
 	tableName: string | null,
 	page: number = 1,
 	pageSize: number = 50,
+	sort: string = "",
+	order: string = "asc",
 ): Promise<TableDataResult | null> => {
 	if (!tableName) {
 		return null;
@@ -22,6 +24,8 @@ export const getTableData = async (
 	const queryParams = new URLSearchParams();
 	queryParams.set("page", page.toString());
 	queryParams.set("pageSize", pageSize.toString());
+	if (sort) queryParams.set("sort", sort);
+	if (order) queryParams.set("order", order);
 
 	try {
 		const response = await fetch(

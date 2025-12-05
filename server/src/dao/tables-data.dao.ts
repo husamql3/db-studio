@@ -16,7 +16,11 @@ export const getTableData = async (
 	tableName: string,
 	page: number = 1,
 	pageSize: number = 50,
+	sort: string = "",
+	order: string = "asc",
 ): Promise<TableDataResult> => {
+	const sortClause = sort ? `ORDER BY "${sort}" ${order}` : "";
+	console.log("sortClause", sortClause);
 	const client = await db.connect();
 	try {
 		// Calculate offset
@@ -29,7 +33,7 @@ export const getTableData = async (
 
 		// Get paginated data
 		const dataRes = await client.query(
-			`SELECT * FROM "${tableName}" LIMIT $1 OFFSET $2`,
+			`SELECT * FROM "${tableName}" ${sortClause} LIMIT $1 OFFSET $2`,
 			[pageSize, offset],
 		);
 

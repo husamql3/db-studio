@@ -32,7 +32,7 @@ import {
 	Wand2,
 	Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import {
@@ -110,7 +110,7 @@ export function CommandPalette() {
 	};
 
 	// Handle keyboard events for going back
-	const handleKeyDown = (e: React.KeyboardEvent) => {
+	const handleKeyDown = (e: KeyboardEvent) => {
 		// Backspace on empty input goes back to "all" mode
 		if (e.key === "Backspace" && inputValue === "" && mode === "tables") {
 			e.preventDefault();

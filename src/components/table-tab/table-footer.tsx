@@ -6,7 +6,6 @@ import {
 } from "lucide-react";
 import { useTableData } from "@/hooks/use-table-data";
 import { useActiveTableStore } from "@/stores/active-table.store";
-import { useSearchParamsUtils } from "@/utils/search-params";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Pagination, PaginationContent, PaginationItem } from "../ui/pagination";
@@ -19,21 +18,18 @@ import {
 } from "../ui/select";
 
 export const TableFooter = () => {
-	const { setParams, setParam, getParamAsNumber } = useSearchParamsUtils();
-	const pageSize = getParamAsNumber("pageSize") ?? 50;
-	const currentPage = getParamAsNumber("page") ?? 1;
-
-	const { activeTable } = useActiveTableStore();
+	const { activeTable, page, pageSize, setPage, setPageSize } = useActiveTableStore();
 	const { tableData } = useTableData(activeTable);
+
 	const totalRows = tableData?.meta.total ?? 0;
 	const totalPages = tableData?.meta.totalPages ?? 0;
 
 	const handlePageSizeChange = (value: string) => {
-		setParams({ pageSize: Number(value), page: 1 }, true);
+		setPageSize(Number(value));
 	};
 
-	const handlePageChange = (page: number) => {
-		setParam("page", page, true);
+	const handlePageChange = (newPage: number) => {
+		setPage(newPage);
 	};
 
 	return (
@@ -54,12 +50,12 @@ export const TableFooter = () => {
 						<SelectValue placeholder="Select number of results" />
 					</SelectTrigger>
 					<SelectContent className="[&_*[role=option]]:ps-2 [&_*[role=option]]:pe-8 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:end-2 border-zinc-800">
-						{[5, 10, 25, 50].map((pageSize) => (
+						{[5, 10, 25, 50].map((size) => (
 							<SelectItem
-								key={pageSize}
-								value={pageSize.toString()}
+								key={size}
+								value={size.toString()}
 							>
-								{pageSize}
+								{size}
 							</SelectItem>
 						))}
 					</SelectContent>
@@ -73,8 +69,7 @@ export const TableFooter = () => {
 					aria-live="polite"
 				>
 					<span className="text-zinc-200">
-						{(currentPage - 1) * pageSize + 1}-
-						{Math.min(currentPage * pageSize, totalRows)}
+						{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalRows)}
 					</span>{" "}
 					of <span className="text-zinc-200">{totalRows.toString()}</span>
 				</p>
@@ -92,7 +87,7 @@ export const TableFooter = () => {
 								onClick={() => {
 									handlePageChange(1);
 								}}
-								disabled={currentPage <= 1 || totalRows === 0}
+								disabled={page <= 1 || totalRows === 0}
 								aria-label="Go to first page"
 							>
 								<ChevronFirstIcon
@@ -107,9 +102,9 @@ export const TableFooter = () => {
 								variant="ghost"
 								className="h-6 w-6 disabled:opacity-30"
 								onClick={() => {
-									handlePageChange(currentPage - 1);
+									handlePageChange(page - 1);
 								}}
-								disabled={currentPage <= 1 || totalRows === 0}
+								disabled={page <= 1 || totalRows === 0}
 								aria-label="Go to previous page"
 							>
 								<ChevronLeftIcon
@@ -124,9 +119,9 @@ export const TableFooter = () => {
 								variant="ghost"
 								className="h-6 w-6 disabled:opacity-30"
 								onClick={() => {
-									handlePageChange(currentPage + 1);
+									handlePageChange(page + 1);
 								}}
-								disabled={currentPage >= totalPages || totalRows === 0}
+								disabled={page >= totalPages || totalRows === 0}
 								aria-label="Go to next page"
 							>
 								<ChevronRightIcon
@@ -143,7 +138,7 @@ export const TableFooter = () => {
 								onClick={() => {
 									handlePageChange(totalPages);
 								}}
-								disabled={currentPage >= totalPages || totalRows === 0}
+								disabled={page >= totalPages || totalRows === 0}
 								aria-label="Go to last page"
 							>
 								<ChevronLastIcon

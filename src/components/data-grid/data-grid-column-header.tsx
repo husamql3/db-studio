@@ -25,6 +25,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useActiveTableStore } from "@/stores/active-table.store";
 import { cn } from "@/utils/cn";
 
 interface DataGridColumnHeaderProps<TData, TValue>
@@ -40,6 +41,8 @@ export function DataGridColumnHeader<TData, TValue>({
 	onPointerDown,
 	...props
 }: DataGridColumnHeaderProps<TData, TValue>) {
+	const { setSorting } = useActiveTableStore();
+
 	const column = header.column;
 	const label = column.columnDef.meta?.label
 		? column.columnDef.meta.label
@@ -59,6 +62,10 @@ export function DataGridColumnHeader<TData, TValue>({
 
 	const onSortingChange = useCallback(
 		(direction: SortDirection) => {
+			// Update the store (triggers refetch)
+			setSorting(column.id, direction === "desc" ? "desc" : "asc");
+
+			// Update table state for UI
 			table.setSorting((prev: SortingState) => {
 				const existingSortIndex = prev.findIndex((sort) => sort.id === column.id);
 				const newSort: ColumnSort = {
@@ -75,14 +82,18 @@ export function DataGridColumnHeader<TData, TValue>({
 				}
 			});
 		},
-		[column.id, table],
+		[column.id, table, setSorting],
 	);
 
 	const onSortRemove = useCallback(() => {
+		// Clear sorting in store
+		setSorting(null, "asc");
+
+		// Clear table state
 		table.setSorting((prev: SortingState) =>
 			prev.filter((sort) => sort.id !== column.id),
 		);
-	}, [column.id, table]);
+	}, [column.id, table, setSorting]);
 
 	const onLeftPin = useCallback(() => {
 		column.pin("left");

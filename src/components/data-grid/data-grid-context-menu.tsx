@@ -1,7 +1,7 @@
 "use client";
 
 import type { Table, TableMeta } from "@tanstack/react-table";
-import { CopyIcon, EraserIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, Trash2Icon } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 import {
@@ -11,7 +11,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { UpdateCell } from "@/types/data-grid";
+// import type { UpdateCell } from "@/types/data-grid";
 import { parseCellKey } from "@/utils/table-grid.helpers";
 
 interface DataGridContextMenuProps<TData> {
@@ -24,7 +24,7 @@ export function DataGridContextMenu<TData>({ table }: DataGridContextMenuProps<T
 	const onContextMenuOpenChange = meta?.onContextMenuOpenChange;
 	const selectionState = meta?.selectionState;
 	const dataGridRef = meta?.dataGridRef;
-	const onDataUpdate = meta?.onDataUpdate;
+	// const onDataUpdate = meta?.onDataUpdate;
 	const onRowsDelete = meta?.onRowsDelete;
 
 	if (!contextMenu) return null;
@@ -36,7 +36,7 @@ export function DataGridContextMenu<TData>({ table }: DataGridContextMenuProps<T
 			contextMenu={contextMenu}
 			onContextMenuOpenChange={onContextMenuOpenChange}
 			selectionState={selectionState}
-			onDataUpdate={onDataUpdate}
+			// onDataUpdate={onDataUpdate}
 			onRowsDelete={onRowsDelete}
 		/>
 	);
@@ -48,7 +48,7 @@ interface ContextMenuProps<TData>
 			| "dataGridRef"
 			| "onContextMenuOpenChange"
 			| "selectionState"
-			| "onDataUpdate"
+			// | "onDataUpdate"
 			| "onRowsDelete"
 		>,
 		Required<Pick<TableMeta<TData>, "contextMenu">> {
@@ -74,7 +74,7 @@ function ContextMenuImpl<TData>({
 	contextMenu,
 	onContextMenuOpenChange,
 	selectionState,
-	onDataUpdate,
+	// onDataUpdate,
 	onRowsDelete,
 }: ContextMenuProps<TData>) {
 	const triggerStyle = React.useMemo<React.CSSProperties>(
@@ -164,20 +164,20 @@ function ContextMenuImpl<TData>({
 		);
 	}, [table, selectionState]);
 
-	const onClear = React.useCallback(() => {
-		if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) return;
+	// const onClear = React.useCallback(() => {
+	// 	if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) return;
 
-		const updates: Array<UpdateCell> = [];
+	// 	const updates: Array<UpdateCell> = [];
 
-		for (const cellKey of selectionState.selectedCells) {
-			const { rowIndex, columnId } = parseCellKey(cellKey);
-			updates.push({ rowIndex, columnId, value: "" });
-		}
+	// 	for (const cellKey of selectionState.selectedCells) {
+	// 		const { rowIndex, columnId } = parseCellKey(cellKey);
+	// 		updates.push({ rowIndex, columnId, value: "" });
+	// 	}
 
-		onDataUpdate?.(updates);
+	// 	onDataUpdate?.(updates);
 
-		toast.success(`${updates.length} cell${updates.length !== 1 ? "s" : ""} cleared`);
-	}, [onDataUpdate, selectionState]);
+	// 	toast.success(`${updates.length} cell${updates.length !== 1 ? "s" : ""} cleared`);
+	// }, [onDataUpdate, selectionState]);
 
 	const onDelete = React.useCallback(async () => {
 		if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) return;
@@ -212,10 +212,10 @@ function ContextMenuImpl<TData>({
 					<CopyIcon />
 					Copy
 				</DropdownMenuItem>
-				<DropdownMenuItem onSelect={onClear}>
+				{/* <DropdownMenuItem onSelect={onClear}>
 					<EraserIcon />
 					Clear
-				</DropdownMenuItem>
+				</DropdownMenuItem> */}
 				{onRowsDelete && (
 					<>
 						<DropdownMenuSeparator />

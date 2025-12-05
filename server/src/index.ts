@@ -45,9 +45,10 @@ app.get("/tables/:tableName/columns", async (c) => {
 app.get("/tables/:tableName/data", async (c) => {
 	const tableName = c.req.param("tableName");
 	const page = Number(c.req.query("page") || "1");
+	const sort = c.req.query("sort") || "";
+	const order = c.req.query("order") || "asc";
 	const pageSize = Number(c.req.query("pageSize") || "50");
-	const data = await getTableData(tableName, page, pageSize);
-	// console.log("/tables/:tableName/data", data);
+	const data = await getTableData(tableName, page, pageSize, sort, order);
 	return c.json(data);
 });
 
