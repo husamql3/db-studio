@@ -11,6 +11,8 @@ export const MainContent = () => {
 			return <h1>Indexes</h1>;
 		case "runner":
 			return <h1>Runner</h1>;
+		case "logs":
+			return <h1>Logs</h1>;
 		case "visualizer":
 			return <h1>Visualizer</h1>;
 		case "schema":

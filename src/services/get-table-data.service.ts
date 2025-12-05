@@ -1,3 +1,5 @@
+import type { Filter } from "@/stores/active-table.store";
+
 export interface TableDataResult {
 	data: Record<string, unknown>[];
 	meta: {
@@ -16,6 +18,7 @@ export const getTableData = async (
 	pageSize: number = 50,
 	sort: string = "",
 	order: string = "asc",
+	filters: Filter[] = [],
 ): Promise<TableDataResult | null> => {
 	if (!tableName) {
 		return null;
@@ -26,6 +29,7 @@ export const getTableData = async (
 	queryParams.set("pageSize", pageSize.toString());
 	if (sort) queryParams.set("sort", sort);
 	if (order) queryParams.set("order", order);
+	if (filters.length > 0) queryParams.set("filters", JSON.stringify(filters));
 
 	try {
 		const response = await fetch(

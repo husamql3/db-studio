@@ -4,11 +4,20 @@ import { useActiveTableStore } from "@/stores/active-table.store";
 import { CACHE_KEYS } from "@/utils/constants/constans";
 
 export const useTableData = (tableName: string | null) => {
-	const { page, pageSize, sortColumn, sortOrder } = useActiveTableStore();
+	const { page, pageSize, sortColumn, sortOrder, filters } = useActiveTableStore();
 
 	const { data, isLoading, error, refetch } = useQuery({
-		queryKey: [CACHE_KEYS.TABLE_DATA, tableName, page, pageSize, sortColumn, sortOrder],
-		queryFn: () => getTableData(tableName, page, pageSize, sortColumn ?? "", sortOrder),
+		queryKey: [
+			CACHE_KEYS.TABLE_DATA,
+			tableName,
+			page,
+			pageSize,
+			sortColumn,
+			sortOrder,
+			filters,
+		],
+		queryFn: () =>
+			getTableData(tableName, page, pageSize, sortColumn ?? "", sortOrder, filters),
 		enabled: !!tableName,
 		staleTime: 0, // no stale time
 		gcTime: 1000 * 60 * 1, // 1 minute

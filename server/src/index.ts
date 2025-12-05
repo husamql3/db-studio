@@ -40,7 +40,7 @@ app.get("/tables/:tableName/columns", async (c) => {
 /**
  * Data
  * GET /tables/:tableName/data - Get paginated data for a table
- * Query params: page (default: 1), pageSize (default: 50)
+ * Query params: page (default: 1), pageSize (default: 50), sort, order, filters (JSON)
  */
 app.get("/tables/:tableName/data", async (c) => {
 	const tableName = c.req.param("tableName");
@@ -48,7 +48,9 @@ app.get("/tables/:tableName/data", async (c) => {
 	const sort = c.req.query("sort") || "";
 	const order = c.req.query("order") || "asc";
 	const pageSize = Number(c.req.query("pageSize") || "50");
-	const data = await getTableData(tableName, page, pageSize, sort, order);
+	const filtersParam = c.req.query("filters");
+	const filters = filtersParam ? JSON.parse(filtersParam) : [];
+	const data = await getTableData(tableName, page, pageSize, sort, order, filters);
 	return c.json(data);
 });
 

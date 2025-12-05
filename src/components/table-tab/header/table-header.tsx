@@ -1,5 +1,6 @@
 import { AddRecordBtn } from "./add-record-btn";
 import { FilterPopup } from "./filter-popup";
+import { MaximizeBtn } from "./maximize-btn";
 import { RefetchBtn } from "./refetch-btn";
 import { SettingsBtn } from "./settings-btn";
 
@@ -13,6 +14,7 @@ export const TableHeader = () => {
 			</div>
 
 			<div className="flex items-center">
+				<MaximizeBtn />
 				<SettingsBtn />
 			</div>
 		</header>
