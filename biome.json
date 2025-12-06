@@ -42,7 +42,13 @@
 		"defaultBranch": "main"
 	},
 	"files": {
-		"includes": ["src/**", "!src/index.css", "server/src/**"],
+		"includes": [
+			"packages/**/src/**",
+			"!packages/**/src/index.css",
+			"packages/**/server/src/**",
+			"www/app/**",
+			"!www/app/app.css"
+		],
 		"ignoreUnknown": true
 	}
 }
