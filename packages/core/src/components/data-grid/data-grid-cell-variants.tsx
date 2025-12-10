@@ -24,7 +24,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 import { cn } from "@/utils/cn";
 import { Button } from "../ui/button";
@@ -216,11 +215,6 @@ export function LongTextCell<TData>({
 		setValue(initialValue ?? "");
 	}
 
-	// Debounced update to store (no auto-save, just track changes)
-	const debouncedUpdateStore = useDebouncedCallback((newValue: string) => {
-		setUpdate(rowData, columnName, newValue, initialValue);
-	}, 300);
-
 	const onSave = useCallback(() => {
 		console.log("onSave", {
 			value,
@@ -248,7 +242,7 @@ export function LongTextCell<TData>({
 
 		setOpen(false);
 		meta?.onCellEditingStop?.();
-	}, [meta, initialValue, columnName, rowData, clearUpdate]);
+	}, [meta, initialValue, columnName, rowData, clearUpdate, value]);
 
 	const onChange = useCallback(
 		(event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -257,9 +251,9 @@ export function LongTextCell<TData>({
 			setValue(newValue);
 
 			// Debounced update to store (tracks the change but doesn't save)
-			debouncedUpdateStore(newValue);
+			setUpdate(rowData, columnName, newValue, initialValue);
 		},
-		[debouncedUpdateStore, columnName, value, initialValue],
+		[columnName, value, initialValue],
 	);
 
 	const onOpenChange = useCallback(
