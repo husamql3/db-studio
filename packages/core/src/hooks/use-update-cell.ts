@@ -11,21 +11,46 @@ export const useUpdateCell = () => {
 
 	const { mutateAsync: updateCellMutation, isPending: isUpdatingCell } = useMutation({
 		mutationFn: async (updates: CellUpdate[]) => {
-			// Transform updates into the format your API expects
-			const payload = updates.map((update) => ({
-				rowData: update.rowData,
-				columnName: update.columnName,
-				value: update.newValue,
-			}));
+			if (!activeTable) {
+				throw new Error("No active table selected");
+			}
 
-			await new Promise((resolve) => setTimeout(resolve, 3000));
+			// Transform updates into the format the API expects
+			const payload = {
+				tableName: activeTable,
+				updates: updates.map((update) => ({
+					rowData: update.rowData,
+					columnName: update.columnName,
+					value: update.newValue,
+				})),
+				// You can specify a different primary key if needed
+				// primaryKey: "id", // defaults to 'id' on the backend
+			};
 
-			console.log("payload", payload);
-			return { success: true, message: "Changes saved successfully" };
+			console.log("Sending update payload:", payload);
+
+			const response = await fetch("http://localhost:3000/records", {
+				method: "PATCH",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(payload),
+			});
+
+			const result = await response.json();
+
+			if (!response.ok || !result.success) {
+				// Throw an error with the message from the API
+				throw new Error(result.message || result.detail || "Failed to update records");
+			}
+
+			return result;
 		},
-		onSuccess: async () => {
+		onSuccess: async (result) => {
+			const count = getUpdateCount();
 			toast.success(
-				`${getUpdateCount()} ${getUpdateCount() === 1 ? "change" : "changes"} saved successfully`,
+				result.message ||
+					`${count} ${count === 1 ? "change" : "changes"} saved successfully`,
 			);
 			clearUpdates();
 
@@ -37,6 +62,7 @@ export const useUpdateCell = () => {
 			]);
 		},
 		onError: (error) => {
+			console.error("Update error:", error);
 			toast.error("Failed to save changes", {
 				description: error instanceof Error ? error.message : "Unknown error occurred",
 			});

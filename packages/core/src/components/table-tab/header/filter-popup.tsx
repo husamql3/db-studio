@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { FilterIcon, XIcon } from "lucide-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -108,14 +109,10 @@ export const FilterPopup = () => {
 						onClick={handleAddFilter}
 					>
 						Add filter
+						<Badge className="text-xs leading-0! size-5 flex items-center justify-center">
+							{filters.length}
+						</Badge>
 					</Button>
-					{/* <Button
-						variant="outline"
-						size="sm"
-						className="text-xs"
-					>
-						Add group filter
-					</Button> */}
 				</div>
 
 				<div className="flex flex-col gap-4">

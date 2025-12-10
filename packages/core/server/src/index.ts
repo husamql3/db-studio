@@ -9,6 +9,7 @@ import { insertRecord } from "./dao/insert-record.dao.js";
 import { getTableColumns } from "./dao/table-columns.dao.js";
 import { getTablesList } from "./dao/table-list.dao.js";
 import { getTableData } from "./dao/tables-data.dao.js";
+import { updateRecords } from "./dao/update-records.dao.js";
 
 const app = new Hono();
 
@@ -124,6 +125,61 @@ app.post("/records", async (c) => {
 });
 
 /**
+ * Update Records
+ * PATCH /records - Update one or more cells in a table
+ * Body: {
+ *   tableName: string,
+ *   updates: Array<{ rowData: Record<string, unknown>, columnName: string, value: unknown }>,
+ *   primaryKey?: string (optional, defaults to 'id')
+ * }
+ */
+app.patch("/records", async (c) => {
+	try {
+		const body = await c.req.json();
+		const { tableName, updates, primaryKey } = body;
+
+		if (!tableName) {
+			return c.json(
+				{
+					success: false,
+					message: "tableName is required",
+				},
+				400,
+			);
+		}
+
+		if (!updates || !Array.isArray(updates) || updates.length === 0) {
+			return c.json(
+				{
+					success: false,
+					message: "updates array is required and must contain at least one update",
+				},
+				400,
+			);
+		}
+
+		console.log("PATCH /records body", { tableName, updates, primaryKey });
+		const result = await updateRecords({ tableName, updates, primaryKey });
+		console.log("PATCH /records", result);
+		return c.json(result);
+	} catch (error) {
+		console.error("PATCH /records error:", error);
+		const errorDetail =
+			error && typeof error === "object" && "detail" in error
+				? (error as { detail?: string }).detail
+				: undefined;
+		return c.json(
+			{
+				success: false,
+				message: error instanceof Error ? error.message : "Failed to update records",
+				detail: errorDetail,
+			},
+			500,
+		);
+	}
+});
+
+/**
  * Root
  * GET / - Get the root
  */
@@ -134,6 +190,7 @@ app.get("/", (c) => {
 		columns: "/tables/:tableName/columns",
 		data: "/tables/:tableName/data",
 		records: "POST /records",
+		updateRecords: "PATCH /records",
 	});
 });
 
