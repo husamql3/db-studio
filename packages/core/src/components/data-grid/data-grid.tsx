@@ -1,5 +1,3 @@
-"use client";
-
 import { flexRender } from "@tanstack/react-table";
 import { type ComponentProps, useCallback } from "react";
 import { DataGridColumnHeader } from "@/components/data-grid/data-grid-column-header";

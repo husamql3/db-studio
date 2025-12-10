@@ -6,7 +6,13 @@ import { CACHE_KEYS } from "@/utils/constants/constans";
 export const useTableData = (tableName: string | null) => {
 	const { page, pageSize, sortColumn, sortOrder, filters } = useActiveTableStore();
 
-	const { data, isLoading, error, refetch } = useQuery({
+	const {
+		data,
+		isLoading,
+		error,
+		refetch,
+		isPending: isRefetching,
+	} = useQuery({
 		queryKey: [
 			CACHE_KEYS.TABLE_DATA,
 			tableName,
@@ -31,5 +37,6 @@ export const useTableData = (tableName: string | null) => {
 		isLoadingTableData: isLoading,
 		errorTableData: error,
 		refetchTableData: refetch,
+		isRefetchingTableData: isRefetching,
 	};
 };

@@ -5,6 +5,7 @@ import { useDataGrid } from "@/hooks/use-data-grid";
 import { useTableData } from "@/hooks/use-table-data";
 import { queries } from "@/providers/queries";
 import { useActiveTableStore } from "@/stores/active-table.store";
+import { useTableReloadStore } from "@/stores/table-reload.store";
 import { getCellVariant } from "@/utils/table-grid.helpers";
 import { DataGrid } from "../data-grid/data-grid";
 import { Spinner } from "../ui/spinner";
@@ -23,11 +24,14 @@ export const TableView = () => {
 		setPageSize,
 		setSorting,
 	} = useActiveTableStore();
-
 	const { data: tableCols, isLoading: isLoadingTableCols } = useQuery(
 		queries.tableCols(activeTable ?? ""),
 	);
-	const { tableData, isLoadingTableData } = useTableData(activeTable);
+	const { tableData, isLoadingTableData, isRefetchingTableData } =
+		useTableData(activeTable);
+
+	// Get reload key from store for force remounting
+	const { reloadKey } = useTableReloadStore();
 
 	const columns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
 		return (
@@ -45,7 +49,7 @@ export const TableView = () => {
 		);
 	}, [tableCols]);
 
-	const { table, ...dataGridProps } = useDataGrid({
+	const { table, rowVirtualizer, ...dataGridProps } = useDataGrid({
 		columns,
 		data: tableData?.data ?? [],
 		enableSearch: true,
@@ -83,37 +87,52 @@ export const TableView = () => {
 				setSorting(null, "asc");
 			}
 		},
+		debugTable: true,
 	});
 
 	// Check if table has no data
 	const hasNoData = !tableData?.data || tableData.data.length === 0;
 
-	if (isLoadingTableCols || isLoadingTableData) {
+	if (isLoadingTableCols || isLoadingTableData || isRefetchingTableData) {
 		return (
-			<main className="flex-1 flex items-center justify-center">
-				<Spinner size="size-8" />
+			<main className="flex flex-col flex-1 h-full">
+				<TableHeader
+					table={table}
+					rowVirtualizer={rowVirtualizer}
+				/>
+				<div className="flex-1 flex items-center justify-center">
+					<Spinner size="size-8" />
+				</div>
 			</main>
 		);
 	}
 
 	if (hasNoData) {
 		return (
-			<div className="flex flex-col flex-1 h-full">
-				<TableHeader />
+			<main className="flex flex-col flex-1 h-full">
+				<TableHeader
+					table={table}
+					rowVirtualizer={rowVirtualizer}
+				/>
 				<TableEmpty />
-			</div>
+			</main>
 		);
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full">
-			<TableHeader />
+		<main className="flex flex-col flex-1 h-full">
+			<TableHeader
+				table={table}
+				rowVirtualizer={rowVirtualizer}
+			/>
 			<DataGrid
+				key={reloadKey}
 				{...dataGridProps}
 				table={table}
+				rowVirtualizer={rowVirtualizer}
 				className="h-full"
 			/>
 			<TableFooter />
-		</div>
+		</main>
 	);
 };

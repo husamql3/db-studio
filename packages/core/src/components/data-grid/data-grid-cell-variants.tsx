@@ -12,6 +12,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { DataGridCellWrapper } from "@/components/data-grid/data-grid-cell-wrapper";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -24,7 +25,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
+import { useUpdateCellStore } from "@/stores/update-cell.store";
 import { cn } from "@/utils/cn";
+import { Button } from "../ui/button";
+import { Kbd } from "../ui/kbd";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -193,6 +197,7 @@ export function LongTextCell<TData>({
 	isEditing,
 	isSelected,
 }: CellVariantProps<TData>) {
+	const { setUpdate, clearUpdate } = useUpdateCellStore();
 	const initialValue = cell.getValue() as string;
 	const [value, setValue] = useState(initialValue ?? "");
 	const [open, setOpen] = useState(false);
@@ -201,56 +206,74 @@ export function LongTextCell<TData>({
 	const meta = table.options.meta;
 	const sideOffset = -(containerRef.current?.clientHeight ?? 0);
 
+	// Get the row data and column name for store operations
+	const rowData = cell.row.original as Record<string, unknown>;
+	const columnName = columnId;
+
 	const prevInitialValueRef = useRef(initialValue);
 	if (initialValue !== prevInitialValueRef.current) {
 		prevInitialValueRef.current = initialValue;
 		setValue(initialValue ?? "");
 	}
 
-	// Debounced auto-save (300ms delay)
-	const debouncedSave = useDebouncedCallback((newValue: string) => {
-		meta?.onDataUpdate?.({ rowIndex, columnId, value: newValue });
+	// Debounced update to store (no auto-save, just track changes)
+	const debouncedUpdateStore = useDebouncedCallback((newValue: string) => {
+		setUpdate(rowData, columnName, newValue, initialValue);
 	}, 300);
 
 	const onSave = useCallback(() => {
-		// Immediately save any pending changes and close the popover
-		if (value !== initialValue) {
-			meta?.onDataUpdate?.({ rowIndex, columnId, value });
-		}
+		console.log("onSave", {
+			value,
+			initialValue,
+			columnName,
+			rowData,
+		});
+
+		// Update the store with the final value
+		setUpdate(rowData, columnName, value, initialValue);
+
+		// Close the popover
 		setOpen(false);
 		meta?.onCellEditingStop?.();
-	}, [meta, value, initialValue, rowIndex, columnId]);
+	}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
 	const onCancel = useCallback(() => {
+		console.log("onCancel", value, initialValue);
+
 		// Restore the original value
 		setValue(initialValue ?? "");
-		meta?.onDataUpdate?.({ rowIndex, columnId, value: initialValue });
+
+		// Clear this cell's update from the store
+		clearUpdate(rowData, columnName);
+
 		setOpen(false);
 		meta?.onCellEditingStop?.();
-	}, [meta, initialValue, rowIndex, columnId]);
+	}, [meta, initialValue, columnName, rowData, clearUpdate]);
 
 	const onChange = useCallback(
 		(event: ChangeEvent<HTMLTextAreaElement>) => {
 			const newValue = event.target.value;
+			console.log("onChange", newValue, columnName, value, initialValue);
 			setValue(newValue);
-			// Debounced auto-save
-			debouncedSave(newValue);
+
+			// Debounced update to store (tracks the change but doesn't save)
+			debouncedUpdateStore(newValue);
 		},
-		[debouncedSave],
+		[debouncedUpdateStore, columnName, value, initialValue],
 	);
 
 	const onOpenChange = useCallback(
 		(isOpen: boolean) => {
 			setOpen(isOpen);
 			if (!isOpen) {
-				// Immediately save any pending changes when closing
+				// When closing, update the store with current value
 				if (value !== initialValue) {
-					meta?.onDataUpdate?.({ rowIndex, columnId, value });
+					setUpdate(rowData, columnName, value, initialValue);
 				}
 				meta?.onCellEditingStop?.();
 			}
 		},
-		[meta, value, initialValue, rowIndex, columnId],
+		[meta, value, initialValue, columnName, rowData, setUpdate],
 	);
 
 	const onOpenAutoFocus: NonNullable<
@@ -272,9 +295,9 @@ export function LongTextCell<TData>({
 					meta?.onCellEditingStop?.();
 				} else if (event.key === "Tab") {
 					event.preventDefault();
-					// Save any pending changes
+					// Update store when tabbing away
 					if (value !== initialValue) {
-						meta?.onDataUpdate?.({ rowIndex, columnId, value });
+						setUpdate(rowData, columnName, value, initialValue);
 					}
 					meta?.onCellEditingStop?.({
 						direction: event.shiftKey ? "left" : "right",
@@ -282,32 +305,34 @@ export function LongTextCell<TData>({
 				}
 			}
 		},
-		[isEditing, open, meta, value, initialValue, rowIndex, columnId],
+		[isEditing, open, meta, value, initialValue, columnName, rowData, setUpdate],
 	);
 
 	const onTextareaKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLTextAreaElement>) => {
 			if (event.key === "Escape") {
 				event.preventDefault();
+				console.log("onTextareaKeyDown", event.key, value, initialValue);
 				onCancel();
 			} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 				event.preventDefault();
+				console.log("onTextareaKeyDown", event.key, value, initialValue);
 				onSave();
 			}
 			// Stop propagation to prevent grid navigation
 			event.stopPropagation();
 		},
-		[onCancel, onSave],
+		[onCancel, onSave, value, initialValue],
 	);
 
 	const onTextareaBlur = useCallback(() => {
-		// Immediately save any pending changes on blur
+		// Update store on blur (don't auto-save, just track)
 		if (value !== initialValue) {
-			meta?.onDataUpdate?.({ rowIndex, columnId, value });
+			setUpdate(rowData, columnName, value, initialValue);
 		}
 		setOpen(false);
 		meta?.onCellEditingStop?.();
-	}, [meta, value, initialValue, rowIndex, columnId]);
+	}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
 	useEffect(() => {
 		if (isEditing && !open) {
@@ -323,6 +348,9 @@ export function LongTextCell<TData>({
 			containerRef.current.focus();
 		}
 	}, [isFocused, isEditing, open, meta?.searchOpen, meta?.isScrolling]);
+
+	useHotkeys("enter", () => onSave());
+	useHotkeys("esc", () => onCancel());
 
 	return (
 		<Popover
@@ -361,6 +389,25 @@ export function LongTextCell<TData>({
 					className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
 					placeholder="Enter text..."
 				/>
+				<div className="flex flex-col">
+					<Button
+						variant="ghost"
+						size="sm"
+						className="rounded-none justify-start text-xs"
+					>
+						<Kbd className="text-xs font-normal">⌘↵</Kbd>
+						Save Changes
+					</Button>
+
+					<Button
+						variant="ghost"
+						size="sm"
+						className="rounded-none justify-start text-xs"
+					>
+						<Kbd className="text-xs font-normal">Esc</Kbd>
+						Cancel Changes
+					</Button>
+				</div>
 			</PopoverContent>
 		</Popover>
 	);
