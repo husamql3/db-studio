@@ -206,9 +206,9 @@ function useDataGrid<TData>({
 			selectionRange:
 				columnIds.length > 0 && rowCount > 0 && firstColumnId && lastColumnId
 					? {
-						start: { rowIndex: 0, columnId: firstColumnId },
-						end: { rowIndex: rowCount - 1, columnId: lastColumnId },
-					}
+							start: { rowIndex: 0, columnId: firstColumnId },
+							end: { rowIndex: rowCount - 1, columnId: lastColumnId },
+						}
 					: null,
 			isSelecting: false,
 		});

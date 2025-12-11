@@ -2,12 +2,11 @@ import type { Table } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { AddRecordBtn } from "./add-record-btn";
 import { ClearBtn } from "./clear-btn";
+import { DeleteBtn } from "./delete-btn";
 import { FilterPopup } from "./filter-popup";
-import { MaximizeBtn } from "./maximize-btn";
 import { RefetchBtn } from "./refetch-btn";
 import { SaveBtn } from "./save-btn";
 import { SettingsBtn } from "./settings-btn";
-import { DeleteBtn } from "./delete-btn";
 
 export const TableHeader = ({
 	table,
@@ -31,7 +30,6 @@ export const TableHeader = ({
 			</div>
 
 			<div className="flex items-center ">
-				<MaximizeBtn />
 				<SettingsBtn />
 			</div>
 		</header>

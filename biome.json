@@ -47,7 +47,8 @@
 			"!packages/**/src/index.css",
 			"packages/**/server/src/**",
 			"www/app/**",
-			"!www/app/app.css"
+			"!www/app/app.css",
+			"README.md"
 		],
 		"ignoreUnknown": true
 	}

@@ -8,11 +8,11 @@ import { useActiveTableStore } from "@/stores/active-table.store";
 import { useTableReloadStore } from "@/stores/table-reload.store";
 import { getCellVariant } from "@/utils/table-grid.helpers";
 import { DataGrid } from "../data-grid/data-grid";
+import { Checkbox } from "../ui/checkbox";
 import { Spinner } from "../ui/spinner";
 import { TableHeader } from "./header/table-header";
 import { TableEmpty } from "./table-empty";
 import { TableFooter } from "./table-footer";
-import { Checkbox } from "../ui/checkbox";
 
 export const TableView = () => {
 	const {
@@ -84,7 +84,8 @@ export const TableView = () => {
 	// Handle row selection changes from the data grid
 	const handleRowSelectionChange = useCallback(
 		(updater: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState)) => {
-			const newSelection = typeof updater === "function" ? updater(rowSelection) : updater;
+			const newSelection =
+				typeof updater === "function" ? updater(rowSelection) : updater;
 			const newIndices: number[] = [];
 			for (const [key, isSelected] of Object.entries(newSelection)) {
 				if (isSelected) {

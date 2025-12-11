@@ -22,11 +22,10 @@ export const MainContent = () => {
 	}
 };
 
-
 export const NotYet = () => {
 	return (
 		<main className="flex-1 flex items-center justify-center">
 			<h1>Coming soon!</h1>
 		</main>
-	)
-}
+	);
+};

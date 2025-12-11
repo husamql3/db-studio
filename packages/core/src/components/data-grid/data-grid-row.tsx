@@ -104,9 +104,10 @@ function DataGridRowImpl<TData>({
 						tabIndex={-1}
 						className="relative border-r border-zinc-800"
 						style={{
-							width: cell.column.getIndex() === 0
-								? "40px"
-								: `calc(var(--col-${cell.column.id}-size) * 1px)`,
+							width:
+								cell.column.getIndex() === 0
+									? "40px"
+									: `calc(var(--col-${cell.column.id}-size) * 1px)`,
 						}}
 					>
 						{typeof cell.column.columnDef.header === "function" ? (

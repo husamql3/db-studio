@@ -9,7 +9,7 @@ import { cn } from "@/utils/cn";
 
 interface DataGridProps<TData>
 	extends ReturnType<typeof useDataGrid<TData>>,
-	ComponentProps<"div"> { }
+		ComponentProps<"div"> {}
 
 export function DataGrid<TData>({
 	dataGridRef,
@@ -91,13 +91,14 @@ export function DataGrid<TData>({
 										tabIndex={-1}
 										className="relative border-r border-zinc-800"
 										style={{
-											width: header.column.getIndex() === 0
-												? "40px"
-												: `calc(var(--header-${header.id}-size) * 1px)`,
+											width:
+												header.column.getIndex() === 0
+													? "40px"
+													: `calc(var(--header-${header.id}-size) * 1px)`,
 										}}
 									>
 										{header.isPlaceholder ? null : typeof header.column.columnDef
-											.header === "function" ? (
+												.header === "function" ? (
 											<div className="px-3 py-1.5">
 												{flexRender(header.column.columnDef.header, header.getContext())}
 											</div>

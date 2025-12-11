@@ -3,7 +3,6 @@
 import type { ColumnSort, SortDirection, Table } from "@tanstack/react-table";
 import { ArrowDownUp, ChevronsUpDown, GripVertical, Trash2 } from "lucide-react";
 import * as React from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Command,

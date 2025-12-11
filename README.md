@@ -1,8 +1,29 @@
 # DB Studio
 
-![Banner](/assets/panner.png)
+<div align="center">
 
+<br><br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png">
+  <img src="assets/logo-light.png" alt="DB Studio logo" width="100">
+</picture>
+
+<img src="assets/screenshot.png" alt="DB Studio screenshot" width="1000" />
+
+</div>
+
+<div align="center">
 A modern, universal (pgAdmin alternative) database management studio for any SQL database that you can launch via the CLI.
+</div>
+
+<br>
+
+<div align="center">
+  <a href="https://github.com/husamql3/db-studio/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/husamql3/db-studio"></a>
+  <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/husamql3/pstrack"></a>
+</div>
 
 ## Features
 
@@ -56,5 +77,3 @@ Check out [CONTRIBUTING.md](/CONTRIBUTING.md) and the open issues.
 ## License
 
 [Apache](/LICENSE)
-
-
