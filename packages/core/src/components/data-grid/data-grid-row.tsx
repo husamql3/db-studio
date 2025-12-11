@@ -20,6 +20,13 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
 		return false;
 	}
 
+	// Re-render if selection state changes
+	const prevIsSelected = prev.row.getIsSelected();
+	const nextIsSelected = next.row.getIsSelected();
+	if (prevIsSelected !== nextIsSelected) {
+		return false;
+	}
+
 	const prevRowIndex = prev.virtualRowIndex;
 	const nextRowIndex = next.virtualRowIndex;
 
@@ -71,10 +78,15 @@ function DataGridRowImpl<TData>({
 			aria-rowindex={virtualRowIndex + 2}
 			aria-selected={isRowSelected}
 			data-index={virtualRowIndex}
+			data-selected={isRowSelected || undefined}
 			data-slot="grid-row"
 			ref={rowRef}
 			tabIndex={-1}
-			className={cn("absolute h-9 flex w-full border-b border-zinc-800", className)}
+			className={cn(
+				"absolute h-9 flex w-full border-b border-zinc-800",
+				isRowSelected && "bg-primary/5",
+				className,
+			)}
 			{...props}
 		>
 			{row.getVisibleCells().map((cell, colIndex) => {
@@ -90,16 +102,16 @@ function DataGridRowImpl<TData>({
 						data-highlighted={isCellFocused ? "" : undefined}
 						data-slot="grid-cell"
 						tabIndex={-1}
-						className={cn({
-							"border-r border-zinc-800": cell.column.id !== "select",
-						})}
+						className="relative border-r border-zinc-800"
 						style={{
-							width: `calc(var(--col-${cell.column.id}-size) * 1px)`,
+							width: cell.column.getIndex() === 0
+								? "40px"
+								: `calc(var(--col-${cell.column.id}-size) * 1px)`,
 						}}
 					>
 						{typeof cell.column.columnDef.header === "function" ? (
 							<div
-								className={cn("size-full px-3 py-1.5", {
+								className={cn("size-full flex items-center justify-center px-3 py-1", {
 									"bg-primary/10": isRowSelected,
 								})}
 							>

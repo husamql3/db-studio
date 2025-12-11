@@ -182,7 +182,9 @@ function useDataGrid<TData>({
 			});
 			store.setState("rowSelection", {});
 		});
-	}, [store]);
+		// Notify external callback that selection was cleared
+		dataGridPropsRef.current.onRowSelectionChange?.({});
+	}, [store, dataGridPropsRef]);
 
 	const selectAll = useCallback(() => {
 		const allCells = new Set<string>();
@@ -204,9 +206,9 @@ function useDataGrid<TData>({
 			selectionRange:
 				columnIds.length > 0 && rowCount > 0 && firstColumnId && lastColumnId
 					? {
-							start: { rowIndex: 0, columnId: firstColumnId },
-							end: { rowIndex: rowCount - 1, columnId: lastColumnId },
-						}
+						start: { rowIndex: 0, columnId: firstColumnId },
+						end: { rowIndex: rowCount - 1, columnId: lastColumnId },
+					}
 					: null,
 			isSelecting: false,
 		});
@@ -1110,8 +1112,11 @@ function useDataGrid<TData>({
 				store.setState("focusedCell", null);
 				store.setState("editingCell", null);
 			});
+
+			// Call external onRowSelectionChange callback if provided
+			dataGridPropsRef.current.onRowSelectionChange?.(updater);
 		},
-		[store, columnIds],
+		[store, columnIds, dataGridPropsRef],
 	);
 
 	const onRowSelect = useCallback(

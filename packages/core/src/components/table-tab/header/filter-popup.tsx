@@ -109,9 +109,9 @@ export const FilterPopup = () => {
 						onClick={handleAddFilter}
 					>
 						Add filter
-						<Badge className="text-xs leading-0! size-5 flex items-center justify-center">
+						<span className="px-1.5 py-0.5 text-[10px] bg-white/20 rounded">
 							{filters.length}
-						</Badge>
+						</span>
 					</Button>
 				</div>
 

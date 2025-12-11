@@ -138,7 +138,7 @@ export function DataGridColumnHeader<TData, TValue>({
 								<LinkIcon className="size-3	shrink-0 text-muted-foreground" />
 							)} */}
 							{isPrimaryKey && (
-								<KeyIcon className="size-3	shrink-0 text-muted-foreground" />
+								<KeyIcon className="size-3 shrink-0 text-primary" />
 							)}
 							<span className="truncate">{label}</span>
 						</div>

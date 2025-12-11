@@ -8,16 +8,25 @@ export const MainContent = () => {
 		case "table":
 			return <TableTab />;
 		case "indexes":
-			return <h1>Indexes</h1>;
+			return <NotYet />;
 		case "runner":
-			return <h1>Runner</h1>;
+			return <NotYet />;
 		case "logs":
-			return <h1>Logs</h1>;
+			return <NotYet />;
 		case "visualizer":
-			return <h1>Visualizer</h1>;
+			return <NotYet />;
 		case "schema":
-			return <h1>Schema</h1>;
+			return <NotYet />;
 		case "assistant":
-			return <h1>Assistant</h1>;
+			return <NotYet />;
 	}
 };
+
+
+export const NotYet = () => {
+	return (
+		<main className="flex-1 flex items-center justify-center">
+			<h1>Coming soon!</h1>
+		</main>
+	)
+}

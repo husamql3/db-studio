@@ -23,6 +23,9 @@ type ActiveTableStore = {
 	// Filters
 	filters: Filter[];
 
+	// Row selection
+	selectedRowIndices: number[];
+
 	// Actions
 	setActiveTable: (tableName: string | null) => void;
 	setPage: (page: number) => void;
@@ -33,6 +36,10 @@ type ActiveTableStore = {
 	addFilter: (filter: Filter) => void;
 	removeFilter: (index: number) => void;
 	clearFilters: () => void;
+	setSelectedRowIndices: (indices: number[]) => void;
+	toggleRowSelection: (index: number) => void;
+	selectRowRange: (startIndex: number, endIndex: number) => void;
+	clearRowSelection: () => void;
 };
 
 const DEFAULT_PAGE = 1;
@@ -47,6 +54,7 @@ export const useActiveTableStore = create<ActiveTableStore>((set, get) => ({
 	sortColumn: null,
 	sortOrder: DEFAULT_SORT_ORDER,
 	filters: [],
+	selectedRowIndices: [],
 	// Actions
 	setActiveTable: (tableName) => {
 		set({
@@ -56,6 +64,7 @@ export const useActiveTableStore = create<ActiveTableStore>((set, get) => ({
 			sortColumn: null,
 			sortOrder: DEFAULT_SORT_ORDER,
 			filters: [],
+			selectedRowIndices: [],
 		});
 	},
 
@@ -94,6 +103,36 @@ export const useActiveTableStore = create<ActiveTableStore>((set, get) => ({
 			sortColumn: null,
 			sortOrder: DEFAULT_SORT_ORDER,
 			filters: [],
+			selectedRowIndices: [],
 		});
+	},
+
+	setSelectedRowIndices: (indices) => {
+		set({ selectedRowIndices: indices });
+	},
+
+	toggleRowSelection: (index) => {
+		const { selectedRowIndices } = get();
+		const indexPosition = selectedRowIndices.indexOf(index);
+
+		if (indexPosition !== -1) {
+			set({ selectedRowIndices: selectedRowIndices.filter((i) => i !== index) });
+		} else {
+			set({ selectedRowIndices: [...selectedRowIndices, index] });
+		}
+	},
+
+	selectRowRange: (startIndex, endIndex) => {
+		const minIndex = Math.min(startIndex, endIndex);
+		const maxIndex = Math.max(startIndex, endIndex);
+		const newSelection: number[] = [];
+		for (let i = minIndex; i <= maxIndex; i++) {
+			newSelection.push(i);
+		}
+		set({ selectedRowIndices: newSelection });
+	},
+
+	clearRowSelection: () => {
+		set({ selectedRowIndices: [] });
 	},
 }));

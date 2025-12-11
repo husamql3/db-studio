@@ -7,6 +7,7 @@ import { MaximizeBtn } from "./maximize-btn";
 import { RefetchBtn } from "./refetch-btn";
 import { SaveBtn } from "./save-btn";
 import { SettingsBtn } from "./settings-btn";
+import { DeleteBtn } from "./delete-btn";
 
 export const TableHeader = ({
 	table,
@@ -26,6 +27,7 @@ export const TableHeader = ({
 					table={table}
 					rowVirtualizer={rowVirtualizer}
 				/>
+				<DeleteBtn />
 			</div>
 
 			<div className="flex items-center ">

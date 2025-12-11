@@ -150,7 +150,7 @@ export function DataGridSortMenu<TData>({
 		<Sortable
 			value={sorting}
 			onValueChange={onSortingChange}
-			getItemValue={(item) => item.id}
+			getItemValue={(item: ColumnSort) => item.id}
 		>
 			<Popover
 				open={open}
@@ -165,14 +165,6 @@ export function DataGridSortMenu<TData>({
 					>
 						<ArrowDownUp className="text-muted-foreground" />
 						Sort
-						{sorting.length > 0 && (
-							<Badge
-								variant="secondary"
-								className="h-[18.24px] rounded-[3.2px] px-[5.12px] font-mono font-normal text-[10.4px]"
-							>
-								{sorting.length}
-							</Badge>
-						)}
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent
