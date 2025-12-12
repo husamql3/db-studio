@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queries } from "@/providers/queries";
+import { deleteCellsService } from "@/services/delete-cells.service";
 import { useActiveTableStore } from "@/stores/active-table.store";
 import { CACHE_KEYS } from "@/utils/constants/constans";
 
@@ -37,7 +38,7 @@ export const useDeleteCells = () => {
 		}: {
 			rowData: Record<string, unknown>[];
 			force?: boolean;
-		}): Promise<DeleteResult> => {
+		}) => {
 			if (!activeTable) {
 				throw new Error("No active table selected");
 			}
@@ -46,48 +47,7 @@ export const useDeleteCells = () => {
 				throw new Error("No table columns found");
 			}
 
-			// Find primary key column
-			const primaryKeyCol = tableCols.find((col) => col.isPrimaryKey);
-			if (!primaryKeyCol) {
-				throw new Error("No primary key found for this table");
-			}
-
-			// Extract primary key values from each row
-			const primaryKeys = rowData.map((row) => ({
-				columnName: primaryKeyCol.columnName,
-				value: row[primaryKeyCol.columnName],
-			}));
-
-			const payload = {
-				tableName: activeTable,
-				primaryKeys,
-			};
-
-			console.log("Delete payload:", payload);
-
-			const endpoint = force
-				? "http://localhost:3000/records/force"
-				: "http://localhost:3000/records";
-
-			const response = await fetch(endpoint, {
-				method: "DELETE",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(payload),
-			});
-
-			const result: DeleteResult = await response.json();
-
-			// For FK violations (409), we don't throw - we return the result with relatedRecords
-			if (result.fkViolation) {
-				return result;
-			}
-
-			if (!response.ok || !result.success) {
-				throw new Error(result.message || "Failed to delete records");
-			}
-
+			const result = await deleteCellsService(activeTable, tableCols, rowData, force);
 			return result;
 		},
 		onSuccess: async (result) => {

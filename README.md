@@ -1,11 +1,18 @@
 # DB Studio
 
+
+
 <div align="center">
+
+<br>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png">
   <img src="assets/logo-light.png" alt="DB Studio logo" width="100">
 </picture>
+
+<br>
 
 <img src="assets/screenshot.png" alt="DB Studio screenshot" width="1000" />
 
