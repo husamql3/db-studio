@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { createTable } from "./dao/create-table.dao.js";
+import { deleteRecords, forceDeleteRecords } from "./dao/delete-records.dao.js";
 import { insertRecord } from "./dao/insert-record.dao.js";
 import { getTableColumns } from "./dao/table-columns.dao.js";
 import { getTablesList } from "./dao/table-list.dao.js";
@@ -180,6 +181,125 @@ app.patch("/records", async (c) => {
 });
 
 /**
+ * Delete Records
+ * DELETE /records - Delete records from a table
+ * Body: {
+ *   tableName: string,
+ *   primaryKeys: Array<{ columnName: string, value: unknown }>,
+ * }
+ * Returns:
+ *   - success: true if deleted
+ *   - fkViolation: true if FK constraint prevents deletion, includes relatedRecords
+ */
+app.delete("/records", async (c) => {
+	try {
+		const body = await c.req.json();
+		const { tableName, primaryKeys } = body;
+
+		if (!tableName) {
+			return c.json(
+				{
+					success: false,
+					message: "tableName is required",
+				},
+				400,
+			);
+		}
+
+		if (!primaryKeys || !Array.isArray(primaryKeys) || primaryKeys.length === 0) {
+			return c.json(
+				{
+					success: false,
+					message: "primaryKeys array is required and must contain at least one key",
+				},
+				400,
+			);
+		}
+
+		console.log("DELETE /records body", { tableName, primaryKeys });
+		const result = await deleteRecords({ tableName, primaryKeys });
+		console.log("DELETE /records result", result);
+
+		// Return 409 Conflict for FK violations
+		if (result.fkViolation) {
+			return c.json(result, 409);
+		}
+
+		return c.json(result);
+	} catch (error) {
+		console.error("DELETE /records error:", error);
+		const errorDetail =
+			error && typeof error === "object" && "detail" in error
+				? (error as { detail?: string }).detail
+				: undefined;
+		return c.json(
+			{
+				success: false,
+				message: error instanceof Error ? error.message : "Failed to delete records",
+				detail: errorDetail,
+			},
+			500,
+		);
+	}
+});
+
+/**
+ * Force Delete Records (Cascade)
+ * DELETE /records/force - Force delete records and all related FK records
+ * Body: {
+ *   tableName: string,
+ *   primaryKeys: Array<{ columnName: string, value: unknown }>,
+ * }
+ */
+app.delete("/records/force", async (c) => {
+	try {
+		const body = await c.req.json();
+		const { tableName, primaryKeys } = body;
+
+		if (!tableName) {
+			return c.json(
+				{
+					success: false,
+					message: "tableName is required",
+				},
+				400,
+			);
+		}
+
+		if (!primaryKeys || !Array.isArray(primaryKeys) || primaryKeys.length === 0) {
+			return c.json(
+				{
+					success: false,
+					message: "primaryKeys array is required and must contain at least one key",
+				},
+				400,
+			);
+		}
+
+		console.log("DELETE /records/force body", { tableName, primaryKeys });
+		const result = await forceDeleteRecords({ tableName, primaryKeys });
+		console.log("DELETE /records/force result", result);
+
+		return c.json(result);
+	} catch (error) {
+		console.error("DELETE /records/force error:", error);
+		const errorDetail =
+			error && typeof error === "object" && "detail" in error
+				? (error as { detail?: string }).detail
+				: undefined;
+		return c.json(
+			{
+				success: false,
+				message:
+					error instanceof Error ? error.message : "Failed to force delete records",
+				detail: errorDetail,
+			},
+			500,
+		);
+	}
+});
+
+/**
  * Root
  * GET / - Get the root
  */
@@ -191,6 +311,8 @@ app.get("/", (c) => {
 		data: "/tables/:tableName/data",
 		records: "POST /records",
 		updateRecords: "PATCH /records",
+		deleteRecords: "DELETE /records",
+		forceDeleteRecords: "DELETE /records/force",
 	});
 });
 

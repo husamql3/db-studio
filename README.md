@@ -1,9 +1,6 @@
 # DB Studio
 
 <div align="center">
-
-<br><br>
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png">

@@ -1500,7 +1500,11 @@ function useDataGrid<TData>({
 					(target.closest("[data-grid-cell-editor]") ||
 						target.closest("[data-grid-popover]"));
 
-				if (!isInsidePopover) {
+				// Don't clear selection when clicking on elements that need the selection
+				const isInsideGridAction =
+					target instanceof HTMLElement && target.closest("[data-grid-action]");
+
+				if (!isInsidePopover && !isInsideGridAction) {
 					blurCell();
 					const currentState = store.getState();
 					if (
