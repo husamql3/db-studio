@@ -1488,7 +1488,7 @@ function useDataGrid<TData>({
 	}, [autoFocus, data.length, columns.length, store, navigableColumnIds, focusCell]);
 
 	useEffect(() => {
-		function onOutsideClick(event: MouseEvent) {
+		function onOutsideClick(event: globalThis.MouseEvent) {
 			if (event.button === 2) {
 				return;
 			}

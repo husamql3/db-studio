@@ -86,7 +86,7 @@ export const Sidebar = () => {
 				}
 
 				// Set a small delay to avoid accidental triggers
-				hoverTimeoutRef.current = setTimeout(() => {
+				hoverTimeoutRef.current = window.setTimeout(() => {
 					setSidebarOpen(true);
 				}, HOVER_DELAY);
 			} else if (e.clientX > HOVER_ZONE + 50) {

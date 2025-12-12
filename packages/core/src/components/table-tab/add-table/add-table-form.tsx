@@ -9,7 +9,7 @@ import { FormActions } from "./form-actions";
 import { FormContent } from "./form-content";
 import { TableNameField } from "./table-name-field";
 
-const defaultValues: AddTableFormData = {
+const defaultValues = {
 	tableName: "",
 	fields: [
 		{
@@ -22,28 +22,9 @@ const defaultValues: AddTableFormData = {
 			isIdentity: false,
 			isArray: false,
 		},
-		// {
-		// 	columnName: "id",
-		// 	columnType: "uuid",
-		// 	defaultValue: "",
-		// 	isPrimaryKey: false,
-		// 	isNullable: true,
-		// 	isUnique: false,
-		// 	isIdentity: false,
-		// 	isArray: false,
-		// },
-		// {
-		// 	columnName: "created_at",
-		// 	columnType: "timestamp",
-		// 	defaultValue: "now()",
-		// 	isPrimaryKey: false,
-		// 	isNullable: true,
-		// 	isUnique: false,
-		// 	isIdentity: false,
-		// 	isArray: false,
-		// }
 	],
-} as const;
+	foreignKeys: undefined,
+} satisfies AddTableFormData;
 
 export const AddTableForm = () => {
 	const { closeSheet } = useSheetStore();

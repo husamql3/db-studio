@@ -133,9 +133,6 @@ export function DataGridCellWrapper<TData>({
 		},
 		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
 	);
-
-	const rowHeight = meta?.rowHeight ?? "short";
-
 	return (
 		<div
 			role="button"
@@ -146,20 +143,13 @@ export function DataGridCellWrapper<TData>({
 			tabIndex={isFocused && !isEditing ? 0 : -1}
 			className={cn(
 				"size-full px-2 py-1.5 text-left text-sm outline-none has-data-[slot=checkbox]:pt-2.5",
+				"**:data-[slot=grid-cell-content]:line-clamp-1",
 				{
 					"ring-1 ring-ring ring-inset": isFocused,
 					"bg-yellow-100 dark:bg-yellow-900/30": isSearchMatch && !isActiveSearchMatch,
 					"bg-orange-200 dark:bg-orange-900/50": isActiveSearchMatch,
 					"bg-primary/10": isSelected && !isEditing,
 					"cursor-default": !isEditing,
-					"**:data-[slot=grid-cell-content]:line-clamp-1":
-						!isEditing && rowHeight === "short",
-					"**:data-[slot=grid-cell-content]:line-clamp-2":
-						!isEditing && rowHeight === "medium",
-					"**:data-[slot=grid-cell-content]:line-clamp-3":
-						!isEditing && rowHeight === "tall",
-					"**:data-[slot=grid-cell-content]:line-clamp-4":
-						!isEditing && rowHeight === "extra-tall",
 				},
 				className,
 			)}

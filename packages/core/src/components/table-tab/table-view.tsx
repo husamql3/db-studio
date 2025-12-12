@@ -6,6 +6,7 @@ import { useTableData } from "@/hooks/use-table-data";
 import { queries } from "@/providers/queries";
 import { useActiveTableStore } from "@/stores/active-table.store";
 import { useTableReloadStore } from "@/stores/table-reload.store";
+import type { DataType } from "@/types/table-grid.type";
 import { getCellVariant } from "@/utils/table-grid.helpers";
 import { DataGrid } from "../data-grid/data-grid";
 import { Checkbox } from "../ui/checkbox";
@@ -63,7 +64,7 @@ export const TableView = () => {
 				accessorKey: col.columnName,
 				header: col.columnName,
 				meta: {
-					cell: getCellVariant(col.dataType),
+					cell: getCellVariant(col.dataType as DataType), // todo: fix
 					dataTypeLabel: col.dataTypeLabel,
 					isPrimaryKey: col.isPrimaryKey,
 				},
