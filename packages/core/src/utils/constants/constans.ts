@@ -24,4 +24,4 @@ export const CACHE_KEYS = {
 export const API_URL =
 	process.env.NODE_ENV === "development"
 		? "http://localhost:8787"
-		: process.env.VITE_API_URL;
+		: "https://db-studio-server.husamql3.workers.dev";
