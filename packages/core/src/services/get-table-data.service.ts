@@ -1,4 +1,5 @@
 import type { Filter } from "@/stores/active-table.store";
+import { API_URL } from "@/utils/constants/constans";
 
 export interface TableDataResult {
 	data: Record<string, unknown>[];
@@ -33,7 +34,7 @@ export const getTableData = async (
 
 	try {
 		const response = await fetch(
-			`/api/tables/${tableName}/data?${queryParams.toString()}`,
+			`${API_URL}/tables/${tableName}/data?${queryParams.toString()}`,
 		);
 		if (!response.ok) {
 			throw new Error("Failed to fetch table data");

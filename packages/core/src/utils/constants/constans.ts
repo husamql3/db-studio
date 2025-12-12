@@ -20,3 +20,8 @@ export const CACHE_KEYS = {
 	TABLE_COLS: "table-cols",
 	TABLE_NAMES: "table-names",
 };
+
+export const API_URL =
+	process.env.NODE_ENV === "development"
+		? "http://localhost:8787"
+		: process.env.VITE_API_URL;

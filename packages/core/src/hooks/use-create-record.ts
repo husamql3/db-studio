@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useActiveTableStore } from "@/stores/active-table.store";
 import { useSheetStore } from "@/stores/sheet.store";
-import { CACHE_KEYS } from "@/utils/constants/constans";
+import { API_URL, CACHE_KEYS } from "@/utils/constants/constans";
 
 export interface AddRecordFormData {
 	[key: string]: string;
@@ -16,7 +16,7 @@ export const useCreateRecord = () => {
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
 		mutationFn: async (data: AddRecordFormData) => {
 			console.log("payload", data);
-			const res = await fetch("/api/records", {
+			const res = await fetch(`${API_URL}/records`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

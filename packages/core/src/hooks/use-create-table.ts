@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSheetStore } from "@/stores/sheet.store";
-import { CACHE_KEYS } from "@/utils/constants/constans";
+import { API_URL, CACHE_KEYS } from "@/utils/constants/constans";
 
 export interface FieldData {
 	columnName: string;
@@ -25,7 +25,7 @@ export const useCreateTable = () => {
 
 	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
 		mutationFn: async (data: AddTableFormData) => {
-			const res = await fetch("/api/tables", {
+			const res = await fetch(`${API_URL}/tables`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

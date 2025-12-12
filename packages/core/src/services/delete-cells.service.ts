@@ -1,4 +1,5 @@
 import type { DeleteResult } from "@/hooks/use-delete-cells";
+import { API_URL } from "@/utils/constants/constans";
 import type { ColumnInfo } from "./get-table-cols.service";
 
 export const deleteCellsService = async (
@@ -7,7 +8,7 @@ export const deleteCellsService = async (
 	rowData: Record<string, unknown>[],
 	force: boolean,
 ): Promise<DeleteResult> => {
-	const endpoint = force ? "/api/records/force" : "/api/records";
+	const endpoint = force ? "/records/force" : "/records";
 
 	// Find primary key column
 	const primaryKeyCol = tableCols.find((col) => col.isPrimaryKey);
@@ -26,7 +27,7 @@ export const deleteCellsService = async (
 		primaryKeys,
 	};
 
-	const res = await fetch(endpoint, {
+	const res = await fetch(`${API_URL}${endpoint}`, {
 		method: "DELETE",
 		headers: {
 			"Content-Type": "application/json",

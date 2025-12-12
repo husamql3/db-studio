@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useActiveTableStore } from "@/stores/active-table.store";
 import { type CellUpdate, useUpdateCellStore } from "@/stores/update-cell.store";
-import { CACHE_KEYS } from "@/utils/constants/constans";
+import { API_URL, CACHE_KEYS } from "@/utils/constants/constans";
 
 export const useUpdateCell = () => {
 	const queryClient = useQueryClient();
@@ -29,7 +29,7 @@ export const useUpdateCell = () => {
 
 			console.log("Sending update payload:", payload);
 
-			const response = await fetch("http://localhost:3000/records", {
+			const response = await fetch(`${API_URL}/records`, {
 				method: "PATCH",
 				headers: {
 					"Content-Type": "application/json",
