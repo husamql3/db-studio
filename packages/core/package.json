@@ -7,7 +7,8 @@
     "dev": "concurrently \"bun run dev:frontend\" \"bun run dev:server\"",
     "dev:frontend": "vite",
     "dev:server": "cd server && bun run dev",
-    "build": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
     "scan": "npx react-scan@latest http://localhost:5173",
     "check": "biome check --write --unsafe --verbose"
