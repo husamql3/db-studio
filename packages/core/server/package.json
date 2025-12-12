@@ -2,20 +2,18 @@
 	"name": "server",
 	"type": "module",
 	"scripts": {
-		"dev": "tsx watch src/index.ts",
-		"build": "tsc",
-		"start": "node dist/index.js"
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy --minify",
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings"
 	},
 	"dependencies": {
-		"@hono/node-server": "^1.19.6",
-		"@types/pg": "^8.15.6",
-		"dotenv": "^17.2.3",
-		"hono": "^4.10.4",
-		"pg": "^8.16.3"
+		"@neondatabase/serverless": "^0.10.4",
+		"hono": "^4.10.4"
 	},
 	"devDependencies": {
 		"@types/node": "^20.11.17",
 		"tsx": "^4.7.1",
-		"typescript": "^5.8.3"
+		"typescript": "^5.8.3",
+		"wrangler": "^4.4.0"
 	}
 }
