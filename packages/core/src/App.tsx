@@ -1,5 +1,5 @@
+import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { Tabs } from "@/components/tabs";
 import { useTheme } from "@/hooks/use-theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
@@ -21,7 +21,7 @@ export function App() {
 					marginLeft: isPinned ? `${width}px` : "0",
 				}}
 			>
-				<Tabs />
+				<Header />
 				{/* <Tabs />
 				<MainContent /> */}
 			</div>

@@ -19,3 +19,7 @@ export const TABS = [
 	{ id: "visualizer", label: "Visualizer" },
 	// { id: "assistant", label: "Assistant" },
 ];
+
+export const LINKS = {
+	GITHUB: "https://github.com/husamql3/db-studio",
+};
