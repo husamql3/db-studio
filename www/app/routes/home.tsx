@@ -25,6 +25,8 @@ export async function loader() {
 	return { stars: formattedCount };
 }
 
+// https://efferd.com/view/cta-12
+
 export default function Home({ loaderData }: { loaderData: { stars: string } }) {
 	return (
 		<div className="min-h-screen w-full flex flex-col h-full">
