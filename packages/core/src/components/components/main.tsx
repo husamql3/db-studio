@@ -1,4 +1,5 @@
 import { useQueryState } from "nuqs";
+import { TableTab } from "@/components/table-tab/table-tab";
 import { CONSTANTS } from "@/utils/constants";
 
 export const Main = () => {
@@ -6,11 +7,9 @@ export const Main = () => {
 		shallow: true,
 	});
 
-	console.log(activeTab);
-
 	switch (activeTab) {
 		case "table":
-			return <h1>Table</h1>;
+			return <TableTab />;
 		case "indexes":
 			return <NotYet tab={activeTab} />;
 		case "runner":
@@ -23,6 +22,12 @@ export const Main = () => {
 			return <NotYet tab={activeTab} />;
 		case "assistant":
 			return <NotYet tab={activeTab} />;
+		default:
+			return (
+				<main className="flex-1 flex items-center justify-center">
+					<h1>404</h1>
+				</main>
+			);
 	}
 };
 
