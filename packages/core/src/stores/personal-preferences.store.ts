@@ -23,7 +23,7 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 	persist(
 		(set) => ({
 			sidebar: {
-				width: 260,
+				width: 400,
 				isOpen: true,
 				isPinned: true,
 			},
