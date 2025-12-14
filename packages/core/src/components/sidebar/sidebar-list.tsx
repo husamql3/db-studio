@@ -18,7 +18,7 @@ export const SidebarList = () => {
 
 	if (isLoadingTablesList) {
 		return (
-			<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
+			<div className="flex-1 h-full overflow-y-auto pb-3 h-full flex items-center justify-center">
 				<Spinner size="size-6" />
 			</div>
 		);
