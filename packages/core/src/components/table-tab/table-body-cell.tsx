@@ -1,10 +1,7 @@
 import { type Cell, flexRender } from "@tanstack/react-table";
+import type { TableRecord } from "@/types/table.type";
 
-interface TableBodyCellProps {
-	cell: Cell<Record<string, unknown>, unknown>;
-}
-
-export const TableBodyCell = ({ cell }: TableBodyCellProps) => {
+export const TableBodyCell = ({ cell }: { cell: Cell<TableRecord, unknown> }) => {
 	return (
 		<td
 			key={cell.id}

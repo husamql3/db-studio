@@ -2,10 +2,11 @@ import type { Row, Table } from "@tanstack/react-table";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import type { RefObject } from "react";
 import { TableBodyRow } from "@/components/table-tab/table-body-row";
+import type { TableRecord } from "@/types/table.type";
 
 interface TableBodyProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
-	table: Table<Record<string, unknown>>;
+	table: Table<TableRecord>;
 	tableContainerRef: RefObject<HTMLDivElement | null>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
@@ -44,7 +45,7 @@ export const TableBody = ({
 			}}
 		>
 			{virtualRows.map((virtualRow) => {
-				const row = rows[virtualRow.index] as Row<Record<string, unknown>>;
+				const row = rows[virtualRow.index] as Row<TableRecord>;
 
 				return (
 					<TableBodyRow

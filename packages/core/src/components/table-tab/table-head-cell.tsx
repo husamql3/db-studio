@@ -1,4 +1,5 @@
 import { flexRender, type Header } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
 
 interface TableHeadCellProps {
 	header: Header<Record<string, unknown>, unknown>;
@@ -15,7 +16,7 @@ export const TableHeadCell = ({ header }: TableHeadCellProps) => {
 		>
 			<div
 				{...{
-					className: header.column.getCanSort() ? "cursor-pointer select-none" : "",
+					className: cn(header.column.getCanSort() ? "cursor-pointer select-none" : ""),
 					onClick: header.column.getToggleSortingHandler(),
 				}}
 			>

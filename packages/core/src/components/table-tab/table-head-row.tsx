@@ -1,12 +1,14 @@
-import type { HeaderGroup } from "@tanstack/react-table";
+import { flexRender, type HeaderGroup, type Table } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { TableHeadCell } from "@/components/table-tab/table-head-cell";
+import { cn } from "@/lib/utils";
+import type { TableRecord } from "@/types/table.type";
 
 interface TableHeadRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
-	headerGroup: HeaderGroup<Record<string, unknown>>;
+	headerGroup: HeaderGroup<TableRecord>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
+	table: Table<TableRecord>;
 }
 
 export const TableHeadRow = ({
@@ -14,13 +16,18 @@ export const TableHeadRow = ({
 	headerGroup,
 	virtualPaddingLeft,
 	virtualPaddingRight,
+	table,
 }: TableHeadRowProps) => {
 	const virtualColumns = columnVirtualizer.getVirtualItems();
+	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
 	return (
 		<tr
 			key={headerGroup.id}
-			style={{ display: "flex", width: "100%" }}
+			className={cn(
+				"flex w-full border-b items-center justify-between text-sm hover:bg-accent/40 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+				isAnyColumnResizing && "pointer-events-none",
+			)}
 		>
 			{virtualPaddingLeft ? (
 				//fake empty column to the left for virtualization scroll padding
@@ -29,10 +36,40 @@ export const TableHeadRow = ({
 			{virtualColumns.map((virtualColumn) => {
 				const header = headerGroup.headers[virtualColumn.index];
 				return (
-					<TableHeadCell
+					<th
 						key={header.id}
-						header={header}
-					/>
+						className="h-full flex"
+						style={{
+							display: "flex",
+							width: virtualColumn.index === 0 ? "40px" : header.getSize(),
+						}}
+					>
+						<div
+							{...{
+								className: cn(
+									"w-full h-full flex items-center justify-between gap-2 p-2 text-sm hover:bg-accent/40 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+									header.column.getCanSort() ? "cursor-pointer select-none" : "",
+								),
+								onClick: header.column.getToggleSortingHandler(),
+							}}
+						>
+							{virtualColumn.index === 0 ? (
+								flexRender(header.column.columnDef.header, header.getContext())
+							) : (
+								<div className="flex items-center justify-between w-full">
+									<span className="text-sm leading-none">
+										{flexRender(header.column.columnDef.header, header.getContext())}
+									</span>
+									<span className="text-xs leading-none">
+										{{
+											asc: " 🔼",
+											desc: " 🔽",
+										}[header.column.getIsSorted() as string] ?? null}
+									</span>
+								</div>
+							)}
+						</div>
+					</th>
 				);
 			})}
 			{virtualPaddingRight ? (

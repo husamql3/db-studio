@@ -16,18 +16,12 @@ export const TableHead = ({
 	virtualPaddingRight,
 }: TableHeadProps) => {
 	return (
-		<thead
-			style={{
-				display: "grid",
-				position: "sticky",
-				top: 0,
-				zIndex: 1,
-			}}
-		>
+		<thead className="h-10 grid sticky top-0 z-10 bg-black">
 			{table.getHeaderGroups().map((headerGroup) => (
 				<TableHeadRow
 					columnVirtualizer={columnVirtualizer}
 					headerGroup={headerGroup}
+					table={table}
 					key={headerGroup.id}
 					virtualPaddingLeft={virtualPaddingLeft}
 					virtualPaddingRight={virtualPaddingRight}

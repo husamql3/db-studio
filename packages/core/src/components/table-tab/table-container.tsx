@@ -3,12 +3,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useRef } from "react";
 import { TableBody } from "@/components/table-tab/table-body";
 import { TableHead } from "@/components/table-tab/table-head";
+import type { TableRecord } from "@/types/table.type";
 
-interface TableContainerProps {
-	table: Table<Record<string, unknown>>;
-}
-
-export const TableContainer = ({ table }: TableContainerProps) => {
+export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 	const visibleColumns = table.getVisibleLeafColumns();
 
 	//The virtualizers need to know the scrollable container element

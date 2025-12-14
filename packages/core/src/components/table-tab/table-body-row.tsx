@@ -1,10 +1,10 @@
-import type { Row } from "@tanstack/react-table";
+import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
-import { TableBodyCell } from "@/components/table-tab/table-body-cell";
+import type { TableRecord } from "@/types/table.type";
 
 interface TableBodyRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
-	row: Row<Record<string, unknown>>;
+	row: Row<TableRecord>;
 	rowVirtualizer: Virtualizer<HTMLDivElement, HTMLTableRowElement>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
@@ -26,28 +26,32 @@ export const TableBodyRow = ({
 			data-index={virtualRow.index} //needed for dynamic row height measurement
 			ref={(node) => rowVirtualizer.measureElement(node)} //measure dynamic row height
 			key={row.id}
+			className="flex absolute w-full border-b items-center justify-between text-sm hover:bg-accent/40 data-[state=open]:bg-accent/40 [&_svg]:size-4"
 			style={{
-				display: "flex",
-				position: "absolute",
 				transform: `translateY(${virtualRow.start}px)`, //this should always be a `style` as it changes on scroll
-				width: "100%",
 			}}
 		>
 			{virtualPaddingLeft ? (
-				//fake empty column to the left for virtualization scroll padding
+				// fake empty column to the left for virtualization scroll padding
 				<td style={{ display: "flex", width: virtualPaddingLeft }} />
 			) : null}
 			{virtualColumns.map((vc) => {
 				const cell = visibleCells[vc.index];
 				return (
-					<TableBodyCell
+					<td
 						key={cell.id}
-						cell={cell}
-					/>
+						className="p-2"
+						style={{
+							display: "flex",
+							width: vc.index === 0 ? "40px" : cell.column.getSize(),
+						}}
+					>
+						{flexRender(cell.column.columnDef.cell, cell.getContext())}
+					</td>
 				);
 			})}
 			{virtualPaddingRight ? (
-				//fake empty column to the right for virtualization scroll padding
+				// fake empty column to the right for virtualization scroll padding
 				<td style={{ display: "flex", width: virtualPaddingRight }} />
 			) : null}
 		</tr>
