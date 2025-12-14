@@ -8,7 +8,10 @@ import App from "./App.tsx";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
 	<StrictMode>
-		<NuqsAdapter fullPageNavigationOnShallowFalseUpdates>
+		<NuqsAdapter
+			fullPageNavigationOnShallowFalseUpdates
+			defaultOptions={{ shallow: true }}
+		>
 			<ReactQueryProvider>
 				<App />
 			</ReactQueryProvider>

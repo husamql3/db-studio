@@ -5,13 +5,17 @@ import {
 	type Row,
 	useReactTable,
 } from "@tanstack/react-table";
+import { useQueryState } from "nuqs";
 import { useMemo } from "react";
 import { TableContainer } from "@/components/table-tab/table-container";
 import type { TableRecord } from "@/types/table.type";
+import { CONSTANTS } from "@/utils/constants";
 import { makeColumns, makeData } from "@/utils/make-data";
 import { Checkbox } from "../ui/checkbox";
 
 export const TableTab = () => {
+	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
 			{
@@ -49,7 +53,29 @@ export const TableTab = () => {
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		debugTable: true,
+		onSortingChange: (sorting) => {
+			console.log(sorting);
+		},
+		onPaginationChange: (pagination) => {
+			console.log(pagination);
+		},
+		onRowSelectionChange: (rowSelection) => {
+			console.log(rowSelection);
+		},
+		onColumnSizingChange: (columnSizing) => {
+			console.log(columnSizing);
+		},
+		onColumnVisibilityChange: (columnVisibility) => {
+			console.log(columnVisibility);
+		},
+		onColumnOrderChange: (columnOrder) => {
+			console.log(columnOrder);
+		},
 	});
+
+	if (!activeTable) {
+		return <div>No table selected</div>;
+	}
 
 	return <TableContainer table={table} />;
 };

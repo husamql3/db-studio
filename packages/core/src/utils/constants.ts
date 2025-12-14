@@ -4,9 +4,29 @@ export const CONSTANTS = {
 	//* cache keys
 	TABLES_LIST: "tables-list",
 
-	ACTIVE_TABLE: "t", // query state key for active table
+	//* table state keys
+	ACTIVE_TABLE: "table", // query state key for active table
+	SORT: "sort",
+	ORDER: "order",
+	PAGE: "page",
+	LIMIT: "limit",
+	FILTERS: "filters",
+	COLUMN_NAME: "col-name",
+	COLUMN_OPERATOR: "col-operator",
+	COLUMN_VALUE: "col-value",
+	FILTER_OPERATORS: {
+		EQUAL: "eq",
+		NOT_EQUAL: "neq",
+		GREATER_THAN: "gt",
+		LESS_THAN: "lt",
+		GREATER_THAN_OR_EQUAL: "gte",
+		LESS_THAN_OR_EQUAL: "lte",
+	},
+
+	//* tab state keys
 	ACTIVE_TAB: "tab", // query state key for active tab
 
+	//* other constants
 	HOVER_ZONE: 20, // pixels from left edge
 	HOVER_DELAY: 100, // ms delay before opening
 };

@@ -1,5 +1,6 @@
 import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
+import { cn } from "@/lib/utils";
 import type { TableRecord } from "@/types/table.type";
 
 interface TableBodyRowProps {
@@ -40,9 +41,11 @@ export const TableBodyRow = ({
 				return (
 					<td
 						key={cell.id}
-						className="p-2"
+						className={cn(
+							"flex p-2 border-r border-zinc-800 h-9",
+							vc.index === virtualColumns.length - 1 ? "border-r-0" : "",
+						)}
 						style={{
-							display: "flex",
 							width: vc.index === 0 ? "40px" : cell.column.getSize(),
 						}}
 					>
