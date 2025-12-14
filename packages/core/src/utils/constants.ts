@@ -5,6 +5,7 @@ export const CONSTANTS = {
 	TABLES_LIST: "tables-list",
 
 	ACTIVE_TABLE: "t", // query state key for active table
+	ACTIVE_TAB: "tab", // query state key for active tab
 
 	HOVER_ZONE: 20, // pixels from left edge
 	HOVER_DELAY: 100, // ms delay before opening

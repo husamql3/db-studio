@@ -1,6 +1,6 @@
 import { IconBrandGithub, IconSparkles } from "@tabler/icons-react";
+import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
-import { Tabs } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
 import { LINKS } from "@/utils/constants";
 
@@ -17,7 +17,7 @@ export const Header = () => {
 					variant="ghost"
 					className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
 				>
-					<IconSparkles className="size-6" />
+					<IconSparkles className="size-5" />
 				</Button>
 
 				<Button

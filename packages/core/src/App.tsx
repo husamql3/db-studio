@@ -1,4 +1,6 @@
-import { Header } from "@/components/header";
+import { CommandPalette } from "@/components/components/command-palette";
+import { Header } from "@/components/components/header";
+import { Main } from "@/components/components/main";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { useTheme } from "@/hooks/use-theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
@@ -22,9 +24,10 @@ export function App() {
 				}}
 			>
 				<Header />
-				{/* <Tabs />
-				<MainContent /> */}
+				<Main />
 			</div>
+
+			<CommandPalette />
 		</div>
 	);
 }
