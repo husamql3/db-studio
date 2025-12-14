@@ -128,6 +128,9 @@
     }
 }
 
+button {
+	cursor: pointer;
+}
 
 @theme inline {
   --color-primary: var(--primary);

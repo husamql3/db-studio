@@ -146,6 +146,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 				ref={sheetContentRef}
 				side="left"
 				showCloseButton={false}
+				isPinned={isPinned}
 				className={cn(
 					"bg-black border-r border-zinc-800 p-0",
 					"transition-transform duration-300 ease-out",
