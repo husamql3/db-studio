@@ -41,12 +41,10 @@ export const TableBodyRow = ({
 				return (
 					<td
 						key={cell.id}
-						className={cn(
-							"flex p-2 border-r border-zinc-800 h-9",
-							vc.index === virtualColumns.length - 1 ? "border-r-0" : "",
-						)}
+						className={cn("flex border-r border-zinc-800 h-8")}
 						style={{
 							width: vc.index === 0 ? "40px" : cell.column.getSize(),
+							// height: "33px",
 						}}
 					>
 						{flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -8,16 +8,16 @@ import type { TableRecord } from "@/types/table.type";
 export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 	const visibleColumns = table.getVisibleLeafColumns();
 
-	//The virtualizers need to know the scrollable container element
+	// The virtualizers need to know the scrollable container element
 	const tableContainerRef = useRef<HTMLDivElement | null>(null);
 
-	//we are using a slightly different virtualization strategy for columns (compared to virtual rows) in order to support dynamic row heights
+	// we are using a slightly different virtualization strategy for columns (compared to virtual rows) in order to support dynamic row heights
 	const columnVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableCellElement>({
 		count: visibleColumns.length,
 		estimateSize: (index) => visibleColumns[index].getSize(), //estimate width of each column for accurate scrollbar dragging
 		getScrollElement: () => tableContainerRef.current,
 		horizontal: true,
-		overscan: 3, //how many columns to render on each side off screen each way (adjust this for performance)
+		overscan: 3, // how many columns to render on each side off screen each way (adjust this for performance)
 	});
 
 	const virtualColumns = columnVirtualizer.getVirtualItems();

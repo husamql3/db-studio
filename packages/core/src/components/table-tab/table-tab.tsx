@@ -12,6 +12,7 @@ import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { makeColumns, makeData } from "@/utils/make-data";
 import { Checkbox } from "../ui/checkbox";
+import { TableCell } from "./table-cell";
 
 export const TableTab = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
@@ -19,6 +20,14 @@ export const TableTab = () => {
 	const [order] = useQueryState(CONSTANTS.ORDER);
 	const [rowSelection, setRowSelection] = useState({});
 	const [columnSizing, setColumnSizing] = useState({});
+	const [focusedCell, setFocusedCell] = useState<{
+		rowIndex: number;
+		columnId: string;
+	} | null>(null);
+	const [editingCell, setEditingCell] = useState<{
+		rowIndex: number;
+		columnId: string;
+	} | null>(null);
 
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
@@ -62,6 +71,12 @@ export const TableTab = () => {
 	const table = useReactTable({
 		data,
 		columns,
+		defaultColumn: {
+			cell: TableCell,
+			size: 50,
+			minSize: 100,
+			maxSize: 500,
+		},
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		debugTable: true,
@@ -69,6 +84,26 @@ export const TableTab = () => {
 			sorting,
 			rowSelection,
 			columnSizing,
+		},
+		meta: {
+			focusedCell,
+			editingCell,
+			onCellClick: (rowIndex: number, columnId: string) => {
+				setFocusedCell({ rowIndex, columnId });
+			},
+			onCellDoubleClick: (rowIndex: number, columnId: string) => {
+				setEditingCell({ rowIndex, columnId });
+			},
+			onCellEditingStart: (rowIndex: number, columnId: string) => {
+				setEditingCell({ rowIndex, columnId });
+			},
+			onCellEditingStop: () => {
+				setEditingCell(null);
+			},
+			onDataUpdate: (update) => {
+				console.log("Data update:", update);
+			},
+			getIsCellSelected: () => false,
 		},
 		manualSorting: false,
 		enableRowSelection: true,

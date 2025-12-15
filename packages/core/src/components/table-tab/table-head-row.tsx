@@ -96,7 +96,6 @@ export const TableHeadRow = ({
 								className: cn(
 									"relative w-full h-full flex items-center justify-between gap-2 text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
 									"border-r border-zinc-800",
-									virtualColumn.index === virtualColumns.length - 1 ? "border-r-0" : "",
 									header.column.getCanSort() ? "cursor-pointer select-none" : "",
 								),
 								// onClick: header.column.getToggleSortingHandler(),
