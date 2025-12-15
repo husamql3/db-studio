@@ -7,7 +7,7 @@ export const CONSTANTS = {
 	TABLE_COLUMNS: "table-columns",
 	TABLE_DATA: "table-data",
 	TABLE_DEFAULT_PAGE: 1,
-	TABLE_DEFAULT_LIMIT: 50,
+	TABLE_DEFAULT_LIMIT: 10, // todo: change to 50
 
 	//* table state keys
 	ACTIVE_TABLE: "table", // query state key for active table

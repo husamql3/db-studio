@@ -1,6 +1,6 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import type { TableRecord } from "@/types/table.type";
-import { TableTextCell } from "./table-text-cell";
+import { TableBooleanCell, TableTextCell } from "./table-cell-variant";
 
 export const TableCell = ({
 	cell,
@@ -23,16 +23,85 @@ export const TableCell = ({
 		meta?.editingCell?.rowIndex === rowIndex && meta?.editingCell?.columnId === columnId;
 	const isSelected = meta?.getIsCellSelected?.(rowIndex, columnId) ?? false;
 
-	// const cellVariant = cell.options.cell;
-	return (
-		<TableTextCell
-			cell={cell}
-			table={table}
-			rowIndex={rowIndex}
-			columnId={columnId}
-			isEditing={isEditing}
-			isFocused={isFocused}
-			isSelected={isSelected}
-		/>
-	);
+	const cellVariant = cell.column.columnDef.meta?.variant;
+
+	switch (cellVariant) {
+		case "text":
+			return (
+				<TableTextCell
+					cell={cell}
+					table={table}
+					rowIndex={rowIndex}
+					columnId={columnId}
+					isEditing={isEditing}
+					isFocused={isFocused}
+					isSelected={isSelected}
+				/>
+			);
+		// boolean is true/false
+		case "boolean":
+			return (
+				<TableBooleanCell
+					cell={cell}
+					table={table}
+					rowIndex={rowIndex}
+					columnId={columnId}
+					isEditing={isEditing}
+					isFocused={isFocused}
+					isSelected={isSelected}
+				/>
+			);
+		case "number":
+			// return a number input
+			return (
+				<TableTextCell
+					cell={cell}
+					table={table}
+					rowIndex={rowIndex}
+					columnId={columnId}
+					isEditing={isEditing}
+					isFocused={isFocused}
+					isSelected={isSelected}
+				/>
+			);
+		case "enum":
+			// return a dropdown of enum values
+			return (
+				<TableTextCell
+					cell={cell}
+					table={table}
+					rowIndex={rowIndex}
+					columnId={columnId}
+					isEditing={isEditing}
+					isFocused={isFocused}
+					isSelected={isSelected}
+				/>
+			);
+		case "date":
+			// return a date picker
+			return (
+				<TableTextCell
+					cell={cell}
+					table={table}
+					rowIndex={rowIndex}
+					columnId={columnId}
+					isEditing={isEditing}
+					isFocused={isFocused}
+					isSelected={isSelected}
+				/>
+			);
+		case "json":
+			// return a json editor
+			return (
+				<TableTextCell
+					cell={cell}
+					table={table}
+					rowIndex={rowIndex}
+					columnId={columnId}
+					isEditing={isEditing}
+					isFocused={isFocused}
+					isSelected={isSelected}
+				/>
+			);
+	}
 };

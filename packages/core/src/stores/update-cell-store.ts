@@ -52,7 +52,7 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 					originalValue,
 				});
 			}
-
+			console.log("setUpdate", { rowData, columnName, newValue, originalValue });
 			return { updates: newUpdates };
 		});
 	},

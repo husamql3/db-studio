@@ -8,7 +8,6 @@ import {
 } from "@tabler/icons-react";
 import {
 	flexRender,
-	type Header,
 	type HeaderGroup,
 	type SortDirection,
 	type Table,
@@ -16,7 +15,9 @@ import {
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { Key, Link } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { memo, useCallback } from "react";
+import { useCallback } from "react";
+import { TableColumnResizer } from "@/components/table-tab/table-col-resizer";
+import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -28,7 +29,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
-import { Button } from "../ui/button";
 
 interface TableHeadRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
@@ -52,9 +52,6 @@ export const TableHeadRow = ({
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
-	console.log(headerGroup.headers);
-	// const isPrimaryKey = headerGroup.headers[0].column.columnDef.meta?.isPrimaryKey;
-
 	const createSortHandler = useCallback(
 		(columnId: string) => (direction: SortDirection | null) => {
 			if (direction === null) {
@@ -76,7 +73,7 @@ export const TableHeadRow = ({
 		<tr
 			key={headerGroup.id}
 			className={cn(
-				"flex w-full border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+				"flex w-fit bg-black border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
 				isAnyColumnResizing && "pointer-events-none",
 			)}
 		>
@@ -88,6 +85,7 @@ export const TableHeadRow = ({
 				const header = headerGroup.headers[virtualColumn.index];
 				const isPrimaryKey = header.column.columnDef.meta?.isPrimaryKey;
 				const isForeignKey = header.column.columnDef.meta?.isForeignKey;
+				const dataTypeLabel = header.column.columnDef.meta?.dataTypeLabel;
 
 				return (
 					<th
@@ -116,30 +114,42 @@ export const TableHeadRow = ({
 										<DropdownMenuTrigger asChild>
 											<Button
 												variant="outline"
-												className="p-2 border-none w-full h-full bg-transparent! rounded-none"
+												className="p-2 border-none w-full h-full bg-transparent! rounded-none justify-between"
 											>
 												{/* TODO: add a tooltip for the icon */}
-												{isPrimaryKey && (
-													<Key
-														size={20}
-														className="text-primary"
-													/>
-												)}
-												{isForeignKey && (
-													<Link
-														size={20}
-														className="text-primary"
-													/>
-												)}
+												<div className="flex items-center gap-1">
+													{isPrimaryKey && (
+														<Key
+															size={20}
+															className="text-primary"
+														/>
+													)}
+													{isForeignKey && (
+														<Link
+															size={20}
+															className="text-primary"
+														/>
+													)}
+													{flexRender(
+														header.column.columnDef.header,
+														header.getContext(),
+													)}
+												</div>
 
-												{flexRender(header.column.columnDef.header, header.getContext())}
+												<div className="flex items-center gap-1">
+													{dataTypeLabel && (
+														<span className="text-xs leading-none text-muted-foreground">
+															{dataTypeLabel}
+														</span>
+													)}
 
-												<span className="text-xs leading-none ml-auto">
-													{{
-														asc: <IconChevronDown />,
-														desc: <IconChevronUp />,
-													}[header.column.getIsSorted() as "asc" | "desc"] ?? null}
-												</span>
+													<span className="text-xs leading-none text-muted-foreground">
+														{{
+															asc: <IconChevronDown />,
+															desc: <IconChevronUp />,
+														}[header.column.getIsSorted() as "asc" | "desc"] ?? null}
+													</span>
+												</div>
 											</Button>
 										</DropdownMenuTrigger>
 										<DropdownMenuContent
@@ -175,7 +185,7 @@ export const TableHeadRow = ({
 									</DropdownMenu>
 
 									{header.column.getCanResize() && (
-										<DataGridColumnResizer
+										<TableColumnResizer
 											header={header}
 											table={table}
 											label={header.column.id}
@@ -194,55 +204,3 @@ export const TableHeadRow = ({
 		</tr>
 	);
 };
-const DataGridColumnResizer = memo(DataGridColumnResizerImpl, (prev, next) => {
-	const prevColumn = prev.header.column;
-	const nextColumn = next.header.column;
-
-	if (
-		prevColumn.getIsResizing() !== nextColumn.getIsResizing() ||
-		prevColumn.getSize() !== nextColumn.getSize()
-	) {
-		return false;
-	}
-
-	if (prev.label !== next.label) return false;
-
-	return true;
-}) as typeof DataGridColumnResizerImpl;
-
-interface DataGridColumnResizerProps {
-	header: Header<TableRecord, unknown>;
-	table: Table<TableRecord>;
-	label: string;
-}
-
-function DataGridColumnResizerImpl({ header, table, label }: DataGridColumnResizerProps) {
-	const defaultColumnDef = table._getDefaultColumnDef();
-
-	const onDoubleClick = useCallback(() => {
-		table.setColumnSizing((old) => {
-			const newSizing = { ...old };
-			delete newSizing[header.column.id];
-			return newSizing;
-		});
-	}, [header.column.id, table]);
-
-	return (
-		<div
-			role="separator"
-			aria-orientation="vertical"
-			aria-label={`Resize ${label} column`}
-			aria-valuenow={header.column.getSize()}
-			aria-valuemin={defaultColumnDef.minSize}
-			aria-valuemax={defaultColumnDef.maxSize}
-			tabIndex={0}
-			className={cn(
-				"after:-translate-x-1/2 -right-px absolute top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none select-none bg-border transition-opacity after:absolute after:inset-y-0 after:left-1/2 after:h-full after:w-[18px] after:content-[''] hover:bg-primary focus:bg-primary focus:outline-none",
-				header.column.getIsResizing() ? "bg-primary" : "opacity-0 hover:opacity-100",
-			)}
-			onDoubleClick={onDoubleClick}
-			onMouseDown={header.getResizeHandler()}
-			onTouchStart={header.getResizeHandler()}
-		/>
-	);
-}

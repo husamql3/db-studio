@@ -27,7 +27,7 @@ export const TableBodyRow = ({
 			data-index={virtualRow.index} //needed for dynamic row height measurement
 			ref={(node) => rowVirtualizer.measureElement(node)} //measure dynamic row height
 			key={row.id}
-			className="flex absolute w-full border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4"
+			className="flex absolute w-fit border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4"
 			style={{
 				transform: `translateY(${virtualRow.start}px)`, //this should always be a `style` as it changes on scroll
 			}}

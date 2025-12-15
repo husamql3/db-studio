@@ -1,5 +1,5 @@
 import type { RowData } from "@tanstack/react-table";
-import type { DataTypes } from "server/src/types/column.types";
+import type { DataTypes, StandardizedDataType } from "server/src/types/column.types";
 export type TableRecord = Record<string, unknown>;
 export type SortDirection = "asc" | "desc";
 
@@ -32,13 +32,13 @@ declare module "@tanstack/react-table" {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface ColumnMeta<_TData extends RowData, _TValue> {
 		label?: string;
-		cell?: CellVariant;
-		dataTypeLabel?: string;
+		variant?: CellVariant; // Generic type for cell rendering (text/boolean/number/enum/json/date)
+		dataTypeLabel?: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
 		isPrimaryKey?: boolean;
 		isForeignKey?: boolean;
-		referencedTable?: string;
-		referencedColumn?: string;
-		enumValues?: string[];
+		referencedTable?: string | null;
+		referencedColumn?: string | null;
+		enumValues?: string[] | null;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars

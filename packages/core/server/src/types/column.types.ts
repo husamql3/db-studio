@@ -1,10 +1,10 @@
 export const DataTypes = {
-	short: "short",
-	long: "long",
+	text: "text",
 	boolean: "boolean",
 	number: "number",
 	enum: "enum",
 	json: "json",
+	date: "date",
 } as const;
 
 export type DataTypes = (typeof DataTypes)[keyof typeof DataTypes];
@@ -30,7 +30,7 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		normalized === "timestamptz" ||
 		normalized.startsWith("timestamp with time zone(")
 	) {
-		return DataTypes.long;
+		return DataTypes.date;
 	}
 
 	// Numeric types
@@ -77,7 +77,7 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		normalized === "text" ||
 		normalized === "xml"
 	) {
-		return DataTypes.long;
+		return DataTypes.text;
 	}
 
 	// Short string types (varchar, char, uuid, etc.)
@@ -101,11 +101,11 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		normalized === "macaddr" ||
 		normalized === "macaddr8"
 	) {
-		return DataTypes.short;
+		return DataTypes.text;
 	}
 
 	// Default to short for unrecognized types
-	return DataTypes.short;
+	return DataTypes.text;
 }
 
 /**

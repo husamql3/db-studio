@@ -7,9 +7,9 @@ import {
 } from "../types/column.types.js";
 
 export interface ColumnInfo {
-	columnName: string;
-	dataType: DataTypes;
-	dataTypeLabel: StandardizedDataType;
+	columnName: string; // The column name from the database
+	dataType: DataTypes; // Generic type mapped to cell variant (text/boolean/number/enum/json/date)
+	dataTypeLabel: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
 	isNullable: boolean;
 	columnDefault: string | null;
 	isPrimaryKey: boolean;

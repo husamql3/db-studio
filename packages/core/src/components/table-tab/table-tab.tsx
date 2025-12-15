@@ -44,14 +44,15 @@ export const TableTab = () => {
 				accessorKey: col.columnName,
 				header: col.columnName,
 				meta: {
+					variant: col.dataType, // This is the mapped generic type (text/boolean/number/etc.)
 					isPrimaryKey: col.isPrimaryKey,
 					isForeignKey: col.isForeignKey,
 					referencedTable: col.referencedTable,
 					referencedColumn: col.referencedColumn,
 					enumValues: col.enumValues,
-					dataTypeLabel: col.dataTypeLabel,
+					dataTypeLabel: col.dataTypeLabel, // This is the exact DB type (int/varchar/etc.)
 				},
-				size: col.columnName.length * 5 + 100,
+				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
 				minSize: 100,
 				maxSize: 500,
 			})) || []),

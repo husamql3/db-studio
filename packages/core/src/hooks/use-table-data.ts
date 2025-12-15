@@ -27,16 +27,18 @@ export const useTableData = () => {
 			JSON.stringify(filters),
 		],
 		queryFn: async () => {
-			const queryParams = new URLSearchParams();
 			const defaultPage = CONSTANTS.TABLE_DEFAULT_PAGE.toString();
 			const defaultLimit = CONSTANTS.TABLE_DEFAULT_LIMIT.toString();
+
+			const queryParams = new URLSearchParams();
 
 			queryParams.set("page", page?.toString() || defaultPage);
 			queryParams.set("pageSize", pageSize?.toString() || defaultLimit);
 			if (sort) queryParams.set("sort", sort);
 			if (order) queryParams.set("order", order);
-			if (filters && filters.length > 0)
+			if (filters && filters.length > 0) {
 				queryParams.set("filters", JSON.stringify(filters));
+			}
 
 			try {
 				const response = await fetch(
@@ -45,7 +47,10 @@ export const useTableData = () => {
 				if (!response.ok) {
 					throw new Error("Failed to fetch table data");
 				}
-				return response.json();
+
+				const data = await response.json();
+				console.log("useTableData", data);
+				return data;
 			} catch (error) {
 				console.error("Error fetching table data:", error);
 				throw error;

@@ -18,7 +18,10 @@ export const useTableCols = () => {
 				if (!response.ok) {
 					throw new Error("Failed to fetch table columns");
 				}
-				return response.json();
+
+				const data = await response.json();
+				console.log("useTableCols", data);
+				return data;
 			} catch (error) {
 				console.error("Error fetching table columns:", error);
 				throw error;

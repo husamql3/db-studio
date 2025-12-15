@@ -1,3 +1,4 @@
+"use client";
 import type { Cell, Table } from "@tanstack/react-table";
 import {
 	type ChangeEvent,
@@ -9,13 +10,20 @@ import {
 	useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { TableCellWrapper } from "@/components/table-tab/table-cell-wrapper";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useUpdateCellStore } from "@/stores/update-cell-store";
 import type { TableRecord } from "@/types/table.type";
-import { Button } from "../ui/button";
-import { Kbd } from "../ui/kbd";
-import { Popover, PopoverAnchor, PopoverContent } from "../ui/popover";
-import { Textarea } from "../ui/textarea";
-import { TableCellWrapper } from "./table-cell-wrapper";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -38,21 +46,17 @@ export const TableTextCell = ({
 }: CellVariantProps<TableRecord>) => {
 	const { setUpdate, clearUpdate } = useUpdateCellStore();
 	const initialValue = cell.getValue() as string;
-	const [value, setValue] = useState(initialValue ?? "");
+
+	// Initialize state with initialValue
+	const [value, setValue] = useState(() => initialValue ?? "");
 	const [open, setOpen] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const meta = table.options.meta;
-	const sideOffset = -(containerRef.current?.clientHeight ?? 0);
 
 	// Get the row data and column name for store operations
 	const rowData = cell.row.original as Record<string, unknown>;
 	const columnName = columnId;
-	const prevInitialValueRef = useRef(initialValue);
-	if (initialValue !== prevInitialValueRef.current) {
-		prevInitialValueRef.current = initialValue;
-		setValue(initialValue ?? "");
-	}
 
 	const onSave = useCallback(() => {
 		console.log("onSave", {
@@ -167,14 +171,16 @@ export const TableTextCell = ({
 		meta?.onCellEditingStop?.();
 	}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
+	// Sync open state with isEditing prop
+	if (isEditing && !open) {
+		setOpen(true);
+	}
+
 	useEffect(() => {
-		if (isEditing && !open) {
-			setOpen(true);
-		}
 		if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
 			containerRef.current.focus();
 		}
-	}, [isFocused, isEditing, open, meta?.isScrolling]);
+	}, [isFocused, isEditing, meta?.isScrolling]);
 
 	useHotkeys("enter", () => onSave());
 	useHotkeys("esc", () => onCancel());
@@ -203,7 +209,7 @@ export const TableTextCell = ({
 				data-grid-cell-editor=""
 				align="start"
 				side="bottom"
-				sideOffset={sideOffset}
+				sideOffset={0}
 				className="w-[400px] rounded-none p-0 gap-0"
 				onOpenAutoFocus={onOpenAutoFocus}
 			>
@@ -237,5 +243,150 @@ export const TableTextCell = ({
 				</div>
 			</PopoverContent>
 		</Popover>
+	);
+};
+
+export const TableBooleanCell = ({
+	cell,
+	table,
+	rowIndex,
+	columnId,
+	isEditing,
+	isFocused,
+	isSelected,
+}: CellVariantProps<TableRecord>) => {
+	const { setUpdate } = useUpdateCellStore();
+	const initialValue = cell.getValue() as boolean | null;
+	const [value, setValue] = useState<string>(() => {
+		if (initialValue === null || initialValue === undefined) return "null";
+		return initialValue ? "true" : "false";
+	});
+	const [selectOpen, setSelectOpen] = useState(false);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const selectOpenedRef = useRef(false);
+	const meta = table.options.meta;
+
+	// Get the row data and column name for store operations
+	const rowData = cell.row.original as Record<string, unknown>;
+	const columnName = columnId;
+
+	const onValueChange = useCallback(
+		(newValue: string) => {
+			setValue(newValue);
+
+			// Convert string value back to boolean or null
+			let boolValue: boolean | null;
+			if (newValue === "null") {
+				boolValue = null;
+			} else {
+				boolValue = newValue === "true";
+			}
+
+			// Immediately update the store when value changes
+			setUpdate(rowData, columnName, boolValue, initialValue);
+
+			// Close the select and stop editing
+			setSelectOpen(false);
+			selectOpenedRef.current = false;
+			meta?.onCellEditingStop?.();
+		},
+		[columnName, rowData, initialValue, setUpdate, meta],
+	);
+
+	const onWrapperKeyDown = useCallback(
+		(event: KeyboardEvent<HTMLDivElement>) => {
+			if (isEditing && !selectOpen) {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.({
+						direction: event.shiftKey ? "left" : "right",
+					});
+				}
+			}
+		},
+		[isEditing, selectOpen, meta],
+	);
+
+	// When editing starts, automatically open the select dropdown after a small delay
+	useEffect(() => {
+		if (isEditing && !selectOpenedRef.current) {
+			const timer = setTimeout(() => {
+				setSelectOpen(true);
+				selectOpenedRef.current = true;
+			}, 50);
+			return () => clearTimeout(timer);
+		}
+	}, [isEditing]);
+
+	// Handle popover close - also stop editing
+	const _handlePopoverOpenChange = useCallback(
+		(newOpen: boolean) => {
+			if (!newOpen) {
+				setSelectOpen(false);
+				selectOpenedRef.current = false;
+				meta?.onCellEditingStop?.();
+			}
+		},
+		[meta],
+	);
+
+	useEffect(() => {
+		if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			containerRef.current.focus();
+		}
+	}, [isFocused, isEditing, meta?.isScrolling]);
+
+	// Display value
+	const displayValue =
+		initialValue === null || initialValue === undefined
+			? "NULL"
+			: initialValue
+				? "true"
+				: "false";
+
+	return (
+		<TableCellWrapper
+			ref={containerRef}
+			cell={cell}
+			table={table}
+			rowIndex={rowIndex}
+			columnId={columnId}
+			isEditing={isEditing}
+			isFocused={isFocused}
+			isSelected={isSelected}
+			onKeyDown={onWrapperKeyDown}
+			className="p-0!"
+		>
+			{isEditing ? (
+				<Select
+					value={value}
+					onValueChange={onValueChange}
+					open={selectOpen}
+					onOpenChange={setSelectOpen}
+				>
+					<SelectTrigger className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden">
+						<SelectValue className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden" />
+					</SelectTrigger>
+					<SelectContent
+						data-grid-cell-editor=""
+						// compensate for the wrapper padding
+						// align="start"
+						alignOffset={-8}
+						sideOffset={-8}
+						className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
+					>
+						<SelectItem value="true">true</SelectItem>
+						<SelectItem value="false">false</SelectItem>
+					</SelectContent>
+				</Select>
+			) : (
+				<span className="flex items-center size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden">
+					{displayValue}
+				</span>
+			)}
+		</TableCellWrapper>
 	);
 };

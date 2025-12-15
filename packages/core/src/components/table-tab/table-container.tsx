@@ -35,7 +35,7 @@ export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 
 	return (
 		<div
-			className="size-full"
+			className="h-full w-full"
 			ref={tableContainerRef}
 			style={{
 				overflow: "auto", // our scrollable table container
