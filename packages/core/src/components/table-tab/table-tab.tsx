@@ -2,22 +2,30 @@ import {
 	type ColumnDef,
 	getCoreRowModel,
 	getSortedRowModel,
-	type Row,
 	useReactTable,
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
+import { TableCell } from "@/components/table-tab/table-cell";
 import { TableContainer } from "@/components/table-tab/table-container";
+import { TableHeader } from "@/components/table-tab/table-header";
+import { TableSelector } from "@/components/table-tab/table-selector";
+import { useTableCols } from "@/hooks/use-table-cols";
+import { useTableData } from "@/hooks/use-table-data";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
-import { makeColumns, makeData } from "@/utils/make-data";
-import { Checkbox } from "../ui/checkbox";
-import { TableCell } from "./table-cell";
+import { Spinner } from "../ui/spinner";
+
+// todo: change the color of the scrollbar
 
 export const TableTab = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.ORDER);
+
+	const { tableData, isLoadingTableData, errorTableData } = useTableData();
+	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols();
+
 	const [rowSelection, setRowSelection] = useState({});
 	const [columnSizing, setColumnSizing] = useState({});
 	const [focusedCell, setFocusedCell] = useState<{
@@ -31,34 +39,25 @@ export const TableTab = () => {
 
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
-			{
-				id: "select",
-				accessorKey: "select",
-				header: ({ table }) => (
-					<div className="w-full h-full flex items-center justify-center">
-						<Checkbox
-							checked={table.getIsAllRowsSelected()}
-							onCheckedChange={() => table.toggleAllRowsSelected()}
-						/>
-					</div>
-				),
-				cell: ({ row }: { row: Row<TableRecord> }) => (
-					<div className="w-full h-full flex items-center justify-center">
-						<Checkbox
-							checked={row.getIsSelected()}
-							onCheckedChange={() => row.toggleSelected()}
-						/>
-					</div>
-				),
-				size: 20,
-				enableSorting: false,
-			},
-			...makeColumns(10),
+			TableSelector(),
+			...(tableCols?.map((col) => ({
+				accessorKey: col.columnName,
+				header: col.columnName,
+				meta: {
+					isPrimaryKey: col.isPrimaryKey,
+					isForeignKey: col.isForeignKey,
+					referencedTable: col.referencedTable,
+					referencedColumn: col.referencedColumn,
+					enumValues: col.enumValues,
+					dataTypeLabel: col.dataTypeLabel,
+				},
+				size: col.columnName.length * 5 + 100,
+				minSize: 100,
+				maxSize: 500,
+			})) || []),
 		],
-		[],
+		[tableCols],
 	);
-
-	const data = useMemo(() => makeData(100, columns), [columns]);
 
 	// Initialize sorting state from URL params
 	const sorting = useMemo(() => {
@@ -69,7 +68,7 @@ export const TableTab = () => {
 	}, [columnName, order]);
 
 	const table = useReactTable({
-		data,
+		data: tableData?.data || [],
 		columns,
 		defaultColumn: {
 			cell: TableCell,
@@ -79,12 +78,19 @@ export const TableTab = () => {
 		},
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
-		debugTable: true,
 		state: {
 			sorting,
 			rowSelection,
 			columnSizing,
 		},
+		manualSorting: false,
+		enableRowSelection: true,
+		enableMultiRowSelection: true,
+		enableColumnResizing: true,
+		columnResizeMode: "onChange",
+		debugTable: true,
+		onRowSelectionChange: setRowSelection,
+		onColumnSizingChange: setColumnSizing,
 		meta: {
 			focusedCell,
 			editingCell,
@@ -100,21 +106,14 @@ export const TableTab = () => {
 			onCellEditingStop: () => {
 				setEditingCell(null);
 			},
-			onDataUpdate: (update) => {
+			onDataUpdate: (update: unknown) => {
 				console.log("Data update:", update);
 			},
 			getIsCellSelected: () => false,
 		},
-		manualSorting: false,
-		enableRowSelection: true,
-		enableMultiRowSelection: true,
-		enableColumnResizing: true,
-		columnResizeMode: "onChange",
 		onPaginationChange: (pagination) => {
 			console.log(pagination);
 		},
-		onRowSelectionChange: setRowSelection,
-		onColumnSizingChange: setColumnSizing,
 		onColumnVisibilityChange: (columnVisibility) => {
 			console.log(columnVisibility);
 		},
@@ -123,9 +122,40 @@ export const TableTab = () => {
 		},
 	});
 
-	if (!activeTable) {
-		return <div>No table selected</div>;
+	const hasNoData = !tableData?.data || tableData.data.length === 0;
+
+	if (isLoadingTableData || isLoadingTableCols) {
+		return (
+			<div className="size-full flex items-center justify-center">
+				<Spinner size="size-7" />
+			</div>
+		);
 	}
 
-	return <TableContainer table={table} />;
+	if (errorTableData || errorTableCols) {
+		return (
+			<div className="size-full flex items-center justify-center">
+				Error: {errorTableData?.message || errorTableCols?.message}
+			</div>
+		);
+	}
+
+	if (!activeTable) {
+		return (
+			<div className="size-full flex items-center justify-center">No table selected</div>
+		);
+	}
+
+	if (hasNoData) {
+		return (
+			<div className="size-full flex items-center justify-center">No data available</div>
+		);
+	}
+
+	return (
+		<div className="h-full w-full">
+			<TableHeader />
+			<TableContainer table={table} />
+		</div>
+	);
 };

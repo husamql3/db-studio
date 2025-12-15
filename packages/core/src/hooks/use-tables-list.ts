@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TableInfo } from "server/src/dao/table-list.dao";
-import { CONSTANTS } from "@/utils/constants";
+import { API_URL, CONSTANTS } from "@/utils/constants";
 
 export const useTablesList = () => {
 	const {
@@ -11,7 +11,7 @@ export const useTablesList = () => {
 		queryKey: [CONSTANTS.TABLES_LIST],
 		queryFn: async () => {
 			try {
-				const response = await fetch("http://localhost:8787/tables");
+				const response = await fetch(`${API_URL}/tables`);
 				if (!response.ok) {
 					throw new Error("Failed to fetch tables list");
 				}

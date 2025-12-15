@@ -92,7 +92,7 @@ export const TableTextCell = ({
 			// Debounced update to store (tracks the change but doesn't save)
 			setUpdate(rowData, columnName, newValue, initialValue);
 		},
-		[columnName, value, initialValue],
+		[columnName, value, initialValue, rowData, setUpdate],
 	);
 
 	const onOpenChange = useCallback(
@@ -171,13 +171,7 @@ export const TableTextCell = ({
 		if (isEditing && !open) {
 			setOpen(true);
 		}
-		if (
-			isFocused &&
-			!isEditing &&
-			// !meta?.searchOpen &&
-			!meta?.isScrolling &&
-			containerRef.current
-		) {
+		if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
 			containerRef.current.focus();
 		}
 	}, [isFocused, isEditing, open, meta?.isScrolling]);
@@ -222,11 +216,11 @@ export const TableTextCell = ({
 					className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
 					placeholder="Enter text..."
 				/>
-				<div className="flex flex-col">
+				<div className="flex flex-col border-t">
 					<Button
 						variant="ghost"
 						size="sm"
-						className="rounded-none justify-start text-xs p-3"
+						className="rounded-none justify-start text-xs py-4 px-2"
 					>
 						<Kbd className="text-xs font-normal">⌘↵</Kbd>
 						<span className="ml-1 text-xs">Save Changes</span>
@@ -235,7 +229,7 @@ export const TableTextCell = ({
 					<Button
 						variant="ghost"
 						size="sm"
-						className="rounded-none justify-start text-xs p-3"
+						className="rounded-none justify-start text-xs py-4 px-2"
 					>
 						<Kbd className="text-xs font-normal">esc</Kbd>
 						<span className="ml-1 text-xs">Cancel Changes</span>

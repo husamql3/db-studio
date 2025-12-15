@@ -21,9 +21,9 @@ export const SidebarToggleButton = () => {
 			className="size-14! aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
 		>
 			{isOpen ? (
-				<IconLayoutSidebar className="size-5" />
-			) : (
 				<IconLayoutSidebarFilled className="size-5" />
+			) : (
+				<IconLayoutSidebar className="size-5" />
 			)}
 		</Button>
 	);

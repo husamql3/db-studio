@@ -14,6 +14,7 @@ import {
 	type Table,
 } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
+import { Key, Link } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { memo, useCallback } from "react";
 import {
@@ -51,6 +52,9 @@ export const TableHeadRow = ({
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
+	console.log(headerGroup.headers);
+	// const isPrimaryKey = headerGroup.headers[0].column.columnDef.meta?.isPrimaryKey;
+
 	const createSortHandler = useCallback(
 		(columnId: string) => (direction: SortDirection | null) => {
 			if (direction === null) {
@@ -82,6 +86,9 @@ export const TableHeadRow = ({
 			) : null}
 			{virtualColumns.map((virtualColumn) => {
 				const header = headerGroup.headers[virtualColumn.index];
+				const isPrimaryKey = header.column.columnDef.meta?.isPrimaryKey;
+				const isForeignKey = header.column.columnDef.meta?.isForeignKey;
+
 				return (
 					<th
 						key={header.id}
@@ -109,9 +116,24 @@ export const TableHeadRow = ({
 										<DropdownMenuTrigger asChild>
 											<Button
 												variant="outline"
-												className="p-2 border-none justify-start w-full h-full bg-transparent! rounded-none"
+												className="p-2 border-none w-full h-full bg-transparent! rounded-none"
 											>
+												{/* TODO: add a tooltip for the icon */}
+												{isPrimaryKey && (
+													<Key
+														size={20}
+														className="text-primary"
+													/>
+												)}
+												{isForeignKey && (
+													<Link
+														size={20}
+														className="text-primary"
+													/>
+												)}
+
 												{flexRender(header.column.columnDef.header, header.getContext())}
+
 												<span className="text-xs leading-none ml-auto">
 													{{
 														asc: <IconChevronDown />,
@@ -121,7 +143,7 @@ export const TableHeadRow = ({
 											</Button>
 										</DropdownMenuTrigger>
 										<DropdownMenuContent
-											className="w-56"
+											className="w-44"
 											align="start"
 										>
 											<DropdownMenuGroup>

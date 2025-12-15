@@ -1,8 +1,13 @@
 export const CONSTANTS = {
 	//* queries
 	SIDEBAR_TABLE_SEARCH: "s",
+
 	//* cache keys
 	TABLES_LIST: "tables-list",
+	TABLE_COLUMNS: "table-columns",
+	TABLE_DATA: "table-data",
+	TABLE_DEFAULT_PAGE: 1,
+	TABLE_DEFAULT_LIMIT: 50,
 
 	//* table state keys
 	ACTIVE_TABLE: "table", // query state key for active table
@@ -44,3 +49,5 @@ export const TABS = [
 export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
 };
+
+export const API_URL = "http://localhost:3000";
