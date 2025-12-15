@@ -25,7 +25,7 @@ export const Main = () => {
 		default:
 			return (
 				<main className="flex-1 flex items-center justify-center">
-					<h1>404</h1>
+					<h1>Select a table to view</h1>
 				</main>
 			);
 	}

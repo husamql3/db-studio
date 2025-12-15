@@ -15,6 +15,8 @@ import { Checkbox } from "../ui/checkbox";
 
 export const TableTab = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
+	const [order] = useQueryState(CONSTANTS.ORDER);
 
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
@@ -47,15 +49,24 @@ export const TableTab = () => {
 
 	const data = useMemo(() => makeData(100, columns), [columns]);
 
+	// Initialize sorting state from URL params
+	const sorting = useMemo(() => {
+		if (columnName && order) {
+			return [{ id: columnName, desc: order === "desc" }];
+		}
+		return [];
+	}, [columnName, order]);
+
 	const table = useReactTable({
 		data,
 		columns,
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		debugTable: true,
-		onSortingChange: (sorting) => {
-			console.log(sorting);
+		state: {
+			sorting,
 		},
+		manualSorting: false,
 		onPaginationChange: (pagination) => {
 			console.log(pagination);
 		},

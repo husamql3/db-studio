@@ -19,7 +19,6 @@ export const TableHead = ({
 		<thead className="h-9 grid sticky top-0 z-10 bg-black">
 			{table.getHeaderGroups().map((headerGroup) => (
 				<TableHeadRow
-					header={headerGroup.headers[0]}
 					columnVirtualizer={columnVirtualizer}
 					headerGroup={headerGroup}
 					table={table}

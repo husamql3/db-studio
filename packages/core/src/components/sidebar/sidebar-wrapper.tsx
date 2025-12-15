@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
+
 export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	const {
 		sidebar: { width, isOpen, isPinned },

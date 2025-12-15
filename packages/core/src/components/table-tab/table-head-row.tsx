@@ -1,15 +1,15 @@
 import {
 	IconArrowDown,
-	IconArrowsUpDown,
 	IconArrowUp,
 	IconChevronDown,
 	IconChevronUp,
 	IconTrash,
+	IconX,
 } from "@tabler/icons-react";
 import {
 	flexRender,
-	type Header,
 	type HeaderGroup,
+	type SortDirection,
 	type Table,
 } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
@@ -24,7 +24,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { SortDirection, TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { Button } from "../ui/button";
 
@@ -34,7 +34,6 @@ interface TableHeadRowProps {
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
 	table: Table<TableRecord>;
-	header: Header<TableRecord, unknown>;
 }
 
 export const TableHeadRow = ({
@@ -43,7 +42,6 @@ export const TableHeadRow = ({
 	virtualPaddingLeft,
 	virtualPaddingRight,
 	table,
-	header,
 }: TableHeadRowProps) => {
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setSort] = useQueryState(CONSTANTS.SORT);
@@ -52,51 +50,28 @@ export const TableHeadRow = ({
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
-	const column = header.column;
-
-	// todo: fix this
-	const onSortChange = useCallback(
-		(direction: SortDirection | null) => {
+	const createSortHandler = useCallback(
+		(columnId: string) => (direction: SortDirection | null) => {
 			if (direction === null) {
-				table.setSorting((old) => old.filter((col) => col.id !== column.id));
+				// Clear sorting
 				setColumnName(null);
 				setSort(null);
 				setOrder(null);
-
-				return () => {
-					setColumnName(null);
-					setSort(null);
-					setOrder(null);
-				};
+			} else {
+				// Update query state (table state will be derived from this)
+				setColumnName(columnId);
+				setSort(columnId);
+				setOrder(direction === "desc" ? "desc" : "asc");
 			}
-
-			table.setSorting((old) =>
-				old.map((col) =>
-					col.id === column.id
-						? { id: col.id, desc: direction === "desc" }
-						: col.id !== column.id
-							? col
-							: old[0],
-				),
-			);
-			setColumnName(column.id);
-			setSort(column.id);
-			setOrder(direction === "desc" ? "desc" : "asc");
-
-			return () => {
-				setColumnName(null);
-				setSort(null);
-				setOrder(null);
-			};
 		},
-		[table, column, setColumnName, setSort, setOrder],
+		[setColumnName, setSort, setOrder],
 	);
 
 	return (
 		<tr
 			key={headerGroup.id}
 			className={cn(
-				"flex w-full border-b items-center justify-between text-sm hover:bg-accent/40 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+				"flex w-full border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
 				isAnyColumnResizing && "pointer-events-none",
 			)}
 		>
@@ -118,7 +93,7 @@ export const TableHeadRow = ({
 						<div
 							{...{
 								className: cn(
-									"w-full h-full flex items-center justify-between gap-2text-sm hover:bg-accent/40 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+									"w-full h-full flex items-center justify-between gap-2text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
 									"border-r border-zinc-800",
 									virtualColumn.index === virtualColumns.length - 1 ? "border-r-0" : "",
 									header.column.getCanSort() ? "cursor-pointer select-none" : "",
@@ -149,37 +124,32 @@ export const TableHeadRow = ({
 										align="start"
 									>
 										<DropdownMenuGroup>
-											<DropdownMenuItem onClick={() => onSortChange("asc")}>
+											<DropdownMenuItem
+												onClick={() => createSortHandler(header.column.id)("asc")}
+											>
 												<IconArrowUp />
 												Sort ascending
 											</DropdownMenuItem>
-											<DropdownMenuItem onClick={() => onSortChange("desc")}>
+											<DropdownMenuItem
+												onClick={() => createSortHandler(header.column.id)("desc")}
+											>
 												<IconArrowDown />
 												Sort descending
 											</DropdownMenuItem>
-											<DropdownMenuItem onClick={() => onSortChange(null)}>
-												<IconArrowsUpDown />
+											<DropdownMenuItem
+												onClick={() => createSortHandler(header.column.id)(null)}
+											>
+												<IconX />
 												Remove sort
 											</DropdownMenuItem>
 										</DropdownMenuGroup>
 										<DropdownMenuSeparator />
-										<DropdownMenuItem>
-											<IconTrash className="text-red-500" />
+										<DropdownMenuItem variant="destructive">
+											<IconTrash />
 											Delete column
 										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
-								// <div className="flex items-center justify-between w-full">
-								// 	<span className="text-sm leading-none">
-								// 		{flexRender(header.column.columnDef.header, header.getContext())}
-								// 	</span>
-								// 	<span className="text-xs leading-none">
-								// 		{{
-								// 			asc: " 🔼",
-								// 			desc: " 🔽",
-								// 		}[header.column.getIsSorted() as string] ?? null}
-								// 	</span>
-								// </div>
 							)}
 						</div>
 					</th>
