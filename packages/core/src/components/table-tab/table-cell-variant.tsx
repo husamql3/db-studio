@@ -6,6 +6,7 @@ import {
 	type KeyboardEvent,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -255,25 +256,37 @@ export const TableBooleanCell = ({
 	isFocused,
 	isSelected,
 }: CellVariantProps<TableRecord>) => {
-	const { setUpdate } = useUpdateCellStore();
+	const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 	const initialValue = cell.getValue() as boolean | null;
-	const [value, setValue] = useState<string>(() => {
-		if (initialValue === null || initialValue === undefined) return "null";
-		return initialValue ? "true" : "false";
-	});
 	const [selectOpen, setSelectOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const selectOpenedRef = useRef(false);
+	const selectTriggerRef = useRef<HTMLButtonElement>(null);
+	const isEditingRef = useRef(isEditing);
 	const meta = table.options.meta;
+
+	// Update ref when isEditing changes
+	useEffect(() => {
+		isEditingRef.current = isEditing;
+	}, [isEditing]);
 
 	// Get the row data and column name for store operations
 	const rowData = cell.row.original as Record<string, unknown>;
 	const columnName = columnId;
 
+	// Get the current value from store or use initial value
+	const pendingUpdate = getUpdate(rowData, columnName);
+	const currentValue = pendingUpdate
+		? (pendingUpdate.newValue as boolean | null)
+		: initialValue;
+
+	// Convert boolean value to string for the select component
+	const value = useMemo(() => {
+		if (currentValue === null || currentValue === undefined) return "null";
+		return currentValue ? "true" : "false";
+	}, [currentValue]);
+
 	const onValueChange = useCallback(
 		(newValue: string) => {
-			setValue(newValue);
-
 			// Convert string value back to boolean or null
 			let boolValue: boolean | null;
 			if (newValue === "null") {
@@ -282,15 +295,35 @@ export const TableBooleanCell = ({
 				boolValue = newValue === "true";
 			}
 
-			// Immediately update the store when value changes
+			// Update the store when value changes
 			setUpdate(rowData, columnName, boolValue, initialValue);
 
 			// Close the select and stop editing
 			setSelectOpen(false);
-			selectOpenedRef.current = false;
 			meta?.onCellEditingStop?.();
 		},
 		[columnName, rowData, initialValue, setUpdate, meta],
+	);
+
+	const onCancel = useCallback(() => {
+		// Clear any pending updates (reverts to initial value)
+		clearUpdate(rowData, columnName);
+
+		// Close select and stop editing
+		setSelectOpen(false);
+		meta?.onCellEditingStop?.();
+	}, [rowData, columnName, clearUpdate, meta]);
+
+	const onOpenChange = useCallback(
+		(open: boolean) => {
+			setSelectOpen(open);
+
+			// If closing the select, stop editing (but keep the value in store)
+			if (!open && isEditing) {
+				meta?.onCellEditingStop?.();
+			}
+		},
+		[isEditing, meta],
 	);
 
 	const onWrapperKeyDown = useCallback(
@@ -298,40 +331,41 @@ export const TableBooleanCell = ({
 			if (isEditing && !selectOpen) {
 				if (event.key === "Escape") {
 					event.preventDefault();
-					meta?.onCellEditingStop?.();
+					onCancel();
 				} else if (event.key === "Tab") {
 					event.preventDefault();
+					onCancel();
 					meta?.onCellEditingStop?.({
 						direction: event.shiftKey ? "left" : "right",
 					});
 				}
 			}
 		},
-		[isEditing, selectOpen, meta],
+		[isEditing, selectOpen, meta, onCancel],
 	);
 
-	// When editing starts, automatically open the select dropdown after a small delay
+	// Auto-open select when entering edit mode, close when exiting
 	useEffect(() => {
-		if (isEditing && !selectOpenedRef.current) {
-			const timer = setTimeout(() => {
-				setSelectOpen(true);
-				selectOpenedRef.current = true;
-			}, 50);
-			return () => clearTimeout(timer);
+		if (isEditing) {
+			// Open the select and trigger click
+			const openTimer = setTimeout(() => {
+				if (isEditingRef.current) {
+					setSelectOpen(true);
+					// Small delay to ensure the trigger is rendered
+					setTimeout(() => {
+						if (isEditingRef.current) {
+							selectTriggerRef.current?.click();
+						}
+					}, 0);
+				}
+			}, 0);
+			return () => {
+				clearTimeout(openTimer);
+				// Cleanup: close select when component unmounts or isEditing changes
+				setSelectOpen(false);
+			};
 		}
 	}, [isEditing]);
-
-	// Handle popover close - also stop editing
-	const _handlePopoverOpenChange = useCallback(
-		(newOpen: boolean) => {
-			if (!newOpen) {
-				setSelectOpen(false);
-				selectOpenedRef.current = false;
-				meta?.onCellEditingStop?.();
-			}
-		},
-		[meta],
-	);
 
 	useEffect(() => {
 		if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
@@ -339,11 +373,11 @@ export const TableBooleanCell = ({
 		}
 	}, [isFocused, isEditing, meta?.isScrolling]);
 
-	// Display value
+	// Display value (use currentValue which includes store updates)
 	const displayValue =
-		initialValue === null || initialValue === undefined
+		currentValue === null || currentValue === undefined
 			? "NULL"
-			: initialValue
+			: currentValue
 				? "true"
 				: "false";
 
@@ -365,27 +399,34 @@ export const TableBooleanCell = ({
 					value={value}
 					onValueChange={onValueChange}
 					open={selectOpen}
-					onOpenChange={setSelectOpen}
+					onOpenChange={onOpenChange}
 				>
-					<SelectTrigger className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden">
-						<SelectValue className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden" />
+					<SelectTrigger
+						ref={selectTriggerRef}
+						className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden"
+					>
+						<SelectValue />
 					</SelectTrigger>
 					<SelectContent
 						data-grid-cell-editor=""
-						// compensate for the wrapper padding
-						// align="start"
 						alignOffset={-8}
 						sideOffset={-8}
 						className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
+						onEscapeKeyDown={onCancel}
+						onPointerDownOutside={(e) => {
+							// Close the select and keep the value
+							e.preventDefault();
+							setSelectOpen(false);
+							meta?.onCellEditingStop?.();
+						}}
 					>
 						<SelectItem value="true">true</SelectItem>
 						<SelectItem value="false">false</SelectItem>
+						<SelectItem value="null">NULL</SelectItem>
 					</SelectContent>
 				</Select>
 			) : (
-				<span className="flex items-center size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden">
-					{displayValue}
-				</span>
+				<span className="flex items-center size-full px-2 py-1.5">{displayValue}</span>
 			)}
 		</TableCellWrapper>
 	);
