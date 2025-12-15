@@ -6,7 +6,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { TableContainer } from "@/components/table-tab/table-container";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
@@ -17,6 +17,8 @@ export const TableTab = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.ORDER);
+	const [rowSelection, setRowSelection] = useState({});
+	const [columnSizing, setColumnSizing] = useState({});
 
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
@@ -65,17 +67,19 @@ export const TableTab = () => {
 		debugTable: true,
 		state: {
 			sorting,
+			rowSelection,
+			columnSizing,
 		},
 		manualSorting: false,
+		enableRowSelection: true,
+		enableMultiRowSelection: true,
+		enableColumnResizing: true,
+		columnResizeMode: "onChange",
 		onPaginationChange: (pagination) => {
 			console.log(pagination);
 		},
-		onRowSelectionChange: (rowSelection) => {
-			console.log(rowSelection);
-		},
-		onColumnSizingChange: (columnSizing) => {
-			console.log(columnSizing);
-		},
+		onRowSelectionChange: setRowSelection,
+		onColumnSizingChange: setColumnSizing,
 		onColumnVisibilityChange: (columnVisibility) => {
 			console.log(columnVisibility);
 		},

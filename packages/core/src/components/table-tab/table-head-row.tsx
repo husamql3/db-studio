@@ -8,13 +8,14 @@ import {
 } from "@tabler/icons-react";
 import {
 	flexRender,
+	type Header,
 	type HeaderGroup,
 	type SortDirection,
 	type Table,
 } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { useQueryState } from "nuqs";
-import { useCallback } from "react";
+import { memo, useCallback } from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -93,7 +94,7 @@ export const TableHeadRow = ({
 						<div
 							{...{
 								className: cn(
-									"w-full h-full flex items-center justify-between gap-2text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+									"relative w-full h-full flex items-center justify-between gap-2 text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
 									"border-r border-zinc-800",
 									virtualColumn.index === virtualColumns.length - 1 ? "border-r-0" : "",
 									header.column.getCanSort() ? "cursor-pointer select-none" : "",
@@ -104,52 +105,62 @@ export const TableHeadRow = ({
 							{virtualColumn.index === 0 ? (
 								flexRender(header.column.columnDef.header, header.getContext())
 							) : (
-								<DropdownMenu>
-									<DropdownMenuTrigger asChild>
-										<Button
-											variant="outline"
-											className="p-2 border-none justify-start w-full h-full bg-transparent! rounded-none"
+								<>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="outline"
+												className="p-2 border-none justify-start w-full h-full bg-transparent! rounded-none"
+											>
+												{flexRender(header.column.columnDef.header, header.getContext())}
+												<span className="text-xs leading-none ml-auto">
+													{{
+														asc: <IconChevronDown />,
+														desc: <IconChevronUp />,
+													}[header.column.getIsSorted() as "asc" | "desc"] ?? null}
+												</span>
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent
+											className="w-56"
+											align="start"
 										>
-											{flexRender(header.column.columnDef.header, header.getContext())}
-											<span className="text-xs leading-none ml-auto">
-												{{
-													asc: <IconChevronDown />,
-													desc: <IconChevronUp />,
-												}[header.column.getIsSorted() as "asc" | "desc"] ?? null}
-											</span>
-										</Button>
-									</DropdownMenuTrigger>
-									<DropdownMenuContent
-										className="w-56"
-										align="start"
-									>
-										<DropdownMenuGroup>
-											<DropdownMenuItem
-												onClick={() => createSortHandler(header.column.id)("asc")}
-											>
-												<IconArrowUp />
-												Sort ascending
+											<DropdownMenuGroup>
+												<DropdownMenuItem
+													onClick={() => createSortHandler(header.column.id)("asc")}
+												>
+													<IconArrowUp />
+													Sort ascending
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => createSortHandler(header.column.id)("desc")}
+												>
+													<IconArrowDown />
+													Sort descending
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => createSortHandler(header.column.id)(null)}
+												>
+													<IconX />
+													Remove sort
+												</DropdownMenuItem>
+											</DropdownMenuGroup>
+											<DropdownMenuSeparator />
+											<DropdownMenuItem variant="destructive">
+												<IconTrash />
+												Delete column
 											</DropdownMenuItem>
-											<DropdownMenuItem
-												onClick={() => createSortHandler(header.column.id)("desc")}
-											>
-												<IconArrowDown />
-												Sort descending
-											</DropdownMenuItem>
-											<DropdownMenuItem
-												onClick={() => createSortHandler(header.column.id)(null)}
-											>
-												<IconX />
-												Remove sort
-											</DropdownMenuItem>
-										</DropdownMenuGroup>
-										<DropdownMenuSeparator />
-										<DropdownMenuItem variant="destructive">
-											<IconTrash />
-											Delete column
-										</DropdownMenuItem>
-									</DropdownMenuContent>
-								</DropdownMenu>
+										</DropdownMenuContent>
+									</DropdownMenu>
+
+									{header.column.getCanResize() && (
+										<DataGridColumnResizer
+											header={header}
+											table={table}
+											label={header.column.id}
+										/>
+									)}
+								</>
 							)}
 						</div>
 					</th>
@@ -162,3 +173,55 @@ export const TableHeadRow = ({
 		</tr>
 	);
 };
+const DataGridColumnResizer = memo(DataGridColumnResizerImpl, (prev, next) => {
+	const prevColumn = prev.header.column;
+	const nextColumn = next.header.column;
+
+	if (
+		prevColumn.getIsResizing() !== nextColumn.getIsResizing() ||
+		prevColumn.getSize() !== nextColumn.getSize()
+	) {
+		return false;
+	}
+
+	if (prev.label !== next.label) return false;
+
+	return true;
+}) as typeof DataGridColumnResizerImpl;
+
+interface DataGridColumnResizerProps {
+	header: Header<TableRecord, unknown>;
+	table: Table<TableRecord>;
+	label: string;
+}
+
+function DataGridColumnResizerImpl({ header, table, label }: DataGridColumnResizerProps) {
+	const defaultColumnDef = table._getDefaultColumnDef();
+
+	const onDoubleClick = useCallback(() => {
+		table.setColumnSizing((old) => {
+			const newSizing = { ...old };
+			delete newSizing[header.column.id];
+			return newSizing;
+		});
+	}, [header.column.id, table]);
+
+	return (
+		<div
+			role="separator"
+			aria-orientation="vertical"
+			aria-label={`Resize ${label} column`}
+			aria-valuenow={header.column.getSize()}
+			aria-valuemin={defaultColumnDef.minSize}
+			aria-valuemax={defaultColumnDef.maxSize}
+			tabIndex={0}
+			className={cn(
+				"after:-translate-x-1/2 -right-px absolute top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none select-none bg-border transition-opacity after:absolute after:inset-y-0 after:left-1/2 after:h-full after:w-[18px] after:content-[''] hover:bg-primary focus:bg-primary focus:outline-none",
+				header.column.getIsResizing() ? "bg-primary" : "opacity-0 hover:opacity-100",
+			)}
+			onDoubleClick={onDoubleClick}
+			onMouseDown={header.getResizeHandler()}
+			onTouchStart={header.getResizeHandler()}
+		/>
+	);
+}
