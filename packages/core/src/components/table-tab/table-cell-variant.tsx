@@ -25,6 +25,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateCellStore } from "@/stores/update-cell-store";
 import type { TableRecord } from "@/types/table.type";
+import { Input } from "../ui/input";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -244,6 +245,158 @@ export const TableTextCell = ({
 				</div>
 			</PopoverContent>
 		</Popover>
+	);
+};
+
+export const TableNumberCell = ({
+	cell,
+	table,
+	rowIndex,
+	columnId,
+	isEditing,
+	isFocused,
+	isSelected,
+}: CellVariantProps<TableRecord>) => {
+	const { setUpdate, clearUpdate } = useUpdateCellStore();
+	const initialValue = cell.getValue() as number;
+
+	// Initialize state with initialValue
+	const [value, setValue] = useState(() => initialValue);
+	const [open, setOpen] = useState(false);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const meta = table.options.meta;
+
+	// Get the row data and column name for store operations
+	const rowData = cell.row.original as Record<string, unknown>;
+	const columnName = columnId;
+
+	const onSave = useCallback(() => {
+		console.log("onSave", {
+			value,
+			initialValue,
+			columnName,
+			rowData,
+		});
+
+		// Update the store with the final value
+		setUpdate(rowData, columnName, value, initialValue);
+
+		// Close the popover
+		setOpen(false);
+		meta?.onCellEditingStop?.();
+	}, [meta, value, initialValue, columnName, rowData, setUpdate]);
+
+	const onCancel = useCallback(() => {
+		console.log("onCancel", value, initialValue);
+
+		// Restore the original value
+		setValue(initialValue);
+
+		// Clear this cell's update from the store
+		clearUpdate(rowData, columnName);
+
+		setOpen(false);
+		meta?.onCellEditingStop?.();
+	}, [meta, initialValue, columnName, rowData, clearUpdate, value]);
+
+	const onChange = useCallback(
+		(event: ChangeEvent<HTMLInputElement>) => {
+			const newValue = event.target.value;
+			console.log("onChange", newValue, columnName, value, initialValue);
+			setValue(Number(newValue));
+
+			// Debounced update to store (tracks the change but doesn't save)
+			setUpdate(rowData, columnName, Number(newValue), initialValue);
+		},
+		[columnName, value, initialValue, rowData, setUpdate],
+	);
+
+	const onWrapperKeyDown = useCallback(
+		(event: KeyboardEvent<HTMLDivElement>) => {
+			if (isEditing && !open) {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					// Update store when tabbing away
+					if (value !== initialValue) {
+						setUpdate(rowData, columnName, value, initialValue);
+					}
+					meta?.onCellEditingStop?.({
+						direction: event.shiftKey ? "left" : "right",
+					});
+				}
+			}
+		},
+		[isEditing, open, meta, value, initialValue, columnName, rowData, setUpdate],
+	);
+
+	const onTextInputKeyDown = useCallback(
+		(event: KeyboardEvent<HTMLInputElement>) => {
+			if (event.key === "Escape") {
+				event.preventDefault();
+				console.log("onTextInputKeyDown", event.key, value, initialValue);
+				onCancel();
+			} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+				event.preventDefault();
+				console.log("onTextInputKeyDown", event.key, value, initialValue);
+				onSave();
+			}
+			// Stop propagation to prevent grid navigation
+			event.stopPropagation();
+		},
+		[onCancel, onSave, value, initialValue],
+	);
+
+	const onTextInputBlur = useCallback(() => {
+		// Update store on blur (don't auto-save, just track)
+		if (value !== initialValue) {
+			setUpdate(rowData, columnName, value, initialValue);
+		}
+		setOpen(false);
+		meta?.onCellEditingStop?.();
+	}, [meta, value, initialValue, columnName, rowData, setUpdate]);
+
+	// Sync open state with isEditing prop
+	if (isEditing && !open) {
+		setOpen(true);
+	}
+
+	useEffect(() => {
+		if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			containerRef.current.focus();
+		}
+	}, [isFocused, isEditing, meta?.isScrolling]);
+
+	useHotkeys("enter", () => onSave());
+	useHotkeys("esc", () => onCancel());
+
+	return (
+		<TableCellWrapper
+			ref={containerRef}
+			cell={cell}
+			table={table}
+			rowIndex={rowIndex}
+			columnId={columnId}
+			isEditing={isEditing}
+			isFocused={isFocused}
+			isSelected={isSelected}
+			onKeyDown={onWrapperKeyDown}
+		>
+			<Input
+				type="number"
+				ref={inputRef}
+				value={value || ""}
+				onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
+				onKeyDown={(event) =>
+					onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)
+				}
+				onBlur={onTextInputBlur}
+				className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden"
+			/>
+		</TableCellWrapper>
 	);
 };
 

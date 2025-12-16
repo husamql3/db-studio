@@ -1,6 +1,6 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import type { TableRecord } from "@/types/table.type";
-import { TableBooleanCell, TableTextCell } from "./table-cell-variant";
+import { TableBooleanCell, TableNumberCell, TableTextCell } from "./table-cell-variant";
 
 export const TableCell = ({
 	cell,
@@ -54,7 +54,7 @@ export const TableCell = ({
 		case "number":
 			// return a number input
 			return (
-				<TableTextCell
+				<TableNumberCell
 					cell={cell}
 					table={table}
 					rowIndex={rowIndex}
