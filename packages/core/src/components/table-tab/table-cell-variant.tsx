@@ -266,6 +266,8 @@ export const TableNumberCell = ({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const meta = table.options.meta;
+	const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
+	console.log({ enumValues: enumValues });
 
 	// Get the row data and column name for store operations
 	const rowData = cell.row.original as Record<string, unknown>;
@@ -580,6 +582,184 @@ export const TableBooleanCell = ({
 				</Select>
 			) : (
 				<span className="flex items-center size-full px-2 py-1.5">{displayValue}</span>
+			)}
+		</TableCellWrapper>
+	);
+};
+
+export const TableEnumCell = ({
+	cell,
+	table,
+	rowIndex,
+	columnId,
+	isEditing,
+	isFocused,
+	isSelected,
+}: CellVariantProps<TableRecord>) => {
+	const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
+	const initialValue = cell.getValue() as string | null;
+	const [selectOpen, setSelectOpen] = useState(false);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const selectTriggerRef = useRef<HTMLButtonElement>(null);
+	const isEditingRef = useRef(isEditing);
+	const meta = table.options.meta;
+	const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
+	console.log(cell.column.columnDef.meta.enumValues);
+
+	console.log(table.options.meta);
+
+	// Update ref when isEditing changes
+	useEffect(() => {
+		isEditingRef.current = isEditing;
+	}, [isEditing]);
+
+	// Get the row data and column name for store operations
+	const rowData = cell.row.original as Record<string, unknown>;
+	const columnName = columnId;
+
+	// Get the current value from store or use initial value
+	const pendingUpdate = getUpdate(rowData, columnName);
+	const currentValue = pendingUpdate
+		? (pendingUpdate.newValue as string | null)
+		: initialValue;
+
+	const onValueChange = useCallback(
+		(newValue: string) => {
+			// Convert "null" string to actual null, otherwise use the enum value
+			const enumValue: string | null = newValue === "null" ? null : newValue;
+			setUpdate(rowData, columnName, enumValue, initialValue);
+			setSelectOpen(false);
+			meta?.onCellEditingStop?.();
+		},
+		[columnName, rowData, initialValue, setUpdate, meta],
+	);
+
+	const onCancel = useCallback(() => {
+		// Clear any pending updates (reverts to initial value)
+		clearUpdate(rowData, columnName);
+
+		// Close select and stop editing
+		setSelectOpen(false);
+		meta?.onCellEditingStop?.();
+	}, [rowData, columnName, clearUpdate, meta]);
+
+	const onOpenChange = useCallback(
+		(open: boolean) => {
+			setSelectOpen(open);
+
+			// If closing the select, stop editing (but keep the value in store)
+			if (!open && isEditing) {
+				meta?.onCellEditingStop?.();
+			}
+		},
+		[isEditing, meta],
+	);
+
+	const onWrapperKeyDown = useCallback(
+		(event: KeyboardEvent<HTMLDivElement>) => {
+			if (isEditing && !selectOpen) {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					onCancel();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					onCancel();
+					meta?.onCellEditingStop?.({
+						direction: event.shiftKey ? "left" : "right",
+					});
+				}
+			}
+		},
+		[isEditing, selectOpen, meta, onCancel],
+	);
+
+	// Auto-open select when entering edit mode, close when exiting
+	useEffect(() => {
+		if (isEditing) {
+			// Open the select and trigger click
+			const openTimer = setTimeout(() => {
+				if (isEditingRef.current) {
+					setSelectOpen(true);
+					// Small delay to ensure the trigger is rendered
+					setTimeout(() => {
+						if (isEditingRef.current) {
+							selectTriggerRef.current?.click();
+						}
+					}, 0);
+				}
+			}, 0);
+			return () => {
+				clearTimeout(openTimer);
+				// Cleanup: close select when component unmounts or isEditing changes
+				setSelectOpen(false);
+			};
+		}
+	}, [isEditing]);
+
+	useEffect(() => {
+		if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			containerRef.current.focus();
+		}
+	}, [isFocused, isEditing, meta?.isScrolling]);
+
+	// Display value (use currentValue which includes store updates)
+	const displayValue =
+		currentValue === null || currentValue === undefined ? "NULL" : currentValue;
+
+	return (
+		<TableCellWrapper
+			ref={containerRef}
+			cell={cell}
+			table={table}
+			rowIndex={rowIndex}
+			columnId={columnId}
+			isEditing={isEditing}
+			isFocused={isFocused}
+			isSelected={isSelected}
+			onKeyDown={onWrapperKeyDown}
+			className="p-0!"
+		>
+			{isEditing ? (
+				<Select
+					value={currentValue === null ? "null" : currentValue}
+					onValueChange={onValueChange}
+					open={selectOpen}
+					onOpenChange={onOpenChange}
+				>
+					<SelectTrigger
+						ref={selectTriggerRef}
+						className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden"
+					>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent
+						data-grid-cell-editor=""
+						alignOffset={-8}
+						sideOffset={-8}
+						className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
+						onEscapeKeyDown={onCancel}
+						onPointerDownOutside={(e) => {
+							// Close the select and keep the value
+							e.preventDefault();
+							setSelectOpen(false);
+							meta?.onCellEditingStop?.();
+						}}
+					>
+						{enumValues?.map((enumValue) => (
+							<SelectItem
+								key={enumValue}
+								value={enumValue}
+							>
+								{enumValue}
+							</SelectItem>
+						))}
+						<SelectItem value="null">NULL</SelectItem>
+					</SelectContent>
+				</Select>
+			) : (
+				<span className="flex items-center size-full px-2 py-1.5 truncate">
+					{displayValue}
+				</span>
 			)}
 		</TableCellWrapper>
 	);

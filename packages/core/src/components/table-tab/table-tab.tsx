@@ -44,7 +44,8 @@ export const TableTab = () => {
 				accessorKey: col.columnName,
 				header: col.columnName,
 				meta: {
-					variant: col.dataType, // This is the mapped generic type (text/boolean/number/etc.)
+					// variant: col.enumValues ? "enum" : col.dataType,
+					variant: col.enumValues ? "enum" : col.dataType,
 					isPrimaryKey: col.isPrimaryKey,
 					isForeignKey: col.isForeignKey,
 					referencedTable: col.referencedTable,

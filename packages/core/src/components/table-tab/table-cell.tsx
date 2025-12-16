@@ -1,6 +1,11 @@
 import type { Cell, Table } from "@tanstack/react-table";
-import type { TableRecord } from "@/types/table.type";
-import { TableBooleanCell, TableNumberCell, TableTextCell } from "./table-cell-variant";
+import type { CellVariant, TableRecord } from "@/types/table.type";
+import {
+	TableBooleanCell,
+	TableEnumCell,
+	TableNumberCell,
+	TableTextCell,
+} from "./table-cell-variant";
 
 export const TableCell = ({
 	cell,
@@ -23,7 +28,7 @@ export const TableCell = ({
 		meta?.editingCell?.rowIndex === rowIndex && meta?.editingCell?.columnId === columnId;
 	const isSelected = meta?.getIsCellSelected?.(rowIndex, columnId) ?? false;
 
-	const cellVariant = cell.column.columnDef.meta?.variant;
+	const cellVariant = cell.column.columnDef.meta?.variant as CellVariant | undefined;
 
 	switch (cellVariant) {
 		case "text":
@@ -38,7 +43,6 @@ export const TableCell = ({
 					isSelected={isSelected}
 				/>
 			);
-		// boolean is true/false
 		case "boolean":
 			return (
 				<TableBooleanCell
@@ -52,7 +56,6 @@ export const TableCell = ({
 				/>
 			);
 		case "number":
-			// return a number input
 			return (
 				<TableNumberCell
 					cell={cell}
@@ -65,9 +68,8 @@ export const TableCell = ({
 				/>
 			);
 		case "enum":
-			// return a dropdown of enum values
 			return (
-				<TableTextCell
+				<TableEnumCell
 					cell={cell}
 					table={table}
 					rowIndex={rowIndex}
