@@ -2,6 +2,7 @@ import type { Cell, Table } from "@tanstack/react-table";
 import type { CellVariant, TableRecord } from "@/types/table.type";
 import {
 	TableBooleanCell,
+	TableDateCell,
 	TableEnumCell,
 	TableNumberCell,
 	TableTextCell,
@@ -80,9 +81,8 @@ export const TableCell = ({
 				/>
 			);
 		case "date":
-			// return a date picker
 			return (
-				<TableTextCell
+				<TableDateCell
 					cell={cell}
 					table={table}
 					rowIndex={rowIndex}
