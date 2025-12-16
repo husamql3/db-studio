@@ -10,6 +10,7 @@ export const useTableCols = () => {
 		data: tableCols,
 		isLoading: isLoadingTableCols,
 		error: errorTableCols,
+		refetch: refetchTableCols,
 	} = useQuery<ColumnInfo[], Error>({
 		queryKey: [CONSTANTS.TABLE_COLUMNS, activeTable],
 		queryFn: async () => {
@@ -30,5 +31,5 @@ export const useTableCols = () => {
 		enabled: !!activeTable,
 	});
 
-	return { tableCols, isLoadingTableCols, errorTableCols };
+	return { tableCols, isLoadingTableCols, errorTableCols, refetchTableCols };
 };

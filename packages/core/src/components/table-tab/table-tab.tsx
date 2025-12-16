@@ -6,15 +6,15 @@ import {
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
+import { TableHeader } from "@/components/table-tab/header/table-header";
 import { TableCell } from "@/components/table-tab/table-cell";
 import { TableContainer } from "@/components/table-tab/table-container";
-import { TableHeader } from "@/components/table-tab/table-header";
 import { TableSelector } from "@/components/table-tab/table-selector";
+import { Spinner } from "@/components/ui/spinner";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
-import { Spinner } from "../ui/spinner";
 
 // todo: change the color of the scrollbar
 
