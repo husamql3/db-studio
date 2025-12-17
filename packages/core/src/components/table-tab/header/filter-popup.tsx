@@ -1,16 +1,217 @@
-import { IconFilter } from "@tabler/icons-react";
+import { IconFilter, IconX } from "@tabler/icons-react";
+import { parseAsJson, useQueryState } from "nuqs";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { useTableCols } from "@/hooks/use-table-cols";
+import type { Filter } from "@/hooks/use-table-data";
+import { CONSTANTS } from "@/utils/constants";
 
 export const FilterPopup = () => {
+	const [filters, setFilters] = useQueryState<Filter[]>(
+		CONSTANTS.FILTERS,
+		parseAsJson((value) => value as Filter[]).withDefault([]),
+	);
+	const { tableCols } = useTableCols();
+
+	const [isOpen, setIsOpen] = useState(false);
+	const [localFilters, setLocalFilters] = useState<Filter[]>([]);
+
+	const handleAddFilter = () => {
+		const firstColumn = tableCols?.[0]?.columnName ?? "";
+		setLocalFilters([
+			...localFilters,
+			{ columnName: firstColumn, operator: "=", value: "" },
+		]);
+	};
+
+	const handleRemoveFilter = (index: number) => {
+		setLocalFilters(localFilters.filter((_, i) => i !== index));
+	};
+
+	const handleFilterColumnChange = (index: number, columnName: string) => {
+		setLocalFilters(
+			localFilters.map((filter, i) => (i === index ? { ...filter, columnName } : filter)),
+		);
+	};
+
+	const handleFilterValueChange = (index: number, value: string) => {
+		setLocalFilters(
+			localFilters.map((filter, i) => (i === index ? { ...filter, value } : filter)),
+		);
+	};
+
+	const handleFilterOperatorChange = (index: number, operator: string) => {
+		setLocalFilters(
+			localFilters.map((filter, i) => (i === index ? { ...filter, operator } : filter)),
+		);
+	};
+
+	const handleReset = () => {
+		setLocalFilters([]);
+		setFilters([]);
+		setIsOpen(false);
+	};
+
+	const applyFilters = () => {
+		const validFilters = localFilters.filter(
+			(f) => f.columnName && f.operator && f.value !== "",
+		);
+
+		setFilters(validFilters);
+		setIsOpen(false);
+	};
+
+	const hasActiveFilters = filters.length > 0;
+
+	// Sync local state with URL filters when popover opens
+	const handleOpenChange = (open: boolean) => {
+		if (open) {
+			setLocalFilters(filters);
+		}
+		setIsOpen(open);
+	};
+
 	return (
-		<Button
-			type="button"
-			variant="ghost"
-			className="size-8! aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
-			// onClick={handleRefetch}
-			aria-label="Refetch table data and columns"
+		<Popover
+			open={isOpen}
+			onOpenChange={handleOpenChange}
 		>
-			<IconFilter className="size-4" />
-		</Button>
+			<PopoverTrigger asChild>
+				<Button
+					type="button"
+					variant="ghost"
+					className="size-8! aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+					aria-label="Filter table data"
+					data-active={hasActiveFilters}
+				>
+					<IconFilter className="size-4" />
+				</Button>
+			</PopoverTrigger>
+
+			<PopoverContent
+				className="w-md space-y-2"
+				align="start"
+			>
+				<div className="flex items-center gap-4">
+					<Button
+						variant="outline"
+						size="lg"
+						className="text-sm"
+						onClick={handleAddFilter}
+					>
+						Add filter
+						{localFilters && localFilters.length > 0 && (
+							<Kbd className="text-xs font-normal text-white bg-primary/10 border border-primary/90 px-1.5 py-0.5">
+								{localFilters.length}
+							</Kbd>
+						)}
+					</Button>
+				</div>
+
+				<div className="flex flex-col gap-4">
+					{localFilters.length > 0 ? (
+						localFilters.map((filter, index) => (
+							<div
+								key={index}
+								className="flex-1 flex h-9 gap-2"
+							>
+								<Select
+									value={filter.columnName}
+									onValueChange={(value) => handleFilterColumnChange(index, value)}
+								>
+									<SelectTrigger className="w-full flex-1">
+										<SelectValue placeholder="Select column" />
+									</SelectTrigger>
+									<SelectContent>
+										{tableCols?.map((col) => (
+											<SelectItem
+												key={col.columnName}
+												value={col.columnName}
+											>
+												{col.columnName}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+
+								<Select
+									value={filter.operator}
+									onValueChange={(value) => handleFilterOperatorChange(index, value)}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Op" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="=">=</SelectItem>
+										<SelectItem value="!=">!=</SelectItem>
+										<SelectItem value=">">&gt;</SelectItem>
+										<SelectItem value=">=">&gt;=</SelectItem>
+										<SelectItem value="<">&lt;</SelectItem>
+										<SelectItem value="<=">&lt;=</SelectItem>
+										<SelectItem value="is">is</SelectItem>
+										<SelectItem value="is not">is not</SelectItem>
+										<SelectItem value="like">like</SelectItem>
+										<SelectItem value="not like">not like</SelectItem>
+										<SelectItem value="ilike">ilike</SelectItem>
+										<SelectItem value="not ilike">not ilike</SelectItem>
+									</SelectContent>
+								</Select>
+
+								<Input
+									type="text"
+									placeholder="Value"
+									value={filter.value as string}
+									onChange={(e) => handleFilterValueChange(index, e.target.value)}
+								/>
+
+								<Button
+									variant="ghost"
+									size="icon"
+									className="text-xs"
+									onClick={() => handleRemoveFilter(index)}
+								>
+									<IconX className="size-4" />
+								</Button>
+							</div>
+						))
+					) : (
+						<div className="flex-1 flex h-9 gap-2 items-center justify-center">
+							<p className="text-sm text-muted-foreground text-center">
+								No filters applied
+							</p>
+						</div>
+					)}
+				</div>
+
+				<div className="gap-2 flex justify-end">
+					<Button
+						variant="outline"
+						size="lg"
+						className="text-sm"
+						onClick={handleReset}
+					>
+						Reset
+					</Button>
+					<Button
+						variant="default"
+						size="lg"
+						className="text-sm"
+						onClick={applyFilters}
+					>
+						Apply
+					</Button>
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 };

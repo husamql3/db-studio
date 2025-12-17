@@ -16,17 +16,6 @@ export const CONSTANTS = {
 	PAGE: "page",
 	LIMIT: "limit",
 	FILTERS: "filters",
-	COLUMN_NAME: "col-name",
-	COLUMN_OPERATOR: "col-operator",
-	COLUMN_VALUE: "col-value",
-	FILTER_OPERATORS: {
-		EQUAL: "eq",
-		NOT_EQUAL: "neq",
-		GREATER_THAN: "gt",
-		LESS_THAN: "lt",
-		GREATER_THAN_OR_EQUAL: "gte",
-		LESS_THAN_OR_EQUAL: "lte",
-	},
 
 	//* tab state keys
 	ACTIVE_TAB: "tab", // query state key for active tab

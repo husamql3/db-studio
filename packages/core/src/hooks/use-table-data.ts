@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useQueryState } from "nuqs";
+import { parseAsJson, useQueryState } from "nuqs";
 import type { TableDataResult } from "server/src/dao/tables-data.dao";
+import type { Filter } from "@/components/table-tab/header/filter-popup";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
 export const useTableData = () => {
@@ -9,7 +10,10 @@ export const useTableData = () => {
 	const [pageSize] = useQueryState(CONSTANTS.LIMIT);
 	const [sort] = useQueryState(CONSTANTS.SORT);
 	const [order] = useQueryState(CONSTANTS.ORDER);
-	const [filters] = useQueryState(CONSTANTS.FILTERS);
+	const [filters] = useQueryState<Filter[]>(
+		CONSTANTS.FILTERS,
+		parseAsJson((value) => value as Filter[]).withDefault([]),
+	);
 
 	const {
 		data: tableData,
