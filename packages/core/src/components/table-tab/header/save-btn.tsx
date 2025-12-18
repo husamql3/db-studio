@@ -1,19 +1,30 @@
+import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useUpdateCell } from "@/hooks/use-update-cell";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 
-export const SaveBtn = () => {
+export const SaveBtn = ({
+	setRowSelection,
+}: {
+	setRowSelection: OnChangeFn<RowSelectionState>;
+}) => {
 	const { getUpdates, getUpdateCount } = useUpdateCellStore();
 	const { updateCell, isUpdatingCell } = useUpdateCell();
 
-	const handleSave = useCallback(() => {
+	const handleSave = useCallback(async () => {
 		const updates = getUpdates();
 		if (updates.length === 0) return;
 
 		console.log("Saving updates:", updates);
-		updateCell(updates);
-	}, [getUpdates, updateCell]);
+		try {
+			await updateCell(updates);
+			// Reset row selection after successful save
+			setRowSelection({});
+		} catch (error) {
+			console.error("Failed to save updates:", error);
+		}
+	}, [getUpdates, updateCell, setRowSelection]);
 
 	// Hide button if no updates
 	if (getUpdateCount() === 0) {

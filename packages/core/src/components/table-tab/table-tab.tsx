@@ -164,7 +164,10 @@ export const TableTab = () => {
 
 	return (
 		<div className="h-full w-full">
-			<TableHeader selectedRows={selectedRows} />
+			<TableHeader
+				selectedRows={selectedRows}
+				setRowSelection={setRowSelection}
+			/>
 			<TableContainer table={table} />
 		</div>
 	);

@@ -1,38 +1,104 @@
-import type { Row } from "@tanstack/react-table";
-import { useCallback } from "react";
+import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useDeleteCells } from "@/hooks/use-delete-cell";
+import { type RelatedRecord, useDeleteCells } from "@/hooks/use-delete-cell";
 import type { TableRecord } from "@/types/table.type";
-export const DeleteBtn = ({ selectedRows }: { selectedRows: Row<TableRecord>[] }) => {
-	console.log(selectedRows);
-	const { deleteCells, isDeletingCells } = useDeleteCells();
+import { ForceDeleteDialog } from "./force-delete-dialog";
+
+export const DeleteBtn = ({
+	selectedRows,
+	setRowSelection,
+}: {
+	selectedRows: Row<TableRecord>[];
+	setRowSelection: OnChangeFn<RowSelectionState>;
+}) => {
+	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } =
+		useDeleteCells();
+	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
+	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
+	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
 	const handleDelete = useCallback(async () => {
 		const rowData = selectedRows.map((row) => row.original);
 
-		const result = await deleteCells(rowData);
-		console.log(result);
-	}, [deleteCells, selectedRows]);
+		const res = await deleteCells(rowData);
+		console.log(res);
+
+		if (res.fkViolation && res.relatedRecords) {
+			setPendingRowData(rowData);
+			setRelatedRecords(res.relatedRecords);
+			setIsOpenFkDialog(true);
+		} else if (res.success) {
+			// Reset row selection after successful deletion
+			setRowSelection({});
+		}
+	}, [deleteCells, selectedRows, setRowSelection]);
+
+	const handleForceDelete = async () => {
+		if (pendingRowData.length === 0) return;
+
+		const res = await forceDeleteCells(pendingRowData);
+		console.log(res);
+
+		// Only close dialog after successful deletion
+		if (res?.success) {
+			setIsOpenFkDialog(false);
+			setPendingRowData([]);
+			setRelatedRecords([]);
+			resetDeleteResult();
+			// Reset row selection after successful force deletion
+			setRowSelection({});
+		}
+	};
+
+	const handleCancelForceDelete = useCallback(() => {
+		setIsOpenFkDialog(false);
+		setPendingRowData([]);
+		setRelatedRecords([]);
+		resetDeleteResult();
+	}, [resetDeleteResult]);
+
+	const handleDialogClose = (isOpen: boolean) => {
+		// Only allow closing if not currently deleting
+		if (isDeletingCells) return;
+
+		if (!isOpen) {
+			handleCancelForceDelete();
+		} else {
+			setIsOpenFkDialog(isOpen);
+		}
+	};
 
 	if (selectedRows?.length === 0) {
 		return null;
 	}
 
 	return (
-		<Button
-			type="button"
-			variant="destructive"
-			className="h-8! border-l-0 border-y-0 border-r border-zinc-800 text-white rounded-none"
-			onClick={handleDelete}
-			aria-label="Delete the selected record"
-			disabled={isDeletingCells}
-		>
-			Delete Record
-			{selectedRows?.length > 1 && (
-				<span className="ml-1.5 px-1.5 text-[10px] bg-white/20 border border-white/20 rounded">
-					{selectedRows?.length}
-				</span>
-			)}
-		</Button>
+		<>
+			<Button
+				type="button"
+				variant="destructive"
+				className="h-8! border-l-0 border-y-0 border-r border-zinc-800 text-white rounded-none"
+				onClick={handleDelete}
+				aria-label="Delete the selected record"
+				disabled={isDeletingCells}
+			>
+				Delete Record
+				{selectedRows?.length > 1 && (
+					<span className="ml-1.5 px-1.5 text-[10px] bg-white/20 border border-white/20 rounded">
+						{selectedRows?.length}
+					</span>
+				)}
+			</Button>
+
+			<ForceDeleteDialog
+				isOpenFkDialog={isOpenFkDialog}
+				handleDialogClose={handleDialogClose}
+				relatedRecords={relatedRecords}
+				handleCancelForceDelete={handleCancelForceDelete}
+				handleForceDelete={handleForceDelete}
+				isDeletingCells={isDeletingCells}
+			/>
+		</>
 	);
 };
