@@ -6,6 +6,7 @@ import {
 	useCallback,
 } from "react";
 import { cn } from "@/lib/utils";
+import { useUpdateCellStore } from "@/stores/update-cell-store";
 import type { TableRecord } from "@/types/table.type";
 
 interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
@@ -20,6 +21,7 @@ interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
 
 export function TableCellWrapper<TData>({
 	table,
+	cell,
 	rowIndex,
 	columnId,
 	isEditing,
@@ -30,7 +32,13 @@ export function TableCellWrapper<TData>({
 	onKeyDown: onKeyDownProp,
 	...props
 }: TableCellWrapperProps<TData>) {
+	const { getUpdate } = useUpdateCellStore();
+
 	const meta = table.options.meta;
+
+	// Check if this cell has a pending update
+	const rowData = cell.row.original as Record<string, unknown>;
+	const hasUpdate = !!getUpdate(rowData, columnId);
 
 	const onClick = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
@@ -149,6 +157,7 @@ export function TableCellWrapper<TData>({
 					"ring-1 ring-ring ring-inset": isFocused,
 					"bg-primary/10": isSelected && !isEditing,
 					"cursor-default": !isEditing,
+					"ring-2 ring-primary": hasUpdate,
 				},
 				className,
 			)}

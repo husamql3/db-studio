@@ -49,11 +49,11 @@ export const TableTextCell = memo(
 		isFocused,
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
-		const { setUpdate, clearUpdate } = useUpdateCellStore();
+		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue() as string;
 
-		// Initialize state with initialValue
-		const [value, setValue] = useState(() => initialValue ?? "");
+		// Separate editor value from display value
+		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
 		const [open, setOpen] = useState(false);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
@@ -63,59 +63,63 @@ export const TableTextCell = memo(
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
+		// Get the current display value from store or use initial value
+		const pendingUpdate = getUpdate(rowData, columnName);
+		const displayValue = pendingUpdate
+			? (pendingUpdate.newValue as string)
+			: (initialValue ?? "");
+
 		const onSave = useCallback(() => {
 			console.log("onSave", {
-				value,
+				editorValue,
 				initialValue,
 				columnName,
 				rowData,
 			});
 
 			// Update the store with the final value
-			setUpdate(rowData, columnName, value, initialValue);
+			setUpdate(rowData, columnName, editorValue, initialValue);
 
-			// Close the popover
-			setOpen(false);
+			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
-		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
+			setOpen(false);
+		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
 
 		const onCancel = useCallback(() => {
-			console.log("onCancel", value, initialValue);
+			console.log("onCancel", editorValue, initialValue);
 
 			// Restore the original value
-			setValue(initialValue ?? "");
+			setEditorValue(initialValue ?? "");
 
 			// Clear this cell's update from the store
 			clearUpdate(rowData, columnName);
 
-			setOpen(false);
+			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
-		}, [meta, initialValue, columnName, rowData, clearUpdate, value]);
+			setOpen(false);
+		}, [meta, initialValue, columnName, rowData, clearUpdate, editorValue]);
 
 		const onChange = useCallback(
 			(event: ChangeEvent<HTMLTextAreaElement>) => {
 				const newValue = event.target.value;
-				console.log("onChange", newValue, columnName, value, initialValue);
-				setValue(newValue);
-
-				// Debounced update to store (tracks the change but doesn't save)
-				setUpdate(rowData, columnName, newValue, initialValue);
+				console.log("onChange", newValue, columnName, editorValue, initialValue);
+				setEditorValue(newValue);
 			},
-			[columnName, value, initialValue, rowData, setUpdate],
+			[columnName, editorValue, initialValue],
 		);
 
 		const onOpenChange = useCallback(
 			(isOpen: boolean) => {
 				setOpen(isOpen);
 				if (!isOpen) {
-					// When closing, update the store with current value
-					if (value !== initialValue) {
-						setUpdate(rowData, columnName, value, initialValue);
+					// When closing, update the store with current value if changed
+					if (editorValue !== initialValue) {
+						setUpdate(rowData, columnName, editorValue, initialValue);
 					}
 					meta?.onCellEditingStop?.();
 				}
 			},
-			[meta, value, initialValue, columnName, rowData, setUpdate],
+			[meta, editorValue, initialValue, columnName, rowData, setUpdate],
 		);
 
 		const onOpenAutoFocus: NonNullable<
@@ -137,49 +141,51 @@ export const TableTextCell = memo(
 						meta?.onCellEditingStop?.();
 					} else if (event.key === "Tab") {
 						event.preventDefault();
-						// Update store when tabbing away
-						if (value !== initialValue) {
-							setUpdate(rowData, columnName, value, initialValue);
-						}
 						meta?.onCellEditingStop?.({
 							direction: event.shiftKey ? "left" : "right",
 						});
 					}
 				}
 			},
-			[isEditing, open, meta, value, initialValue, columnName, rowData, setUpdate],
+			[isEditing, open, meta],
 		);
 
 		const onTextareaKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLTextAreaElement>) => {
 				if (event.key === "Escape") {
 					event.preventDefault();
-					console.log("onTextareaKeyDown", event.key, value, initialValue);
+					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
 					onCancel();
 				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 					event.preventDefault();
-					console.log("onTextareaKeyDown", event.key, value, initialValue);
+					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
 					onSave();
 				}
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
 			},
-			[onCancel, onSave, value, initialValue],
+			[onCancel, onSave, editorValue, initialValue],
 		);
 
 		const onTextareaBlur = useCallback(() => {
-			// Update store on blur (don't auto-save, just track)
-			if (value !== initialValue) {
-				setUpdate(rowData, columnName, value, initialValue);
+			// Update store on blur
+			if (editorValue !== initialValue) {
+				setUpdate(rowData, columnName, editorValue, initialValue);
 			}
-			setOpen(false);
+			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
-		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
+			setOpen(false);
+		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
 
-		// Sync open state with isEditing prop
-		if (isEditing && !open) {
-			setOpen(true);
-		}
+		// Sync open state with isEditing prop and initialize editor value
+		useEffect(() => {
+			if (isEditing && !open) {
+				setEditorValue(displayValue);
+				setOpen(true);
+			} else if (!isEditing && open) {
+				setOpen(false);
+			}
+		}, [isEditing, open, displayValue]);
 
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
@@ -207,7 +213,7 @@ export const TableTextCell = memo(
 						isSelected={isSelected}
 						onKeyDown={onWrapperKeyDown}
 					>
-						<span data-slot="grid-cell-content">{value}</span>
+						<span data-slot="grid-cell-content">{displayValue}</span>
 					</TableCellWrapper>
 				</PopoverAnchor>
 				<PopoverContent
@@ -220,7 +226,7 @@ export const TableTextCell = memo(
 				>
 					<Textarea
 						ref={textareaRef}
-						value={value}
+						value={editorValue}
 						onChange={onChange}
 						onKeyDown={onTextareaKeyDown}
 						onBlur={onTextareaBlur}
@@ -273,8 +279,6 @@ export const TableNumberCell = memo(
 		const inputRef = useRef<HTMLInputElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
-		const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
-		console.log({ enumValues: enumValues });
 
 		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
@@ -619,9 +623,6 @@ export const TableEnumCell = memo(
 		const isEditingRef = useRef(isEditing);
 		const meta = table.options.meta;
 		const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
-		console.log(cell.column.columnDef.meta.enumValues);
-
-		console.log(table.options.meta);
 
 		// Update ref when isEditing changes
 		useEffect(() => {
@@ -880,3 +881,246 @@ export const TableDateCell = memo(
 );
 
 TableDateCell.displayName = "TableDateCell";
+
+export const TableJsonCell = memo(
+	({
+		cell,
+		table,
+		rowIndex,
+		columnId,
+		isEditing,
+		isFocused,
+		isSelected,
+	}: CellVariantProps<TableRecord>) => {
+		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
+		const initialValue = cell.getValue() as Record<string, unknown>;
+
+		// Separate editor value (formatted) from display value (compact)
+		const [editorValue, setEditorValue] = useState(
+			() => JSON.stringify(initialValue, null, 2) ?? "",
+		);
+		const [open, setOpen] = useState(false);
+		const textareaRef = useRef<HTMLTextAreaElement>(null);
+		const containerRef = useRef<HTMLDivElement>(null);
+		const meta = table.options.meta;
+
+		// Get the row data and column name for store operations
+		const rowData = cell.row.original as Record<string, unknown>;
+		const columnName = columnId;
+
+		// Get the current display value from store or use initial value (compact format)
+		const pendingUpdate = getUpdate(rowData, columnName);
+		const currentJsonValue = pendingUpdate
+			? (pendingUpdate.newValue as Record<string, unknown>)
+			: initialValue;
+		const displayValue = JSON.stringify(currentJsonValue);
+
+		const onSave = useCallback(() => {
+			console.log("onSave", {
+				editorValue,
+				initialValue,
+				columnName,
+				rowData,
+			});
+
+			try {
+				// Parse the JSON string to validate and store as object
+				const parsedValue = JSON.parse(editorValue);
+				// Update the store with the parsed value
+				setUpdate(rowData, columnName, parsedValue, initialValue);
+			} catch (error) {
+				console.error("Invalid JSON:", error);
+				// Optionally show an error message to the user
+				return;
+			}
+
+			// Stop editing first, then close the popover
+			meta?.onCellEditingStop?.();
+			setOpen(false);
+		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
+
+		const onCancel = useCallback(() => {
+			console.log("onCancel", editorValue, initialValue);
+
+			// Restore the original value (formatted)
+			setEditorValue(JSON.stringify(initialValue, null, 2) ?? "");
+
+			// Clear this cell's update from the store
+			clearUpdate(rowData, columnName);
+
+			// Stop editing first, then close the popover
+			meta?.onCellEditingStop?.();
+			setOpen(false);
+		}, [meta, initialValue, columnName, rowData, clearUpdate, editorValue]);
+
+		const onChange = useCallback(
+			(event: ChangeEvent<HTMLTextAreaElement>) => {
+				const newValue = event.target.value;
+				console.log("onChange", newValue, columnName, editorValue, initialValue);
+				setEditorValue(newValue);
+			},
+			[columnName, editorValue, initialValue],
+		);
+
+		const onOpenChange = useCallback(
+			(isOpen: boolean) => {
+				setOpen(isOpen);
+				if (!isOpen) {
+					// When closing, update the store with current value if valid JSON
+					try {
+						const parsedValue = JSON.parse(editorValue);
+						if (JSON.stringify(parsedValue) !== JSON.stringify(initialValue)) {
+							setUpdate(rowData, columnName, parsedValue, initialValue);
+						}
+					} catch (error) {
+						console.error("Invalid JSON on close:", error);
+					}
+					meta?.onCellEditingStop?.();
+				}
+			},
+			[meta, editorValue, initialValue, columnName, rowData, setUpdate],
+		);
+
+		const onOpenAutoFocus: NonNullable<
+			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
+		> = useCallback((event) => {
+			event.preventDefault();
+			if (textareaRef.current) {
+				textareaRef.current.focus();
+				const length = textareaRef.current.value.length;
+				textareaRef.current.setSelectionRange(length, length);
+			}
+		}, []);
+
+		const onWrapperKeyDown = useCallback(
+			(event: KeyboardEvent<HTMLDivElement>) => {
+				if (isEditing && !open) {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						meta?.onCellEditingStop?.();
+					} else if (event.key === "Tab") {
+						event.preventDefault();
+						meta?.onCellEditingStop?.({
+							direction: event.shiftKey ? "left" : "right",
+						});
+					}
+				}
+			},
+			[isEditing, open, meta],
+		);
+
+		const onTextareaKeyDown = useCallback(
+			(event: KeyboardEvent<HTMLTextAreaElement>) => {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
+					onCancel();
+				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+					event.preventDefault();
+					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
+					onSave();
+				}
+				// Stop propagation to prevent grid navigation
+				event.stopPropagation();
+			},
+			[onCancel, onSave, editorValue, initialValue],
+		);
+
+		const onTextareaBlur = useCallback(() => {
+			// Update store on blur if valid JSON
+			try {
+				const parsedValue = JSON.parse(editorValue);
+				if (JSON.stringify(parsedValue) !== JSON.stringify(initialValue)) {
+					setUpdate(rowData, columnName, parsedValue, initialValue);
+				}
+			} catch (error) {
+				console.error("Invalid JSON on blur:", error);
+			}
+			// Stop editing first, then close the popover
+			meta?.onCellEditingStop?.();
+			setOpen(false);
+		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
+
+		// Sync open state with isEditing prop and initialize editor value
+		useEffect(() => {
+			if (isEditing && !open) {
+				// Initialize editor with formatted JSON
+				setEditorValue(JSON.stringify(currentJsonValue, null, 2));
+				setOpen(true);
+			} else if (!isEditing && open) {
+				setOpen(false);
+			}
+		}, [isEditing, open, currentJsonValue]);
+
+		useEffect(() => {
+			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+				containerRef.current.focus();
+			}
+		}, [isFocused, isEditing, meta?.isScrolling]);
+
+		useHotkeys("enter", () => onSave());
+		useHotkeys("esc", () => onCancel());
+
+		return (
+			<Popover
+				open={open}
+				onOpenChange={onOpenChange}
+			>
+				<PopoverAnchor asChild>
+					<TableCellWrapper
+						ref={containerRef}
+						cell={cell}
+						table={table}
+						rowIndex={rowIndex}
+						columnId={columnId}
+						isEditing={isEditing}
+						isFocused={isFocused}
+						isSelected={isSelected}
+						onKeyDown={onWrapperKeyDown}
+					>
+						<span data-slot="grid-cell-content">{displayValue}</span>
+					</TableCellWrapper>
+				</PopoverAnchor>
+				<PopoverContent
+					data-grid-cell-editor=""
+					align="start"
+					side="bottom"
+					sideOffset={0}
+					className="w-[400px] rounded-none p-0 gap-0"
+					onOpenAutoFocus={onOpenAutoFocus}
+				>
+					<Textarea
+						ref={textareaRef}
+						value={editorValue}
+						onChange={onChange}
+						onKeyDown={onTextareaKeyDown}
+						onBlur={onTextareaBlur}
+						className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+						placeholder="Enter JSON..."
+					/>
+					<div className="flex flex-col border-t">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="rounded-none justify-start text-xs py-4 px-2"
+						>
+							<Kbd className="text-xs font-normal">⌘↵</Kbd>
+							<span className="ml-1 text-xs">Save Changes</span>
+						</Button>
+
+						<Button
+							variant="ghost"
+							size="sm"
+							className="rounded-none justify-start text-xs py-4 px-2"
+						>
+							<Kbd className="text-xs font-normal">esc</Kbd>
+							<span className="ml-1 text-xs">Cancel Changes</span>
+						</Button>
+					</div>
+				</PopoverContent>
+			</Popover>
+		);
+	},
+);
+
+TableJsonCell.displayName = "TableJsonCell";

@@ -75,7 +75,7 @@ export function DatePicker({
 				>
 					{icon && <CalendarIcon className="mr-2 size-4 shrink-0" />}
 					<span className="flex-1">
-						{value
+						{value && value instanceof Date && !Number.isNaN(value.getTime())
 							? isFormatted
 								? format(value, "dd/MM/yyyy")
 								: value.toISOString()

@@ -5,6 +5,7 @@ export const DataTypes = {
 	enum: "enum",
 	json: "json",
 	date: "date",
+	array: "array",
 } as const;
 
 export type DataTypes = (typeof DataTypes)[keyof typeof DataTypes];
@@ -17,7 +18,6 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 
 	// Handle array types and date/time types
 	if (
-		normalized.startsWith("array") ||
 		normalized.includes("[]") ||
 		normalized === "date" ||
 		normalized === "time" ||
@@ -326,8 +326,9 @@ export function standardizeDataTypeLabel(pgType: string): StandardizedDataType {
 	}
 
 	// Array types
+	// todo: handle array types
 	if (normalized.startsWith("array") || normalized.includes("[]")) {
-		return StandardizedDataType.array;
+		return StandardizedDataType.text;
 	}
 
 	// User-defined types (enums)

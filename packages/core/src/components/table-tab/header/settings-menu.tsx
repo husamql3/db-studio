@@ -1,6 +1,9 @@
 import { IconSettings } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 
+// todo: light & dark mode
+// todo: json cell tab size
+
 export const SettingsBtn = () => {
 	return (
 		<Button

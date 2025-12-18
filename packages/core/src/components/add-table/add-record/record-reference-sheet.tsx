@@ -12,13 +12,13 @@ export const RecordReferenceSheet = () => {
 
 	return (
 		<SheetSidebar
+			title={`View records in the table ${recordReferenceData.tableName}`}
 			open={isSheetOpen("record-reference")}
 			onOpenChange={(open) => {
 				if (!open) {
 					closeSheet("record-reference");
 				}
 			}}
-			title={`View records in the table ${recordReferenceData.tableName}`}
 		>
 			<ReferencedTable
 				tableName={recordReferenceData.tableName}
