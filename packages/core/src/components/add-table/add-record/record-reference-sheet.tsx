@@ -1,14 +1,7 @@
 import { ReferencedTable } from "@/components/add-table/add-record/referenced-table";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Button } from "@/components/ui/button";
-import {
-	Sheet,
-	SheetClose,
-	SheetContent,
-	SheetDescription,
-	SheetFooter,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
+import { SheetClose, SheetFooter } from "@/components/ui/sheet";
 import { useSheetStore } from "@/stores/sheet.store";
 
 export const RecordReferenceSheet = () => {
@@ -18,46 +11,35 @@ export const RecordReferenceSheet = () => {
 	}
 
 	return (
-		<Sheet
+		<SheetSidebar
 			open={isSheetOpen("record-reference")}
 			onOpenChange={(open) => {
 				if (!open) {
 					closeSheet("record-reference");
 				}
 			}}
+			title={`View records in the table ${recordReferenceData.tableName}`}
 		>
-			<SheetContent className="sm:max-w-xl!">
-				<SheetHeader>
-					<SheetTitle>
-						View records in the table{" "}
-						<span className="text-primary">{recordReferenceData.tableName}</span>
-					</SheetTitle>
-					<SheetDescription className="sr-only">
-						View records in the table: {recordReferenceData.tableName}.
-					</SheetDescription>
-				</SheetHeader>
+			<ReferencedTable
+				tableName={recordReferenceData.tableName}
+				referencedColumn={recordReferenceData.referencedColumn ?? null}
+				columnName={recordReferenceData.columnName ?? ""}
+			/>
 
-				<ReferencedTable
-					tableName={recordReferenceData.tableName}
-					referencedColumn={recordReferenceData.referencedColumn ?? null}
-					columnName={recordReferenceData.columnName ?? ""}
-				/>
-
-				<SheetFooter>
-					<SheetClose
-						asChild
-						// onClick={handleCancel}
-						// disabled={isCreatingRecord}
+			<SheetFooter>
+				<SheetClose
+					asChild
+					// onClick={handleCancel}
+					// disabled={isCreatingRecord}
+				>
+					<Button
+						variant="outline"
+						size="sm"
 					>
-						<Button
-							variant="outline"
-							size="sm"
-						>
-							Close
-						</Button>
-					</SheetClose>
-				</SheetFooter>
-			</SheetContent>
-		</Sheet>
+						Close
+					</Button>
+				</SheetClose>
+			</SheetFooter>
+		</SheetSidebar>
 	);
 };

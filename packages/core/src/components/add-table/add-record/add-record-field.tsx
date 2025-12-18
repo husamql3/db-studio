@@ -79,7 +79,18 @@ export const AddRecordField = ({
 
 					<span className="text-xs text-muted-foreground">
 						Has a foreign key relation to{" "}
-						<span className="font-mono text-primary-foreground">{referencedTable}</span>{" "}
+						<button
+							type="button"
+							className="font-mono text-primary"
+							onClick={() => {
+								if (referencedTable && columnName && referencedColumn) {
+									setRecordReference(referencedTable, columnName, referencedColumn);
+								}
+								openSheet("record-reference");
+							}}
+						>
+							{referencedTable}
+						</button>{" "}
 						table
 					</span>
 				</div>

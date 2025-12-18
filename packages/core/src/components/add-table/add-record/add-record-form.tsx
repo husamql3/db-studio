@@ -1,21 +1,14 @@
 import { useQueryState } from "nuqs";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
+import { AddRecordField } from "@/components/add-table/add-record/add-record-field";
+import { RecordReferenceSheet } from "@/components/add-table/add-record/record-reference-sheet";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Button } from "@/components/ui/button";
-import {
-	Sheet,
-	SheetClose,
-	SheetContent,
-	SheetDescription,
-	SheetFooter,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
+import { SheetClose } from "@/components/ui/sheet";
 import { type AddRecordFormData, useCreateRecord } from "@/hooks/use-create-record";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
-import { AddRecordField } from "./add-record-field";
-import { RecordReferenceSheet } from "./record-reference-sheet";
 
 // TODO: Add loading skeleton
 // TODO: Add a dropdown for the primary key
@@ -36,12 +29,15 @@ export const AddRecordForm = () => {
 
 	const onSubmit = async (data: AddRecordFormData) => {
 		console.log(data);
-		try {
-			await createRecord(data);
-			methods.reset();
-		} catch (error) {
-			console.error("Failed to create record:", error);
-		}
+		createRecord(data, {
+			onSuccess: () => {
+				methods.reset();
+				closeSheet("add-record");
+			},
+			onError: (error) => {
+				console.error("Failed to create record:", error);
+			},
+		});
 	};
 
 	const onError = (errors: FieldErrors<AddRecordFormData>) => {
@@ -50,67 +46,63 @@ export const AddRecordForm = () => {
 
 	const handleCancel = () => {
 		methods.reset();
-		closeSheet("add-row");
+		closeSheet("add-record");
 	};
 	console.log(tableCols);
 
 	return (
-		<Sheet
-			open={isSheetOpen("add-row")}
+		<SheetSidebar
+			title={`Add a new record to the table: ${activeTable}`}
+			open={isSheetOpen("add-record")}
 			onOpenChange={(open) => {
 				if (!open) {
 					handleCancel();
 				}
 			}}
 		>
-			<SheetContent className="sm:max-w-2xl!">
-				<SheetHeader>
-					<SheetTitle>
-						Add a new record to <span className="text-primary">{activeTable}</span> table
-					</SheetTitle>
-					<SheetDescription className="sr-only">
-						Add a new record to the table: {activeTable}.
-					</SheetDescription>
-				</SheetHeader>
+			<FormProvider {...methods}>
+				<form
+					onSubmit={methods.handleSubmit(onSubmit, onError)}
+					className="flex flex-col h-full"
+				>
+					<div className="space-y-6">
+						{tableCols && tableCols.length > 0 && !isLoadingTableCols
+							? tableCols.map((col) => (
+									<AddRecordField
+										key={col.columnName}
+										{...col}
+									/>
+								))
+							: null}
+					</div>
 
-				<FormProvider {...methods}>
-					<form
-						onSubmit={methods.handleSubmit(onSubmit, onError)}
-						className="flex-1 flex flex-col overflow-y-auto"
-					>
-						<div className="flex flex-col gap-6 py-6 px-4 overflow-y-auto">
-							{tableCols && tableCols.length > 0 && !isLoadingTableCols
-								? tableCols.map((col) => (
-										<AddRecordField
-											key={col.columnName}
-											{...col}
-										/>
-									))
-								: null}
-						</div>
-
-						<SheetFooter className="">
-							<SheetClose
-								asChild
-								onClick={handleCancel}
-								disabled={isCreatingRecord}
-							>
-								<Button variant="outline">Close</Button>
-							</SheetClose>
-
+					<div className="flex justify-end gap-2 py-6">
+						<SheetClose
+							asChild
+							onClick={handleCancel}
+							disabled={isCreatingRecord}
+						>
 							<Button
-								type="submit"
-								disabled={isCreatingRecord}
+								variant="outline"
+								size="lg"
 							>
-								Save
+								Close
 							</Button>
-						</SheetFooter>
-					</form>
+						</SheetClose>
 
-					{/* Record reference sheet */}
-					<RecordReferenceSheet />
-				</FormProvider>
-			</SheetContent>
-		</Sheet>
+						<Button
+							type="submit"
+							size="lg"
+							disabled={isCreatingRecord}
+						>
+							Save
+						</Button>
+					</div>
+				</form>
+
+				{/* Record reference sheet */}
+				<RecordReferenceSheet />
+			</FormProvider>
+		</SheetSidebar>
 	);
 };

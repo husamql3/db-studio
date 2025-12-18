@@ -2,6 +2,7 @@ export const CONSTANTS = {
 	SIDEBAR_TABLE_SEARCH: "s",
 	ACTIVE_TABLE: "table", // query state key for active table
 	ACTIVE_TAB: "tab", // query state key for active tab
+	COLUMN_NAME: "column-name", // query state key for column name
 
 	//* cache keys
 	CACHE_KEYS: {

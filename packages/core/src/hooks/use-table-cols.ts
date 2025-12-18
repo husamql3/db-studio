@@ -3,8 +3,15 @@ import { useQueryState } from "nuqs";
 import type { ColumnInfo } from "server/src/dao/table-columns.dao";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
-export const useTableCols = () => {
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+export const useTableCols = (tableName?: string) => {
+	let activeTable: string;
+	const [activeTableQuery] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+
+	if (tableName) {
+		activeTable = tableName;
+	} else {
+		activeTable = activeTableQuery ?? "";
+	}
 
 	const {
 		data: tableCols,

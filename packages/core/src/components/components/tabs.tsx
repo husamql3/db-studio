@@ -11,7 +11,7 @@ export const Tabs = () => {
 				<Button
 					key={id}
 					variant="ghost"
-					onClick={() => setActiveTab(id)}
+					onClick={() => setActiveTab(id.toLowerCase())}
 					className={cn(
 						"flex-1 px-4 border-l-0 border-y-0 border-r border-zinc-800 h-full rounded-none",
 						activeTab === id ? "bg-zinc-900 text-white" : "text-zinc-400",

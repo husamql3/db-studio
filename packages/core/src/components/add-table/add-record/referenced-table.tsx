@@ -33,7 +33,7 @@ export const ReferencedTable = ({
 }) => {
 	const { setValue } = useFormContext<AddRecordFormData>();
 	const { closeSheet } = useSheetStore();
-	const { tableCols, isLoadingTableCols } = useTableCols();
+	const { tableCols, isLoadingTableCols } = useTableCols(tableName);
 	const { tableData, isLoadingTableData } = useTableData();
 
 	const columns = useMemo(() => {

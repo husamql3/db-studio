@@ -42,7 +42,7 @@ export const useCreateRecord = () => {
 					queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
 				}),
 			]);
-			closeSheet("add-row");
+			closeSheet("add-record");
 			console.log("Record created successfully:", data);
 		},
 		onError: (error: Error & { detail?: string }) => {
@@ -50,8 +50,14 @@ export const useCreateRecord = () => {
 		},
 	});
 
-	const createRecord = async (data: AddRecordFormData) => {
-		return toast.promise(createRecordMutation(data), {
+	const createRecord = async (
+		data: AddRecordFormData,
+		options: {
+			onSuccess?: () => void;
+			onError?: (error: Error & { detail?: string }) => void;
+		},
+	) => {
+		return toast.promise(createRecordMutation(data, options), {
 			loading: "Creating record...",
 			success: (result) => result.message || "Record created successfully",
 			error: (error: Error & { detail?: string }) =>

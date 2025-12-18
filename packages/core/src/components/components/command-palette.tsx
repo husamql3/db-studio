@@ -350,7 +350,7 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									handleAction(() => openSheet("add-row"), "Opening add row form")
+									handleAction(() => openSheet("add-record"), "Opening add row form")
 								}
 								disabled={!activeTable}
 							>

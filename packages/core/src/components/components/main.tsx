@@ -1,13 +1,19 @@
 import { useQueryState } from "nuqs";
 import { TableTab } from "@/components/table-tab/table-tab";
 import { CONSTANTS } from "@/utils/constants";
+import { AddRecordForm } from "../add-table/add-record/add-record-form";
 
 export const Main = () => {
 	const [activeTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
 
 	switch (activeTab) {
 		case "table":
-			return <TableTab />;
+			return (
+				<>
+					<TableTab />
+					<AddRecordForm />
+				</>
+			);
 		case "indexes":
 			return <NotYet tab={activeTab} />;
 		case "runner":

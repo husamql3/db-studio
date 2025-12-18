@@ -3,7 +3,7 @@ import { create } from "zustand";
 export type SheetName =
 	| "sidebar"
 	| "add-table"
-	| "add-row"
+	| "add-record"
 	| `add-foreign-key-${number}`
 	| "record-reference";
 
