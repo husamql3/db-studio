@@ -1,12 +1,14 @@
-import { AddRecordBtn } from "./add-record-btn";
-import { ClearBtn } from "./clear-btn";
-import { DeleteBtn } from "./delete-btn";
-import { FilterPopup } from "./filter-popup";
-import { RefetchBtn } from "./refetch-btn";
-import { SaveBtn } from "./save-btn";
-import { SettingsBtn } from "./settings-menu";
+import type { Row } from "@tanstack/react-table";
+import { AddRecordBtn } from "@/components/table-tab/header/add-record-btn";
+import { ClearBtn } from "@/components/table-tab/header/clear-btn";
+import { DeleteBtn } from "@/components/table-tab/header/delete-btn";
+import { FilterPopup } from "@/components/table-tab/header/filter-popup";
+import { RefetchBtn } from "@/components/table-tab/header/refetch-btn";
+import { SaveBtn } from "@/components/table-tab/header/save-btn";
+import { SettingsBtn } from "@/components/table-tab/header/settings-menu";
+import type { TableRecord } from "@/types/table.type";
 
-export const TableHeader = () => {
+export const TableHeader = ({ selectedRows }: { selectedRows: Row<TableRecord>[] }) => {
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
 			<div className="flex items-center ">
@@ -15,7 +17,7 @@ export const TableHeader = () => {
 				<AddRecordBtn />
 				<SaveBtn />
 				<ClearBtn />
-				<DeleteBtn />
+				<DeleteBtn selectedRows={selectedRows} />
 			</div>
 
 			<div className="flex items-center">

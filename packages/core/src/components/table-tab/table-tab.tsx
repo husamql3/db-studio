@@ -5,7 +5,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TableHeader } from "@/components/table-tab/header/table-header";
 import { TableCell } from "@/components/table-tab/table-cell";
 import { TableContainer } from "@/components/table-tab/table-container";
@@ -61,6 +61,11 @@ export const TableTab = () => {
 		[tableCols],
 	);
 
+	// Clear row selection when table changes
+	useEffect(() => {
+		setRowSelection({});
+	}, [activeTable]);
+
 	// Initialize sorting state from URL params
 	const sorting = useMemo(() => {
 		if (columnName && order) {
@@ -91,7 +96,9 @@ export const TableTab = () => {
 		enableColumnResizing: true,
 		columnResizeMode: "onChange",
 		debugTable: true,
-		onRowSelectionChange: setRowSelection,
+		onRowSelectionChange: (rowSelection) => {
+			setRowSelection(rowSelection);
+		},
 		onColumnSizingChange: setColumnSizing,
 		meta: {
 			focusedCell,
@@ -125,6 +132,7 @@ export const TableTab = () => {
 	});
 
 	const hasNoData = !tableData?.data || tableData.data.length === 0;
+	const selectedRows = table.getSelectedRowModel().rows;
 
 	if (isLoadingTableData || isLoadingTableCols) {
 		return (
@@ -156,7 +164,7 @@ export const TableTab = () => {
 
 	return (
 		<div className="h-full w-full">
-			<TableHeader />
+			<TableHeader selectedRows={selectedRows} />
 			<TableContainer table={table} />
 		</div>
 	);

@@ -6,7 +6,7 @@ import {
 	useCallback,
 } from "react";
 import { cn } from "@/lib/utils";
-import { useUpdateCellStore } from "@/stores/update-cell-store";
+import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
 
 interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
@@ -149,6 +149,7 @@ export function TableCellWrapper<TData>({
 			data-editing={isEditing ? "" : undefined}
 			data-focused={isFocused ? "" : undefined}
 			data-selected={isSelected ? "" : undefined}
+			data-has-update={hasUpdate ? "" : undefined}
 			tabIndex={isFocused && !isEditing ? 0 : -1}
 			className={cn(
 				"size-full px-2 py-1.5 text-left text-sm outline-none has-data-[slot=checkbox]:pt-2.5",
