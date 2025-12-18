@@ -13,6 +13,8 @@ export const RecordReferenceSheet = () => {
 	return (
 		<SheetSidebar
 			title={`View records in the table ${recordReferenceData.tableName}`}
+			size="max-w-lg!"
+			contentClassName="p-0"
 			open={isSheetOpen("record-reference")}
 			onOpenChange={(open) => {
 				if (!open) {

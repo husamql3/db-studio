@@ -53,7 +53,14 @@ export const updateRecords = async (params: UpdateRecordParams) => {
 			const setClauses = rowUpdates.map(
 				(u, index) => `"${u.columnName}" = $${index + 1}`,
 			);
-			const values = rowUpdates.map((u) => u.value);
+			const values = rowUpdates.map((u) => {
+				console.log(`Value for ${u.columnName}:`, typeof u.value, u.value);
+				// If the value is an object or array, stringify it for JSON/JSONB columns
+				if (u.value !== null && typeof u.value === "object") {
+					return JSON.stringify(u.value);
+				}
+				return u.value;
+			});
 
 			// Add the primary key value as the last parameter
 			values.push(pkValue);

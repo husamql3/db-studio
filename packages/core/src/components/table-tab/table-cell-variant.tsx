@@ -893,7 +893,38 @@ export const TableJsonCell = memo(
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const initialValue = cell.getValue() as Record<string, unknown>;
+		const rawValue = cell.getValue();
+
+		// If the value is a string (which shouldn't happen but might due to pg driver issues),
+		// parse it to an object
+		let initialValue: Record<string, unknown>;
+		if (typeof rawValue === "string") {
+			try {
+				initialValue = JSON.parse(rawValue) as Record<string, unknown>;
+				console.warn(
+					`TableJsonCell ${columnId}: initialValue was a string, parsed it to object`,
+					initialValue,
+				);
+			} catch (e) {
+				console.error(
+					`TableJsonCell ${columnId}: Failed to parse initialValue string`,
+					rawValue,
+					e,
+				);
+				initialValue = {};
+			}
+		} else {
+			initialValue = rawValue as Record<string, unknown>;
+		}
+
+		// Debug: Log the initial value type
+		useEffect(() => {
+			console.log(
+				`TableJsonCell ${columnId} initialValue:`,
+				typeof initialValue,
+				initialValue,
+			);
+		}, [initialValue, columnId]);
 
 		// Separate editor value (formatted) from display value (compact)
 		const [editorValue, setEditorValue] = useState(
@@ -926,6 +957,8 @@ export const TableJsonCell = memo(
 			try {
 				// Parse the JSON string to validate and store as object
 				const parsedValue = JSON.parse(editorValue);
+				console.log("Parsed value:", typeof parsedValue, parsedValue);
+				console.log("Initial value:", typeof initialValue, initialValue);
 				// Update the store with the parsed value
 				setUpdate(rowData, columnName, parsedValue, initialValue);
 			} catch (error) {

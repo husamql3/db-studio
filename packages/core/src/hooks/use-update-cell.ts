@@ -18,11 +18,18 @@ export const useUpdateCell = () => {
 			// Transform updates into the format the API expects
 			const payload = {
 				tableName: activeTable,
-				updates: updates.map((update) => ({
-					rowData: update.rowData,
-					columnName: update.columnName,
-					value: update.newValue,
-				})),
+				updates: updates.map((update) => {
+					console.log(
+						`Update for ${update.columnName}:`,
+						typeof update.newValue,
+						update.newValue,
+					);
+					return {
+						rowData: update.rowData,
+						columnName: update.columnName,
+						value: update.newValue,
+					};
+				}),
 				// You can specify a different primary key if needed
 				// primaryKey: "id", // defaults to 'id' on the backend
 			};

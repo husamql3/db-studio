@@ -43,7 +43,7 @@ export const SaveBtn = ({
 			disabled={isUpdatingCell}
 		>
 			Save Changes
-			{updateCount > 1 && (
+			{updateCount > 0 && (
 				<span className="ml-1.5 px-1.5 text-[10px] bg-white/20 border border-white/20 rounded">
 					{updateCount}
 				</span>
