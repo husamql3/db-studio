@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TableHeader } from "@/components/table-tab/header/table-header";
 import { TableCell } from "@/components/table-tab/table-cell";
 import { TableContainer } from "@/components/table-tab/table-container";
+import { TableFooter } from "@/components/table-tab/table-footer";
 import { TableSelector } from "@/components/table-tab/table-selector";
 import { Spinner } from "@/components/ui/spinner";
 import { useTableCols } from "@/hooks/use-table-cols";
@@ -158,17 +159,26 @@ export const TableTab = () => {
 
 	if (hasNoData) {
 		return (
-			<div className="size-full flex items-center justify-center">No data available</div>
+			<div className="size-full flex flex-col items-center justify-center">
+				<TableHeader
+					selectedRows={selectedRows}
+					setRowSelection={setRowSelection}
+				/>
+				<div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
+					No data available
+				</div>
+			</div>
 		);
 	}
 
 	return (
-		<div className="h-full w-full">
+		<div className="flex-1 w-full flex flex-col overflow-hidden">
 			<TableHeader
 				selectedRows={selectedRows}
 				setRowSelection={setRowSelection}
 			/>
 			<TableContainer table={table} />
+			<TableFooter />
 		</div>
 	);
 };

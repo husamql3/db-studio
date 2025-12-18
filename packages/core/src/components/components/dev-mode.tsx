@@ -6,7 +6,7 @@ export const DevMode = () => {
 
 	return (
 		<Status
-			className="gap-2 rounded-full px-3 py-4 text-sm absolute bottom-3 right-3"
+			className="gap-2 rounded-full px-3 py-4 text-sm absolute bottom-12 right-3"
 			status="degraded"
 			variant="secondary"
 		>

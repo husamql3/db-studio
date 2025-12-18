@@ -23,6 +23,7 @@ export const useTableData = () => {
 	const {
 		data: tableData,
 		isLoading: isLoadingTableData,
+		isRefetching: isRefetchingTableData,
 		refetch: refetchTableData,
 		error: errorTableData,
 	} = useQuery<TableDataResult, Error>({
@@ -68,5 +69,11 @@ export const useTableData = () => {
 		enabled: !!activeTable,
 	});
 
-	return { tableData, isLoadingTableData, errorTableData, refetchTableData };
+	return {
+		tableData,
+		isLoadingTableData,
+		isRefetchingTableData,
+		errorTableData,
+		refetchTableData,
+	};
 };

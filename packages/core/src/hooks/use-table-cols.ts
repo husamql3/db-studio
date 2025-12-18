@@ -16,6 +16,7 @@ export const useTableCols = (tableName?: string) => {
 	const {
 		data: tableCols,
 		isLoading: isLoadingTableCols,
+		isRefetching: isRefetchingTableCols,
 		error: errorTableCols,
 		refetch: refetchTableCols,
 	} = useQuery<ColumnInfo[], Error>({
@@ -38,5 +39,11 @@ export const useTableCols = (tableName?: string) => {
 		enabled: !!activeTable,
 	});
 
-	return { tableCols, isLoadingTableCols, errorTableCols, refetchTableCols };
+	return {
+		tableCols,
+		isLoadingTableCols,
+		isRefetchingTableCols,
+		errorTableCols,
+		refetchTableCols,
+	};
 };

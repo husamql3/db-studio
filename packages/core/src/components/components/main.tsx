@@ -9,10 +9,10 @@ export const Main = () => {
 	switch (activeTab) {
 		case "table":
 			return (
-				<>
+				<main className="flex-1 flex flex-col overflow-hidden">
 					<TableTab />
 					<AddRecordForm />
-				</>
+				</main>
 			);
 		case "indexes":
 			return <NotYet tab={activeTab} />;

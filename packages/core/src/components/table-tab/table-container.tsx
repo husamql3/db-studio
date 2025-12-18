@@ -35,11 +35,10 @@ export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 
 	return (
 		<div
-			className="h-full w-full"
+			className="w-full flex-1 overflow-auto"
 			ref={tableContainerRef}
 			style={{
-				overflow: "auto", // our scrollable table container
-				position: "relative", // needed for sticky header
+				position: "relative",
 			}}
 		>
 			{/* Even though we're still using sematic table tags, we must use CSS grid and flexbox for dynamic row heights */}
