@@ -12,7 +12,7 @@ export const useTableCols = () => {
 		error: errorTableCols,
 		refetch: refetchTableCols,
 	} = useQuery<ColumnInfo[], Error>({
-		queryKey: [CONSTANTS.TABLE_COLUMNS, activeTable],
+		queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, activeTable],
 		queryFn: async () => {
 			try {
 				const response = await fetch(`${API_URL}/tables/${activeTable}/columns`);

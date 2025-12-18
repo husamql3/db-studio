@@ -46,8 +46,8 @@ export const TableHeadRow = ({
 	table,
 }: TableHeadRowProps) => {
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
-	const [, setSort] = useQueryState(CONSTANTS.SORT);
-	const [, setOrder] = useQueryState(CONSTANTS.ORDER);
+	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
+	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;

@@ -34,10 +34,10 @@ export const SidebarListItem = ({
 	const [activeTab, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
 	const [activeTable, setActiveTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 
-	const [, setFilters] = useQueryState(CONSTANTS.FILTERS);
+	const [, setFilters] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.FILTERS);
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
-	const [, setSort] = useQueryState(CONSTANTS.SORT);
-	const [, setOrder] = useQueryState(CONSTANTS.ORDER);
+	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
+	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 
 	const handleClick = () => {
 		if (!activeTab) {

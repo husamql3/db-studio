@@ -3,9 +3,7 @@ import { TableTab } from "@/components/table-tab/table-tab";
 import { CONSTANTS } from "@/utils/constants";
 
 export const Main = () => {
-	const [activeTab] = useQueryState(CONSTANTS.ACTIVE_TAB, {
-		shallow: true,
-	});
+	const [activeTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
 
 	switch (activeTab) {
 		case "table":

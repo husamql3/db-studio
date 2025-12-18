@@ -1,24 +1,25 @@
 export const CONSTANTS = {
-	//* queries
 	SIDEBAR_TABLE_SEARCH: "s",
+	ACTIVE_TABLE: "table", // query state key for active table
+	ACTIVE_TAB: "tab", // query state key for active tab
 
 	//* cache keys
-	TABLES_LIST: "tables-list",
-	TABLE_COLUMNS: "table-columns",
-	TABLE_DATA: "table-data",
-	TABLE_DEFAULT_PAGE: 1,
-	TABLE_DEFAULT_LIMIT: 5, // todo: change to 50
+	CACHE_KEYS: {
+		TABLES_LIST: "tables-list",
+		TABLE_COLUMNS: "table-columns",
+		TABLE_DATA: "table-data",
+		TABLE_DEFAULT_PAGE: 1,
+		TABLE_DEFAULT_LIMIT: 5, // todo: change to 50
+	},
 
 	//* table state keys
-	ACTIVE_TABLE: "table", // query state key for active table
-	SORT: "sort",
-	ORDER: "order",
-	PAGE: "page",
-	LIMIT: "limit",
-	FILTERS: "filters",
-
-	//* tab state keys
-	ACTIVE_TAB: "tab", // query state key for active tab
+	TABLE_STATE_KEYS: {
+		SORT: "sort",
+		ORDER: "order",
+		PAGE: "page",
+		LIMIT: "limit",
+		FILTERS: "filters",
+	},
 
 	//* other constants
 	HOVER_ZONE: 20, // pixels from left edge

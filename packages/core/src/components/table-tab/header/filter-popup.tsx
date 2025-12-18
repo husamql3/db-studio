@@ -18,8 +18,10 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const FilterPopup = () => {
 	const [filters, setFilters] = useQueryState<Filter[]>(
-		CONSTANTS.FILTERS,
-		parseAsJson((value) => value as Filter[]).withDefault([]),
+		CONSTANTS.TABLE_STATE_KEYS.FILTERS,
+		parseAsJson((value) => value as Filter[])
+			.withDefault([])
+			.withOptions({ history: "push" }),
 	);
 	const { tableCols } = useTableCols();
 

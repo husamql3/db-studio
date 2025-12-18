@@ -4,6 +4,7 @@ import { Main } from "@/components/components/main";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { useTheme } from "@/hooks/use-theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { AddTableForm } from "./components/add-table/add-table-form";
 import { DevMode } from "./components/components/dev-mode";
 
 export function App() {
@@ -33,6 +34,7 @@ export function App() {
 			</div>
 
 			<DevMode />
+			<AddTableForm />
 		</>
 	);
 }

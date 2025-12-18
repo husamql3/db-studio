@@ -8,7 +8,7 @@ export const useTablesList = () => {
 		isLoading: isLoadingTablesList,
 		error: errorTablesList,
 	} = useQuery<TableInfo[], Error>({
-		queryKey: [CONSTANTS.TABLES_LIST],
+		queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
 		queryFn: async () => {
 			try {
 				const response = await fetch(`${API_URL}/tables`);

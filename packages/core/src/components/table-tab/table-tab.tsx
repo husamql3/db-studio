@@ -21,7 +21,7 @@ import { CONSTANTS } from "@/utils/constants";
 export const TableTab = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
-	const [order] = useQueryState(CONSTANTS.ORDER);
+	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 
 	const { tableData, isLoadingTableData, errorTableData } = useTableData();
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols();

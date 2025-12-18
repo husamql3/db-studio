@@ -1,17 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
 import type { TableDataResult } from "server/src/dao/tables-data.dao";
-import type { Filter } from "@/components/table-tab/header/filter-popup";
 import { API_URL, CONSTANTS } from "@/utils/constants";
+
+export type Filter = {
+	columnName: string;
+	operator: string;
+	value: unknown;
+};
 
 export const useTableData = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
-	const [page] = useQueryState(CONSTANTS.PAGE);
-	const [pageSize] = useQueryState(CONSTANTS.LIMIT);
-	const [sort] = useQueryState(CONSTANTS.SORT);
-	const [order] = useQueryState(CONSTANTS.ORDER);
+	const [page] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.PAGE);
+	const [pageSize] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
+	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
+	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const [filters] = useQueryState<Filter[]>(
-		CONSTANTS.FILTERS,
+		CONSTANTS.TABLE_STATE_KEYS.FILTERS,
 		parseAsJson((value) => value as Filter[]).withDefault([]),
 	);
 
@@ -22,7 +27,7 @@ export const useTableData = () => {
 		error: errorTableData,
 	} = useQuery<TableDataResult, Error>({
 		queryKey: [
-			CONSTANTS.TABLE_DATA,
+			CONSTANTS.CACHE_KEYS.TABLE_DATA,
 			activeTable,
 			page,
 			pageSize,
@@ -31,8 +36,8 @@ export const useTableData = () => {
 			JSON.stringify(filters),
 		],
 		queryFn: async () => {
-			const defaultPage = CONSTANTS.TABLE_DEFAULT_PAGE.toString();
-			const defaultLimit = CONSTANTS.TABLE_DEFAULT_LIMIT.toString();
+			const defaultPage = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_PAGE.toString();
+			const defaultLimit = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString();
 
 			const queryParams = new URLSearchParams();
 

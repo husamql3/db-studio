@@ -12,6 +12,7 @@ export const SidebarHeader = () => {
 		<div className="flex items-center justify-between h-9 border-b border-zinc-800">
 			<Button
 				variant="ghost"
+				size="lg"
 				onClick={toggleSidebarPinned}
 				className="size-9 flex items-center justify-center transition hover:bg-transparent!"
 				title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
