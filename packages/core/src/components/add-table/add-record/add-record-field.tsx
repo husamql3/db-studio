@@ -1,4 +1,5 @@
 import { Clock, Link, RefreshCw } from "lucide-react";
+import { useQueryState } from "nuqs";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import type { ColumnInfo } from "server/src/dao/table-columns.dao";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { AddRecordFormData } from "@/hooks/use-create-record";
 import { useSheetStore } from "@/stores/sheet.store";
+import { CONSTANTS } from "@/utils/constants";
 
 export const AddRecordField = ({
 	columnName,
@@ -30,6 +32,9 @@ export const AddRecordField = ({
 	referencedTable,
 	referencedColumn,
 }: ColumnInfo) => {
+	const [, setReferencedActiveTable] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
+	);
 	const { control } = useFormContext<AddRecordFormData>();
 	const { openSheet, setRecordReference } = useSheetStore();
 
@@ -63,6 +68,7 @@ export const AddRecordField = ({
 												setRecordReference(referencedTable, columnName, referencedColumn);
 											}
 											openSheet("record-reference");
+											setReferencedActiveTable(referencedTable);
 										}}
 									>
 										<Link
@@ -87,6 +93,7 @@ export const AddRecordField = ({
 									setRecordReference(referencedTable, columnName, referencedColumn);
 								}
 								openSheet("record-reference");
+								setReferencedActiveTable(referencedTable);
 							}}
 						>
 							{referencedTable}

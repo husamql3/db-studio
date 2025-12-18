@@ -9,14 +9,36 @@ export type Filter = {
 	value: unknown;
 };
 
-export const useTableData = () => {
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
-	const [page] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.PAGE);
-	const [pageSize] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
-	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
-	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
+export const useTableData = (isReferencedTable: boolean = false) => {
+	const [activeTable] = useQueryState(
+		isReferencedTable
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE
+			: CONSTANTS.ACTIVE_TABLE,
+	);
+	const [page] = useQueryState(
+		isReferencedTable
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE
+			: CONSTANTS.TABLE_STATE_KEYS.PAGE,
+	);
+	const [pageSize] = useQueryState(
+		isReferencedTable
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT
+			: CONSTANTS.TABLE_STATE_KEYS.LIMIT,
+	);
+	const [sort] = useQueryState(
+		isReferencedTable
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT
+			: CONSTANTS.TABLE_STATE_KEYS.SORT,
+	);
+	const [order] = useQueryState(
+		isReferencedTable
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER
+			: CONSTANTS.TABLE_STATE_KEYS.ORDER,
+	);
 	const [filters] = useQueryState<Filter[]>(
-		CONSTANTS.TABLE_STATE_KEYS.FILTERS,
+		isReferencedTable
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS
+			: CONSTANTS.TABLE_STATE_KEYS.FILTERS,
 		parseAsJson((value) => value as Filter[]).withDefault([]),
 	);
 

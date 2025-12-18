@@ -73,7 +73,7 @@ export const TableHeadRow = ({
 		<tr
 			key={headerGroup.id}
 			className={cn(
-				"flex w-fit bg-black border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+				"flex w-fit bg-black border-b items-center justify-between text-sm data-[state=open]:bg-accent/40 [&_svg]:size-4",
 				isAnyColumnResizing && "pointer-events-none",
 			)}
 		>

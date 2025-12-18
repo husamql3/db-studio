@@ -1,10 +1,23 @@
+import { parseAsJson, useQueryState } from "nuqs";
 import { ReferencedTable } from "@/components/add-table/add-record/referenced-table";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { Button } from "@/components/ui/button";
-import { SheetClose, SheetFooter } from "@/components/ui/sheet";
+import type { Filter } from "@/hooks/use-table-data";
 import { useSheetStore } from "@/stores/sheet.store";
+import { CONSTANTS } from "@/utils/constants";
 
 export const RecordReferenceSheet = () => {
+	const [, setReferencedActiveTable] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
+	);
+	const [, setRPage] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE);
+	const [, setRPageSize] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT);
+	const [, setRSort] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT);
+	const [, setROrder] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER);
+	const [, setRFilters] = useQueryState<Filter[]>(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
+		parseAsJson((value) => value as Filter[]).withDefault([]),
+	);
+
 	const { closeSheet, isSheetOpen, recordReferenceData } = useSheetStore();
 	if (!recordReferenceData.tableName || !recordReferenceData.referencedColumn) {
 		return null;
@@ -19,6 +32,12 @@ export const RecordReferenceSheet = () => {
 			onOpenChange={(open) => {
 				if (!open) {
 					closeSheet("record-reference");
+					setReferencedActiveTable(null);
+					setRPage(null);
+					setRPageSize(null);
+					setRSort(null);
+					setROrder(null);
+					setRFilters(null);
 				}
 			}}
 		>
@@ -27,21 +46,6 @@ export const RecordReferenceSheet = () => {
 				referencedColumn={recordReferenceData.referencedColumn ?? null}
 				columnName={recordReferenceData.columnName ?? ""}
 			/>
-
-			<SheetFooter>
-				<SheetClose
-					asChild
-					// onClick={handleCancel}
-					// disabled={isCreatingRecord}
-				>
-					<Button
-						variant="outline"
-						size="sm"
-					>
-						Close
-					</Button>
-				</SheetClose>
-			</SheetFooter>
 		</SheetSidebar>
 	);
 };
