@@ -8,6 +8,7 @@
     "dev:frontend": "vite",
     "dev:server": "cd server && bun run dev",
     "build": "vite build",
+    "build:server": "cd server && bun run build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
     "scan": "npx react-scan@latest http://localhost:5173",

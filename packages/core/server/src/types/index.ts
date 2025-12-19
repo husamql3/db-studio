@@ -6,4 +6,14 @@ export {
 	mapPostgresToDataType,
 	standardizeDataTypeLabel,
 } from "./column.types.js";
-export type { AddTableFormData, FieldData } from "./create-table.type.js";
+export type {
+	CreateTableFormData,
+	deleteRecordsSchema,
+	FieldDataType,
+	ForeignKeyAction,
+	ForeignKeyDataType,
+	insertRecordSchema,
+	tableDataQuerySchema,
+	tableNameParamSchema,
+	updateRecordsSchema,
+} from "./create-table.type.js";

@@ -1,16 +1,26 @@
 import "dotenv/config";
 
 import { serve } from "@hono/node-server";
+import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+
 import { createTable } from "./dao/create-table.dao.js";
 import { deleteRecords, forceDeleteRecords } from "./dao/delete-records.dao.js";
 import { insertRecord } from "./dao/insert-record.dao.js";
 import { getTableColumns } from "./dao/table-columns.dao.js";
 import { getTablesList } from "./dao/table-list.dao.js";
-import { getTableData } from "./dao/tables-data.dao.js";
+import { getTableData, type Sort } from "./dao/tables-data.dao.js";
 import { updateRecords } from "./dao/update-records.dao.js";
+import {
+	createTableSchema,
+	deleteRecordsSchema,
+	insertRecordSchema,
+	tableDataQuerySchema,
+	tableNameParamSchema,
+	updateRecordsSchema,
+} from "./types/create-table.type.js";
 
 const app = new Hono();
 
@@ -32,55 +42,59 @@ app.get("/tables", async (c) => {
  * Columns
  * GET /tables/:tableName/columns - Get all columns for a table
  */
-app.get("/tables/:tableName/columns", async (c) => {
-	const tableName = c.req.param("tableName");
-	const columns = await getTableColumns(tableName);
-	console.log("GET /tables/:tableName/columns", columns);
-	return c.json(columns);
-});
+app.get(
+	"/tables/:tableName/columns",
+	zValidator("param", tableNameParamSchema),
+	async (c) => {
+		const { tableName } = c.req.valid("param");
+		const columns = await getTableColumns(tableName);
+		console.log("GET /tables/:tableName/columns", columns);
+		return c.json(columns);
+	},
+);
 
 /**
  * Data
  * GET /tables/:tableName/data - Get paginated data for a table
  * Query params: page (default: 1), pageSize (default: 50), sort (string or JSON array), order, filters (JSON)
  */
-app.get("/tables/:tableName/data", async (c) => {
-	const tableName = c.req.param("tableName");
-	const page = Number(c.req.query("page") || "1");
-	const sortParam = c.req.query("sort") || "";
-	const order = c.req.query("order") || "asc";
-	const pageSize = Number(c.req.query("pageSize") || "50");
-	const filtersParam = c.req.query("filters");
-	const filters = filtersParam ? JSON.parse(filtersParam) : [];
+app.get(
+	"/tables/:tableName/data",
+	zValidator("param", tableNameParamSchema),
+	zValidator("query", tableDataQuerySchema),
+	async (c) => {
+		const { tableName } = c.req.valid("param");
+		const { page, pageSize, sort: sortParam, order, filters } = c.req.valid("query");
 
-	// Parse sort - can be either a string (legacy) or JSON array (new format)
-	let sort: string | Array<{ columnName: string; direction: "asc" | "desc" }> = "";
-	if (sortParam) {
-		try {
-			// Try to parse as JSON first (new format)
-			const parsed = JSON.parse(sortParam);
-			if (Array.isArray(parsed)) {
-				sort = parsed;
-			} else {
+		// Parse sort - can be either a string (legacy) or JSON array (new format)
+		let sort: Sort[] | string = "";
+		if (sortParam) {
+			try {
+				// Try to parse as JSON first (new format)
+				const parsed = JSON.parse(sortParam);
+				if (Array.isArray(parsed)) {
+					sort = parsed;
+				} else {
+					sort = sortParam;
+				}
+			} catch {
+				// If JSON parse fails, use as string (legacy format)
 				sort = sortParam;
 			}
-		} catch {
-			// If JSON parse fails, use as string (legacy format)
-			sort = sortParam;
 		}
-	}
 
-	const data = await getTableData(tableName, page, pageSize, sort, order, filters);
-	return c.json(data);
-});
+		const data = await getTableData(tableName, page, pageSize, sort, order, filters);
+		return c.json(data);
+	},
+);
 
 /**
  * Create Table
  * POST /tables - Create a new table
  */
-app.post("/tables", async (c) => {
+app.post("/tables", zValidator("json", createTableSchema), async (c) => {
 	try {
-		const body = await c.req.json();
+		const body = c.req.valid("json");
 		console.log("POST /tables body", body);
 		const data = await createTable(body);
 		console.log("POST /tables", data);
@@ -107,20 +121,10 @@ app.post("/tables", async (c) => {
  * POST /records - Insert a new record into a table
  * Body: { tableName: string, ...recordData }
  */
-app.post("/records", async (c) => {
+app.post("/records", zValidator("json", insertRecordSchema), async (c) => {
 	try {
-		const body = await c.req.json();
+		const body = c.req.valid("json");
 		const { tableName, ...recordData } = body;
-
-		if (!tableName) {
-			return c.json(
-				{
-					success: false,
-					message: "tableName is required",
-				},
-				400,
-			);
-		}
 
 		console.log("POST /records body", { tableName, recordData });
 		const result = await insertRecord({ tableName, data: recordData });
@@ -152,30 +156,10 @@ app.post("/records", async (c) => {
  *   primaryKey?: string (optional, defaults to 'id')
  * }
  */
-app.patch("/records", async (c) => {
+app.patch("/records", zValidator("json", updateRecordsSchema), async (c) => {
 	try {
-		const body = await c.req.json();
+		const body = c.req.valid("json");
 		const { tableName, updates, primaryKey } = body;
-
-		if (!tableName) {
-			return c.json(
-				{
-					success: false,
-					message: "tableName is required",
-				},
-				400,
-			);
-		}
-
-		if (!updates || !Array.isArray(updates) || updates.length === 0) {
-			return c.json(
-				{
-					success: false,
-					message: "updates array is required and must contain at least one update",
-				},
-				400,
-			);
-		}
 
 		console.log("PATCH /records body", { tableName, updates, primaryKey });
 		const result = await updateRecords({ tableName, updates, primaryKey });
@@ -209,30 +193,10 @@ app.patch("/records", async (c) => {
  *   - success: true if deleted
  *   - fkViolation: true if FK constraint prevents deletion, includes relatedRecords
  */
-app.delete("/records", async (c) => {
+app.delete("/records", zValidator("json", deleteRecordsSchema), async (c) => {
 	try {
-		const body = await c.req.json();
+		const body = c.req.valid("json");
 		const { tableName, primaryKeys } = body;
-
-		if (!tableName) {
-			return c.json(
-				{
-					success: false,
-					message: "tableName is required",
-				},
-				400,
-			);
-		}
-
-		if (!primaryKeys || !Array.isArray(primaryKeys) || primaryKeys.length === 0) {
-			return c.json(
-				{
-					success: false,
-					message: "primaryKeys array is required and must contain at least one key",
-				},
-				400,
-			);
-		}
 
 		console.log("DELETE /records body", { tableName, primaryKeys });
 		const result = await deleteRecords({ tableName, primaryKeys });
@@ -269,30 +233,10 @@ app.delete("/records", async (c) => {
  *   primaryKeys: Array<{ columnName: string, value: unknown }>,
  * }
  */
-app.delete("/records/force", async (c) => {
+app.delete("/records/force", zValidator("json", deleteRecordsSchema), async (c) => {
 	try {
-		const body = await c.req.json();
+		const body = c.req.valid("json");
 		const { tableName, primaryKeys } = body;
-
-		if (!tableName) {
-			return c.json(
-				{
-					success: false,
-					message: "tableName is required",
-				},
-				400,
-			);
-		}
-
-		if (!primaryKeys || !Array.isArray(primaryKeys) || primaryKeys.length === 0) {
-			return c.json(
-				{
-					success: false,
-					message: "primaryKeys array is required and must contain at least one key",
-				},
-				400,
-			);
-		}
 
 		console.log("DELETE /records/force body", { tableName, primaryKeys });
 		const result = await forceDeleteRecords({ tableName, primaryKeys });
@@ -333,13 +277,6 @@ app.get("/", (c) => {
 		forceDeleteRecords: "DELETE /records/force",
 	});
 });
-
-// Check if DATABASE_URL is set
-// if (!process.env.DATABASE_URL) {
-//   console.error("ERROR: DATABASE_URL environment variable is not set!");
-//   console.error("Please create a .env file with DATABASE_URL=your_connection_string");
-//   process.exit(1);
-// }
 
 const server = serve(
 	{

@@ -1,7 +1,7 @@
 import { parseAsJson, useQueryState } from "nuqs";
+import type { Filter } from "server/src/dao/tables-data.dao";
 import { ReferencedTable } from "@/components/add-table/add-record/referenced-table";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import type { Filter } from "@/hooks/use-table-data";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 

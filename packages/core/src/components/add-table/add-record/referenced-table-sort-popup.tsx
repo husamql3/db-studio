@@ -1,6 +1,7 @@
 import { IconArrowsSort, IconX } from "@tabler/icons-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
+import type { Sort } from "server/src/dao/tables-data.dao";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useTableCols } from "@/hooks/use-table-cols";
-import type { Sort, SortDirection } from "@/hooks/use-table-data";
 import { CONSTANTS } from "@/utils/constants";
 
 export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) => {

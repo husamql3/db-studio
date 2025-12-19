@@ -1,13 +1,14 @@
 import { db } from "../db.js";
-import type { AddTableFormData } from "../types/index.js";
+import type { FieldDataType } from "../types/create-table.type.js";
+import type { CreateTableFormData } from "../types/index.js";
 
-export const createTable = async (tableData: AddTableFormData) => {
+export const createTable = async (tableData: CreateTableFormData) => {
 	const client = await db.connect();
 	try {
 		const { tableName, fields, foreignKeys } = tableData;
 
 		// Build column definitions
-		const columnDefinitions = fields.map((field) => {
+		const columnDefinitions = fields.map((field: FieldDataType) => {
 			let columnDef = `"${field.columnName}" ${field.columnType}`;
 
 			// Add array suffix if needed

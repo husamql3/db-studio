@@ -8,7 +8,9 @@
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.19.7",
-		"hono": "^4.10.4"
+		"@hono/zod-validator": "^0.7.6",
+		"hono": "^4.10.4",
+		"zod": "^4.2.1"
 	},
 	"devDependencies": {
 		"@types/node": "^20.11.17",
