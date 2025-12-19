@@ -1,13 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
-import type { TableDataResult } from "server/src/dao/tables-data.dao";
+import type { Filter, Sort, TableDataResult } from "server/src/dao/tables-data.dao";
 import { API_URL, CONSTANTS } from "@/utils/constants";
-
-export type Filter = {
-	columnName: string;
-	operator: string;
-	value: unknown;
-};
 
 export const useTableData = (isReferencedTable: boolean = false) => {
 	const [activeTable] = useQueryState(
@@ -22,24 +16,29 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 	);
 	const [pageSize] = useQueryState(
 		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT
-			: CONSTANTS.TABLE_STATE_KEYS.LIMIT,
+			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString() // limit 30 for referenced table
+			: CONSTANTS.TABLE_STATE_KEYS.LIMIT, // limit 50 for table
 	);
-	const [sort] = useQueryState(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT
-			: CONSTANTS.TABLE_STATE_KEYS.SORT,
+
+	// For referenced tables, sort is an array of Sort objects
+	const [referencedSort] = useQueryState<Sort[]>(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT,
+		parseAsJson((value) => value as Sort[])
+			.withDefault([])
+			.withOptions({ history: "push" }),
 	);
-	const [order] = useQueryState(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER
-			: CONSTANTS.TABLE_STATE_KEYS.ORDER,
-	);
+
+	// For regular tables, sort is a string (column name)
+	const [regularSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
+	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
+
 	const [filters] = useQueryState<Filter[]>(
 		isReferencedTable
 			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS
 			: CONSTANTS.TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as Filter[]).withDefault([]),
+		parseAsJson((value) => value as Filter[])
+			.withDefault([])
+			.withOptions({ history: "push" }),
 	);
 
 	const {
@@ -54,7 +53,7 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 			activeTable,
 			page,
 			pageSize,
-			sort,
+			isReferencedTable ? JSON.stringify(referencedSort) : regularSort,
 			order,
 			JSON.stringify(filters),
 		],
@@ -66,8 +65,17 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 
 			queryParams.set("page", page?.toString() || defaultPage);
 			queryParams.set("pageSize", pageSize?.toString() || defaultLimit);
-			if (sort) queryParams.set("sort", sort);
-			if (order) queryParams.set("order", order);
+
+			// Handle sort parameter based on table type
+			if (isReferencedTable) {
+				if (referencedSort && referencedSort.length > 0) {
+					queryParams.set("sort", JSON.stringify(referencedSort));
+				}
+			} else {
+				if (regularSort) queryParams.set("sort", regularSort);
+				if (order) queryParams.set("order", order);
+			}
+
 			if (filters && filters.length > 0) {
 				queryParams.set("filters", JSON.stringify(filters));
 			}
@@ -76,6 +84,7 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 				const response = await fetch(
 					`${API_URL}/tables/${activeTable}/data?${queryParams.toString()}`,
 				);
+				console.log("queryParams", queryParams.toString());
 				if (!response.ok) {
 					throw new Error("Failed to fetch table data");
 				}

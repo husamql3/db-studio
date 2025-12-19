@@ -10,12 +10,20 @@ export const RecordReferenceSheet = () => {
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
 	const [, setRPage] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE);
-	const [, setRPageSize] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT);
-	const [, setRSort] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT);
-	const [, setROrder] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER);
+	const [, setRPageSize] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
+	);
+	const [, setRSort] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT.toString(),
+	);
+	const [, setROrder] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER.toString(),
+	);
 	const [, setRFilters] = useQueryState<Filter[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as Filter[]).withDefault([]),
+		parseAsJson((value) => value as Filter[])
+			.withDefault([])
+			.withOptions({ history: "push" }),
 	);
 
 	const { closeSheet, isSheetOpen, recordReferenceData } = useSheetStore();

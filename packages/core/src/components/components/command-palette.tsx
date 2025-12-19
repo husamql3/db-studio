@@ -53,16 +53,14 @@ import { CONSTANTS } from "@/utils/constants";
 type Mode = "all" | "tables";
 
 export function CommandPalette() {
-	const [activeTable, setActiveTable] = useQueryState(CONSTANTS.ACTIVE_TABLE, {
-		shallow: true,
-	});
-	const [, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB, {
-		shallow: true,
-	});
+	const [activeTable, setActiveTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+	const [, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
+
 	const { openSheet } = useSheetStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } =
 		usePersonalPreferencesStore();
 	const { tablesList, isLoadingTablesList } = useTablesList();
+
 	const [open, setOpen] = useState(false);
 	const [mode, setMode] = useState<Mode>("all");
 	const [inputValue, setInputValue] = useState("");
@@ -715,6 +713,7 @@ export function CommandPalette() {
 											key={table.tableName}
 											onSelect={() =>
 												handleAction(() => {
+													// todo: fix navigation to referenced table
 													setActiveTab("table");
 													setActiveTable(table.tableName);
 												}, `Navigated to ${table.tableName}`)

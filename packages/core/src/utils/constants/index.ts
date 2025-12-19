@@ -24,7 +24,9 @@ export const CONSTANTS = {
 	REFERENCED_TABLE_STATE_KEYS: {
 		ACTIVE_TABLE: "rTable",
 		PAGE: "rPage",
+		DEFAULT_PAGE: 1,
 		LIMIT: "rLimit",
+		DEFAULT_LIMIT: 30,
 		FILTERS: "rFilters",
 		SORT: "rSort",
 		ORDER: "rOrder",

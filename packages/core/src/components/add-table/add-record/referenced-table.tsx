@@ -1,4 +1,3 @@
-import { IconArrowsSort, IconFilter } from "@tabler/icons-react";
 import {
 	flexRender,
 	getCoreRowModel,
@@ -9,6 +8,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
+import { ReferencedTableFilterPopup } from "@/components/add-table/add-record/referenced-table-filter-popup";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -24,6 +24,7 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
+import { ReferencedTableSortPopup } from "./referenced-table-sort-popup";
 
 export const ReferencedTable = ({
 	tableName,
@@ -41,9 +42,11 @@ export const ReferencedTable = ({
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
 	const { tableData, isLoadingTableData } = useTableData(true);
-	const [page, setPage] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE);
+	const [page, setPage] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE.toString(),
+	);
 	const [pageSize, setPageSize] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT,
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);
 
 	// Initialize the referenced table state when component mounts or tableName changes
@@ -52,10 +55,10 @@ export const ReferencedTable = ({
 			setReferencedActiveTable(tableName);
 		}
 		if (tableName && !page) {
-			setPage(CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_PAGE.toString());
+			setPage(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_PAGE.toString()); // page 1 for referenced table
 		}
 		if (tableName && !pageSize) {
-			setPageSize(CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString());
+			setPageSize(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString()); // limit 30 for referenced table
 		}
 	}, [
 		tableName,
@@ -113,21 +116,8 @@ export const ReferencedTable = ({
 		<div>
 			<div className="sticky top-0 left-0 right-0 h-8 border-b border-zinc-800 w-full flex items-center justify-between bg-background z-50">
 				<div className="flex items-center h-full">
-					<Button
-						variant="ghost"
-						className="border-r border-l-0 border-y-0 border-zinc-800 rounded-none text-xs h-full"
-					>
-						<IconFilter className="size-4" />
-						Filter
-					</Button>
-
-					<Button
-						variant="ghost"
-						className="border-r border-l-0 border-y-0 border-zinc-800 rounded-none text-xs h-full"
-					>
-						<IconArrowsSort className="size-3" />
-						Sort
-					</Button>
+					<ReferencedTableFilterPopup tableName={tableName} />
+					<ReferencedTableSortPopup tableName={tableName} />
 				</div>
 
 				<div className="flex items-center h-full">

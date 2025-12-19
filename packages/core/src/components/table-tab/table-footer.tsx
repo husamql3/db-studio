@@ -44,7 +44,7 @@ export const TableFooter = () => {
 
 	return (
 		<footer
-			className="fixed bottom-0 left-0 right-0 h-9 border-t border-zinc-800 w-full flex items-center justify-between bg-black px-2 text-white"
+			className="fixed bottom-0 left-0 right-0 h-9 border-t border-zinc-800 flex items-center justify-between bg-black px-2 text-white"
 			style={{
 				marginLeft: isPinned ? `${width}px` : "0",
 			}}

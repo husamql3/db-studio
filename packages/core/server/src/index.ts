@@ -42,16 +42,34 @@ app.get("/tables/:tableName/columns", async (c) => {
 /**
  * Data
  * GET /tables/:tableName/data - Get paginated data for a table
- * Query params: page (default: 1), pageSize (default: 50), sort, order, filters (JSON)
+ * Query params: page (default: 1), pageSize (default: 50), sort (string or JSON array), order, filters (JSON)
  */
 app.get("/tables/:tableName/data", async (c) => {
 	const tableName = c.req.param("tableName");
 	const page = Number(c.req.query("page") || "1");
-	const sort = c.req.query("sort") || "";
+	const sortParam = c.req.query("sort") || "";
 	const order = c.req.query("order") || "asc";
 	const pageSize = Number(c.req.query("pageSize") || "50");
 	const filtersParam = c.req.query("filters");
 	const filters = filtersParam ? JSON.parse(filtersParam) : [];
+
+	// Parse sort - can be either a string (legacy) or JSON array (new format)
+	let sort: string | Array<{ columnName: string; direction: "asc" | "desc" }> = "";
+	if (sortParam) {
+		try {
+			// Try to parse as JSON first (new format)
+			const parsed = JSON.parse(sortParam);
+			if (Array.isArray(parsed)) {
+				sort = parsed;
+			} else {
+				sort = sortParam;
+			}
+		} catch {
+			// If JSON parse fails, use as string (legacy format)
+			sort = sortParam;
+		}
+	}
+
 	const data = await getTableData(tableName, page, pageSize, sort, order, filters);
 	return c.json(data);
 });

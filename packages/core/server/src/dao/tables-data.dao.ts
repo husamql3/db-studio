@@ -6,6 +6,13 @@ export interface Filter {
 	value: string;
 }
 
+export type SortDirection = "asc" | "desc";
+
+export type Sort = {
+	columnName: string;
+	direction: SortDirection;
+};
+
 export interface TableDataResult {
 	data: Record<string, unknown>[];
 	meta: {
@@ -86,15 +93,38 @@ const buildWhereClause = (filters: Filter[]): { clause: string; values: unknown[
 	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
 };
 
+const buildSortClause = (sorts: Sort[] | string, order: SortDirection): string => {
+	// Handle array of Sort objects (new format for referenced tables)
+	if (Array.isArray(sorts)) {
+		if (sorts.length === 0) {
+			return "";
+		}
+		const sortParts = sorts.map(
+			(sort) => `"${sort.columnName}" ${sort.direction.toUpperCase()}`,
+		);
+		return `ORDER BY ${sortParts.join(", ")}`;
+	}
+
+	// Handle legacy format (string column name + order)
+	if (sorts && typeof sorts === "string") {
+		return `ORDER BY "${sorts}" ${order?.toUpperCase() || "ASC"}`;
+	}
+
+	return "";
+};
+
 export const getTableData = async (
 	tableName: string,
 	page: number = 1,
 	pageSize: number = 50,
-	sort: string = "",
-	order: string = "asc",
+	sort: string | Sort[] = "",
+	order: SortDirection = "asc",
 	filters: Filter[] = [],
 ): Promise<TableDataResult> => {
-	const sortClause = sort ? `ORDER BY "${sort}" ${order}` : "";
+	const sortClause = buildSortClause(
+		Array.isArray(sort) ? sort : sort,
+		order as SortDirection,
+	);
 	const { clause: whereClause, values: filterValues } = buildWhereClause(filters);
 
 	const client = await db.connect();
