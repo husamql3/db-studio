@@ -46,8 +46,9 @@
 			"packages/**/src/**",
 			"!packages/**/src/index.css",
 			"packages/**/server/src/**",
-			"www/app/**",
-			"!www/app/app.css",
+			"www/src/**",
+			"!www/src/styles.css",
+			"!www/src/routeTree.gen.ts",
 			"README.md"
 		],
 		"ignoreUnknown": true
