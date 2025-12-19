@@ -45,6 +45,7 @@ import {
 	CommandList,
 	CommandSeparator,
 } from "@/components/ui/command";
+import { useTableNavigation } from "@/hooks/use-table-navigation";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -53,9 +54,8 @@ import { CONSTANTS } from "@/utils/constants";
 type Mode = "all" | "tables";
 
 export function CommandPalette() {
-	const [activeTable, setActiveTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
-	const [, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
-
+	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+	const { navigateToTable } = useTableNavigation();
 	const { openSheet } = useSheetStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } =
 		usePersonalPreferencesStore();
@@ -129,6 +129,12 @@ export function CommandPalette() {
 		}
 	};
 
+	const handleNavigateToTable = (tableName: string) => {
+		handleAction(() => {
+			navigateToTable(tableName);
+		}, `Navigated to ${tableName}`);
+	};
+
 	// Hotkeys for command palette
 	useHotkeys("ctrl+k, meta+k", () => setOpen((open) => !open));
 
@@ -141,13 +147,13 @@ export function CommandPalette() {
 			onOpenChange={handleOpenChange}
 		>
 			{/* Custom input area with mode badge */}
-			<div className="flex items-center border-b border-input px-4 gap-2 w-full">
+			<div className="flex items-center border-b border-input px-2 gap-2 w-full">
 				{/* Mode indicator badge */}
 				{mode === "tables" && (
 					<button
 						type="button"
 						onClick={switchToAllMode}
-						className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20 hover:gap-2 shrink-0"
+						className="flex items-center gap-1.5 h-8! rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20 shrink-0"
 					>
 						<Table2 className="h-3.5 w-3.5" />
 						<span>Tables</span>
@@ -180,12 +186,7 @@ export function CommandPalette() {
 								<CommandItem
 									key={table.tableName}
 									value={table.tableName}
-									onSelect={() =>
-										handleAction(
-											() => setActiveTable(table.tableName),
-											`Navigated to ${table.tableName}`,
-										)
-									}
+									onSelect={() => handleNavigateToTable(table.tableName)}
 								>
 									<Database className="mr-2 h-4 w-4 text-primary" />
 									<div className="flex flex-1 items-center justify-between">
@@ -711,13 +712,7 @@ export function CommandPalette() {
 									{tablesList.slice(0, 5).map((table) => (
 										<CommandItem
 											key={table.tableName}
-											onSelect={() =>
-												handleAction(() => {
-													// todo: fix navigation to referenced table
-													setActiveTab("table");
-													setActiveTable(table.tableName);
-												}, `Navigated to ${table.tableName}`)
-											}
+											onSelect={() => handleNavigateToTable(table.tableName)}
 										>
 											<Database className="mr-2 h-4 w-4" />
 											<div className="flex flex-col">
