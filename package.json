@@ -5,6 +5,9 @@
     "packages/*",
     "www"
   ],
+  "overrides": {
+    "esbuild": "0.25.12"
+  },
   "scripts": {
     "dev": "bun run --cwd packages/core dev",
     "dev:www": "bun run --cwd www dev",
