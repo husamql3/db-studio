@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/")({ component: App });
 
+// https://changelog-magicui.vercel.app/
+
 function App() {
 	return (
-		<div className="relative min-h-screen w-full flex flex-col h-full z-10">
+		<div className="relative min-h-dvh w-full flex flex-col h-full z-10">
 			<header className="border-b">
 				<div className="max-w-2xl mx-auto px-4 pt-5 pb-5 flex items-center justify-between relative border-x">
 					<Link to="/">

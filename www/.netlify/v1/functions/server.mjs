@@ -1,4 +1,4 @@
-import serverEntrypoint from "../../../dist/server.js";
+import serverEntrypoint from "../../../dist/server/index.js";
 
 if (typeof serverEntrypoint?.fetch !== "function") {
 console.error("The server entry point must have a default export with a property `fetch: (req: Request) => Promise<Response>`");
