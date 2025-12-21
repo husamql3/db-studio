@@ -14,6 +14,7 @@
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@react-three/fiber": "^9.4.2",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.7.0",
     "@tanstack/react-router": "^1.132.0",
@@ -21,6 +22,7 @@
     "@tanstack/react-router-ssr-query": "^1.131.7",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "@types/three": "^0.182.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
@@ -32,6 +34,7 @@
     "rough-notation": "^0.5.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.0.6",
+    "three": "^0.182.0",
     "vite-tsconfig-paths": "^5.1.4"
   },
   "devDependencies": {

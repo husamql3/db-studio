@@ -74,10 +74,10 @@ export function Highlighter({
 	}, [action, color, strokeWidth, animationDuration, iterations, padding, multiline]);
 
 	return (
-		<span className="ml-2 mr-3">
+		<span className="mx-1">
 			<span
 				ref={elementRef}
-				className="relative inline-block bg-transparent text-xl"
+				className="relative inline-block bg-transparent text-xl px-2"
 			>
 				{children}
 			</span>
