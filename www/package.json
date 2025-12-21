@@ -12,7 +12,6 @@
     "check": "biome check --write --unsafe --verbose"
   },
   "dependencies": {
-    "@netlify/vite-plugin-tanstack-start": "^1.2.5",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/vite": "^4.0.6",
@@ -25,10 +24,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
+    "motion": "^12.23.26",
     "nitro": "latest",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
+    "rough-notation": "^0.5.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.0.6",
     "vite-tsconfig-paths": "^5.1.4"
