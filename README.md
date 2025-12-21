@@ -27,6 +27,7 @@ A modern, universal (pgAdmin alternative) database management studio for any SQL
 <div align="center">
   <a href="https://github.com/husamql3/db-studio/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/husamql3/db-studio"></a>
   <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/husamql3/pstrack"></a>
+  <a href="https://deepwiki.com/husamql3/db-studio"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
 ## Features

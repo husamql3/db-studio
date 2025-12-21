@@ -60,37 +60,39 @@ function App() {
 				</div>
 			</header>
 
-			<main className="flex-1 flex items-center justify-center mx-auto border-x">
-				<div className="h-full w-full flex-1 flex py-4 flex-col items-center justify-center gap-4 max-w-2xl">
+			<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
+				<div className="h-full w-full flex-1 flex py-4 flex-col items-center justify-center gap-4">
 					<div className="relative w-full flex flex-col border-y px-4 py-6 md:px-8 md:py-10 gap-4 md:gap-6 dark:bg-[radial-gradient(35%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]">
-						<div className="text-center text-base md:text-lg text-balance leading-relaxed">
-							A modern, universal (pgAdmin alternative)
-							<Highlighter
-								action="highlight"
-								color="oklch(0.488 0.243 264.376)"
-							>
-								database management studio
-							</Highlighter>
-							for any SQL database
+						<div className="w-full max-w-xl mx-auto">
+							<p className="text-center text-xl font-bold">
+								A modern (pgAdmin alternative but good)
+								<Highlighter
+									action="highlight"
+									color="oklch(0.488 0.243 264.376)"
+								>
+									database management studio
+								</Highlighter>
+								for any database
+							</p>
 						</div>
 
-						<div className="flex flex-col gap-3 md:gap-4">
-							<div className="flex flex-col gap-2 text-center md:text-left">
-								<h1 className="text-xl md:text-2xl font-bold">Join the waitlist</h1>
-								<p className="text-sm md:text-base text-muted-foreground">
+						<div className="flex flex-col gap-3 md:gap-4 mx-auto max-w-lg w-full">
+							<div className="flex flex-col gap-1 text-center md:text-left">
+								<h1 className="text-lg font-semibold">Join the waitlist</h1>
+								<p className="text-xs text-muted-foreground">
 									Be the first to know when DB Studio is released.
 								</p>
 							</div>
 
 							<form
 								action=""
-								className="w-full space-y-3 md:space-y-4"
+								className="w-full space-y-3 max-w-xl mx-auto"
 							>
 								<div className="flex flex-col gap-2">
 									<Label className="sr-only">Enter your email</Label>
 									<Input
 										type="email"
-										className="h-9 md:h-10"
+										className="h-9 w-full"
 										placeholder="Enter your email"
 										required
 									/>
@@ -110,7 +112,7 @@ function App() {
 							strokeWidth={1}
 						/>
 						<PlusIcon
-							className="-top-[12.5px] -right-[12.5px] absolute h-6 w-6"
+							className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
 							strokeWidth={1}
 						/>
 						<PlusIcon
