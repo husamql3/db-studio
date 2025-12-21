@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"bun run dev:frontend\" \"bun run dev:server\"",
-    "dev:frontend": "vite",
+    "dev:frontend": "vite --port 3001",
     "dev:server": "cd server && bun run dev",
     "build": "vite build",
     "build:server": "cd server && bun run build",

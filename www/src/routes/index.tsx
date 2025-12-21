@@ -6,14 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Highlighter } from "@/components/ui/highlighter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getStarsCount } from "@/utils/get-stars-count";
 
-export const Route = createFileRoute("/")({ component: App });
+export const Route = createFileRoute("/")({
+	component: App,
+	loader: async () => {
+		const stars = await getStarsCount();
+		return { stars };
+	},
+});
 
 // https://changelog-magicui.vercel.app/
+// https://magicui.design/docs/templates/changelog
 
 function App() {
+	const { stars } = Route.useLoaderData();
+
 	return (
-		<div className="relative min-h-dvh w-full flex flex-col h-full z-10">
+		<div className="relative min-h-dvh w-full flex flex-col h-full z-10 px-4 md:px-0">
 			<header className="border-b">
 				<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-between relative border-x">
 					<Link to="/">
@@ -25,10 +35,10 @@ function App() {
 					</Link>
 
 					<div className="flex items-center gap-1">
-						<Link to="/">
+						<Link to="/roadmap">
 							<Button
 								variant="ghost"
-								className="gap-2 flex items-center justify-center text-xs cursor-pointer"
+								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
 							>
 								Roadmap
 							</Button>
@@ -44,7 +54,7 @@ function App() {
 								className="gap-2 flex items-center justify-center text-xs cursor-pointer"
 							>
 								<IoLogoGithub className="size-4" />
-								<span className="leading-none">{"1.2k".replace(".0k", "k")}</span>
+								<span className="leading-none">{stars?.replace(".0k", "k")}</span>
 							</Button>
 						</a>
 					</div>
@@ -62,7 +72,7 @@ function App() {
 
 			<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 				<div className="h-full w-full flex-1 flex py-4 flex-col items-center justify-center gap-4">
-					<div className="relative w-full flex flex-col border-y px-4 py-6 md:px-8 md:py-10 gap-4 md:gap-6 dark:bg-[radial-gradient(35%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]">
+					<div className="relative w-full flex flex-col border-y px-4 py-6 md:px-8 md:py-10 gap-6 md:gap-10 dark:bg-[radial-gradient(35%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]">
 						<div className="w-full max-w-xl mx-auto">
 							<p className="text-center text-xl font-bold">
 								A modern (pgAdmin alternative but good)
@@ -78,7 +88,7 @@ function App() {
 
 						<div className="flex flex-col gap-3 md:gap-4 mx-auto max-w-lg w-full">
 							<div className="flex flex-col gap-1 text-center md:text-left">
-								<h1 className="text-lg font-semibold">Join the waitlist</h1>
+								<h1 className="font-semibold">Join the waitlist</h1>
 								<p className="text-xs text-muted-foreground">
 									Be the first to know when DB Studio is released.
 								</p>
@@ -98,9 +108,8 @@ function App() {
 									/>
 								</div>
 								<Button
-									className="w-full text-sm"
+									className="w-full text-sm bg-[#1447e6] text-white hover:bg-[#1447e6]/80"
 									type="submit"
-									size="sm"
 								>
 									Submit
 								</Button>

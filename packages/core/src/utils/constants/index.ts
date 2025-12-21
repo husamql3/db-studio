@@ -51,4 +51,4 @@ export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
 };
 
-export const API_URL = "http://localhost:3000";
+export const API_URL = "http://localhost:3002";
