@@ -1,0 +1,22 @@
+# Top-level configuration
+name = "dbstudio"
+main = "@tanstack/react-start/server-entry"
+compatibility_date = "2025-09-02"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+route = { pattern = "dbstudio.com/*", zone_name = "dbstudio.com" }
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
