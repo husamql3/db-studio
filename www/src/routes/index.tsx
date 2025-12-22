@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Highlighter } from "@/components/ui/highlighter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getSupabaseServerClient } from "@/lib/supabase";
 import { sendEmail } from "@/utils/send-email";
 
 // https://changelog-magicui.vercel.app/
@@ -19,11 +20,54 @@ export const Route = createFileRoute("/")({
 			POST: async ({ request }) => {
 				const email = env.EMAIL_USER;
 				const password = env.EMAIL_PASSWORD;
+				const supabaseUrl = env.SUPABASE_URL;
+				const supabaseAnonKey = env.SUPABASE_ANON_KEY;
+
+				console.log(email, password, supabaseUrl, supabaseAnonKey);
+				if (!email || !password || !supabaseUrl || !supabaseAnonKey) {
+					return new Response(
+						JSON.stringify({
+							message: "Missing required environment variables",
+						}),
+						{ status: 500 },
+					);
+				}
 
 				const { to } = (await request.json()) as { to: string };
 				console.log("to", to);
+
 				try {
+					const supabase = getSupabaseServerClient(supabaseUrl, supabaseAnonKey);
+
+					// Insert into Supabase first to check for duplicates
+					const { data, error } = await supabase
+						.from("dbstudio_wishlist")
+						.insert({ email: to });
+
+					if (error) {
+						// Check if it's a duplicate key error
+						const isDuplicate =
+							error.code === "23505" ||
+							error.message?.toLowerCase().includes("duplicate");
+
+						console.error("Supabase error:", error);
+						return new Response(
+							JSON.stringify({
+								message: isDuplicate
+									? "This email is already on the waitlist!"
+									: "Failed to add email to waitlist",
+								error: error.message,
+								isDuplicate,
+							}),
+							{ status: isDuplicate ? 400 : 500 },
+						);
+					}
+
+					console.log("data", data);
+
+					// Only send email if successfully added to database
 					const res = await sendEmail({ to, email, password });
+
 					return new Response(
 						JSON.stringify({
 							message: `Email sent to ${to} successfully`,
@@ -31,12 +75,12 @@ export const Route = createFileRoute("/")({
 						}),
 						{ status: 200 },
 					);
-				} catch (error) {
+				} catch (error: any) {
 					console.error(error);
 					return new Response(
 						JSON.stringify({
-							message: `Error sending email to ${to}`,
-							error: error,
+							message: "An unexpected error occurred",
+							error: error.message || String(error),
 						}),
 						{ status: 500 },
 					);
@@ -49,11 +93,13 @@ export const Route = createFileRoute("/")({
 function App() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [successMessage, setSuccessMessage] = useState("");
+	const [errorMessage, setErrorMessage] = useState("");
 
-	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsLoading(true);
 		setSuccessMessage("");
+		setErrorMessage("");
 
 		try {
 			const formData = new FormData(e.target as HTMLFormElement);
@@ -61,15 +107,28 @@ function App() {
 
 			const response = await fetch("/", {
 				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({ to }),
 			});
+
+			const result = await response.json();
+
 			if (response.ok) {
 				setSuccessMessage(
 					"Thanks for joining the waitlist! We'll notify you when we launch.",
 				);
 				(e.target as HTMLFormElement).reset();
+			} else {
+				setErrorMessage(
+					(result as { message: string }).message ||
+						"An error occurred. Please try again.",
+				);
 			}
-		} catch (_error) {
+		} catch (error) {
+			console.error(error);
+			setErrorMessage("An error occurred. Please try again.");
 		} finally {
 			setIsLoading(false);
 		}
@@ -134,9 +193,15 @@ function App() {
 							</Button>
 
 							{successMessage && (
-								<p className="text-xs text-center text-green-700 font-medium">
+								<div className="rounded-md bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950/50 dark:text-green-400">
 									{successMessage}
-								</p>
+								</div>
+							)}
+
+							{errorMessage && (
+								<div className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
+									{errorMessage}
+								</div>
 							)}
 						</form>
 					</div>

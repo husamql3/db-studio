@@ -3,7 +3,7 @@ import { PlusIcon } from "lucide-react";
 import { IoLogoGithub } from "react-icons/io";
 import { Button } from "@/components/ui/button";
 
-export const Header = ({ stars }: { stars: string }) => {
+export const Header = ({ stars }: { stars: string | null }) => {
 	return (
 		<header className="border-b">
 			<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-between relative border-x">

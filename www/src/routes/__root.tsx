@@ -1,8 +1,8 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-
 import { Footer } from "@/components/footer";
+import { Header } from "@/components/header";
 import { NotFound } from "@/components/not-found";
 import { getStarsCount } from "@/utils/get-stars-count";
 import appCss from "../styles.css?url";
@@ -58,7 +58,7 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-	// const { stars } = Route.useLoaderData();
+	const { stars } = Route.useLoaderData();
 
 	return (
 		<html lang="en">
@@ -66,7 +66,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body className="dark relative min-h-dvh w-full flex flex-col h-full z-10 px-4 md:px-0">
-				{/* <Header stars={stars} /> */}
+				<Header stars={stars} />
 				{children}
 				<Footer />
 
