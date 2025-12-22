@@ -77,7 +77,7 @@ export function Highlighter({
 		<span className="mx-1">
 			<span
 				ref={elementRef}
-				className="relative inline-block bg-transparent text-xl px-2"
+				className="relative inline-block bg-transparent md:text-xl text-base px-2"
 			>
 				{children}
 			</span>

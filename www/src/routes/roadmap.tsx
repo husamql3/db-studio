@@ -1,59 +1,55 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import { Silk } from "@/components/silk";
-import { roadmapItems } from "@/lib/roadmap";
+import {
+	type RoadmapItem,
+	type RoadmapItemStatus,
+	type RoadmapItemTask,
+	roadmapItems,
+} from "@/lib/roadmap";
+import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/roadmap")({
-	component: RouteComponent,
-});
-
-function getStatusStyles(status: string) {
+export const getTaskIcon = (status: RoadmapItemStatus) => {
 	switch (status) {
 		case "completed":
-			return "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+			return (
+				<CheckIcon className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))} />
+			);
 		case "in-progress":
-			return "bg-[#1447e6]/10 text-[#1447e6] border-[#1447e6]/30";
+			return (
+				<Loader2Icon
+					className={cn("h-4 w-4 mt-0.5 shrink-0 animate-spin", getTaskIconClass(status))}
+				/>
+			);
 		case "planned":
-			return "bg-amber-500/10 text-amber-600 border-amber-500/30";
-		default:
-			return "bg-muted text-muted-foreground border-border";
+			return (
+				<PlusIcon className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))} />
+			);
 	}
-}
+};
 
-function getStatusLabel(status: string) {
-	switch (status) {
-		case "completed":
-			return "Completed";
-		case "in-progress":
-			return "In Progress";
-		case "planned":
-			return "Planned";
-		default:
-			return "Future";
-	}
-}
-
-function getTaskIconClass(status: string) {
-	if (status === "completed") {
-		return "text-emerald-600"; // primary color for completed (emerald matches the badge)
-	}
-	return "text-foreground/50";
-}
+export const Route = createFileRoute("/roadmap")({ component: RouteComponent });
 
 function RouteComponent() {
 	return (
 		<main className="flex-1 mx-auto border-x max-w-2xl w-full">
 			<div className="h-full w-full flex-1 flex flex-col gap-4">
 				{/* Page Title Section */}
-				<div className="relative w-full flex flex-col border-b px-4 py-10 md:px-8 md:py-10 gap-4 dark:bg-[radial-gradient(35%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]">
+				<div
+					className={
+						"relative w-full flex flex-col border-b px-4 py-10 md:px-8 md:py-10 gap-4"
+						//  dark:bg-[radial-gradient(35%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]
+					}
+				>
 					<Silk
 						speed={4}
 						scale={1}
-						color="#363636"
-						noiseIntensity={0.3}
+						color="#222222"
+						noiseIntensity={0.4}
 						rotation={0}
 					/>
+
 					<div className="w-full max-w-xl mx-auto text-center">
 						<h1 className="text-2xl md:text-3xl font-bold mb-2">Product Roadmap</h1>
 						<p className="text-sm">
@@ -77,7 +73,7 @@ function RouteComponent() {
 						{/* Vertical Timeline Line */}
 						<div className="absolute left-[11.5px] top-0 bottom-0 w-px bg-border" />
 
-						{roadmapItems.map((item, index) => (
+						{roadmapItems.map((item: RoadmapItem, index: number) => (
 							<div
 								key={index}
 								className="relative pl-10 pb-10 last:pb-0"
@@ -91,7 +87,7 @@ function RouteComponent() {
 								</div>
 
 								{/* Content Card */}
-								<div className="space-y-6">
+								<div className="space-y-3 md:space-y-6">
 									<div className="flex flex-col-reverse sm:flex-row sm:items-center gap-1">
 										<h3 className="text-lg font-semibold">{item.title}</h3>
 
@@ -106,22 +102,13 @@ function RouteComponent() {
 									</div>
 
 									<ul className="space-y-2">
-										{item.items.map((task, taskIndex) => (
+										{item.items.map((task: RoadmapItemTask, taskIndex: number) => (
 											<li
-												key={taskIndex}
+												key={`${item.title}-${task.title}-${taskIndex}`}
 												className="flex items-start gap-2 text-sm text-muted-foreground"
 											>
-												{item.status === "completed" ? (
-													<CheckIcon
-														className={`h-4 w-4 mt-0.5 shrink-0 ${getTaskIconClass(item.status)}`}
-													/>
-												) : (
-													<PlusIcon
-														className={`h-4 w-4 mt-0.5 shrink-0 ${getTaskIconClass(item.status)}`}
-														strokeWidth={1}
-													/>
-												)}
-												<span>{task}</span>
+												{getTaskIcon(task.status)}
+												<span>{task.title}</span>
 											</li>
 										))}
 									</ul>
