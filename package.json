@@ -9,6 +9,7 @@
     "esbuild": "0.25.12"
   },
   "scripts": {
+    "install": "bun install --ignore-scripts && bun install --ignore-scripts --cwd packages/core && bun install --ignore-scripts --cwd packages/core/server",
     "dev": "bun run --cwd packages/core dev",
     "dev:www": "bun run --cwd www dev",
     "dev:server": "bun run --cwd packages/core dev:server",

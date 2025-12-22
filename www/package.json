@@ -31,6 +31,7 @@
     "motion": "^12.23.26",
     "nitro": "latest",
     "react": "^19.2.0",
+    "resend": "^4.0.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "rough-notation": "^0.5.1",

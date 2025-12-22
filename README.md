@@ -1,10 +1,4 @@
-# DB Studio
-
-
-
 <div align="center">
-
-<br>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.png">
@@ -14,12 +8,8 @@
 
 <br>
 
-<img src="assets/screenshot.png" alt="DB Studio screenshot" width="1000" />
-
-</div>
-
 <div align="center">
-A modern, universal (pgAdmin alternative) database management studio for any SQL database that you can launch via the CLI.
+A modern, universal (pgAdmin alternative) database management studio for any database.
 </div>
 
 <br>
@@ -30,38 +20,34 @@ A modern, universal (pgAdmin alternative) database management studio for any SQL
   <a href="https://deepwiki.com/husamql3/db-studio"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
-## Features
+<br>
 
-### ✅ Available Now
-
-- **Virtual Data Grid** — High-performance table view with virtualized scrolling powered by TanStack Table
-- **Command Palette** — Quick navigation and actions with `Cmd/Ctrl + K`
-- **Table Management** — Create tables with column types, constraints, and foreign key relationships
-- **Record Operations** — Insert new records with form validation
-- **Resizable Sidebar** — Pin or auto-hide, drag to resize
-- **Keyboard Shortcuts** — Navigate and interact efficiently
-- **Dark Theme** — Easy on the eyes, built for extended use
-
-### Planned / In Progress
-
-- Inline row editing & bulk operations
-- AI-assisted SQL generation
-- Import/export (CSV, JSON, SQL)
-- Full SQL query editor with autocomplete
-- Visual schema & ER diagram
-- Advanced filtering, sorting & saved queries
-- Query history & favorites
+<img src="assets/screenshot.png" alt="DB Studio screenshot" width="1000" />
+</div>
 
 ## Tech Stack
 
-- **Frontend:** React 19, TanStack (Table, Query, Form), Zustand, Tailwind CSS, Radix UI
-- **Backend:** Hono, PostgreSQL (pg)
-- **Tooling:** Vite, TypeScript, Biome
+- **Frontend**: React 19, TanStack React Router, TanStack React Query, TanStack React Table, TanStack React Virtual, shadcn/ui, sonner, react-day-picker, react-hook-form, zustand
+- **Backend**: Hono with Node, zod-validator, zod
+- **Tooling**: Bun, Vite, TypeScript, Biome, Vitest, Wrangler (Cloudflare)
 
 ## Getting Started
 
 ```bash
-# Install dependencies
+# Install dependencies (root and workspaces)
+bun install
+
+# Configure your PostgreSQL connection in packages/core/server/.env
+# DATABASE_URL=postgres://user:password@localhost:5432/database
+
+# Start development servers
+bun run dev
+```
+
+## Getting Started
+
+```bash
+# Install dependencies 
 bun install
 cd server && bun install
 
@@ -72,7 +58,13 @@ cd server && bun install
 bun run dev
 ```
 
-The app runs at `http://localhost:5173` with the API server on port `3000`.
+The app runs at `http://localhost:3001` with the API server on port `3002`.
+
+## Roadmap
+
+For the latest features, planned updates, and development progress, see the full roadmap here: [roadmap](https://dbstudio.sh/roadmap)
+
+Contributions that align with roadmap priorities are especially welcome!
 
 # Contributing
 
@@ -81,4 +73,4 @@ Check out [CONTRIBUTING.md](/CONTRIBUTING.md) and the open issues.
 
 ## License
 
-[Apache](/LICENSE)
+[MIT](/LICENSE)

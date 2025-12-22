@@ -49,6 +49,7 @@
 			"www/src/**",
 			"!www/src/styles.css",
 			"!www/src/routeTree.gen.ts",
+			"!www/public/**",
 			"README.md"
 		],
 		"ignoreUnknown": true

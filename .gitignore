@@ -26,3 +26,6 @@ bun.lock
 
 # Local Netlify folder
 .netlify
+
+# Cloudflare Workers local environment variables
+.dev.vars
