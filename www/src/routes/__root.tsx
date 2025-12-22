@@ -4,6 +4,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
+import { NotFound } from "@/components/not-found";
 import { getStarsCount } from "@/utils/get-stars-count";
 import appCss from "../styles.css?url";
 
@@ -33,6 +34,7 @@ export const Route = createRootRoute({
 		return { stars };
 	},
 	shellComponent: RootDocument,
+	notFoundComponent: () => <NotFound />,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {

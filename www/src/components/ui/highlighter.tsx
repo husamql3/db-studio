@@ -30,8 +30,8 @@ export function Highlighter({
 	action = "highlight",
 	color = "#ffd1dc",
 	strokeWidth = 1.5,
-	animationDuration = 600,
-	iterations = 2,
+	animationDuration = 1000,
+	iterations = 3,
 	padding = 2,
 	multiline = true,
 }: HighlighterProps) {
