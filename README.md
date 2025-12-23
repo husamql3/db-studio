@@ -44,20 +44,6 @@ bun install
 bun run dev
 ```
 
-## Getting Started
-
-```bash
-# Install dependencies 
-bun install
-cd server && bun install
-
-# Configure your PostgreSQL connection in server/.env
-# DATABASE_URL=postgres://user:password@localhost:5432/database
-
-# Start development servers
-bun run dev
-```
-
 The app runs at `http://localhost:3001` with the API server on port `3002`.
 
 ## Roadmap
