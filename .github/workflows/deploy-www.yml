@@ -26,11 +26,8 @@ jobs:
         with:
           bun-version: 1.2.19
 
-      - name: Install root dependencies
-        run: bun install --ignore-scripts
-
-      - name: Install www dependencies
-        run: bun install --ignore-scripts --cwd www
+      - name: Install dependencies
+        run: bun install
 
       - name: Build www
         run: bun run build:www
