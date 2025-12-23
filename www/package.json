@@ -10,6 +10,7 @@
     "deploy": "bun run build && wrangler deploy",
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",
+    "cf-secrets": "wrangler secret bulk .env",
     "check-meta": "bunx check-site-meta",
     "check": "biome check --write --unsafe --verbose"
   },
