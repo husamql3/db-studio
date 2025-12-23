@@ -14,7 +14,7 @@ export const sendEmail = async ({
 		const transport = transporter({ email, password });
 
 		const data = await transport.sendMail({
-			from: "husamahmud@gmail.com",
+			from: '"DB Studio Team" <no-reply@dbstudio.sh>',
 			to,
 			subject: "Welcome to DB Studio ❤️",
 			html: htmlContent,
