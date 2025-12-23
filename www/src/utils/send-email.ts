@@ -11,11 +11,10 @@ export const sendEmail = async ({
 	password: string;
 }) => {
 	try {
-		const fromEmail = "pstrack.org@gmail.com";
 		const transport = transporter({ email, password });
 
 		const data = await transport.sendMail({
-			from: fromEmail,
+			from: "husamahmud@gmail.com",
 			to,
 			subject: "Welcome to DB Studio ❤️",
 			html: htmlContent,
