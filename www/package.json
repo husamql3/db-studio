@@ -30,6 +30,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lightningcss": "^1.29.1",
+    "lightningcss-linux-x64-gnu": "^1.29.1",
     "lucide-react": "^0.562.0",
     "motion": "^12.23.26",
     "nitro": "latest",
