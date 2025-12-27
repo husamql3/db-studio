@@ -9,6 +9,7 @@
     "esbuild": "0.25.12"
   },
   "scripts": {
+    "postinstall": "bun install --cwd packages/core/server",
     "dev": "bun run --cwd packages/core dev",
     "dev:www": "bun run --cwd www dev",
     "dev:server": "bun run --cwd packages/core dev:server",
