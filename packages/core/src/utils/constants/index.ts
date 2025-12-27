@@ -10,7 +10,7 @@ export const CONSTANTS = {
 		TABLE_COLUMNS: "tableColumns",
 		TABLE_DATA: "tableData",
 		TABLE_DEFAULT_PAGE: 1,
-		TABLE_DEFAULT_LIMIT: 50, // todo: change to 50
+		TABLE_DEFAULT_LIMIT: 50,
 	},
 
 	//* table state keys
@@ -51,4 +51,4 @@ export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
 };
 
-export const API_URL = "http://localhost:3002";
+export const API_URL = "http://localhost:3333";

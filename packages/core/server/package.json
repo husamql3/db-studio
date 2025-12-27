@@ -3,8 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "postbuild": "cd ../../.. && bun run build:core",
+    "build": "bun run postbuild && tsc",
+    "start": "bun run postbuild",
     "check": "biome check --write --unsafe --verbose"
   },
   "dependencies": {
