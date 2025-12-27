@@ -13,6 +13,14 @@ export interface ForeignKeyConstraint {
 	referencedColumn: string;
 }
 
+export interface ForeignKeyConstraintRow {
+	constraint_name: string;
+	referencing_table: string;
+	referencing_column: string;
+	referenced_table: string;
+	referenced_column: string;
+}
+
 export interface RelatedRecord {
 	tableName: string;
 	columnName: string;
@@ -54,7 +62,7 @@ export const getForeignKeyReferences = async (
 
 	const result = await db.query(query, [tableName]);
 
-	return result.rows.map((row) => ({
+	return result.rows.map(({ row }: { row: ForeignKeyConstraintRow }) => ({
 		constraintName: row.constraint_name,
 		referencingTable: row.referencing_table,
 		referencingColumn: row.referencing_column,
@@ -242,7 +250,8 @@ export const forceDeleteRecords = async (
 
 				const selectResult = await client.query(selectQuery, values);
 				const nestedValues = selectResult.rows.map(
-					(row) => row[nestedFk.referencedColumn],
+					({ row }: { row: { [nestedFk.referencedColumn]: unknown } }) =>
+						row[nestedFk.referencedColumn],
 				);
 
 				if (nestedValues.length > 0) {

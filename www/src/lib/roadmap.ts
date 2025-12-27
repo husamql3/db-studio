@@ -26,9 +26,10 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Release & Distribution",
-		status: "planned",
+		status: "in-progress",
 		items: [
-			{ title: "Publish the tool on npm and set up regular releases", status: "planned" },
+			{ title: "Develop CLI tool for running the db studio app", status: "in-progress" },
+			{ title: "Publish the tool on npm and release it", status: "planned" },
 		],
 	},
 	{

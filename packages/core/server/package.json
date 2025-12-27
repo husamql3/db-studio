@@ -2,20 +2,26 @@
   "name": "server",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "check": "biome check --write --unsafe --verbose"
   },
   "dependencies": {
+    "@clack/prompts": "^0.11.0",
     "@hono/node-server": "^1.19.7",
     "@hono/zod-validator": "^0.7.6",
+    "@types/pg": "^8.16.0",
     "hono": "^4.10.4",
+    "open": "^11.0.0",
+    "picocolors": "^1.1.1",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3",
-    "wrangler": "^4.4.0"
+    "wrangler": "^4.4.0",
+    "@biomejs/biome": "^2.2.6"
   }
 }

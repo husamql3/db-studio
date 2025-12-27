@@ -12,7 +12,9 @@
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
     "scan": "npx react-scan@latest http://localhost:5173",
-    "check": "biome check --write --unsafe --verbose"
+    "check": "bun run check:core && bun run check:server",
+    "check:core": "biome check --write --unsafe --verbose",
+    "check:server": "cd server && bun run check"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

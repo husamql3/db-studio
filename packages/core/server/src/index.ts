@@ -1,308 +1,294 @@
-import "dotenv/config";
-
-import { serve } from "@hono/node-server";
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
-
-import { createTable } from "./dao/create-table.dao.js";
-import { deleteRecords, forceDeleteRecords } from "./dao/delete-records.dao.js";
-import { insertRecord } from "./dao/insert-record.dao.js";
-import { getTableColumns } from "./dao/table-columns.dao.js";
-import { getTablesList } from "./dao/table-list.dao.js";
-import { getTableData, type Sort } from "./dao/tables-data.dao.js";
-import { updateRecords } from "./dao/update-records.dao.js";
+import { access, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import {
-	createTableSchema,
-	deleteRecordsSchema,
-	insertRecordSchema,
-	tableDataQuerySchema,
-	tableNameParamSchema,
-	updateRecordsSchema,
-} from "./types/create-table.type.js";
+	cancel,
+	intro,
+	isCancel,
+	note,
+	outro,
+	select,
+	spinner,
+	text,
+} from "@clack/prompts";
+import { program } from "commander";
+import { type DotenvParseOutput, parse as parseDotenv } from "dotenv";
+import color from "picocolors";
+import packageJson from "../../package.json" with { type: "json" };
 
-const app = new Hono();
-
-// Add CORS middleware
-app.use("/*", cors());
-app.use("/*", logger());
-
-/**
- * Tables
- * GET /tables - Get all tables
- */
-app.get("/tables", async (c) => {
-	const tablesList = await getTablesList();
-	console.log("GET /tables", tablesList);
-	return c.json(tablesList);
-});
-
-/**
- * Columns
- * GET /tables/:tableName/columns - Get all columns for a table
- */
-app.get(
-	"/tables/:tableName/columns",
-	zValidator("param", tableNameParamSchema),
-	async (c) => {
-		const { tableName } = c.req.valid("param");
-		const columns = await getTableColumns(tableName);
-		console.log("GET /tables/:tableName/columns", columns);
-		return c.json(columns);
-	},
-);
+type Args = {
+	env?: string;
+	port?: string;
+	databaseUrl?: string;
+	varName?: string;
+	status?: boolean;
+	help?: boolean;
+	version?: boolean;
+};
 
 /**
- * Data
- * GET /tables/:tableName/data - Get paginated data for a table
- * Query params: page (default: 1), pageSize (default: 50), sort (string or JSON array), order, filters (JSON)
+ * Get the arguments from the command line
  */
-app.get(
-	"/tables/:tableName/data",
-	zValidator("param", tableNameParamSchema),
-	zValidator("query", tableDataQuerySchema),
-	async (c) => {
-		const { tableName } = c.req.valid("param");
-		const { page, pageSize, sort: sortParam, order, filters } = c.req.valid("query");
+export const args = () => {
+	program
+		.name("db-studio")
+		.option("-e, --env <path>", "Path to custom .env file")
+		.option("-p, --port <port>", "Port to run the server on")
+		.option("-d, --database-url <url>", "Database URL to use")
+		.option(
+			"-n, --var-name <name>",
+			"Custom environment variable name (default: DATABASE_URL)",
+		)
+		.option("-s, --status", "Show status of the server")
+		.option("-h, --help", "Show help")
+		.option("-v, --version", "Show version")
+		.parse(process.argv);
 
-		// Parse sort - can be either a string (legacy) or JSON array (new format)
-		let sort: Sort[] | string = "";
-		if (sortParam) {
-			try {
-				// Try to parse as JSON first (new format)
-				const parsed = JSON.parse(sortParam);
-				if (Array.isArray(parsed)) {
-					sort = parsed;
-				} else {
-					sort = sortParam;
-				}
-			} catch {
-				// If JSON parse fails, use as string (legacy format)
-				sort = sortParam;
+	return program.opts<Args>();
+};
+
+/**
+ * Display help information
+ */
+const showHelp = () => {
+	intro(color.inverse(" db-studio "));
+
+	console.log(color.bold("\nUsage:"));
+	console.log("  db-studio [options]\n");
+
+	console.log(color.bold("Options:"));
+	console.log("  -e, --env <path>         Path to custom .env file");
+	console.log("  -p, --port <port>        Port to run the server on (default: 3333)");
+	console.log("  -d, --database-url <url> Database URL to use");
+	console.log(
+		"  -n, --var-name <name>    Custom environment variable name (default: DATABASE_URL)",
+	);
+	console.log("  -s, --status             Show status of the database connection");
+	console.log("  -h, --help               Show this help message");
+	console.log("  -v, --version            Show version number\n");
+
+	console.log(color.bold("Examples:"));
+	console.log("  db-studio");
+	console.log("  db-studio -e .env.local");
+	console.log("  db-studio -p 4000");
+	console.log("  db-studio -d postgresql://user:pass@localhost:5432/mydb");
+	console.log("  db-studio -n MY_DATABASE_URL");
+	console.log("  db-studio -e .env.production -n PROD_DB_URL");
+	console.log("  db-studio --status\n");
+
+	outro(
+		color.green("For more information, visit: https://github.com/your-repo/db-studio"),
+	);
+};
+
+/**
+ * Display version information
+ */
+const showVersion = () => {
+	intro(color.inverse(" db-studio "));
+	console.log(color.cyan(`\nVersion: ${color.bold(packageJson.version)}\n`));
+	outro(color.green(`🚀 db-studio v${packageJson.version}`));
+};
+
+/**
+ * Show connection status
+ */
+const showStatus = async (env?: string, databaseUrl?: string, varName?: string) => {
+	intro(color.inverse(" db-studio "));
+
+	const envVarName = varName || "DATABASE_URL";
+	let foundUrl: string | null = null;
+
+	// Check if DATABASE_URL is provided via CLI
+	if (databaseUrl) {
+		foundUrl = databaseUrl;
+	} else {
+		// Try to load from .env file
+		const ENV = env ? await loadEnv(env) : await loadEnv(".env");
+		if (ENV?.[envVarName]) {
+			foundUrl = ENV[envVarName];
+		}
+	}
+
+	if (foundUrl) {
+		// Mask the password in the URL for security
+		try {
+			const url = new URL(foundUrl);
+			if (url.password) {
+				url.password = "****";
 			}
+			console.log(color.dim(`  Connection: ${url.toString()}\n`));
+		} catch {
+			console.log(color.dim(`  Connection: ${foundUrl.substring(0, 30)}...\n`));
 		}
 
-		const data = await getTableData(tableName, page, pageSize, sort, order, filters);
-		return c.json(data);
-	},
-);
+		outro(color.green(`✓ Database connection configured (using ${envVarName})`));
+	} else {
+		note(color.red(`✗ ${envVarName} not found`), "Status");
+		console.log(color.yellow("\n  To configure database connection:"));
+		console.log(color.dim(`  • Add ${envVarName} to your .env file`));
+		console.log(color.dim("  • Use -d flag: db-studio -d <url>"));
+		console.log(color.dim("  • Use -e flag: db-studio -e <path-to-env>"));
+		console.log(color.dim("  • Use -n flag: db-studio -n <var-name>\n"));
 
-/**
- * Create Table
- * POST /tables - Create a new table
- */
-app.post("/tables", zValidator("json", createTableSchema), async (c) => {
-	try {
-		const body = c.req.valid("json");
-		console.log("POST /tables body", body);
-		const data = await createTable(body);
-		console.log("POST /tables", data);
-		return c.json(data);
-	} catch (error) {
-		console.error("POST /tables error:", error);
-		const errorDetail =
-			error && typeof error === "object" && "detail" in error
-				? (error as { detail?: string }).detail
-				: undefined;
-		return c.json(
-			{
-				success: false,
-				message: error instanceof Error ? error.message : "Failed to create table",
-				detail: errorDetail,
-			},
-			500,
-		);
+		outro(color.yellow("⚠ No database connection configured"));
 	}
-});
+};
 
 /**
- * Create Record
- * POST /records - Insert a new record into a table
- * Body: { tableName: string, ...recordData }
+ * Load the environment variables from the file
  */
-app.post("/records", zValidator("json", insertRecordSchema), async (c) => {
+export const loadEnv = async (env?: string) => {
+	const envPath = env ? resolve(env) : resolve(process.cwd(), ".env");
+
 	try {
-		const body = c.req.valid("json");
-		const { tableName, ...recordData } = body;
-
-		console.log("POST /records body", { tableName, recordData });
-		const result = await insertRecord({ tableName, data: recordData });
-		console.log("POST /records", result);
-		return c.json(result);
-	} catch (error) {
-		console.error("POST /records error:", error);
-		const errorDetail =
-			error && typeof error === "object" && "detail" in error
-				? (error as { detail?: string }).detail
-				: undefined;
-		return c.json(
-			{
-				success: false,
-				message: error instanceof Error ? error.message : "Failed to create record",
-				detail: errorDetail,
-			},
-			500,
-		);
-	}
-});
-
-/**
- * Update Records
- * PATCH /records - Update one or more cells in a table
- * Body: {
- *   tableName: string,
- *   updates: Array<{ rowData: Record<string, unknown>, columnName: string, value: unknown }>,
- *   primaryKey?: string (optional, defaults to 'id')
- * }
- */
-app.patch("/records", zValidator("json", updateRecordsSchema), async (c) => {
-	try {
-		const body = c.req.valid("json");
-		const { tableName, updates, primaryKey } = body;
-
-		console.log("PATCH /records body", { tableName, updates, primaryKey });
-		const result = await updateRecords({ tableName, updates, primaryKey });
-		console.log("PATCH /records", result);
-		return c.json(result);
-	} catch (error) {
-		console.error("PATCH /records error:", error);
-		const errorDetail =
-			error && typeof error === "object" && "detail" in error
-				? (error as { detail?: string }).detail
-				: undefined;
-		return c.json(
-			{
-				success: false,
-				message: error instanceof Error ? error.message : "Failed to update records",
-				detail: errorDetail,
-			},
-			500,
-		);
-	}
-});
-
-/**
- * Delete Records
- * DELETE /records - Delete records from a table
- * Body: {
- *   tableName: string,
- *   primaryKeys: Array<{ columnName: string, value: unknown }>,
- * }
- * Returns:
- *   - success: true if deleted
- *   - fkViolation: true if FK constraint prevents deletion, includes relatedRecords
- */
-app.delete("/records", zValidator("json", deleteRecordsSchema), async (c) => {
-	try {
-		const body = c.req.valid("json");
-		const { tableName, primaryKeys } = body;
-
-		console.log("DELETE /records body", { tableName, primaryKeys });
-		const result = await deleteRecords({ tableName, primaryKeys });
-		console.log("DELETE /records result", result);
-
-		// Return 409 Conflict for FK violations
-		if (result.fkViolation) {
-			return c.json(result, 409);
+		await access(envPath);
+		const content = await readFile(envPath, "utf-8");
+		return parseDotenv(content);
+	} catch (err) {
+		if (err instanceof Error && err.message.includes("ENOENT")) {
+			return null; // we'll handle missing file later
 		}
-
-		return c.json(result);
-	} catch (error) {
-		console.error("DELETE /records error:", error);
-		const errorDetail =
-			error && typeof error === "object" && "detail" in error
-				? (error as { detail?: string }).detail
-				: undefined;
-		return c.json(
-			{
-				success: false,
-				message: error instanceof Error ? error.message : "Failed to delete records",
-				detail: errorDetail,
-			},
-			500,
-		);
+		throw err;
 	}
-});
+};
 
 /**
- * Force Delete Records (Cascade)
- * DELETE /records/force - Force delete records and all related FK records
- * Body: {
- *   tableName: string,
- *   primaryKeys: Array<{ columnName: string, value: unknown }>,
- * }
+ * Get the database URL from the environment variables
  */
-app.delete("/records/force", zValidator("json", deleteRecordsSchema), async (c) => {
-	try {
-		const body = c.req.valid("json");
-		const { tableName, primaryKeys } = body;
+export const getDatabaseUrl = async (
+	env?: DotenvParseOutput | null,
+	varName?: string,
+) => {
+	const envVarName = varName || "DATABASE_URL";
 
-		console.log("DELETE /records/force body", { tableName, primaryKeys });
-		const result = await forceDeleteRecords({ tableName, primaryKeys });
-		console.log("DELETE /records/force result", result);
-
-		return c.json(result);
-	} catch (error) {
-		console.error("DELETE /records/force error:", error);
-		const errorDetail =
-			error && typeof error === "object" && "detail" in error
-				? (error as { detail?: string }).detail
-				: undefined;
-		return c.json(
-			{
-				success: false,
-				message:
-					error instanceof Error ? error.message : "Failed to force delete records",
-				detail: errorDetail,
-			},
-			500,
-		);
+	if (env?.[envVarName]) {
+		return env[envVarName];
 	}
-});
 
-/**
- * Root
- * GET / - Get the root
- */
-app.get("/", (c) => {
-	return c.json({
-		message: "Hello World",
-		tables: "/tables",
-		columns: "/tables/:tableName/columns",
-		data: "/tables/:tableName/data",
-		records: "POST /records",
-		updateRecords: "PATCH /records",
-		deleteRecords: "DELETE /records",
-		forceDeleteRecords: "DELETE /records/force",
+	const s = spinner();
+	s.start("Looking for database connection...");
+
+	if (!env) {
+		note(color.red("No .env file found in current directory"));
+	} else {
+		note(color.red(`${envVarName} not found in .env`));
+	}
+
+	const choice = await select({
+		message: `How do you want to provide ${envVarName}?`,
+		options: [
+			{ value: "manual", label: "Enter connection string manually" },
+			{ value: "other-env", label: "Use different .env file" },
+			{ value: "cancel", label: "Cancel / Exit" },
+		],
+		initialValue: "manual",
 	});
-});
+	if (isCancel(choice) || choice === "cancel") {
+		cancel("No database connection provided. Exiting...");
+		process.exit(0);
+	}
 
-const server = serve(
-	{
-		fetch: app.fetch,
-		port: 3002,
-	},
-	(info) => {
-		console.log(`Server is running on http://localhost:${info.port}`);
-		console.log(
-			`Database URL: ${process.env.DATABASE_URL?.split("@")[1] || "Not configured"}`,
-		);
-	},
-);
+	if (choice === "other-env") {
+		s.start("Waiting for path...");
+		const customPath = await text({
+			message: "Enter path to .env file",
+			placeholder: "~/projects/myapp/.env.local or ./special.env",
+			validate(value) {
+				if (!value.trim()) return "Path is required";
+			},
+		});
 
-// graceful shutdown
-process.on("SIGINT", () => {
-	server.close();
-	process.exit(0);
-});
+		if (isCancel(customPath)) {
+			cancel("Cancelled.");
+			process.exit(0);
+		}
 
-process.on("SIGTERM", () => {
-	server.close((err) => {
-		if (err) {
-			console.error(err);
+		s.stop("Trying custom .env...");
+
+		const customEnvPath = resolve(customPath);
+		try {
+			const content = await readFile(customEnvPath, "utf-8");
+			const parsed = parseDotenv(content);
+			if (parsed[envVarName]) {
+				return parsed[envVarName];
+			}
+			throw new Error(`${envVarName} still missing in custom file`);
+		} catch (e: any) {
+			cancel(`Cannot read or parse file: ${color.dim(e.message)}`);
 			process.exit(1);
 		}
-		process.exit(0);
+	}
+
+	// 3. Manual input
+	s.stop("Manual input...");
+
+	const dbUrl = await text({
+		message: `Paste your ${envVarName}`,
+		placeholder: "postgresql://user:password@localhost:5432/mydb",
+		validate(value) {
+			if (!value.trim()) return "Connection string is required!";
+			try {
+				new URL(value); // very basic check
+				return undefined;
+			} catch {
+				return "Must be a valid URL format";
+			}
+		},
 	});
+
+	if (isCancel(dbUrl)) {
+		cancel("Cancelled.");
+		process.exit(0);
+	}
+
+	return dbUrl.trim();
+};
+
+const DEFAULTS = {
+	PORT: 3333,
+	ENV: ".env",
+	VAR_NAME: "DATABASE_URL",
+};
+
+export const main = async () => {
+	const { env, port, databaseUrl, varName, status, help, version } = args();
+
+	// Handle help flag
+	if (help) {
+		showHelp();
+		process.exit(0);
+	}
+
+	// Handle version flag
+	if (version) {
+		showVersion();
+		process.exit(0);
+	}
+
+	// Handle status flag
+	if (status) {
+		await showStatus(env, databaseUrl, varName);
+		process.exit(0);
+	}
+
+	intro(color.inverse(" db-studio "));
+
+	const PORT = port ? parseInt(port, 10) : DEFAULTS.PORT;
+	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
+	const ENV = env ? await loadEnv(env) : await loadEnv(DEFAULTS.ENV);
+	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
+
+	console.log({
+		PORT,
+		VAR_NAME,
+		ENV,
+		DATABASE_URL,
+	});
+
+	outro(color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`));
+};
+
+main().catch((err) => {
+	console.error(color.red(`❌ Unexpected error: ${err.message}`));
+	process.exit(1);
 });

@@ -1,9 +1,12 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { IoLogoGithub } from "react-icons/io";
 import { Button } from "@/components/ui/button";
 
 export const Header = ({ stars }: { stars: string | null }) => {
+	const matchRoute = useMatchRoute();
+	const isHome = matchRoute({ to: "/" });
+
 	return (
 		<header className="border-b">
 			<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-between relative border-x">
@@ -16,6 +19,17 @@ export const Header = ({ stars }: { stars: string | null }) => {
 				</Link>
 
 				<div className="flex items-center gap-1">
+					{!isHome && (
+						<Link to="/">
+							<Button
+								variant="ghost"
+								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+							>
+								Home
+							</Button>
+						</Link>
+					)}
+
 					<Link to="/roadmap">
 						<Button
 							variant="ghost"
