@@ -22,7 +22,9 @@ import {
 	updateRecordsSchema,
 } from "./types/create-table.type.js";
 
-const app = new Hono();
+type Env = {};
+
+const app = new Hono<Env>();
 
 // Add CORS middleware
 app.use("/*", cors());
@@ -283,7 +285,7 @@ const server = serve(
 		fetch: app.fetch,
 		port: 3002,
 	},
-	(info) => {
+	(info: { port: number; address: string }) => {
 		console.log(`Server is running on http://localhost:${info.port}`);
 		console.log(
 			`Database URL: ${process.env.DATABASE_URL?.split("@")[1] || "Not configured"}`,
@@ -298,7 +300,7 @@ process.on("SIGINT", () => {
 });
 
 process.on("SIGTERM", () => {
-	server.close((err) => {
+	server.close((err: Error | undefined) => {
 		if (err) {
 			console.error(err);
 			process.exit(1);

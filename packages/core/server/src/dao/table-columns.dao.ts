@@ -76,7 +76,7 @@ export const getTableColumns = async (tableName: string): Promise<ColumnInfo[]> 
 			[tableName],
 		);
 
-		return res.rows.map((r) => {
+		return res.rows.map((r: any) => {
 			// Parse enumValues to always return string[] | null
 			let parsedEnumValues: string[] | null = null;
 			if (r.enumValues) {

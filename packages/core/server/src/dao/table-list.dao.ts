@@ -18,7 +18,7 @@ export const getTablesList = async (): Promise<TableInfo[]> => {
         AND t.table_type = 'BASE TABLE'
       ORDER BY t.table_name;
     `);
-		return res.rows.map((r) => ({
+		return res.rows.map((r: any) => ({
 			tableName: r.tableName,
 			rowCount: Number(r.rowCount),
 		}));
