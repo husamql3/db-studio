@@ -1,5 +1,6 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
 import { Button } from "@/components/ui/button";
 
@@ -18,7 +19,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					/>
 				</Link>
 
-				<div className="flex items-center gap-1">
+				<div className="flex items-center md:gap-1 gap-0">
 					{!isHome && (
 						<Link to="/">
 							<Button
@@ -49,7 +50,24 @@ export const Header = ({ stars }: { stars: string | null }) => {
 							className="gap-2 flex items-center justify-center text-xs cursor-pointer"
 						>
 							<IoLogoGithub className="size-4" />
-							{stars && <span className="leading-none">{stars.replace(".0k", "k")}</span>}
+							{stars && (
+								<span className="leading-none md:block hidden">
+									{stars.replace(".0k", "k")}
+								</span>
+							)}
+						</Button>
+					</a>
+
+					<a
+						href="https://x.com/dbstudio_sh"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						<Button
+							variant="ghost"
+							className="gap-2 flex items-center justify-center text-xs cursor-pointer"
+						>
+							<FaXTwitter className="size-3.5" />
 						</Button>
 					</a>
 				</div>
