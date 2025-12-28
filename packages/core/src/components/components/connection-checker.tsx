@@ -1,6 +1,6 @@
 import { Status, StatusIndicator, StatusLabel } from "@/components/ui/status";
 
-export const DevMode = () => {
+export const ConnectionChecker = () => {
 	const isDev = import.meta.env.DEV;
 	if (!isDev) return null;
 
@@ -11,7 +11,7 @@ export const DevMode = () => {
 			variant="secondary"
 		>
 			<StatusIndicator />
-			<StatusLabel className="font-mono">Dev</StatusLabel>
+			<StatusLabel className="font-mono">Connection Checker</StatusLabel>
 		</Status>
 	);
 };

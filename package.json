@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "concurrently \"bun run dev:core\" \"bun run dev:cli\" \"bun run dev:server\"",
     "dev:core": "bun run --cwd packages/core dev",
-    "dev:server": "bun run --cwd packages/server dev",
+    "dev:server": "bun run build:core && bun run --cwd packages/server dev",
     "dev:www": "bun run --cwd www dev",
     "build": "concurrently \"bun run build:core\" \"bun run build:server\" \"bun run build:www\"",
     "build:core": "bun run --cwd packages/core build",
