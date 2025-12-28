@@ -45,11 +45,12 @@ export const main = async () => {
 
 	// Import createServer dynamically after setting DATABASE_URL
 	const { createServer } = await import("./utils/create-server.js");
-	const server = createServer();
-	serve({
-		fetch: server.fetch,
+	const { app, injectWebSocket } = createServer();
+	const server = serve({
+		fetch: app.fetch,
 		port: PORT,
 	});
+	injectWebSocket(server);
 
 	outro(color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`));
 
