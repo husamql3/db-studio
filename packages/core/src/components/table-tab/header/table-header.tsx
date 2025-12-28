@@ -5,7 +5,7 @@ import { DeleteBtn } from "@/components/table-tab/header/delete-btn";
 import { FilterPopup } from "@/components/table-tab/header/filter-popup";
 import { RefetchBtn } from "@/components/table-tab/header/refetch-btn";
 import { SaveBtn } from "@/components/table-tab/header/save-btn";
-import { SettingsBtn } from "@/components/table-tab/header/settings-menu";
+// import { SettingsBtn } from "@/components/table-tab/header/settings-menu";
 import type { TableRecord } from "@/types/table.type";
 
 export const TableHeader = ({
@@ -29,9 +29,9 @@ export const TableHeader = ({
 				/>
 			</div>
 
-			<div className="flex items-center">
+			{/* <div className="flex items-center">
 				<SettingsBtn />
-			</div>
+			</div> */}
 		</header>
 	);
 };
