@@ -23,7 +23,8 @@
     "release": "bun run build:release && npm publish --workspace=packages/server"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.6"
+    "@biomejs/biome": "^2.2.6",
+    "concurrently": "^9.2.1"
   },
   "peerDependencies": {
     "typescript": "^5"
