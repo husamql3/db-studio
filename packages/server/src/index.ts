@@ -1,5 +1,6 @@
 import { intro, outro } from "@clack/prompts";
 import { serve } from "@hono/node-server";
+import open from "open";
 import color from "picocolors";
 
 import { args } from "./cmd/args.js";
@@ -51,6 +52,8 @@ export const main = async () => {
 	});
 
 	outro(color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`));
+
+	await open(`http://localhost:${PORT}`);
 };
 
 main().catch((err) => {

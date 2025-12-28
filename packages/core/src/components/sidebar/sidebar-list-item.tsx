@@ -1,27 +1,27 @@
-import {
-	IconCopy,
-	IconDots,
-	IconDownload,
-	IconEdit,
-	IconFileExcel,
-	IconTrash,
-} from "@tabler/icons-react";
+// import {
+// 	IconCopy,
+// 	IconDots,
+// 	IconDownload,
+// 	IconEdit,
+// 	IconFileExcel,
+// 	IconTrash,
+// } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuPortal,
-	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// import {
+// 	DropdownMenu,
+// 	DropdownMenuContent,
+// 	DropdownMenuGroup,
+// 	DropdownMenuItem,
+// 	DropdownMenuPortal,
+// 	DropdownMenuSeparator,
+// 	DropdownMenuSub,
+// 	DropdownMenuSubContent,
+// 	DropdownMenuSubTrigger,
+// 	DropdownMenuTrigger,
+// } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CONSTANTS } from "@/utils/constants";
-import { Button } from "../ui/button";
+// import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 
 export const SidebarListItem = ({
@@ -70,7 +70,7 @@ export const SidebarListItem = ({
 				<span className="flex-1">{tableName}</span>
 
 				<Kbd>{rowCount}</Kbd>
-				<DropdownMenu>
+				{/* <DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button
 							variant="ghost"
@@ -126,7 +126,7 @@ export const SidebarListItem = ({
 							</DropdownMenuItem>
 						</DropdownMenuGroup>
 					</DropdownMenuContent>
-				</DropdownMenu>
+				</DropdownMenu> */}
 			</button>
 		</li>
 	);

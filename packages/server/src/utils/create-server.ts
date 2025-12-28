@@ -22,6 +22,10 @@ import {
 } from "../types/create-table.type.js";
 
 const getCoreDistPath = () => {
+	if (process.env.NODE_ENV === "development") {
+		return path.resolve(process.cwd(), "../core/dist");
+	}
+
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
 	return path.resolve(__dirname, "./core-dist");
 };
