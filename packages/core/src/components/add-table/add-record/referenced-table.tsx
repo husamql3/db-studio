@@ -26,6 +26,21 @@ import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 import { ReferencedTableSortPopup } from "./referenced-table-sort-popup";
 
+// Helper function to format cell value for display
+const formatCellValue = (value: unknown): string => {
+	if (value === null || value === undefined) {
+		return "";
+	}
+	if (typeof value === "object") {
+		try {
+			return JSON.stringify(value);
+		} catch {
+			return String(value);
+		}
+	}
+	return String(value);
+};
+
 export const ReferencedTable = ({
 	tableName,
 	referencedColumn,
@@ -84,7 +99,7 @@ export const ReferencedTable = ({
 				header: item.columnName,
 				cell: ({ row }: { row: Row<Record<string, unknown>> }) => (
 					<div className="font-medium max-w-[200px] truncate">
-						{row.getValue(item.columnName)}
+						{formatCellValue(row.getValue(item.columnName))}
 					</div>
 				),
 			})) ?? []
