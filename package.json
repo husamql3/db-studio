@@ -1,32 +1,35 @@
 {
   "name": "db-studio",
-  "version": "1.0.0",
   "workspaces": [
     "packages/*",
     "www"
   ],
-  "overrides": {
-    "esbuild": "0.25.12"
-  },
   "scripts": {
-    "postinstall": "bun install --cwd packages/core/server",
-    "dev": "bun run --cwd packages/core dev",
+    "dev": "concurrently \"bun run dev:core\" \"bun run dev:cli\" \"bun run dev:server\"",
+    "dev:core": "bun run --cwd packages/core dev",
+    "dev:server": "bun run --cwd packages/server dev",
     "dev:www": "bun run --cwd www dev",
-    "dev:server": "bun run --cwd packages/core dev:server",
-    "build": "bun run build:core && bun run build:server && bun run build:www",
-    "build:core": "bun run --cwd packages/core build && bun run --cwd packages/core build:server",
+    "build": "concurrently \"bun run build:core\" \"bun run build:server\" \"bun run build:www\"",
+    "build:core": "bun run --cwd packages/core build",
+    "build:server": "bun run --cwd packages/server build",
+    "build:release": "bun run build:core && bun run --cwd packages/server build:release",
     "build:www": "bun run --cwd www build",
-    "build:server": "bun run --cwd packages/core build:server",
     "deploy:www": "bun run --cwd www deploy",
     "deploy:www:preview": "bun run --cwd www deploy:preview",
-    "check": "bun run --cwd packages/core check && bun run --cwd www check",
-    "check:meta": "bun run --cwd www check-meta"
+    "check": "bun run --cwd packages/core check && bun run --cwd packages/server check && bun run --cwd www check",
+    "check:meta": "bun run --cwd www check-meta",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "bun run build:release && npm publish --workspace=packages/server"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "overrides": {
+    "esbuild": "0.25.12"
   },
   "engines": {
     "node": ">=20.x",

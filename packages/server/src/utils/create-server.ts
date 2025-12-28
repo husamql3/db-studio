@@ -4,7 +4,6 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 
 import { createTable } from "../dao/create-table.dao.js";
 import { deleteRecords, forceDeleteRecords } from "../dao/delete-records.dao.js";
@@ -22,9 +21,9 @@ import {
 	updateRecordsSchema,
 } from "../types/create-table.type.js";
 
-const getDistPath = () => {
+const getCoreDistPath = () => {
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	return path.resolve(__dirname, "../../../dist");
+	return path.resolve(__dirname, "./core-dist");
 };
 
 export const createServer = () => {
@@ -32,11 +31,10 @@ export const createServer = () => {
 
 	// Add CORS middleware to API routes
 	api.use("/*", cors());
-	api.use("/*", logger());
 
 	api.use(
 		"/favicon.ico",
-		serveStatic({ path: path.resolve(getDistPath(), "favicon.ico") }),
+		serveStatic({ path: path.resolve(getCoreDistPath(), "favicon.ico") }),
 	);
 
 	api.use("*", async (c, next) => {
@@ -47,9 +45,9 @@ export const createServer = () => {
 	});
 
 	/**
-	 * Serve static files from the dist directory
+	 * Serve static files from the core dist directory
 	 */
-	api.use("/*", serveStatic({ root: getDistPath() }));
+	api.use("/*", serveStatic({ root: getCoreDistPath() }));
 
 	/**
 	 * Tables

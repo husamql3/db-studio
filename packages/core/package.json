@@ -1,25 +1,19 @@
 {
-  "name": "db-studio",
+  "name": "core",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"bun run dev:frontend\" \"bun run dev:server\"",
-    "dev:frontend": "vite --port 3001",
-    "dev:server": "cd server && bun run dev",
+    "dev": "vite --port 3001",
     "build": "vite build",
-    "build:server": "cd server && bun run build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
     "scan": "npx react-scan@latest http://localhost:5173",
-    "check": "bun run check:core && bun run check:server",
-    "check:core": "biome check --write --unsafe --verbose",
-    "check:server": "cd server && bun run check"
+    "check": "biome check --write --unsafe --verbose"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
-    "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@tabler/icons-react": "^3.35.0",
     "@tailwindcss/vite": "^4.1.17",

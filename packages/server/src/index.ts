@@ -10,9 +10,6 @@ import { showStatus } from "./cmd/show-status.js";
 import { showVersion } from "./cmd/show-version.js";
 import { DEFAULTS } from "./utils/defaults.js";
 
-// static imports to be bundled with the server
-import "../../dist";
-
 export const main = async () => {
 	const { env, port, databaseUrl, varName, status, help, version } = args();
 

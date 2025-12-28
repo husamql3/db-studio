@@ -1,0 +1,14 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig.json
+tsup.config.ts
+biome.json
+
+# Development
+node_modules/
+*.log
+.env*

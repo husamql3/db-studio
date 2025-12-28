@@ -4,7 +4,6 @@
 // import { zValidator } from "@hono/zod-validator";
 // import { Hono } from "hono";
 // import { cors } from "hono/cors";
-// import { logger } from "hono/logger";
 
 // import { createTable } from "./dao/create-table.dao.js";
 // import { deleteRecords, forceDeleteRecords } from "./dao/delete-records.dao.js";
@@ -26,7 +25,6 @@
 
 // // Add CORS middleware
 // app.use("/*", cors());
-// app.use("/*", logger());
 
 // /**
 //  * Tables

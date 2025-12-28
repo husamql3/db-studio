@@ -1,12 +1,11 @@
 import { intro, outro } from "@clack/prompts";
 import color from "picocolors";
-import packageJson from "../../../package.json" with { type: "json" };
+import packageJson from "../../package.json" with { type: "json" };
 
 /**
  * Display version information
  */
 export const showVersion = () => {
 	intro(color.inverse(" db-studio "));
-	console.log(color.cyan(`\nVersion: ${color.bold(packageJson.version)}\n`));
 	outro(color.green(`🚀 db-studio v${packageJson.version}`));
 };
