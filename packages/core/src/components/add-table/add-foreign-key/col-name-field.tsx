@@ -15,12 +15,15 @@ export const ColNameField = ({ index }: { index: number }) => {
 	const columns = watch("fields")?.filter((column) => column.columnName?.trim());
 	const columnName = watch(`fields.${index}.columnName`);
 
+	console.log("columns", watch("fields"));
+	console.log("columnName", columnName);
+
 	return (
 		<Controller
 			control={control}
 			name={`foreignKeys.${index}`}
 			render={({ field }) => (
-				<div className="flex flex-col gap-2 w-full">
+				<div className="flex flex-col gap-2 flex-1">
 					<Select
 						defaultValue={columnName || "none"}
 						value={field.value?.columnName}
@@ -28,7 +31,7 @@ export const ColNameField = ({ index }: { index: number }) => {
 							field.onChange({ ...field.value, columnName: value })
 						}
 					>
-						<SelectTrigger className="w-full">
+						<SelectTrigger className="w-full flex-1">
 							<SelectValue
 								placeholder={columns?.length ? "Select a column" : "No columns found"}
 							/>

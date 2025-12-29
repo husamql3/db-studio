@@ -37,7 +37,7 @@ export const AddForeignKeyForm = ({ index }: { index: number }) => {
 				}
 			}}
 		>
-			<SheetContent>
+			<SheetContent className="max-w-lg!">
 				<SheetHeader>
 					<SheetTitle>Add foreign key relationship</SheetTitle>
 				</SheetHeader>
