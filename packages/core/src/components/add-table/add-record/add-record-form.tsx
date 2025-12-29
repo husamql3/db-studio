@@ -25,10 +25,10 @@ export const AddRecordForm = () => {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { tableCols, isLoadingTableCols } = useTableCols();
 	const { createRecord, isCreatingRecord } = useCreateRecord();
-	const methods = useForm();
+	const methods = useForm<AddRecordFormData>();
 
 	const onSubmit = async (data: AddRecordFormData) => {
-		console.log(data);
+		console.log("onSubmit", data);
 		createRecord(data, {
 			onSuccess: () => {
 				methods.reset();
@@ -41,14 +41,14 @@ export const AddRecordForm = () => {
 	};
 
 	const onError = (errors: FieldErrors<AddRecordFormData>) => {
-		console.log(errors);
+		console.log("onError", errors);
 	};
 
 	const handleCancel = () => {
 		methods.reset();
 		closeSheet("add-record");
 	};
-	console.log(tableCols);
+	console.log("tableCols", tableCols);
 
 	return (
 		<SheetSidebar
@@ -93,7 +93,7 @@ export const AddRecordForm = () => {
 						<Button
 							type="submit"
 							size="lg"
-							disabled={isCreatingRecord}
+							disabled={isCreatingRecord || !methods.formState.isDirty}
 						>
 							Save
 						</Button>

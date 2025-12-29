@@ -15,7 +15,10 @@ export const useCreateRecord = () => {
 
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
 		mutationFn: async (data: AddRecordFormData) => {
-			console.log("payload", data);
+			console.log("payload", {
+				tableName: activeTable,
+				data: data,
+			});
 			const res = await fetch(`${API_URL}/records`, {
 				method: "POST",
 				headers: {
@@ -23,12 +26,12 @@ export const useCreateRecord = () => {
 				},
 				body: JSON.stringify({
 					tableName: activeTable,
-					...data,
+					data: data,
 				}),
 			});
 			if (!res.ok) {
 				const errorData = await res.json();
-				throw new Error(errorData.message || "Failed to create record");
+				throw new Error(errorData.detail || "Failed to create record");
 			}
 			return res.json();
 		},
@@ -57,6 +60,9 @@ export const useCreateRecord = () => {
 			onError?: (error: Error & { detail?: string }) => void;
 		},
 	) => {
+		if (!data || Object.keys(data).length === 0) {
+			throw new Error("At least one field is required");
+		}
 		return toast.promise(createRecordMutation(data, options), {
 			loading: "Creating record...",
 			success: (result) => result.message || "Record created successfully",

@@ -62,6 +62,7 @@ export const tableDataQuerySchema = z.object({
 
 export const insertRecordSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
+	data: z.record(z.string(), z.any()),
 });
 
 export const updateRecordsSchema = z.object({
