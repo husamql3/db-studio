@@ -10,16 +10,6 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 
-// TODO: Add loading skeleton
-// TODO: Add a dropdown for the primary key
-// TODO: Add a dropdown for the foreign key
-// TODO: Add a dropdown for the unique
-// TODO: Add a dropdown for the identity
-// TODO: Add a dropdown for the array
-// TODO: Add a dropdown for the enum
-// TODO: Add a dropdown for the boolean
-// TODO: Add a dropdown for the dates
-
 export const AddRecordForm = () => {
 	const { closeSheet, isSheetOpen } = useSheetStore();
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
