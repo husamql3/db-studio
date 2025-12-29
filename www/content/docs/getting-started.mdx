@@ -7,9 +7,11 @@ title: Getting Started
 DB Studio is distributed as an npm package and can be run directly with `npx` or `bunx`, **no installation required**.
 
 <CodeBlockTabs defaultValue="npx">
-  <CodeBlockTabsList>
+<CodeBlockTabsList>
     <CodeBlockTabsTrigger value="npx">npx</CodeBlockTabsTrigger>
-    <CodeBlockTabsTrigger value="bunx">bunx</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="yarn">Yarn</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
   </CodeBlockTabsList>
 
   <CodeBlockTab value="npx">
@@ -17,8 +19,17 @@ DB Studio is distributed as an npm package and can be run directly with `npx` or
     npx db-studio
     ```
   </CodeBlockTab>
-
-  <CodeBlockTab value="bunx">
+  <CodeBlockTab value="yarn">
+    ```bash
+    yarn dlx db-studio
+    ```
+  </CodeBlockTab>
+  <CodeBlockTab value="pnpm">
+    ```bash
+    pnpm dlx db-studio
+    ```
+  </CodeBlockTab>
+  <CodeBlockTab value="bun">
     ```bash
     bunx db-studio
     ```

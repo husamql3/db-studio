@@ -7,6 +7,12 @@ on:
     paths:
       - "www/**"
       - ".github/workflows/deploy-www.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "www/**"
+      - ".github/workflows/deploy-www.yml"
   workflow_dispatch:
 
 concurrency:
@@ -32,7 +38,7 @@ jobs:
       - name: Build www
         run: bun run build:www
 
-      - name: Deploy
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
