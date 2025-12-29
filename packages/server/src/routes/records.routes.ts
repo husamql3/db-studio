@@ -17,10 +17,10 @@ export const recordsRoutes = new Hono();
 recordsRoutes.post("/", zValidator("json", insertRecordSchema), async (c) => {
 	try {
 		const body = c.req.valid("json");
-		const { tableName, ...recordData } = body;
+		const { tableName, data } = body;
 
-		console.log("POST /records body", { tableName, recordData });
-		const result = await insertRecord({ tableName, data: recordData });
+		console.log("POST /records body", { tableName, data });
+		const result = await insertRecord({ tableName, data });
 		console.log("POST /records", result);
 		return c.json(result);
 	} catch (error) {
