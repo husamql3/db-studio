@@ -9,68 +9,135 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RoadmapRouteImport } from './routes/roadmap'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as mainPathlessLayoutRouteImport } from './routes/(main)/_pathlessLayout'
+import { Route as mainPathlessLayoutIndexRouteImport } from './routes/(main)/_pathlessLayout/index'
+import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
 
-const RoadmapRoute = RoadmapRouteImport.update({
-  id: '/roadmap',
-  path: '/roadmap',
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/docs/$',
+  path: '/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const ApiSearchRoute = ApiSearchRouteImport.update({
+  id: '/api/search',
+  path: '/api/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const mainPathlessLayoutRoute = mainPathlessLayoutRouteImport.update({
+  id: '/(main)/_pathlessLayout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const mainPathlessLayoutIndexRoute = mainPathlessLayoutIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => mainPathlessLayoutRoute,
 } as any)
+const mainPathlessLayoutRoadmapRoute =
+  mainPathlessLayoutRoadmapRouteImport.update({
+    id: '/roadmap',
+    path: '/roadmap',
+    getParentRoute: () => mainPathlessLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/roadmap': typeof RoadmapRoute
+  '/api/search': typeof ApiSearchRoute
+  '/docs/$': typeof DocsSplatRoute
+  '/roadmap': typeof mainPathlessLayoutRoadmapRoute
+  '/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/roadmap': typeof RoadmapRoute
+  '/api/search': typeof ApiSearchRoute
+  '/docs/$': typeof DocsSplatRoute
+  '/roadmap': typeof mainPathlessLayoutRoadmapRoute
+  '/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/roadmap': typeof RoadmapRoute
+  '/(main)/_pathlessLayout': typeof mainPathlessLayoutRouteWithChildren
+  '/api/search': typeof ApiSearchRoute
+  '/docs/$': typeof DocsSplatRoute
+  '/(main)/_pathlessLayout/roadmap': typeof mainPathlessLayoutRoadmapRoute
+  '/(main)/_pathlessLayout/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/roadmap'
+  fullPaths: '/api/search' | '/docs/$' | '/roadmap' | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/roadmap'
-  id: '__root__' | '/' | '/roadmap'
+  to: '/api/search' | '/docs/$' | '/roadmap' | '/'
+  id:
+    | '__root__'
+    | '/(main)/_pathlessLayout'
+    | '/api/search'
+    | '/docs/$'
+    | '/(main)/_pathlessLayout/roadmap'
+    | '/(main)/_pathlessLayout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  RoadmapRoute: typeof RoadmapRoute
+  mainPathlessLayoutRoute: typeof mainPathlessLayoutRouteWithChildren
+  ApiSearchRoute: typeof ApiSearchRoute
+  DocsSplatRoute: typeof DocsSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/roadmap': {
-      id: '/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof RoadmapRouteImport
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/docs/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(main)/_pathlessLayout': {
+      id: '/(main)/_pathlessLayout'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof mainPathlessLayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(main)/_pathlessLayout/': {
+      id: '/(main)/_pathlessLayout/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof mainPathlessLayoutIndexRouteImport
+      parentRoute: typeof mainPathlessLayoutRoute
+    }
+    '/(main)/_pathlessLayout/roadmap': {
+      id: '/(main)/_pathlessLayout/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof mainPathlessLayoutRoadmapRouteImport
+      parentRoute: typeof mainPathlessLayoutRoute
     }
   }
 }
 
+interface mainPathlessLayoutRouteChildren {
+  mainPathlessLayoutRoadmapRoute: typeof mainPathlessLayoutRoadmapRoute
+  mainPathlessLayoutIndexRoute: typeof mainPathlessLayoutIndexRoute
+}
+
+const mainPathlessLayoutRouteChildren: mainPathlessLayoutRouteChildren = {
+  mainPathlessLayoutRoadmapRoute: mainPathlessLayoutRoadmapRoute,
+  mainPathlessLayoutIndexRoute: mainPathlessLayoutIndexRoute,
+}
+
+const mainPathlessLayoutRouteWithChildren =
+  mainPathlessLayoutRoute._addFileChildren(mainPathlessLayoutRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  RoadmapRoute: RoadmapRoute,
+  mainPathlessLayoutRoute: mainPathlessLayoutRouteWithChildren,
+  ApiSearchRoute: ApiSearchRoute,
+  DocsSplatRoute: DocsSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

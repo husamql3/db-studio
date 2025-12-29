@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Silk } from "@/components/silk";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/btn";
 import { Highlighter } from "@/components/ui/highlighter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import { sendEmail } from "@/utils/send-email";
 // https://changelog-magicui.vercel.app/
 // https://magicui.design/docs/templates/changelog
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
 	server: {
 		handlers: {
@@ -75,12 +75,12 @@ export const Route = createFileRoute("/")({
 						}),
 						{ status: 200 },
 					);
-				} catch (error: any) {
+				} catch (error: unknown) {
 					console.error(error);
 					return new Response(
 						JSON.stringify({
 							message: "An unexpected error occurred",
-							error: error.message || String(error),
+							error: error instanceof Error ? error.message : String(error),
 						}),
 						{ status: 500 },
 					);
@@ -118,8 +118,7 @@ function App() {
 			if (response.ok) {
 				setSuccessMessage(
 					"Thanks for joining the waitlist! We'll notify you when we launch.",
-				);
-				(e.target as HTMLFormElement).reset();
+				)(e.target as HTMLFormElement).reset();
 			} else {
 				setErrorMessage(
 					(result as { message: string }).message ||

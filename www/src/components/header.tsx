@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/btn";
 
 export const Header = ({ stars }: { stars: string | null }) => {
 	return (
@@ -32,6 +32,15 @@ export const Header = ({ stars }: { stars: string | null }) => {
 							className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
 						>
 							Roadmap
+						</Button>
+					</Link>
+
+					<Link to="/docs/$">
+						<Button
+							variant="ghost"
+							className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+						>
+							Docs
 						</Button>
 					</Link>
 

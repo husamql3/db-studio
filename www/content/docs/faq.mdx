@@ -1,0 +1,101 @@
+---
+title: FAQ
+index: 3
+---
+
+# Frequently Asked Questions
+
+<Accordions>
+
+<Accordion id="security" title="Is my database URL safe? Are you storing or tracking it?">
+
+**Absolutely safe!** DB Studio is completely open source and runs **entirely locally**.
+
+- No data collection or telemetry
+- No information is sent over the internet
+- The server, frontend, and DB connection all run on your machine
+- Full source code available: [github.com/husamql3/db-studio](https://github.com/husamql3/db-studio)
+
+You can (and should!) audit the code yourself.
+
+</Accordion>
+
+<Accordion id="prisma-compat" title="Can I use DB Studio with Prisma projects?">
+
+Yes — perfectly!  
+Just run `npx db-studio` in your Prisma project directory — it will use the existing `DATABASE_URL`.
+
+</Accordion>
+
+<Accordion id="multiple-databases" title="How do I connect to multiple databases?">
+
+Run multiple instances with different ports/env files:
+
+```bash
+# Dev database
+npx db-studio -e .env.dev -p 3333
+
+# Prod database (different terminal)
+npx db-studio -e .env.prod -p 3334
+```
+
+Or use direct URLs:
+
+```bash
+npx db-studio -d postgresql://localhost:5432/devdb -p 3333
+```
+
+</Accordion>
+
+<Accordion id="connection-issues" title="Having connection issues?">
+
+Try:
+
+```bash
+npx db-studio --status
+```
+
+Common fixes:
+
+- Check `.env` exists in current directory
+- Verify URL format: `postgresql://user:pass@host:port/dbname`
+- Database server is running?
+- Firewall/network allows connection?
+
+</Accordion>
+
+<Accordion id="port-already-in-use" title="Port already in use error?">
+
+Just choose another port:
+
+```bash
+npx db-studio -p 4000
+# or
+npx db-studio --port 8080
+```
+
+</Accordion>
+
+<Accordion id="production-use" title="Can I use DB Studio in production?">
+
+Technically yes, but **we strongly recommend** using it only for:
+
+- Development
+- Staging
+- Local debugging
+
+**Production recommendations**:
+
+- Never expose the web interface publicly
+- Use SSH tunnels / VPN when connecting to prod
+- Strong credentials & limited permissions
+- Treat it as an admin tool, not a public dashboard
+
+</Accordion>
+
+</Accordions>
+
+<Callout title="Still have questions?">
+  Found a bug? Want a feature?  
+  → Open an issue on [GitHub](https://github.com/husamql3/db-studio/issues)
+</Callout>

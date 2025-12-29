@@ -29,7 +29,9 @@ export const getTaskIcon = (status: RoadmapItemStatus) => {
 	}
 };
 
-export const Route = createFileRoute("/roadmap")({ component: RouteComponent });
+export const Route = createFileRoute("/(main)/_pathlessLayout/roadmap")({
+	component: RouteComponent,
+});
 
 function RouteComponent() {
 	return (

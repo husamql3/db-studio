@@ -1,0 +1,43 @@
+---
+title: Migration Guide
+---
+
+Switching to **DB Studio** is extremely simple — in most cases you can just replace the command.
+
+### 1. From Prisma Studio
+
+
+```json title="package.json"
+// [!code --]
+"studio": "npx prisma studio"
+// [!code ++]
+"studio": "npx db-studio"
+```
+
+That's it!  
+DB Studio automatically uses the same `DATABASE_URL` from your `.env` file that Prisma uses.
+
+**Advantages over Prisma Studio:**
+
+- Better performance (optimized data loading)
+- Modern, more responsive UI
+- Works with **any** PostgreSQL database — not just Prisma projects
+- No schema.prisma dependency
+- Real-time updates & better filtering/search
+
+### 2. From Drizzle Studio
+
+```json title="package.json"
+// [!code --]
+"studio": "npx drizzle-kit studio"
+// [!code ++]
+"studio": "npx db-studio"
+```
+
+Again — it will pick up your `DATABASE_URL` automatically.
+
+**Bonus**: DB Studio offers a more spreadsheet-like experience, bulk editing capabilities, and a cleaner interface.
+
+Ready to explore? Run `npx db-studio` and enjoy! 🚀
+
+See also: [FAQ](./faq)

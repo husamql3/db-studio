@@ -49,7 +49,9 @@
 			"www/src/**",
 			"!www/src/styles.css",
 			"!www/src/routeTree.gen.ts",
-			"!www/public/**",
+			"!www/src/components/ui/tabs.tsx",
+			"!www/src/components/tabs.tsx",
+			"!www/src/components/codeblock.tsx",
 			"README.md"
 		],
 		"ignoreUnknown": true

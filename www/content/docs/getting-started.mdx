@@ -1,0 +1,92 @@
+---
+title: Getting Started
+index: 1
+---
+
+## Installation
+
+DB Studio is distributed as an npm package and can be run directly with `npx` — **no installation required**.
+
+<CodeBlockTabs defaultValue="npx">
+  <CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="npx">npx (Recommended)</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="npm">npm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="yarn">yarn</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
+  </CodeBlockTabsList>
+
+  <CodeBlockTab value="npx">
+    ```bash
+    npx db-studio
+    ```
+  </CodeBlockTab>
+
+  <CodeBlockTab value="npm">
+    ```bash
+    npm install -g db-studio
+    db-studio
+    ```
+  </CodeBlockTab>
+
+  <CodeBlockTab value="pnpm">
+    ```bash
+    pnpm add -g db-studio
+    db-studio
+    ```
+  </CodeBlockTab>
+
+  <CodeBlockTab value="yarn">
+    ```bash
+    yarn global add db-studio
+    db-studio
+    ```
+  </CodeBlockTab>
+
+  <CodeBlockTab value="bun">
+    ```bash
+    bun install -g db-studio
+    db-studio
+    ```
+  </CodeBlockTab>
+</CodeBlockTabs>
+
+## Quick Start
+
+The easiest way — use your existing `.env` file:
+
+```bash
+# .env (or .env.local, .env.development, etc.)
+DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase
+```
+
+Then simply run:
+
+```bash
+npx db-studio
+```
+
+DB Studio will automatically:
+
+1. Load `DATABASE_URL` from `.env`
+2. Start server on port `3333` (or custom port)
+3. Open browser → `http://localhost:3333`
+
+### Useful CLI Options
+
+```bash
+# Custom port
+npx db-studio --port 4000
+
+# Custom .env file
+npx db-studio --env .env.local
+
+# Direct connection (no .env needed)
+npx db-studio --database-url postgresql://user:pass@localhost:5432/mydb
+
+# Custom env variable name
+npx db-studio --var-name PROD_DATABASE_URL
+
+# Just check connection
+npx db-studio --status
+```
