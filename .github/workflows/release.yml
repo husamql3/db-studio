@@ -7,12 +7,6 @@ on:
     paths:
       - "packages/**"
       - ".github/workflows/release.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "packages/**"
-      - ".github/workflows/release.yml"
   workflow_dispatch:
     inputs:
       publish:

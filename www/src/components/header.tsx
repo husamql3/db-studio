@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
+import { useState } from "react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
 import { IoMenuOutline } from "react-icons/io5";
@@ -7,26 +8,22 @@ import { Button } from "@/components/ui/btn";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 
 const LINKS = [
-	{
-		label: "Home",
-		href: "/",
-	},
-	{
-		label: "Roadmap",
-		href: "/roadmap",
-	},
-	{
-		label: "Docs",
-		href: "/docs/$",
-	},
+	{ label: "Home", href: "/" },
+	{ label: "Roadmap", href: "/roadmap" },
+	{ label: "Docs", href: "/docs/$" },
 ];
 
 export const Header = ({ stars }: { stars: string | null }) => {
+	const [open, setOpen] = useState(false);
+
 	return (
 		<header className="border-b">
 			<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-between relative border-x">
 				<div className="flex items-center gap-1">
-					<Sheet>
+					<Sheet
+						open={open}
+						onOpenChange={setOpen}
+					>
 						<SheetTrigger
 							asChild
 							className="md:hidden"
@@ -34,25 +31,29 @@ export const Header = ({ stars }: { stars: string | null }) => {
 							<Button
 								variant="ghost"
 								size="icon"
-								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+								className="flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground/10"
 							>
 								<IoMenuOutline className="size-5" />
 							</Button>
 						</SheetTrigger>
+
 						<SheetContent
-							onOpenAutoFocus={(e) => e.preventDefault()}
 							side="bottom"
 							showCloseButton={false}
+							// Optional: prevent auto focus on first element
+							onOpenAutoFocus={(e) => e.preventDefault()}
 						>
-							<SheetHeader>
+							<SheetHeader className="flex flex-col gap-1 mt-6">
 								{LINKS.map((link) => (
 									<Link
 										to={link.href}
 										key={link.href}
+										onClick={() => setOpen(false)}
+										className="w-full"
 									>
 										<Button
 											variant="ghost"
-											className="gap-2 flex items-center text-xs cursor-pointer hover:bg-primary-foreground! w-full justify-start"
+											className="w-full justify-start text-xs hover:bg-primary-foreground/10"
 										>
 											{link.label}
 										</Button>
@@ -72,16 +73,16 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					</Link>
 				</div>
 
-				<div className="items-center gap-1 flex">
+				{/* Desktop nav */}
+				<div className="items-center gap-1 hidden md:flex">
 					{LINKS.map((link) => (
 						<Link
 							to={link.href}
 							key={link.href}
-							className="md:block hidden"
 						>
 							<Button
 								variant="ghost"
-								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground/10"
 							>
 								{link.label}
 							</Button>
@@ -95,14 +96,10 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					>
 						<Button
 							variant="ghost"
-							className="gap-2 flex items-center justify-center text-xs cursor-pointer"
+							className="gap-2 items-center"
 						>
 							<IoLogoGithub className="size-4" />
-							{stars && (
-								<span className="leading-none md:block hidden">
-									{stars.replace(".0k", "k")}
-								</span>
-							)}
+							{stars && <span className="leading-none">{stars.replace(".0k", "k")}</span>}
 						</Button>
 					</a>
 
@@ -113,7 +110,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					>
 						<Button
 							variant="ghost"
-							className="gap-2 flex items-center justify-center text-xs cursor-pointer"
+							className="gap-2 items-center"
 						>
 							<FaXTwitter className="size-3.5" />
 						</Button>
