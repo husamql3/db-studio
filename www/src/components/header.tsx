@@ -40,10 +40,9 @@ export const Header = ({ stars }: { stars: string | null }) => {
 						<SheetContent
 							side="bottom"
 							showCloseButton={false}
-							// Optional: prevent auto focus on first element
 							onOpenAutoFocus={(e) => e.preventDefault()}
 						>
-							<SheetHeader className="flex flex-col gap-1 mt-6">
+							<SheetHeader className="flex flex-col">
 								{LINKS.map((link) => (
 									<Link
 										to={link.href}
@@ -74,11 +73,12 @@ export const Header = ({ stars }: { stars: string | null }) => {
 				</div>
 
 				{/* Desktop nav */}
-				<div className="items-center gap-1 hidden md:flex">
+				<div className="items-center gap-1 flex">
 					{LINKS.map((link) => (
 						<Link
 							to={link.href}
 							key={link.href}
+							className="hidden md:block"
 						>
 							<Button
 								variant="ghost"
