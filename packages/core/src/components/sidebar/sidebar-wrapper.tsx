@@ -153,6 +153,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 					"transition-transform duration-300 ease-out",
 				)}
 				style={{ width: `${width}px` }}
+				onOpenAutoFocus={(e) => e.preventDefault()}
 			>
 				<div className="relative h-full flex flex-col">
 					{children}

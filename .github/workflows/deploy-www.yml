@@ -32,7 +32,7 @@ jobs:
       - name: Build www
         run: bun run build:www
 
-      - name: Deploy to Cloudflare Workers
+      - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

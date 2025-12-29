@@ -2,47 +2,91 @@ import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
+import { IoMenuOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/btn";
+import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
+
+const LINKS = [
+	{
+		label: "Home",
+		href: "/",
+	},
+	{
+		label: "Roadmap",
+		href: "/roadmap",
+	},
+	{
+		label: "Docs",
+		href: "/docs/$",
+	},
+];
 
 export const Header = ({ stars }: { stars: string | null }) => {
 	return (
 		<header className="border-b">
 			<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-between relative border-x">
-				<Link to="/">
-					<img
-						src="/logo.png"
-						alt="DB Studio"
-						width={32}
-					/>
-				</Link>
+				<div className="flex items-center gap-1">
+					<Sheet>
+						<SheetTrigger
+							asChild
+							className="md:hidden"
+						>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+							>
+								<IoMenuOutline className="size-5" />
+							</Button>
+						</SheetTrigger>
+						<SheetContent
+							onOpenAutoFocus={(e) => e.preventDefault()}
+							side="bottom"
+							showCloseButton={false}
+						>
+							<SheetHeader>
+								{LINKS.map((link) => (
+									<Link
+										to={link.href}
+										key={link.href}
+									>
+										<Button
+											variant="ghost"
+											className="gap-2 flex items-center text-xs cursor-pointer hover:bg-primary-foreground! w-full justify-start"
+										>
+											{link.label}
+										</Button>
+									</Link>
+								))}
+							</SheetHeader>
+						</SheetContent>
+					</Sheet>
 
-				<div className="flex items-center md:gap-1 gap-0">
 					<Link to="/">
-						<Button
-							variant="ghost"
-							className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
-						>
-							Home
-						</Button>
+						<img
+							src="/logo.png"
+							alt="DB Studio"
+							width={32}
+							className="md:w-8 w-6"
+						/>
 					</Link>
+				</div>
 
-					<Link to="/roadmap">
-						<Button
-							variant="ghost"
-							className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+				<div className="items-center gap-1 flex">
+					{LINKS.map((link) => (
+						<Link
+							to={link.href}
+							key={link.href}
+							className="md:block hidden"
 						>
-							Roadmap
-						</Button>
-					</Link>
-
-					<Link to="/docs/$">
-						<Button
-							variant="ghost"
-							className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
-						>
-							Docs
-						</Button>
-					</Link>
+							<Button
+								variant="ghost"
+								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground!"
+							>
+								{link.label}
+							</Button>
+						</Link>
+					))}
 
 					<a
 						href="https://github.com/husamql3/db-studio"

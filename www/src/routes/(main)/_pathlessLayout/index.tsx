@@ -10,9 +10,6 @@ import { Label } from "@/components/ui/label";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { sendEmail } from "@/utils/send-email";
 
-// https://changelog-magicui.vercel.app/
-// https://magicui.design/docs/templates/changelog
-
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
 	server: {
@@ -136,7 +133,7 @@ function App() {
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center gap-4">
-				<div className="relative w-full flex flex-col border-y px-4 py-6 md:px-8 md:py-10 gap-6 md:gap-10">
+				<div className="relative w-full flex flex-col border-y px-3 py-6 md:px-8 md:py-10 gap-6 md:gap-10">
 					<Silk
 						speed={4}
 						scale={1}
