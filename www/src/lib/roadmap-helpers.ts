@@ -1,4 +1,4 @@
-import type { RoadmapItemStatus } from "./roadmap";
+import type { RoadmapItemStatus } from "./content/roadmap";
 
 export function getStatusStyles(status: RoadmapItemStatus) {
 	switch (status) {

@@ -7,6 +7,12 @@ on:
     paths:
       - "www/**"
       - ".github/workflows/deploy-www.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "www/**"
+      - ".github/workflows/deploy-www.yml"
   workflow_dispatch:
 
 concurrency:

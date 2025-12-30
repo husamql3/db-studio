@@ -57,7 +57,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<head>
 				<HeadContent />
 			</head>
-			<body className="dark relative min-h-dvh w-full flex flex-col h-full z-10 px-4 md:px-0">
+			<body className="dark .dark">
 				<RootProvider>{children}</RootProvider>
 
 				<TanStackDevtools

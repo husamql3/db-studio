@@ -31,7 +31,7 @@ export const ForeignKeySelectorField = ({ index }: { index: number }) => {
 			</p>
 
 			<div className="space-y-2">
-				<div className="grid grid-cols-2">
+				<div className="grid grid-cols-2 gap-2">
 					<Label htmlFor={`foreignKeys.${index}.columnName`}>
 						{watch("tableName") || "Unnamed table"}
 					</Label>
@@ -41,13 +41,13 @@ export const ForeignKeySelectorField = ({ index }: { index: number }) => {
 					</Label>
 				</div>
 
-				<div className="grid grid-cols-2 gap-4">
-					<div className="flex items-center gap-2">
+				<div className="grid grid-cols-2 gap-2">
+					<div className="flex items-center gap-2 flex-1">
 						<ColNameField index={index} />
-						<ArrowRight className="size-6 text-muted-foreground" />
+						<ArrowRight className="size-4 aspect-square text-muted-foreground" />
 					</div>
 
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2 flex-1">
 						<ReferencedColField index={index} />
 					</div>
 				</div>

@@ -10,25 +10,15 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 
-// TODO: Add loading skeleton
-// TODO: Add a dropdown for the primary key
-// TODO: Add a dropdown for the foreign key
-// TODO: Add a dropdown for the unique
-// TODO: Add a dropdown for the identity
-// TODO: Add a dropdown for the array
-// TODO: Add a dropdown for the enum
-// TODO: Add a dropdown for the boolean
-// TODO: Add a dropdown for the dates
-
 export const AddRecordForm = () => {
 	const { closeSheet, isSheetOpen } = useSheetStore();
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { tableCols, isLoadingTableCols } = useTableCols();
 	const { createRecord, isCreatingRecord } = useCreateRecord();
-	const methods = useForm();
+	const methods = useForm<AddRecordFormData>();
 
 	const onSubmit = async (data: AddRecordFormData) => {
-		console.log(data);
+		console.log("onSubmit", data);
 		createRecord(data, {
 			onSuccess: () => {
 				methods.reset();
@@ -41,14 +31,14 @@ export const AddRecordForm = () => {
 	};
 
 	const onError = (errors: FieldErrors<AddRecordFormData>) => {
-		console.log(errors);
+		console.log("onError", errors);
 	};
 
 	const handleCancel = () => {
 		methods.reset();
 		closeSheet("add-record");
 	};
-	console.log(tableCols);
+	console.log("tableCols", tableCols);
 
 	return (
 		<SheetSidebar
@@ -93,7 +83,7 @@ export const AddRecordForm = () => {
 						<Button
 							type="submit"
 							size="lg"
-							disabled={isCreatingRecord}
+							disabled={isCreatingRecord || !methods.formState.isDirty}
 						>
 							Save
 						</Button>

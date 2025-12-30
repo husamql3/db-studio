@@ -30,7 +30,5 @@ export const showHelp = () => {
 	console.log("  db-studio -e .env.production -n PROD_DB_URL");
 	console.log("  db-studio --status\n");
 
-	outro(
-		color.green("For more information, visit: https://github.com/your-repo/db-studio"),
-	);
+	outro(color.green("For more information, visit: https://dbstudio.sh/docs"));
 };

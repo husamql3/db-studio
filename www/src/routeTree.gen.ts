@@ -14,6 +14,7 @@ import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as mainPathlessLayoutRouteImport } from './routes/(main)/_pathlessLayout'
 import { Route as mainPathlessLayoutIndexRouteImport } from './routes/(main)/_pathlessLayout/index'
 import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
+import { Route as mainPathlessLayoutChangelogRouteImport } from './routes/(main)/_pathlessLayout/changelog'
 
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/docs/$',
@@ -40,16 +41,24 @@ const mainPathlessLayoutRoadmapRoute =
     path: '/roadmap',
     getParentRoute: () => mainPathlessLayoutRoute,
   } as any)
+const mainPathlessLayoutChangelogRoute =
+  mainPathlessLayoutChangelogRouteImport.update({
+    id: '/changelog',
+    path: '/changelog',
+    getParentRoute: () => mainPathlessLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
+  '/changelog': typeof mainPathlessLayoutChangelogRoute
   '/roadmap': typeof mainPathlessLayoutRoadmapRoute
   '/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
+  '/changelog': typeof mainPathlessLayoutChangelogRoute
   '/roadmap': typeof mainPathlessLayoutRoadmapRoute
   '/': typeof mainPathlessLayoutIndexRoute
 }
@@ -58,19 +67,21 @@ export interface FileRoutesById {
   '/(main)/_pathlessLayout': typeof mainPathlessLayoutRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
+  '/(main)/_pathlessLayout/changelog': typeof mainPathlessLayoutChangelogRoute
   '/(main)/_pathlessLayout/roadmap': typeof mainPathlessLayoutRoadmapRoute
   '/(main)/_pathlessLayout/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/api/search' | '/docs/$' | '/roadmap' | '/'
+  fullPaths: '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/api/search' | '/docs/$' | '/roadmap' | '/'
+  to: '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
   id:
     | '__root__'
     | '/(main)/_pathlessLayout'
     | '/api/search'
     | '/docs/$'
+    | '/(main)/_pathlessLayout/changelog'
     | '/(main)/_pathlessLayout/roadmap'
     | '/(main)/_pathlessLayout/'
   fileRoutesById: FileRoutesById
@@ -118,15 +129,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof mainPathlessLayoutRoadmapRouteImport
       parentRoute: typeof mainPathlessLayoutRoute
     }
+    '/(main)/_pathlessLayout/changelog': {
+      id: '/(main)/_pathlessLayout/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof mainPathlessLayoutChangelogRouteImport
+      parentRoute: typeof mainPathlessLayoutRoute
+    }
   }
 }
 
 interface mainPathlessLayoutRouteChildren {
+  mainPathlessLayoutChangelogRoute: typeof mainPathlessLayoutChangelogRoute
   mainPathlessLayoutRoadmapRoute: typeof mainPathlessLayoutRoadmapRoute
   mainPathlessLayoutIndexRoute: typeof mainPathlessLayoutIndexRoute
 }
 
 const mainPathlessLayoutRouteChildren: mainPathlessLayoutRouteChildren = {
+  mainPathlessLayoutChangelogRoute: mainPathlessLayoutChangelogRoute,
   mainPathlessLayoutRoadmapRoute: mainPathlessLayoutRoadmapRoute,
   mainPathlessLayoutIndexRoute: mainPathlessLayoutIndexRoute,
 }
