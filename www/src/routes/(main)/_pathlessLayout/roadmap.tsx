@@ -6,7 +6,7 @@ import {
 	type RoadmapItemStatus,
 	type RoadmapItemTask,
 	roadmapItems,
-} from "@/lib/roadmap";
+} from "@/lib/content/roadmap";
 import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
 import { cn } from "@/lib/utils";
 
