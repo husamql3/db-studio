@@ -44,13 +44,24 @@ bun install
 bun run dev
 ```
 
-The app runs at `http://localhost:3001` with the API server on port `3002`.
+The app runs at `http://localhost:3001` with the API server on port `3333`.
+
+> [!NOTE]
+> It'll automatically opens the app in 3333, this have the client but static so it wont reflect any changes, the port 3001 runs with `vite`
 
 ## Roadmap
 
-For the latest features, planned updates, and development progress, see the full roadmap here: [roadmap](https://dbstudio.sh/roadmap)
+For the latest features, planned updates, and development progress, see the full roadmap here:
+
+[📍 roadmap](https://dbstudio.sh/roadmap)
 
 Contributions that align with roadmap priorities are especially welcome!
+
+## Changelog
+
+See what's new, fixed, or improved in each release:
+
+[📜 Changelog](https://dbstudio.sh/changelog)
 
 # Contributing
 
