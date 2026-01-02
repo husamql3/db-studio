@@ -1,12 +1,12 @@
-import { SidebarHeader } from "@/components/sidebar/sidebar-tables-header";
-import { SidebarTablesSearch } from "@/components/sidebar/sidebar-tables-search";
-import { SidebarTablesList } from "@/components/sidebar/sidebar-tables-list";
-import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQueryState } from "nuqs";
-import { CONSTANTS } from "@/utils/constants";
 import { SidebarQueriesList } from "@/components/sidebar/sidebar-queries-list";
 import { SidebarQueriesSearch } from "@/components/sidebar/sidebar-queries-search";
+import { SidebarHeader } from "@/components/sidebar/sidebar-tables-header";
+import { SidebarTablesList } from "@/components/sidebar/sidebar-tables-list";
+import { SidebarTablesSearch } from "@/components/sidebar/sidebar-tables-search";
+import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { CONSTANTS } from "@/utils/constants";
 
 export const Sidebar = () => {
 	const [activeTab] = useQueryState(CONSTANTS.ACTIVE_TAB);

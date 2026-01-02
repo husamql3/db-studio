@@ -4,7 +4,9 @@ import { cn } from "@/lib/utils";
 import { CONSTANTS, TABS } from "@/utils/constants";
 
 export const Tabs = () => {
-	const [activeTab, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB, { history: "push" });
+	const [activeTab, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB, {
+		history: "push",
+	});
 
 	const handleChangeTab = (id: string) => {
 		setActiveTab(id.toLowerCase());
