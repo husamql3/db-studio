@@ -2,6 +2,7 @@ import { useQueryState } from "nuqs";
 import { TableTab } from "@/components/table-tab/table-tab";
 import { CONSTANTS } from "@/utils/constants";
 import { AddRecordForm } from "../add-table/add-record/add-record-form";
+import { RunnerTab } from "../runner-tab/runner-tab";
 
 export const Main = () => {
 	const [activeTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
@@ -14,9 +15,13 @@ export const Main = () => {
 					<AddRecordForm />
 				</main>
 			);
-		case "indexes":
-			return <NotYet tab={activeTab} />;
 		case "runner":
+			return (
+				<main className="flex-1 w-full h-full flex flex-col overflow-hidden relative outline-none">
+					<RunnerTab />
+				</main>
+			);
+		case "indexes":
 			return <NotYet tab={activeTab} />;
 		case "logs":
 			return <NotYet tab={activeTab} />;
