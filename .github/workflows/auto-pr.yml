@@ -202,4 +202,4 @@ jobs:
               body: body
             });
             
-            console.log(`Updated existing PR #${{ steps.check-pr.outputs.pr_number }}`);name: Auto Create PR
+            console.log(`Updated existing PR #${{ steps.check-pr.outputs.pr_number }}`);
