@@ -100,7 +100,9 @@ export const Header = ({ stars }: { stars: string | null }) => {
 							className="gap-2 items-center"
 						>
 							<IoLogoGithub className="size-4" />
-							{stars && <span className="leading-none">{stars.replace(".0k", "k")}</span>}
+							{stars && (
+								<span className="leading-none text-xs">{stars.replace(".0k", "k")}</span>
+							)}
 						</Button>
 					</a>
 
