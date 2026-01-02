@@ -31,18 +31,12 @@ function App() {
 
 					<div className="w-full max-w-xl mx-auto">
 						<div className="flex justify-center items-center mb-7 gap-2">
-							<a
-								href="https://github.com/husamql3/db-studio"
-								target="_blank"
-								rel="noopener noreferrer"
+							<Badge
+								variant="animated-border"
+								className="w-fit"
 							>
-								<Badge
-									variant="animated-border"
-									className="w-fit"
-								>
-									Open Source
-								</Badge>
-							</a>
+								Open Source
+							</Badge>
 
 							<a
 								href="https://github.com/sponsors/husamql3"
