@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
+import { IoMdHeartEmpty } from "react-icons/io";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -8,6 +9,7 @@ import {
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
 import { Silk } from "@/components/silk";
+import { Badge } from "@/components/ui/badge";
 import { Highlighter } from "@/components/ui/highlighter";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
@@ -28,6 +30,36 @@ function App() {
 					/>
 
 					<div className="w-full max-w-xl mx-auto">
+						<div className="flex justify-center items-center mb-7 gap-2">
+							<a
+								href="https://github.com/husamql3/db-studio"
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								<Badge
+									variant="animated-border"
+									className="w-fit"
+								>
+									Open Source
+								</Badge>
+							</a>
+
+							<a
+								href="https://github.com/sponsors/husamql3"
+								target="_blank"
+								rel="noopener noreferrer"
+								className="group"
+							>
+								<Badge
+									variant="rotate-border"
+									className="w-fit gap-1"
+								>
+									<IoMdHeartEmpty className="size-3.5 text-muted-foreground group-hover:text-red-500 transition-all" />
+									Sponsor
+								</Badge>
+							</a>
+						</div>
+
 						<p className="text-center md:text-xl font-bold">
 							A modern (pgAdmin alternative but good)
 							<Highlighter
