@@ -1,45 +1,162 @@
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import type * as React from "react";
+import * as Slot from "@radix-ui/react-slot";
+import { motion } from "motion/react";
+import type React from "react";
 
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva(
-	"inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
-	{
-		variants: {
-			variant: {
-				default:
-					"border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-				secondary:
-					"border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-				destructive:
-					"border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-				outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-			},
-		},
-		defaultVariants: {
-			variant: "default",
-		},
-	},
-);
+type Variant = {
+	variant: string;
+	component: React.FC<React.ComponentProps<"div">>;
+};
 
-function Badge({
-	className,
-	variant,
-	asChild = false,
-	...props
-}: React.ComponentProps<"span"> &
-	VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-	const Comp = asChild ? Slot : "span";
+const variants = [
+	{
+		variant: "default",
+		component: ({ className, ...props }) => (
+			<div
+				{...props}
+				className={cn(
+					"relative overflow-hidden rounded-xl border border-transparent bg-neutral-900 px-3 py-1 text-neutral-200 shadow-inner transition-all duration-200",
+					"shadow-main-foreground/70 hover:bg-main-invert/90 dark:shadow-main-foreground/80 dark:hover:bg-main-foreground/56",
+					className,
+				)}
+			/>
+		),
+	},
+	{
+		variant: "outline",
+		component: ({ className, ...props }) => (
+			<div
+				{...props}
+				className={cn(
+					"relative overflow-hidden rounded-full border border-border bg-main-background px-3 py-1 transition-all duration-200",
+					"text-primary-foreground hover:bg-main-foreground/50",
+					className,
+				)}
+			/>
+		),
+	},
+	{
+		variant: "success",
+		component: ({ className, ...props }) => (
+			<div
+				{...props}
+				className={cn(
+					"rounded-full bg-gradient-to-t from-green-700 to-green-600 px-3 py-1 text-white",
+					className,
+				)}
+			/>
+		),
+	},
+	{
+		variant: "destructive",
+		component: ({ className, ...props }) => (
+			<div
+				{...props}
+				className={cn(
+					"rounded-full bg-gradient-to-t from-red-600 to-red-500 px-3 py-1 text-white",
+					className,
+				)}
+			/>
+		),
+	},
+	{
+		variant: "shine",
+		component: ({ className, ...props }) => (
+			<div
+				{...props}
+				className={cn(
+					"animate-shine items-center justify-center rounded-full border border-border bg-[length:400%_100%]",
+					"px-3 py-1 text-primary-invert/90 transition-colors dark:text-primary-muted",
+					"bg-[linear-gradient(110deg,#000000,45%,#303030,55%,#000000)]",
+					"dark:bg-[linear-gradient(110deg,#000103,45%,#303030,55%,#000103)]",
+					className,
+				)}
+			/>
+		),
+	},
+	{
+		variant: "animated-border",
+		component: ({ children, className, ...props }) => (
+			<div
+				{...props}
+				className={cn(
+					"relative rounded-full bg-zinc-950/80 border border-primary/10 px-3 py-1.5 duration-200 hover:bg-main-foreground/40",
+					className,
+				)}
+			>
+				<div
+					className={cn(
+						"-inset-px pointer-events-none absolute rounded-[inherit] border border-transparent [mask-clip:padding-box,border-box]",
+						"[mask-composite:intersect] [mask-image:linear-gradient(transparent,transparent),linear-gradient(#000,#000)]",
+					)}
+				>
+					<motion.div
+						className={cn(
+							"absolute aspect-square bg-gradient-to-r from-transparent via-neutral-300 to-neutral-400",
+							"dark:from-transparent dark:via-neutral-600 dark:to-neutral-400",
+						)}
+						animate={{
+							offsetDistance: ["0%", "100%"],
+						}}
+						style={{
+							width: 20,
+							offsetPath: `rect(0 auto auto 0 round ${20}px)`,
+						}}
+						transition={{
+							repeat: Number.POSITIVE_INFINITY,
+							duration: 5,
+							ease: "linear",
+						}}
+					/>
+				</div>
+				<span className="relative z-10 text-primary-muted">{children}</span>
+			</div>
+		),
+	},
+	{
+		variant: "rotate-border",
+		component: ({ children, className, ...props }) => (
+			<div
+				{...props}
+				className="relative inline-flex overflow-hidden rounded-full p-px"
+			>
+				<span
+					className={cn(
+						"absolute inset-[-1000%] animate-[spin_2s_linear_infinite]",
+						"bg-[conic-gradient(from_90deg_at_50%_50%,#1a1a1a_0%,#525252_50%,#1a1a1a_100%)]",
+					)}
+				/>
+				<span
+					className={cn(
+						"inline-flex size-full items-center justify-center rounded-full bg-zinc-950/80 px-3 py-1 text-primary-muted backdrop-blur-3xl",
+						className,
+					)}
+				>
+					{children}
+				</span>
+			</div>
+		),
+	},
+] as const satisfies readonly Variant[];
+
+export type BadgeProps = {
+	variant?: (typeof variants)[number]["variant"];
+} & React.ComponentProps<"div">;
+
+export function Badge({ variant = "default", className, ...props }: BadgeProps) {
+	const FALLBACK_INDEX = 0;
+
+	const variantComponent = variants.find((v) => v.variant === variant)?.component;
+
+	const Component = variantComponent || variants[FALLBACK_INDEX].component;
 
 	return (
-		<Comp
-			data-slot="badge"
-			className={cn(badgeVariants({ variant }), className)}
-			{...props}
-		/>
+		<Slot.Root className={cn("font-medium text-xs")}>
+			<Component
+				{...props}
+				className={className}
+			/>
+		</Slot.Root>
 	);
 }
-
-export { Badge, badgeVariants };

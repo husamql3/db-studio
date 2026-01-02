@@ -14,9 +14,9 @@ export const Main = () => {
 					<AddRecordForm />
 				</main>
 			);
-		case "indexes":
-			return <NotYet tab={activeTab} />;
 		case "runner":
+			return <NotYet tab={activeTab} />;
+		case "indexes":
 			return <NotYet tab={activeTab} />;
 		case "logs":
 			return <NotYet tab={activeTab} />;

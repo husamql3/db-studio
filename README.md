@@ -15,9 +15,21 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 <br>
 
 <div align="center">
-  <a href="https://github.com/husamql3/db-studio/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/husamql3/db-studio"></a>
-  <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/husamql3/pstrack"></a>
-  <a href="https://deepwiki.com/husamql3/db-studio"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://github.com/husamql3/db-studio/stargazers">
+    <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/husamql3/db-studio">
+  </a>
+  <a href="https://www.npmjs.com/package/db-studio">
+    <img src="https://img.shields.io/npm/v/db-studio?style=flat-rounded" />
+  </a>
+  <a href="https://www.npmjs.com/package/db-studio">
+    <img src="https://img.shields.io/npm/dm/db-studio?style=flat-rounded" />
+  </a>
+  <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/husamql3/pstrack">
+  </a>
+  <a href="https://deepwiki.com/husamql3/db-studio">
+    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
+  </a>
 </div>
 
 <br>
@@ -44,13 +56,24 @@ bun install
 bun run dev
 ```
 
-The app runs at `http://localhost:3001` with the API server on port `3002`.
+The app runs at `http://localhost:3001` with the API server on port `3333`.
+
+> [!NOTE]
+> It'll automatically opens the app in 3333, this have the client but static so it wont reflect any changes, the port 3001 runs with `vite`
 
 ## Roadmap
 
-For the latest features, planned updates, and development progress, see the full roadmap here: [roadmap](https://dbstudio.sh/roadmap)
+For the latest features, planned updates, and development progress, see the full roadmap here:
+
+[📍 roadmap](https://dbstudio.sh/roadmap)
 
 Contributions that align with roadmap priorities are especially welcome!
+
+## Changelog
+
+See what's new, fixed, or improved in each release:
+
+[📜 Changelog](https://dbstudio.sh/changelog)
 
 # Contributing
 

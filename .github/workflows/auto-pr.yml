@@ -1,0 +1,205 @@
+name: Auto Create PR
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - dev
+      - stage
+  push:
+    branches:
+      - dev
+      - stage
+
+jobs:
+  create-pr-dev-to-stage:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev')
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare PR body
+        id: pr-body
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            {
+              echo 'body<<EOF'
+              echo 'This PR was automatically created from the `dev` branch.'
+              echo ''
+              echo "Triggered by merged PR: #${{ github.event.pull_request.number }}"
+              echo ''
+              echo "${{ github.event.pull_request.html_url }}"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            {
+              echo 'body<<EOF'
+              echo 'This PR was automatically created from the `dev` branch.'
+              echo ''
+              echo "Triggered by push to dev: ${{ github.event.head_commit.message }}"
+              echo ''
+              echo "${{ github.event.head_commit.url }}"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if PR already exists
+        id: check-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'stage',
+              head: `${context.repo.owner}:dev`
+            });
+            
+            if (prs.length > 0) {
+              core.setOutput('exists', 'true');
+              core.setOutput('pr_number', prs[0].number);
+            } else {
+              core.setOutput('exists', 'false');
+            }
+
+      - name: Create PR from dev to stage
+        if: steps.check-pr.outputs.exists == 'false'
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: 'dev'
+          destination_branch: 'stage'
+          pr_title: '🚀 Auto PR: dev → stage'
+          pr_body: ${{ steps.pr-body.outputs.body }}
+          pr_draft: false
+          github_token: ${{ secrets.GH_TOKEN }}
+
+      - name: Update existing PR
+        if: steps.check-pr.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            let body = 'This PR was automatically updated from the `dev` branch.\n\n';
+            
+            if ('${{ github.event_name }}' === 'pull_request') {
+              body += `Triggered by merged PR: #${{ github.event.pull_request.number }}\n\n`;
+              body += `Merged PR: ${{ github.event.pull_request.html_url }}`;
+            } else {
+              body += `Triggered by push to dev: ${{ github.event.head_commit.message }}\n\n`;
+              body += `Commit: ${{ github.event.head_commit.url }}`;
+            }
+            
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ steps.check-pr.outputs.pr_number }},
+              body: body
+            });
+            
+            console.log(`Updated existing PR #${{ steps.check-pr.outputs.pr_number }}`);
+
+  create-pr-stage-to-main:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'stage') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/stage')
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare PR body
+        id: pr-body
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            {
+              echo 'body<<EOF'
+              echo 'This PR was automatically created from the `stage` branch.'
+              echo ''
+              echo "Triggered by merged PR: #${{ github.event.pull_request.number }}"
+              echo ''
+              echo "${{ github.event.pull_request.html_url }}"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            {
+              echo 'body<<EOF'
+              echo 'This PR was automatically created from the `stage` branch.'
+              echo ''
+              echo "Triggered by push to stage: ${{ github.event.head_commit.message }}"
+              echo ''
+              echo "${{ github.event.head_commit.url }}"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if PR already exists
+        id: check-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'main',
+              head: `${context.repo.owner}:stage`
+            });
+            
+            if (prs.length > 0) {
+              core.setOutput('exists', 'true');
+              core.setOutput('pr_number', prs[0].number);
+            } else {
+              core.setOutput('exists', 'false');
+            }
+
+      - name: Create PR from stage to main
+        if: steps.check-pr.outputs.exists == 'false'
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: 'stage'
+          destination_branch: 'main'
+          pr_title: '🎯 Auto PR: stage → main'
+          pr_body: ${{ steps.pr-body.outputs.body }}
+          pr_draft: false
+          github_token: ${{ secrets.GH_TOKEN }}
+
+      - name: Update existing PR
+        if: steps.check-pr.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            let body = 'This PR was automatically updated from the `stage` branch.\n\n';
+            
+            if ('${{ github.event_name }}' === 'pull_request') {
+              body += `Triggered by merged PR: #${{ github.event.pull_request.number }}\n\n`;
+              body += `Merged PR: ${{ github.event.pull_request.html_url }}`;
+            } else {
+              body += `Triggered by push to stage: ${{ github.event.head_commit.message }}\n\n`;
+              body += `Commit: ${{ github.event.head_commit.url }}`;
+            }
+            
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ steps.check-pr.outputs.pr_number }},
+              body: body
+            });
+            
+            console.log(`Updated existing PR #${{ steps.check-pr.outputs.pr_number }}`);

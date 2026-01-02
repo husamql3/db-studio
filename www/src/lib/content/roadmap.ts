@@ -36,7 +36,10 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Core Views & Tabs",
 		status: "in-progress",
 		items: [
-			{ title: "SQL editor with run button and results table", status: "planned" },
+			{
+				title: "SQL editor with run button and results table",
+				status: "in-progress",
+			},
 			{
 				title: "Built-in AI helper for writing, explaining, and improving SQL",
 				status: "planned",
