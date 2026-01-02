@@ -8,7 +8,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const SidebarSearch = () => {
+export const SidebarTablesSearch = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_TABLE_SEARCH, {
 		shallow: true,
