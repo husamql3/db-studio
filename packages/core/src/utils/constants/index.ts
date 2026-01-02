@@ -39,9 +39,9 @@ export const CONSTANTS = {
 
 export const TABS = [
 	{ id: "table", label: "Table" },
-	{ id: "runner", label: "Runner" },
 	{ id: "schema", label: "Schema" },
 	{ id: "indexes", label: "Indexes" },
+	{ id: "runner", label: "Runner" },
 	{ id: "logs", label: "Logs" },
 	{ id: "visualizer", label: "Visualizer" },
 	// { id: "assistant", label: "Assistant" },
