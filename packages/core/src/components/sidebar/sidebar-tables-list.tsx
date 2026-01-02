@@ -4,7 +4,7 @@ import { CONSTANTS } from "@/utils/constants";
 import { Spinner } from "../ui/spinner";
 import { SidebarListItem } from "./sidebar-list-item";
 
-export const SidebarList = () => {
+export const SidebarTablesList = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_TABLE_SEARCH, {
 		shallow: true,
 		defaultValue: "",
@@ -18,7 +18,7 @@ export const SidebarList = () => {
 
 	if (isLoadingTablesList) {
 		return (
-			<div className="flex-1 h-full overflow-y-auto pb-3 h-full flex items-center justify-center">
+			<div className="flex-1 h-full overflow-y-auto pb-3 flex items-center justify-center">
 				<Spinner size="size-6" />
 			</div>
 		);
