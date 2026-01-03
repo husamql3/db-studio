@@ -1,51 +1,33 @@
 import { IconPlus, IconSearch } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
-import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const SidebarTablesSearch = () => {
+export const SidebarSearchQueriesList = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_TABLE_SEARCH, {
-		shallow: true,
+	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
-	const { openSheet } = useSheetStore();
-
-	// todo: fix this shit
-	useHotkeys(
-		"/",
-		(event) => {
-			event.preventDefault();
-			if (inputRef.current) {
-				inputRef.current.focus();
-			}
-		},
-		{
-			preventDefault: true,
-		},
-	);
 
 	return (
 		<div className="p-3 space-y-2">
 			<Button
 				className="w-full justify-start h-8"
-				onClick={() => openSheet("add-table")}
+				// onClick={() => openSheet("add-table")}
 			>
 				<IconPlus className="size-4" />
-				Add Table
+				Add Query
 			</Button>
 
 			<div className="relative">
 				<IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 				<Input
 					ref={inputRef}
-					placeholder="Search tables"
-					value={searchTerm}
+					placeholder="Search queries"
+					value={searchTerm ?? ""}
 					onChange={(e) => setSearchTerm(e.target.value)}
 					className="rounded-sm h-8 pl-8 pr-8"
 				/>

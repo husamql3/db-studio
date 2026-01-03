@@ -45,6 +45,7 @@
 		"includes": [
 			"packages/core/src/**",
 			"!packages/core/src/index.css",
+			"!packages/core/src/routeTree.gen.ts",
 			"packages/server/src/**",
 			"www/src/**",
 			"!www/src/styles.css",

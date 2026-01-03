@@ -8,12 +8,14 @@ import { ForceDeleteDialog } from "./force-delete-dialog";
 export const DeleteBtn = ({
 	selectedRows,
 	setRowSelection,
+	tableName,
 }: {
+	tableName: string;
 	selectedRows: Row<TableRecord>[];
 	setRowSelection: OnChangeFn<RowSelectionState>;
 }) => {
 	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } =
-		useDeleteCells();
+		useDeleteCells({ tableName });
 	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);

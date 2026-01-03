@@ -3,12 +3,16 @@ import { parseAsJson, useQueryState } from "nuqs";
 import type { Filter, Sort, TableDataResult } from "server/src/dao/tables-data.dao";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
-export const useTableData = (isReferencedTable: boolean = false) => {
-	const [activeTable] = useQueryState(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE
-			: CONSTANTS.ACTIVE_TABLE,
-	);
+export const useTableData = ({
+	tableName,
+	isReferencedTable = false,
+}: {
+	tableName: string;
+	isReferencedTable?: boolean;
+}) => {
+	const [activeTable] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE);
+	const activeTableName = tableName || activeTable;
+
 	const [page] = useQueryState(
 		isReferencedTable
 			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE
@@ -33,6 +37,7 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 
 	const [filters] = useQueryState<Filter[]>(
+		// CONSTANTS.TABLE_STATE_KEYS.FILTERS,
 		isReferencedTable
 			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS
 			: CONSTANTS.TABLE_STATE_KEYS.FILTERS,
@@ -50,7 +55,7 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 	} = useQuery<TableDataResult, Error>({
 		queryKey: [
 			CONSTANTS.CACHE_KEYS.TABLE_DATA,
-			activeTable,
+			activeTableName,
 			page,
 			pageSize,
 			isReferencedTable ? JSON.stringify(referencedSort) : regularSort,
@@ -82,7 +87,7 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 
 			try {
 				const response = await fetch(
-					`${API_URL}/tables/${activeTable}/data?${queryParams.toString()}`,
+					`${API_URL}/tables/${activeTableName}/data?${queryParams.toString()}`,
 				);
 				console.log("queryParams", queryParams.toString());
 				if (!response.ok) {
@@ -97,7 +102,7 @@ export const useTableData = (isReferencedTable: boolean = false) => {
 				throw error;
 			}
 		},
-		enabled: !!activeTable,
+		enabled: !!activeTableName,
 	});
 
 	return {

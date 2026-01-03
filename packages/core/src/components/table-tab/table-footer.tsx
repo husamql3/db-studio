@@ -23,13 +23,13 @@ import { useTableData } from "@/hooks/use-table-data";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const TableFooter = () => {
+export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
 	const [pageSize, setPageSize] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
 	const [page, setPage] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.PAGE);
-	const { tableData } = useTableData();
+	const { tableData } = useTableData({ tableName });
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const totalPages = tableData?.meta?.totalPages ?? 0;

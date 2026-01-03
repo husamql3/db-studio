@@ -16,16 +16,14 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
-
 // todo: change the color of the scrollbar
 
-export const TableTab = () => {
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+export const TableTab = ({ tableName }: { tableName: string }) => {
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 
-	const { tableData, isLoadingTableData, errorTableData } = useTableData();
-	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols();
+	const { tableData, isLoadingTableData, errorTableData } = useTableData({ tableName });
+	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({ tableName });
 
 	const [rowSelection, setRowSelection] = useState({});
 	const [columnSizing, setColumnSizing] = useState({});
@@ -65,7 +63,7 @@ export const TableTab = () => {
 	// Clear row selection when table changes
 	useEffect(() => {
 		setRowSelection({});
-	}, [activeTable]);
+	}, [tableName]);
 
 	// Initialize sorting state from URL params
 	const sorting = useMemo(() => {
@@ -151,18 +149,13 @@ export const TableTab = () => {
 		);
 	}
 
-	if (!activeTable) {
-		return (
-			<div className="size-full flex items-center justify-center">No table selected</div>
-		);
-	}
-
 	if (hasNoData) {
 		return (
 			<div className="size-full flex flex-col items-center justify-center">
 				<TableHeader
 					selectedRows={selectedRows}
 					setRowSelection={setRowSelection}
+					tableName={tableName}
 				/>
 				<div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
 					No data available
@@ -176,9 +169,10 @@ export const TableTab = () => {
 			<TableHeader
 				selectedRows={selectedRows}
 				setRowSelection={setRowSelection}
+				tableName={tableName}
 			/>
 			<TableContainer table={table} />
-			<TableFooter />
+			<TableFooter tableName={tableName} />
 		</div>
 	);
 };

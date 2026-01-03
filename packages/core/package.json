@@ -9,7 +9,8 @@
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
     "scan": "npx react-scan@latest http://localhost:5173",
-    "check": "biome check --write --unsafe --verbose"
+    "check": "biome check --write --unsafe --verbose",
+    "clean": "rm -rf dist node_modules .tanstack"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
@@ -20,6 +21,8 @@
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-query-devtools": "^5.91.1",
+    "@tanstack/react-router": "^1.144.0",
+    "@tanstack/react-router-devtools": "^1.144.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -54,7 +57,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "typescript": "~5.9.3",
+    "typescript": "^5.7.2",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
   },

@@ -18,7 +18,7 @@ export const SidebarToggleButton = () => {
 		<Button
 			variant="ghost"
 			onClick={handleClick}
-			className="size-14! aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+			className="h-full aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
 		>
 			{isOpen ? (
 				<IconLayoutSidebarFilled className="size-5" />

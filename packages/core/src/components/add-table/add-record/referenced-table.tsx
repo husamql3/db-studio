@@ -52,11 +52,14 @@ export const ReferencedTable = ({
 }) => {
 	const { setValue } = useFormContext<AddRecordFormData>();
 	const { closeSheet } = useSheetStore();
-	const { tableCols, isLoadingTableCols } = useTableCols(tableName);
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
 	const [referencedActiveTable, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const { tableData, isLoadingTableData } = useTableData(true);
+	const { tableData, isLoadingTableData } = useTableData({
+		tableName,
+		isReferencedTable: true,
+	});
 	const [page, setPage] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE.toString(),
 	);

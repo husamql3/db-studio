@@ -4,9 +4,8 @@ import { CONSTANTS } from "@/utils/constants";
 import { Spinner } from "../ui/spinner";
 import { SidebarListItem } from "./sidebar-list-item";
 
-export const SidebarTablesList = () => {
-	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_TABLE_SEARCH, {
-		shallow: true,
+export const SidebarListTables = () => {
+	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
 

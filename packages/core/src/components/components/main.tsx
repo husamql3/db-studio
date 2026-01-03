@@ -1,5 +1,5 @@
 import { useQueryState } from "nuqs";
-import { TableTab } from "@/components/table-tab/table-tab";
+// import { TableTab } from "@/components/table-tab/table-tab";
 import { CONSTANTS } from "@/utils/constants";
 import { AddRecordForm } from "../add-table/add-record/add-record-form";
 import { RunnerTab } from "../runnr-tab/runner-tab";
@@ -11,7 +11,7 @@ export const Main = () => {
 		case "table":
 			return (
 				<main className="flex-1 flex flex-col overflow-hidden">
-					<TableTab />
+					{/* <TableTab /> */}
 					<AddRecordForm />
 				</main>
 			);

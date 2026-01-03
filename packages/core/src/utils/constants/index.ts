@@ -1,5 +1,18 @@
+//* header tabs routes
+export const TABS = [
+	"table",
+	"runner",
+	"schema",
+	"indexes",
+	"logs",
+	"visualizer",
+	// "assistant",
+] as const;
+
 export const CONSTANTS = {
-	SIDEBAR_TABLE_SEARCH: "s",
+	//* sidebar search query state key
+	SIDEBAR_SEARCH: "search",
+
 	ACTIVE_TABLE: "table", // query state key for active table
 	ACTIVE_TAB: "t", // query state key for active tab
 	COLUMN_NAME: "columnName", // query state key for column name
@@ -58,15 +71,15 @@ export const STATE_RESETS = {
 	},
 } as const;
 
-export const TABS = [
-	{ id: "table", label: "Table" },
-	{ id: "runner", label: "Runner" },
-	{ id: "schema", label: "Schema" },
-	{ id: "indexes", label: "Indexes" },
-	{ id: "logs", label: "Logs" },
-	{ id: "visualizer", label: "Visualizer" },
-	// { id: "assistant", label: "Assistant" },
-];
+// export const TABS = [
+// 	{ id: "table", label: "Table" },
+// 	{ id: "runner", label: "Runner" },
+// 	{ id: "schema", label: "Schema" },
+// 	{ id: "indexes", label: "Indexes" },
+// 	{ id: "logs", label: "Logs" },
+// 	{ id: "visualizer", label: "Visualizer" },
+// 	// { id: "assistant", label: "Assistant" },
+// ];
 
 export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
