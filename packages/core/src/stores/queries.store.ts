@@ -7,8 +7,8 @@ type Query = {
 	description?: string;
 	query: string;
 	isFavorite: boolean;
-	isSelected: boolean;
 	folderId?: string;
+	isSelected: boolean;
 };
 
 type QueryFolder = {
@@ -30,7 +30,7 @@ type QueriesStore = {
 	toggleFavoriteFolder: (id: string) => void;
 
 	// query ops
-	addQuery: () => string;
+	addQuery: (name?: string) => string;
 	updateQuery: (id: string, updates: Partial<Query>) => void;
 	deleteQuery: (id: string) => void;
 	moveQuery: (queryId: string, folderId?: string) => void;
@@ -40,6 +40,8 @@ type QueriesStore = {
 	getQueriesByFolder: (folderId?: string) => Query[];
 	getFavoriteQueries: () => Query[];
 	getFavoriteFolders: () => QueryFolder[];
+	getQuery: (id: string) => Query | undefined;
+	setSelectedQuery: (id: string) => void;
 	getSelectedQuery: () => Query | undefined;
 };
 
@@ -72,7 +74,7 @@ const INITIAL_QUERIES: Query[] = [
 		description: "Get all active users",
 		folderId: "folder-1",
 		isFavorite: true,
-		isSelected: true,
+		isSelected: false,
 	},
 	{
 		id: "query-2",
@@ -129,8 +131,9 @@ const INITIAL_QUERIES: Query[] = [
 		query: "SELECT * FROM schema_migrations ORDER BY version DESC",
 		description: "Check migration status",
 		folderId: "folder-3",
-		isFavorite: false,
+
 		isSelected: false,
+		isFavorite: false,
 	},
 	{
 		id: "query-8",
@@ -139,8 +142,8 @@ const INITIAL_QUERIES: Query[] = [
 			"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
 		description: "List all database tables",
 		folderId: undefined,
-		isFavorite: true,
 		isSelected: false,
+		isFavorite: true,
 	},
 	{
 		id: "query-9",
@@ -170,9 +173,7 @@ export const useQueriesStore = create<QueriesStore>()(
 			deleteFolder: (id) =>
 				set((state) => ({
 					folders: state.folders.filter((f) => f.id !== id),
-					queries: state.queries.map((q) =>
-						q.folderId === id ? { ...q, folderId: undefined } : q,
-					),
+					queries: state.queries.filter((q) => q.folderId !== id),
 				})),
 
 			toggleFolder: (id) =>
@@ -189,14 +190,14 @@ export const useQueriesStore = create<QueriesStore>()(
 					),
 				})),
 
-			addQuery: () => {
+			addQuery: (name?: string) => {
 				const newId = Math.random().toString(36).substring(2, 15);
 				const newQuery: Query = {
 					id: newId,
-					name: "Untitled Query",
+					name: name ?? "Untitled Query",
 					query: "",
 					isFavorite: false,
-					isSelected: true,
+					isSelected: false,
 				};
 				set((state) => ({
 					queries: [...state.queries, newQuery],
@@ -245,13 +246,25 @@ export const useQueriesStore = create<QueriesStore>()(
 				return state.folders.filter((f) => f.isFavorite);
 			},
 
+			getQuery: (id) => {
+				const state = get();
+				return state.queries.find((q) => q.id === id);
+			},
+
+			setSelectedQuery: (id) =>
+				set((state) => ({
+					queries: state.queries.map((q) =>
+						q.id === id ? { ...q, isSelected: true } : { ...q, isSelected: false },
+					),
+				})),
+
 			getSelectedQuery: () => {
 				const state = get();
 				return state.queries.find((q) => q.isSelected);
 			},
 		}),
 		{
-			name: "dbstudio-queries",
+			name: "dbstudio-queries-1",
 		},
 	),
 );
