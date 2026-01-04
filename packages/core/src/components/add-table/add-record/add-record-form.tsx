@@ -7,11 +7,9 @@ import { SheetClose } from "@/components/ui/sheet";
 import { type AddRecordFormData, useCreateRecord } from "@/hooks/use-create-record";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
-// import { CONSTANTS } from "@/utils/constants";
 
 export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeSheet, isSheetOpen } = useSheetStore();
-	// const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
 	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName });
 	const methods = useForm<AddRecordFormData>();

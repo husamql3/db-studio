@@ -1,8 +1,8 @@
 import { useQueryState } from "nuqs";
+import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
+import { Spinner } from "@/components/ui/spinner";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { CONSTANTS } from "@/utils/constants";
-import { Spinner } from "../ui/spinner";
-import { SidebarListItem } from "./sidebar-list-item";
 
 export const SidebarListTables = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
@@ -36,7 +36,7 @@ export const SidebarListTables = () => {
 			{filteredTables && filteredTables.length > 0 ? (
 				<ul>
 					{filteredTables?.map((table) => (
-						<SidebarListItem
+						<SidebarListTablesItem
 							key={table.tableName}
 							tableName={table.tableName}
 							rowCount={table.rowCount}

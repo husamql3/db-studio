@@ -8,7 +8,8 @@
 // } from "@tabler/icons-react";
 
 import { Link, useParams } from "@tanstack/react-router";
-import { useQueryState } from "nuqs";
+// import { Button } from "../ui/button";
+import { Kbd } from "@/components/ui/kbd";
 // import {
 // 	DropdownMenu,
 // 	DropdownMenuContent,
@@ -22,11 +23,8 @@ import { useQueryState } from "nuqs";
 // 	DropdownMenuTrigger,
 // } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { CONSTANTS } from "@/utils/constants";
-// import { Button } from "../ui/button";
-import { Kbd } from "../ui/kbd";
 
-export const SidebarListItem = ({
+export const SidebarListTablesItem = ({
 	tableName,
 	rowCount,
 }: {
@@ -36,19 +34,6 @@ export const SidebarListItem = ({
 	const params = useParams({ strict: false });
 	const table = params.table as string | undefined;
 
-	const [, setFilters] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.FILTERS);
-	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
-	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
-	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
-
-	const handleClick = () => {
-		// reset the table filters
-		setFilters(null);
-		setColumnName(null);
-		setSort(null);
-		setOrder(null);
-	};
-
 	return (
 		<li className="relative">
 			<Link
@@ -56,7 +41,6 @@ export const SidebarListItem = ({
 				params={{
 					table: tableName,
 				}}
-				onClick={handleClick}
 				className={cn(
 					"w-full flex gap-0.5 px-4 py-1.5 text-sm transition-colors text-left",
 					"hover:text-zinc-100 focus:outline-none focus:bg-accent/10 focus:text-zinc-100 justify-start items-center",

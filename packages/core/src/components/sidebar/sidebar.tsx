@@ -7,13 +7,15 @@ import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 
 export const Sidebar = () => {
 	const { pathname } = useLocation();
+	const path = pathname.split("/")[1];
 
 	const renderContent = useMemo(() => {
-		switch (pathname) {
-			case "/":
-			case "/table":
+		console.log(path);
+		switch (path) {
+			case "":
+			case "table":
 				return <SidebarContentTablesList />;
-			case "/runner":
+			case "runner":
 				return <SidebarContentQueriesList />;
 			default:
 				return <SidebarContentTablesList />;
@@ -23,7 +25,7 @@ export const Sidebar = () => {
 			// case "/schema":
 			// case "/visualizer":
 		}
-	}, [pathname]);
+	}, [path]);
 
 	return (
 		<SidebarWrapper>

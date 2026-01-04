@@ -18,11 +18,6 @@ import {
 	SUGGESTIONS,
 } from "@/utils/constants/runner-editor";
 
-// generate id for each query snippet
-const _generateQuerySnippetId = () => {
-	return `query-snippet-${Math.random().toString(36).substring(2, 15)}`;
-};
-
 export const RunnerTab = () => {
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);

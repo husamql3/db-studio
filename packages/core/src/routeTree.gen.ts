@@ -13,11 +13,12 @@ import { Route as PathlessLayoutRouteImport } from './routes/_pathlessLayout'
 import { Route as PathlessLayoutIndexRouteImport } from './routes/_pathlessLayout/index'
 import { Route as PathlessLayoutVisualizerRouteImport } from './routes/_pathlessLayout/visualizer'
 import { Route as PathlessLayoutSchemaRouteImport } from './routes/_pathlessLayout/schema'
-import { Route as PathlessLayoutRunnerRouteImport } from './routes/_pathlessLayout/runner'
 import { Route as PathlessLayoutLogsRouteImport } from './routes/_pathlessLayout/logs'
 import { Route as PathlessLayoutIndexesRouteImport } from './routes/_pathlessLayout/indexes'
 import { Route as PathlessLayoutTableIndexRouteImport } from './routes/_pathlessLayout/table/index'
+import { Route as PathlessLayoutRunnerIndexRouteImport } from './routes/_pathlessLayout/runner/index'
 import { Route as PathlessLayoutTableTableRouteImport } from './routes/_pathlessLayout/table/$table'
+import { Route as PathlessLayoutRunnerQueryIdRouteImport } from './routes/_pathlessLayout/runner/$queryId'
 
 const PathlessLayoutRoute = PathlessLayoutRouteImport.update({
   id: '/_pathlessLayout',
@@ -39,11 +40,6 @@ const PathlessLayoutSchemaRoute = PathlessLayoutSchemaRouteImport.update({
   path: '/schema',
   getParentRoute: () => PathlessLayoutRoute,
 } as any)
-const PathlessLayoutRunnerRoute = PathlessLayoutRunnerRouteImport.update({
-  id: '/runner',
-  path: '/runner',
-  getParentRoute: () => PathlessLayoutRoute,
-} as any)
 const PathlessLayoutLogsRoute = PathlessLayoutLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -60,31 +56,45 @@ const PathlessLayoutTableIndexRoute =
     path: '/table/',
     getParentRoute: () => PathlessLayoutRoute,
   } as any)
+const PathlessLayoutRunnerIndexRoute =
+  PathlessLayoutRunnerIndexRouteImport.update({
+    id: '/runner/',
+    path: '/runner/',
+    getParentRoute: () => PathlessLayoutRoute,
+  } as any)
 const PathlessLayoutTableTableRoute =
   PathlessLayoutTableTableRouteImport.update({
     id: '/table/$table',
     path: '/table/$table',
     getParentRoute: () => PathlessLayoutRoute,
   } as any)
+const PathlessLayoutRunnerQueryIdRoute =
+  PathlessLayoutRunnerQueryIdRouteImport.update({
+    id: '/runner/$queryId',
+    path: '/runner/$queryId',
+    getParentRoute: () => PathlessLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
-  '/runner': typeof PathlessLayoutRunnerRoute
   '/schema': typeof PathlessLayoutSchemaRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
   '/': typeof PathlessLayoutIndexRoute
+  '/runner/$queryId': typeof PathlessLayoutRunnerQueryIdRoute
   '/table/$table': typeof PathlessLayoutTableTableRoute
+  '/runner': typeof PathlessLayoutRunnerIndexRoute
   '/table': typeof PathlessLayoutTableIndexRoute
 }
 export interface FileRoutesByTo {
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
-  '/runner': typeof PathlessLayoutRunnerRoute
   '/schema': typeof PathlessLayoutSchemaRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
   '/': typeof PathlessLayoutIndexRoute
+  '/runner/$queryId': typeof PathlessLayoutRunnerQueryIdRoute
   '/table/$table': typeof PathlessLayoutTableTableRoute
+  '/runner': typeof PathlessLayoutRunnerIndexRoute
   '/table': typeof PathlessLayoutTableIndexRoute
 }
 export interface FileRoutesById {
@@ -92,11 +102,12 @@ export interface FileRoutesById {
   '/_pathlessLayout': typeof PathlessLayoutRouteWithChildren
   '/_pathlessLayout/indexes': typeof PathlessLayoutIndexesRoute
   '/_pathlessLayout/logs': typeof PathlessLayoutLogsRoute
-  '/_pathlessLayout/runner': typeof PathlessLayoutRunnerRoute
   '/_pathlessLayout/schema': typeof PathlessLayoutSchemaRoute
   '/_pathlessLayout/visualizer': typeof PathlessLayoutVisualizerRoute
   '/_pathlessLayout/': typeof PathlessLayoutIndexRoute
+  '/_pathlessLayout/runner/$queryId': typeof PathlessLayoutRunnerQueryIdRoute
   '/_pathlessLayout/table/$table': typeof PathlessLayoutTableTableRoute
+  '/_pathlessLayout/runner/': typeof PathlessLayoutRunnerIndexRoute
   '/_pathlessLayout/table/': typeof PathlessLayoutTableIndexRoute
 }
 export interface FileRouteTypes {
@@ -104,32 +115,35 @@ export interface FileRouteTypes {
   fullPaths:
     | '/indexes'
     | '/logs'
-    | '/runner'
     | '/schema'
     | '/visualizer'
     | '/'
+    | '/runner/$queryId'
     | '/table/$table'
+    | '/runner'
     | '/table'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/indexes'
     | '/logs'
-    | '/runner'
     | '/schema'
     | '/visualizer'
     | '/'
+    | '/runner/$queryId'
     | '/table/$table'
+    | '/runner'
     | '/table'
   id:
     | '__root__'
     | '/_pathlessLayout'
     | '/_pathlessLayout/indexes'
     | '/_pathlessLayout/logs'
-    | '/_pathlessLayout/runner'
     | '/_pathlessLayout/schema'
     | '/_pathlessLayout/visualizer'
     | '/_pathlessLayout/'
+    | '/_pathlessLayout/runner/$queryId'
     | '/_pathlessLayout/table/$table'
+    | '/_pathlessLayout/runner/'
     | '/_pathlessLayout/table/'
   fileRoutesById: FileRoutesById
 }
@@ -167,13 +181,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PathlessLayoutSchemaRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
-    '/_pathlessLayout/runner': {
-      id: '/_pathlessLayout/runner'
-      path: '/runner'
-      fullPath: '/runner'
-      preLoaderRoute: typeof PathlessLayoutRunnerRouteImport
-      parentRoute: typeof PathlessLayoutRoute
-    }
     '/_pathlessLayout/logs': {
       id: '/_pathlessLayout/logs'
       path: '/logs'
@@ -195,11 +202,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PathlessLayoutTableIndexRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
+    '/_pathlessLayout/runner/': {
+      id: '/_pathlessLayout/runner/'
+      path: '/runner'
+      fullPath: '/runner'
+      preLoaderRoute: typeof PathlessLayoutRunnerIndexRouteImport
+      parentRoute: typeof PathlessLayoutRoute
+    }
     '/_pathlessLayout/table/$table': {
       id: '/_pathlessLayout/table/$table'
       path: '/table/$table'
       fullPath: '/table/$table'
       preLoaderRoute: typeof PathlessLayoutTableTableRouteImport
+      parentRoute: typeof PathlessLayoutRoute
+    }
+    '/_pathlessLayout/runner/$queryId': {
+      id: '/_pathlessLayout/runner/$queryId'
+      path: '/runner/$queryId'
+      fullPath: '/runner/$queryId'
+      preLoaderRoute: typeof PathlessLayoutRunnerQueryIdRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
   }
@@ -208,22 +229,24 @@ declare module '@tanstack/react-router' {
 interface PathlessLayoutRouteChildren {
   PathlessLayoutIndexesRoute: typeof PathlessLayoutIndexesRoute
   PathlessLayoutLogsRoute: typeof PathlessLayoutLogsRoute
-  PathlessLayoutRunnerRoute: typeof PathlessLayoutRunnerRoute
   PathlessLayoutSchemaRoute: typeof PathlessLayoutSchemaRoute
   PathlessLayoutVisualizerRoute: typeof PathlessLayoutVisualizerRoute
   PathlessLayoutIndexRoute: typeof PathlessLayoutIndexRoute
+  PathlessLayoutRunnerQueryIdRoute: typeof PathlessLayoutRunnerQueryIdRoute
   PathlessLayoutTableTableRoute: typeof PathlessLayoutTableTableRoute
+  PathlessLayoutRunnerIndexRoute: typeof PathlessLayoutRunnerIndexRoute
   PathlessLayoutTableIndexRoute: typeof PathlessLayoutTableIndexRoute
 }
 
 const PathlessLayoutRouteChildren: PathlessLayoutRouteChildren = {
   PathlessLayoutIndexesRoute: PathlessLayoutIndexesRoute,
   PathlessLayoutLogsRoute: PathlessLayoutLogsRoute,
-  PathlessLayoutRunnerRoute: PathlessLayoutRunnerRoute,
   PathlessLayoutSchemaRoute: PathlessLayoutSchemaRoute,
   PathlessLayoutVisualizerRoute: PathlessLayoutVisualizerRoute,
   PathlessLayoutIndexRoute: PathlessLayoutIndexRoute,
+  PathlessLayoutRunnerQueryIdRoute: PathlessLayoutRunnerQueryIdRoute,
   PathlessLayoutTableTableRoute: PathlessLayoutTableTableRoute,
+  PathlessLayoutRunnerIndexRoute: PathlessLayoutRunnerIndexRoute,
   PathlessLayoutTableIndexRoute: PathlessLayoutTableIndexRoute,
 }
 
