@@ -273,7 +273,7 @@ export const RunnerTab = () => {
 	};
 
 	return (
-		<div className="h-screen w-full flex flex-col bg-gray-900">
+		<div className="flex-1 w-full flex flex-col bg-gray-900">
 			<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center bg-black sticky top-0 left-0 right-0 z-0">
 				<Button
 					type="button"

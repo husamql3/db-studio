@@ -30,7 +30,7 @@ type QueriesStore = {
 	toggleFavoriteFolder: (id: string) => void;
 
 	// query ops
-	addQuery: (name?: string) => string;
+	addQuery: (name?: string, folderId?: string) => string;
 	updateQuery: (id: string, updates: Partial<Query>) => void;
 	deleteQuery: (id: string) => void;
 	moveQuery: (queryId: string, folderId?: string) => void;
@@ -190,7 +190,7 @@ export const useQueriesStore = create<QueriesStore>()(
 					),
 				})),
 
-			addQuery: (name?: string) => {
+			addQuery: (name?: string, folderId?: string) => {
 				const newId = Math.random().toString(36).substring(2, 15);
 				const newQuery: Query = {
 					id: newId,
@@ -198,6 +198,7 @@ export const useQueriesStore = create<QueriesStore>()(
 					query: "",
 					isFavorite: false,
 					isSelected: false,
+					folderId: folderId ?? undefined,
 				};
 				set((state) => ({
 					queries: [...state.queries, newQuery],

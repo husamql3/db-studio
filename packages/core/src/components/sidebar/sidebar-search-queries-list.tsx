@@ -1,4 +1,4 @@
-import { IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconFolderPlus, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
@@ -9,7 +9,7 @@ import { useQueriesStore } from "@/stores/queries.store";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarSearchQueriesList = () => {
-	const { addQuery } = useQueriesStore();
+	const { addQuery, addFolder } = useQueriesStore();
 	const navigate = useNavigate();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
@@ -25,15 +25,34 @@ export const SidebarSearchQueriesList = () => {
 		navigate({ to: "/runner/$queryId", params: { queryId } });
 	};
 
+	const handleAddFolder = () => {
+		const folderId = Math.random().toString(36).substring(2, 15);
+		addFolder({
+			id: folderId,
+			name: "New Folder",
+			isExpanded: true,
+			isFavorite: false,
+		});
+	};
+
 	return (
 		<div className="p-3 space-y-2 border-b border-zinc-800">
-			<Button
-				className="w-full justify-start h-8"
-				onClick={handleAddQuery}
-			>
-				<IconPlus className="size-4" />
-				Add Query
-			</Button>
+			<div className="flex gap-2">
+				<Button
+					className="flex-1 justify-start h-8"
+					onClick={handleAddQuery}
+				>
+					<IconPlus className="size-4" />
+					Add Query
+				</Button>
+				<Button
+					className="flex-1 justify-start h-8"
+					onClick={handleAddFolder}
+				>
+					<IconFolderPlus className="size-4" />
+					Add Folder
+				</Button>
+			</div>
 
 			<div className="relative">
 				<IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
