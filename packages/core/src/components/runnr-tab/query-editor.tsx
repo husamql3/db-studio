@@ -1,14 +1,5 @@
-import {
-	Command,
-	// Download,
-	// Heart,
-	LucideCornerDownLeft,
-	// AlignLeft,
-} from "lucide-react";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
-import { Button } from "@/components/ui/button";
 import { useQueriesStore } from "@/stores/queries.store";
 import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 import {
@@ -21,24 +12,24 @@ import {
 	SUGGESTIONS,
 } from "@/utils/constants/runner-editor";
 
-// todo: fetch the tables and show them in the suggestions
-
-export const RunnerTab = ({ queryId }: { queryId?: string }) => {
-	const { getQuery, updateQuery } = useQueriesStore();
+export const QueryEditor = ({ queryId }: { queryId?: string }) => {
+	const monacoEl = useRef<HTMLDivElement>(null);
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
-	const monacoEl = useRef<HTMLDivElement>(null);
-	const [isSaving, setIsSaving] = useState(false);
+	const [_isSaving, setIsSaving] = useState(false);
 	const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const { getQuery, updateQuery } = useQueriesStore();
 
 	const getInitialQuery = useCallback(() => {
 		if (!queryId) return PGSQL_PLACEHOLDER_QUERY;
+
 		const query = getQuery(queryId);
 		return query?.query ?? PGSQL_PLACEHOLDER_QUERY;
 	}, [queryId, getQuery]);
 
 	// Helper function you can call anytime
-	const getCurrentQuery = () => {
+	const _getCurrentQuery = () => {
 		return editorInstance?.getValue() ?? "";
 	};
 
@@ -305,73 +296,10 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		};
 	}, [debouncedSave, getInitialQuery]);
 
-	const handleExecuteQuery = () => {
-		const query = getCurrentQuery();
-		if (!query.trim()) {
-			alert("Query is empty!");
-			return;
-		}
-		console.log("Execute query! Query:", query);
-		// your real execution logic here
-	};
-
 	return (
-		<div className="flex-1 relative w-full flex flex-col bg-gray-900">
-			<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center bg-black sticky top-0 left-0 right-0 z-0">
-				<Button
-					type="button"
-					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700 text-white hover:bg-green-800 gap-1"
-					onClick={handleExecuteQuery}
-					aria-label="Run the query"
-				>
-					Run
-					<Command className="size-3" />
-					<LucideCornerDownLeft className="size-3" />
-				</Button>
-
-				{/* 
-				<Button
-					type="button"
-					variant="secondary"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					aria-label="Format the query"
-				>
-					Format <AlignLeft className="size-3" />
-				</Button>
-
-				<Button
-					type="button"
-					variant="secondary"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					aria-label="Favorite the query"
-				>
-					Favorite <Heart className="size-3" />
-				</Button>
-
-				<Button
-					type="button"
-					variant="secondary"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					aria-label="Export the query"
-				>
-					Export <Download className="size-3" />
-				</Button> */}
-
-				{isSaving && queryId && (
-					<span className="px-3 text-xs text-gray-400 animate-pulse">Saving...</span>
-				)}
-				{!isSaving && queryId && getCurrentQuery().trim().length > 0 && (
-					<span className="px-3 text-xs text-gray-500">Saved</span>
-				)}
-			</header>
-
-			<div
-				ref={monacoEl}
-				className="flex-1 min-h-0"
-			/>
-
-			<QueryResultContainer />
-		</div>
+		<div
+			ref={monacoEl}
+			className="flex-1 min-h-0"
+		/>
 	);
 };

@@ -1,7 +1,8 @@
-import { IconBrandGithub } from "@tabler/icons-react";
+import { IconBrandGithub, IconSparkles } from "@tabler/icons-react";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LINKS } from "@/utils/constants";
 
 export const Header = () => {
@@ -13,12 +14,19 @@ export const Header = () => {
 			</div>
 
 			<div className="flex items-center h-full">
-				{/* <Button
-					variant="ghost"
-					className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
-				>
-					<IconSparkles className="size-5" />
-				</Button> */}
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+						>
+							<IconSparkles className="size-5" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>Coming soon</p>
+					</TooltipContent>
+				</Tooltip>
 
 				<Button
 					variant="ghost"
