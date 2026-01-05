@@ -1,5 +1,4 @@
 import JsonView from "@uiw/react-json-view";
-import { githubDarkTheme } from "@uiw/react-json-view/githubDark";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
 import { toast } from "sonner";
