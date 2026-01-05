@@ -80,23 +80,63 @@ function App() {
 							lang="bash"
 						>
 							<CodeBlockTabsList>
-								<CodeBlockTabsTrigger value="npx">npx</CodeBlockTabsTrigger>
-								<CodeBlockTabsTrigger value="yarn">Yarn</CodeBlockTabsTrigger>
-								<CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
-								<CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
+								<CodeBlockTabsTrigger
+									className="text-xs"
+									value="npx"
+								>
+									npx
+								</CodeBlockTabsTrigger>
+								<CodeBlockTabsTrigger
+									className="text-xs"
+									value="yarn"
+								>
+									Yarn
+								</CodeBlockTabsTrigger>
+								<CodeBlockTabsTrigger
+									className="text-xs"
+									value="pnpm"
+								>
+									pnpm
+								</CodeBlockTabsTrigger>
+								<CodeBlockTabsTrigger
+									className="text-xs"
+									value="bun"
+								>
+									bun
+								</CodeBlockTabsTrigger>
 							</CodeBlockTabsList>
 
 							<CodeBlockTab value="npx">
-								<CodeBlock lang="bash">npx db-studio</CodeBlock>
+								<CodeBlock
+									className="text-xs"
+									lang="bash"
+								>
+									npx db-studio
+								</CodeBlock>
 							</CodeBlockTab>
 							<CodeBlockTab value="yarn">
-								<CodeBlock lang="bash">yarn dlx db-studio</CodeBlock>
+								<CodeBlock
+									className="text-xs"
+									lang="bash"
+								>
+									yarn dlx db-studio
+								</CodeBlock>
 							</CodeBlockTab>
 							<CodeBlockTab value="pnpm">
-								<CodeBlock lang="bash">pnpm dlx db-studio</CodeBlock>
+								<CodeBlock
+									className="text-xs"
+									lang="bash"
+								>
+									pnpm dlx db-studio
+								</CodeBlock>
 							</CodeBlockTab>
 							<CodeBlockTab value="bun">
-								<CodeBlock lang="bash">bunx db-studio</CodeBlock>
+								<CodeBlock
+									className="text-xs"
+									lang="bash"
+								>
+									bunx db-studio
+								</CodeBlock>
 							</CodeBlockTab>
 						</CodeBlockTabs>
 					</div>

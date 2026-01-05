@@ -23,6 +23,7 @@
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router": "^1.144.0",
     "@tanstack/react-router-devtools": "^1.144.0",
+    "@uiw/react-json-view": "^2.0.0-alpha.40",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

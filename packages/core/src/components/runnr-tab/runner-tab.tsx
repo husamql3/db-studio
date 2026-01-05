@@ -7,8 +7,10 @@ import {
 } from "lucide-react";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
+import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useExecuteQuery } from "@/hooks/use-execute-query";
 import { useQueriesStore } from "@/stores/queries.store";
 import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 import {
@@ -20,11 +22,16 @@ import {
 	OPERATORS,
 	SUGGESTIONS,
 } from "@/utils/constants/runner-editor";
+import { QueryResultContainer } from "./query-result-container";
 
 // todo: fetch the tables and show them in the suggestions
+// todo: run the query via the button and the Ctrl/Cmd+Enter shortcut
+// todo: the syntax error in the editor should be shown in the editor
 
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
+	const [queryResult, setQueryResult] = useState<ExecuteQueryResponse | null>(null);
 	const { getQuery, updateQuery } = useQueriesStore();
+	const { executeQuery, isExecutingQuery } = useExecuteQuery();
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const monacoEl = useRef<HTMLDivElement>(null);
@@ -64,6 +71,32 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		},
 		[queryId, updateQuery],
 	);
+
+	// Execute query function
+	const handleExecuteQuery = useCallback(
+		async (query: string) => {
+			if (!query.trim()) {
+				toast.error("Query is empty!");
+				return;
+			}
+
+			executeQuery(query).then((result) => {
+				setQueryResult(result);
+			});
+		},
+		[executeQuery],
+	);
+
+	// Handler for button click
+	const handleButtonClick = useCallback(() => {
+		const query = editorInstance?.getValue() ?? "";
+		if (!query.trim()) {
+			toast.error("Query is empty!");
+			return;
+		}
+
+		handleExecuteQuery(query);
+	}, [handleExecuteQuery, editorInstance]);
 
 	useEffect(() => {
 		if (!monacoEl.current) return;
@@ -281,14 +314,17 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		// Ctrl/Cmd+Enter to run query
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
 			const query = editorInstance.getValue();
-			console.log("Executing query:\n", query);
-			alert(`Would execute:\n\n${query}`);
+			if (!query.trim()) {
+				toast.error("Query is empty!");
+				return;
+			}
+
+			executeQuery(query);
 		});
 
 		// Listen to editor content changes for auto-save
 		const disposable = editorInstance.onDidChangeModelContent(() => {
 			const value = editorInstance.getValue();
-			console.log("editorInstance", value);
 			debouncedSave(value);
 		});
 
@@ -303,17 +339,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			}
 			editorInstance.dispose();
 		};
-	}, [debouncedSave, getInitialQuery]);
-
-	const handleExecuteQuery = () => {
-		const query = getCurrentQuery();
-		if (!query.trim()) {
-			alert("Query is empty!");
-			return;
-		}
-		console.log("Execute query! Query:", query);
-		// your real execution logic here
-	};
+	}, [debouncedSave, getInitialQuery, executeQuery]);
 
 	return (
 		<div className="flex-1 relative w-full flex flex-col bg-gray-900">
@@ -321,8 +347,9 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				<Button
 					type="button"
 					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700 text-white hover:bg-green-800 gap-1"
-					onClick={handleExecuteQuery}
+					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700 text-white hover:bg-green-800 gap-1 disabled:opacity-50"
+					onClick={handleButtonClick}
+					disabled={isExecutingQuery}
 					aria-label="Run the query"
 				>
 					Run
@@ -371,7 +398,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				className="flex-1 min-h-0"
 			/>
 
-			<QueryResultContainer />
+			<QueryResultContainer results={queryResult} />
 		</div>
 	);
 };
