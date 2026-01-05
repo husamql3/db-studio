@@ -1,5 +1,7 @@
 import {
 	IconCopy,
+	IconFolder,
+	IconFolderPlus,
 	IconPencil,
 	IconStar,
 	IconStarFilled,
@@ -24,6 +26,13 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useQueriesStore } from "@/stores/queries.store";
 
@@ -39,8 +48,16 @@ export const SidebarListQueryItem = ({
 	showContextMenu?: boolean;
 }) => {
 	const navigate = useNavigate();
-	const { deleteQuery, addQuery, getQuery, toggleFavorite, updateQuery } =
-		useQueriesStore();
+	const {
+		deleteQuery,
+		addQuery,
+		getQuery,
+		toggleFavorite,
+		updateQuery,
+		moveQuery,
+		folders,
+		addFolder,
+	} = useQueriesStore();
 	const { queryId } = useParams({ strict: false });
 	const isSelected = queryId === id;
 	const query = getQuery(id);
@@ -48,6 +65,10 @@ export const SidebarListQueryItem = ({
 
 	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 	const [renameValue, setRenameValue] = useState("");
+	const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+	const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined);
+	const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+	const [newFolderName, setNewFolderName] = useState("");
 
 	const handleSelect = useCallback(() => {
 		navigate({ to: "/runner/$queryId", params: { queryId: id } });
@@ -82,6 +103,44 @@ export const SidebarListQueryItem = ({
 			setRenameValue("");
 		}
 	}, [id, renameValue, updateQuery]);
+
+	const handleMoveClick = useCallback(() => {
+		setSelectedFolderId(query?.folderId);
+		setIsCreatingFolder(false);
+		setNewFolderName("");
+		setIsMoveDialogOpen(true);
+	}, [query?.folderId]);
+
+	const handleFolderSelect = useCallback((folderId: string) => {
+		if (folderId === "__create_new__") {
+			setIsCreatingFolder(true);
+			setSelectedFolderId(undefined);
+		} else {
+			setIsCreatingFolder(false);
+			setSelectedFolderId(folderId === "__none__" ? undefined : folderId);
+		}
+	}, []);
+
+	const handleMoveSubmit = useCallback(() => {
+		if (isCreatingFolder && newFolderName.trim()) {
+			// Create new folder and move query
+			const newFolderId = Math.random().toString(36).substring(2, 15);
+			addFolder({
+				id: newFolderId,
+				name: newFolderName.trim(),
+				isExpanded: true,
+				isFavorite: false,
+			});
+			moveQuery(id, newFolderId);
+		} else if (!isCreatingFolder) {
+			// Move to selected folder (or remove from folder if undefined)
+			moveQuery(id, selectedFolderId);
+		}
+		setIsMoveDialogOpen(false);
+		setIsCreatingFolder(false);
+		setNewFolderName("");
+		setSelectedFolderId(undefined);
+	}, [isCreatingFolder, newFolderName, selectedFolderId, id, addFolder, moveQuery]);
 
 	return (
 		<li className="relative">
@@ -120,6 +179,11 @@ export const SidebarListQueryItem = ({
 								<IconStar className="size-4" />
 							)}
 							{isFavorite ? "Remove from favorites" : "Add to favorites"}
+						</ContextMenuItem>
+						<ContextMenuSeparator />
+						<ContextMenuItem onClick={handleMoveClick}>
+							<IconFolder className="size-4" />
+							Move to folder
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem onClick={handleDelete}>
@@ -181,6 +245,89 @@ export const SidebarListQueryItem = ({
 							disabled={!renameValue.trim()}
 						>
 							Rename
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={isMoveDialogOpen}
+				onOpenChange={(open) => {
+					setIsMoveDialogOpen(open);
+					if (!open) {
+						setIsCreatingFolder(false);
+						setNewFolderName("");
+						setSelectedFolderId(undefined);
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Move to Folder</DialogTitle>
+						<DialogDescription>Select a folder to move this query to.</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4">
+						{!isCreatingFolder ? (
+							<Select
+								value={selectedFolderId ?? "__none__"}
+								onValueChange={handleFolderSelect}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Select a folder" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="__none__">No folder</SelectItem>
+									{folders.map((folder) => (
+										<SelectItem
+											key={folder.id}
+											value={folder.id}
+										>
+											{folder.name}
+										</SelectItem>
+									))}
+									<SelectItem value="__create_new__">
+										<div className="flex items-center gap-2">
+											<IconFolderPlus className="size-4" />
+											Create a new folder
+										</div>
+									</SelectItem>
+								</SelectContent>
+							</Select>
+						) : (
+							<Input
+								value={newFolderName}
+								onChange={(e) => setNewFolderName(e.target.value)}
+								placeholder="Folder name"
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && newFolderName.trim()) {
+										handleMoveSubmit();
+									}
+									if (e.key === "Escape") {
+										setIsCreatingFolder(false);
+										setNewFolderName("");
+									}
+								}}
+								autoFocus
+							/>
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => {
+								setIsMoveDialogOpen(false);
+								setIsCreatingFolder(false);
+								setNewFolderName("");
+								setSelectedFolderId(undefined);
+							}}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleMoveSubmit}
+							disabled={isCreatingFolder && !newFolderName.trim()}
+						>
+							{isCreatingFolder ? "Create & Move" : "Move"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

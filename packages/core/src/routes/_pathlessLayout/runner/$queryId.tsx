@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RunnerTab } from "@/components/runnr-tab/runner-tab";
 
 export const Route = createFileRoute("/_pathlessLayout/runner/$queryId")({
 	component: RouteComponent,
@@ -6,5 +7,5 @@ export const Route = createFileRoute("/_pathlessLayout/runner/$queryId")({
 
 function RouteComponent() {
 	const { queryId } = Route.useParams();
-	return <div>Hello "/_pathlessLayout/runner/{queryId}"!</div>;
+	return <RunnerTab queryId={queryId} />;
 }

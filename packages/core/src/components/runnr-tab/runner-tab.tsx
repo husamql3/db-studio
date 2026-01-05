@@ -1,13 +1,14 @@
 import {
 	Command,
-	Download,
-	Heart,
+	// Download,
+	// Heart,
 	LucideCornerDownLeft,
-	TextAlignStart,
+	// AlignLeft,
 } from "lucide-react";
 import * as monaco from "monaco-editor";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useQueriesStore } from "@/stores/queries.store";
 import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 import {
 	BUILTIN_FUNCTIONS,
@@ -19,17 +20,49 @@ import {
 	SUGGESTIONS,
 } from "@/utils/constants/runner-editor";
 
-export const RunnerTab = () => {
+// todo: fetch the tables and show them in the suggestions
+
+export const RunnerTab = ({ queryId }: { queryId?: string }) => {
+	const { getQuery, updateQuery } = useQueriesStore();
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const monacoEl = useRef<HTMLDivElement>(null);
+	const [isSaving, setIsSaving] = useState(false);
+	const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const getInitialQuery = useCallback(() => {
+		if (!queryId) return PGSQL_PLACEHOLDER_QUERY;
+		const query = getQuery(queryId);
+		return query?.query ?? PGSQL_PLACEHOLDER_QUERY;
+	}, [queryId, getQuery]);
 
 	// Helper function you can call anytime
 	const getCurrentQuery = () => {
 		return editorInstance?.getValue() ?? "";
 	};
 
-	console.log("editorInstance", editorInstance?.getValue());
+	// Debounced save function
+	const debouncedSave = useCallback(
+		(value: string) => {
+			if (!queryId) return;
+
+			// Clear existing timeout
+			if (saveTimeoutRef.current) {
+				clearTimeout(saveTimeoutRef.current);
+			}
+
+			// Show saving state immediately
+			setIsSaving(true);
+
+			// Set new timeout
+			saveTimeoutRef.current = setTimeout(() => {
+				updateQuery(queryId, { query: value });
+				setIsSaving(false);
+				saveTimeoutRef.current = null;
+			}, 500); // 500ms debounce delay
+		},
+		[queryId, updateQuery],
+	);
 
 	useEffect(() => {
 		if (!monacoEl.current) return;
@@ -209,7 +242,7 @@ export const RunnerTab = () => {
 
 		// Create editor instance
 		const editorInstance = monaco.editor.create(monacoEl.current, {
-			value: PGSQL_PLACEHOLDER_QUERY,
+			value: getInitialQuery(),
 			language: "pgsql",
 			theme: "vs-dark",
 			fontSize: 14,
@@ -217,6 +250,14 @@ export const RunnerTab = () => {
 			lineNumbers: "on",
 			roundedSelection: true,
 			scrollBeyondLastLine: false,
+			scrollbar: {
+				horizontal: "hidden",
+				vertical: "hidden",
+				useShadows: false,
+				verticalHasArrows: false,
+				horizontalHasArrows: false,
+				arrowSize: 0,
+			},
 			automaticLayout: true,
 			tabSize: 4,
 			insertSpaces: true,
@@ -236,31 +277,32 @@ export const RunnerTab = () => {
 			},
 		});
 
-		// Add keyboard shortcuts
-		// editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-		//   const value = editorInstance.getValue();
-		//   console.log("Execute Query:", value);
-		//   alert(`Query execution would happen here!\n\nQuery:\n${value}`);
-		// });
-
-		// editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
-		//   editorInstance.trigger("", "editor.action.formatDocument", {});
-		// });
-
-		// Example: Ctrl+Enter to run
+		// Ctrl/Cmd+Enter to run query
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-			const query = getCurrentQuery();
+			const query = editorInstance.getValue();
 			console.log("Executing query:\n", query);
-			// → here you would call your real execute function
 			alert(`Would execute:\n\n${query}`);
+		});
+
+		// Listen to editor content changes for auto-save
+		const disposable = editorInstance.onDidChangeModelContent(() => {
+			const value = editorInstance.getValue();
+			console.log("editorInstance", value);
+			debouncedSave(value);
 		});
 
 		setEditor(editorInstance);
 
+		// Cleanup function
 		return () => {
+			disposable.dispose();
+			// Clear pending save timeout
+			if (saveTimeoutRef.current) {
+				clearTimeout(saveTimeoutRef.current);
+			}
 			editorInstance.dispose();
 		};
-	}, []);
+	}, [debouncedSave, getInitialQuery]);
 
 	const handleExecuteQuery = () => {
 		const query = getCurrentQuery();
@@ -287,21 +329,20 @@ export const RunnerTab = () => {
 					<LucideCornerDownLeft className="size-3" />
 				</Button>
 
+				{/* 
 				<Button
 					type="button"
 					variant="secondary"
 					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					// onClick={() => openSheet("add-record")}
 					aria-label="Format the query"
 				>
-					Format <TextAlignStart className="size-3" />
+					Format <AlignLeft className="size-3" />
 				</Button>
 
 				<Button
 					type="button"
 					variant="secondary"
 					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					// onClick={() => openSheet("add-record")}
 					aria-label="Favorite the query"
 				>
 					Favorite <Heart className="size-3" />
@@ -311,11 +352,17 @@ export const RunnerTab = () => {
 					type="button"
 					variant="secondary"
 					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					// onClick={() => openSheet("add-record")}
 					aria-label="Export the query"
 				>
 					Export <Download className="size-3" />
-				</Button>
+				</Button> */}
+
+				{isSaving && queryId && (
+					<span className="px-3 text-xs text-gray-400 animate-pulse">Saving...</span>
+				)}
+				{!isSaving && queryId && getCurrentQuery().trim().length > 0 && (
+					<span className="px-3 text-xs text-gray-500">Saved</span>
+				)}
 			</header>
 
 			<div

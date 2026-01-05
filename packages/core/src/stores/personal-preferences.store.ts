@@ -33,7 +33,7 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 				set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
 			setSidebarWidth: (width) =>
 				set((state) => ({
-					sidebar: { ...state.sidebar, width: Math.max(200, Math.min(500, width)) },
+					sidebar: { ...state.sidebar, width: Math.max(250, Math.min(500, width)) },
 				})),
 			setSidebarOpen: (isOpen) =>
 				set((state) => ({

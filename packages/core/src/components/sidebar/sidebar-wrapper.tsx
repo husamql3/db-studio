@@ -136,6 +136,8 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		};
 	}, [handleMouseEnter, handleMouseLeave]);
 
+	console.log("sidebar width", width);
+
 	return (
 		<Sheet
 			open={isOpen}
