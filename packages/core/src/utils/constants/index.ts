@@ -26,6 +26,10 @@ export const CONSTANTS = {
 		TABLE_DEFAULT_LIMIT: 50,
 	},
 
+	RUNNER_STATE_KEYS: {
+		SHOW_AS: "view",
+	},
+
 	//* table state keys
 	TABLE_STATE_KEYS: {
 		SORT: "sort",

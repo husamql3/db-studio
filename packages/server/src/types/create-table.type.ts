@@ -93,4 +93,6 @@ export const deleteRecordsSchema = z.object({
 
 export const executeQuerySchema = z.object({
 	query: z.string().min(1, "Query is required"),
+	page: z.string().optional().default("1").transform(Number),
+	pageSize: z.string().optional().default("50").transform(Number),
 });

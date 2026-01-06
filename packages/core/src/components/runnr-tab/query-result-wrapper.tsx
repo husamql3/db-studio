@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
-export const QueryResultWrapper = ({ children }: { children: React.ReactNode }) => {
+export const QueryResultWrapper = ({
+	children,
+	isLoading,
+}: {
+	children: React.ReactNode;
+	isLoading: boolean;
+}) => {
 	const {
 		runnerResults: { height },
 		setRunnerResultsHeight,
@@ -72,8 +79,11 @@ export const QueryResultWrapper = ({ children }: { children: React.ReactNode }) 
 
 	return (
 		<div
-			className="absolute bottom-0 left-0 right-0 border-t border-zinc-80 flex flex-col"
-			style={{ height: `${height}px` }}
+			className="absolute bottom-0 left-0 right-0 border-t border-zinc-80 flex flex-col bg-[#1E1E1E]"
+			style={{
+				height: `${height}px`,
+				maxHeight: `calc(100vh - 200px)`,
+			}}
 		>
 			{/* Resize Handle */}
 			<div
@@ -91,7 +101,18 @@ export const QueryResultWrapper = ({ children }: { children: React.ReactNode }) 
 			</div>
 
 			{/* Results Content Area */}
-			<div className="flex-1 overflow-auto">{children}</div>
+			<div className="flex-1 overflow-auto">
+				{isLoading ? (
+					<div className="flex items-center justify-center h-full overflow-auto">
+						<Spinner
+							size="size-8"
+							color="bg-[#d4d4d4]"
+						/>
+					</div>
+				) : (
+					children
+				)}
+			</div>
 		</div>
 	);
 };

@@ -1,17 +1,21 @@
+import { IconCodeDots, IconHeart, IconHeartFilled, IconTable } from "@tabler/icons-react";
 import {
+	//  AlignLeft,
 	Command,
-	// Download,
-	// Heart,
 	LucideCornerDownLeft,
-	// AlignLeft,
 } from "lucide-react";
 import * as monaco from "monaco-editor";
+import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
 import { toast } from "sonner";
+import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useExecuteQuery } from "@/hooks/use-execute-query";
 import { useQueriesStore } from "@/stores/queries.store";
+import { CONSTANTS } from "@/utils/constants";
 import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 import {
 	BUILTIN_FUNCTIONS,
@@ -22,15 +26,22 @@ import {
 	OPERATORS,
 	SUGGESTIONS,
 } from "@/utils/constants/runner-editor";
-import { QueryResultContainer } from "./query-result-container";
 
-// todo: fetch the tables and show them in the suggestions
-// todo: run the query via the button and the Ctrl/Cmd+Enter shortcut
+// todo: view the query result in a table
 // todo: the syntax error in the editor should be shown in the editor
+// todo: run the query via the button and the Ctrl/Cmd+Enter shortcut
+// todo: format the query
+// todo: fix focus bug, when saving it loses focus
+// todo: fetch the tables and show them in the suggestions
+// todo: use custom fetcher/axios function for the queries
+// todo: export the query result as a CSV, JSON, Markdown or Excel file
 
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
+	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
 	const [queryResult, setQueryResult] = useState<ExecuteQueryResponse | null>(null);
-	const { getQuery, updateQuery } = useQueriesStore();
+	const { getQuery, updateQuery, toggleFavorite } = useQueriesStore();
+	const query = queryId ? getQuery(queryId) : null;
+	const isFavorite = query?.isFavorite ?? false;
 	const { executeQuery, isExecutingQuery } = useExecuteQuery();
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -39,10 +50,9 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const getInitialQuery = useCallback(() => {
-		if (!queryId) return PGSQL_PLACEHOLDER_QUERY;
-		const query = getQuery(queryId);
+		if (!query) return PGSQL_PLACEHOLDER_QUERY;
 		return query?.query ?? PGSQL_PLACEHOLDER_QUERY;
-	}, [queryId, getQuery]);
+	}, [query]);
 
 	// Helper function you can call anytime
 	const getCurrentQuery = () => {
@@ -80,7 +90,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				return;
 			}
 
-			executeQuery(query).then((result) => {
+			executeQuery({ query, page: 1, pageSize: 50 }).then((result) => {
 				setQueryResult(result);
 			});
 		},
@@ -341,56 +351,128 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		};
 	}, [debouncedSave, getInitialQuery, executeQuery]);
 
+	const handleFavorite = useCallback(() => {
+		if (!queryId) return;
+		toggleFavorite(queryId);
+	}, [toggleFavorite, queryId]);
+
 	return (
 		<div className="flex-1 relative w-full flex flex-col bg-gray-900">
-			<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center bg-black sticky top-0 left-0 right-0 z-0">
-				<Button
-					type="button"
-					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700 text-white hover:bg-green-800 gap-1 disabled:opacity-50"
-					onClick={handleButtonClick}
-					disabled={isExecutingQuery}
-					aria-label="Run the query"
-				>
-					Run
-					<Command className="size-3" />
-					<LucideCornerDownLeft className="size-3" />
-				</Button>
+			<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
+				<div className="flex items-center">
+					<Button
+						type="button"
+						variant="default"
+						className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700 text-white hover:bg-green-800 gap-1 disabled:opacity-50"
+						onClick={handleButtonClick}
+						disabled={isExecutingQuery}
+						aria-label="Run the query"
+					>
+						Run
+						<Command className="size-3" />
+						<LucideCornerDownLeft className="size-3" />
+					</Button>
 
-				{/* 
-				<Button
-					type="button"
-					variant="secondary"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					aria-label="Format the query"
-				>
-					Format <AlignLeft className="size-3" />
-				</Button>
+					{/* <Button
+						type="button"
+						variant="ghost"
+						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+						aria-label="Format the query"
+					>
+						Format <AlignLeft className="size-3" />
+					</Button> */}
 
-				<Button
-					type="button"
-					variant="secondary"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					aria-label="Favorite the query"
-				>
-					Favorite <Heart className="size-3" />
-				</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+						aria-label="Favorite the query"
+						onClick={handleFavorite}
+					>
+						{isFavorite ? (
+							<>
+								Unfavorite
+								<IconHeartFilled className="size-3" />
+							</>
+						) : (
+							<>
+								Favorite
+								<IconHeart className="size-3" />
+							</>
+						)}
+					</Button>
 
-				<Button
-					type="button"
-					variant="secondary"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none"
-					aria-label="Export the query"
-				>
-					Export <Download className="size-3" />
-				</Button> */}
+					{/* <Button
+						type="button"
+						variant="ghost"
+						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+						aria-label="Export the query"
+					>
+						Export <Download className="size-3" />
+					</Button> */}
 
-				{isSaving && queryId && (
-					<span className="px-3 text-xs text-gray-400 animate-pulse">Saving...</span>
-				)}
-				{!isSaving && queryId && getCurrentQuery().trim().length > 0 && (
-					<span className="px-3 text-xs text-gray-500">Saved</span>
-				)}
+					{isSaving && queryId && (
+						<span className="px-3 text-xs text-green-600 animate-pulse">Saving...</span>
+					)}
+					{!isSaving && queryId && getCurrentQuery().trim().length > 0 && (
+						<span className="px-3 text-xs text-green-600">Saved</span>
+					)}
+				</div>
+
+				<div className="flex items-center">
+					{queryResult && (
+						<div className="flex items-center gap-1 px-2">
+							<span className="text-xs text-gray-500">
+								{queryResult.duration.toFixed(2)}ms
+							</span>
+							<span className="text-xs text-gray-500">•</span>
+							<span className="text-xs text-gray-500">{queryResult.rowCount} rows</span>
+						</div>
+					)}
+
+					<ToggleGroup
+						type="single"
+						variant="ghost"
+						onValueChange={(value) => {
+							if (value === showAs) return;
+							setShowAs(value);
+						}}
+						value={showAs ?? undefined}
+						className="h-8! rounded-none! border-l!"
+					>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<ToggleGroupItem
+									value="table"
+									aria-label="Toggle table"
+									className="rounded-none! h-8! aspect-square!"
+									data-selected={showAs === "table"}
+								>
+									<IconTable />
+								</ToggleGroupItem>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>View as a table</p>
+							</TooltipContent>
+						</Tooltip>
+
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<ToggleGroupItem
+									value="json"
+									aria-label="Toggle JSON"
+									className="rounded-none! h-8! aspect-square!"
+									data-selected={showAs === "json"}
+								>
+									<IconCodeDots />
+								</ToggleGroupItem>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>View as a JSON</p>
+							</TooltipContent>
+						</Tooltip>
+					</ToggleGroup>
+				</div>
 			</header>
 
 			<div
@@ -398,7 +480,10 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				className="flex-1 min-h-0"
 			/>
 
-			<QueryResultContainer results={queryResult} />
+			<QueryResultContainer
+				results={queryResult}
+				isLoading={isExecutingQuery}
+			/>
 		</div>
 	);
 };

@@ -28,19 +28,26 @@ export const Header = () => {
 					</TooltipContent>
 				</Tooltip>
 
-				<Button
-					variant="ghost"
-					className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
-					asChild
-				>
-					<a
-						href={LINKS.GITHUB}
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						<IconBrandGithub className="size-5" />
-					</a>
-				</Button>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+							asChild
+						>
+							<a
+								href={LINKS.GITHUB}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								<IconBrandGithub className="size-5" />
+							</a>
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>View on GitHub</p>
+					</TooltipContent>
+				</Tooltip>
 			</div>
 		</div>
 	);
