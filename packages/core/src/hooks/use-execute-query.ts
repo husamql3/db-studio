@@ -6,22 +6,10 @@ export const useExecuteQuery = () => {
 	const { mutateAsync: executeQuery, isPending: isExecutingQuery } = useMutation<
 		ExecuteQueryResponse,
 		Error,
-		{ query: string; page: number; pageSize: number }
+		{ query: string }
 	>({
-		mutationFn: async ({
-			query,
-			page,
-			pageSize,
-		}: {
-			query: string;
-			page: number;
-			pageSize: number;
-		}) => {
-			const searchParams = new URLSearchParams();
-			searchParams.set("page", page.toString());
-			searchParams.set("pageSize", pageSize.toString());
-
-			const response = await fetch(`${API_URL}/query?${searchParams.toString()}`, {
+		mutationFn: async ({ query }: { query: string }) => {
+			const response = await fetch(`${API_URL}/query`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

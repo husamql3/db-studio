@@ -46,8 +46,6 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const monacoEl = useRef<HTMLDivElement>(null);
-	const [isSaving, setIsSaving] = useState(false);
-	const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const getInitialQuery = useCallback(() => {
 		if (!query) return PGSQL_PLACEHOLDER_QUERY;
@@ -55,32 +53,9 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	}, [query]);
 
 	// Helper function you can call anytime
-	const getCurrentQuery = () => {
-		return editorInstance?.getValue() ?? "";
-	};
-
-	// Debounced save function
-	const debouncedSave = useCallback(
-		(value: string) => {
-			if (!queryId) return;
-
-			// Clear existing timeout
-			if (saveTimeoutRef.current) {
-				clearTimeout(saveTimeoutRef.current);
-			}
-
-			// Show saving state immediately
-			setIsSaving(true);
-
-			// Set new timeout
-			saveTimeoutRef.current = setTimeout(() => {
-				updateQuery(queryId, { query: value });
-				setIsSaving(false);
-				saveTimeoutRef.current = null;
-			}, 500); // 500ms debounce delay
-		},
-		[queryId, updateQuery],
-	);
+	// const getCurrentQuery = () => {
+	// 	return editorInstance?.getValue() ?? "";
+	// };
 
 	// Execute query function
 	const handleExecuteQuery = useCallback(
@@ -90,7 +65,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				return;
 			}
 
-			executeQuery({ query, page: 1, pageSize: 50 }).then((result) => {
+			executeQuery({ query }).then((result) => {
 				setQueryResult(result);
 			});
 		},
@@ -108,11 +83,53 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		handleExecuteQuery(query);
 	}, [handleExecuteQuery, editorInstance]);
 
+	// Format query function
+	const _handleFormatQuery = useCallback(() => {
+		if (!editorInstance) return;
+		editorInstance.trigger("keyboard", "editor.action.formatDocument", {});
+		toast.success("Query formatted");
+	}, [editorInstance]);
+
+	// Save query function
+	const _handleSaveQuery = useCallback(() => {
+		if (!editorInstance || !queryId) return;
+		const _query = editorInstance.getValue();
+		// Add your save logic here
+		toast.success("Query saved");
+	}, [editorInstance, queryId]);
+
 	useEffect(() => {
 		if (!monacoEl.current) return;
 
 		// Register PostgreSQL language
 		monaco.languages.register({ id: "pgsql" });
+
+		// Register document formatting provider for pgsql
+		monaco.languages.registerDocumentFormattingEditProvider("pgsql", {
+			provideDocumentFormattingEdits: (model) => {
+				const text = model.getValue();
+				// Basic SQL formatting
+				const formatted = text
+					.replace(/\s+/g, " ") // normalize whitespace
+					.replace(/\s*,\s*/g, ",\n  ") // commas on new lines
+					.replace(
+						/\b(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET)\b/gi,
+						"\n$1",
+					)
+					.replace(/\b(AND|OR)\b/gi, "\n  $1")
+					.trim()
+					.split("\n")
+					.map((line) => line.trim())
+					.join("\n");
+
+				return [
+					{
+						range: model.getFullModelRange(),
+						text: formatted,
+					},
+				];
+			},
+		});
 
 		// Define syntax highlighting tokens
 		monaco.languages.setMonarchTokensProvider("pgsql", {
@@ -321,6 +338,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			},
 		});
 
+		// Keyboard shortcuts
 		// Ctrl/Cmd+Enter to run query
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
 			const query = editorInstance.getValue();
@@ -328,28 +346,37 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				toast.error("Query is empty!");
 				return;
 			}
-
-			executeQuery(query);
+			handleExecuteQuery(query);
 		});
 
-		// Listen to editor content changes for auto-save
-		const disposable = editorInstance.onDidChangeModelContent(() => {
-			const value = editorInstance.getValue();
-			debouncedSave(value);
+		// Ctrl/Cmd+Shift+F to format query
+		editorInstance.addCommand(
+			monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+			() => {
+				editorInstance.trigger("keyboard", "editor.action.formatDocument", {});
+				toast.success("Query formatted");
+			},
+		);
+
+		// Ctrl/Cmd+S to save query
+		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+			if (!queryId) {
+				toast.error("No query to save");
+				return;
+			}
+			const query = editorInstance.getValue();
+			// Add your save logic here
+			updateQuery(queryId, { query });
+			toast.success("Query saved");
 		});
 
 		setEditor(editorInstance);
 
 		// Cleanup function
 		return () => {
-			disposable.dispose();
-			// Clear pending save timeout
-			if (saveTimeoutRef.current) {
-				clearTimeout(saveTimeoutRef.current);
-			}
 			editorInstance.dispose();
 		};
-	}, [debouncedSave, getInitialQuery, executeQuery]);
+	}, [getInitialQuery, handleExecuteQuery, queryId, updateQuery]);
 
 	const handleFavorite = useCallback(() => {
 		if (!queryId) return;
@@ -411,12 +438,12 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 						Export <Download className="size-3" />
 					</Button> */}
 
-					{isSaving && queryId && (
+					{/* {isSaving && queryId && (
 						<span className="px-3 text-xs text-green-600 animate-pulse">Saving...</span>
 					)}
 					{!isSaving && queryId && getCurrentQuery().trim().length > 0 && (
 						<span className="px-3 text-xs text-green-600">Saved</span>
-					)}
+					)} */}
 				</div>
 
 				<div className="flex items-center">
