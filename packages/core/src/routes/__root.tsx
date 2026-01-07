@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
+import { Toaster } from "@/components/ui/sonner";
 import { useTheme } from "@/hooks/use-theme";
 
 export const Route = createRootRoute({
@@ -17,6 +18,7 @@ export const Route = createRootRoute({
 				>
 					<Outlet />
 				</NuqsAdapter>
+				<Toaster position="top-right" />
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",

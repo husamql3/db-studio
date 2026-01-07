@@ -1,5 +1,6 @@
 import { IconCodeDots, IconHeart, IconHeartFilled, IconTable } from "@tabler/icons-react";
 import {
+	AlignLeft,
 	//  AlignLeft,
 	Command,
 	LucideCornerDownLeft,
@@ -7,6 +8,7 @@ import {
 import * as monaco from "monaco-editor";
 import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FiSave } from "react-icons/fi";
 import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
 import { toast } from "sonner";
 import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
@@ -38,13 +40,21 @@ import {
 
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
-	const [queryResult, setQueryResult] = useState<ExecuteQueryResponse | null>(null);
+	const [queryResult, setQueryResult] = useState<
+		| {
+				data: ExecuteQueryResponse;
+				queryId: string;
+		  }
+		| undefined
+	>(undefined);
+
 	const { getQuery, updateQuery, toggleFavorite } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
 	const isFavorite = query?.isFavorite ?? false;
 	const { executeQuery, isExecutingQuery } = useExecuteQuery();
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 	const monacoEl = useRef<HTMLDivElement>(null);
 
 	const getInitialQuery = useCallback(() => {
@@ -66,10 +76,10 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			}
 
 			executeQuery({ query }).then((result) => {
-				setQueryResult(result);
+				setQueryResult({ data: result, queryId: queryId ?? "" });
 			});
 		},
-		[executeQuery],
+		[executeQuery, queryId],
 	);
 
 	// Handler for button click
@@ -83,21 +93,6 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		handleExecuteQuery(query);
 	}, [handleExecuteQuery, editorInstance]);
 
-	// Format query function
-	const _handleFormatQuery = useCallback(() => {
-		if (!editorInstance) return;
-		editorInstance.trigger("keyboard", "editor.action.formatDocument", {});
-		toast.success("Query formatted");
-	}, [editorInstance]);
-
-	// Save query function
-	const _handleSaveQuery = useCallback(() => {
-		if (!editorInstance || !queryId) return;
-		const _query = editorInstance.getValue();
-		// Add your save logic here
-		toast.success("Query saved");
-	}, [editorInstance, queryId]);
-
 	useEffect(() => {
 		if (!monacoEl.current) return;
 
@@ -108,18 +103,29 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		monaco.languages.registerDocumentFormattingEditProvider("pgsql", {
 			provideDocumentFormattingEdits: (model) => {
 				const text = model.getValue();
-				// Basic SQL formatting
+				// Basic SQL formatting with proper indentation
 				const formatted = text
 					.replace(/\s+/g, " ") // normalize whitespace
-					.replace(/\s*,\s*/g, ",\n  ") // commas on new lines
+					.replace(/\s*,\s*/g, ",\n\t") // commas on new lines with tab
 					.replace(
 						/\b(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET)\b/gi,
 						"\n$1",
 					)
-					.replace(/\b(AND|OR)\b/gi, "\n  $1")
+					.replace(/\b(AND|OR)\b/gi, "\n\t$1")
 					.trim()
 					.split("\n")
-					.map((line) => line.trim())
+					.map((line) => {
+						const trimmed = line.trim();
+						// Add tab indentation for continued clauses and logical operators
+						if (
+							trimmed.startsWith("AND") ||
+							trimmed.startsWith("OR") ||
+							/^[^A-Z]/.test(trimmed)
+						) {
+							return `\t${trimmed}`;
+						}
+						return trimmed;
+					})
 					.join("\n");
 
 				return [
@@ -353,6 +359,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		editorInstance.addCommand(
 			monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
 			() => {
+				if (!editorInstance) return;
 				editorInstance.trigger("keyboard", "editor.action.formatDocument", {});
 				toast.success("Query formatted");
 			},
@@ -365,23 +372,60 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 				return;
 			}
 			const query = editorInstance.getValue();
-			// Add your save logic here
 			updateQuery(queryId, { query });
+			setHasUnsavedChanges(false);
 			toast.success("Query saved");
 		});
 
 		setEditor(editorInstance);
 
+		// Reset unsaved changes state when editor is initialized
+		if (queryId) {
+			const initialValue = editorInstance.getValue();
+			const savedQuery = query?.query ?? "";
+			setHasUnsavedChanges(initialValue !== savedQuery);
+		} else {
+			setHasUnsavedChanges(false);
+		}
+
+		// Listen to editor changes to detect unsaved changes
+		const disposable = editorInstance.onDidChangeModelContent(() => {
+			if (!queryId) {
+				setHasUnsavedChanges(false);
+				return;
+			}
+			const currentValue = editorInstance.getValue();
+			const savedQuery = query?.query ?? "";
+			setHasUnsavedChanges(currentValue !== savedQuery);
+		});
+
 		// Cleanup function
 		return () => {
+			disposable.dispose();
 			editorInstance.dispose();
 		};
-	}, [getInitialQuery, handleExecuteQuery, queryId, updateQuery]);
+	}, [getInitialQuery, handleExecuteQuery, queryId, updateQuery, query]);
 
+	// Button handlers
 	const handleFavorite = useCallback(() => {
 		if (!queryId) return;
 		toggleFavorite(queryId);
-	}, [toggleFavorite, queryId]);
+		toast.success(isFavorite ? "Query unfavorited" : "Query favorited");
+	}, [toggleFavorite, queryId, isFavorite]);
+
+	const handleFormatQuery = useCallback(() => {
+		if (!editorInstance) return;
+		editorInstance.trigger("keyboard", "editor.action.formatDocument", {});
+		toast.success("Query formatted");
+	}, [editorInstance]);
+
+	const handleSaveQuery = useCallback(() => {
+		if (!editorInstance || !queryId) return;
+		const query = editorInstance.getValue();
+		updateQuery(queryId, { query });
+		setHasUnsavedChanges(false);
+		toast.success("Query saved");
+	}, [editorInstance, queryId, updateQuery]);
 
 	return (
 		<div className="flex-1 relative w-full flex flex-col bg-gray-900">
@@ -390,7 +434,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 					<Button
 						type="button"
 						variant="default"
-						className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700 text-white hover:bg-green-800 gap-1 disabled:opacity-50"
+						className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700/60 text-white hover:bg-green-800/60 gap-1 disabled:opacity-50"
 						onClick={handleButtonClick}
 						disabled={isExecutingQuery}
 						aria-label="Run the query"
@@ -400,14 +444,25 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 						<LucideCornerDownLeft className="size-3" />
 					</Button>
 
-					{/* <Button
+					<Button
 						type="button"
 						variant="ghost"
 						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
 						aria-label="Format the query"
+						onClick={handleFormatQuery}
 					>
 						Format <AlignLeft className="size-3" />
-					</Button> */}
+					</Button>
+
+					<Button
+						type="button"
+						variant="ghost"
+						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+						aria-label="Save the query"
+						onClick={handleSaveQuery}
+					>
+						Save <FiSave className="size-3" />
+					</Button>
 
 					<Button
 						type="button"
@@ -417,43 +472,27 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 						onClick={handleFavorite}
 					>
 						{isFavorite ? (
-							<>
-								Unfavorite
-								<IconHeartFilled className="size-3" />
-							</>
+							<IconHeartFilled className="size-3" />
 						) : (
-							<>
-								Favorite
-								<IconHeart className="size-3" />
-							</>
+							<IconHeart className="size-3" />
 						)}
 					</Button>
 
-					{/* <Button
-						type="button"
-						variant="ghost"
-						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
-						aria-label="Export the query"
-					>
-						Export <Download className="size-3" />
-					</Button> */}
-
-					{/* {isSaving && queryId && (
-						<span className="px-3 text-xs text-green-600 animate-pulse">Saving...</span>
+					{queryId && hasUnsavedChanges && (
+						<span className="text-xs px-2 text-muted-foreground">Unsaved changes</span>
 					)}
-					{!isSaving && queryId && getCurrentQuery().trim().length > 0 && (
-						<span className="px-3 text-xs text-green-600">Saved</span>
-					)} */}
 				</div>
 
 				<div className="flex items-center">
 					{queryResult && (
 						<div className="flex items-center gap-1 px-2">
 							<span className="text-xs text-gray-500">
-								{queryResult.duration.toFixed(2)}ms
+								{queryResult.data?.duration.toFixed(2)}ms
 							</span>
 							<span className="text-xs text-gray-500">•</span>
-							<span className="text-xs text-gray-500">{queryResult.rowCount} rows</span>
+							<span className="text-xs text-gray-500">
+								{queryResult.data?.rowCount} rows
+							</span>
 						</div>
 					)}
 
@@ -508,7 +547,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			/>
 
 			<QueryResultContainer
-				results={queryResult}
+				results={queryResult?.data ?? null}
 				isLoading={isExecutingQuery}
 			/>
 		</div>

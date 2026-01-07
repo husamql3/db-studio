@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
 	ContextMenu,
@@ -79,16 +80,19 @@ export const SidebarListQueryItem = ({
 		if (queryId === id) {
 			navigate({ to: "/runner" });
 		}
+		toast.success("Query deleted successfully");
 	}, [deleteQuery, id, navigate, queryId]);
 
 	const handleDuplicate = useCallback(() => {
 		const query = getQuery(id);
 		const newQueryId = addQuery(`${query?.name} (Copy)`);
 		navigate({ to: "/runner/$queryId", params: { queryId: newQueryId } });
+		toast.success("Query duplicated successfully");
 	}, [addQuery, getQuery, navigate, id]);
 
 	const handleAddToFavorites = useCallback(() => {
 		toggleFavorite(id);
+		toast.success("Query favorited successfully");
 	}, [toggleFavorite, id]);
 
 	const handleRenameClick = useCallback(() => {
@@ -101,6 +105,7 @@ export const SidebarListQueryItem = ({
 			updateQuery(id, { name: renameValue.trim() });
 			setIsRenameDialogOpen(false);
 			setRenameValue("");
+			toast.success("Query renamed successfully");
 		}
 	}, [id, renameValue, updateQuery]);
 
@@ -132,9 +137,11 @@ export const SidebarListQueryItem = ({
 				isFavorite: false,
 			});
 			moveQuery(id, newFolderId);
+			toast.success("Query moved to new folder successfully");
 		} else if (!isCreatingFolder) {
 			// Move to selected folder (or remove from folder if undefined)
 			moveQuery(id, selectedFolderId);
+			toast.success("Query moved to selected folder successfully");
 		}
 		setIsMoveDialogOpen(false);
 		setIsCreatingFolder(false);

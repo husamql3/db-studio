@@ -29,6 +29,8 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 		columns: columns,
 		data: results?.rows ?? [],
 		getCoreRowModel: getCoreRowModel(),
+		columnResizeMode: "onChange",
+		enableColumnResizing: true,
 	});
 
 	const { rows } = table.getRowModel();
@@ -38,20 +40,21 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 	const virtualizer = useVirtualizer({
 		count: rows.length,
 		getScrollElement: () => parentRef.current,
-		estimateSize: () => 35, // Approximate row height
-		overscan: 10, // Number of rows to render outside visible area
+		estimateSize: () => 35,
+		overscan: 10,
 	});
 
 	const items = virtualizer.getVirtualItems();
 
-	// Calculate total table width based on column count
-	const totalTableWidth = columns.length * 200; // 200px per column
+	// Calculate total table width based on actual column sizes
+	const totalTableWidth = table
+		.getAllColumns()
+		.reduce((sum, col) => sum + col.getSize(), 0);
 
 	return (
 		<div
 			ref={parentRef}
 			className="relative h-full overflow-auto w-full"
-			// style={{ contain: 'strict' }}
 		>
 			{/* Header */}
 			<div
@@ -66,12 +69,21 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 						{headerGroup.headers.map((header) => (
 							<div
 								key={header.id}
-								className="shrink-0 px-4 py-2 font-semibold text-gray-300 border-r border-zinc-800"
-								style={{ width: "200px", minWidth: "150px" }}
+								className="shrink-0 px-2 py-2 font-semibold text-gray-300 border-r border-zinc-800 relative"
+								style={{ width: `${header.getSize()}px` }}
 							>
 								{header.isPlaceholder
 									? null
 									: flexRender(header.column.columnDef.header, header.getContext())}
+
+								{/* Resize Handle */}
+								<div
+									onMouseDown={header.getResizeHandler()}
+									onTouchStart={header.getResizeHandler()}
+									className={`absolute top-0 right-0 h-full w-1 cursor-col-resize select-none touch-none hover:bg-blue-500 ${
+										header.column.getIsResizing() ? "bg-blue-500" : ""
+									}`}
+								/>
 							</div>
 						))}
 					</div>
@@ -98,7 +110,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 								left: 0,
 								width: `${totalTableWidth}px`,
 								minWidth: "100%",
-								height: `${virtualRow.size}px`,
+								height: `${virtualRow.size}px - 5px`,
 								transform: `translateY(${virtualRow.start}px)`,
 							}}
 							className="flex text-xs border-b border-zinc-800 hover:bg-zinc-800/50"
@@ -106,8 +118,8 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 							{row.getVisibleCells().map((cell) => (
 								<div
 									key={cell.id}
-									className="shrink-0 px-4 py-2 border-r border-zinc-800"
-									style={{ width: "200px", minWidth: "150px" }}
+									className="shrink-0 px-2 py-2 border-r border-zinc-800"
+									style={{ width: `${cell.column.getSize()}px` }}
 								>
 									{flexRender(cell.column.columnDef.cell, cell.getContext())}
 								</div>

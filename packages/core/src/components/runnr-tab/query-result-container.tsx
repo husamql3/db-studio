@@ -17,18 +17,18 @@ export const QueryResultContainer = ({
 	const [showAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
 
 	const renderResults = useMemo(() => {
-		if (!results || results.rowCount === 0) {
-			return (
-				<div className="flex h-full p-2">
-					<p>Run the query to see the results</p>
-				</div>
-			);
-		}
-
 		if (results?.error) {
 			return (
 				<div className="flexh-full p-2">
 					<div className="text-sm">Error: {results.error}</div>
+				</div>
+			);
+		}
+
+		if (!results || results.rowCount === 0) {
+			return (
+				<div className="flex h-full p-2">
+					<p>Run the query to see the results</p>
 				</div>
 			);
 		}
