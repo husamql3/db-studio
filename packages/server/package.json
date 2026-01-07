@@ -62,6 +62,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
+    "@biomejs/cli-linux-x64": "^2.2.6",
     "@types/node": "^20.11.17",
     "@types/pg": "^8.16.0",
     "tsup": "^8.5.1",

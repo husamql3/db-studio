@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
+    "@biomejs/cli-linux-x64": "^2.2.5",
     "@cloudflare/vite-plugin": "^1.19.0",
     "@rollup/rollup-linux-x64-gnu": "^4.53.0",
     "@tanstack/devtools-vite": "^0.3.11",

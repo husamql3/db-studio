@@ -10,6 +10,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "^2.2.6",
+        "@biomejs/cli-linux-x64": "^2.2.6",
         "concurrently": "^9.2.1",
         "husky": "^9.1.7",
       },
@@ -99,6 +100,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "^2.2.6",
+        "@biomejs/cli-linux-x64": "^2.2.6",
         "@types/node": "^20.11.17",
         "@types/pg": "^8.16.0",
         "tsup": "^8.5.1",
@@ -147,6 +149,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "^2.2.5",
+        "@biomejs/cli-linux-x64": "^2.2.5",
         "@cloudflare/vite-plugin": "^1.19.0",
         "@rollup/rollup-linux-x64-gnu": "^4.53.0",
         "@tanstack/devtools-vite": "^0.3.11",
@@ -246,6 +249,8 @@
     "@biomejs/biome": ["@biomejs/biome@2.3.8", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "2.3.8" }, "bin": { "biome": "bin/biome" } }, ""],
 
     "@biomejs/cli-darwin-arm64": ["@biomejs/cli-darwin-arm64@2.3.8", "", { "os": "darwin", "cpu": "arm64" }, ""],
+
+    "@biomejs/cli-linux-x64": ["@biomejs/cli-linux-x64@2.3.11", "", { "os": "linux", "cpu": "x64" }, "sha512-/1s9V/H3cSe0r0Mv/Z8JryF5x9ywRxywomqZVLHAoa/uN0eY7F8gEngWKNS5vbbN/BsfpCG5yeBT5ENh50Frxg=="],
 
     "@clack/core": ["@clack/core@0.5.0", "", { "dependencies": { "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-p3y0FIOwaYRUPRcMO7+dlmLh8PSRcrjuTndsiA0WAFbWES0mLZlrjVoBRZ9DzkPFJZG6KGkJmoEAY0ZcVWTkow=="],
 
