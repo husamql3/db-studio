@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useQueryState } from "nuqs";
 import type { ColumnInfo } from "server/src/dao/table-columns.dao";
 import { toast } from "sonner";
 import { API_URL, CONSTANTS } from "@/utils/constants";
@@ -20,10 +19,10 @@ export interface DeleteResult {
 	relatedRecords?: RelatedRecord[];
 }
 
-export const useDeleteCells = () => {
+export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
-	const { tableCols } = useTableCols();
+	// const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
+	const { tableCols } = useTableCols({ tableName });
 
 	const {
 		mutateAsync: deleteCellsAsync,
@@ -37,7 +36,7 @@ export const useDeleteCells = () => {
 			rowData: Record<string, unknown>[];
 			force?: boolean;
 		}) => {
-			if (!activeTable) {
+			if (!tableName) {
 				throw new Error("No active table selected");
 			}
 
@@ -45,7 +44,7 @@ export const useDeleteCells = () => {
 				throw new Error("No table columns found");
 			}
 
-			const result = await deleteCellsService(activeTable, tableCols, rowData, force);
+			const result = await deleteCellsService(tableName, tableCols, rowData, force);
 			return result;
 		},
 		onSuccess: async (result) => {
@@ -56,7 +55,7 @@ export const useDeleteCells = () => {
 
 				await Promise.all([
 					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, activeTable],
+						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
 						exact: false,
 					}),
 					queryClient.invalidateQueries({

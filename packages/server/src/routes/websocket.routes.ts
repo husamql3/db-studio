@@ -1,6 +1,6 @@
 import type { NodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
-import { db } from "../db.js";
+import { db } from "@/db.js";
 
 const checkDatabaseConnection = async (): Promise<{
 	success: boolean;

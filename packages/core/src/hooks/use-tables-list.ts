@@ -12,6 +12,7 @@ export const useTablesList = () => {
 		queryFn: async () => {
 			try {
 				const response = await fetch(`${API_URL}/tables`);
+				console.log("useTablesList response", response);
 				if (!response.ok) {
 					throw new Error("Failed to fetch tables list");
 				}

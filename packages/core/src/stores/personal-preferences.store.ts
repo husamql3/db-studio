@@ -9,6 +9,9 @@ type PersonalPreferencesState = {
 		isOpen: boolean;
 		isPinned: boolean;
 	};
+	runnerResults: {
+		height: number;
+	};
 	theme: Theme;
 	setTheme: (theme: Theme) => void;
 	toggleTheme: () => void;
@@ -17,6 +20,7 @@ type PersonalPreferencesState = {
 	setSidebarPinned: (isPinned: boolean) => void;
 	toggleSidebarOpen: () => void;
 	toggleSidebarPinned: () => void;
+	setRunnerResultsHeight: (height: number) => void;
 };
 
 export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
@@ -27,13 +31,16 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 				isOpen: true,
 				isPinned: true,
 			},
+			runnerResults: {
+				height: 300,
+			},
 			theme: "system",
 			setTheme: (theme) => set({ theme: theme }),
 			toggleTheme: () =>
 				set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
 			setSidebarWidth: (width) =>
 				set((state) => ({
-					sidebar: { ...state.sidebar, width: Math.max(200, Math.min(500, width)) },
+					sidebar: { ...state.sidebar, width: Math.max(250, Math.min(500, width)) },
 				})),
 			setSidebarOpen: (isOpen) =>
 				set((state) => ({
@@ -50,6 +57,13 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			toggleSidebarPinned: () =>
 				set((state) => ({
 					sidebar: { ...state.sidebar, isPinned: !state.sidebar.isPinned },
+				})),
+			setRunnerResultsHeight: (height) =>
+				set((state) => ({
+					runnerResults: {
+						...state.runnerResults,
+						height: Math.max(150, Math.min(800, height)),
+					},
 				})),
 		}),
 		{

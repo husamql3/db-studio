@@ -1,4 +1,3 @@
-import { useQueryState } from "nuqs";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { AddRecordField } from "@/components/add-table/add-record/add-record-field";
 import { RecordReferenceSheet } from "@/components/add-table/add-record/record-reference-sheet";
@@ -8,13 +7,11 @@ import { SheetClose } from "@/components/ui/sheet";
 import { type AddRecordFormData, useCreateRecord } from "@/hooks/use-create-record";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
-import { CONSTANTS } from "@/utils/constants";
 
-export const AddRecordForm = () => {
+export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeSheet, isSheetOpen } = useSheetStore();
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
-	const { tableCols, isLoadingTableCols } = useTableCols();
-	const { createRecord, isCreatingRecord } = useCreateRecord();
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
+	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName });
 	const methods = useForm<AddRecordFormData>();
 
 	const onSubmit = async (data: AddRecordFormData) => {
@@ -42,7 +39,7 @@ export const AddRecordForm = () => {
 
 	return (
 		<SheetSidebar
-			title={`Add a new record to the table: ${activeTable}`}
+			title={`Add a new record to the table: ${tableName}`}
 			open={isSheetOpen("add-record")}
 			onOpenChange={(open) => {
 				if (!open) {

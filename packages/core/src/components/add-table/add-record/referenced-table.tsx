@@ -9,6 +9,7 @@ import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 import { ReferencedTableFilterPopup } from "@/components/add-table/add-record/referenced-table-filter-popup";
+import { ReferencedTableSortPopup } from "@/components/add-table/add-record/referenced-table-sort-popup";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -24,22 +25,7 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
-import { ReferencedTableSortPopup } from "./referenced-table-sort-popup";
-
-// Helper function to format cell value for display
-const formatCellValue = (value: unknown): string => {
-	if (value === null || value === undefined) {
-		return "";
-	}
-	if (typeof value === "object") {
-		try {
-			return JSON.stringify(value);
-		} catch {
-			return String(value);
-		}
-	}
-	return String(value);
-};
+import { formatCellValue } from "@/utils/format-cell-value";
 
 export const ReferencedTable = ({
 	tableName,
@@ -52,11 +38,14 @@ export const ReferencedTable = ({
 }) => {
 	const { setValue } = useFormContext<AddRecordFormData>();
 	const { closeSheet } = useSheetStore();
-	const { tableCols, isLoadingTableCols } = useTableCols(tableName);
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
 	const [referencedActiveTable, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const { tableData, isLoadingTableData } = useTableData(true);
+	const { tableData, isLoadingTableData } = useTableData({
+		tableName,
+		isReferencedTable: true,
+	});
 	const [page, setPage] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE.toString(),
 	);
