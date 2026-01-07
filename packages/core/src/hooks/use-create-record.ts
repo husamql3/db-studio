@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { useSheetStore } from "@/stores/sheet.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
@@ -8,16 +7,15 @@ export interface AddRecordFormData {
 	[key: string]: string;
 }
 
-export const useCreateRecord = () => {
+export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { closeSheet } = useSheetStore();
 
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
 		mutationFn: async (data: AddRecordFormData) => {
 			console.log("payload", {
-				tableName: activeTable,
-				data: data,
+				tableName: tableName,
+				data,
 			});
 			const res = await fetch(`${API_URL}/records`, {
 				method: "POST",
@@ -25,8 +23,8 @@ export const useCreateRecord = () => {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					tableName: activeTable,
-					data: data,
+					tableName: tableName,
+					data,
 				}),
 			});
 			if (!res.ok) {
@@ -38,7 +36,7 @@ export const useCreateRecord = () => {
 		onSuccess: async (data) => {
 			await Promise.all([
 				queryClient.invalidateQueries({
-					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, activeTable],
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
 					exact: false,
 				}),
 				queryClient.invalidateQueries({

@@ -1,9 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createTable } from "../dao/create-table.dao.js";
-import { getTablesList } from "../dao/table-list.dao.js";
-import { createTableSchema } from "../types/create-table.type.js";
-import { handleConnectionError } from "../utils/error-handler.js";
+import { createTable } from "@/dao/create-table.dao.js";
+import { getTablesList } from "@/dao/table-list.dao.js";
+import { createTableSchema } from "@/types/create-table.type.js";
+import { handleConnectionError } from "@/utils/error-handler.js";
 
 export const tablesRoutes = new Hono();
 

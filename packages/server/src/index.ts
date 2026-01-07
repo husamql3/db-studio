@@ -3,13 +3,13 @@ import { serve } from "@hono/node-server";
 import open from "open";
 import color from "picocolors";
 
-import { args } from "./cmd/args.js";
-import { getDatabaseUrl } from "./cmd/get-db-url.js";
-import { loadEnv } from "./cmd/load-env.js";
-import { showHelp } from "./cmd/show-help.js";
-import { showStatus } from "./cmd/show-status.js";
-import { showVersion } from "./cmd/show-version.js";
-import { DEFAULTS } from "./utils/defaults.js";
+import { args } from "@/cmd/args.js";
+import { getDatabaseUrl } from "@/cmd/get-db-url.js";
+import { loadEnv } from "@/cmd/load-env.js";
+import { showHelp } from "@/cmd/show-help.js";
+import { showStatus } from "@/cmd/show-status.js";
+import { showVersion } from "@/cmd/show-version.js";
+import { DEFAULTS } from "@/utils/defaults.js";
 
 export const main = async () => {
 	const { env, port, databaseUrl, varName, status, help, version } = args();

@@ -20,7 +20,7 @@ function RouteComponent() {
 							key={index}
 							className="relative md:grid md:grid-cols-[100px_1fr] md:gap-6 pb-10 last:pb-0"
 						>
-							<div className="flex flex-row md:flex-col gap-2 mb-3 md:mb-0 md:sticky md:top-4 md:self-start md:text-right md:pr-4">
+							<div className="flex flex-row md:flex-col gap-2 mb-3 md:mb-0 md:sticky md:top-4 md:self-start md:text-right">
 								<div className="text-[10px] text-muted-foreground order-2 md:order-1 flex items-center">
 									{new Date(item.date).toLocaleDateString("en-US", {
 										month: "short",
@@ -80,15 +80,32 @@ function RouteComponent() {
 										{item.features && item.features.length > 0 && (
 											<div className="space-y-1.5">
 												<h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
-													Features
+													🚀 Features
 												</h4>
 												<ul className="space-y-1">
-													{item.features.map((feature: string, featureIndex: number) => (
+													{item.features.map((feature, featureIndex: number) => (
 														<li
 															key={`${item.title}-feature-${featureIndex}`}
 															className="flex items-start gap-2"
 														>
-															<span>• {feature}</span>
+															<span className="flex-1">
+																• {feature.text}
+																{feature.username && (
+																	<>
+																		{" - "}
+																		<a
+																			href={`https://github.com/${feature.username}`}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			className="inline-flex items-center gap-1 text-primary-light/70 hover:text-primary-light transition-colors group"
+																		>
+																			<span className="text-xs font-medium opacity-70 group-hover:opacity-100">
+																				@{feature.username}
+																			</span>
+																		</a>
+																	</>
+																)}
+															</span>
 														</li>
 													))}
 												</ul>
@@ -98,16 +115,33 @@ function RouteComponent() {
 										{item.improvements && item.improvements.length > 0 && (
 											<div className="space-y-1.5">
 												<h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
-													Improvements
+													🔧 Improvements
 												</h4>
 												<ul className="space-y-1">
 													{item.improvements.map(
-														(improvement: string, improvementIndex: number) => (
+														(improvement, improvementIndex: number) => (
 															<li
 																key={`${item.title}-improvement-${improvementIndex}`}
 																className="flex items-start gap-2"
 															>
-																<span>• {improvement}</span>
+																<span className="flex-1">
+																	• {improvement.text}
+																	{improvement.username && (
+																		<>
+																			{"-"}
+																			<a
+																				href={`https://github.com/${improvement.username}`}
+																				target="_blank"
+																				rel="noopener noreferrer"
+																				className="inline-flex items-center gap-1 text-primary-light/70 hover:text-primary-light transition-colors ml-1.5 group"
+																			>
+																				<span className="text-[10px] font-medium opacity-70 group-hover:opacity-100">
+																					@{improvement.username}
+																				</span>
+																			</a>
+																		</>
+																	)}
+																</span>
 															</li>
 														),
 													)}
@@ -118,15 +152,32 @@ function RouteComponent() {
 										{item.bugsFixed && item.bugsFixed.length > 0 && (
 											<div className="space-y-1.5">
 												<h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
-													Bug Fixes
+													🐛 Bug Fixes
 												</h4>
 												<ul className="space-y-1">
-													{item.bugsFixed.map((bug: string, bugIndex: number) => (
+													{item.bugsFixed.map((bug, bugIndex: number) => (
 														<li
 															key={`${item.title}-bug-${bugIndex}`}
 															className="flex items-start gap-2"
 														>
-															<span>• {bug}</span>
+															<span className="flex-1">
+																• {bug.text}
+																{bug.username && (
+																	<>
+																		{" - "}
+																		<a
+																			href={`https://github.com/${bug.username}`}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			className="inline-flex items-center gap-1 text-primary-light/70 hover:text-primary-light transition-colors ml-1.5 group"
+																		>
+																			<span className="text-[10px] font-medium opacity-70 group-hover:opacity-100">
+																				@{bug.username}
+																			</span>
+																		</a>
+																	</>
+																)}
+															</span>
 														</li>
 													))}
 												</ul>

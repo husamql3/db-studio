@@ -2,9 +2,15 @@ import { cn } from "@/lib/utils";
 
 type SpinnerProps = {
 	size?: string;
+	color?: string;
 } & React.ComponentProps<"div">;
 
-export function Spinner({ size = "size-6", className, ...props }: SpinnerProps) {
+export function Spinner({
+	size = "size-6",
+	color = "bg-primary",
+	className,
+	...props
+}: SpinnerProps) {
 	const bars = Array(12).fill(0);
 
 	return (
@@ -14,7 +20,8 @@ export function Spinner({ size = "size-6", className, ...props }: SpinnerProps) 
 					<div
 						key={`spinner-bar-${String(i)}`}
 						className={cn(
-							"-left-[10%] -top-[3.9%] absolute h-[8%] w-[24%] animate-spinner rounded-md bg-primary",
+							"-left-[10%] -top-[3.9%] absolute h-[8%] w-[24%] animate-spinner rounded-md",
+							color,
 							`bar:nth-child(${i + 1})`,
 							className,
 						)}

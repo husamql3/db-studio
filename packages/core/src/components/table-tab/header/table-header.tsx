@@ -11,19 +11,22 @@ import type { TableRecord } from "@/types/table.type";
 export const TableHeader = ({
 	selectedRows,
 	setRowSelection,
+	tableName,
 }: {
 	selectedRows: Row<TableRecord>[];
 	setRowSelection: OnChangeFn<RowSelectionState>;
+	tableName: string;
 }) => {
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
 			<div className="flex items-center ">
-				<RefetchBtn />
-				<FilterPopup />
+				<RefetchBtn tableName={tableName} />
+				<FilterPopup tableName={tableName} />
 				<AddRecordBtn />
 				<SaveBtn setRowSelection={setRowSelection} />
 				<ClearBtn />
 				<DeleteBtn
+					tableName={tableName}
 					selectedRows={selectedRows}
 					setRowSelection={setRowSelection}
 				/>
