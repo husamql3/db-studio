@@ -1,23 +1,10 @@
-import { IconCodeDots, IconHeart, IconHeartFilled, IconTable } from "@tabler/icons-react";
-import {
-	AlignLeft,
-	//  AlignLeft,
-	Command,
-	LucideCornerDownLeft,
-} from "lucide-react";
 import * as monaco from "monaco-editor";
-import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FiSave } from "react-icons/fi";
 import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
 import { toast } from "sonner";
 import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
-import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useExecuteQuery } from "@/hooks/use-execute-query";
 import { useQueriesStore } from "@/stores/queries.store";
-import { CONSTANTS } from "@/utils/constants";
 import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 import {
 	BUILTIN_FUNCTIONS,
@@ -28,6 +15,7 @@ import {
 	OPERATORS,
 	SUGGESTIONS,
 } from "@/utils/constants/runner-editor";
+import { RunnerHeader } from "./runner-header";
 
 // todo: view the query result in a table
 // todo: the syntax error in the editor should be shown in the editor
@@ -38,20 +26,18 @@ import {
 // todo: use custom fetcher/axios function for the queries
 // todo: export the query result as a CSV, JSON, Markdown or Excel file
 
+export type QueryResult = {
+	data: ExecuteQueryResponse;
+	queryId: string;
+};
+
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
-	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
-	const [queryResult, setQueryResult] = useState<
-		| {
-				data: ExecuteQueryResponse;
-				queryId: string;
-		  }
-		| undefined
-	>(undefined);
+	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
 
 	const { getQuery, updateQuery, toggleFavorite } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
 	const isFavorite = query?.isFavorite ?? false;
-	const { executeQuery, isExecutingQuery } = useExecuteQuery();
+	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -316,7 +302,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			minimap: { enabled: false },
 			lineNumbers: "on",
 			roundedSelection: true,
-			scrollBeyondLastLine: false,
+			scrollBeyondLastLine: true,
 			scrollbar: {
 				horizontal: "hidden",
 				vertical: "hidden",
@@ -429,7 +415,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 
 	return (
 		<div className="flex-1 relative w-full flex flex-col bg-gray-900">
-			<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
+			{/* <header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
 				<div className="flex items-center">
 					<Button
 						type="button"
@@ -539,16 +525,29 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 						</Tooltip>
 					</ToggleGroup>
 				</div>
-			</header>
+			</header> */}
+
+			<RunnerHeader
+				isExecutingQuery={isExecutingQuery}
+				handleButtonClick={handleButtonClick}
+				handleFormatQuery={handleFormatQuery}
+				handleSaveQuery={handleSaveQuery}
+				handleFavorite={handleFavorite}
+				isFavorite={isFavorite}
+				queryId={queryId ?? ""}
+				hasUnsavedChanges={hasUnsavedChanges}
+				queryResult={queryResult ?? null}
+			/>
 
 			<div
 				ref={monacoEl}
-				className="flex-1 min-h-0"
+				className="flex-1 min-h-0 overflow-y-scroll"
 			/>
 
 			<QueryResultContainer
 				results={queryResult?.data ?? null}
 				isLoading={isExecutingQuery}
+				error={executeQueryError}
 			/>
 		</div>
 	);

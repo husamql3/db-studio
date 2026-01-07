@@ -18,7 +18,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 			accessorKey: item,
 			header: item,
 			cell: ({ row }: { row: Row<Record<string, unknown>> }) => (
-				<div className="font-medium max-w-[200px] truncate text-gray-200">
+				<div className="font-medium truncate text-gray-200">
 					{formatCellValue(row.getValue(item))}
 				</div>
 			),

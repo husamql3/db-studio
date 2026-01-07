@@ -8,16 +8,18 @@ export const createQueryClient = () => {
 			queries: {
 				staleTime: 30 * 1000, // 30 seconds
 				gcTime: 5 * 60 * 1000, // 5 minutes (was cacheTime)
-				retry: 1,
+				retry: 0,
 				retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
 				refetchOnWindowFocus: true, // refetch on window focus
 				refetchOnMount: true, // refetch on mount
 				refetchOnReconnect: true, // refetch on reconnect
 			},
 			mutations: {
-				retry: 1,
-				retryDelay: 1000,
+				retry: 0,
+				// retryDelay: 1000, // retry delay 1 second
+				networkMode: "always", // Ensures mutations work even when offline
 			},
+
 			dehydrate: {
 				shouldDehydrateQuery: (query) =>
 					defaultShouldDehydrateQuery(query) || query.state.status === "pending",

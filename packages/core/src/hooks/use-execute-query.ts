@@ -3,11 +3,11 @@ import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
 import { API_URL } from "@/utils/constants";
 
 export const useExecuteQuery = () => {
-	const { mutateAsync: executeQuery, isPending: isExecutingQuery } = useMutation<
-		ExecuteQueryResponse,
-		Error,
-		{ query: string }
-	>({
+	const {
+		mutateAsync: executeQuery,
+		isPending: isExecutingQuery,
+		error: executeQueryError,
+	} = useMutation<ExecuteQueryResponse, Error, { query: string }>({
 		mutationFn: async ({ query }: { query: string }) => {
 			const response = await fetch(`${API_URL}/query`, {
 				method: "POST",
@@ -18,9 +18,11 @@ export const useExecuteQuery = () => {
 			});
 			if (!response.ok) {
 				const errorData = await response.json();
-				throw new Error(errorData.message || "Failed to execute query");
+				console.log("useExecuteQuery errorData:", errorData);
+				throw new Error(errorData.error);
 			}
 			const result = await response.json();
+			console.log("useExecuteQuery result:", result);
 			return result;
 		},
 	});
@@ -28,5 +30,6 @@ export const useExecuteQuery = () => {
 	return {
 		executeQuery,
 		isExecutingQuery,
+		executeQueryError,
 	};
 };

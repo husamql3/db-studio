@@ -10,9 +10,9 @@ export const queryRoutes = new Hono();
  */
 queryRoutes.post("/", zValidator("json", executeQuerySchema), async (c) => {
 	try {
-		const { query, page, pageSize } = c.req.valid("json");
+		const { query } = c.req.valid("json");
 
-		const data = await executeQuery({ query, page, pageSize });
+		const data = await executeQuery({ query });
 		return c.json(data);
 	} catch (error) {
 		console.error("POST /query error:", error);
