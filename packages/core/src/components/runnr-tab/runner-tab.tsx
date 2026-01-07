@@ -390,7 +390,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			disposable.dispose();
 			editorInstance.dispose();
 		};
-	}, [getInitialQuery, handleExecuteQuery, queryId, updateQuery, query]);
+	}, [getInitialQuery, handleExecuteQuery, queryId, updateQuery]);
 
 	// Button handlers
 	const handleFavorite = useCallback(() => {

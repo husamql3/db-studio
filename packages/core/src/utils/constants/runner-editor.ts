@@ -66,7 +66,7 @@ export const KEYWORDS = [
 	"NO",
 	"ACTION",
 	"SET",
-	"export CONSTRAINT",
+	"CONSTRAINT",
 	"BEGIN",
 	"COMMIT",
 	"ROLLBACK",

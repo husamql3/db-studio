@@ -21,7 +21,7 @@ export const QueryResultContainer = ({
 	const renderResults = useMemo(() => {
 		if (error) {
 			return (
-				<div className="flexh-full p-2">
+				<div className="flex h-full p-2">
 					<div className="text-sm">Error: {error.message}</div>
 				</div>
 			);
@@ -45,19 +45,21 @@ export const QueryResultContainer = ({
 
 		if (showAs === "json") {
 			return (
-				<JsonView
-					value={results?.rows ?? []}
-					objectSortKeys={true}
-					displayObjectSize={false}
-					displayDataTypes={false}
-					indentWidth={14}
-					collapsed={2}
-					shortenTextAfterLength={100}
-					highlightUpdates={false}
-					style={vscodeTheme}
-					enableClipboard={false}
-					className="size-full"
-				/>
+				<div className="p-2">
+					<JsonView
+						value={results?.rows ?? []}
+						objectSortKeys={true}
+						displayObjectSize={false}
+						displayDataTypes={false}
+						indentWidth={14}
+						collapsed={2}
+						shortenTextAfterLength={100}
+						highlightUpdates={false}
+						style={vscodeTheme}
+						enableClipboard={false}
+						className="size-full"
+					/>
+				</div>
 			);
 		}
 

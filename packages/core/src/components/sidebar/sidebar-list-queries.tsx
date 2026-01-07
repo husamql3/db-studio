@@ -19,7 +19,7 @@ export const SidebarListQueries = () => {
 	const queriesCount = queries.length;
 	const favoriteQueries = getFavoriteQueries();
 	const favoriteQueriesCount = favoriteQueries.length;
-	const queriesWithoutFolders = queries.filter((q) => !q.folderId);
+	const queriesWithoutFolders = queries.filter((q) => !q.folderId && !q.isFavorite);
 
 	if (searchTerm) {
 		const filteredQueries = queries.filter((q) =>

@@ -110,7 +110,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 								left: 0,
 								width: `${totalTableWidth}px`,
 								minWidth: "100%",
-								height: `${virtualRow.size}px - 5px`,
+								height: `${virtualRow.size}px`,
 								transform: `translateY(${virtualRow.start}px)`,
 							}}
 							className="flex text-xs border-b border-zinc-800 hover:bg-zinc-800/50"
