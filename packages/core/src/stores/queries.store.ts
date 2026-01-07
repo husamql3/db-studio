@@ -45,123 +45,11 @@ type QueriesStore = {
 	getSelectedQuery: () => Query | undefined;
 };
 
-const INITIAL_FOLDERS: QueryFolder[] = [
-	{
-		id: "folder-1",
-		name: "Analytics",
-		isExpanded: true,
-		isFavorite: true,
-	},
-	{
-		id: "folder-2",
-		name: "Reports",
-		isExpanded: false,
-		isFavorite: false,
-	},
-	{
-		id: "folder-3",
-		name: "Development",
-		isExpanded: true,
-		isFavorite: true,
-	},
-];
-
-const INITIAL_QUERIES: Query[] = [
-	{
-		id: "query-1",
-		name: "Active Users",
-		query: "SELECT * FROM users WHERE status = 'active' ORDER BY created_at DESC",
-		description: "Get all active users",
-		folderId: "folder-1",
-		isFavorite: true,
-		isSelected: false,
-	},
-	{
-		id: "query-2",
-		name: "Revenue by Month",
-		query:
-			"SELECT DATE_TRUNC('month', created_at) as month, SUM(amount) as revenue FROM orders GROUP BY month ORDER BY month DESC",
-		description: "Monthly revenue breakdown",
-		folderId: "folder-1",
-		isFavorite: true,
-		isSelected: false,
-	},
-	{
-		id: "query-3",
-		name: "Top Products",
-		query:
-			"SELECT p.name, COUNT(oi.id) as order_count FROM products p JOIN order_items oi ON p.id = oi.product_id GROUP BY p.id ORDER BY order_count DESC LIMIT 10",
-		description: "Top 10 best selling products",
-		folderId: "folder-1",
-		isFavorite: false,
-		isSelected: false,
-	},
-	{
-		id: "query-4",
-		name: "Monthly Sales Report",
-		query: "SELECT * FROM sales_summary WHERE month = CURRENT_DATE - INTERVAL '1 month'",
-		description: "Last month's sales summary",
-		folderId: "folder-2",
-		isFavorite: false,
-		isSelected: false,
-	},
-	{
-		id: "query-5",
-		name: "Customer Retention",
-		query:
-			"SELECT cohort_month, retention_rate FROM customer_retention_analysis ORDER BY cohort_month DESC",
-		description: "Customer retention metrics by cohort",
-		folderId: "folder-2",
-		isFavorite: true,
-		isSelected: false,
-	},
-	{
-		id: "query-6",
-		name: "Debug Failed Orders",
-		query:
-			"SELECT * FROM orders WHERE status = 'failed' AND created_at > NOW() - INTERVAL '24 hours'",
-		description: "Recent failed orders for debugging",
-		folderId: "folder-3",
-		isFavorite: false,
-		isSelected: false,
-	},
-	{
-		id: "query-7",
-		name: "Database Migrations",
-		query: "SELECT * FROM schema_migrations ORDER BY version DESC",
-		description: "Check migration status",
-		folderId: "folder-3",
-
-		isSelected: false,
-		isFavorite: false,
-	},
-	{
-		id: "query-8",
-		name: "All Tables",
-		query:
-			"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
-		description: "List all database tables",
-		folderId: undefined,
-		isSelected: false,
-		isFavorite: true,
-	},
-	{
-		id: "query-9",
-		name: "Recent Logs",
-		query:
-			"SELECT * FROM logs WHERE created_at > NOW() - INTERVAL '1 hour' ORDER BY created_at DESC LIMIT 100",
-		description: "Last hour of application logs",
-		folderId: undefined,
-		isFavorite: false,
-		isSelected: false,
-	},
-];
-
 export const useQueriesStore = create<QueriesStore>()(
 	persist(
 		(set, get) => ({
-			folders: INITIAL_FOLDERS,
-			queries: INITIAL_QUERIES,
+			folders: [],
+			queries: [],
 
 			addFolder: (folder) => set((state) => ({ folders: [...state.folders, folder] })),
 
@@ -265,7 +153,7 @@ export const useQueriesStore = create<QueriesStore>()(
 			},
 		}),
 		{
-			name: "dbstudio-queries-1",
+			name: "dbstudio-queries",
 		},
 	),
 );

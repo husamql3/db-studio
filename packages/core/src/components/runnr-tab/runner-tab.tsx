@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
@@ -32,9 +33,9 @@ export type QueryResult = {
 };
 
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
+	const navigate = useNavigate();
 	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
-
-	const { getQuery, updateQuery, toggleFavorite } = useQueriesStore();
+	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
 	const isFavorite = query?.isFavorite ?? false;
 	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
@@ -406,12 +407,20 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	}, [editorInstance]);
 
 	const handleSaveQuery = useCallback(() => {
-		if (!editorInstance || !queryId) return;
+		if (!editorInstance) return;
 		const query = editorInstance.getValue();
-		updateQuery(queryId, { query });
+
+		// if no queryId, create a new query
+		if (!queryId) {
+			const newQueryId = addQuery();
+			updateQuery(newQueryId, { query });
+			navigate({ to: "/runner/$queryId", params: { queryId: newQueryId } });
+		} else {
+			updateQuery(queryId, { query });
+		}
 		setHasUnsavedChanges(false);
 		toast.success("Query saved");
-	}, [editorInstance, queryId, updateQuery]);
+	}, [editorInstance, queryId, updateQuery, addQuery]);
 
 	return (
 		<div className="flex-1 relative w-full flex flex-col bg-gray-900">

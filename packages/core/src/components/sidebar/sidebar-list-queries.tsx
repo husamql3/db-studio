@@ -16,7 +16,7 @@ export const SidebarListQueries = () => {
 	const [favoritesExpanded, setFavoritesExpanded] = useState(true);
 	const [queriesExpanded, setQueriesExpanded] = useState(true);
 
-	const queriesCount = queries.length;
+	const queriesCount = queries.filter((q) => !q.isFavorite).length;
 	const favoriteQueries = getFavoriteQueries();
 	const favoriteQueriesCount = favoriteQueries.length;
 	const queriesWithoutFolders = queries.filter((q) => !q.folderId && !q.isFavorite);
