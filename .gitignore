@@ -22,7 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-bun.lock
 
 # Local Netlify folder
 .netlify

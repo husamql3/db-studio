@@ -1,13 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { deleteRecords, forceDeleteRecords } from "../dao/delete-records.dao.js";
-import { insertRecord } from "../dao/insert-record.dao.js";
-import { updateRecords } from "../dao/update-records.dao.js";
+import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
+import { insertRecord } from "@/dao/insert-record.dao.js";
+import { updateRecords } from "@/dao/update-records.dao.js";
 import {
 	deleteRecordsSchema,
 	insertRecordSchema,
 	updateRecordsSchema,
-} from "../types/create-table.type.js";
+} from "@/types/create-table.type.js";
 
 export const recordsRoutes = new Hono();
 

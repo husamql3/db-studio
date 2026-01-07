@@ -1,6 +1,6 @@
-import { db } from "../db.js";
-import type { FieldDataType } from "../types/create-table.type.js";
-import type { CreateTableFormData } from "../types/index.js";
+import { db } from "@/db.js";
+import type { FieldDataType } from "@/types/create-table.type.js";
+import type { CreateTableFormData } from "@/types/index.js";
 
 export const createTable = async (tableData: CreateTableFormData) => {
 	const client = await db.connect();

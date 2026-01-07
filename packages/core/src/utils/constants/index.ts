@@ -1,5 +1,18 @@
+//* header tabs routes
+export const TABS = [
+	"table",
+	"runner",
+	"schema",
+	"indexes",
+	"logs",
+	"visualizer",
+	// "assistant",
+] as const;
+
 export const CONSTANTS = {
-	SIDEBAR_TABLE_SEARCH: "s",
+	//* sidebar search query state key
+	SIDEBAR_SEARCH: "search",
+
 	ACTIVE_TABLE: "table", // query state key for active table
 	ACTIVE_TAB: "t", // query state key for active tab
 	COLUMN_NAME: "columnName", // query state key for column name
@@ -13,6 +26,10 @@ export const CONSTANTS = {
 		TABLE_DEFAULT_LIMIT: 50,
 	},
 
+	RUNNER_STATE_KEYS: {
+		SHOW_AS: "view",
+	},
+
 	//* table state keys
 	TABLE_STATE_KEYS: {
 		SORT: "sort",
@@ -21,6 +38,8 @@ export const CONSTANTS = {
 		LIMIT: "limit",
 		FILTERS: "filters",
 	},
+
+	//* referenced table state keys
 	REFERENCED_TABLE_STATE_KEYS: {
 		ACTIVE_TABLE: "rTable",
 		PAGE: "rPage",
@@ -37,15 +56,34 @@ export const CONSTANTS = {
 	HOVER_DELAY: 100, // ms delay before opening
 };
 
-export const TABS = [
-	{ id: "table", label: "Table" },
-	{ id: "schema", label: "Schema" },
-	{ id: "indexes", label: "Indexes" },
-	{ id: "runner", label: "Runner" },
-	{ id: "logs", label: "Logs" },
-	{ id: "visualizer", label: "Visualizer" },
-	// { id: "assistant", label: "Assistant" },
-];
+// State reset helpers
+export const STATE_RESETS = {
+	TABLE: {
+		...CONSTANTS.TABLE_STATE_KEYS,
+	},
+	REFERENCED_TABLE: {
+		...CONSTANTS.REFERENCED_TABLE_STATE_KEYS,
+	},
+	COLUMN: {
+		[CONSTANTS.COLUMN_NAME]: null,
+	},
+	// Combined reset for tab changes
+	ALL: {
+		...CONSTANTS.TABLE_STATE_KEYS,
+		...CONSTANTS.REFERENCED_TABLE_STATE_KEYS,
+		columnName: null,
+	},
+} as const;
+
+// export const TABS = [
+// 	{ id: "table", label: "Table" },
+// 	{ id: "runner", label: "Runner" },
+// 	{ id: "schema", label: "Schema" },
+// 	{ id: "indexes", label: "Indexes" },
+// 	{ id: "logs", label: "Logs" },
+// 	{ id: "visualizer", label: "Visualizer" },
+// 	// { id: "assistant", label: "Assistant" },
+// ];
 
 export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",

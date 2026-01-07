@@ -1,12 +1,11 @@
 import { useQueryState } from "nuqs";
+import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
+import { Spinner } from "@/components/ui/spinner";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { CONSTANTS } from "@/utils/constants";
-import { Spinner } from "../ui/spinner";
-import { SidebarListItem } from "./sidebar-list-item";
 
-export const SidebarList = () => {
-	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_TABLE_SEARCH, {
-		shallow: true,
+export const SidebarListTables = () => {
+	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
 
@@ -18,7 +17,7 @@ export const SidebarList = () => {
 
 	if (isLoadingTablesList) {
 		return (
-			<div className="flex-1 h-full overflow-y-auto pb-3 h-full flex items-center justify-center">
+			<div className="flex-1 h-full overflow-y-auto pb-3 flex items-center justify-center">
 				<Spinner size="size-6" />
 			</div>
 		);
@@ -37,7 +36,7 @@ export const SidebarList = () => {
 			{filteredTables && filteredTables.length > 0 ? (
 				<ul>
 					{filteredTables?.map((table) => (
-						<SidebarListItem
+						<SidebarListTablesItem
 							key={table.tableName}
 							tableName={table.tableName}
 							rowCount={table.rowCount}

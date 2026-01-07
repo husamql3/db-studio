@@ -1,7 +1,6 @@
 import type { RowData } from "@tanstack/react-table";
 import type { DataTypes, StandardizedDataType } from "server/src/types/column.types";
 export type TableRecord = Record<string, unknown>;
-export type SortDirection = "asc" | "desc";
 
 export type CellVariant = DataTypes;
 

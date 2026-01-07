@@ -1,11 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { getTableData, type Sort } from "../dao/tables-data.dao.js";
-import {
-	tableDataQuerySchema,
-	tableNameParamSchema,
-} from "../types/create-table.type.js";
-import { handleConnectionError } from "../utils/error-handler.js";
+import { getTableData, type Sort } from "@/dao/tables-data.dao.js";
+import { tableDataQuerySchema, tableNameParamSchema } from "@/types/create-table.type.js";
+import { handleConnectionError } from "@/utils/error-handler.js";
 
 export const dataRoutes = new Hono();
 

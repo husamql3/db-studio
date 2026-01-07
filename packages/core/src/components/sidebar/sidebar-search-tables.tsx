@@ -8,10 +8,9 @@ import { Kbd } from "@/components/ui/kbd";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const SidebarSearch = () => {
+export const SidebarSearchTables = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_TABLE_SEARCH, {
-		shallow: true,
+	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
 	const { openSheet } = useSheetStore();
@@ -45,8 +44,8 @@ export const SidebarSearch = () => {
 				<Input
 					ref={inputRef}
 					placeholder="Search tables"
-					value={searchTerm}
-					onChange={(e) => setSearchTerm(e.target.value)}
+					value={searchTerm ?? ""}
+					onChange={(e) => setSearchTerm(e.target.value.trim())}
 					className="rounded-sm h-8 pl-8 pr-8"
 				/>
 				<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>

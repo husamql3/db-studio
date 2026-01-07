@@ -90,3 +90,7 @@ export const deleteRecordsSchema = z.object({
 		)
 		.min(1, "At least one primary key is required"),
 });
+
+export const executeQuerySchema = z.object({
+	query: z.string().min(1, "Query is required"),
+});

@@ -1,4 +1,4 @@
-import { db } from "../db.js";
+import { db } from "@/db.js";
 
 type DatabaseStatus = {
 	type: "db_status";

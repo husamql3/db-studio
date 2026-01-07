@@ -1,6 +1,7 @@
 import { IconFilter, IconX } from "@tabler/icons-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
+import type { Filter } from "server/src/dao/tables-data.dao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -13,7 +14,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useTableCols } from "@/hooks/use-table-cols";
-import type { Filter } from "@/hooks/use-table-data";
 import { CONSTANTS } from "@/utils/constants";
 
 export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string }) => {
@@ -23,7 +23,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
-	const { tableCols } = useTableCols(tableName);
+	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [localFilters, setLocalFilters] = useState<Filter[]>([]);

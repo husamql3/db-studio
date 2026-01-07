@@ -1,17 +1,26 @@
-import path from "path"
+import { defineConfig } from 'vite'
+import { devtools } from '@tanstack/devtools-vite'
+import viteReact from '@vitejs/plugin-react'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from "@tailwindcss/vite"
-import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
 
 // https://vite.dev/config/
 export default defineConfig({
   build: {
     outDir: "dist",
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [tailwindcss(),
+  devtools(),
+  tanstackRouter({
+    target: 'react',
+    autoCodeSplitting: true,
+  }),
+  viteReact(),
+  ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {

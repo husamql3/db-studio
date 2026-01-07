@@ -31,6 +31,7 @@ export const getDatabaseUrl = async (
 		options: [
 			{ value: "manual", label: "Enter connection string manually" },
 			{ value: "other-env", label: "Use different .env file" },
+			// todo: add multiple db connections support
 			{ value: "cancel", label: "Cancel / Exit" },
 		],
 		initialValue: "manual",
