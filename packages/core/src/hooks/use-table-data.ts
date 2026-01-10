@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
 import type { Filter, Sort, TableDataResult } from "server/src/dao/tables-data.dao";
+import { useDatabaseStore } from "@/stores/database.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
 export const useTableData = ({
@@ -10,6 +11,7 @@ export const useTableData = ({
 	tableName: string;
 	isReferencedTable?: boolean;
 }) => {
+	const { selectedDatabase } = useDatabaseStore();
 	const [activeTable] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE);
 	const activeTableName = tableName || activeTable;
 
@@ -61,6 +63,7 @@ export const useTableData = ({
 			isReferencedTable ? JSON.stringify(referencedSort) : regularSort,
 			order,
 			JSON.stringify(filters),
+			selectedDatabase,
 		],
 		queryFn: async () => {
 			const defaultPage = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_PAGE.toString();
@@ -83,6 +86,10 @@ export const useTableData = ({
 
 			if (filters && filters.length > 0) {
 				queryParams.set("filters", JSON.stringify(filters));
+			}
+
+			if (selectedDatabase) {
+				queryParams.set("database", selectedDatabase);
 			}
 
 			try {

@@ -1,12 +1,13 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 
 export interface TableInfo {
 	tableName: string;
 	rowCount: number;
 }
 
-export const getTablesList = async (): Promise<TableInfo[]> => {
-	const client = await db.connect();
+export const getTablesList = async (database?: string): Promise<TableInfo[]> => {
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 	try {
 		const res = await client.query(`
       SELECT 

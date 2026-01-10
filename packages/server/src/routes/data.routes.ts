@@ -35,7 +35,8 @@ dataRoutes.get(
 				}
 			}
 
-			const data = await getTableData(tableName, page, pageSize, sort, order, filters);
+			const database = c.req.query("database");
+			const data = await getTableData(tableName, page, pageSize, sort, order, filters, database);
 			return c.json(data);
 		} catch (error) {
 			console.error("GET /data error:", error);

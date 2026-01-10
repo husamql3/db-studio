@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
+import { useDatabaseStore } from "@/stores/database.store";
 import { type CellUpdate, useUpdateCellStore } from "@/stores/update-cell.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
@@ -8,6 +9,7 @@ export const useUpdateCell = () => {
 	const queryClient = useQueryClient();
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { clearUpdates, getUpdateCount } = useUpdateCellStore();
+	const { selectedDatabase } = useDatabaseStore();
 
 	const { mutateAsync: updateCellMutation, isPending: isUpdatingCell } = useMutation({
 		mutationFn: async (updates: CellUpdate[]) => {
@@ -36,7 +38,11 @@ export const useUpdateCell = () => {
 
 			console.log("Sending update payload:", payload);
 
-			const response = await fetch(`${API_URL}/records`, {
+			const url = new URL(`${API_URL}/records`);
+			if (selectedDatabase) {
+				url.searchParams.set("database", selectedDatabase);
+			}
+			const response = await fetch(url.toString(), {
 				method: "PATCH",
 				headers: {
 					"Content-Type": "application/json",

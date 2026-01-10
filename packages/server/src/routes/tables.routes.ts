@@ -12,7 +12,8 @@ export const tablesRoutes = new Hono();
  */
 tablesRoutes.get("/", async (c) => {
 	try {
-		const tablesList = await getTablesList();
+		const database = c.req.query("database");
+		const tablesList = await getTablesList(database);
 		console.log("GET /tables", tablesList);
 		return c.json(tablesList);
 	} catch (error) {
@@ -27,8 +28,9 @@ tablesRoutes.get("/", async (c) => {
 tablesRoutes.post("/", zValidator("json", createTableSchema), async (c) => {
 	try {
 		const body = c.req.valid("json");
+		const database = c.req.query("database");
 		console.log("POST /tables body", body);
-		const data = await createTable(body);
+		const data = await createTable(body, database);
 		console.log("POST /tables", data);
 		return c.json(data);
 	} catch (error) {

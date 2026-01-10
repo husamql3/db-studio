@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import { columnsRoutes } from "@/routes/columns.routes.js";
+import databasesRoutes from "@/routes/databases.routes.js";
 import { dataRoutes } from "@/routes/data.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
@@ -40,6 +41,7 @@ export const createServer = () => {
 	});
 
 	app.route("/ws", websocketRoutes(upgradeWebSocket));
+	app.route("/databases", databasesRoutes);
 	app.route("/tables", tablesRoutes);
 	app.route("/tables/:tableName/columns", columnsRoutes);
 	app.route("/tables/:tableName/data", dataRoutes);

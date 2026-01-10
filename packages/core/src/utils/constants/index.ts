@@ -24,6 +24,9 @@ export const CONSTANTS = {
 		TABLE_DATA: "tableData",
 		TABLE_DEFAULT_PAGE: 1,
 		TABLE_DEFAULT_LIMIT: 50,
+		DATABASES_LIST: "databasesList",
+		CURRENT_DATABASE: "currentDatabase",
+		DATABASE_CONNECTION_INFO: "databaseConnectionInfo",
 	},
 
 	RUNNER_STATE_KEYS: {

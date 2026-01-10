@@ -18,9 +18,10 @@ recordsRoutes.post("/", zValidator("json", insertRecordSchema), async (c) => {
 	try {
 		const body = c.req.valid("json");
 		const { tableName, data } = body;
+		const database = c.req.query("database");
 
 		console.log("POST /records body", { tableName, data });
-		const result = await insertRecord({ tableName, data });
+		const result = await insertRecord({ tableName, data, database });
 		console.log("POST /records", result);
 		return c.json(result);
 	} catch (error) {
@@ -47,9 +48,10 @@ recordsRoutes.patch("/", zValidator("json", updateRecordsSchema), async (c) => {
 	try {
 		const body = c.req.valid("json");
 		const { tableName, updates, primaryKey } = body;
+		const database = c.req.query("database");
 
 		console.log("PATCH /records body", { tableName, updates, primaryKey });
-		const result = await updateRecords({ tableName, updates, primaryKey });
+		const result = await updateRecords({ tableName, updates, primaryKey, database });
 		console.log("PATCH /records", result);
 		return c.json(result);
 	} catch (error) {
@@ -76,9 +78,10 @@ recordsRoutes.delete("/", zValidator("json", deleteRecordsSchema), async (c) => 
 	try {
 		const body = c.req.valid("json");
 		const { tableName, primaryKeys } = body;
+		const database = c.req.query("database");
 
 		console.log("DELETE /records body", { tableName, primaryKeys });
-		const result = await deleteRecords({ tableName, primaryKeys });
+		const result = await deleteRecords({ tableName, primaryKeys, database });
 		console.log("DELETE /records result", result);
 
 		if (result.fkViolation) {
@@ -110,9 +113,10 @@ recordsRoutes.delete("/force", zValidator("json", deleteRecordsSchema), async (c
 	try {
 		const body = c.req.valid("json");
 		const { tableName, primaryKeys } = body;
+		const database = c.req.query("database");
 
 		console.log("DELETE /records/force body", { tableName, primaryKeys });
-		const result = await forceDeleteRecords({ tableName, primaryKeys });
+		const result = await forceDeleteRecords({ tableName, primaryKeys, database });
 		console.log("DELETE /records/force result", result);
 
 		return c.json(result);
