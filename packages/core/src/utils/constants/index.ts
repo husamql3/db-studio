@@ -75,16 +75,6 @@ export const STATE_RESETS = {
 	},
 } as const;
 
-// export const TABS = [
-// 	{ id: "table", label: "Table" },
-// 	{ id: "runner", label: "Runner" },
-// 	{ id: "schema", label: "Schema" },
-// 	{ id: "indexes", label: "Indexes" },
-// 	{ id: "logs", label: "Logs" },
-// 	{ id: "visualizer", label: "Visualizer" },
-// 	// { id: "assistant", label: "Assistant" },
-// ];
-
 export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
 };
