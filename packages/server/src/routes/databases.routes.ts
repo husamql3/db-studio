@@ -5,7 +5,7 @@ import {
 	getDatabasesList,
 } from "../dao/database-list.dao";
 
-const databasesRoutes = new Hono();
+export const databasesRoutes = new Hono();
 
 /**
  * GET /databases - Get list of all databases
@@ -45,5 +45,3 @@ databasesRoutes.get("/connection", async (c) => {
 		return c.json({ error: "Failed to fetch database connection info" }, 500);
 	}
 });
-
-export default databasesRoutes;

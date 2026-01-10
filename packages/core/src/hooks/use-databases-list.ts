@@ -12,7 +12,12 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
  * Fetch all databases from the server
  */
 export const useDatabasesList = () => {
-	return useQuery({
+	const {
+		data: databases,
+		isLoading: isLoadingDatabases,
+		error: databasesError,
+		refetch: refetchDatabases,
+	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
 		queryFn: async (): Promise<DatabaseInfo[]> => {
 			const response = await fetch(`${API_URL}/databases`);
@@ -23,13 +28,19 @@ export const useDatabasesList = () => {
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
+
+	return { databases, isLoadingDatabases, databasesError, refetchDatabases };
 };
 
 /**
  * Fetch current database name
  */
 export const useCurrentDatabase = () => {
-	return useQuery({
+	const {
+		data: currentDatabase,
+		isLoading: isLoadingCurrentDatabase,
+		error: currentDatabaseError,
+	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
 		queryFn: async (): Promise<CurrentDatabase> => {
 			const response = await fetch(`${API_URL}/databases/current`);
@@ -40,13 +51,19 @@ export const useCurrentDatabase = () => {
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
+
+	return { currentDatabase, isLoadingCurrentDatabase, currentDatabaseError };
 };
 
 /**
  * Fetch database connection information
  */
 export const useDatabaseConnectionInfo = () => {
-	return useQuery({
+	const {
+		data: connectionInfo,
+		isLoading: isLoadingConnectionInfo,
+		error: connectionInfoError,
+	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASE_CONNECTION_INFO],
 		queryFn: async (): Promise<DatabaseConnectionInfo> => {
 			const response = await fetch(`${API_URL}/databases/connection`);
@@ -57,4 +74,6 @@ export const useDatabaseConnectionInfo = () => {
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
+
+	return { connectionInfo, isLoadingConnectionInfo, connectionInfoError };
 };

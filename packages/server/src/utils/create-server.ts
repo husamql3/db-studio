@@ -7,7 +7,7 @@ import { cors } from "hono/cors";
 
 import { columnsRoutes } from "@/routes/columns.routes.js";
 import { dataRoutes } from "@/routes/data.routes.js";
-import databasesRoutes from "@/routes/databases.routes.js";
+import { databasesRoutes } from "@/routes/databases.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";

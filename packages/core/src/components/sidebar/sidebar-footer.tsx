@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Database, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
@@ -15,21 +16,22 @@ import {
 	useDatabaseConnectionInfo,
 	useDatabasesList,
 } from "@/hooks/use-databases-list";
+import { cn } from "@/lib/utils";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {
-	const { data: databases, isLoading: isLoadingDatabases, refetch } = useDatabasesList();
-	const { data: currentDb } = useCurrentDatabase();
-	const { data: connectionInfo } = useDatabaseConnectionInfo();
+	const { databases, isLoadingDatabases, refetchDatabases } = useDatabasesList();
+	const { currentDatabase } = useCurrentDatabase();
+	const { connectionInfo } = useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const navigate = useNavigate();
 
 	// Initialize selectedDatabase with currentDatabase on mount
 	useEffect(() => {
-		if (currentDb?.database && !selectedDatabase) {
-			setSelectedDatabase(currentDb.database);
+		if (currentDatabase?.database && !selectedDatabase) {
+			setSelectedDatabase(currentDatabase.database);
 		}
-	}, [currentDb, selectedDatabase, setSelectedDatabase]);
+	}, [currentDatabase, selectedDatabase, setSelectedDatabase]);
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
@@ -37,15 +39,16 @@ export function SidebarFooter() {
 		navigate({ to: "/table", search: {} });
 	};
 
-	const handleRefresh = () => {
-		refetch();
+	const handleRefresh = async () => {
+		await refetchDatabases();
+		toast.success("Databases refreshed");
 	};
 
 	return (
 		<div className="mt-auto border-t bg-background">
 			<div className="p-3 space-y-3">
 				{/* Connection Status */}
-				<div className="flex items-center gap-2 px-1">
+				<div className="flex items-center justify-center gap-2 px-1">
 					<div className="relative flex h-2 w-2">
 						<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
 						<span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -71,7 +74,7 @@ export function SidebarFooter() {
 							title="Refresh databases"
 						>
 							<RefreshCw
-								className={`h-3 w-3 ${isLoadingDatabases ? "animate-spin" : ""}`}
+								className={cn("h-3 w-3", isLoadingDatabases && "animate-spin")}
 							/>
 						</Button>
 					</div>
@@ -79,7 +82,7 @@ export function SidebarFooter() {
 						value={selectedDatabase || ""}
 						onValueChange={handleDatabaseChange}
 					>
-						<SelectTrigger className="h-9 text-sm font-mono">
+						<SelectTrigger className="h-9 text-xs font-mono">
 							<SelectValue placeholder="Select database..." />
 						</SelectTrigger>
 						<SelectContent>
