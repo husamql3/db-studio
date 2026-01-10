@@ -4,8 +4,11 @@ import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LINKS } from "@/utils/constants";
+import { useSheetStore } from "@/stores/sheet.store";
 
 export const Header = () => {
+	const { openSheet } = useSheetStore();
+
 	return (
 		<div className="border-b border-zinc-800 w-full flex items-center justify-between bg-black h-12">
 			<div className="flex items-center h-full">
@@ -19,6 +22,7 @@ export const Header = () => {
 						<Button
 							variant="ghost"
 							className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+							onClick={() => openSheet("ai-assistant")}
 						>
 							<IconSparkles className="size-5" />
 						</Button>

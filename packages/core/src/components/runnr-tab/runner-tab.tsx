@@ -18,12 +18,6 @@ import {
 } from "@/utils/constants/runner-editor";
 import { RunnerHeader } from "./runner-header";
 
-// todo: view the query result in a table
-// todo: the syntax error in the editor should be shown in the editor
-// todo: run the query via the button and the Ctrl/Cmd+Enter shortcut
-// todo: format the query
-// todo: fix focus bug, when saving it loses focus
-// todo: fetch the tables and show them in the suggestions
 // todo: use custom fetcher/axios function for the queries
 // todo: export the query result as a CSV, JSON, Markdown or Excel file
 
@@ -420,122 +414,10 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		}
 		setHasUnsavedChanges(false);
 		toast.success("Query saved");
-	}, [editorInstance, queryId, updateQuery, addQuery]);
+	}, [editorInstance, queryId, updateQuery, addQuery, navigate]);
 
 	return (
 		<div className="flex-1 relative w-full flex flex-col bg-gray-900">
-			{/* <header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
-				<div className="flex items-center">
-					<Button
-						type="button"
-						variant="default"
-						className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700/60 text-white hover:bg-green-800/60 gap-1 disabled:opacity-50"
-						onClick={handleButtonClick}
-						disabled={isExecutingQuery}
-						aria-label="Run the query"
-					>
-						Run
-						<Command className="size-3" />
-						<LucideCornerDownLeft className="size-3" />
-					</Button>
-
-					<Button
-						type="button"
-						variant="ghost"
-						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
-						aria-label="Format the query"
-						onClick={handleFormatQuery}
-					>
-						Format <AlignLeft className="size-3" />
-					</Button>
-
-					<Button
-						type="button"
-						variant="ghost"
-						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
-						aria-label="Save the query"
-						onClick={handleSaveQuery}
-					>
-						Save <FiSave className="size-3" />
-					</Button>
-
-					<Button
-						type="button"
-						variant="ghost"
-						className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
-						aria-label="Favorite the query"
-						onClick={handleFavorite}
-					>
-						{isFavorite ? (
-							<IconHeartFilled className="size-3" />
-						) : (
-							<IconHeart className="size-3" />
-						)}
-					</Button>
-
-					{queryId && hasUnsavedChanges && (
-						<span className="text-xs px-2 text-muted-foreground">Unsaved changes</span>
-					)}
-				</div>
-
-				<div className="flex items-center">
-					{queryResult && (
-						<div className="flex items-center gap-1 px-2">
-							<span className="text-xs text-gray-500">
-								{queryResult.data?.duration.toFixed(2)}ms
-							</span>
-							<span className="text-xs text-gray-500">•</span>
-							<span className="text-xs text-gray-500">
-								{queryResult.data?.rowCount} rows
-							</span>
-						</div>
-					)}
-
-					<ToggleGroup
-						type="single"
-						variant="ghost"
-						onValueChange={(value) => {
-							if (value === showAs) return;
-							setShowAs(value);
-						}}
-						value={showAs ?? undefined}
-						className="h-8! rounded-none! border-l!"
-					>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<ToggleGroupItem
-									value="table"
-									aria-label="Toggle table"
-									className="rounded-none! h-8! aspect-square!"
-									data-selected={showAs === "table"}
-								>
-									<IconTable />
-								</ToggleGroupItem>
-							</TooltipTrigger>
-							<TooltipContent>
-								<p>View as a table</p>
-							</TooltipContent>
-						</Tooltip>
-
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<ToggleGroupItem
-									value="json"
-									aria-label="Toggle JSON"
-									className="rounded-none! h-8! aspect-square!"
-									data-selected={showAs === "json"}
-								>
-									<IconCodeDots />
-								</ToggleGroupItem>
-							</TooltipTrigger>
-							<TooltipContent>
-								<p>View as a JSON</p>
-							</TooltipContent>
-						</Tooltip>
-					</ToggleGroup>
-				</div>
-			</header> */}
-
 			<RunnerHeader
 				isExecutingQuery={isExecutingQuery}
 				handleButtonClick={handleButtonClick}

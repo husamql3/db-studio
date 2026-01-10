@@ -97,7 +97,7 @@ function RouteComponent() {
 																			href={`https://github.com/${feature.username}`}
 																			target="_blank"
 																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light/70 hover:text-primary-light transition-colors group"
+																			className="inline-flex items-center gap-1 text-primary-light hover:text-primary-light transition-colors group"
 																		>
 																			<span className="text-xs font-medium opacity-70 group-hover:opacity-100">
 																				@{feature.username}
@@ -133,7 +133,7 @@ function RouteComponent() {
 																				href={`https://github.com/${improvement.username}`}
 																				target="_blank"
 																				rel="noopener noreferrer"
-																				className="inline-flex items-center gap-1 text-primary-light/70 hover:text-primary-light transition-colors ml-1.5 group"
+																				className="inline-flex items-center gap-1 text-primary-light hover:text-primary-light transition-colors ml-1.5 group"
 																			>
 																				<span className="text-[10px] font-medium opacity-70 group-hover:opacity-100">
 																					@{improvement.username}
@@ -169,7 +169,7 @@ function RouteComponent() {
 																			href={`https://github.com/${bug.username}`}
 																			target="_blank"
 																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light/70 hover:text-primary-light transition-colors ml-1.5 group"
+																			className="inline-flex items-center gap-1 text-primary-light hover:text-primary-light transition-colors ml-1.5 group"
 																		>
 																			<span className="text-[10px] font-medium opacity-70 group-hover:opacity-100">
 																				@{bug.username}
