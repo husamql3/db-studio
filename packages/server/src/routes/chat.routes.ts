@@ -41,4 +41,3 @@ chatRoutes.post("/", async (c) => {
 		);
 	}
 });
-
