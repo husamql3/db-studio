@@ -25,7 +25,7 @@ export const executeQuery = async (params: {
 		// Clean the query - remove trailing semicolons and whitespace
 		const cleanedQuery = query.trim().replace(/;+$/, "");
 
-		// console.log("query", cleanedQuery);
+		console.log("executeQuery query:", cleanedQuery);
 		const result = await client.query(cleanedQuery);
 		console.log("executeQuery result:", result);
 		const duration = performance.now() - startTime;
