@@ -17,6 +17,32 @@ export type ChangelogItem = {
 export const changelog: ChangelogItem[] = [
 	// add at the top of the array
 	{
+		version: "1.1.2",
+		date: "2026-01-10",
+		title: "Implement the chat tab",
+		features: [
+			{
+				text: "",
+			},
+			{
+				text: "Enhanced date picker with time selection (hour/minute/second) and quick presets (NOW, TODAY, YESTERDAY, TOMORROW, NULL)",
+				username: "saraanbih",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fix the bug where displaying the Add Table sheet was not working",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Improved date/time input handling and timestamp field UI for better accuracy",
+				username: "saraanbih",
+			},
+		],
+	},
+	{
 		version: "1.1.0",
 		date: "2026-01-07",
 		title: "Implement the runner tab",
