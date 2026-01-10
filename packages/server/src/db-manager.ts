@@ -1,5 +1,5 @@
-import { Pool } from "pg";
 import type { PoolConfig } from "pg";
+import { Pool } from "pg";
 
 /**
  * DatabaseManager - Manages multiple database connection pools
@@ -7,7 +7,12 @@ import type { PoolConfig } from "pg";
  */
 class DatabaseManager {
 	private pools: Map<string, Pool> = new Map();
-	private baseConfig: { host: string; port: number; user: string; password: string } | null = null;
+	private baseConfig: {
+		host: string;
+		port: number;
+		user: string;
+		password: string;
+	} | null = null;
 
 	constructor() {
 		this.initializeBaseConfig();
@@ -19,14 +24,16 @@ class DatabaseManager {
 	private initializeBaseConfig() {
 		const databaseUrl = process.env.DATABASE_URL;
 		if (!databaseUrl) {
-			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
+			throw new Error(
+				"DATABASE_URL is not set. Please provide a database connection string.",
+			);
 		}
 
 		try {
 			const url = new URL(databaseUrl);
 			this.baseConfig = {
 				host: url.hostname,
-				port: Number.parseInt(url.port) || 5432,
+				port: Number.parseInt(url.port, 10) || 5432,
 				user: url.username,
 				password: url.password,
 			};
@@ -44,7 +51,7 @@ class DatabaseManager {
 		}
 
 		const { host, port, user, password } = this.baseConfig;
-		
+
 		// If no database specified, extract from original DATABASE_URL
 		if (!database) {
 			const databaseUrl = process.env.DATABASE_URL;
@@ -62,7 +69,7 @@ class DatabaseManager {
 	 */
 	getPool(database?: string): Pool {
 		const dbName = database || this.getDefaultDatabase();
-		
+
 		if (!this.pools.has(dbName)) {
 			const connectionString = this.buildConnectionString(dbName);
 			const poolConfig: PoolConfig = {

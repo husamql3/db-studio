@@ -19,7 +19,10 @@ export interface ColumnInfo {
 	enumValues: string[] | null;
 }
 
-export const getTableColumns = async (tableName: string, database?: string): Promise<ColumnInfo[]> => {
+export const getTableColumns = async (
+	tableName: string,
+	database?: string,
+): Promise<ColumnInfo[]> => {
 	const pool = getDbPool(database);
 	const client = await pool.connect();
 	try {

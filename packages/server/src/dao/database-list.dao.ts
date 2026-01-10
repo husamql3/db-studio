@@ -56,7 +56,7 @@ export async function getCurrentDatabase(): Promise<CurrentDatabase> {
  */
 export async function getDatabaseConnectionInfo(): Promise<DatabaseConnectionInfo> {
 	const pool = getDbPool();
-	
+
 	// Get version and connection stats
 	const infoQuery = `
 		SELECT 
@@ -81,7 +81,7 @@ export async function getDatabaseConnectionInfo(): Promise<DatabaseConnectionInf
 		try {
 			const url = new URL(databaseUrl);
 			host = url.hostname;
-			port = Number.parseInt(url.port) || 5432;
+			port = Number.parseInt(url.port, 10) || 5432;
 		} catch (error) {
 			console.error("Failed to parse DATABASE_URL:", error);
 		}
@@ -93,7 +93,7 @@ export async function getDatabaseConnectionInfo(): Promise<DatabaseConnectionInf
 		user: row.user,
 		database: row.database,
 		version: row.version,
-		activeConnections: Number.parseInt(row.active_connections),
-		maxConnections: Number.parseInt(row.max_connections),
+		activeConnections: Number.parseInt(row.active_connections, 10),
+		maxConnections: Number.parseInt(row.max_connections, 10),
 	};
 }

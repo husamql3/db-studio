@@ -8,7 +8,9 @@ type DatabaseStatus = {
 	error?: string;
 };
 
-export const checkDatabaseConnection = async (database?: string): Promise<DatabaseStatus> => {
+export const checkDatabaseConnection = async (
+	database?: string,
+): Promise<DatabaseStatus> => {
 	const startTime = Date.now();
 	const pool = getDbPool(database);
 

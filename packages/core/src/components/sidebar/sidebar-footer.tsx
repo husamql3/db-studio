@@ -60,7 +60,7 @@ export function SidebarFooter() {
 					<div className="flex items-center justify-between px-1">
 						<div className="flex items-center gap-1.5">
 							<Database className="h-3.5 w-3.5 text-muted-foreground" />
-							<label className="text-xs font-medium text-foreground">Database</label>
+							<span className="text-xs font-medium text-foreground">Database</span>
 						</div>
 						<Button
 							variant="ghost"
