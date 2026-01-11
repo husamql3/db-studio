@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useDatabaseStore } from "@/stores/database.store";
 import type {
 	CurrentDatabase,
 	DatabaseConnectionInfo,
@@ -15,6 +17,7 @@ export const useDatabasesList = () => {
 		isLoading: isLoadingDatabases,
 		error: databasesError,
 		refetch: refetchDatabases,
+		isRefetching: isRefetchingDatabases,
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
 		queryFn: async (): Promise<DatabaseInfo[]> => {
@@ -30,18 +33,26 @@ export const useDatabasesList = () => {
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
 
-	return { databases, isLoadingDatabases, databasesError, refetchDatabases };
+	return {
+		databases,
+		isLoadingDatabases,
+		databasesError,
+		refetchDatabases,
+		isRefetchingDatabases,
+	};
 };
 
 /**
  * Fetch current database name
  */
 export const useCurrentDatabase = () => {
+	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
+
 	const {
 		data: currentDatabase,
 		isLoading: isLoadingCurrentDatabase,
 		error: currentDatabaseError,
-	} = useQuery({
+	} = useQuery<CurrentDatabase, Error>({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
 		queryFn: async (): Promise<CurrentDatabase> => {
 			const response = await fetch(`${API_URL}/databases/current`);
@@ -52,6 +63,15 @@ export const useCurrentDatabase = () => {
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
+
+	useEffect(() => {
+		if (currentDatabase) {
+			console.log("useCurrentDatabase data", currentDatabase);
+			if (currentDatabase.database && !selectedDatabase && !isLoadingCurrentDatabase) {
+				setSelectedDatabase(currentDatabase.database);
+			}
+		}
+	}, [currentDatabase, selectedDatabase, isLoadingCurrentDatabase, setSelectedDatabase]);
 
 	return { currentDatabase, isLoadingCurrentDatabase, currentDatabaseError };
 };

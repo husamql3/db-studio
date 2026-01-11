@@ -30,6 +30,7 @@ export const useTablesList = () => {
 				throw error;
 			}
 		},
+		enabled: !!selectedDatabase,
 	});
 
 	return { tablesList, isLoadingTablesList, errorTablesList };
