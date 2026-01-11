@@ -19,11 +19,12 @@ export const useTablesList = () => {
 					url.searchParams.set("database", selectedDatabase);
 				}
 				const response = await fetch(url.toString());
-				console.log("useTablesList response", response);
+				const data = await response.json();
 				if (!response.ok) {
 					throw new Error("Failed to fetch tables list");
 				}
-				return response.json() as Promise<TableInfo[]>;
+				console.log("useTablesList data", data);
+				return data;
 			} catch (error) {
 				console.error("Error fetching tables list:", error);
 				throw error;

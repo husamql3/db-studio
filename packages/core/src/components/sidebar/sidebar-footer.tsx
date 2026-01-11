@@ -21,17 +21,17 @@ import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases } = useDatabasesList();
-	const { currentDatabase } = useCurrentDatabase();
+	const { currentDatabase, isLoadingCurrentDatabase } = useCurrentDatabase();
 	const { connectionInfo } = useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const navigate = useNavigate();
 	const [showDetails, setShowDetails] = useState(false);
 
 	useEffect(() => {
-		if (currentDatabase?.database && !selectedDatabase) {
+		if (currentDatabase?.database && !selectedDatabase && !isLoadingCurrentDatabase) {
 			setSelectedDatabase(currentDatabase.database);
 		}
-	}, [currentDatabase, selectedDatabase, setSelectedDatabase]);
+	}, [currentDatabase, selectedDatabase, setSelectedDatabase, isLoadingCurrentDatabase]);
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
@@ -42,6 +42,10 @@ export function SidebarFooter() {
 		await refetchDatabases();
 		toast.success("Databases refreshed");
 	};
+
+	if (isLoadingDatabases || isLoadingCurrentDatabase) {
+		return null;
+	}
 
 	return (
 		<div className="mt-auto border-t bg-background">
@@ -75,7 +79,10 @@ export function SidebarFooter() {
 						value={selectedDatabase || ""}
 						onValueChange={handleDatabaseChange}
 					>
-						<SelectTrigger className="h-9 text-xs font-mono w-full">
+						<SelectTrigger
+							className="h-9 text-xs font-mono w-full"
+							disabled={isLoadingDatabases}
+						>
 							<SelectValue placeholder="Select database..." />
 						</SelectTrigger>
 						<SelectContent>

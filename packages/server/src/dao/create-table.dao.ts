@@ -2,11 +2,11 @@ import { getDbPool } from "@/db-manager.js";
 import type { CreateTableFormData, FieldDataType } from "@/types/create-table.type.js";
 
 export const createTable = async (tableData: CreateTableFormData, database?: string) => {
+	const { tableName, fields, foreignKeys } = tableData;
 	const pool = getDbPool(database);
 	const client = await pool.connect();
-	try {
-		const { tableName, fields, foreignKeys } = tableData;
 
+	try {
 		// Build column definitions
 		const columnDefinitions = fields.map((field: FieldDataType) => {
 			let columnDef = `"${field.columnName}" ${field.columnType}`;
