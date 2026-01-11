@@ -31,6 +31,7 @@ class DatabaseManager {
 
 		try {
 			const url = new URL(databaseUrl);
+			console.log("Parsed DATABASE_URL for base configuration", url);
 			this.baseConfig = {
 				host: url.hostname,
 				port: Number.parseInt(url.port, 10) || 5432,
@@ -71,7 +72,7 @@ class DatabaseManager {
 		const dbName = database || this.getDefaultDatabase();
 
 		if (!this.pools.has(dbName)) {
-			const connectionString = this.buildConnectionString(dbName);
+			const connectionString = process.env.DATABASE_URL;
 			const poolConfig: PoolConfig = {
 				connectionString,
 				max: 10, // Maximum number of clients in the pool
