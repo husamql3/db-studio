@@ -118,7 +118,7 @@ class DatabaseManager {
 			console.log(`Created connection pool for: ${connectionString}`);
 		}
 
-		return this.pools.get(connectionString)!;
+		return this.pools.get(connectionString) ?? new Pool({ connectionString });
 	}
 
 	/**

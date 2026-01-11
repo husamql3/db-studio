@@ -1,6 +1,5 @@
 import { getDbPool } from "@/db-manager.js";
-import type { FieldDataType } from "@/types/create-table.type.js";
-import type { CreateTableFormData } from "@/types/create-table.type.js";
+import type { CreateTableFormData, FieldDataType } from "@/types/create-table.type.js";
 
 export const createTable = async (tableData: CreateTableFormData, database?: string) => {
 	const pool = getDbPool(database);
