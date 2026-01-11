@@ -64,17 +64,17 @@ class DatabaseManager {
 			}
 		}
 
-		if (!database || database.trim() === "") {
-			throw new Error("Database name is required and cannot be empty");
-		}
+		// if (!database || database.trim() === "") {
+		// 	throw new Error("Database name is required and cannot be empty");
+		// }
 
 		// Validate database name format (PostgreSQL identifiers)
 		// Database names cannot contain special characters that would break URL parsing
-		if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(database)) {
-			throw new Error(
-				`Invalid database name: "${database}". Database names must start with a letter or underscore and contain only alphanumeric characters, underscores, or dollar signs.`,
-			);
-		}
+		// if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(database)) {
+		// 	throw new Error(
+		// 		`Invalid database name: "${database}". Database names must start with a letter or underscore and contain only alphanumeric characters, underscores, or dollar signs.`,
+		// 	);
+		// }
 
 		try {
 			const url = new URL(this.baseConfig.url);

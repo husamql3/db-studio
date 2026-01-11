@@ -20,9 +20,10 @@ import { cn } from "@/lib/utils";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {
-	const { databases, isLoadingDatabases, refetchDatabases } = useDatabasesList();
+	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
+		useDatabasesList();
 	const { currentDatabase, isLoadingCurrentDatabase } = useCurrentDatabase();
-	const { connectionInfo } = useDatabaseConnectionInfo();
+	const { connectionInfo, isLoadingConnectionInfo } = useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const navigate = useNavigate();
 	const [showDetails, setShowDetails] = useState(false);
@@ -43,10 +44,6 @@ export function SidebarFooter() {
 		toast.success("Databases refreshed");
 	};
 
-	if (isLoadingDatabases || isLoadingCurrentDatabase) {
-		return null;
-	}
-
 	return (
 		<div className="mt-auto border-t bg-background">
 			<div className="p-4 space-y-2">
@@ -64,10 +61,13 @@ export function SidebarFooter() {
 									size="icon"
 									className="h-6 w-6 hover:bg-accent"
 									onClick={handleRefresh}
-									disabled={isLoadingDatabases}
+									disabled={isLoadingDatabases || isRefetchingDatabases}
 								>
 									<RefreshCw
-										className={cn("h-3.5 w-3.5", isLoadingDatabases && "animate-spin")}
+										className={cn(
+											"h-3.5 w-3.5",
+											isLoadingDatabases || (isRefetchingDatabases && "animate-spin"),
+										)}
 									/>
 								</Button>
 							</TooltipTrigger>
@@ -81,7 +81,7 @@ export function SidebarFooter() {
 					>
 						<SelectTrigger
 							className="h-9 text-xs font-mono w-full"
-							disabled={isLoadingDatabases}
+							disabled={isLoadingDatabases || isRefetchingDatabases}
 						>
 							<SelectValue placeholder="Select database..." />
 						</SelectTrigger>
@@ -105,6 +105,7 @@ export function SidebarFooter() {
 						variant="ghost"
 						className="w-full hover:bg-accent flex items-center justify-between"
 						onClick={() => setShowDetails(!showDetails)}
+						disabled={isLoadingConnectionInfo || isRefetchingDatabases}
 					>
 						<div className="flex items-center gap-2">
 							<div className="flex items-center justify-center">
