@@ -16,16 +16,27 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	// add at the top of the array
+	// {
+	// 	version: "1.2.3",
+	// 	date: "2026-01-10",
+	// 	title: "Implement the AI chat assistant",
+	// 	features: [],
+	// 	bugsFixed: [],
+	// 	improvements: [],
+	// },
 	{
-		version: "1.1.2",
-		date: "2026-01-10",
-		title: "Implement the chat tab",
+		version: "1.1.4",
+		date: "2026-01-11",
+		title: "Support multiple databases from same host",
 		features: [
 			{
-				text: "",
+				text: "Allow users to add the database server link and switch between multiple databases on the same host",
+				username: "Amirosagan",
 			},
+		],
+		improvements: [
 			{
-				text: "Enhanced date picker with time selection (hour/minute/second) and quick presets (NOW, TODAY, YESTERDAY, TOMORROW, NULL)",
+				text: "Improved date/time input handling and timestamp field UI for better accuracy",
 				username: "saraanbih",
 			},
 		],
@@ -34,11 +45,9 @@ export const changelog: ChangelogItem[] = [
 				text: "Fix the bug where displaying the Add Table sheet was not working",
 				username: "husamql3",
 			},
-		],
-		improvements: [
 			{
-				text: "Improved date/time input handling and timestamp field UI for better accuracy",
-				username: "saraanbih",
+				text: "Fix the copy button in the landing page CodeBlockTabs component",
+				username: "husamql3",
 			},
 		],
 	},

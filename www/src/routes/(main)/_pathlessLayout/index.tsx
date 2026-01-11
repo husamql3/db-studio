@@ -111,7 +111,9 @@ function App() {
 									className="text-xs"
 									lang="bash"
 								>
-									npx db-studio
+									<pre>
+										<code>npx db-studio</code>
+									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
 							<CodeBlockTab value="yarn">
@@ -119,7 +121,9 @@ function App() {
 									className="text-xs"
 									lang="bash"
 								>
-									yarn dlx db-studio
+									<pre>
+										<code>yarn dlx db-studio</code>
+									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
 							<CodeBlockTab value="pnpm">
@@ -127,7 +131,9 @@ function App() {
 									className="text-xs"
 									lang="bash"
 								>
-									pnpm dlx db-studio
+									<pre>
+										<code>pnpm dlx db-studio</code>
+									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
 							<CodeBlockTab value="bun">
@@ -135,7 +141,9 @@ function App() {
 									className="text-xs"
 									lang="bash"
 								>
-									bunx db-studio
+									<pre>
+										<code>bunx db-studio</code>
+									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
 						</CodeBlockTabs>

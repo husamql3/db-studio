@@ -45,28 +45,6 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Build connection string for a specific database
-	 */
-	private buildConnectionString(database?: string): string {
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
-
-		const { host, port, user, password } = this.baseConfig;
-
-		// If no database specified, extract from original DATABASE_URL
-		if (!database) {
-			const databaseUrl = this.baseConfig.url;
-			if (databaseUrl) {
-				const url = new URL(databaseUrl);
-				database = url.pathname.slice(1); // Remove leading slash
-			}
-		}
-
-		return `postgresql://${user}:${password}@${host}:${port}/${database}`;
-	}
-
-	/**
 	 * Get or create a connection pool for the specified database
 	 */
 	getPool(database?: string): Pool {
