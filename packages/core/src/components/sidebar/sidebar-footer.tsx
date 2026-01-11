@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Database, RefreshCw } from "lucide-react";
-import { useEffect } from "react";
+import { ChevronDown, Database, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
 	useCurrentDatabase,
 	useDatabaseConnectionInfo,
@@ -25,8 +25,8 @@ export function SidebarFooter() {
 	const { connectionInfo } = useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const navigate = useNavigate();
+	const [showDetails, setShowDetails] = useState(false);
 
-	// Initialize selectedDatabase with currentDatabase on mount
 	useEffect(() => {
 		if (currentDatabase?.database && !selectedDatabase) {
 			setSelectedDatabase(currentDatabase.database);
@@ -35,7 +35,6 @@ export function SidebarFooter() {
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
-		// Clear active table when switching databases
 		navigate({ to: "/table", search: {} });
 	};
 
@@ -46,43 +45,37 @@ export function SidebarFooter() {
 
 	return (
 		<div className="mt-auto border-t bg-background">
-			<div className="p-3 space-y-3">
-				{/* Connection Status */}
-				<div className="flex items-center justify-center gap-2 px-1">
-					<div className="relative flex h-2 w-2">
-						<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-						<span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-					</div>
-					<span className="text-xs font-medium text-green-600 dark:text-green-400">
-						Connected
-					</span>
-				</div>
-
-				{/* Database Selector */}
-				<div className="space-y-1.5">
-					<div className="flex items-center justify-between px-1">
-						<div className="flex items-center gap-1.5">
-							<Database className="h-3.5 w-3.5 text-muted-foreground" />
-							<span className="text-xs font-medium text-foreground">Database</span>
+			<div className="p-4 space-y-2">
+				{/* Database Selector - Primary Action */}
+				<div className="space-y-2">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<Database className="h-4 w-4 text-muted-foreground" />
+							<span className="text-sm font-medium">Database</span>
 						</div>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-6 w-6 hover:bg-accent"
-							onClick={handleRefresh}
-							disabled={isLoadingDatabases}
-							title="Refresh databases"
-						>
-							<RefreshCw
-								className={cn("h-3 w-3", isLoadingDatabases && "animate-spin")}
-							/>
-						</Button>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-6 w-6 hover:bg-accent"
+									onClick={handleRefresh}
+									disabled={isLoadingDatabases}
+								>
+									<RefreshCw
+										className={cn("h-3.5 w-3.5", isLoadingDatabases && "animate-spin")}
+									/>
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Refresh databases</TooltipContent>
+						</Tooltip>
 					</div>
+
 					<Select
 						value={selectedDatabase || ""}
 						onValueChange={handleDatabaseChange}
 					>
-						<SelectTrigger className="h-9 text-xs font-mono">
+						<SelectTrigger className="h-9 text-xs font-mono w-full">
 							<SelectValue placeholder="Select database..." />
 						</SelectTrigger>
 						<SelectContent>
@@ -90,7 +83,7 @@ export function SidebarFooter() {
 								<SelectItem
 									key={db.name}
 									value={db.name}
-									className="font-mono"
+									className="font-mono text-xs"
 								>
 									{db.name}
 								</SelectItem>
@@ -99,30 +92,57 @@ export function SidebarFooter() {
 					</Select>
 				</div>
 
-				{/* Connection Info */}
-				{connectionInfo && (
-					<>
-						<Separator className="my-2" />
-						<div className="space-y-1.5 px-1">
-							<div className="flex justify-between items-center text-xs">
-								<span className="text-muted-foreground">Host</span>
-								<span className="font-mono text-foreground">
+				{/* Connection Status - Collapsible */}
+				<div className="space-y-2">
+					<Button
+						variant="ghost"
+						className="w-full hover:bg-accent flex items-center justify-between"
+						onClick={() => setShowDetails(!showDetails)}
+					>
+						<div className="flex items-center gap-2">
+							<div className="flex items-center justify-center">
+								<div className="relative flex h-2 w-2">
+									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+									<span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+								</div>
+							</div>
+
+							<span className="text-xs font-medium text-green-600">Connected</span>
+						</div>
+						<ChevronDown
+							className={cn(
+								"size-3 text-muted-foreground transition-transform",
+								showDetails && "rotate-180",
+							)}
+						/>
+					</Button>
+
+					{/* Connection Details */}
+					{showDetails && connectionInfo && (
+						<div className="space-y-1.5 px-2 py-2 rounded-md bg-muted/30">
+							<div className="flex justify-between items-center">
+								<span className="text-xs text-muted-foreground">Host</span>
+								<span className="text-xs font-mono text-foreground">
 									{connectionInfo.host}:{connectionInfo.port}
 								</span>
 							</div>
-							<div className="flex justify-between items-center text-xs">
-								<span className="text-muted-foreground">User</span>
-								<span className="font-mono text-foreground">{connectionInfo.user}</span>
+
+							<div className="flex justify-between items-center">
+								<span className="text-xs text-muted-foreground">User</span>
+								<span className="text-xs font-mono text-foreground">
+									{connectionInfo.user}
+								</span>
 							</div>
-							<div className="flex justify-between items-center text-xs">
-								<span className="text-muted-foreground">Total DBs</span>
-								<span className="font-mono font-medium text-foreground">
+
+							<div className="flex justify-between items-center">
+								<span className="text-xs text-muted-foreground">Databases</span>
+								<span className="text-xs font-mono font-medium text-foreground">
 									{databases?.length || 0}
 								</span>
 							</div>
 						</div>
-					</>
-				)}
+					)}
+				</div>
 			</div>
 		</div>
 	);
