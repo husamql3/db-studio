@@ -1,4 +1,4 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 
 export interface Filter {
 	columnName: string;
@@ -120,6 +120,7 @@ export const getTableData = async (
 	sort: string | Sort[] = "",
 	order: SortDirection = "asc",
 	filters: Filter[] = [],
+	database?: string,
 ): Promise<TableDataResult> => {
 	const sortClause = buildSortClause(
 		Array.isArray(sort) ? sort : sort,
@@ -127,7 +128,8 @@ export const getTableData = async (
 	);
 	const { clause: whereClause, values: filterValues } = buildWhereClause(filters);
 
-	const client = await db.connect();
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 	try {
 		// Calculate offset
 		const offset = (page - 1) * pageSize;

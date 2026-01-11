@@ -1,4 +1,4 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 
 type DatabaseStatus = {
 	type: "db_status";
@@ -8,11 +8,14 @@ type DatabaseStatus = {
 	error?: string;
 };
 
-export const checkDatabaseConnection = async (): Promise<DatabaseStatus> => {
+export const checkDatabaseConnection = async (
+	database?: string,
+): Promise<DatabaseStatus> => {
 	const startTime = Date.now();
+	const pool = getDbPool(database);
 
 	try {
-		await db.query("SELECT 1");
+		await pool.query("SELECT 1");
 		const latency = Date.now() - startTime;
 
 		return {

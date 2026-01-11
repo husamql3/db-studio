@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
@@ -10,6 +11,7 @@ export interface AddRecordFormData {
 export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
 	const { closeSheet } = useSheetStore();
+	const { selectedDatabase } = useDatabaseStore();
 
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
 		mutationFn: async (data: AddRecordFormData) => {
@@ -17,7 +19,11 @@ export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 				tableName: tableName,
 				data,
 			});
-			const res = await fetch(`${API_URL}/records`, {
+			const url = new URL(`${API_URL}/records`);
+			if (selectedDatabase) {
+				url.searchParams.set("database", selectedDatabase);
+			}
+			const res = await fetch(url.toString(), {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

@@ -12,7 +12,8 @@ export const columnsRoutes = new Hono();
 columnsRoutes.get("/", zValidator("param", tableNameParamSchema), async (c) => {
 	try {
 		const { tableName } = c.req.valid("param");
-		const columns = await getTableColumns(tableName);
+		const database = c.req.query("database");
+		const columns = await getTableColumns(tableName, database);
 		console.log("GET /tables/:tableName/columns", columns);
 		return c.json(columns);
 	} catch (error) {

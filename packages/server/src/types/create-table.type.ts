@@ -94,3 +94,7 @@ export const deleteRecordsSchema = z.object({
 export const executeQuerySchema = z.object({
 	query: z.string().min(1, "Query is required"),
 });
+
+export const databaseQuerySchema = z.object({
+	database: z.string().optional(),
+});

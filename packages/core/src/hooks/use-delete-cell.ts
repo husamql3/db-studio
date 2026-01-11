@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnInfo } from "server/src/dao/table-columns.dao";
 import { toast } from "sonner";
+import { useDatabaseStore } from "@/stores/database.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 import { useTableCols } from "./use-table-cols";
 
@@ -23,6 +24,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
 	// const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { tableCols } = useTableCols({ tableName });
+	const { selectedDatabase } = useDatabaseStore();
 
 	const {
 		mutateAsync: deleteCellsAsync,
@@ -44,7 +46,13 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 				throw new Error("No table columns found");
 			}
 
-			const result = await deleteCellsService(tableName, tableCols, rowData, force);
+			const result = await deleteCellsService(
+				tableName,
+				tableCols,
+				rowData,
+				force,
+				selectedDatabase || undefined,
+			);
 			return result;
 		},
 		onSuccess: async (result) => {
@@ -97,6 +105,7 @@ export const deleteCellsService = async (
 	tableCols: ColumnInfo[],
 	rowData: Record<string, unknown>[],
 	force: boolean,
+	database?: string,
 ): Promise<DeleteResult> => {
 	const endpoint = force ? "/records/force" : "/records";
 
@@ -117,7 +126,12 @@ export const deleteCellsService = async (
 		primaryKeys,
 	};
 
-	const res = await fetch(`${API_URL}${endpoint}`, {
+	const url = new URL(`${API_URL}${endpoint}`);
+	if (database) {
+		url.searchParams.set("database", database);
+	}
+
+	const res = await fetch(url.toString(), {
 		method: "DELETE",
 		headers: {
 			"Content-Type": "application/json",

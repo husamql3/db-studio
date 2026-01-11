@@ -1,8 +1,9 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 
 export interface DeleteRecordParams {
 	tableName: string;
 	primaryKeys: Array<{ columnName: string; value: unknown }>;
+	database?: string;
 }
 
 export interface ForeignKeyConstraint {
@@ -41,6 +42,7 @@ export interface DeleteResult {
  */
 export const getForeignKeyReferences = async (
 	tableName: string,
+	database?: string,
 ): Promise<ForeignKeyConstraint[]> => {
 	const query = `
 		SELECT
@@ -60,7 +62,8 @@ export const getForeignKeyReferences = async (
 			AND ccu.table_name = $1
 	`;
 
-	const result = await db.query(query, [tableName]);
+	const pool = getDbPool(database);
+	const result = await pool.query(query, [tableName]);
 
 	return result.rows.map(({ row }: { row: ForeignKeyConstraintRow }) => ({
 		constraintName: row.constraint_name,
@@ -77,14 +80,16 @@ export const getForeignKeyReferences = async (
 export const getRelatedRecords = async (
 	tableName: string,
 	primaryKeys: Array<{ columnName: string; value: unknown }>,
+	database?: string,
 ): Promise<RelatedRecord[]> => {
-	const fkConstraints = await getForeignKeyReferences(tableName);
+	const fkConstraints = await getForeignKeyReferences(tableName, database);
 
 	if (fkConstraints.length === 0) {
 		return [];
 	}
 
 	const relatedRecords: RelatedRecord[] = [];
+	const pool = getDbPool(database);
 
 	// Group constraints by referencing table and column for efficiency
 	const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
@@ -118,7 +123,7 @@ export const getRelatedRecords = async (
 		`;
 
 		try {
-			const result = await db.query(query, pkValues);
+			const result = await pool.query(query, pkValues);
 
 			if (result.rows.length > 0) {
 				relatedRecords.push({
@@ -145,8 +150,9 @@ export const getRelatedRecords = async (
 export const deleteRecords = async (
 	params: DeleteRecordParams,
 ): Promise<DeleteResult> => {
-	const { tableName, primaryKeys } = params;
-	const client = await db.connect();
+	const { tableName, primaryKeys, database } = params;
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 
 	try {
 		await client.query("BEGIN");
@@ -210,8 +216,9 @@ export const deleteRecords = async (
 export const forceDeleteRecords = async (
 	params: DeleteRecordParams,
 ): Promise<DeleteResult> => {
-	const { tableName, primaryKeys } = params;
-	const client = await db.connect();
+	const { tableName, primaryKeys, database } = params;
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 
 	try {
 		await client.query("BEGIN");
@@ -224,7 +231,7 @@ export const forceDeleteRecords = async (
 		const pkValues = primaryKeys.map((pk) => pk.value);
 
 		// Get all FK constraints that reference this table
-		const fkConstraints = await getForeignKeyReferences(tableName);
+		const fkConstraints = await getForeignKeyReferences(tableName, database);
 
 		let totalRelatedDeleted = 0;
 
@@ -238,7 +245,7 @@ export const forceDeleteRecords = async (
 			values: unknown[],
 		) => {
 			// First, find if there are tables referencing the target table
-			const nestedFks = await getForeignKeyReferences(targetTable);
+			const nestedFks = await getForeignKeyReferences(targetTable, database);
 
 			for (const nestedFk of nestedFks) {
 				// Get the values that will be deleted from the target table
