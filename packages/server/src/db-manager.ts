@@ -45,13 +45,58 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Build a connection string for the specified database
+	 * @param database - The database name (optional, defaults to database from DATABASE_URL)
+	 * @returns The connection string for the specified database
+	 * @throws Error if database is invalid or unknown
+	 */
+	buildConnectionString(database?: string): string {
+		if (!this.baseConfig) {
+			throw new Error("Base configuration not initialized");
+		}
+
+		// If no database specified, extract from original DATABASE_URL
+		if (!database) {
+			const databaseUrl = this.baseConfig.url;
+			if (databaseUrl) {
+				const url = new URL(databaseUrl);
+				database = url.pathname.slice(1); // Remove leading slash
+			}
+		}
+
+		if (!database || database.trim() === "") {
+			throw new Error("Database name is required and cannot be empty");
+		}
+
+		// Validate database name format (PostgreSQL identifiers)
+		// Database names cannot contain special characters that would break URL parsing
+		if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(database)) {
+			throw new Error(
+				`Invalid database name: "${database}". Database names must start with a letter or underscore and contain only alphanumeric characters, underscores, or dollar signs.`,
+			);
+		}
+
+		try {
+			const url = new URL(this.baseConfig.url);
+			url.pathname = `/${database}`;
+			return url.toString();
+		} catch (error) {
+			throw new Error(
+				`Failed to build connection string for database "${database}": ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
+
+	/**
 	 * Get or create a connection pool for the specified database
+	 * Pools are cached by connection string to ensure distinct connections per database
 	 */
 	getPool(database?: string): Pool {
-		const dbName = database || this.getDefaultDatabase();
+		// Build connection string first to validate the database
+		const connectionString = this.buildConnectionString(database);
 
-		if (!this.pools.has(dbName)) {
-			const connectionString = this.baseConfig?.url;
+		// Use connection string as the cache key
+		if (!this.pools.has(connectionString)) {
 			const poolConfig: PoolConfig = {
 				connectionString,
 				max: 10, // Maximum number of clients in the pool
@@ -63,38 +108,37 @@ class DatabaseManager {
 
 			// Handle pool errors
 			pool.on("error", (err) => {
-				console.error(`Unexpected error on database pool for "${dbName}":`, err.message);
+				console.error(
+					`Unexpected error on database pool for "${connectionString}":`,
+					err.message,
+				);
 			});
 
-			this.pools.set(dbName, pool);
-			console.log(`Created connection pool for database: ${dbName}`);
+			this.pools.set(connectionString, pool);
+			console.log(`Created connection pool for: ${connectionString}`);
 		}
 
-		return this.pools.get(dbName)!;
+		return this.pools.get(connectionString) ?? new Pool({ connectionString });
 	}
 
 	/**
-	 * Get the default database name from DATABASE_URL
+	 * Close a specific database pool by connection string
 	 */
-	private getDefaultDatabase(): string {
-		const databaseUrl = process.env.DATABASE_URL;
-		if (!databaseUrl) {
-			throw new Error("DATABASE_URL is not set");
-		}
-		const url = new URL(databaseUrl);
-		return url.pathname.slice(1); // Remove leading slash
-	}
-
-	/**
-	 * Close a specific database pool
-	 */
-	async closePool(database: string): Promise<void> {
-		const pool = this.pools.get(database);
+	async closePool(connectionString: string): Promise<void> {
+		const pool = this.pools.get(connectionString);
 		if (pool) {
 			await pool.end();
-			this.pools.delete(database);
-			console.log(`Closed connection pool for database: ${database}`);
+			this.pools.delete(connectionString);
+			console.log(`Closed connection pool for: ${connectionString}`);
 		}
+	}
+
+	/**
+	 * Close a specific database pool by database name
+	 */
+	async closePoolByDatabase(database: string): Promise<void> {
+		const connectionString = this.buildConnectionString(database);
+		await this.closePool(connectionString);
 	}
 
 	/**
@@ -112,7 +156,7 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Get all active pool database names
+	 * Get all active pool connection strings
 	 */
 	getActivePools(): string[] {
 		return Array.from(this.pools.keys());
@@ -131,10 +175,26 @@ export const getDbPool = (database?: string): Pool => {
 };
 
 /**
- * Close a specific database pool
+ * Build a connection string for the specified database
+ */
+export const buildDbConnectionString = (database?: string): string => {
+	return databaseManager.buildConnectionString(database);
+};
+
+/**
+ * Close a specific database pool by database name
  */
 export const closeDbPool = async (database: string): Promise<void> => {
-	return databaseManager.closePool(database);
+	return databaseManager.closePoolByDatabase(database);
+};
+
+/**
+ * Close a specific database pool by connection string
+ */
+export const closeDbPoolByConnectionString = async (
+	connectionString: string,
+): Promise<void> => {
+	return databaseManager.closePool(connectionString);
 };
 
 /**
@@ -145,7 +205,7 @@ export const closeAllDbPools = async (): Promise<void> => {
 };
 
 /**
- * Get list of active pool database names
+ * Get list of active pool connection strings
  */
 export const getActivePools = (): string[] => {
 	return databaseManager.getActivePools();
