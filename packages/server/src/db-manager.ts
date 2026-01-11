@@ -8,6 +8,7 @@ import { Pool } from "pg";
 class DatabaseManager {
 	private pools: Map<string, Pool> = new Map();
 	private baseConfig: {
+		url: string;
 		host: string;
 		port: number;
 		user: string;
@@ -31,8 +32,8 @@ class DatabaseManager {
 
 		try {
 			const url = new URL(databaseUrl);
-			console.log("Parsed DATABASE_URL for base configuration", url);
 			this.baseConfig = {
+				url: databaseUrl,
 				host: url.hostname,
 				port: Number.parseInt(url.port, 10) || 5432,
 				user: url.username,
@@ -55,7 +56,7 @@ class DatabaseManager {
 
 		// If no database specified, extract from original DATABASE_URL
 		if (!database) {
-			const databaseUrl = process.env.DATABASE_URL;
+			const databaseUrl = this.baseConfig.url;
 			if (databaseUrl) {
 				const url = new URL(databaseUrl);
 				database = url.pathname.slice(1); // Remove leading slash
@@ -72,7 +73,7 @@ class DatabaseManager {
 		const dbName = database || this.getDefaultDatabase();
 
 		if (!this.pools.has(dbName)) {
-			const connectionString = process.env.DATABASE_URL;
+			const connectionString = this.baseConfig?.url;
 			const poolConfig: PoolConfig = {
 				connectionString,
 				max: 10, // Maximum number of clients in the pool
