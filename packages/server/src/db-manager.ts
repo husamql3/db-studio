@@ -101,10 +101,12 @@ class DatabaseManager {
 	 * Close all database pools
 	 */
 	async closeAll(): Promise<void> {
-		const closePromises = Array.from(this.pools.entries()).map(async ([dbName, pool]) => {
-			await pool.end();
-			console.log(`Closed connection pool for database: ${dbName}`);
-		});
+		const closePromises = Array.from(this.pools.entries()).map(
+			async ([connectionString, pool]) => {
+				await pool.end();
+				console.log(`Closed connection pool for: ${connectionString}`);
+			},
+		);
 		await Promise.all(closePromises);
 		this.pools.clear();
 	}

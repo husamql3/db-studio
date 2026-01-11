@@ -25,6 +25,7 @@ export const getTableColumns = async (
 ): Promise<ColumnInfo[]> => {
 	const pool = getDbPool(database);
 	const client = await pool.connect();
+
 	try {
 		const res = await client.query(
 			`

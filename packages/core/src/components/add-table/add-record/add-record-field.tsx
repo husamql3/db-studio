@@ -25,42 +25,6 @@ import { CONSTANTS } from "@/utils/constants";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
-/**
- * Converts an ISO 8601 datetime string (UTC) to a local datetime string
- * suitable for datetime-local inputs (YYYY-MM-DDTHH:MM).
- * @param iso - ISO 8601 datetime string (e.g., "2026-01-07T12:00:00.000Z")
- * @returns Local datetime string (e.g., "2026-01-07T07:00" for EST timezone)
- */
-export const isoToLocalDatetime = (iso?: string): string => {
-	if (!iso) return "";
-
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return "";
-
-	const yyyy = d.getFullYear();
-	const mm = pad(d.getMonth() + 1);
-	const dd = pad(d.getDate());
-	const hh = pad(d.getHours());
-	const min = pad(d.getMinutes());
-
-	return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-};
-
-/**
- * Converts a local datetime string to an ISO 8601 datetime string (UTC).
- * @param local - Local datetime string (e.g., "2026-01-07T07:00")
- * @returns ISO 8601 datetime string in UTC (e.g., "2026-01-07T12:00:00.000Z" for EST timezone)
- */
-export const localToIso = (local?: string): string => {
-	if (!local) return "";
-
-	// local is 'YYYY-MM-DDTHH:MM' in local timezone
-	const d = new Date(local);
-	if (Number.isNaN(d.getTime())) return "";
-
-	return d.toISOString();
-};
-
 export const AddRecordField = ({
 	columnName,
 	dataTypeLabel,

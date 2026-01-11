@@ -4,9 +4,7 @@ import type {
 	DatabaseConnectionInfo,
 	DatabaseInfo,
 } from "@/types/database.type";
-import { CONSTANTS } from "@/utils/constants";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+import { API_URL, CONSTANTS } from "@/utils/constants";
 
 /**
  * Fetch all databases from the server
@@ -21,10 +19,13 @@ export const useDatabasesList = () => {
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
 		queryFn: async (): Promise<DatabaseInfo[]> => {
 			const response = await fetch(`${API_URL}/databases`);
+
+			const data = await response.json();
 			if (!response.ok) {
 				throw new Error("Failed to fetch databases list");
 			}
-			return response.json();
+			console.log("useDatabasesList data", data);
+			return data;
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});

@@ -109,7 +109,9 @@ export function DatePicker({
 				? showTime
 					? format(value, "dd/MM/yyyy HH:mm:ss")
 					: format(value, "dd/MM/yyyy")
-				: format(value, "yyyy-MM-dd HH:mm:ss")
+				: showTime
+					? format(value, "yyyy-MM-dd HH:mm:ss")
+					: format(value, "yyyy-MM-dd")
 			: value === null
 				? "NULL"
 				: placeholder;
