@@ -39,10 +39,5 @@
     "node": ">=20.x",
     "bun": ">=1.2.19"
   },
-  "packageManager": "bun@1.2.19",
-  "dependencies": {
-    "@faker-js/faker": "^10.1.0",
-    "@tanstack/react-table": "^8.21.3",
-    "@tanstack/react-virtual": "^3.13.13"
-  }
+  "packageManager": "bun@1.2.19"
 }

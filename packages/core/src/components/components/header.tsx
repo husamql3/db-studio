@@ -28,7 +28,7 @@ export const Header = () => {
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent>
-						<p>AI Assistant (Coming soon)</p>
+						<p>AI Assistant</p>
 					</TooltipContent>
 				</Tooltip>
 

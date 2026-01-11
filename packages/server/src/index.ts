@@ -43,6 +43,13 @@ export const main = async () => {
 	// This ensures the db pool is initialized with the correct connection string
 	process.env.DATABASE_URL = DATABASE_URL;
 
+	// Set API keys from ENV object to process.env
+	// This ensures API keys from user's .env file are available at runtime
+	// Shell environment variables take precedence (only set if not already in process.env)
+	if (ENV?.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
+		process.env.GEMINI_API_KEY = ENV.GEMINI_API_KEY;
+	}
+
 	// Import createServer dynamically after setting DATABASE_URL
 	const { createServer } = await import("./utils/create-server.js");
 	const { app, injectWebSocket } = createServer();
