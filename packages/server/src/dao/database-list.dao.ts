@@ -1,4 +1,4 @@
-import { getDbPool } from "../db-manager";
+import { getDbPool } from "@/db-manager.js";
 
 export interface DatabaseInfo {
 	name: string;

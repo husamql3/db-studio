@@ -14,14 +14,14 @@ export const executeQuery = async (params: {
 	database?: string;
 }): Promise<ExecuteQueryResponse> => {
 	const { query, database } = params;
-	const pool = getDbPool(database);
-	const client = await pool.connect();
 
 	try {
 		if (!query || !query.trim()) {
 			throw new Error("Query cannot be empty");
 		}
 
+		const pool = getDbPool(database);
+		const client = await pool.connect();
 		const startTime = performance.now();
 
 		// Clean the query - remove trailing semicolons and whitespace

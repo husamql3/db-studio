@@ -3,7 +3,7 @@ import {
 	getCurrentDatabase,
 	getDatabaseConnectionInfo,
 	getDatabasesList,
-} from "../dao/database-list.dao";
+} from "@/dao/database-list.dao.js";
 
 export const databasesRoutes = new Hono();
 
