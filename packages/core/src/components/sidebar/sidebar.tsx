@@ -2,6 +2,7 @@ import { useLocation } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { SidebarContentQueriesList } from "@/components/sidebar/sidebar-content-queries-list";
 import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-tables-list";
+import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
 import { SidebarHeader } from "@/components/sidebar/sidebar-tables-header";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 
@@ -31,6 +32,7 @@ export const Sidebar = () => {
 		<SidebarWrapper>
 			<SidebarHeader />
 			{renderContent}
+			<SidebarFooter />
 		</SidebarWrapper>
 	);
 };

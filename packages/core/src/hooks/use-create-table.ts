@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
@@ -22,10 +23,15 @@ export interface AddTableFormData {
 export const useCreateTable = () => {
 	const { closeSheet } = useSheetStore();
 	const queryClient = useQueryClient();
+	const { selectedDatabase } = useDatabaseStore();
 
 	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
 		mutationFn: async (data: AddTableFormData) => {
-			const res = await fetch(`${API_URL}/tables`, {
+			const url = new URL(`${API_URL}/tables`);
+			if (selectedDatabase) {
+				url.searchParams.set("database", selectedDatabase);
+			}
+			const res = await fetch(url.toString(), {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

@@ -38,11 +38,11 @@ export const roadmapItems: RoadmapItem[] = [
 		items: [
 			{
 				title: "SQL editor with run button and results table",
-				status: "in-progress",
+				status: "completed",
 			},
 			{
 				title: "Built-in AI helper for writing, explaining, and improving SQL",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Indexes section to view, add, edit, or remove indexes",
@@ -93,7 +93,7 @@ export const roadmapItems: RoadmapItem[] = [
 					"Turn plain English into accurate SQL using knowledge of your full database",
 				status: "planned",
 			},
-			{ title: "Explain any SQL query in simple, everyday English", status: "planned" },
+			{ title: "Explain any SQL query in simple, everyday English", status: "completed" },
 			{
 				title:
 					"Suggest faster ways to write queries and show how much quicker they’ll run",
@@ -122,11 +122,7 @@ export const roadmapItems: RoadmapItem[] = [
 			{ title: "Add full support for SQLite databases", status: "planned" },
 			{
 				title: "Easy switching between different database connections",
-				status: "planned",
-			},
-			{
-				title: "Support for multiple open connections at the same time",
-				status: "planned",
+				status: "completed",
 			},
 		],
 	},
