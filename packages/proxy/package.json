@@ -1,0 +1,26 @@
+{
+  "name": "proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler build",
+    "start": "bun run build && wrangler dev --remote",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "check": "biome check --write --unsafe --verbose",
+    "secrets:add": "wrangler secret bulk .env",
+    "secrets:list": "wrangler secret list",
+    "secrets:clear": "wrangler secret delete --all"
+  },
+  "dependencies": {
+    "hono": "^4.11.3",
+    "@tanstack/ai": "^0.2.2",
+    "@tanstack/ai-gemini": "^0.3.2",
+    "hono-rate-limiter": "^0.5.3",
+    "@upstash/redis": "^1.36.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.4.0"
+  }
+}
