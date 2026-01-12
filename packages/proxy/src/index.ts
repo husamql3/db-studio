@@ -1,25 +1,22 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors';
-import { logger } from 'hono/logger';
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { env } from "cloudflare:workers";
 
-import { createProxyLimiter } from './limit';
+import { createProxyLimiter, keyGenerator, LIMIT } from './limit';
+import { getRedis } from './redis';
 
 const app = new Hono()
 
 app.use('/*', cors({
   origin: '*',
-  allowMethods: ['POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type'],
+  allowMethods: ['POST', 'GET', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'x-api-key', 'cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'],
 }));
 
-//* Log requests
-app.use('/*', logger());
-
 //* Apply rate limiters
-app.use('/*', createProxyLimiter(24 * 60 * 60 * 1000, 10)); // 10 req / day
+app.use('/chat', createProxyLimiter());
 
 /**
  * POST /chat - Proxy chat requests to Gemini API
@@ -28,14 +25,17 @@ app.post(
   '/chat',
   async (c) => {
     try {
-      const body = await c.req.json();
-      const { messages, systemPrompt, conversationId } = body;
+      const { messages, systemPrompt, conversationId } = await c.req.json();
       if (!messages || !Array.isArray(messages)) {
         return c.json(
           { error: 'Invalid request: messages array required' },
           400
         );
       }
+
+      console.log("messages", messages);
+      console.log("systemPrompt", systemPrompt);
+      console.log("conversationId", conversationId);
 
       const stream = chat({
         adapter: createGeminiChat(
@@ -59,15 +59,46 @@ app.post(
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       return c.json({ error: errorMessage }, 500);
     }
-  });
+  }
+);
 
-app.get('/', (c) => {
-  return c.json({
-    status: 'ok',
-    service: 'db-studio-proxy',
-    endpoints: ['/chat']
-  });
-});
+/**
+ * GET /chat/limit - Get remaining message limit for user
+ */
+app.get(
+  '/chat/limit',
+  async (c) => {
+    try {
+      const key = keyGenerator(c);
+      const usageKey = `rate:proxy:${key}`;
+
+      // Get current usage from Redis
+      const redis = getRedis(c);
+      const currentUsage = (await redis.get<number>(usageKey)) ?? 0;
+      const remaining = Math.max(0, LIMIT - currentUsage);
+
+      return c.json({
+        limit: LIMIT,
+        used: currentUsage,
+        remaining,
+      });
+    } catch (error) {
+      console.error('Error fetching limit:', error);
+      return c.json({ error: 'Failed to fetch limit' }, 500);
+    }
+  }
+);
+
+app.get(
+  '/',
+  (c) => {
+    return c.json({
+      status: 'ok',
+      service: 'db-studio-proxy',
+      endpoints: ['/chat', '/chat/limit']
+    });
+  }
+);
 
 app.get('/favicon.ico', (c) => {
   return c.body(null, 204);

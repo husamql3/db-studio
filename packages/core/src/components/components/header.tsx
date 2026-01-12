@@ -1,13 +1,13 @@
-import { IconBrandGithub, IconSparkles } from "@tabler/icons-react";
+import { IconBrandGithub } from "@tabler/icons-react";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useSheetStore } from "@/stores/sheet.store";
 import { LINKS } from "@/utils/constants";
+import { Chat } from "../chat/chat";
 
 export const Header = () => {
-	const { openSheet } = useSheetStore();
+	// const { openSheet } = useSheetStore();
 
 	return (
 		<div className="border-b border-zinc-800 w-full flex items-center justify-between bg-black h-12">
@@ -17,7 +17,8 @@ export const Header = () => {
 			</div>
 
 			<div className="flex items-center h-full">
-				<Tooltip>
+				<Chat />
+				{/* <Tooltip>
 					<TooltipTrigger asChild>
 						<Button
 							variant="ghost"
@@ -30,7 +31,7 @@ export const Header = () => {
 					<TooltipContent>
 						<p>AI Assistant</p>
 					</TooltipContent>
-				</Tooltip>
+				</Tooltip> */}
 
 				<Tooltip>
 					<TooltipTrigger asChild>

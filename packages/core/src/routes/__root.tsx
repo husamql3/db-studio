@@ -5,7 +5,6 @@ import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { AddTableForm } from "@/components/add-table/add-table-form";
-import { Chat } from "@/components/chat/chat";
 import { Toaster } from "@/components/ui/sonner";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -24,7 +23,6 @@ export const Route = createRootRoute({
 				<Toaster position="top-right" />
 				{/* Global sheets */}
 				<AddTableForm />
-				<Chat />
 				{/* Devtools */}
 				<TanStackDevtools
 					config={{

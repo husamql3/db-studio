@@ -11,7 +11,7 @@ interface Table {
 	name: string;
 	description?: string;
 	columns: Column[];
-	sampleData?: Record<string, any>[];
+	sampleData?: Record<string, string>[];
 }
 
 interface Column {

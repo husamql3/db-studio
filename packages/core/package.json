@@ -22,7 +22,6 @@
     "@tailwindcss/oxide-linux-x64-gnu": "^4.1.17",
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/ai": "^0.2.2",
-    "@tanstack/ai-gemini": "^0.3.2",
     "@tanstack/ai-react": "^0.2.2",
     "@tanstack/devtools-vite": "^0.4.1",
     "@tanstack/react-query": "^5.90.12",

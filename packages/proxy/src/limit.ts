@@ -1,25 +1,32 @@
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
-import { redisStore } from "./redis";
+import { getRedisStore } from "./redis";
 
-export const createProxyLimiter = (windowMs: number, limit: number): MiddlewareHandler => {
-  return rateLimiter({
-    windowMs,
-    limit,
-    keyGenerator: (c) => {
-      const cfConnectingIp = c.req.header("cf-connecting-ip");
-      const xRealIp = c.req.header("x-real-ip");
-      const xForwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
-      const apiKey = c.req.header("x-api-key");
+export const ONE_DAY = 24 * 60 * 60 * 1000;
+export const LIMIT = 5;
 
-      const identifier = apiKey ?? cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
-      console.log("Rate limit key:", identifier);
+export const keyGenerator = (c: Context) => {
+  const cfConnectingIp = c.req.header("cf-connecting-ip");
+  const xRealIp = c.req.header("x-real-ip");
+  const xForwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  const apiKey = c.req.header("x-api-key");
 
-      return identifier;
-    },
-    store: redisStore,
-    standardHeaders: "draft-7",
-    statusCode: 429,
-    message: "Too many requests",
-  });
+  const identifier = apiKey ?? cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
+  return identifier;
+}
+
+export const createProxyLimiter = (): MiddlewareHandler => {
+  return async (c, next) => {
+    const store = getRedisStore(c);
+    const limiter = rateLimiter({
+      windowMs: ONE_DAY,
+      limit: LIMIT,
+      keyGenerator: keyGenerator,
+      store: store,
+      standardHeaders: "draft-7",
+      statusCode: 429,
+      message: "Too many requests",
+    });
+    return limiter(c, next);
+  };
 }

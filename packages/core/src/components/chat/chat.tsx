@@ -1,3 +1,5 @@
+"use client";
+
 import { IconSparkles } from "@tabler/icons-react";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
@@ -7,6 +9,7 @@ import {
 	ConversationContent,
 	ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { LoadingText } from "@/components/ai-elements/loading-text";
 import {
 	Message,
 	MessageBranch,
@@ -27,35 +30,31 @@ import {
 	ReasoningContent,
 	ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRateLimit } from "@/hooks/use-rate-limit";
+import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
 import { API_URL } from "@/utils/constants";
-import { LoadingText } from "../ai-elements/loading-text";
-import { Suggestion, Suggestions } from "../ai-elements/suggestion";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-
-// todo: implement suggestions
-const SUGGESTIONS = [
-	"What are the latest trends in AI?",
-	"How does machine learning work?",
-	"Explain quantum computing",
-	"Best practices for React development",
-	"Tell me about TypeScript benefits",
-	"How to optimize database queries?",
-	"What is the difference between SQL and NoSQL?",
-	"Explain cloud computing basics",
-];
+import { CHAT_SUGGESTIONS } from "@/utils/constants/chat";
 
 export const Chat = () => {
-	const { isSheetOpen, closeSheet, openSheet } = useSheetStore();
+	const { rateLimit, refetchRateLimit } = useRateLimit();
+
 	const [text, setText] = useState("");
+
+	const { isSheetOpen, closeSheet, openSheet } = useSheetStore();
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
 		connection: fetchServerSentEvents(`${API_URL}/chat`),
 		onError: (error) => console.error("Error:", error.message),
 		onResponse: (response) => console.log("Response:", response),
-		onFinish: (message) => console.log("Finish:", message),
+		onFinish: (message) => {
+			console.log("Finish:", message);
+			refetchRateLimit();
+		},
 	});
 
 	const handleSubmit = (message: PromptInputMessage) => {
@@ -85,10 +84,17 @@ export const Chat = () => {
 		setText("");
 	};
 
-	// Determine status based on loading state
 	const status = isLoading ? "streaming" : "ready";
 
-	console.log(status, messages);
+	const getIndicatorColor = (isLoading: boolean, remaining: number) => {
+		if (isLoading) return "bg-blue-500";
+		if (!rateLimit) return "bg-zinc-500";
+		if (remaining === 0) return "bg-red-500";
+		if (remaining <= 5) return "bg-yellow-500";
+		return "bg-emerald-500";
+	};
+
+	const indicatorColor = getIndicatorColor(isLoading, rateLimit?.remaining ?? 0);
 
 	return (
 		<>
@@ -96,30 +102,63 @@ export const Chat = () => {
 				<TooltipTrigger asChild>
 					<Button
 						variant="ghost"
-						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12 relative"
 						onClick={() => openSheet("ai-assistant")}
 					>
 						<IconSparkles className="size-5" />
+						<span
+							className={cn(
+								"absolute top-2 right-2 h-2 w-2 rounded-full ring-2 ring-background",
+								isLoading ? "animate-pulse" : "",
+								indicatorColor,
+							)}
+						/>
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent>
-					<p>AI Assistant</p>
+				<TooltipContent
+					side="bottom"
+					className="text-xs"
+				>
+					{isLoading ? (
+						<p>Generating response...</p>
+					) : rateLimit ? (
+						<p>
+							{rateLimit.remaining}/{rateLimit.limit} messages remaining
+						</p>
+					) : (
+						<p>AI Assistant</p>
+					)}
 				</TooltipContent>
 			</Tooltip>
 
 			<SheetSidebar
 				title="AI Assistant"
 				cta={
-					<Button
-						type="button"
-						variant="outline"
-						size="lg"
-						onClick={handleNewChat}
-						disabled={isLoading}
-					>
-						<Plus className="h-4 w-4 mr-1" />
-						New Chat
-					</Button>
+					<div className="flex items-center gap-2">
+						{rateLimit && (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<span className="text-xs px-2 py-1 cursor-default text-muted-foreground">
+										{rateLimit.remaining}/{rateLimit.limit}
+									</span>
+								</TooltipTrigger>
+								<TooltipContent side="bottom">
+									<p>{rateLimit.remaining} messages remaining</p>
+								</TooltipContent>
+							</Tooltip>
+						)}
+
+						<Button
+							type="button"
+							variant="outline"
+							size="lg"
+							onClick={handleNewChat}
+							disabled={isLoading}
+						>
+							<Plus className="h-4 w-4 mr-1" />
+							New Chat
+						</Button>
+					</div>
 				}
 				closeButton={false}
 				open={isSheetOpen("ai-assistant")}
@@ -144,7 +183,6 @@ export const Chat = () => {
 							) : (
 								<>
 									{messages.map((message) => {
-										// Extract thinking parts if any
 										const thinkingParts = message.parts.filter(
 											(part) => part.type === "thinking",
 										);
@@ -201,7 +239,7 @@ export const Chat = () => {
 					<div className="grid shrink-0 gap-4 pt-3">
 						{messages.length === 0 && (
 							<Suggestions className="px-4">
-								{SUGGESTIONS.map((suggestion) => (
+								{CHAT_SUGGESTIONS.map((suggestion) => (
 									<Suggestion
 										key={suggestion}
 										onClick={() => handleSuggestionClick(suggestion)}
@@ -227,11 +265,13 @@ export const Chat = () => {
 										placeholder="Type a message..."
 									/>
 								</PromptInputBody>
+
 								<PromptInputFooter>
 									<PromptInputSubmit
-										// disabled={!text.trim()}
+										className="h-8!"
 										status={status}
 										onClick={isLoading ? handleStop : undefined}
+										disabled={rateLimit && rateLimit.remaining === 0}
 									/>
 								</PromptInputFooter>
 							</PromptInput>

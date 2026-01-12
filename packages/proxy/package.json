@@ -14,11 +14,11 @@
     "secrets:clear": "wrangler secret delete --all"
   },
   "dependencies": {
-    "hono": "^4.11.3",
     "@tanstack/ai": "^0.2.2",
     "@tanstack/ai-gemini": "^0.3.2",
-    "hono-rate-limiter": "^0.5.3",
-    "@upstash/redis": "^1.36.1"
+    "@upstash/redis": "^1.36.1",
+    "hono": "^4.11.3",
+    "hono-rate-limiter": "^0.5.3"
   },
   "devDependencies": {
     "wrangler": "^4.4.0"

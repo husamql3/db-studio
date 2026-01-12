@@ -79,4 +79,5 @@ export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
 };
 
+// todo: we will change this to use custom fetch function
 export const API_URL = "http://localhost:3333";
