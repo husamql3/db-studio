@@ -94,7 +94,6 @@
       "dependencies": {
         "@tanstack/ai": "^0.2.2",
         "@tanstack/ai-gemini": "^0.3.2",
-        "@upstash/ratelimit": "^2.0.8",
         "@upstash/redis": "^1.36.1",
         "hono": "^4.11.3",
         "hono-rate-limiter": "^0.5.3",
@@ -105,12 +104,13 @@
     },
     "packages/server": {
       "name": "db-studio",
-      "version": "1.1.0",
+      "version": "1.1.6",
       "bin": {
         "db-studio": "./dist/index.js",
       },
       "dependencies": {
         "@clack/prompts": "^0.11.0",
+        "@esbuild/linux-x64": "^0.27.2",
         "@hono/node-server": "^1.19.7",
         "@hono/node-ws": "^1.2.0",
         "@hono/zod-validator": "^0.7.6",
@@ -346,6 +346,8 @@
     "@envelop/instrumentation": ["@envelop/instrumentation@1.0.0", "", { "dependencies": { "@whatwg-node/promise-helpers": "^1.2.1", "tslib": "^2.5.0" } }, "sha512-cxgkB66RQB95H3X27jlnxCRNTmPuSTgmBAq6/4n2Dtv4hsk4yz8FadA1ggmd0uZzvKqWD6CR+WFgTjhDqg7eyw=="],
 
     "@esbuild/darwin-arm64": ["@esbuild/darwin-arm64@0.25.12", "", { "os": "darwin", "cpu": "arm64" }, ""],
+
+    "@esbuild/linux-x64": ["@esbuild/linux-x64@0.27.2", "", { "os": "linux", "cpu": "x64" }, "sha512-uwp2Tip5aPmH+NRUwTcfLb+W32WXjpFejTIOWZFw/v7/KnpCDKG66u4DLcurQpiYTiYwQ9B7KOeMJvLCu/OvbA=="],
 
     "@eslint-community/eslint-utils": ["@eslint-community/eslint-utils@4.9.0", "", { "dependencies": { "eslint-visitor-keys": "^3.4.3" }, "peerDependencies": { "eslint": "^6.0.0 || ^7.0.0 || >=8.0.0" } }, ""],
 
@@ -1074,10 +1076,6 @@
     "@uiw/react-json-view": ["@uiw/react-json-view@2.0.0-alpha.40", "", { "peerDependencies": { "@babel/runtime": ">=7.10.0", "react": ">=18.0.0", "react-dom": ">=18.0.0" } }, "sha512-j8YgmUrLAokX0k3TJC1+Rae3G2XS2hTYA9SsnQVWeQpn/PiqxwG8mI4A5TCASUTltPtpM/9Yp+mRm7L4Wjy8rw=="],
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.0", "", {}, "sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g=="],
-
-    "@upstash/core-analytics": ["@upstash/core-analytics@0.0.10", "", { "dependencies": { "@upstash/redis": "^1.28.3" } }, "sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ=="],
-
-    "@upstash/ratelimit": ["@upstash/ratelimit@2.0.8", "", { "dependencies": { "@upstash/core-analytics": "^0.0.10" }, "peerDependencies": { "@upstash/redis": "^1.34.3" } }, "sha512-YSTMBJ1YIxsoPkUMX/P4DDks/xV5YYCswWMamU8ZIfK9ly6ppjRnVOyBhMDXBmzjODm4UQKcxsJPvaeFAijp5w=="],
 
     "@upstash/redis": ["@upstash/redis@1.36.1", "", { "dependencies": { "uncrypto": "^0.1.3" } }, "sha512-N6SjDcgXdOcTAF+7uNoY69o7hCspe9BcA7YjQdxVu5d25avljTwyLaHBW3krWjrP0FfocgMk94qyVtQbeDp39A=="],
 
