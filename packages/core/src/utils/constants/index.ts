@@ -78,18 +78,13 @@ export const STATE_RESETS = {
 	},
 } as const;
 
-// export const TABS = [
-// 	{ id: "table", label: "Table" },
-// 	{ id: "runner", label: "Runner" },
-// 	{ id: "schema", label: "Schema" },
-// 	{ id: "indexes", label: "Indexes" },
-// 	{ id: "logs", label: "Logs" },
-// 	{ id: "visualizer", label: "Visualizer" },
-// 	// { id: "assistant", label: "Assistant" },
-// ];
-
 export const LINKS = {
 	GITHUB: "https://github.com/husamql3/db-studio",
 };
 
+// todo: we will change this to use custom fetch function
 export const API_URL = "http://localhost:3333";
+
+export const PROXY_URL = import.meta.env.DEV
+	? "http://localhost:8787"
+	: "https://db-studio-proxy.husamql3.workers.dev";

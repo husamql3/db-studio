@@ -5,23 +5,27 @@
     "www"
   ],
   "scripts": {
-    "dev": "concurrently \"bun run dev:core\" \"bun run dev:server\"",
+    "dev": "concurrently \"bun run dev:core\" \"bun run dev:server\" \"bun run dev:proxy\"",
     "dev:core": "bun run --cwd packages/core dev",
     "dev:server": "bun run build:core && bun run --cwd packages/server dev",
+    "dev:proxy": "bun run --cwd packages/proxy dev",
     "dev:www": "bun run --cwd www dev",
-    "build": "concurrently \"bun run build:core\" \"bun run build:server\" \"bun run build:www\"",
+    "build": "bun run build:server && bun run build:core && bun run build:proxy && bun run build:www",
     "build:core": "bun run --cwd packages/core build",
     "build:server": "bun run --cwd packages/server build",
+    "build:proxy": "bun run --cwd packages/proxy build",
     "build:release": "bun run build:core && bun run --cwd packages/server build:release",
     "build:www": "bun run --cwd www build",
     "deploy:www": "bun run --cwd www deploy",
     "deploy:www:preview": "bun run --cwd www deploy:preview",
+    "deploy:proxy": "bun run --cwd packages/proxy deploy",
     "check": "bun run --cwd packages/core check && bun run --cwd packages/server check && bun run --cwd www check",
     "check:meta": "bun run --cwd www check-meta",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bun run build:release && npm publish --workspace=packages/server",
-    "prepare": "husky"
+    "prepare": "husky",
+    "clean": "rm -rf node_modules dist packages/*/node_modules packages/*/dist www/node_modules www/dist"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
@@ -33,16 +37,11 @@
     "typescript": "^5"
   },
   "overrides": {
-    "esbuild": "0.25.12"
+    "esbuild": "0.27.2"
   },
   "engines": {
     "node": ">=20.x",
     "bun": ">=1.2.19"
   },
-  "packageManager": "bun@1.2.19",
-  "dependencies": {
-    "@faker-js/faker": "^10.1.0",
-    "@tanstack/react-table": "^8.21.3",
-    "@tanstack/react-virtual": "^3.13.13"
-  }
+  "packageManager": "bun@1.2.19"
 }

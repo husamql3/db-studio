@@ -1,0 +1,9 @@
+name = "db-studio-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-01-12"
+
+# compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
