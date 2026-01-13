@@ -10,7 +10,7 @@
     "dev:server": "bun run build:core && bun run --cwd packages/server dev",
     "dev:proxy": "bun run --cwd packages/proxy dev",
     "dev:www": "bun run --cwd www dev",
-    "build": "concurrently \"bun run build:core\" \"bun run build:server\" \"bun run build:proxy\" \"bun run build:www\"",
+    "build": "bun run build:server && bun run build:core && bun run build:proxy && bun run build:www",
     "build:core": "bun run --cwd packages/core build",
     "build:server": "bun run --cwd packages/server build",
     "build:proxy": "bun run --cwd packages/proxy build",
