@@ -5,6 +5,7 @@ import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { columnsRoutes } from "@/routes/columns.routes.js";
 import { dataRoutes } from "@/routes/data.routes.js";
@@ -28,7 +29,10 @@ export const createServer = () => {
 	const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app: app as any });
 
 	app.use("/*", cors());
-	app.use(logger());
+
+	if (process.env.NODE_ENV === "development") {
+		app.use(logger());
+	}
 
 	app.use(
 		"/favicon.ico",
