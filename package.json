@@ -43,8 +43,5 @@
     "node": ">=20.x",
     "bun": ">=1.2.19"
   },
-  "packageManager": "bun@1.2.19",
-  "dependencies": {
-    "db-studio": "."
-  }
+  "packageManager": "bun@1.2.19"
 }
