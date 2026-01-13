@@ -96,6 +96,11 @@ export const roadmapItems: RoadmapItem[] = [
 			{ title: "Explain any SQL query in simple, everyday English", status: "completed" },
 			{
 				title:
+					"Support for adding personal AI provider credentials (OpenAI, Anthropic, etc.)",
+				status: "planned",
+			},
+			{
+				title:
 					"Suggest faster ways to write queries and show how much quicker they’ll run",
 				status: "planned",
 			},

@@ -16,14 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	// add at the top of the array
-	// {
-	// 	version: "1.2.3",
-	// 	date: "2026-01-10",
-	// 	title: "Implement the AI chat assistant",
-	// 	features: [],
-	// 	bugsFixed: [],
-	// 	improvements: [],
-	// },
+	{
+		version: "1.2.6",
+		date: "2026-01-13",
+		title: "Implement the AI chat assistant",
+		features: [
+			{
+				text: "Added AI chat assistant that helps users ask natural language questions about their data",
+				username: "husamql3",
+			},
+			{
+				text: "Uses the user's database schema as context for more accurate and relevant responses; limited to 5 messages per day",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [],
+		improvements: [],
+	},
 	{
 		version: "1.1.4",
 		date: "2026-01-11",
@@ -47,22 +56,6 @@ export const changelog: ChangelogItem[] = [
 			},
 			{
 				text: "Fix the copy button in the landing page CodeBlockTabs component",
-				username: "husamql3",
-			},
-		],
-	},
-	{
-		version: "1.1.1",
-		date: "2026-01-08",
-		title: "Implement AI Assistant `talk to your database`",
-		features: [
-			{
-				text: "",
-			},
-		],
-		bugsFixed: [
-			{
-				text: "Fix displaying the add table form when the user navigates to the table page",
 				username: "husamql3",
 			},
 		],
