@@ -3,6 +3,9 @@
   "workspaces": {
     "": {
       "name": "db-studio",
+      "dependencies": {
+        "db-studio": ".",
+      },
       "devDependencies": {
         "@biomejs/biome": "^2.2.6",
         "@biomejs/cli-linux-x64": "^2.2.6",
@@ -54,6 +57,7 @@
         "react-dom": "^19.2.0",
         "react-hook-form": "^7.68.0",
         "react-hotkeys-hook": "^5.2.1",
+        "react-icons": "^5.5.0",
         "shadcn": "^3.6.1",
         "shiki": "^3.21.0",
         "sonner": "^2.0.7",
@@ -1436,6 +1440,8 @@
     "dayjs": ["dayjs@1.11.19", "", {}, "sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw=="],
 
     "db-studio": ["db-studio@workspace:packages/server"],
+
+    "db-studio": ["db-studio@file:", { "devDependencies": { "@biomejs/biome": "^2.2.6", "@biomejs/cli-linux-x64": "^2.2.6", "concurrently": "^9.2.1", "husky": "^9.1.7" }, "peerDependencies": { "typescript": "^5" } }],
 
     "db0": ["db0@0.3.4", "", { "peerDependencies": { "@electric-sql/pglite": "*", "@libsql/client": "*", "better-sqlite3": "*", "drizzle-orm": "*", "mysql2": "*", "sqlite3": "*" }, "optionalPeers": ["@electric-sql/pglite", "@libsql/client", "better-sqlite3", "drizzle-orm", "mysql2", "sqlite3"] }, "sha512-RiXXi4WaNzPTHEOu8UPQKMooIbqOEyqA1t7Z6MsdxSCeb8iUC9ko3LcmsLmeUt2SM5bctfArZKkRQggKZz7JNw=="],
 
