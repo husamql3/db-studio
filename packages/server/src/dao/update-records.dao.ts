@@ -1,4 +1,4 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 
 export interface UpdateRecordParams {
 	tableName: string;
@@ -8,6 +8,7 @@ export interface UpdateRecordParams {
 		value: unknown;
 	}>;
 	primaryKey?: string; // Optional: specify primary key column (defaults to 'id')
+	database?: string;
 }
 
 /**
@@ -15,8 +16,9 @@ export interface UpdateRecordParams {
  * Groups updates by row and executes them efficiently.
  */
 export const updateRecords = async (params: UpdateRecordParams) => {
-	const { tableName, updates, primaryKey = "id" } = params;
-	const client = await db.connect();
+	const { tableName, updates, primaryKey = "id", database } = params;
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 
 	try {
 		await client.query("BEGIN");

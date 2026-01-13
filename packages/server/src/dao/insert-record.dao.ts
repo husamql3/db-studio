@@ -1,13 +1,15 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 
 export interface InsertRecordParams {
 	tableName: string;
 	data: Record<string, unknown>;
+	database?: string;
 }
 
 export const insertRecord = async (params: InsertRecordParams) => {
-	const { tableName, data } = params;
-	const client = await db.connect();
+	const { tableName, data, database } = params;
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 
 	try {
 		// Extract column names and values

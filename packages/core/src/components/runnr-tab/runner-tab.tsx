@@ -241,6 +241,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 					})),
 
 					// Snippets
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: Monaco editor snippets use ${} for placeholders
 					{
 						label: "select-template",
 						kind: monaco.languages.CompletionItemKind.Snippet,
@@ -254,6 +255,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 						documentation: "SELECT statement template",
 						range,
 					},
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: Monaco editor snippets use ${} for placeholders
 					{
 						label: "create-table-template",
 						kind: monaco.languages.CompletionItemKind.Snippet,

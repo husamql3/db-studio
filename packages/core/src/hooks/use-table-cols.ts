@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnInfo } from "server/src/dao/table-columns.dao";
+import { useDatabaseStore } from "@/stores/database.store";
 import { API_URL, CONSTANTS } from "@/utils/constants";
 
 export const useTableCols = ({ tableName }: { tableName: string }) => {
+	const { selectedDatabase } = useDatabaseStore();
+
 	// let activeTable: string;
 	// const [activeTableQuery] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 
@@ -19,10 +22,14 @@ export const useTableCols = ({ tableName }: { tableName: string }) => {
 		error: errorTableCols,
 		refetch: refetchTableCols,
 	} = useQuery<ColumnInfo[], Error>({
-		queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName],
+		queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName, selectedDatabase],
 		queryFn: async () => {
 			try {
-				const response = await fetch(`${API_URL}/tables/${tableName}/columns`);
+				const url = new URL(`${API_URL}/tables/${tableName}/columns`);
+				if (selectedDatabase) {
+					url.searchParams.set("database", selectedDatabase);
+				}
+				const response = await fetch(url.toString());
 				if (!response.ok) {
 					throw new Error("Failed to fetch table columns");
 				}

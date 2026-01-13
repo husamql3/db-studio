@@ -1,4 +1,4 @@
-import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 import {
 	type DataTypes,
 	mapPostgresToDataType,
@@ -19,8 +19,13 @@ export interface ColumnInfo {
 	enumValues: string[] | null;
 }
 
-export const getTableColumns = async (tableName: string): Promise<ColumnInfo[]> => {
-	const client = await db.connect();
+export const getTableColumns = async (
+	tableName: string,
+	database?: string,
+): Promise<ColumnInfo[]> => {
+	const pool = getDbPool(database);
+	const client = await pool.connect();
+
 	try {
 		const res = await client.query(
 			`
