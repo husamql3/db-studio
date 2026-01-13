@@ -4,7 +4,8 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-
+import { logger } from "hono/logger";
+import { chatRoutes } from "@/routes/chat.routes.js";
 import { columnsRoutes } from "@/routes/columns.routes.js";
 import { dataRoutes } from "@/routes/data.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
@@ -23,10 +24,11 @@ const getCoreDistPath = () => {
 };
 
 export const createServer = () => {
-	const app = new Hono();
+	const app = new Hono({ strict: false });
 	const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app: app as any });
 
 	app.use("/*", cors());
+	app.use(logger());
 
 	app.use(
 		"/favicon.ico",
@@ -47,6 +49,7 @@ export const createServer = () => {
 	app.route("/tables/:tableName/data", dataRoutes);
 	app.route("/records", recordsRoutes);
 	app.route("/query", queryRoutes);
+	app.route("/chat", chatRoutes);
 
 	app.use("/*", serveStatic({ root: getCoreDistPath() }));
 

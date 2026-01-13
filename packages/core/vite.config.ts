@@ -10,13 +10,14 @@ export default defineConfig({
   build: {
     outDir: "dist",
   },
-  plugins: [tailwindcss(),
-  devtools(),
-  tanstackRouter({
-    target: 'react',
-    autoCodeSplitting: true,
-  }),
-  viteReact(),
+  plugins: [
+    tailwindcss(),
+    devtools({ removeDevtoolsOnBuild: true }),
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true,
+    }),
+    viteReact(),
   ],
   resolve: {
     alias: {

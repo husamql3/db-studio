@@ -19,6 +19,8 @@ export const SheetSidebar = ({
 	contentClassName = "px-5 py-6 space-y-6",
 	open,
 	onOpenChange,
+	cta,
+	closeButton = true,
 }: {
 	title?: string;
 	description?: string;
@@ -30,6 +32,8 @@ export const SheetSidebar = ({
 	contentClassName?: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	cta?: ReactNode;
+	closeButton?: boolean;
 }) => {
 	return (
 		<Sheet
@@ -39,9 +43,14 @@ export const SheetSidebar = ({
 			<SheetContent
 				side={side}
 				className={size}
+				showCloseButton={closeButton}
 			>
 				<SheetHeader className={headerClassName}>
-					<SheetTitle className={titleClassName}>{title}</SheetTitle>
+					<SheetTitle className={cn(titleClassName, "flex justify-between items-center")}>
+						{title}
+						{cta}
+					</SheetTitle>
+
 					{description && (
 						<SheetDescription className="text-xs/relaxed text-muted-foreground">
 							{description}

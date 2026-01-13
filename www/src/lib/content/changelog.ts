@@ -52,6 +52,22 @@ export const changelog: ChangelogItem[] = [
 		],
 	},
 	{
+		version: "1.1.1",
+		date: "2026-01-08",
+		title: "Implement AI Assistant `talk to your database`",
+		features: [
+			{
+				text: "",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fix displaying the add table form when the user navigates to the table page",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.1.0",
 		date: "2026-01-07",
 		title: "Implement the runner tab",

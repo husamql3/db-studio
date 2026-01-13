@@ -1,0 +1,39 @@
+name: Deploy Proxy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/proxy/**"
+      - ".github/workflows/deploy-proxy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-proxy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Proxy to Cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.2.19
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build proxy
+        run: bun run deploy:proxy
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: packages/proxy

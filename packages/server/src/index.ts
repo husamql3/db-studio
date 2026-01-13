@@ -54,7 +54,9 @@ export const main = async () => {
 
 	outro(color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`));
 
-	await open(`http://localhost:${PORT}`);
+	if (process.env.NODE_ENV && process.env.NODE_ENV !== "development") {
+		await open(`http://localhost:${PORT}`);
+	}
 };
 
 main().catch((err) => {

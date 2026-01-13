@@ -66,8 +66,9 @@ export const getDatabaseUrl = async (
 				return parsed[envVarName];
 			}
 			throw new Error(`${envVarName} still missing in custom file`);
-		} catch (e: any) {
-			cancel(`Cannot read or parse file: ${color.dim(e.message)}`);
+		} catch (e: unknown) {
+			const error = e as Error;
+			cancel(`Cannot read or parse file: ${color.dim(error.message)}`);
 			process.exit(1);
 		}
 	}
