@@ -5,12 +5,6 @@ compatibility_date = "2025-09-02"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# Environment Variables:
-# For local development: Create a .dev.vars file in this directory (see .dev.vars.example)
-# For production: Set environment variables in Cloudflare Dashboard:
-#   - Go to Workers & Pages > dbstudio > Settings > Variables
-#   - Add EMAIL_USER and EMAIL_PASSWORD as encrypted environment variables
-
 [[routes]]
 pattern = "dbstudio.sh"
 custom_domain = true
