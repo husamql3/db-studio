@@ -7,6 +7,3 @@ compatibility_date = "2026-01-12"
 [observability]
 enabled = true
 head_sampling_rate = 1
-
-[assets]
-directory = "./dist"
