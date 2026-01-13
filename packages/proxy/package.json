@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "wrangler build --config wrangler.toml",
+    "build": "wrangler build",
     "start": "bun run build && wrangler dev --remote",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
