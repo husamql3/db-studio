@@ -1,14 +1,5 @@
 import { program } from "commander";
-
-type Args = {
-	env?: string;
-	port?: string;
-	databaseUrl?: string;
-	varName?: string;
-	status?: boolean;
-	help?: boolean;
-	version?: boolean;
-};
+import type { Args } from "shared/types";
 
 /**
  * Get the arguments from the command line

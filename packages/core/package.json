@@ -13,6 +13,7 @@
     "clean": "rm -rf dist node_modules .tanstack"
   },
   "dependencies": {
+    "shared": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-popover": "^1.1.15",

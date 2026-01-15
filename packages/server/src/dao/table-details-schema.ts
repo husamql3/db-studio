@@ -1,35 +1,12 @@
+import type {
+	Column,
+	ColumnInfo,
+	DatabaseSchema,
+	Relationship,
+	Table,
+} from "shared/types";
 import { db } from "@/db.js";
-import { type ColumnInfo, getTableColumns } from "./table-columns.dao.js";
-
-export interface DatabaseSchema {
-	dbType: string;
-	tables: Table[];
-	relationships: Relationship[];
-}
-
-interface Table {
-	name: string;
-	description?: string;
-	columns: Column[];
-	sampleData?: Record<string, string>[];
-}
-
-interface Column {
-	name: string;
-	type: string;
-	nullable: boolean;
-	isPrimaryKey?: boolean;
-	foreignKey?: string;
-	description?: string;
-	enumValues?: string[];
-}
-
-interface Relationship {
-	fromTable: string;
-	fromColumn: string;
-	toTable: string;
-	toColumn: string;
-}
+import { getTableColumns } from "./table-columns.dao.js";
 
 /**
  * Get all table names from the database

@@ -1,5 +1,4 @@
-import type { PoolConfig } from "pg";
-import { Pool } from "pg";
+import { Pool, type PoolConfig } from "pg";
 
 /**
  * DatabaseManager - Manages multiple database connection pools

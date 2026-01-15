@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { executeQuerySchema } from "shared/types";
 import { executeQuery } from "@/dao/query.dao.js";
-import { executeQuerySchema } from "@/types/create-table.type.js";
 
 export const queryRoutes = new Hono();
 

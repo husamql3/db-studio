@@ -48,6 +48,7 @@
 			"!packages/core/src/routeTree.gen.ts",
 			"packages/server/src/**",
 			"packages/proxy/src/**",
+			"packages/shared/src/**",
 			"www/src/**",
 			"!www/src/styles.css",
 			"!www/src/routeTree.gen.ts",

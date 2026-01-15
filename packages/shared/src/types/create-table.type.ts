@@ -1,14 +1,5 @@
 import { z } from "zod";
-
-export const FOREIGN_KEY_ACTIONS = [
-	"CASCADE",
-	"SET NULL",
-	"SET DEFAULT",
-	"RESTRICT",
-	"NO ACTION",
-] as const;
-export const foreignKeyActionSchema = z.enum(FOREIGN_KEY_ACTIONS);
-export type ForeignKeyAction = z.infer<typeof foreignKeyActionSchema>;
+import { foreignKeyActionSchema } from "./foreign-key-actions";
 
 export const fieldDataSchema = z.object({
 	columnName: z.string().min(1),

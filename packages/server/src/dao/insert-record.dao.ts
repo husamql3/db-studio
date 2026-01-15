@@ -1,10 +1,5 @@
+import type { InsertRecordParams } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-
-export interface InsertRecordParams {
-	tableName: string;
-	data: Record<string, unknown>;
-	database?: string;
-}
 
 export const insertRecord = async (params: InsertRecordParams) => {
 	const { tableName, data, database } = params;

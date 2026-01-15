@@ -19,7 +19,7 @@
     "deploy:www": "bun run --cwd www deploy",
     "deploy:www:preview": "bun run --cwd www deploy:preview",
     "deploy:proxy": "bun run --cwd packages/proxy deploy",
-    "check": "bun run --cwd packages/core check && bun run --cwd packages/server check && bun run --cwd www check",
+    "check": "bun run --cwd packages/core check && bun run --cwd packages/server check && bun run --cwd www check && bun run --cwd packages/proxy check && bun run --cwd packages/shared check",
     "check:meta": "bun run --cwd www check-meta",
     "changeset": "changeset",
     "version": "changeset version",

@@ -8,6 +8,7 @@
 // } from "@tabler/icons-react";
 
 import { Link, useParams } from "@tanstack/react-router";
+import type { TableInfo } from "shared/types";
 // import { Button } from "../ui/button";
 import { Kbd } from "@/components/ui/kbd";
 // import {
@@ -24,13 +25,7 @@ import { Kbd } from "@/components/ui/kbd";
 // } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-export const SidebarListTablesItem = ({
-	tableName,
-	rowCount,
-}: {
-	tableName: string;
-	rowCount: number;
-}) => {
+export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfo) => {
 	const params = useParams({ strict: false });
 	const table = params.table as string | undefined;
 

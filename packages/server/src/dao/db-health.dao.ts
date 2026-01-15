@@ -1,12 +1,5 @@
+import type { DatabaseStatus } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-
-type DatabaseStatus = {
-	type: "db_status";
-	status: "healthy" | "unhealthy";
-	latency: number;
-	timestamp: string;
-	error?: string;
-};
 
 export const checkDatabaseConnection = async (
 	database?: string,

@@ -1,15 +1,5 @@
+import type { UpdateRecordParams } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-
-export interface UpdateRecordParams {
-	tableName: string;
-	updates: Array<{
-		rowData: Record<string, unknown>; // Original row data to identify the record
-		columnName: string;
-		value: unknown;
-	}>;
-	primaryKey?: string; // Optional: specify primary key column (defaults to 'id')
-	database?: string;
-}
 
 /**
  * Updates multiple cells in a table. Can update multiple rows or multiple cells in the same row.

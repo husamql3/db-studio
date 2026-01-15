@@ -1,4 +1,4 @@
-import type { DatabaseSchema } from "@/dao/table-details-schema.js";
+import type { DatabaseSchema } from "shared/types";
 
 /**
  * Generate system prompt with database context
