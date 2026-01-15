@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { DEFAULTS } from "shared/constants";
 import { useDatabaseStore } from "@/stores/database.store";
 import type {
 	CurrentDatabase,
 	DatabaseConnectionInfo,
 	DatabaseInfo,
 } from "@/types/database.type";
-import { API_URL, CONSTANTS } from "@/utils/constants";
+import { CONSTANTS } from "@/utils/constants";
 
 /**
  * Fetch all databases from the server
@@ -21,7 +22,7 @@ export const useDatabasesList = () => {
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
 		queryFn: async (): Promise<DatabaseInfo[]> => {
-			const response = await fetch(`${API_URL}/databases`);
+			const response = await fetch(`${DEFAULTS.BASE_URL}/databases`);
 
 			const data = await response.json();
 			if (!response.ok) {
@@ -55,7 +56,7 @@ export const useCurrentDatabase = () => {
 	} = useQuery<CurrentDatabase, Error>({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
 		queryFn: async (): Promise<CurrentDatabase> => {
-			const response = await fetch(`${API_URL}/databases/current`);
+			const response = await fetch(`${DEFAULTS.BASE_URL}/databases/current`);
 			if (!response.ok) {
 				throw new Error("Failed to fetch current database");
 			}
@@ -87,7 +88,7 @@ export const useDatabaseConnectionInfo = () => {
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASE_CONNECTION_INFO],
 		queryFn: async (): Promise<DatabaseConnectionInfo> => {
-			const response = await fetch(`${API_URL}/databases/connection`);
+			const response = await fetch(`${DEFAULTS.BASE_URL}/databases/connection`);
 			if (!response.ok) {
 				throw new Error("Failed to fetch database connection info");
 			}

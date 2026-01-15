@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ColumnInfo } from "server/src/dao/table-columns.dao";
+import { DEFAULTS } from "shared/constants";
+import type { ColumnInfo } from "shared/types";
 import { toast } from "sonner";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useDatabaseStore } from "@/stores/database.store";
-import { API_URL, CONSTANTS } from "@/utils/constants";
-import { useTableCols } from "./use-table-cols";
+import { CONSTANTS } from "@/utils/constants";
 
 export interface RelatedRecord {
 	tableName: string;
@@ -12,7 +13,7 @@ export interface RelatedRecord {
 	records: Array<Record<string, unknown>>;
 }
 
-export interface DeleteResult {
+interface DeleteResult {
 	success: boolean;
 	message: string;
 	deletedCount?: number;
@@ -100,7 +101,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 	};
 };
 
-export const deleteCellsService = async (
+const deleteCellsService = async (
 	tableName: string,
 	tableCols: ColumnInfo[],
 	rowData: Record<string, unknown>[],
@@ -126,7 +127,7 @@ export const deleteCellsService = async (
 		primaryKeys,
 	};
 
-	const url = new URL(`${API_URL}${endpoint}`);
+	const url = new URL(`${DEFAULTS.BASE_URL}${endpoint}`);
 	if (database) {
 		url.searchParams.set("database", database);
 	}

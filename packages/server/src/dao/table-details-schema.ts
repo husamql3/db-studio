@@ -120,7 +120,7 @@ function extractRelationships(tables: Table[]): Relationship[] {
 /**
  * Get complete database schema with all tables, columns, and relationships
  */
-export async function getDatabaseSchema(
+async function getDatabaseSchema(
 	// connectionId: string,
 	options: {
 		includeSampleData?: boolean;
@@ -193,7 +193,7 @@ export async function getDatabaseSchema(
 /**
  * Get lightweight schema (no sample data, useful for token efficiency)
  */
-export async function getLightweightSchema(): Promise<DatabaseSchema> {
+async function _getLightweightSchema(): Promise<DatabaseSchema> {
 	return getDatabaseSchema({
 		includeSampleData: false,
 		includeDescriptions: false,

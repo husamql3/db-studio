@@ -123,7 +123,7 @@ const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane({ uniforms
 });
 SilkPlane.displayName = "SilkPlane";
 
-export interface SilkProps {
+interface SilkProps {
 	speed?: number;
 	scale?: number;
 	color?: string;

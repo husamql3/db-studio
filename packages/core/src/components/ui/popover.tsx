@@ -56,7 +56,7 @@ function PopoverAnchor({
 	);
 }
 
-function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
+function _PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="popover-header"
@@ -66,7 +66,7 @@ function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-function PopoverTitle({ className, ...props }: React.ComponentProps<"h2">) {
+function _PopoverTitle({ className, ...props }: React.ComponentProps<"h2">) {
 	return (
 		<div
 			data-slot="popover-title"
@@ -76,7 +76,7 @@ function PopoverTitle({ className, ...props }: React.ComponentProps<"h2">) {
 	);
 }
 
-function PopoverDescription({ className, ...props }: React.ComponentProps<"p">) {
+function _PopoverDescription({ className, ...props }: React.ComponentProps<"p">) {
 	return (
 		<p
 			data-slot="popover-description"
@@ -86,12 +86,4 @@ function PopoverDescription({ className, ...props }: React.ComponentProps<"p">) 
 	);
 }
 
-export {
-	Popover,
-	PopoverAnchor,
-	PopoverContent,
-	PopoverDescription,
-	PopoverHeader,
-	PopoverTitle,
-	PopoverTrigger,
-};
+export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger };

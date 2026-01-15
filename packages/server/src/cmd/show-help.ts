@@ -1,5 +1,6 @@
 import { intro, outro } from "@clack/prompts";
 import color from "picocolors";
+import { EXTERNAL_LINKS } from "shared/constants";
 
 /**
  * Display help information
@@ -30,5 +31,5 @@ export const showHelp = () => {
 	console.log("  db-studio -e .env.production -n PROD_DB_URL");
 	console.log("  db-studio --status\n");
 
-	outro(color.green("For more information, visit: https://dbstudio.sh/docs"));
+	outro(color.green(`For more information, visit: ${EXTERNAL_LINKS.DOCS_LINK}`));
 };

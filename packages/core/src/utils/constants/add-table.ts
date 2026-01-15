@@ -86,15 +86,15 @@ export const PSQL_TYPES = {
 	other: [{ value: "xml", label: "xml", description: "XML data" }],
 };
 
-export const PSQL_TYPE_LABEL_MAP = Object.values(PSQL_TYPES)
-	.flat()
-	.reduce(
-		(acc, item) => {
-			acc[item.value] = item.label;
-			return acc;
-		},
-		{} as Record<string, string>,
-	);
+// export const PSQL_TYPE_LABEL_MAP: Record<string, string> = Object.values(PSQL_TYPES)
+// 	.flat()
+// 	.reduce(
+// 		(acc, item) => {
+// 			acc[item.value] = item.label;
+// 			return acc;
+// 		},
+// 		{} as Record<string, string>,
+// 	);
 
 // Serial types that auto-increment (incompatible with identity)
 export const SERIAL_TYPES = ["serial", "bigserial"];

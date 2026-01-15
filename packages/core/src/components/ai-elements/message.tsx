@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-export type MessageProps = HTMLAttributes<HTMLDivElement> & {
+type MessageProps = HTMLAttributes<HTMLDivElement> & {
 	from: UIMessage["role"];
 };
 
@@ -30,7 +30,7 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
 	/>
 );
 
-export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
+type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const MessageContent = ({
 	children,
@@ -50,13 +50,9 @@ export const MessageContent = ({
 	</div>
 );
 
-export type MessageActionsProps = ComponentProps<"div">;
+type MessageActionsProps = ComponentProps<"div">;
 
-export const MessageActions = ({
-	className,
-	children,
-	...props
-}: MessageActionsProps) => (
+const _MessageActions = ({ className, children, ...props }: MessageActionsProps) => (
 	<div
 		className={cn("flex items-center gap-1", className)}
 		{...props}
@@ -65,12 +61,12 @@ export const MessageActions = ({
 	</div>
 );
 
-export type MessageActionProps = ComponentProps<typeof Button> & {
+type MessageActionProps = ComponentProps<typeof Button> & {
 	tooltip?: string;
 	label?: string;
 };
 
-export const MessageAction = ({
+const _MessageAction = ({
 	tooltip,
 	children,
 	label,
@@ -127,7 +123,7 @@ const useMessageBranch = () => {
 	return context;
 };
 
-export type MessageBranchProps = HTMLAttributes<HTMLDivElement> & {
+type MessageBranchProps = HTMLAttributes<HTMLDivElement> & {
 	defaultBranch?: number;
 	onBranchChange?: (branchIndex: number) => void;
 };
@@ -175,7 +171,7 @@ export const MessageBranch = ({
 	);
 };
 
-export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
+type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const MessageBranchContent = ({
 	children,
@@ -205,11 +201,11 @@ export const MessageBranchContent = ({
 	));
 };
 
-export type MessageBranchSelectorProps = HTMLAttributes<HTMLDivElement> & {
+type MessageBranchSelectorProps = HTMLAttributes<HTMLDivElement> & {
 	from: UIMessage["role"];
 };
 
-export const MessageBranchSelector = ({
+const _MessageBranchSelector = ({
 	className,
 	from,
 	...props
@@ -230,12 +226,9 @@ export const MessageBranchSelector = ({
 	);
 };
 
-export type MessageBranchPreviousProps = ComponentProps<typeof Button>;
+type MessageBranchPreviousProps = ComponentProps<typeof Button>;
 
-export const MessageBranchPrevious = ({
-	children,
-	...props
-}: MessageBranchPreviousProps) => {
+const _MessageBranchPrevious = ({ children, ...props }: MessageBranchPreviousProps) => {
 	const { goToPrevious, totalBranches } = useMessageBranch();
 
 	return (
@@ -253,9 +246,9 @@ export const MessageBranchPrevious = ({
 	);
 };
 
-export type MessageBranchNextProps = ComponentProps<typeof Button>;
+type MessageBranchNextProps = ComponentProps<typeof Button>;
 
-export const MessageBranchNext = ({
+const _MessageBranchNext = ({
 	children,
 	className,
 	...props
@@ -277,9 +270,9 @@ export const MessageBranchNext = ({
 	);
 };
 
-export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
+type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
 
-export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProps) => {
+const _MessageBranchPage = ({ className, ...props }: MessageBranchPageProps) => {
 	const { currentBranch, totalBranches } = useMessageBranch();
 
 	return (
@@ -295,7 +288,7 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 	);
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
 export const MessageResponse = memo(
 	({ className, ...props }: MessageResponseProps) => (
@@ -309,13 +302,13 @@ export const MessageResponse = memo(
 
 MessageResponse.displayName = "MessageResponse";
 
-export type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
+type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 	data: FileUIPart;
 	className?: string;
 	onRemove?: () => void;
 };
 
-export function MessageAttachment({
+function _MessageAttachment({
 	data,
 	className,
 	onRemove,
@@ -389,13 +382,9 @@ export function MessageAttachment({
 	);
 }
 
-export type MessageAttachmentsProps = ComponentProps<"div">;
+type MessageAttachmentsProps = ComponentProps<"div">;
 
-export function MessageAttachments({
-	children,
-	className,
-	...props
-}: MessageAttachmentsProps) {
+function _MessageAttachments({ children, className, ...props }: MessageAttachmentsProps) {
 	if (!children) {
 		return null;
 	}
@@ -410,13 +399,9 @@ export function MessageAttachments({
 	);
 }
 
-export type MessageToolbarProps = ComponentProps<"div">;
+type MessageToolbarProps = ComponentProps<"div">;
 
-export const MessageToolbar = ({
-	className,
-	children,
-	...props
-}: MessageToolbarProps) => (
+const _MessageToolbar = ({ className, children, ...props }: MessageToolbarProps) => (
 	<div
 		className={cn("mt-4 flex w-full items-center justify-between gap-4", className)}
 		{...props}

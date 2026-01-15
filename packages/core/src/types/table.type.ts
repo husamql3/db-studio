@@ -4,18 +4,18 @@ export type TableRecord = Record<string, unknown>;
 
 export type CellVariant = DataTypes;
 
-export interface CellPosition {
+interface CellPosition {
 	rowIndex: number;
 	columnId: string;
 }
 
-export interface UpdateCell {
+interface UpdateCell {
 	rowIndex: number;
 	columnId: string;
 	value: unknown;
 }
 
-export type NavigationDirection =
+type NavigationDirection =
 	| "up"
 	| "down"
 	| "left"

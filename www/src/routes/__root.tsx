@@ -2,6 +2,7 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
+import { META } from "shared/constants";
 import { NotFound } from "@/components/not-found";
 import appCss from "../styles.css?url";
 
@@ -9,40 +10,38 @@ export const Route = createRootRoute({
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
-			{ title: "DB Studio" },
-			{ author: "Hüsam 🥑 <devhsmq@gmail.com>" },
+			{ title: META.SITE_TITLE },
+			{ author: META.AUTHOR },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 			{
 				name: "description",
-				content:
-					"DB Studio is a beautiful, modern database client for PostgreSQL and more. Spreadsheet-like grid, AI-powered SQL, ER diagrams, and coming soon to web, macOS, Windows & Linux. Join the waitlist!",
+				content: META.SITE_DESCRIPTION,
 			},
 			{ name: "robots", content: "index, follow" },
 			// Open Graph for social sharing & AI previews
 			{
 				property: "og:title",
-				content: "dbstudio.sh – A modern database management studiofor any database",
+				content: `${META.SITE_NAME} – ${META.SITE_DESCRIPTION}`,
 			},
 			{
 				property: "og:description",
-				content:
-					"A modern database management studio for any database that you can launch via the CLI. Spreadsheet-like grid, AI-powered SQL, ER diagrams, and coming soon to web, macOS, Windows & Linux. Join the waitlist!",
+				content: META.SITE_DESCRIPTION,
 			},
 			{ property: "og:type", content: "website" },
-			{ property: "og:url", content: "https://dbstudio.sh" },
-			{ property: "og:site_name", content: "dbstudio.sh" },
-			{ property: "og:image", content: "https://dbstudio.sh/og-image.png" },
-			{ property: "og:image:width", content: "1200" },
-			{ property: "og:image:height", content: "630" },
+			{ property: "og:url", content: META.SITE_URL },
+			{ property: "og:site_name", content: META.SITE_NAME },
+			{ property: "og:image", content: META.SITE_IMAGE },
+			{ property: "og:image:width", content: META.SITE_IMAGE_WIDTH },
+			{ property: "og:image:height", content: META.SITE_IMAGE_HEIGHT },
 			{
 				property: "og:image:alt",
-				content: "dbstudio.sh – Modern database management studio",
+				content: `${META.SITE_NAME} – ${META.SITE_DESCRIPTION}`,
 			},
 			{ name: "twitter:card", content: "summary_large_image" },
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
-			{ rel: "manifest", href: "/site.webmanifest", color: "#1447e6" },
+			{ rel: "manifest", href: "/site.webmanifest", color: META.SITE_COLOR },
 			{ rel: "icon", href: "/favicon.ico" },
 			{ rel: "sitemap", href: "/sitemap.xml" },
 		],

@@ -25,4 +25,4 @@ export const buttonVariants = cva(
 	},
 );
 
-export type ButtonProps = VariantProps<typeof buttonVariants>;
+type ButtonProps = VariantProps<typeof buttonVariants>;

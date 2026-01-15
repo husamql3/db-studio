@@ -10,7 +10,7 @@ import {
 import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
 import { cn } from "@/lib/utils";
 
-export const getTaskIcon = (status: RoadmapItemStatus) => {
+const getTaskIcon = (status: RoadmapItemStatus) => {
 	switch (status) {
 		case "completed":
 			return (

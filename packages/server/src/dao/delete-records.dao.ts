@@ -10,7 +10,7 @@ import { getDbPool } from "@/db-manager.js";
 /**
  * Gets foreign key constraints that reference the given table
  */
-export const getForeignKeyReferences = async (
+const getForeignKeyReferences = async (
 	tableName: string,
 	database?: string,
 ): Promise<ForeignKeyConstraint[]> => {
@@ -47,7 +47,7 @@ export const getForeignKeyReferences = async (
 /**
  * Finds all records in other tables that reference the given primary key values
  */
-export const getRelatedRecords = async (
+const getRelatedRecords = async (
 	tableName: string,
 	primaryKeys: Array<{ columnName: string; value: unknown }>,
 	database?: string,

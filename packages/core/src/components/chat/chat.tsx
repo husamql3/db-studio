@@ -4,6 +4,7 @@ import { IconSparkles } from "@tabler/icons-react";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { CHAT_SUGGESTIONS, DEFAULTS } from "shared/constants";
 import {
 	Conversation,
 	ConversationContent,
@@ -37,8 +38,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
-import { API_URL } from "@/utils/constants";
-import { CHAT_SUGGESTIONS } from "@/utils/constants/chat";
 
 export const Chat = () => {
 	const { rateLimit, refetchRateLimit } = useRateLimit();
@@ -48,7 +47,7 @@ export const Chat = () => {
 	const { isSheetOpen, closeSheet, openSheet } = useSheetStore();
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
-		connection: fetchServerSentEvents(`${API_URL}/chat`),
+		connection: fetchServerSentEvents(`${DEFAULTS.BASE_URL}/chat`),
 		onError: (error) => console.error("Error:", error.message),
 		onResponse: (response) => console.log("Response:", response),
 		onFinish: (message) => {

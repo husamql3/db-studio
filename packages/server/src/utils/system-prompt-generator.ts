@@ -63,7 +63,7 @@ This will return the 5 customers with the highest total order value. You might a
 /**
  * Format schema information for the prompt
  */
-export function formatSchemaForPrompt(schema: DatabaseSchema): string {
+function formatSchemaForPrompt(schema: DatabaseSchema): string {
 	let output = `Database Type: ${schema.dbType}\n\n`;
 
 	output += "**Tables and Columns:**\n";
