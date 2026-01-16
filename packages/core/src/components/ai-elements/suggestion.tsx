@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-export type SuggestionsProps = ComponentProps<typeof ScrollArea>;
+type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 
 export const Suggestions = ({ className, children, ...props }: SuggestionsProps) => (
 	<ScrollArea
@@ -22,7 +22,7 @@ export const Suggestions = ({ className, children, ...props }: SuggestionsProps)
 	</ScrollArea>
 );
 
-export type SuggestionProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
+type SuggestionProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
 	suggestion: string;
 	onClick?: (suggestion: string) => void;
 };

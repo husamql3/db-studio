@@ -1,25 +1,5 @@
+import type { CurrentDatabase, DatabaseConnectionInfo, DatabaseInfo } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-
-export interface DatabaseInfo {
-	name: string;
-	size: string;
-	owner: string;
-	encoding: string;
-}
-
-export interface DatabaseConnectionInfo {
-	host: string;
-	port: number;
-	user: string;
-	database: string;
-	version: string;
-	activeConnections: number;
-	maxConnections: number;
-}
-
-export interface CurrentDatabase {
-	database: string;
-}
 
 /**
  * Get list of all databases on the server

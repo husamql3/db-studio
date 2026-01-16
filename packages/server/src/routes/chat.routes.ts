@@ -1,6 +1,6 @@
 import { Hono } from "hono";
+import { DEFAULTS } from "shared/constants";
 import { getDetailedSchema } from "@/dao/table-details-schema.js";
-import { DEFAULTS } from "@/utils/defaults.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 
 export const chatRoutes = new Hono();

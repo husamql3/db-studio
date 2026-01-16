@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { FaXTwitter } from "react-icons/fa6";
+import { META } from "shared/constants";
 
 export function baseOptions(): BaseLayoutProps {
 	return {
@@ -49,11 +50,11 @@ export function baseOptions(): BaseLayoutProps {
 				type: "icon",
 				icon: <FaXTwitter className="size-4" />,
 				text: "X",
-				url: "https://x.com/dbstudio_sh",
+				url: META.SITE_X_LINK,
 				external: true,
 			},
 		],
-		githubUrl: "https://github.com/husamql3/db-studio",
+		githubUrl: META.SITE_GITHUB_LINK,
 		searchToggle: {
 			enabled: true,
 		},

@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
-import type { Filter, Sort, TableDataResult } from "server/src/dao/tables-data.dao";
+import { DEFAULTS } from "shared/constants";
+import type { Filter, Sort, TableDataResult } from "shared/types";
 import { useDatabaseStore } from "@/stores/database.store";
-import { API_URL, CONSTANTS } from "@/utils/constants";
+import { CONSTANTS } from "@/utils/constants";
 
 export const useTableData = ({
 	tableName,
@@ -94,7 +95,7 @@ export const useTableData = ({
 
 			try {
 				const response = await fetch(
-					`${API_URL}/tables/${activeTableName}/data?${queryParams.toString()}`,
+					`${DEFAULTS.BASE_URL}/tables/${activeTableName}/data?${queryParams.toString()}`,
 				);
 				console.log("queryParams", queryParams.toString());
 				if (!response.ok) {

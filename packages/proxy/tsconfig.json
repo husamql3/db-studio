@@ -8,11 +8,18 @@
     "lib": [
       "ESNext"
     ],
-    "types": ["./worker-configuration.d.ts"],
+    "types": [
+      "./worker-configuration.d.ts"
+    ],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "jsxImportSource": "hono/jsx",
+    "paths": {
+      "shared/*": [
+        "../shared/src/*"
+      ]
+    }
   },
   "include": [
-    "src/**/*.ts",
+    "src/**/*.ts"
   ]
 }

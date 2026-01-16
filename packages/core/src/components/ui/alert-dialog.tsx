@@ -14,7 +14,7 @@ function AlertDialog({
 	);
 }
 
-function AlertDialogTrigger({
+function _AlertDialogTrigger({
 	...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
 	return (
@@ -101,7 +101,7 @@ function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">)
 	);
 }
 
-function AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) {
+function _AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="alert-dialog-media"
@@ -198,9 +198,5 @@ export {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
-	AlertDialogMedia,
-	AlertDialogOverlay,
-	AlertDialogPortal,
 	AlertDialogTitle,
-	AlertDialogTrigger,
 };

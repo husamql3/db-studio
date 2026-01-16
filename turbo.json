@@ -1,0 +1,143 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "packages/core/dist/**",
+        "packages/server/dist/**",
+        "packages/proxy/dist/**",
+        "www/dist/**"
+      ],
+      "env": [
+        "NODE_ENV"
+      ]
+    },
+    "build:core": {
+      "outputs": [
+        "packages/core/dist/**"
+      ],
+      "cache": true
+    },
+    "build:server": {
+      "dependsOn": [
+        "build:core"
+      ],
+      "outputs": [
+        "packages/server/dist/**"
+      ],
+      "cache": true
+    },
+    "build:proxy": {
+      "outputs": [
+        "packages/proxy/dist/**"
+      ],
+      "cache": true
+    },
+    "build:www": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "www/dist/**",
+        "www/.vercel/**"
+      ],
+      "cache": true
+    },
+    "release": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:core": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:server": {
+      "dependsOn": [
+        "build:core"
+      ],
+      "cache": false,
+      "persistent": true
+    },
+    "dev:proxy": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:www": {
+      "cache": false,
+      "persistent": true
+    },
+    "check": {
+      "outputs": [],
+      "cache": true
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**"
+      ],
+      "cache": true
+    },
+    "deploy": {
+      "dependsOn": [
+        "build"
+      ],
+      "cache": false,
+      "outputs": []
+    },
+    "deploy:www": {
+      "dependsOn": [
+        "build:www"
+      ],
+      "cache": false
+    },
+    "deploy:www:preview": {
+      "dependsOn": [
+        "build:www"
+      ],
+      "cache": false
+    },
+    "deploy:proxy": {
+      "dependsOn": [
+        "build:proxy"
+      ],
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalDependencies": [
+    "tsconfig.json",
+    "package.json",
+    "turbo.json",
+    ".env",
+    ".env.local"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "CI"
+  ]
+}

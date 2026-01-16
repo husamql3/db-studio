@@ -8,12 +8,13 @@
     "start": "bun run build && wrangler dev --remote",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "check": "biome check --write --unsafe --verbose",
+    "check": "bunx biome check --write --unsafe --verbose",
     "secrets:add": "wrangler secret bulk .env",
     "secrets:list": "wrangler secret list",
     "secrets:clear": "wrangler secret delete --all"
   },
   "dependencies": {
+    "shared": "workspace:*",
     "@tanstack/ai": "^0.2.2",
     "@tanstack/ai-gemini": "^0.3.2",
     "@upstash/redis": "^1.36.1",

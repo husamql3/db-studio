@@ -1,23 +1,9 @@
-import { getDbPool } from "@/db-manager.js";
 import {
-	type DataTypes,
+	type ColumnInfo,
 	mapPostgresToDataType,
-	type StandardizedDataType,
 	standardizeDataTypeLabel,
-} from "../types/column.types.js";
-
-export interface ColumnInfo {
-	columnName: string; // The column name from the database
-	dataType: DataTypes; // Generic type mapped to cell variant (text/boolean/number/enum/json/date)
-	dataTypeLabel: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
-	isNullable: boolean;
-	columnDefault: string | null;
-	isPrimaryKey: boolean;
-	isForeignKey: boolean;
-	referencedTable: string | null;
-	referencedColumn: string | null;
-	enumValues: string[] | null;
-}
+} from "shared/types";
+import { getDbPool } from "@/db-manager.js";
 
 export const getTableColumns = async (
 	tableName: string,

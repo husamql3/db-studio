@@ -63,7 +63,7 @@ function PaginationLink({
 	);
 }
 
-function PaginationPrevious({
+function _PaginationPrevious({
 	className,
 	...props
 }: React.ComponentProps<typeof PaginationLink>) {
@@ -80,7 +80,7 @@ function PaginationPrevious({
 	);
 }
 
-function PaginationNext({
+function _PaginationNext({
 	className,
 	...props
 }: React.ComponentProps<typeof PaginationLink>) {
@@ -97,7 +97,7 @@ function PaginationNext({
 	);
 }
 
-function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span">) {
+function _PaginationEllipsis({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			aria-hidden
@@ -111,12 +111,4 @@ function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span"
 	);
 }
 
-export {
-	Pagination,
-	PaginationContent,
-	PaginationEllipsis,
-	PaginationItem,
-	PaginationLink,
-	PaginationNext,
-	PaginationPrevious,
-};
+export { Pagination, PaginationContent, PaginationItem };

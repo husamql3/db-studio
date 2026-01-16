@@ -14,7 +14,7 @@ function DropdownMenu({
 	);
 }
 
-function DropdownMenuPortal({
+function _DropdownMenuPortal({
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
 	return (
@@ -92,7 +92,7 @@ function DropdownMenuItem({
 	);
 }
 
-function DropdownMenuCheckboxItem({
+function _DropdownMenuCheckboxItem({
 	className,
 	children,
 	checked,
@@ -121,7 +121,7 @@ function DropdownMenuCheckboxItem({
 	);
 }
 
-function DropdownMenuRadioGroup({
+function _DropdownMenuRadioGroup({
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
 	return (
@@ -132,7 +132,7 @@ function DropdownMenuRadioGroup({
 	);
 }
 
-function DropdownMenuRadioItem({
+function _DropdownMenuRadioItem({
 	className,
 	children,
 	...props
@@ -159,7 +159,7 @@ function DropdownMenuRadioItem({
 	);
 }
 
-function DropdownMenuLabel({
+function _DropdownMenuLabel({
 	className,
 	inset,
 	...props
@@ -192,7 +192,7 @@ function DropdownMenuSeparator({
 	);
 }
 
-function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function _DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="dropdown-menu-shortcut"
@@ -205,7 +205,7 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"spa
 	);
 }
 
-function DropdownMenuSub({
+function _DropdownMenuSub({
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
 	return (
@@ -216,7 +216,7 @@ function DropdownMenuSub({
 	);
 }
 
-function DropdownMenuSubTrigger({
+function _DropdownMenuSubTrigger({
 	className,
 	inset,
 	children,
@@ -240,7 +240,7 @@ function DropdownMenuSubTrigger({
 	);
 }
 
-function DropdownMenuSubContent({
+function _DropdownMenuSubContent({
 	className,
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
@@ -258,18 +258,9 @@ function DropdownMenuSubContent({
 
 export {
 	DropdownMenu,
-	DropdownMenuPortal,
 	DropdownMenuTrigger,
 	DropdownMenuContent,
 	DropdownMenuGroup,
-	DropdownMenuLabel,
 	DropdownMenuItem,
-	DropdownMenuCheckboxItem,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
-	DropdownMenuShortcut,
-	DropdownMenuSub,
-	DropdownMenuSubTrigger,
-	DropdownMenuSubContent,
 };

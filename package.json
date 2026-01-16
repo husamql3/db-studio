@@ -5,36 +5,40 @@
     "www"
   ],
   "scripts": {
-    "dev": "concurrently \"bun run dev:core\" \"bun run dev:server\" \"bun run dev:proxy\"",
-    "dev:core": "bun run --cwd packages/core dev",
-    "dev:server": "bun run build:core && bun run --cwd packages/server dev",
-    "dev:proxy": "bun run --cwd packages/proxy dev",
-    "dev:www": "bun run --cwd www dev",
-    "build": "bun run build:server && bun run build:core && bun run build:proxy && bun run build:www",
-    "build:core": "bun run --cwd packages/core build",
-    "build:server": "bun run --cwd packages/server build",
-    "build:proxy": "bun run --cwd packages/proxy build",
-    "build:release": "bun run build:core && bun run --cwd packages/server build:release",
-    "build:www": "bun run --cwd www build",
-    "deploy:www": "bun run --cwd www deploy",
-    "deploy:www:preview": "bun run --cwd www deploy:preview",
-    "deploy:proxy": "bun run --cwd packages/proxy deploy",
-    "check": "bun run --cwd packages/core check && bun run --cwd packages/server check && bun run --cwd www check",
+    "dev": "turbo run dev",
+    "dev:core": "turbo run dev --filter=core",
+    "dev:server": "turbo run dev --filter=db-studio",
+    "dev:proxy": "turbo run dev --filter=proxy",
+    "dev:www": "turbo run dev --filter=www",
+    "build": "turbo run build",
+    "build:core": "turbo run build --filter=core",
+    "build:server": "turbo run build --filter=db-studio",
+    "build:proxy": "turbo run build --filter=proxy",
+    "build:release": "turbo run build:release --filter=db-studio",
+    "build:www": "turbo run build --filter=www",
+    "deploy:www": "turbo run deploy --filter=www",
+    "deploy:www:preview": "turbo run deploy:preview --filter=www",
+    "deploy:proxy": "turbo run deploy --filter=proxy",
+    "check": "turbo run check",
     "check:meta": "bun run --cwd www check-meta",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bun run build:release && npm publish --workspace=packages/server",
     "prepare": "husky",
-    "clean": "rm -rf node_modules dist packages/*/node_modules packages/*/dist www/node_modules www/dist"
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist www/node_modules www/dist bun.lockb .turbo",
+    "knip": "knip"
+  },
+  "dependencies": {
+    "turbo": "^2.7.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.6",
-    "@biomejs/cli-linux-x64": "^2.2.6",
-    "concurrently": "^9.2.1",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "knip": "^5.81.0"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "esbuild": "0.27.2"

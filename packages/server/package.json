@@ -43,17 +43,16 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx watch src/index.ts",
     "build": "tsup",
-    "build:release": "tsup --minify --sourcemap",
+    "release": "tsup --minify --sourcemap && npm publish",
     "start": "node dist/index.js",
-    "check": "biome check --write --unsafe --verbose"
+    "check": "bunx biome check --write --unsafe --verbose"
   },
   "dependencies": {
+    "shared": "workspace:*",
     "@clack/prompts": "^0.11.0",
     "@hono/node-server": "^1.19.7",
     "@hono/node-ws": "^1.2.0",
     "@hono/zod-validator": "^0.7.6",
-    "@tanstack/ai-openai": "^0.2.1",
-    "@upstash/redis": "^1.36.1",
     "commander": "^12.1.0",
     "dotenv": "^16.4.7",
     "hono": "^4.10.4",
@@ -64,12 +63,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
-    "@biomejs/cli-linux-x64": "^2.2.6",
     "@types/node": "^20.11.17",
     "@types/pg": "^8.16.0",
     "tsup": "^8.5.1",
     "tsx": "^4.7.1",
-    "typescript": "^5.8.3",
-    "wrangler": "^4.4.0"
+    "typescript": "^5.8.3"
   }
 }

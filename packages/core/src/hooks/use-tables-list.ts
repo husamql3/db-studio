@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import type { TableInfo } from "server/src/dao/table-list.dao";
+import { DEFAULTS } from "shared/constants";
+import type { TableInfo } from "shared/types";
 import { useDatabaseStore } from "@/stores/database.store";
-import { API_URL, CONSTANTS } from "@/utils/constants";
+import { CONSTANTS } from "@/utils/constants";
 
 export const useTablesList = () => {
 	const { selectedDatabase } = useDatabaseStore();
@@ -14,7 +15,7 @@ export const useTablesList = () => {
 		queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST, selectedDatabase],
 		queryFn: async () => {
 			try {
-				const url = new URL(`${API_URL}/tables`);
+				const url = new URL(`${DEFAULTS.BASE_URL}/tables`);
 				if (selectedDatabase) {
 					url.searchParams.set("database", selectedDatabase);
 				}

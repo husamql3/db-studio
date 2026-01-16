@@ -58,7 +58,7 @@ const TabsContext = createContext<{
 	nested: boolean;
 } | null>(null);
 
-export function Pre(props: ComponentProps<"pre">) {
+function Pre(props: ComponentProps<"pre">) {
 	return (
 		<pre
 			{...props}

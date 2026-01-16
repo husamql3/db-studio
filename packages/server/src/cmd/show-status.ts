@@ -1,7 +1,7 @@
 import { intro, note, outro } from "@clack/prompts";
 import color from "picocolors";
+import { DEFAULTS } from "shared/constants";
 import { loadEnv } from "@/cmd/load-env.js";
-import { DEFAULTS } from "@/utils/defaults.js";
 
 /**
  * Show connection status

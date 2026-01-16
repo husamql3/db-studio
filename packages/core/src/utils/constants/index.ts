@@ -58,33 +58,3 @@ export const CONSTANTS = {
 	HOVER_ZONE: 20, // pixels from left edge
 	HOVER_DELAY: 100, // ms delay before opening
 };
-
-// State reset helpers
-export const STATE_RESETS = {
-	TABLE: {
-		...CONSTANTS.TABLE_STATE_KEYS,
-	},
-	REFERENCED_TABLE: {
-		...CONSTANTS.REFERENCED_TABLE_STATE_KEYS,
-	},
-	COLUMN: {
-		[CONSTANTS.COLUMN_NAME]: null,
-	},
-	// Combined reset for tab changes
-	ALL: {
-		...CONSTANTS.TABLE_STATE_KEYS,
-		...CONSTANTS.REFERENCED_TABLE_STATE_KEYS,
-		columnName: null,
-	},
-} as const;
-
-export const LINKS = {
-	GITHUB: "https://github.com/husamql3/db-studio",
-};
-
-// todo: we will change this to use custom fetch function
-export const API_URL = "http://localhost:3333";
-
-export const PROXY_URL = import.meta.env.DEV
-	? "http://localhost:8787"
-	: "https://db-studio-proxy.husamql3.workers.dev";
