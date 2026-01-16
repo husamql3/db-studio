@@ -42,7 +42,7 @@ jobs:
         run: bun install
 
       - name: Build server
-        run: bun run build:release
+        run: bun run build:server
 
       - name: Publish to npm
         if: |
