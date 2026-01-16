@@ -47,25 +47,6 @@
       ],
       "cache": true
     },
-    "build:release": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**"
-      ],
-      "cache": true
-    },
-    "release": {
-      "dependsOn": [
-        "^build",
-        "build"
-      ],
-      "outputs": [
-        "dist/**"
-      ],
-      "cache": false
-    },
     "dev": {
       "cache": false,
       "persistent": true
