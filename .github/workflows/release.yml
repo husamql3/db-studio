@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build core
+        run: bun run build:core
+
       - name: Build server
         run: bun run build:server
 
