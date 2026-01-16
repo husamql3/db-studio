@@ -42,16 +42,16 @@ jobs:
         run: bun install
 
       - name: Build core
-        run: bun run build:core
+        run: bun run build:core --force
 
       - name: Build server
-        run: bun run build:server
+        run: bun run build:server --force
 
       - name: Publish to npm
         if: |
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
-        run: npm publish --workspace=packages/server --access=public
+        run: npm publish --workspace=packages/server --access=public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
