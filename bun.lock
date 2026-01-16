@@ -65,6 +65,7 @@
         "zustand": "^5.0.9",
       },
       "devDependencies": {
+        "@biomejs/biome": "^2.2.6",
         "@tanstack/ai-devtools-core": "^0.2.0",
         "@tanstack/devtools-vite": "^0.4.1",
         "@tanstack/react-ai-devtools": "^0.2.0",
@@ -94,6 +95,7 @@
         "shared": "workspace:*",
       },
       "devDependencies": {
+        "@biomejs/biome": "^2.2.6",
         "wrangler": "^4.4.0",
       },
     },
@@ -132,6 +134,7 @@
         "zod": "^4.3.5",
       },
       "devDependencies": {
+        "@biomejs/biome": "^2.2.6",
         "@types/bun": "latest",
       },
       "peerDependencies": {

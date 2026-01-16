@@ -7,7 +7,7 @@
     "build": "vite build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
-    "check": "bunx biome check --write --unsafe --verbose"
+    "check": "biome check --write --unsafe --verbose"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
@@ -58,6 +58,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
     "@tanstack/ai-devtools-core": "^0.2.0",
     "@tanstack/devtools-vite": "^0.4.1",
     "@tanstack/react-ai-devtools": "^0.2.0",

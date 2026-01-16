@@ -8,10 +8,11 @@
     "./constants": "./src/constants/index.ts"
   },
   "scripts": {
-    "check": "bunx biome check --write --unsafe --verbose",
+    "check": "biome check --write --unsafe --verbose",
     "build": "tsc"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
     "@types/bun": "latest"
   },
   "peerDependencies": {

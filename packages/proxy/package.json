@@ -8,7 +8,7 @@
     "start": "bun run build && wrangler dev --remote",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "check": "bunx biome check --write --unsafe --verbose",
+    "check": "biome check --write --unsafe --verbose",
     "secrets:add": "wrangler secret bulk .env",
     "secrets:list": "wrangler secret list",
     "secrets:clear": "wrangler secret delete --all"
@@ -22,6 +22,7 @@
     "hono-rate-limiter": "^0.5.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
     "wrangler": "^4.4.0"
   }
 }
