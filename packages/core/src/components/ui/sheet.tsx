@@ -112,7 +112,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
+function _SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="sheet-footer"
@@ -154,7 +154,6 @@ export {
 	SheetClose,
 	SheetContent,
 	SheetHeader,
-	SheetFooter,
 	SheetTitle,
 	SheetDescription,
 };

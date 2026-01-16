@@ -22,7 +22,7 @@ function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.T
 	);
 }
 
-function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
+function _SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
 	return (
 		<SheetPrimitive.Close
 			data-slot="sheet-close"
@@ -107,7 +107,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
+function _SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="sheet-footer"
@@ -117,7 +117,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-function SheetTitle({
+function _SheetTitle({
 	className,
 	...props
 }: React.ComponentProps<typeof SheetPrimitive.Title>) {
@@ -130,7 +130,7 @@ function SheetTitle({
 	);
 }
 
-function SheetDescription({
+function _SheetDescription({
 	className,
 	...props
 }: React.ComponentProps<typeof SheetPrimitive.Description>) {
@@ -143,13 +143,4 @@ function SheetDescription({
 	);
 }
 
-export {
-	Sheet,
-	SheetTrigger,
-	SheetClose,
-	SheetContent,
-	SheetHeader,
-	SheetFooter,
-	SheetTitle,
-	SheetDescription,
-};
+export { Sheet, SheetTrigger, SheetContent, SheetHeader };

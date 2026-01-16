@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
+import { DEFAULTS } from "shared/constants";
+import type { ExecuteQueryResponse } from "shared/types";
 import { useDatabaseStore } from "@/stores/database.store";
-import { API_URL } from "@/utils/constants";
 
 export const useExecuteQuery = () => {
 	const { selectedDatabase } = useDatabaseStore();
@@ -12,7 +12,7 @@ export const useExecuteQuery = () => {
 		error: executeQueryError,
 	} = useMutation<ExecuteQueryResponse, Error, { query: string }>({
 		mutationFn: async ({ query }: { query: string }) => {
-			const url = new URL(`${API_URL}/query`);
+			const url = new URL(`${DEFAULTS.BASE_URL}/query`);
 			if (selectedDatabase) {
 				url.searchParams.set("database", selectedDatabase);
 			}

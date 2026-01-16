@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type SheetName =
+type SheetName =
 	| "sidebar"
 	| "add-table"
 	| "add-record"

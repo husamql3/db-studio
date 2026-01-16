@@ -22,7 +22,7 @@ type ReasoningContextValue = {
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 
-export const useReasoning = () => {
+const useReasoning = () => {
 	const context = useContext(ReasoningContext);
 	if (!context) {
 		throw new Error("Reasoning components must be used within Reasoning");
@@ -30,7 +30,7 @@ export const useReasoning = () => {
 	return context;
 };
 
-export type ReasoningProps = ComponentProps<typeof Collapsible> & {
+type ReasoningProps = ComponentProps<typeof Collapsible> & {
 	isStreaming?: boolean;
 	open?: boolean;
 	defaultOpen?: boolean;
@@ -109,7 +109,7 @@ export const Reasoning = memo(
 	},
 );
 
-export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
+type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
 	getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
 };
 
@@ -157,7 +157,7 @@ export const ReasoningTrigger = memo(
 	},
 );
 
-export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & {
+type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & {
 	children: string;
 };
 

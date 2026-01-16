@@ -1,14 +1,5 @@
 import { z } from "zod";
-
-export const FOREIGN_KEY_ACTIONS = [
-	"CASCADE",
-	"SET NULL",
-	"SET DEFAULT",
-	"RESTRICT",
-	"NO ACTION",
-] as const;
-export const foreignKeyActionSchema = z.enum(FOREIGN_KEY_ACTIONS);
-export type ForeignKeyAction = z.infer<typeof foreignKeyActionSchema>;
+import { foreignKeyActionSchema } from "./foreign-key-actions";
 
 export const fieldDataSchema = z.object({
 	columnName: z.string().min(1),
@@ -34,7 +25,6 @@ export type ForeignKeyDataType = z.infer<typeof foreignKeyDataSchema>;
 export const createTableSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
 	fields: z.array(fieldDataSchema).min(1, "At least one field is required"),
-	foreignKeys: z.array(foreignKeyDataSchema).optional(),
 });
 export type CreateTableFormData = z.infer<typeof createTableSchema>;
 

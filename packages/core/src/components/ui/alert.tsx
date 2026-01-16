@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { CircleAlert, CircleCheckIcon, InfoIcon, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type AlertVariant = "info" | "warning" | "error" | "success";
+type AlertVariant = "info" | "warning" | "error" | "success";
 
 interface AlertProps {
 	variant: AlertVariant;

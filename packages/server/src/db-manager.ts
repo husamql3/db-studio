@@ -1,5 +1,4 @@
-import type { PoolConfig } from "pg";
-import { Pool } from "pg";
+import { Pool, type PoolConfig } from "pg";
 
 /**
  * DatabaseManager - Manages multiple database connection pools
@@ -177,21 +176,21 @@ export const getDbPool = (database?: string): Pool => {
 /**
  * Build a connection string for the specified database
  */
-export const buildDbConnectionString = (database?: string): string => {
+const _buildDbConnectionString = (database?: string): string => {
 	return databaseManager.buildConnectionString(database);
 };
 
 /**
  * Close a specific database pool by database name
  */
-export const closeDbPool = async (database: string): Promise<void> => {
+const _closeDbPool = async (database: string): Promise<void> => {
 	return databaseManager.closePoolByDatabase(database);
 };
 
 /**
  * Close a specific database pool by connection string
  */
-export const closeDbPoolByConnectionString = async (
+const _closeDbPoolByConnectionString = async (
 	connectionString: string,
 ): Promise<void> => {
 	return databaseManager.closePool(connectionString);
@@ -200,15 +199,13 @@ export const closeDbPoolByConnectionString = async (
 /**
  * Close all database pools
  */
-export const closeAllDbPools = async (): Promise<void> => {
+const _closeAllDbPools = async (): Promise<void> => {
 	return databaseManager.closeAll();
 };
 
 /**
  * Get list of active pool connection strings
  */
-export const getActivePools = (): string[] => {
+const _getActivePools = (): string[] => {
 	return databaseManager.getActivePools();
 };
-
-export default databaseManager;

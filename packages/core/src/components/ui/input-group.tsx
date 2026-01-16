@@ -100,7 +100,7 @@ function InputGroupButton({
 	);
 }
 
-function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
+function _InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			className={cn(
@@ -112,7 +112,7 @@ function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 	);
 }
 
-function InputGroupInput({ className, ...props }: React.ComponentProps<"input">) {
+function _InputGroupInput({ className, ...props }: React.ComponentProps<"input">) {
 	return (
 		<Input
 			data-slot="input-group-control"
@@ -138,11 +138,4 @@ function InputGroupTextarea({ className, ...props }: React.ComponentProps<"texta
 	);
 }
 
-export {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupText,
-	InputGroupInput,
-	InputGroupTextarea,
-};
+export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea };

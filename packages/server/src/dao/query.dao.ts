@@ -1,13 +1,5 @@
+import type { ExecuteQueryResponse } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-
-export type ExecuteQueryResponse = {
-	columns: string[];
-	rows: Record<string, unknown>[];
-	rowCount: number;
-	duration: number;
-	message?: string;
-	error?: string;
-};
 
 export const executeQuery = async (params: {
 	query: string;

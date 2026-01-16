@@ -27,7 +27,7 @@ function ContextMenuTrigger({
 	);
 }
 
-function ContextMenuGroup({
+function _ContextMenuGroup({
 	...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Group>) {
 	return (
@@ -38,7 +38,7 @@ function ContextMenuGroup({
 	);
 }
 
-function ContextMenuPortal({
+function _ContextMenuPortal({
 	...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Portal>) {
 	return (
@@ -49,7 +49,7 @@ function ContextMenuPortal({
 	);
 }
 
-function ContextMenuSub({
+function _ContextMenuSub({
 	...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Sub>) {
 	return (
@@ -60,7 +60,7 @@ function ContextMenuSub({
 	);
 }
 
-function ContextMenuRadioGroup({
+function _ContextMenuRadioGroup({
 	...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.RadioGroup>) {
 	return (
@@ -114,7 +114,7 @@ function ContextMenuItem({
 	);
 }
 
-function ContextMenuSubTrigger({
+function _ContextMenuSubTrigger({
 	className,
 	inset,
 	children,
@@ -138,7 +138,7 @@ function ContextMenuSubTrigger({
 	);
 }
 
-function ContextMenuSubContent({
+function _ContextMenuSubContent({
 	className,
 	...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
@@ -154,7 +154,7 @@ function ContextMenuSubContent({
 	);
 }
 
-function ContextMenuCheckboxItem({
+function _ContextMenuCheckboxItem({
 	className,
 	children,
 	checked,
@@ -180,7 +180,7 @@ function ContextMenuCheckboxItem({
 	);
 }
 
-function ContextMenuRadioItem({
+function _ContextMenuRadioItem({
 	className,
 	children,
 	...props
@@ -204,7 +204,7 @@ function ContextMenuRadioItem({
 	);
 }
 
-function ContextMenuLabel({
+function _ContextMenuLabel({
 	className,
 	inset,
 	...props
@@ -237,7 +237,7 @@ function ContextMenuSeparator({
 	);
 }
 
-function ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function _ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="context-menu-shortcut"
@@ -255,15 +255,5 @@ export {
 	ContextMenuTrigger,
 	ContextMenuContent,
 	ContextMenuItem,
-	ContextMenuCheckboxItem,
-	ContextMenuRadioItem,
-	ContextMenuLabel,
 	ContextMenuSeparator,
-	ContextMenuShortcut,
-	ContextMenuGroup,
-	ContextMenuPortal,
-	ContextMenuSub,
-	ContextMenuSubContent,
-	ContextMenuSubTrigger,
-	ContextMenuRadioGroup,
 };

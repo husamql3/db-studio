@@ -26,7 +26,7 @@ const toggleVariants = cva(
 	},
 );
 
-function Toggle({
+function _Toggle({
 	className,
 	variant = "default",
 	size = "default",
@@ -42,4 +42,4 @@ function Toggle({
 	);
 }
 
-export { Toggle, toggleVariants };
+export { toggleVariants };

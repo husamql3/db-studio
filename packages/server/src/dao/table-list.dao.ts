@@ -1,9 +1,5 @@
+import type { TableInfo } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-
-export interface TableInfo {
-	tableName: string;
-	rowCount: number;
-}
 
 export const getTablesList = async (database?: string): Promise<TableInfo[]> => {
 	const pool = getDbPool(database);

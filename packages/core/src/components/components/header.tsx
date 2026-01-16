@@ -1,10 +1,10 @@
 import { IconBrandGithub } from "@tabler/icons-react";
+import { META } from "shared/constants";
+import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { LINKS } from "@/utils/constants";
-import { Chat } from "../chat/chat";
 
 export const Header = () => {
 	// const { openSheet } = useSheetStore();
@@ -41,7 +41,7 @@ export const Header = () => {
 							asChild
 						>
 							<a
-								href={LINKS.GITHUB}
+								href={META.SITE_GITHUB_LINK}
 								target="_blank"
 								rel="noopener noreferrer"
 							>

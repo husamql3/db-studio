@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DEFAULTS } from "shared/constants";
 import { toast } from "sonner";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
-import { API_URL, CONSTANTS } from "@/utils/constants";
+import { CONSTANTS } from "@/utils/constants";
 
 export interface AddRecordFormData {
 	[key: string]: string;
@@ -19,7 +20,7 @@ export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 				tableName: tableName,
 				data,
 			});
-			const url = new URL(`${API_URL}/records`);
+			const url = new URL(`${DEFAULTS.BASE_URL}/records`);
 			if (selectedDatabase) {
 				url.searchParams.set("database", selectedDatabase);
 			}

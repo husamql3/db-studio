@@ -9,6 +9,18 @@ import tailwindcss from "@tailwindcss/vite"
 export default defineConfig({
   build: {
     outDir: "dist",
+    rollupOptions: {
+      external: [
+        "@tanstack/ai-devtools-core",
+        "@tanstack/react-ai-devtools",
+      ],
+    },
+  },
+  optimizeDeps: {
+    include: [
+      "@tanstack/ai-devtools-core",
+      "@tanstack/react-ai-devtools",
+    ],
   },
   plugins: [
     tailwindcss(),

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "packages/core": {
+      "entry": ["src/main.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/server": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/proxy": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/shared": {
+      "entry": ["src/index.ts", "src/types/index.ts", "src/constants/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "www": {
+      "entry": ["src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  }
+}

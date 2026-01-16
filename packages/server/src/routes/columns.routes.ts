@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { databaseQuerySchema, tableNameParamSchema } from "shared/types";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
-import { databaseQuerySchema, tableNameParamSchema } from "@/types/create-table.type.js";
 import { handleConnectionError } from "@/utils/error-handler.js";
 
 export const columnsRoutes = new Hono();

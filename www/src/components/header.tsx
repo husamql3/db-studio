@@ -4,15 +4,9 @@ import { useState } from "react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
 import { IoMenuOutline } from "react-icons/io5";
+import { HEADER_LINKS, META } from "shared/constants";
 import { Button } from "@/components/ui/btn";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
-
-const LINKS = [
-	{ label: "Home", href: "/" },
-	{ label: "Roadmap", href: "/roadmap" },
-	{ label: "Docs", href: "/docs/$" },
-	{ label: "Changelog", href: "/changelog" },
-];
 
 export const Header = ({ stars }: { stars: string | null }) => {
 	const [open, setOpen] = useState(false);
@@ -44,7 +38,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 							onOpenAutoFocus={(e) => e.preventDefault()}
 						>
 							<SheetHeader className="flex flex-col">
-								{LINKS.map((link) => (
+								{HEADER_LINKS.map((link) => (
 									<Link
 										to={link.href}
 										key={link.href}
@@ -75,7 +69,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 
 				{/* Desktop nav */}
 				<div className="items-center gap-1 flex">
-					{LINKS.map((link) => (
+					{HEADER_LINKS.map((link) => (
 						<Link
 							to={link.href}
 							key={link.href}
@@ -91,7 +85,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					))}
 
 					<a
-						href="https://github.com/husamql3/db-studio"
+						href={META.SITE_GITHUB_LINK}
 						target="_blank"
 						rel="noopener noreferrer"
 					>
@@ -107,7 +101,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					</a>
 
 					<a
-						href="https://x.com/dbstudio_sh"
+						href={META.SITE_X_LINK}
 						target="_blank"
 						rel="noopener noreferrer"
 					>

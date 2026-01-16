@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DEFAULTS } from "shared/constants";
 import { toast } from "sonner";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
-import { API_URL, CONSTANTS } from "@/utils/constants";
+import { CONSTANTS } from "@/utils/constants";
 
-export interface FieldData {
+interface FieldData {
 	columnName: string;
 	columnType: string;
 	defaultValue: string;
@@ -15,7 +16,7 @@ export interface FieldData {
 	isArray: boolean;
 }
 
-export interface AddTableFormData {
+interface AddTableFormData {
 	tableName: string;
 	fields: FieldData[];
 }
@@ -27,7 +28,7 @@ export const useCreateTable = () => {
 
 	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
 		mutationFn: async (data: AddTableFormData) => {
-			const url = new URL(`${API_URL}/tables`);
+			const url = new URL(`${DEFAULTS.BASE_URL}/tables`);
 			if (selectedDatabase) {
 				url.searchParams.set("database", selectedDatabase);
 			}
