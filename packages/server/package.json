@@ -1,7 +1,7 @@
 {
   "name": "db-studio",
   "type": "module",
-  "version": "1.2.9",
+  "version": "1.2.12",
   "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
   "keywords": [
     "database",
@@ -47,7 +47,6 @@
     "check": "biome check --write --unsafe --verbose"
   },
   "dependencies": {
-    "shared": "workspace:*",
     "@clack/prompts": "^0.11.0",
     "@hono/node-server": "^1.19.7",
     "@hono/node-ws": "^1.2.0",
@@ -61,6 +60,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "shared": "workspace:*",
     "@biomejs/biome": "^2.2.6",
     "@types/node": "^20.11.17",
     "@types/pg": "^8.16.0",
