@@ -15,7 +15,23 @@ export type ChangelogItem = {
 };
 
 export const changelog: ChangelogItem[] = [
-	// add at the top of the array
+	{
+		version: "1.2.9",
+		date: "2026-01-17",
+		title: "",
+		features: [],
+		bugsFixed: [],
+		improvements: [
+			{
+				text: "Used `turbo` to run and build the project",
+				username: "husamql3",
+			},
+			{
+				text: "Implemented `shared` package to share code between the packages",
+				username: "husamql3",
+			},
+		],
+	},
 	{
 		version: "1.2.6",
 		date: "2026-01-13",

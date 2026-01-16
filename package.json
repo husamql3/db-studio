@@ -14,7 +14,6 @@
     "build:core": "turbo run build --filter=core",
     "build:server": "turbo run build --filter=db-studio",
     "build:proxy": "turbo run build --filter=proxy",
-    "build:release": "turbo run build:release --filter=db-studio",
     "build:www": "turbo run build --filter=www",
     "deploy:www": "turbo run deploy --filter=www",
     "deploy:www:preview": "turbo run deploy:preview --filter=www",
@@ -25,7 +24,6 @@
     "test": "turbo run test",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "bun run build:release && npm publish --workspace=packages/server",
     "prepare": "husky",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist www/node_modules www/dist bun.lockb .turbo",
     "knip": "knip"

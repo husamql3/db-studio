@@ -47,6 +47,15 @@
       ],
       "cache": true
     },
+    "build:release": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
+      "cache": true
+    },
     "release": {
       "dependsOn": [
         "^build",
