@@ -16,7 +16,11 @@ export const updateRecords = async (params: UpdateRecordParams) => {
 		// Group updates by row (using the primary key value)
 		const updatesByRow = new Map<
 			unknown,
-			Array<{ columnName: string; value: unknown; rowData: Record<string, unknown> }>
+			Array<{
+				columnName: string;
+				value: unknown;
+				rowData: Record<string, unknown>;
+			}>
 		>();
 
 		for (const update of updates) {

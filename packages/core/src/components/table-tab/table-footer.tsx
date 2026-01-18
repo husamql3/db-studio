@@ -1,9 +1,9 @@
 import {
-	IconChevronLeft,
-	IconChevronLeftPipe,
-	IconChevronRight,
-	IconChevronRightPipe,
-} from "@tabler/icons-react";
+	ChevronLeft,
+	ChevronRight,
+	ChevronsLeft,
+	ChevronsRight,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,9 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
-	const [pageSize, setPageSize] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
+	const [pageSize, setPageSize] = useQueryState(
+		CONSTANTS.TABLE_STATE_KEYS.LIMIT,
+	);
 	const [page, setPage] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.PAGE);
 	const { tableData } = useTableData({ tableName });
 
@@ -51,7 +53,9 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 		>
 			<div className="flex items-center gap-2">
 				{/* Results per page */}
-				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
+				<Label className="text-xs text-zinc-400 whitespace-nowrap">
+					Rows per page
+				</Label>
 				<Select
 					value={pageSize?.toString() || "50"}
 					onValueChange={(value) => {
@@ -87,7 +91,10 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 						{(Number(page) - 1) * Number(pageSize) + 1}-
 						{Math.min(Number(page) * Number(pageSize), totalRows)}
 					</span>{" "}
-					of <span className="text-zinc-200">{tableData?.meta?.total.toString()}</span>
+					of{" "}
+					<span className="text-zinc-200">
+						{tableData?.meta?.total.toString()}
+					</span>
 				</p>
 			</div>
 
@@ -106,7 +113,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) <= 1 || totalRows === 0}
 								aria-label="Go to first page"
 							>
-								<IconChevronLeftPipe aria-hidden="true" />
+								<ChevronsLeft aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -120,7 +127,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) <= 1 || totalRows === 0}
 								aria-label="Go to previous page"
 							>
-								<IconChevronLeft aria-hidden="true" />
+								<ChevronLeft aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -134,7 +141,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) >= totalPages || totalRows === 0}
 								aria-label="Go to next page"
 							>
-								<IconChevronRight aria-hidden="true" />
+								<ChevronRight aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -148,7 +155,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) >= totalPages || totalRows === 0}
 								aria-label="Go to last page"
 							>
-								<IconChevronRightPipe aria-hidden="true" />
+								<ChevronsRight aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 					</PaginationContent>

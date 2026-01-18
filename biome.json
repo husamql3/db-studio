@@ -13,7 +13,7 @@
 		"enabled": true,
 		"formatWithErrors": true,
 		"indentStyle": "tab",
-		"lineWidth": 90,
+		"lineWidth": 80,
 		"lineEnding": "lf",
 		"attributePosition": "multiline"
 	},

@@ -37,7 +37,9 @@ export const main = async () => {
 	const PORT = port ? parseInt(port, 10) : DEFAULTS.PORT;
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
 	const ENV = env ? await loadEnv(env) : await loadEnv(DEFAULTS.ENV);
-	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
+	const DATABASE_URL = databaseUrl
+		? databaseUrl
+		: await getDatabaseUrl(ENV, VAR_NAME);
 
 	// Set DATABASE_URL in process.env before importing createServer
 	// This ensures the db pool is initialized with the correct connection string
@@ -52,7 +54,9 @@ export const main = async () => {
 	});
 	injectWebSocket(server);
 
-	outro(color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`));
+	outro(
+		color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`),
+	);
 
 	if (process.env.NODE_ENV && process.env.NODE_ENV !== "development") {
 		await open(`http://localhost:${PORT}`);

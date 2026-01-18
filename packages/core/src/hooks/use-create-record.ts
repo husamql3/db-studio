@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { DEFAULTS } from "shared/constants";
 import { toast } from "sonner";
+import { fetcher } from "@/lib/fetcher";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
@@ -14,49 +14,31 @@ export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 	const { closeSheet } = useSheetStore();
 	const { selectedDatabase } = useDatabaseStore();
 
-	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
-		mutationFn: async (data: AddRecordFormData) => {
-			console.log("payload", {
-				tableName: tableName,
-				data,
-			});
-			const url = new URL(`${DEFAULTS.BASE_URL}/records`);
-			if (selectedDatabase) {
-				url.searchParams.set("database", selectedDatabase);
-			}
-			const res = await fetch(url.toString(), {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					tableName: tableName,
-					data,
-				}),
-			});
-			if (!res.ok) {
-				const errorData = await res.json();
-				throw new Error(errorData.detail || "Failed to create record");
-			}
-			return res.json();
-		},
-		onSuccess: async (data) => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
-				}),
-			]);
-			closeSheet("add-record");
-			console.log("Record created successfully:", data);
-		},
-		onError: (error: Error & { detail?: string }) => {
-			console.error("Error creating record:", error);
-		},
-	});
+	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } =
+		useMutation({
+			mutationFn: (data: AddRecordFormData) =>
+				fetcher.post<{ message?: string }>(
+					"/records",
+					{ tableName, data },
+					{ params: { database: selectedDatabase } },
+				),
+			onSuccess: async (data) => {
+				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
+						exact: false,
+					}),
+					queryClient.invalidateQueries({
+						queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
+					}),
+				]);
+				closeSheet("add-record");
+				console.log("Record created successfully:", data);
+			},
+			onError: (error: Error & { detail?: string }) => {
+				console.error("Error creating record:", error);
+			},
+		});
 
 	const createRecord = async (
 		data: AddRecordFormData,

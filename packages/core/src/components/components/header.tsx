@@ -1,10 +1,14 @@
-import { IconBrandGithub } from "@tabler/icons-react";
+import { Github } from "lucide-react";
 import { META } from "shared/constants";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const Header = () => {
 	// const { openSheet } = useSheetStore();
@@ -45,7 +49,7 @@ export const Header = () => {
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								<IconBrandGithub className="size-5" />
+								<Github className="size-5" />
 							</a>
 						</Button>
 					</TooltipTrigger>

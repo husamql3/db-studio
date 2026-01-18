@@ -12,7 +12,9 @@ export function useTableNavigation() {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const [, setReferencedPage] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE);
+	const [, setReferencedPage] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE,
+	);
 	const [, setReferencedPageSize] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);

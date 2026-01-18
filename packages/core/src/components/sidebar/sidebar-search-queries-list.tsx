@@ -1,5 +1,5 @@
-import { IconFolderPlus, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
+import { FolderPlus, Plus, Search } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,20 +42,20 @@ export const SidebarSearchQueriesList = () => {
 					className="flex-1 justify-start h-8"
 					onClick={handleAddQuery}
 				>
-					<IconPlus className="size-4" />
+					<Plus className="size-4" />
 					Add Query
 				</Button>
 				<Button
 					className="flex-1 justify-start h-8"
 					onClick={handleAddFolder}
 				>
-					<IconFolderPlus className="size-4" />
+					<FolderPlus className="size-4" />
 					Add Folder
 				</Button>
 			</div>
 
 			<div className="relative">
-				<IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+				<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 				<Input
 					ref={inputRef}
 					placeholder="Search queries"
@@ -63,7 +63,9 @@ export const SidebarSearchQueriesList = () => {
 					onChange={handleSearch}
 					className="rounded-sm h-8 pl-8 pr-8"
 				/>
-				<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
+				<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">
+					/
+				</Kbd>
 			</div>
 		</div>
 	);

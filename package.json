@@ -12,6 +12,7 @@
     "dev:www": "turbo run dev --filter=www",
     "build": "turbo run build",
     "build:core": "turbo run build --filter=core",
+    "scan:core": "bunx react-scan@latest http://localhost:3001",
     "build:server": "turbo run build --filter=db-studio",
     "build:proxy": "turbo run build --filter=proxy",
     "build:www": "turbo run build --filter=www",

@@ -7,8 +7,6 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { chatRoutes } from "@/routes/chat.routes.js";
-import { columnsRoutes } from "@/routes/columns.routes.js";
-import { dataRoutes } from "@/routes/data.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
@@ -26,7 +24,9 @@ const getCoreDistPath = () => {
 
 export const createServer = () => {
 	const app = new Hono({ strict: false });
-	const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app: app as any });
+	const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({
+		app: app as any,
+	});
 
 	app.use("/*", cors());
 
@@ -36,7 +36,9 @@ export const createServer = () => {
 
 	app.use(
 		"/favicon.ico",
-		serveStatic({ path: path.resolve(getCoreDistPath(), "favicon.ico") }),
+		serveStatic({
+			path: path.resolve(getCoreDistPath(), "favicon.ico"),
+		}),
 	);
 
 	app.use("*", async (c, next) => {
@@ -49,8 +51,6 @@ export const createServer = () => {
 	app.route("/ws", websocketRoutes(upgradeWebSocket));
 	app.route("/databases", databasesRoutes);
 	app.route("/tables", tablesRoutes);
-	app.route("/tables/:tableName/columns", columnsRoutes);
-	app.route("/tables/:tableName/data", dataRoutes);
 	app.route("/records", recordsRoutes);
 	app.route("/query", queryRoutes);
 	app.route("/chat", chatRoutes);

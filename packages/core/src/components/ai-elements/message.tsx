@@ -1,13 +1,14 @@
 "use client";
 
-import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 
+type MessageRole = "system" | "user" | "assistant" | "data";
+
 type MessageProps = HTMLAttributes<HTMLDivElement> & {
-	from: UIMessage["role"];
+	from: MessageRole;
 };
 
 export const Message = ({ className, from, ...props }: MessageProps) => (
@@ -50,13 +51,17 @@ type MessageBranchContextType = {
 	setBranches: (branches: ReactElement[]) => void;
 };
 
-const MessageBranchContext = createContext<MessageBranchContextType | null>(null);
+const MessageBranchContext = createContext<MessageBranchContextType | null>(
+	null,
+);
 
 const useMessageBranch = () => {
 	const context = useContext(MessageBranchContext);
 
 	if (!context) {
-		throw new Error("MessageBranch components must be used within MessageBranch");
+		throw new Error(
+			"MessageBranch components must be used within MessageBranch",
+		);
 	}
 
 	return context;
@@ -82,12 +87,14 @@ export const MessageBranch = ({
 	};
 
 	const goToPrevious = () => {
-		const newBranch = currentBranch > 0 ? currentBranch - 1 : branches.length - 1;
+		const newBranch =
+			currentBranch > 0 ? currentBranch - 1 : branches.length - 1;
 		handleBranchChange(newBranch);
 	};
 
 	const goToNext = () => {
-		const newBranch = currentBranch < branches.length - 1 ? currentBranch + 1 : 0;
+		const newBranch =
+			currentBranch < branches.length - 1 ? currentBranch + 1 : 0;
 		handleBranchChange(newBranch);
 	};
 
@@ -145,7 +152,10 @@ type MessageResponseProps = ComponentProps<typeof Streamdown>;
 export const MessageResponse = memo(
 	({ className, ...props }: MessageResponseProps) => (
 		<Streamdown
-			className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+			className={cn(
+				"size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+				className,
+			)}
 			{...props}
 		/>
 	),

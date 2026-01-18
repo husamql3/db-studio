@@ -2,7 +2,7 @@ import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { useQueryState } from "nuqs";
 import { useMemo } from "react";
-import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
+import type { ExecuteQueryResponse } from "shared/types";
 import { TableView } from "@/components/runnr-tab/table-view";
 import { Spinner } from "@/components/ui/spinner";
 import { CONSTANTS } from "@/utils/constants";
