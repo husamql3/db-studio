@@ -192,7 +192,10 @@ function DropdownMenuSeparator({
 	);
 }
 
-function _DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function _DropdownMenuShortcut({
+	className,
+	...props
+}: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="dropdown-menu-shortcut"

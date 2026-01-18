@@ -36,7 +36,9 @@ export const ReferencedColField = ({ index }: { index: number }) => {
 						disabled={isLoadingTableCols || !tableCols?.length}
 					>
 						<SelectValue
-							placeholder={tableCols?.length ? "Select a column" : "No columns found"}
+							placeholder={
+								tableCols?.length ? "Select a column" : "No columns found"
+							}
 						/>
 					</SelectTrigger>
 					<SelectContent>

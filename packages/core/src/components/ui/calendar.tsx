@@ -1,6 +1,14 @@
-import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import {
+	IconChevronDown,
+	IconChevronLeft,
+	IconChevronRight,
+} from "@tabler/icons-react";
 import * as React from "react";
-import { type DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
+import {
+	type DayButton,
+	DayPicker,
+	getDefaultClassNames,
+} from "react-day-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,12 +37,16 @@ function Calendar({
 			)}
 			captionLayout={captionLayout}
 			formatters={{
-				formatMonthDropdown: (date) => date.toLocaleString("default", { month: "short" }),
+				formatMonthDropdown: (date) =>
+					date.toLocaleString("default", { month: "short" }),
 				...formatters,
 			}}
 			classNames={{
 				root: cn("w-fit", defaultClassNames.root),
-				months: cn("flex gap-4 flex-col md:flex-row relative", defaultClassNames.months),
+				months: cn(
+					"flex gap-4 flex-col md:flex-row relative",
+					defaultClassNames.months,
+				),
 				month: cn("flex flex-col w-full gap-4", defaultClassNames.month),
 				nav: cn(
 					"flex items-center gap-1 w-full absolute top-0 inset-x-0 justify-between",
@@ -62,7 +74,10 @@ function Calendar({
 					"relative cn-calendar-dropdown-root rounded-(--cell-radius)",
 					defaultClassNames.dropdown_root,
 				),
-				dropdown: cn("absolute bg-popover inset-0 opacity-0", defaultClassNames.dropdown),
+				dropdown: cn(
+					"absolute bg-popover inset-0 opacity-0",
+					defaultClassNames.dropdown,
+				),
 				caption_label: cn(
 					"select-none font-medium",
 					captionLayout === "label"
@@ -109,7 +124,10 @@ function Calendar({
 					"text-muted-foreground aria-selected:text-muted-foreground",
 					defaultClassNames.outside,
 				),
-				disabled: cn("text-muted-foreground opacity-50", defaultClassNames.disabled),
+				disabled: cn(
+					"text-muted-foreground opacity-50",
+					defaultClassNames.disabled,
+				),
 				hidden: cn("invisible", defaultClassNames.hidden),
 				...classNames,
 			}}

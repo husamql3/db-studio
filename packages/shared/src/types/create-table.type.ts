@@ -26,6 +26,7 @@ export const createTableSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
 	fields: z.array(fieldDataSchema).min(1, "At least one field is required"),
 });
+
 export type CreateTableFormData = z.infer<typeof createTableSchema>;
 
 export const tableNameParamSchema = z.object({

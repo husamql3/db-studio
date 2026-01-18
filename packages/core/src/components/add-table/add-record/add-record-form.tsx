@@ -4,14 +4,19 @@ import { RecordReferenceSheet } from "@/components/add-table/add-record/record-r
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Button } from "@/components/ui/button";
 import { SheetClose } from "@/components/ui/sheet";
-import { type AddRecordFormData, useCreateRecord } from "@/hooks/use-create-record";
+import {
+	type AddRecordFormData,
+	useCreateRecord,
+} from "@/hooks/use-create-record";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
 
 export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeSheet, isSheetOpen } = useSheetStore();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
-	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName });
+	const { createRecord, isCreatingRecord } = useCreateRecord({
+		tableName,
+	});
 	const methods = useForm<AddRecordFormData>();
 
 	const onSubmit = async (data: AddRecordFormData) => {

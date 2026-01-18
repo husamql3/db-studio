@@ -17,7 +17,11 @@ export const SidebarHeader = () => {
 				className="size-9 flex items-center justify-center transition hover:bg-transparent! focus-visible:ring-0 focus-visible:ring-offset-0"
 				title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
 			>
-				{isPinned ? <IconPinFilled className="size-4" /> : <IconPin className="size-4" />}
+				{isPinned ? (
+					<IconPinFilled className="size-4" />
+				) : (
+					<IconPin className="size-4" />
+				)}
 			</Button>
 		</div>
 	);

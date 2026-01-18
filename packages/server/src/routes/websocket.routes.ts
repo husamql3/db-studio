@@ -23,7 +23,9 @@ const checkDatabaseConnection = async (): Promise<{
 const DB_CHECK_INTERVAL = 5000;
 const DB_CHECK_TIMEOUT = 10000;
 
-export const websocketRoutes = (upgradeWebSocket: NodeWebSocket["upgradeWebSocket"]) => {
+export const websocketRoutes = (
+	upgradeWebSocket: NodeWebSocket["upgradeWebSocket"],
+) => {
 	const app = new Hono();
 
 	app.get(
@@ -64,7 +66,11 @@ export const websocketRoutes = (upgradeWebSocket: NodeWebSocket["upgradeWebSocke
 								checkDatabaseConnection(),
 								new Promise<{ success: boolean; error: string }>((_, reject) =>
 									setTimeout(
-										() => reject({ success: false, error: "Database check timeout" }),
+										() =>
+											reject({
+												success: false,
+												error: "Database check timeout",
+											}),
 										DB_CHECK_TIMEOUT,
 									),
 								),

@@ -5,8 +5,12 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 
 export const RefetchBtn = ({ tableName }: { tableName: string }) => {
-	const { refetchTableData, isRefetchingTableData } = useTableData({ tableName });
-	const { refetchTableCols, isRefetchingTableCols } = useTableCols({ tableName });
+	const { refetchTableData, isRefetchingTableData } = useTableData({
+		tableName,
+	});
+	const { refetchTableCols, isRefetchingTableCols } = useTableCols({
+		tableName,
+	});
 
 	const handleRefetch = useCallback(() => {
 		Promise.all([refetchTableData(), refetchTableCols()]);

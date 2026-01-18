@@ -5,7 +5,11 @@ import type { Sort, SortDirection } from "server/src/dao/tables-data.dao";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -17,7 +21,11 @@ import { Switch } from "@/components/ui/switch";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { CONSTANTS } from "@/utils/constants";
 
-export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) => {
+export const ReferencedTableSortPopup = ({
+	tableName,
+}: {
+	tableName: string;
+}) => {
 	const { tableCols } = useTableCols({ tableName });
 	const [sorts, setSorts] = useQueryState<Sort[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT,
@@ -40,11 +48,16 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 
 	const handleSortColumnChange = (index: number, columnName: string) => {
 		setLocalSort(
-			localSort.map((sort, i) => (i === index ? { ...sort, columnName } : sort)),
+			localSort.map((sort, i) =>
+				i === index ? { ...sort, columnName } : sort,
+			),
 		);
 	};
 
-	const handleSortDirectionChange = (index: number, direction: SortDirection) => {
+	const handleSortDirectionChange = (
+		index: number,
+		direction: SortDirection,
+	) => {
 		setLocalSort(
 			localSort.map((sort, i) => (i === index ? { ...sort, direction } : sort)),
 		);
@@ -121,7 +134,9 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 							>
 								<Select
 									value={sort.columnName}
-									onValueChange={(value) => handleSortColumnChange(index, value)}
+									onValueChange={(value) =>
+										handleSortColumnChange(index, value)
+									}
 								>
 									<SelectTrigger className="w-full flex-1">
 										<SelectValue placeholder="Select column" />

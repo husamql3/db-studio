@@ -16,9 +16,8 @@ export const useTablesList = () => {
 		queryFn: async () => {
 			try {
 				const url = new URL(`${DEFAULTS.BASE_URL}/tables`);
-				if (selectedDatabase) {
-					url.searchParams.set("database", selectedDatabase);
-				}
+				selectedDatabase && url.searchParams.set("database", selectedDatabase);
+
 				const response = await fetch(url.toString());
 				const data = await response.json();
 				if (!response.ok) {

@@ -28,11 +28,14 @@ export type QueryResult = {
 
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const navigate = useNavigate();
-	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
+	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(
+		undefined,
+	);
 	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
 	const isFavorite = query?.isFavorite ?? false;
-	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
+	const { executeQuery, isExecutingQuery, executeQueryError } =
+		useExecuteQuery();
 	const [editorInstance, setEditor] =
 		useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -329,14 +332,17 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 
 		// Keyboard shortcuts
 		// Ctrl/Cmd+Enter to run query
-		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-			const query = editorInstance.getValue();
-			if (!query.trim()) {
-				toast.error("Query is empty!");
-				return;
-			}
-			handleExecuteQuery(query);
-		});
+		editorInstance.addCommand(
+			monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+			() => {
+				const query = editorInstance.getValue();
+				if (!query.trim()) {
+					toast.error("Query is empty!");
+					return;
+				}
+				handleExecuteQuery(query);
+			},
+		);
 
 		// Ctrl/Cmd+Shift+F to format query
 		editorInstance.addCommand(
@@ -349,16 +355,19 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		);
 
 		// Ctrl/Cmd+S to save query
-		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-			if (!queryId) {
-				toast.error("No query to save");
-				return;
-			}
-			const query = editorInstance.getValue();
-			updateQuery(queryId, { query });
-			setHasUnsavedChanges(false);
-			toast.success("Query saved");
-		});
+		editorInstance.addCommand(
+			monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+			() => {
+				if (!queryId) {
+					toast.error("No query to save");
+					return;
+				}
+				const query = editorInstance.getValue();
+				updateQuery(queryId, { query });
+				setHasUnsavedChanges(false);
+				toast.success("Query saved");
+			},
+		);
 
 		setEditor(editorInstance);
 
@@ -410,7 +419,10 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		if (!queryId) {
 			const newQueryId = addQuery();
 			updateQuery(newQueryId, { query });
-			navigate({ to: "/runner/$queryId", params: { queryId: newQueryId } });
+			navigate({
+				to: "/runner/$queryId",
+				params: { queryId: newQueryId },
+			});
 		} else {
 			updateQuery(queryId, { query });
 		}

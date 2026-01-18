@@ -16,9 +16,12 @@ export const handleConnectionError = (
 		"errors" in error &&
 		Array.isArray((error as { errors?: unknown[] }).errors)
 	) {
-		const aggregateError = error as { errors?: Array<{ code?: string }> };
+		const aggregateError = error as {
+			errors?: Array<{ code?: string }>;
+		};
 		isConnectionError =
-			aggregateError.errors?.some((err) => err.code === "ECONNREFUSED") ?? false;
+			aggregateError.errors?.some((err) => err.code === "ECONNREFUSED") ??
+			false;
 	}
 
 	if (isConnectionError) {

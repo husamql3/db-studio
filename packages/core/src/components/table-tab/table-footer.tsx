@@ -27,7 +27,9 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
-	const [pageSize, setPageSize] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
+	const [pageSize, setPageSize] = useQueryState(
+		CONSTANTS.TABLE_STATE_KEYS.LIMIT,
+	);
 	const [page, setPage] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.PAGE);
 	const { tableData } = useTableData({ tableName });
 
@@ -51,7 +53,9 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 		>
 			<div className="flex items-center gap-2">
 				{/* Results per page */}
-				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
+				<Label className="text-xs text-zinc-400 whitespace-nowrap">
+					Rows per page
+				</Label>
 				<Select
 					value={pageSize?.toString() || "50"}
 					onValueChange={(value) => {
@@ -87,7 +91,10 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 						{(Number(page) - 1) * Number(pageSize) + 1}-
 						{Math.min(Number(page) * Number(pageSize), totalRows)}
 					</span>{" "}
-					of <span className="text-zinc-200">{tableData?.meta?.total.toString()}</span>
+					of{" "}
+					<span className="text-zinc-200">
+						{tableData?.meta?.total.toString()}
+					</span>
 				</p>
 			</div>
 

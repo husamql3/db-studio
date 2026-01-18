@@ -48,7 +48,9 @@ export const SidebarSearchTables = () => {
 					onChange={(e) => setSearchTerm(e.target.value.trim())}
 					className="rounded-sm h-8 pl-8 pr-8"
 				/>
-				<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
+				<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">
+					/
+				</Kbd>
 			</div>
 		</div>
 	);

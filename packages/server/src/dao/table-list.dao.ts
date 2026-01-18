@@ -1,24 +1,43 @@
 import type { TableInfo } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
-export const getTablesList = async (database?: string): Promise<TableInfo[]> => {
+export const getTablesList = async (
+	database?: string,
+): Promise<TableInfo[]> => {
 	const pool = getDbPool(database);
 	const client = await pool.connect();
 	try {
-		const res = await client.query(`
-      SELECT 
-        t.table_name as "tableName",
-        COALESCE(s.n_live_tup, 0) as "rowCount" 
-      FROM information_schema.tables t
-      LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
-      WHERE t.table_schema = 'public'
-        AND t.table_type = 'BASE TABLE'
-      ORDER BY t.table_name;
+		// First get all table names
+		const tablesRes = await client.query(`
+      SELECT table_name as "tableName"
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE'
+      ORDER BY table_name;
     `);
-		return res.rows.map((r: any) => ({
-			tableName: r.tableName,
-			rowCount: Number(r.rowCount),
-		}));
+
+		// Get accurate row count for each table
+		const tables: TableInfo[] = await Promise.all(
+			tablesRes.rows.map(async (row: { tableName: string }) => {
+				try {
+					const countRes = await client.query(
+						`SELECT COUNT(*) as count FROM "${row.tableName}"`,
+					);
+					return {
+						tableName: row.tableName,
+						rowCount: Number(countRes.rows[0].count),
+					};
+				} catch {
+					// If count fails (e.g., table has no columns), return 0
+					return {
+						tableName: row.tableName,
+						rowCount: 0,
+					};
+				}
+			}),
+		);
+
+		return tables;
 	} finally {
 		client.release();
 	}

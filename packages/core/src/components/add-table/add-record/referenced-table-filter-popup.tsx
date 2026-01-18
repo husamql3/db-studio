@@ -5,7 +5,11 @@ import type { Filter } from "server/src/dao/tables-data.dao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -16,7 +20,11 @@ import {
 import { useTableCols } from "@/hooks/use-table-cols";
 import { CONSTANTS } from "@/utils/constants";
 
-export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string }) => {
+export const ReferencedTableFilterPopup = ({
+	tableName,
+}: {
+	tableName: string;
+}) => {
 	const [filters, setFilters] = useQueryState<Filter[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
 		parseAsJson((value) => value as Filter[])
@@ -42,19 +50,25 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 
 	const handleFilterColumnChange = (index: number, columnName: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) => (i === index ? { ...filter, columnName } : filter)),
+			localFilters.map((filter, i) =>
+				i === index ? { ...filter, columnName } : filter,
+			),
 		);
 	};
 
 	const handleFilterValueChange = (index: number, value: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) => (i === index ? { ...filter, value } : filter)),
+			localFilters.map((filter, i) =>
+				i === index ? { ...filter, value } : filter,
+			),
 		);
 	};
 
 	const handleFilterOperatorChange = (index: number, operator: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) => (i === index ? { ...filter, operator } : filter)),
+			localFilters.map((filter, i) =>
+				i === index ? { ...filter, operator } : filter,
+			),
 		);
 	};
 
@@ -135,7 +149,9 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 							>
 								<Select
 									value={filter.columnName}
-									onValueChange={(value) => handleFilterColumnChange(index, value)}
+									onValueChange={(value) =>
+										handleFilterColumnChange(index, value)
+									}
 								>
 									<SelectTrigger className="w-full flex-1">
 										<SelectValue placeholder="Select column" />
@@ -154,7 +170,9 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 
 								<Select
 									value={filter.operator}
-									onValueChange={(value) => handleFilterOperatorChange(index, value)}
+									onValueChange={(value) =>
+										handleFilterOperatorChange(index, value)
+									}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Op" />
@@ -179,7 +197,9 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 									type="text"
 									placeholder="Value"
 									value={filter.value as string}
-									onChange={(e) => handleFilterValueChange(index, e.target.value)}
+									onChange={(e) =>
+										handleFilterValueChange(index, e.target.value)
+									}
 								/>
 
 								<Button

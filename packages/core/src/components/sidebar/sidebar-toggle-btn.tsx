@@ -1,4 +1,7 @@
-import { IconLayoutSidebar, IconLayoutSidebarFilled } from "@tabler/icons-react";
+import {
+	IconLayoutSidebar,
+	IconLayoutSidebarFilled,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 

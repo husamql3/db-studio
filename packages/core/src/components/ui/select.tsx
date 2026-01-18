@@ -10,7 +10,9 @@ import { Select as SelectPrimitive } from "radix-ui";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+function Select({
+	...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
 	return (
 		<SelectPrimitive.Root
 			data-slot="select"
@@ -32,7 +34,9 @@ function _SelectGroup({
 	);
 }
 
-function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
+function SelectValue({
+	...props
+}: React.ComponentProps<typeof SelectPrimitive.Value>) {
 	return (
 		<SelectPrimitive.Value
 			data-slot="select-value"
@@ -148,7 +152,10 @@ function _SelectSeparator({
 	return (
 		<SelectPrimitive.Separator
 			data-slot="select-separator"
-			className={cn("bg-border/50 -mx-1 my-1 h-px pointer-events-none", className)}
+			className={cn(
+				"bg-border/50 -mx-1 my-1 h-px pointer-events-none",
+				className,
+			)}
 			{...props}
 		/>
 	);

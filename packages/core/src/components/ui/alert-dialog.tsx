@@ -75,7 +75,10 @@ function AlertDialogContent({
 	);
 }
 
-function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+function AlertDialogHeader({
+	className,
+	...props
+}: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="alert-dialog-header"
@@ -88,7 +91,10 @@ function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">)
 	);
 }
 
-function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+function AlertDialogFooter({
+	className,
+	...props
+}: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="alert-dialog-footer"
@@ -101,7 +107,10 @@ function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">)
 	);
 }
 
-function _AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) {
+function _AlertDialogMedia({
+	className,
+	...props
+}: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="alert-dialog-media"

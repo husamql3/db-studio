@@ -1,4 +1,8 @@
-import type { CurrentDatabase, DatabaseConnectionInfo, DatabaseInfo } from "shared/types";
+import type {
+	CurrentDatabase,
+	DatabaseConnectionInfo,
+	DatabaseInfo,
+} from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 /**

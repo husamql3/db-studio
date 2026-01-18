@@ -130,12 +130,16 @@ export const AdvancedOptions = ({
 										<Checkbox
 											id={`${option.name}-${index}`}
 											checked={Boolean(field.value)}
-											onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+											onCheckedChange={(checked) =>
+												field.onChange(Boolean(checked))
+											}
 											className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
 											type="button"
 										/>
 										<div className="grid gap-1.5 font-normal">
-											<p className="text-sm leading-none font-medium">{option.label}</p>
+											<p className="text-sm leading-none font-medium">
+												{option.label}
+											</p>
 											<p className="text-sm text-muted-foreground">
 												{option.description}
 											</p>

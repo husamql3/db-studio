@@ -34,7 +34,11 @@ import {
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -93,7 +97,10 @@ export const Chat = () => {
 		return "bg-emerald-500";
 	};
 
-	const indicatorColor = getIndicatorColor(isLoading, rateLimit?.remaining ?? 0);
+	const indicatorColor = getIndicatorColor(
+		isLoading,
+		rateLimit?.remaining ?? 0,
+	);
 
 	return (
 		<>
@@ -175,7 +182,9 @@ export const Chat = () => {
 							{messages.length === 0 ? (
 								<div className="flex items-center justify-center h-full text-muted-foreground">
 									<div className="text-center space-y-2">
-										<p className="text-lg font-medium">Start a new conversation</p>
+										<p className="text-lg font-medium">
+											Start a new conversation
+										</p>
 										<p className="text-sm">Ask me anything to get started</p>
 									</div>
 								</div>
@@ -198,13 +207,19 @@ export const Chat = () => {
 												key={message.id}
 											>
 												<MessageBranchContent>
-													<Message from={message.role === "user" ? "user" : "assistant"}>
+													<Message
+														from={
+															message.role === "user" ? "user" : "assistant"
+														}
+													>
 														<div>
 															{hasThinking && message.role === "assistant" && (
 																<Reasoning duration={0}>
 																	<ReasoningTrigger />
 																	<ReasoningContent>
-																		{thinkingParts.map((part) => part.content).join("\n")}
+																		{thinkingParts
+																			.map((part) => part.content)
+																			.join("\n")}
 																	</ReasoningContent>
 																</Reasoning>
 															)}

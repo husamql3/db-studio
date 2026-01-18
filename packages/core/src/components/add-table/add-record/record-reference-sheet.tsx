@@ -9,7 +9,9 @@ export const RecordReferenceSheet = () => {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const [, setRPage] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE);
+	const [, setRPage] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE,
+	);
 	const [, setRPageSize] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);

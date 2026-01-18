@@ -1,10 +1,19 @@
-import { IconCodeDots, IconHeart, IconHeartFilled, IconTable } from "@tabler/icons-react";
+import {
+	IconCodeDots,
+	IconHeart,
+	IconHeartFilled,
+	IconTable,
+} from "@tabler/icons-react";
 import { AlignLeft, Command, LucideCornerDownLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { FiSave } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CONSTANTS } from "@/utils/constants";
 import type { QueryResult } from "./runner-tab";
 
@@ -29,7 +38,9 @@ export const RunnerHeader = ({
 	hasUnsavedChanges: boolean;
 	queryResult: QueryResult | null;
 }) => {
-	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
+	const [showAs, setShowAs] = useQueryState(
+		CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS,
+	);
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
@@ -82,7 +93,9 @@ export const RunnerHeader = ({
 				</Button>
 
 				{queryId && hasUnsavedChanges && (
-					<span className="text-xs px-2 text-muted-foreground">Unsaved changes</span>
+					<span className="text-xs px-2 text-muted-foreground">
+						Unsaved changes
+					</span>
 				)}
 			</div>
 

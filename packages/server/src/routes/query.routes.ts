@@ -17,7 +17,8 @@ queryRoutes.post("/", zValidator("json", executeQuerySchema), async (c) => {
 		return c.json(data);
 	} catch (error) {
 		console.error("POST /query error:", error);
-		const errorMessage = error instanceof Error ? error.message : "Unknown error";
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
 		return c.json(
 			{
 				status: "error",

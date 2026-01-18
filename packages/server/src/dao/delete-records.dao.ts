@@ -156,7 +156,11 @@ export const deleteRecords = async (
 		await client.query("ROLLBACK");
 
 		// Check if this is a foreign key violation
-		const pgError = error as { code?: string; detail?: string; constraint?: string };
+		const pgError = error as {
+			code?: string;
+			detail?: string;
+			constraint?: string;
+		};
 
 		if (pgError.code === "23503") {
 			// Foreign key violation
@@ -271,7 +275,12 @@ export const forceDeleteRecords = async (
 			RETURNING *
 		`;
 
-		console.log("Force deleting records with SQL:", deleteSQL, "Values:", pkValues);
+		console.log(
+			"Force deleting records with SQL:",
+			deleteSQL,
+			"Values:",
+			pkValues,
+		);
 		const result = await client.query(deleteSQL, pkValues);
 
 		await client.query("COMMIT");

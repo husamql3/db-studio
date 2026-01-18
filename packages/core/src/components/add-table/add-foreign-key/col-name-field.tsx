@@ -12,7 +12,9 @@ import type { AddTableFormData } from "@/types/add-table.type";
 
 export const ColNameField = ({ index }: { index: number }) => {
 	const { control, watch } = useFormContext<AddTableFormData>();
-	const columns = watch("fields")?.filter((column) => column.columnName?.trim());
+	const columns = watch("fields")?.filter((column) =>
+		column.columnName?.trim(),
+	);
 	const columnName = watch(`fields.${index}.columnName`);
 
 	console.log("columns", watch("fields"));
@@ -33,7 +35,9 @@ export const ColNameField = ({ index }: { index: number }) => {
 					>
 						<SelectTrigger className="w-full flex-1">
 							<SelectValue
-								placeholder={columns?.length ? "Select a column" : "No columns found"}
+								placeholder={
+									columns?.length ? "Select a column" : "No columns found"
+								}
 							/>
 						</SelectTrigger>
 						<SelectContent>

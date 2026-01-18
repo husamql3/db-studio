@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { DEFAULTS } from "shared/constants";
-import { useDatabaseStore } from "@/stores/database.store";
 import type {
 	CurrentDatabase,
 	DatabaseConnectionInfo,
 	DatabaseInfo,
-} from "@/types/database.type";
+} from "shared/types";
+import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
 /**
@@ -68,13 +68,26 @@ export const useCurrentDatabase = () => {
 	useEffect(() => {
 		if (currentDatabase) {
 			console.log("useCurrentDatabase data", currentDatabase);
-			if (currentDatabase.database && !selectedDatabase && !isLoadingCurrentDatabase) {
+			if (
+				currentDatabase.database &&
+				!selectedDatabase &&
+				!isLoadingCurrentDatabase
+			) {
 				setSelectedDatabase(currentDatabase.database);
 			}
 		}
-	}, [currentDatabase, selectedDatabase, isLoadingCurrentDatabase, setSelectedDatabase]);
+	}, [
+		currentDatabase,
+		selectedDatabase,
+		isLoadingCurrentDatabase,
+		setSelectedDatabase,
+	]);
 
-	return { currentDatabase, isLoadingCurrentDatabase, currentDatabaseError };
+	return {
+		currentDatabase,
+		isLoadingCurrentDatabase,
+		currentDatabaseError,
+	};
 };
 
 /**

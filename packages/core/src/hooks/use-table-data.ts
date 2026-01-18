@@ -13,7 +13,9 @@ export const useTableData = ({
 	isReferencedTable?: boolean;
 }) => {
 	const { selectedDatabase } = useDatabaseStore();
-	const [activeTable] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE);
+	const [activeTable] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
+	);
 	const activeTableName = tableName || activeTable;
 
 	const [page] = useQueryState(

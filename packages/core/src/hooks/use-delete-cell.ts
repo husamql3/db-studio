@@ -76,7 +76,8 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 		onError: (error) => {
 			console.error("Delete error:", error);
 			toast.error("Failed to delete records", {
-				description: error instanceof Error ? error.message : "Unknown error occurred",
+				description:
+					error instanceof Error ? error.message : "Unknown error occurred",
 			});
 		},
 	});

@@ -21,5 +21,10 @@ export const useRateLimit = () => {
 		},
 	});
 
-	return { rateLimit, isLoadingRateLimit, errorRateLimit, refetchRateLimit };
+	return {
+		rateLimit,
+		isLoadingRateLimit,
+		errorRateLimit,
+		refetchRateLimit,
+	};
 };

@@ -9,7 +9,11 @@ import { useMemo, useRef } from "react";
 import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
 import { formatCellValue } from "@/utils/format-cell-value";
 
-export const TableView = ({ results }: { results: ExecuteQueryResponse | null }) => {
+export const TableView = ({
+	results,
+}: {
+	results: ExecuteQueryResponse | null;
+}) => {
 	const columns = useMemo(() => {
 		if (!results?.columns) return [];
 
@@ -74,7 +78,10 @@ export const TableView = ({ results }: { results: ExecuteQueryResponse | null })
 							>
 								{header.isPlaceholder
 									? null
-									: flexRender(header.column.columnDef.header, header.getContext())}
+									: flexRender(
+											header.column.columnDef.header,
+											header.getContext(),
+										)}
 
 								{/* Resize Handle */}
 								<div

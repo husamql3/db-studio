@@ -70,8 +70,8 @@ function App() {
 						<div className="flex flex-col gap-1 text-center md:text-left">
 							<h1 className="font-semibold">Getting Started</h1>
 							<p className="text-xs text-muted-foreground">
-								Run DB Studio directly in your terminal with a single command, no
-								installation required.
+								Run DB Studio directly in your terminal with a single command,
+								no installation required.
 							</p>
 						</div>
 

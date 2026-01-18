@@ -28,7 +28,9 @@ export const showStatus = async (
 	}
 
 	if (foundUrl) {
-		outro(color.green(`✓ Database connection configured (using ${envVarName})`));
+		outro(
+			color.green(`✓ Database connection configured (using ${envVarName})`),
+		);
 	} else {
 		note(color.red(`✗ ${envVarName} not found`), "Status");
 		console.log(color.yellow("\n  To configure database connection:"));

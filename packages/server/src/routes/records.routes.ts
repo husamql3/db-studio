@@ -26,7 +26,11 @@ recordsRoutes.post(
 			const { database } = c.req.valid("query");
 
 			console.log("POST /records body", { tableName, data });
-			const result = await insertRecord({ tableName, data, database });
+			const result = await insertRecord({
+				tableName,
+				data,
+				database,
+			});
 			console.log("POST /records", result);
 			return c.json(result);
 		} catch (error) {
@@ -38,7 +42,8 @@ recordsRoutes.post(
 			return c.json(
 				{
 					success: false,
-					message: error instanceof Error ? error.message : "Failed to create record",
+					message:
+						error instanceof Error ? error.message : "Failed to create record",
 					detail: errorDetail,
 				},
 				500,
@@ -60,8 +65,17 @@ recordsRoutes.patch(
 			const { tableName, updates, primaryKey } = body;
 			const { database } = c.req.valid("query");
 
-			console.log("PATCH /records body", { tableName, updates, primaryKey });
-			const result = await updateRecords({ tableName, updates, primaryKey, database });
+			console.log("PATCH /records body", {
+				tableName,
+				updates,
+				primaryKey,
+			});
+			const result = await updateRecords({
+				tableName,
+				updates,
+				primaryKey,
+				database,
+			});
 			console.log("PATCH /records", result);
 			return c.json(result);
 		} catch (error) {
@@ -73,7 +87,8 @@ recordsRoutes.patch(
 			return c.json(
 				{
 					success: false,
-					message: error instanceof Error ? error.message : "Failed to update records",
+					message:
+						error instanceof Error ? error.message : "Failed to update records",
 					detail: errorDetail,
 				},
 				500,
@@ -96,7 +111,11 @@ recordsRoutes.delete(
 			const { database } = c.req.valid("query");
 
 			console.log("DELETE /records body", { tableName, primaryKeys });
-			const result = await deleteRecords({ tableName, primaryKeys, database });
+			const result = await deleteRecords({
+				tableName,
+				primaryKeys,
+				database,
+			});
 			console.log("DELETE /records result", result);
 
 			if (result.fkViolation) {
@@ -113,7 +132,8 @@ recordsRoutes.delete(
 			return c.json(
 				{
 					success: false,
-					message: error instanceof Error ? error.message : "Failed to delete records",
+					message:
+						error instanceof Error ? error.message : "Failed to delete records",
 					detail: errorDetail,
 				},
 				500,
@@ -135,8 +155,15 @@ recordsRoutes.delete(
 			const { tableName, primaryKeys } = body;
 			const { database } = c.req.valid("query");
 
-			console.log("DELETE /records/force body", { tableName, primaryKeys });
-			const result = await forceDeleteRecords({ tableName, primaryKeys, database });
+			console.log("DELETE /records/force body", {
+				tableName,
+				primaryKeys,
+			});
+			const result = await forceDeleteRecords({
+				tableName,
+				primaryKeys,
+				database,
+			});
 			console.log("DELETE /records/force result", result);
 
 			return c.json(result);
@@ -150,7 +177,9 @@ recordsRoutes.delete(
 				{
 					success: false,
 					message:
-						error instanceof Error ? error.message : "Failed to force delete records",
+						error instanceof Error
+							? error.message
+							: "Failed to force delete records",
 					detail: errorDetail,
 				},
 				500,

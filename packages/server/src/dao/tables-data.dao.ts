@@ -1,7 +1,14 @@
-import type { Filter, Sort, SortDirection, TableDataResult } from "shared/types";
+import type {
+	Filter,
+	Sort,
+	SortDirection,
+	TableDataResult,
+} from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
-const buildWhereClause = (filters: Filter[]): { clause: string; values: unknown[] } => {
+const buildWhereClause = (
+	filters: Filter[],
+): { clause: string; values: unknown[] } => {
 	if (filters.length === 0) {
 		return { clause: "", values: [] };
 	}
@@ -69,7 +76,10 @@ const buildWhereClause = (filters: Filter[]): { clause: string; values: unknown[
 	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
 };
 
-const buildSortClause = (sorts: Sort[] | string, order: SortDirection): string => {
+const buildSortClause = (
+	sorts: Sort[] | string,
+	order: SortDirection,
+): string => {
 	// Handle array of Sort objects (new format for referenced tables)
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) {
@@ -102,7 +112,8 @@ export const getTableData = async (
 		Array.isArray(sort) ? sort : sort,
 		order as SortDirection,
 	);
-	const { clause: whereClause, values: filterValues } = buildWhereClause(filters);
+	const { clause: whereClause, values: filterValues } =
+		buildWhereClause(filters);
 
 	const pool = getDbPool(database);
 	const client = await pool.connect();
@@ -128,8 +139,13 @@ export const getTableData = async (
 			[...filterValues, pageSize, offset],
 		);
 
+		// Filter out empty objects (rows with no columns)
+		const filteredData = dataRes.rows.filter(
+			(row) => Object.keys(row).length > 0,
+		);
+
 		return {
-			data: dataRes.rows,
+			data: filteredData,
 			meta: {
 				page,
 				limit: pageSize,
