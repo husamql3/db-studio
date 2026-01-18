@@ -13,14 +13,14 @@ const createQueryClient = () => {
 				gcTime: 5 * 60 * 1000, // 5 minutes (was cacheTime)
 				retry: 2,
 				retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-				refetchOnWindowFocus: true, // refetch on window focus
-				refetchOnMount: true, // refetch on mount
+				refetchOnWindowFocus: false, // refetch on window focus
+				refetchOnMount: false, // refetch on mount
 				refetchOnReconnect: true, // refetch on reconnect
 			},
 			mutations: {
 				retry: 0,
 				// retryDelay: 1000, // retry delay 1 second
-				networkMode: "always", // Ensures mutations work even when offline
+				networkMode: "online", // Ensures mutations work even when offline
 			},
 
 			dehydrate: {

@@ -13,8 +13,11 @@ export const useTablesList = () => {
 		error: errorTablesList,
 	} = useQuery<TableInfo[], Error>({
 		queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST, selectedDatabase],
-		queryFn: () =>
-			fetcher.get<TableInfo[]>("/tables", { database: selectedDatabase }),
+		queryFn: () => {
+			return fetcher.get<TableInfo[]>("/tables", {
+				database: selectedDatabase,
+			});
+		},
 		enabled: !!selectedDatabase,
 	});
 

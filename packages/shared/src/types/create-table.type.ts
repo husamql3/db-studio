@@ -25,6 +25,7 @@ export type ForeignKeyDataType = z.infer<typeof foreignKeyDataSchema>;
 export const createTableSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
 	fields: z.array(fieldDataSchema).min(1, "At least one field is required"),
+	foreignKeys: z.array(foreignKeyDataSchema).optional(),
 });
 
 export type CreateTableFormData = z.infer<typeof createTableSchema>;
