@@ -1,6 +1,5 @@
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import {
 	AlertDialog,
@@ -118,15 +117,15 @@ export const FolderToggleButton = ({
 					</ContextMenuTrigger>
 					<ContextMenuContent>
 						<ContextMenuItem onClick={handleAddFolderQuery}>
-							<IconPlus className="size-4" />
+							<Plus className="size-4" />
 							Add a new query
 						</ContextMenuItem>
 						<ContextMenuItem onClick={handleRenameClick}>
-							<IconPencil className="size-4" />
+							<Pencil className="size-4" />
 							Rename folder
 						</ContextMenuItem>
 						<ContextMenuItem onClick={handleDelete}>
-							<IconTrash className="size-4" />
+							<Trash2 className="size-4" />
 							Delete folder
 						</ContextMenuItem>
 					</ContextMenuContent>

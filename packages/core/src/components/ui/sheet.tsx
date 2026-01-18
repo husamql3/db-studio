@@ -1,4 +1,4 @@
-import { IconX } from "@tabler/icons-react";
+import { X } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -98,7 +98,7 @@ function SheetContent({
 							className="absolute top-4 right-4"
 							size="icon-sm"
 						>
-							<IconX />
+							<X />
 							<span className="sr-only">Close</span>
 						</Button>
 					</SheetPrimitive.Close>

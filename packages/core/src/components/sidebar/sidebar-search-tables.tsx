@@ -1,4 +1,4 @@
-import { IconPlus, IconSearch } from "@tabler/icons-react";
+import { Plus, Search } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -35,12 +35,12 @@ export const SidebarSearchTables = () => {
 				className="w-full justify-start h-8"
 				onClick={() => openSheet("add-table")}
 			>
-				<IconPlus className="size-4" />
+				<Plus className="size-4" />
 				Add Table
 			</Button>
 
 			<div className="relative">
-				<IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+				<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 				<Input
 					ref={inputRef}
 					placeholder="Search tables"

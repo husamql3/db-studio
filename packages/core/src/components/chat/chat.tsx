@@ -1,8 +1,7 @@
 "use client";
 
-import { IconSparkles } from "@tabler/icons-react";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { CHAT_SUGGESTIONS, DEFAULTS } from "shared/constants";
 import {
@@ -111,7 +110,7 @@ export const Chat = () => {
 						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12 relative"
 						onClick={() => openSheet("ai-assistant")}
 					>
-						<IconSparkles className="size-5" />
+						<Sparkles className="size-5" />
 						<span
 							className={cn(
 								"absolute top-2 right-2 h-2 w-2 rounded-full ring-2 ring-background",

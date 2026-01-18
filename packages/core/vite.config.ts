@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import viteReact from '@vitejs/plugin-react'
+import { visualizer } from "rollup-plugin-visualizer";
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from "@tailwindcss/vite"
@@ -9,6 +10,13 @@ import tailwindcss from "@tailwindcss/vite"
 export default defineConfig({
   build: {
     outDir: "dist",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'icons': ['lucide-react', 'radix-ui'],
+        }
+      }
+    }
   },
   plugins: [
     tailwindcss(),
@@ -18,6 +26,7 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     viteReact(),
+    visualizer({ open: true, gzipSize: true, brotliSize: true }),
   ],
   resolve: {
     alias: {

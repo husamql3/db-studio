@@ -1,9 +1,9 @@
 import {
-	IconChevronLeft,
-	IconChevronLeftPipe,
-	IconChevronRight,
-	IconChevronRightPipe,
-} from "@tabler/icons-react";
+	ChevronLeft,
+	ChevronRight,
+	ChevronsLeft,
+	ChevronsRight,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -113,7 +113,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) <= 1 || totalRows === 0}
 								aria-label="Go to first page"
 							>
-								<IconChevronLeftPipe aria-hidden="true" />
+								<ChevronsLeft aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -127,7 +127,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) <= 1 || totalRows === 0}
 								aria-label="Go to previous page"
 							>
-								<IconChevronLeft aria-hidden="true" />
+								<ChevronLeft aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -141,7 +141,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) >= totalPages || totalRows === 0}
 								aria-label="Go to next page"
 							>
-								<IconChevronRight aria-hidden="true" />
+								<ChevronRight aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 						<PaginationItem>
@@ -155,7 +155,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								disabled={Number(page) >= totalPages || totalRows === 0}
 								aria-label="Go to last page"
 							>
-								<IconChevronRightPipe aria-hidden="true" />
+								<ChevronsRight aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 					</PaginationContent>

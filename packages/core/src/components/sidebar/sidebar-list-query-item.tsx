@@ -1,13 +1,5 @@
-import {
-	IconCopy,
-	IconFolder,
-	IconFolderPlus,
-	IconPencil,
-	IconStar,
-	IconStarFilled,
-	IconTrash,
-} from "@tabler/icons-react";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { Copy, Folder, FolderPlus, Pencil, Star, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -181,29 +173,25 @@ export const SidebarListQueryItem = ({
 					</ContextMenuTrigger>
 					<ContextMenuContent>
 						<ContextMenuItem onClick={handleRenameClick}>
-							<IconPencil className="size-4" />
+							<Pencil className="size-4" />
 							Rename query
 						</ContextMenuItem>
 						<ContextMenuItem onClick={handleDuplicate}>
-							<IconCopy className="size-4" />
+							<Copy className="size-4" />
 							Duplicate query
 						</ContextMenuItem>
 						<ContextMenuItem onClick={handleAddToFavorites}>
-							{isFavorite ? (
-								<IconStarFilled className="size-4" />
-							) : (
-								<IconStar className="size-4" />
-							)}
+							<Star className={isFavorite ? "size-4 fill-current" : "size-4"} />
 							{isFavorite ? "Remove from favorites" : "Add to favorites"}
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem onClick={handleMoveClick}>
-							<IconFolder className="size-4" />
+							<Folder className="size-4" />
 							Move to folder
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem onClick={handleDelete}>
-							<IconTrash className="size-4" />
+							<Trash2 className="size-4" />
 							Delete query
 						</ContextMenuItem>
 					</ContextMenuContent>
@@ -307,7 +295,7 @@ export const SidebarListQueryItem = ({
 									))}
 									<SelectItem value="__create_new__">
 										<div className="flex items-center gap-2">
-											<IconFolderPlus className="size-4" />
+											<FolderPlus className="size-4" />
 											Create a new folder
 										</div>
 									</SelectItem>

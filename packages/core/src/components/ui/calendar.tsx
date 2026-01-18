@@ -1,8 +1,4 @@
-import {
-	IconChevronDown,
-	IconChevronLeft,
-	IconChevronRight,
-} from "@tabler/icons-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import {
 	type DayButton,
@@ -145,7 +141,7 @@ function Calendar({
 				Chevron: ({ className, orientation, ...props }) => {
 					if (orientation === "left") {
 						return (
-							<IconChevronLeft
+							<ChevronLeft
 								className={cn("size-4", className)}
 								{...props}
 							/>
@@ -154,7 +150,7 @@ function Calendar({
 
 					if (orientation === "right") {
 						return (
-							<IconChevronRight
+							<ChevronRight
 								className={cn("size-4", className)}
 								{...props}
 							/>
@@ -162,7 +158,7 @@ function Calendar({
 					}
 
 					return (
-						<IconChevronDown
+						<ChevronDown
 							className={cn("size-4", className)}
 							{...props}
 						/>

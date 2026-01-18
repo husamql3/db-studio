@@ -84,8 +84,8 @@ export function SidebarFooter() {
 									<RefreshCw
 										className={cn(
 											"h-3.5 w-3.5",
-											isLoadingDatabases ||
-												(isRefetchingDatabases && "animate-spin"),
+											(isLoadingDatabases || isRefetchingDatabases) &&
+												"animate-spin",
 										)}
 									/>
 								</Button>

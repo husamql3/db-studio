@@ -1,4 +1,4 @@
-import { IconCheck, IconChevronRight } from "@tabler/icons-react";
+import { Check, ChevronRight } from "lucide-react";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
@@ -133,7 +133,7 @@ function _ContextMenuSubTrigger({
 			{...props}
 		>
 			{children}
-			<IconChevronRight className="ml-auto" />
+			<ChevronRight className="ml-auto" />
 		</ContextMenuPrimitive.SubTrigger>
 	);
 }
@@ -172,7 +172,7 @@ function _ContextMenuCheckboxItem({
 		>
 			<span className="pointer-events-none absolute right-2 flex items-center justify-center pointer-events-none">
 				<ContextMenuPrimitive.ItemIndicator>
-					<IconCheck />
+					<Check />
 				</ContextMenuPrimitive.ItemIndicator>
 			</span>
 			{children}
@@ -196,7 +196,7 @@ function _ContextMenuRadioItem({
 		>
 			<span className="pointer-events-none absolute right-2 flex items-center justify-center pointer-events-none">
 				<ContextMenuPrimitive.ItemIndicator>
-					<IconCheck />
+					<Check />
 				</ContextMenuPrimitive.ItemIndicator>
 			</span>
 			{children}

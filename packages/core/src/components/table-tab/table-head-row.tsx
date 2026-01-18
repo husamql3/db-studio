@@ -1,19 +1,20 @@
 import {
-	IconArrowDown,
-	IconArrowUp,
-	IconChevronDown,
-	IconChevronUp,
-	IconTrash,
-	IconX,
-} from "@tabler/icons-react";
-import {
 	flexRender,
 	type HeaderGroup,
 	type SortDirection,
 	type Table,
 } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { Key, Link } from "lucide-react";
+import {
+	ArrowDown,
+	ArrowUp,
+	ChevronDown,
+	ChevronUp,
+	Key,
+	Link,
+	Trash2,
+	X,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
 import { TableColumnResizer } from "@/components/table-tab/table-col-resizer";
@@ -93,7 +94,16 @@ export const TableHeadRow = ({
 
 	const handleDeleteClick = useCallback((columnId: string) => {
 		setColumnToDelete(columnId);
+		setCascadeDelete(false);
 		setDeleteDialogOpen(true);
+	}, []);
+
+	const handleDialogOpenChange = useCallback((open: boolean) => {
+		setDeleteDialogOpen(open);
+		if (!open) {
+			setColumnToDelete(null);
+			setCascadeDelete(false);
+		}
 	}, []);
 
 	const handleConfirmDelete = useCallback(async () => {
@@ -198,8 +208,8 @@ export const TableHeadRow = ({
 
 														<span className="text-xs leading-none text-muted-foreground">
 															{{
-																asc: <IconChevronDown />,
-																desc: <IconChevronUp />,
+																asc: <ChevronDown />,
+																desc: <ChevronUp />,
 															}[
 																header.column.getIsSorted() as "asc" | "desc"
 															] ?? null}
@@ -218,7 +228,7 @@ export const TableHeadRow = ({
 															createSortHandler(header.column.id)("asc")
 														}
 													>
-														<IconArrowUp />
+														<ArrowUp />
 														Sort ascending
 													</DropdownMenuItem>
 
@@ -228,7 +238,7 @@ export const TableHeadRow = ({
 															createSortHandler(header.column.id)("desc")
 														}
 													>
-														<IconArrowDown />
+														<ArrowDown />
 														Sort descending
 													</DropdownMenuItem>
 
@@ -239,7 +249,7 @@ export const TableHeadRow = ({
 																createSortHandler(header.column.id)(null)
 															}
 														>
-															<IconX />
+															<X />
 															Remove sort
 														</DropdownMenuItem>
 													)}
@@ -261,7 +271,7 @@ export const TableHeadRow = ({
 													variant="destructive"
 													onClick={() => handleDeleteClick(header.column.id)}
 												>
-													<IconTrash />
+													<Trash2 />
 													Delete column
 												</DropdownMenuItem>
 											</DropdownMenuContent>
@@ -288,7 +298,7 @@ export const TableHeadRow = ({
 
 			<AlertDialog
 				open={deleteDialogOpen}
-				onOpenChange={setDeleteDialogOpen}
+				onOpenChange={handleDialogOpenChange}
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>

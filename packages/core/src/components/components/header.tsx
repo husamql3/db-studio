@@ -1,4 +1,4 @@
-import { IconBrandGithub } from "@tabler/icons-react";
+import { Github } from "lucide-react";
 import { META } from "shared/constants";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
@@ -49,7 +49,7 @@ export const Header = () => {
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								<IconBrandGithub className="size-5" />
+								<Github className="size-5" />
 							</a>
 						</Button>
 					</TooltipTrigger>

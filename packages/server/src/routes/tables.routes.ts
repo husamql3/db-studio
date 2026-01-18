@@ -126,6 +126,7 @@ tablesRoutes.get(
 				sort: sortParam,
 				order,
 				filters,
+				database,
 			} = c.req.valid("query");
 
 			// Parse sort - can be either a string (legacy) or JSON array (new format)
@@ -145,7 +146,6 @@ tablesRoutes.get(
 				}
 			}
 
-			const database = c.req.query("database");
 			const data = await getTableData(
 				tableName,
 				page,

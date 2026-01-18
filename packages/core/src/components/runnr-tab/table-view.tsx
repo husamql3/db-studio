@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
-import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
+import type { ExecuteQueryResponse } from "shared/types";
 import { formatCellValue } from "@/utils/format-cell-value";
 
 export const TableView = ({

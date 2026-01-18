@@ -20,7 +20,7 @@ const createQueryClient = () => {
 			mutations: {
 				retry: 0,
 				// retryDelay: 1000, // retry delay 1 second
-				networkMode: "online", // Ensures mutations work even when offline
+				networkMode: "online", // Only run mutations while online
 			},
 
 			dehydrate: {

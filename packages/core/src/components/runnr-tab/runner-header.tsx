@@ -1,12 +1,13 @@
 import {
-	IconCodeDots,
-	IconHeart,
-	IconHeartFilled,
-	IconTable,
-} from "@tabler/icons-react";
-import { AlignLeft, Command, LucideCornerDownLeft } from "lucide-react";
+	AlignLeft,
+	Braces,
+	Command,
+	CornerDownLeft,
+	Heart,
+	Save,
+	Table,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
-import { FiSave } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -55,7 +56,7 @@ export const RunnerHeader = ({
 				>
 					Run
 					<Command className="size-3" />
-					<LucideCornerDownLeft className="size-3" />
+					<CornerDownLeft className="size-3" />
 				</Button>
 
 				<Button
@@ -75,7 +76,7 @@ export const RunnerHeader = ({
 					aria-label="Save the query"
 					onClick={handleSaveQuery}
 				>
-					Save <FiSave className="size-3" />
+					Save <Save className="size-3" />
 				</Button>
 
 				<Button
@@ -86,9 +87,9 @@ export const RunnerHeader = ({
 					onClick={handleFavorite}
 				>
 					{isFavorite ? (
-						<IconHeartFilled className="size-3" />
+						<Heart className="size-3 fill-current" />
 					) : (
-						<IconHeart className="size-3" />
+						<Heart className="size-3" />
 					)}
 				</Button>
 
@@ -130,7 +131,7 @@ export const RunnerHeader = ({
 								className="rounded-none! h-8! aspect-square!"
 								data-selected={showAs === "table"}
 							>
-								<IconTable />
+								<Table />
 							</ToggleGroupItem>
 						</TooltipTrigger>
 						<TooltipContent>
@@ -146,7 +147,7 @@ export const RunnerHeader = ({
 								className="rounded-none! h-8! aspect-square!"
 								data-selected={showAs === "json"}
 							>
-								<IconCodeDots />
+								<Braces />
 							</ToggleGroupItem>
 						</TooltipTrigger>
 						<TooltipContent>

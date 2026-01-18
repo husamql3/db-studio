@@ -16,7 +16,7 @@ export const useDeleteColumn = () => {
 	>({
 		mutationFn: ({ tableName, columnName, cascade }: DeleteColumnParams) =>
 			fetcher.delete<DeleteColumnResponse>(
-				`/tables/${tableName}/columns/${columnName}`,
+				`/tables/${encodeURIComponent(tableName)}/columns/${encodeURIComponent(columnName)}`,
 				undefined,
 				{
 					params: {

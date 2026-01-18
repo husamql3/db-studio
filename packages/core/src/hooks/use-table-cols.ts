@@ -19,7 +19,7 @@ export const useTableCols = ({ tableName }: { tableName: string }) => {
 			fetcher.get<ColumnInfo[]>(`/tables/${tableName}/columns`, {
 				database: selectedDatabase,
 			}),
-		enabled: !!tableName,
+		enabled: !!tableName && !!selectedDatabase,
 	});
 
 	return {

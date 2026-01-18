@@ -1,12 +1,3 @@
-// import {
-// 	IconCopy,
-// 	IconDots,
-// 	IconDownload,
-// 	IconEdit,
-// 	IconFileExcel,
-// 	IconFileText,
-// 	IconTrash,
-// } from "@tabler/icons-react";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TableInfo } from "shared/types";
 // import { Button } from "@/components/ui/button";

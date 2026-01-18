@@ -1,6 +1,14 @@
 "use client";
 
-import type { ChatStatus, FileUIPart } from "ai";
+type ChatStatus = "submitted" | "streaming" | "ready" | "error";
+
+type FileUIPart = {
+	type: "file";
+	url: string;
+	mediaType: string;
+	filename?: string;
+};
+
 import {
 	CornerDownLeftIcon,
 	ImageIcon,

@@ -1,4 +1,4 @@
-import { IconX } from "@tabler/icons-react";
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,7 @@ function DialogContent({
 							className="absolute top-2 right-2"
 							size="icon-sm"
 						>
-							<IconX />
+							<X />
 							<span className="sr-only">Close</span>
 						</Button>
 					</DialogPrimitive.Close>

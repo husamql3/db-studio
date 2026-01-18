@@ -1,4 +1,4 @@
-import { IconArrowsSort, IconX } from "@tabler/icons-react";
+import { ArrowUpDown, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
 import type { Sort, SortDirection } from "server/src/dao/tables-data.dao";
@@ -95,7 +95,7 @@ export const ReferencedTableSortPopup = ({
 					variant="ghost"
 					className="border-r border-l-0 border-y-0 border-zinc-800 rounded-none text-xs h-full"
 				>
-					<IconArrowsSort className="size-4" />
+					<ArrowUpDown className="size-4" />
 					Sort
 					{hasActiveSorts && (
 						<Kbd className="text-[10px] font-normal text-white bg-primary/10 border border-primary/90 px-1.5 py-0.5">
@@ -171,7 +171,7 @@ export const ReferencedTableSortPopup = ({
 									className="text-xs"
 									onClick={() => handleRemoveSort(index)}
 								>
-									<IconX className="size-4" />
+									<X className="size-4" />
 								</Button>
 							</div>
 						))

@@ -1,7 +1,7 @@
-import { IconFilter, IconX } from "@tabler/icons-react";
+import { Filter, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
-import type { Filter } from "server/src/dao/tables-data.dao";
+import type { Filter as FilterType } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -25,16 +25,16 @@ export const ReferencedTableFilterPopup = ({
 }: {
 	tableName: string;
 }) => {
-	const [filters, setFilters] = useQueryState<Filter[]>(
+	const [filters, setFilters] = useQueryState<FilterType[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as Filter[])
+		parseAsJson((value) => value as FilterType[])
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
 	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [localFilters, setLocalFilters] = useState<Filter[]>([]);
+	const [localFilters, setLocalFilters] = useState<FilterType[]>([]);
 
 	const handleAddFilter = () => {
 		const firstColumn = tableCols?.[0]?.columnName ?? "";
@@ -110,7 +110,7 @@ export const ReferencedTableFilterPopup = ({
 					aria-label="Filter table data"
 					data-active={hasActiveFilters}
 				>
-					<IconFilter className="size-4" />
+					<Filter className="size-4" />
 					Filter
 					{hasActiveFilters && (
 						<Kbd className="text-[10px] font-normal text-white bg-primary/10 border border-primary/90 px-1.5 py-0.5">
@@ -208,7 +208,7 @@ export const ReferencedTableFilterPopup = ({
 									className="text-xs"
 									onClick={() => handleRemoveFilter(index)}
 								>
-									<IconX className="size-4" />
+									<X className="size-4" />
 								</Button>
 							</div>
 						))

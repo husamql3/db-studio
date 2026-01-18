@@ -1,13 +1,14 @@
 "use client";
 
-import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 
+type MessageRole = "system" | "user" | "assistant" | "data";
+
 type MessageProps = HTMLAttributes<HTMLDivElement> & {
-	from: UIMessage["role"];
+	from: MessageRole;
 };
 
 export const Message = ({ className, from, ...props }: MessageProps) => (

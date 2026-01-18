@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ExecuteQueryResponse } from "server/src/dao/query.dao";
+import type { ExecuteQueryResponse } from "shared/types";
 import { toast } from "sonner";
 import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
 import { useExecuteQuery } from "@/hooks/use-execute-query";
