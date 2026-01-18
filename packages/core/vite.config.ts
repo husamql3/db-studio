@@ -26,7 +26,9 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     viteReact(),
-    visualizer({ open: true, gzipSize: true, brotliSize: true }),
+    visualizer({
+      open: true, gzipSize: true, brotliSize: true,
+    }),
   ],
   resolve: {
     alias: {
