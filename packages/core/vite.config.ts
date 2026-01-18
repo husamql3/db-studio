@@ -10,13 +10,46 @@ import tailwindcss from "@tailwindcss/vite"
 export default defineConfig({
   build: {
     outDir: "dist",
+    // Enable minification (esbuild is faster and produces good results)
+    minify: 'esbuild',
+    // Target modern browsers for smaller output
+    target: 'esnext',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'icons': ['lucide-react', 'radix-ui'],
-        }
-      }
-    }
+        // Smarter chunk splitting strategy
+        manualChunks(id) {
+          // Monaco editor - large, lazy-loaded anyway
+          if (id.includes('monaco-editor')) {
+            return 'monaco-editor';
+          }
+          // Radix UI primitives - group all radix packages together
+          if (id.includes('@radix-ui') || id.includes('node_modules/radix-ui')) {
+            return 'radix-ui';
+          }
+          // Icons - lucide-react
+          if (id.includes('lucide-react')) {
+            return 'icons';
+          }
+          // TanStack libraries
+          if (id.includes('@tanstack')) {
+            return 'tanstack';
+          }
+          // React core
+          if (id.includes('react-dom')) {
+            return 'react-dom';
+          }
+        },
+      },
+    },
+    // Generate source maps only for error tracking (smaller than full maps)
+    sourcemap: false,
+    // Increase chunk size warning limit (monaco is large but lazy-loaded)
+    chunkSizeWarningLimit: 1000,
+  },
+  optimizeDeps: {
+    include: ['monaco-editor'],
+    // Exclude heavy deps from pre-bundling if not needed immediately
+    exclude: [],
   },
   plugins: [
     tailwindcss(),
@@ -27,7 +60,10 @@ export default defineConfig({
     }),
     viteReact(),
     visualizer({
-      open: true, gzipSize: true, brotliSize: true,
+      open: false, // Don't auto-open on every build
+      gzipSize: true,
+      brotliSize: true,
+      filename: 'stats.html',
     }),
   ],
   resolve: {
