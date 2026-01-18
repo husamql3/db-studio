@@ -212,6 +212,7 @@ export const TableHeadRow = ({
 												align="start"
 											>
 												<DropdownMenuGroup>
+													{/* Sort ascending button */}
 													<DropdownMenuItem
 														onClick={() =>
 															createSortHandler(header.column.id)("asc")
@@ -220,6 +221,8 @@ export const TableHeadRow = ({
 														<IconArrowUp />
 														Sort ascending
 													</DropdownMenuItem>
+
+													{/* Sort descending button */}
 													<DropdownMenuItem
 														onClick={() =>
 															createSortHandler(header.column.id)("desc")
@@ -228,16 +231,30 @@ export const TableHeadRow = ({
 														<IconArrowDown />
 														Sort descending
 													</DropdownMenuItem>
-													<DropdownMenuItem
-														onClick={() =>
-															createSortHandler(header.column.id)(null)
-														}
-													>
-														<IconX />
-														Remove sort
-													</DropdownMenuItem>
+
+													{/* Remove sort button */}
+													{header.column.getIsSorted() && (
+														<DropdownMenuItem
+															onClick={() =>
+																createSortHandler(header.column.id)(null)
+															}
+														>
+															<IconX />
+															Remove sort
+														</DropdownMenuItem>
+													)}
 												</DropdownMenuGroup>
 												<DropdownMenuSeparator />
+												{/* TODO: #84 Add edit column button */}
+												{/* <DropdownMenuItem
+													onClick={() =>
+														handleEditColumn(header.column.id)
+													}
+												>
+													<IconPencil />
+													Edit column
+												</DropdownMenuItem>
+												<DropdownMenuSeparator /> */}
 
 												{/* Delete column button */}
 												<DropdownMenuItem

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { DEFAULTS } from "shared/constants";
 import type { ColumnInfo } from "shared/types";
 import { toast } from "sonner";
 import { useTableCols } from "@/hooks/use-table-cols";
+import { FetcherError, fetcher } from "@/lib/fetcher";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -23,7 +23,6 @@ interface DeleteResult {
 
 export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
-	// const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { tableCols } = useTableCols({ tableName });
 	const { selectedDatabase } = useDatabaseStore();
 
@@ -60,7 +59,6 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 			// Only show success toast and clear selection if actually deleted
 			if (result.success) {
 				toast.success(result.message || "Records deleted successfully");
-				// clearRowSelection();
 
 				await Promise.all([
 					queryClient.invalidateQueries({
@@ -128,29 +126,18 @@ const deleteCellsService = async (
 		primaryKeys,
 	};
 
-	const url = new URL(`${DEFAULTS.BASE_URL}${endpoint}`);
-	if (database) {
-		url.searchParams.set("database", database);
+	try {
+		return await fetcher.delete<DeleteResult>(endpoint, payload, {
+			params: { database },
+		});
+	} catch (error) {
+		// For FK violations (409), we return the result with relatedRecords instead of throwing
+		if (error instanceof FetcherError && error.status === 409) {
+			const result = error.data as DeleteResult;
+			if (result.fkViolation) {
+				return result;
+			}
+		}
+		throw error;
 	}
-
-	const res = await fetch(url.toString(), {
-		method: "DELETE",
-		headers: {
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(payload),
-	});
-
-	const result: DeleteResult = await res.json();
-
-	// For FK violations (409), we don't throw - we return the result with relatedRecords
-	if (result.fkViolation) {
-		return result;
-	}
-
-	if (!res.ok || !result.success) {
-		throw new Error(result.message || "Failed to delete records");
-	}
-
-	return result;
 };

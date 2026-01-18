@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { DEFAULTS } from "shared/constants";
 import type { DeleteColumnParams, DeleteColumnResponse } from "shared/types";
 import { toast } from "sonner";
+import { fetcher } from "@/lib/fetcher";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
+
 export const useDeleteColumn = () => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
@@ -13,41 +14,17 @@ export const useDeleteColumn = () => {
 		Error,
 		DeleteColumnParams
 	>({
-		mutationFn: async ({
-			tableName,
-			columnName,
-			cascade,
-		}: DeleteColumnParams) => {
-			try {
-				const url = new URL(
-					`${DEFAULTS.BASE_URL}/tables/${tableName}/columns/${columnName}`,
-				);
-
-				// if selectedDatabase is not null, set the database query parameter
-				selectedDatabase && url.searchParams.set("database", selectedDatabase);
-
-				// if cascade is true, add cascade query parameter
-				cascade && url.searchParams.set("cascade", "true");
-
-				const res = await fetch(url.toString(), {
-					method: "DELETE",
-					headers: {
-						"Content-Type": "application/json",
+		mutationFn: ({ tableName, columnName, cascade }: DeleteColumnParams) =>
+			fetcher.delete<DeleteColumnResponse>(
+				`/tables/${tableName}/columns/${columnName}`,
+				undefined,
+				{
+					params: {
+						database: selectedDatabase,
+						cascade: cascade ? "true" : undefined,
 					},
-				});
-
-				if (!res.ok) {
-					const errorData = await res.json();
-					throw new Error(errorData.message || "Failed to delete column");
-				}
-
-				return res.json() as Promise<DeleteColumnResponse>;
-			} catch (error) {
-				throw new Error(
-					error instanceof Error ? error.message : "Failed to delete column",
-				);
-			}
-		},
+				},
+			),
 		onSuccess: async (data) => {
 			await Promise.all([
 				queryClient.invalidateQueries({

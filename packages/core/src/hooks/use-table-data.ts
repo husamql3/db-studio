@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
-import { DEFAULTS } from "shared/constants";
 import type { Filter, Sort, TableDataResult } from "shared/types";
+import { fetcher } from "@/lib/fetcher";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -68,49 +68,35 @@ export const useTableData = ({
 			JSON.stringify(filters),
 			selectedDatabase,
 		],
-		queryFn: async () => {
+		queryFn: () => {
 			const defaultPage = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_PAGE.toString();
 			const defaultLimit = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString();
 
-			const queryParams = new URLSearchParams();
-
-			queryParams.set("page", page?.toString() || defaultPage);
-			queryParams.set("pageSize", pageSize?.toString() || defaultLimit);
+			// Build params object
+			const params: Record<string, string | undefined> = {
+				page: page?.toString() || defaultPage,
+				pageSize: pageSize?.toString() || defaultLimit,
+				database: selectedDatabase ?? undefined,
+			};
 
 			// Handle sort parameter based on table type
 			if (isReferencedTable) {
 				if (referencedSort && referencedSort.length > 0) {
-					queryParams.set("sort", JSON.stringify(referencedSort));
+					params.sort = JSON.stringify(referencedSort);
 				}
 			} else {
-				if (regularSort) queryParams.set("sort", regularSort);
-				if (order) queryParams.set("order", order);
+				if (regularSort) params.sort = regularSort;
+				if (order) params.order = order;
 			}
 
 			if (filters && filters.length > 0) {
-				queryParams.set("filters", JSON.stringify(filters));
+				params.filters = JSON.stringify(filters);
 			}
 
-			if (selectedDatabase) {
-				queryParams.set("database", selectedDatabase);
-			}
-
-			try {
-				const response = await fetch(
-					`${DEFAULTS.BASE_URL}/tables/${activeTableName}/data?${queryParams.toString()}`,
-				);
-				console.log("queryParams", queryParams.toString());
-				if (!response.ok) {
-					throw new Error("Failed to fetch table data");
-				}
-
-				const data = await response.json();
-				console.log("useTableData", data);
-				return data;
-			} catch (error) {
-				console.error("Error fetching table data:", error);
-				throw error;
-			}
+			return fetcher.get<TableDataResult>(
+				`/tables/${activeTableName}/data`,
+				params,
+			);
 		},
 		enabled: !!activeTableName,
 	});

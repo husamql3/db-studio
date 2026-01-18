@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
-import { DEFAULTS } from "shared/constants";
 import { toast } from "sonner";
+import { fetcher } from "@/lib/fetcher";
 import { useDatabaseStore } from "@/stores/database.store";
 import {
 	type CellUpdate,
@@ -25,46 +25,16 @@ export const useUpdateCell = () => {
 				// Transform updates into the format the API expects
 				const payload = {
 					tableName: activeTable,
-					updates: updates.map((update) => {
-						console.log(
-							`Update for ${update.columnName}:`,
-							typeof update.newValue,
-							update.newValue,
-						);
-						return {
-							rowData: update.rowData,
-							columnName: update.columnName,
-							value: update.newValue,
-						};
-					}),
-					// You can specify a different primary key if needed
-					// primaryKey: "id", // defaults to 'id' on the backend
+					updates: updates.map((update) => ({
+						rowData: update.rowData,
+						columnName: update.columnName,
+						value: update.newValue,
+					})),
 				};
 
-				console.log("Sending update payload:", payload);
-
-				const url = new URL(`${DEFAULTS.BASE_URL}/records`);
-				if (selectedDatabase) {
-					url.searchParams.set("database", selectedDatabase);
-				}
-				const response = await fetch(url.toString(), {
-					method: "PATCH",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(payload),
+				return fetcher.patch<{ message?: string }>("/records", payload, {
+					params: { database: selectedDatabase },
 				});
-
-				const result = await response.json();
-
-				if (!response.ok || !result.success) {
-					// Throw an error with the message from the API
-					throw new Error(
-						result.message || result.detail || "Failed to update records",
-					);
-				}
-
-				return result;
 			},
 			onSuccess: async (result) => {
 				const count = getUpdateCount();

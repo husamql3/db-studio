@@ -57,7 +57,7 @@ async function getTableDescription(
  */
 async function getSampleData(
 	tableName: string,
-): Promise<Record<string, any>[]> {
+): Promise<Record<string, unknown>[]> {
 	const client = await db.connect();
 	try {
 		// Sanitize table name to prevent SQL injection
@@ -172,7 +172,11 @@ async function getDatabaseSchema(
 			}
 
 			if (sampleData.length > 0) {
-				table.sampleData = sampleData;
+				table.sampleData = sampleData.map((row) =>
+					Object.fromEntries(
+						Object.entries(row).map(([key, value]) => [key, String(value)]),
+					),
+				);
 			}
 
 			return table;
@@ -194,16 +198,6 @@ async function getDatabaseSchema(
 			`Failed to fetch database schema: ${error instanceof Error ? error.message : "Unknown error"}`,
 		);
 	}
-}
-
-/**
- * Get lightweight schema (no sample data, useful for token efficiency)
- */
-async function _getLightweightSchema(): Promise<DatabaseSchema> {
-	return getDatabaseSchema({
-		includeSampleData: false,
-		includeDescriptions: false,
-	});
 }
 
 /**
