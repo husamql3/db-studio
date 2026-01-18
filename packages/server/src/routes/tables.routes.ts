@@ -25,10 +25,9 @@ tablesRoutes.get("/", zValidator("query", databaseQuerySchema), async (c) => {
 	try {
 		const { database } = c.req.valid("query");
 		const tablesList = await getTablesList(database);
-		console.log("GET /tables", tablesList);
+
 		return c.json(tablesList);
 	} catch (error) {
-		console.error("GET /tables error:", error);
 		return handleConnectionError(c, error, "Failed to fetch tables");
 	}
 });
@@ -44,12 +43,9 @@ tablesRoutes.post(
 		try {
 			const body = c.req.valid("json");
 			const { database } = c.req.valid("query");
-			console.log("POST /tables body", body);
 			const data = await createTable(body, database);
-			console.log("POST /tables", data);
 			return c.json(data);
 		} catch (error) {
-			console.error("POST /tables error:", error);
 			const errorDetail =
 				error && typeof error === "object" && "detail" in error
 					? (error as { detail?: string }).detail
@@ -87,13 +83,8 @@ tablesRoutes.delete(
 				{ tableName, columnName, cascade },
 				database,
 			);
-			console.log("DELETE /tables/:tableName/columns/:columnName", result);
 			return c.json(result);
 		} catch (error) {
-			console.error(
-				"DELETE /tables/:tableName/columns/:columnName error:",
-				error,
-			);
 			return handleConnectionError(c, error, "Failed to delete column");
 		}
 	},
@@ -112,10 +103,8 @@ tablesRoutes.get(
 			const { database } = c.req.valid("query");
 
 			const columns = await getTableColumns(tableName, database);
-			console.log("GET /tables/:tableName/columns", columns);
 			return c.json(columns);
 		} catch (error) {
-			console.error("GET /tables/:tableName/columns error:", error);
 			return handleConnectionError(c, error, "Failed to fetch columns");
 		}
 	},
@@ -166,10 +155,8 @@ tablesRoutes.get(
 				filters,
 				database,
 			);
-			console.log("GET /tables/:tableName/data", data);
 			return c.json(data);
 		} catch (error) {
-			console.error("GET /data error:", error);
 			return handleConnectionError(c, error, "Failed to fetch table data");
 		}
 	},

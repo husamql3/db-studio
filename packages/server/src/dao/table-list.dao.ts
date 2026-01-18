@@ -37,6 +37,7 @@ export const getTablesList = async (
 			}),
 		);
 
+		console.log("tables", tables);
 		return tables;
 	} finally {
 		client.release();

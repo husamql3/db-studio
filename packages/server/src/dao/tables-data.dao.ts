@@ -139,10 +139,14 @@ export const getTableData = async (
 			[...filterValues, pageSize, offset],
 		);
 
+		// Check if table has columns (empty fields array means no columns)
+		const hasColumns = dataRes.fields && dataRes.fields.length > 0;
+
 		// Filter out empty objects (rows with no columns)
-		const filteredData = dataRes.rows.filter(
-			(row) => Object.keys(row).length > 0,
-		);
+		// BUT: If the table has no columns, include empty objects since they represent valid rows
+		const filteredData = hasColumns
+			? dataRes.rows.filter((row) => Object.keys(row).length > 0)
+			: dataRes.rows;
 
 		return {
 			data: filteredData,

@@ -60,7 +60,6 @@ export const TableHeadRow = ({
 	table,
 }: TableHeadRowProps) => {
 	const { table: activeTableName } = Route.useParams();
-	console.log("activeTableName in TableHeadRow", activeTableName);
 
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
@@ -284,7 +283,7 @@ export const TableHeadRow = ({
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
-					<div className="flex items-center gap-2 py-2">
+					<div className="flex gap-2 py-2">
 						<Checkbox
 							id="cascade-delete"
 							checked={cascadeDelete}
@@ -292,7 +291,7 @@ export const TableHeadRow = ({
 						/>
 						<Label
 							htmlFor="cascade-delete"
-							className="text-sm text-muted-foreground cursor-pointer"
+							className="text-xs text-muted-foreground cursor-pointer"
 						>
 							Drop with CASCADE (also remove dependent indexes, constraints, and
 							foreign key references)

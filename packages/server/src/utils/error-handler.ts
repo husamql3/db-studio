@@ -25,6 +25,7 @@ export const handleConnectionError = (
 	}
 
 	if (isConnectionError) {
+		console.error("handleConnectionError Error:", error);
 		return c.json(
 			{
 				success: false,
@@ -36,6 +37,7 @@ export const handleConnectionError = (
 		);
 	}
 
+	console.error("handleConnectionError Error:", error);
 	return c.json(
 		{
 			success: false,

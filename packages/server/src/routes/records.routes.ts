@@ -25,16 +25,13 @@ recordsRoutes.post(
 			const { tableName, data } = body;
 			const { database } = c.req.valid("query");
 
-			console.log("POST /records body", { tableName, data });
 			const result = await insertRecord({
 				tableName,
 				data,
 				database,
 			});
-			console.log("POST /records", result);
 			return c.json(result);
 		} catch (error) {
-			console.error("POST /records error:", error);
 			const errorDetail =
 				error && typeof error === "object" && "detail" in error
 					? (error as { detail?: string }).detail
@@ -65,21 +62,14 @@ recordsRoutes.patch(
 			const { tableName, updates, primaryKey } = body;
 			const { database } = c.req.valid("query");
 
-			console.log("PATCH /records body", {
-				tableName,
-				updates,
-				primaryKey,
-			});
 			const result = await updateRecords({
 				tableName,
 				updates,
 				primaryKey,
 				database,
 			});
-			console.log("PATCH /records", result);
 			return c.json(result);
 		} catch (error) {
-			console.error("PATCH /records error:", error);
 			const errorDetail =
 				error && typeof error === "object" && "detail" in error
 					? (error as { detail?: string }).detail
@@ -110,13 +100,11 @@ recordsRoutes.delete(
 			const { tableName, primaryKeys } = body;
 			const { database } = c.req.valid("query");
 
-			console.log("DELETE /records body", { tableName, primaryKeys });
 			const result = await deleteRecords({
 				tableName,
 				primaryKeys,
 				database,
 			});
-			console.log("DELETE /records result", result);
 
 			if (result.fkViolation) {
 				return c.json(result, 409);
@@ -124,7 +112,6 @@ recordsRoutes.delete(
 
 			return c.json(result);
 		} catch (error) {
-			console.error("DELETE /records error:", error);
 			const errorDetail =
 				error && typeof error === "object" && "detail" in error
 					? (error as { detail?: string }).detail
@@ -155,20 +142,14 @@ recordsRoutes.delete(
 			const { tableName, primaryKeys } = body;
 			const { database } = c.req.valid("query");
 
-			console.log("DELETE /records/force body", {
-				tableName,
-				primaryKeys,
-			});
 			const result = await forceDeleteRecords({
 				tableName,
 				primaryKeys,
 				database,
 			});
-			console.log("DELETE /records/force result", result);
 
 			return c.json(result);
 		} catch (error) {
-			console.error("DELETE /records/force error:", error);
 			const errorDetail =
 				error && typeof error === "object" && "detail" in error
 					? (error as { detail?: string }).detail
