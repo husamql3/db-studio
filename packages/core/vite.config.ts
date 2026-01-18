@@ -47,9 +47,22 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   optimizeDeps: {
-    include: ['monaco-editor'],
+    // Include heavy deps that are needed immediately
+    include: [
+      'monaco-editor',
+      'react',
+      'react-dom',
+      '@tanstack/react-query',
+      '@tanstack/react-router',
+      '@tanstack/ai-react',
+      'lucide-react'
+    ],
     // Exclude heavy deps from pre-bundling if not needed immediately
-    exclude: [],
+    exclude: [
+      '@tanstack/react-query-devtools',
+      '@tanstack/react-router-devtools',
+      '@tanstack/react-ai-devtools',
+    ],
   },
   plugins: [
     tailwindcss(),
