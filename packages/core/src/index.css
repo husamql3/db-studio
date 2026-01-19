@@ -147,3 +147,33 @@ button {
     }
   }
 }
+
+@layer utilities {
+  /* Shine animation for LoadingText */
+  @keyframes shine {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  .animate-shine {
+    animation: shine 2s linear infinite;
+  }
+
+  /* Shimmer animation for Shimmer component */
+  @keyframes shimmer {
+    from {
+      background-position: 100% center;
+    }
+    to {
+      background-position: 0% center;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer var(--duration, 2s) linear infinite;
+  }
+}

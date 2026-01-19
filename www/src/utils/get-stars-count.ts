@@ -2,12 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 
 export const getStarsCount = createServerFn().handler(async () => {
 	try {
-		const response = await fetch("https://api.github.com/repos/husamql3/db-studio", {
-			headers: {
-				Accept: "application/vnd.github.v3+json",
-				"User-Agent": "db-studio-website",
+		const response = await fetch(
+			"https://api.github.com/repos/husamql3/db-studio",
+			{
+				headers: {
+					Accept: "application/vnd.github.v3+json",
+					"User-Agent": "db-studio-website",
+				},
 			},
-		});
+		);
 		const json = (await response.json()) as { stargazers_count: number };
 
 		const formattedCount =

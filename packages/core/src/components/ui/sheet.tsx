@@ -1,5 +1,5 @@
-import { IconX } from "@tabler/icons-react";
-import { Dialog as SheetPrimitive } from "radix-ui";
+import * as SheetPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,9 @@ function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
 	);
 }
 
-function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
+function SheetTrigger({
+	...props
+}: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
 	return (
 		<SheetPrimitive.Trigger
 			data-slot="sheet-trigger"
@@ -22,7 +24,9 @@ function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.T
 	);
 }
 
-function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
+function SheetClose({
+	...props
+}: React.ComponentProps<typeof SheetPrimitive.Close>) {
 	return (
 		<SheetPrimitive.Close
 			data-slot="sheet-close"
@@ -31,7 +35,9 @@ function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Clo
 	);
 }
 
-function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
+function SheetPortal({
+	...props
+}: React.ComponentProps<typeof SheetPrimitive.Portal>) {
 	return (
 		<SheetPrimitive.Portal
 			data-slot="sheet-portal"
@@ -92,7 +98,7 @@ function SheetContent({
 							className="absolute top-4 right-4"
 							size="icon-sm"
 						>
-							<IconX />
+							<X />
 							<span className="sr-only">Close</span>
 						</Button>
 					</SheetPrimitive.Close>

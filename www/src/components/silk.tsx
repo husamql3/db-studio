@@ -90,7 +90,10 @@ interface SilkPlaneProps {
 	uniforms: SilkUniforms;
 }
 
-const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane({ uniforms }, ref) {
+const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane(
+	{ uniforms },
+	ref,
+) {
 	const { viewport } = useThree();
 
 	useLayoutEffect(() => {
@@ -156,7 +159,14 @@ export const Silk: React.FC<SilkProps> = ({
 		<Canvas
 			dpr={[1, 2]}
 			frameloop="always"
-			style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }}
+			style={{
+				position: "absolute",
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				zIndex: -1,
+			}}
 		>
 			<SilkPlane
 				ref={meshRef}

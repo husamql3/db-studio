@@ -21,9 +21,13 @@ export const TableNameField = () => {
 					<div className="flex-1 space-y-1">
 						<Input
 							id="tableName"
-							{...register("tableName", { required: "Table name is required" })}
+							{...register("tableName", {
+								required: "Table name is required",
+							})}
 							className={
-								errors.tableName ? "border-destructive ring-destructive ring-1" : ""
+								errors.tableName
+									? "border-destructive ring-destructive ring-1"
+									: ""
 							}
 						/>
 						{errors.tableName && <FieldError errors={[errors.tableName]} />}

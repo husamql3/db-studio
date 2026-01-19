@@ -1,6 +1,13 @@
-import type { CreateTableFormData, FieldDataType } from "shared/types";
+import type {
+	CreateTableFormData,
+	FieldDataType,
+	ForeignKeyDataType,
+} from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-export const createTable = async (tableData: CreateTableFormData, database?: string) => {
+export const createTable = async (
+	tableData: CreateTableFormData,
+	database?: string,
+) => {
 	const { tableName, fields, foreignKeys } = tableData;
 	const pool = getDbPool(database);
 	const client = await pool.connect();
@@ -45,7 +52,7 @@ export const createTable = async (tableData: CreateTableFormData, database?: str
 
 		// Build foreign key constraints
 		const foreignKeyConstraints =
-			foreignKeys?.map((fk) => {
+			foreignKeys?.map((fk: ForeignKeyDataType) => {
 				const constraintName = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
 				return `CONSTRAINT "${constraintName}" FOREIGN KEY ("${fk.columnName}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
 			}) || [];

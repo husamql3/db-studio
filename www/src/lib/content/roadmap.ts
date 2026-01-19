@@ -16,19 +16,31 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Foundation",
 		status: "completed",
 		items: [
-			{ title: "Solid connection to PostgreSQL databases", status: "completed" },
-			{ title: "Easy browsing of tables with full details", status: "completed" },
+			{
+				title: "Solid connection to PostgreSQL databases",
+				status: "completed",
+			},
+			{
+				title: "Easy browsing of tables with full details",
+				status: "completed",
+			},
 			{ title: "Clear view of how tables are structured", status: "completed" },
 			{ title: "Modern, spreadsheet-style interface", status: "completed" },
 			{ title: "Fast filtering and sorting of data", status: "completed" },
-			{ title: "Simple way to create new tables and add rows", status: "completed" },
+			{
+				title: "Simple way to create new tables and add rows",
+				status: "completed",
+			},
 		],
 	},
 	{
 		title: "Release & Distribution",
 		status: "completed",
 		items: [
-			{ title: "Develop CLI tool for running the db studio app", status: "completed" },
+			{
+				title: "Develop CLI tool for running the db studio app",
+				status: "completed",
+			},
 			{ title: "Publish the tool on npm and release it", status: "completed" },
 		],
 	},
@@ -56,10 +68,17 @@ export const roadmapItems: RoadmapItem[] = [
 				title: "Schema section for views, functions, triggers, and extensions",
 				status: "planned",
 			},
-			{ title: "Safe playground area to test queries without risk", status: "planned" },
-			{ title: "Save favorite queries and view recent query history", status: "planned" },
 			{
-				title: "Smart SQL editor with color coding, auto-complete, and formatting",
+				title: "Safe playground area to test queries without risk",
+				status: "planned",
+			},
+			{
+				title: "Save favorite queries and view recent query history",
+				status: "planned",
+			},
+			{
+				title:
+					"Smart SQL editor with color coding, auto-complete, and formatting",
 				status: "planned",
 			},
 		],
@@ -68,14 +87,22 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Data Management Improvements",
 		status: "planned",
 		items: [
-			{ title: "Import many rows at once using CSV or JSON files", status: "planned" },
 			{
-				title: "Smart dropdowns for related tables with search and easy navigation",
+				title: "Import many rows at once using CSV or JSON files",
 				status: "planned",
 			},
-			{ title: "Export and import both data and database structure", status: "planned" },
 			{
-				title: "Better JSON editor inside cells with formatting and line numbers",
+				title:
+					"Smart dropdowns for related tables with search and easy navigation",
+				status: "planned",
+			},
+			{
+				title: "Export and import both data and database structure",
+				status: "planned",
+			},
+			{
+				title:
+					"Better JSON editor inside cells with formatting and line numbers",
 				status: "planned",
 			},
 			{
@@ -93,7 +120,10 @@ export const roadmapItems: RoadmapItem[] = [
 					"Turn plain English into accurate SQL using knowledge of your full database",
 				status: "planned",
 			},
-			{ title: "Explain any SQL query in simple, everyday English", status: "completed" },
+			{
+				title: "Explain any SQL query in simple, everyday English",
+				status: "completed",
+			},
 			{
 				title:
 					"Support for adding personal AI provider credentials (OpenAI, Anthropic, etc.)",
@@ -110,7 +140,8 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Ask questions about your data in normal English and get instant answers",
+				title:
+					"Ask questions about your data in normal English and get instant answers",
 				status: "planned",
 			},
 			{
@@ -135,7 +166,10 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Platform Availability",
 		status: "planned",
 		items: [
-			{ title: "Native desktop apps for macOS, Windows, and Linux", status: "planned" },
+			{
+				title: "Native desktop apps for macOS, Windows, and Linux",
+				status: "planned",
+			},
 		],
 	},
 	{
@@ -150,7 +184,10 @@ export const roadmapItems: RoadmapItem[] = [
 				title: "Compare database structures and create update scripts",
 				status: "planned",
 			},
-			{ title: "Turn query results into charts directly in the app", status: "planned" },
+			{
+				title: "Turn query results into charts directly in the app",
+				status: "planned",
+			},
 			{
 				title: "Secure connections using SSH tunnels and SSL/TLS encryption",
 				status: "planned",

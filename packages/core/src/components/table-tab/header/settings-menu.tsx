@@ -1,4 +1,4 @@
-import { IconSettings } from "@tabler/icons-react";
+import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // todo: light & dark mode
@@ -12,7 +12,7 @@ export const SettingsBtn = () => {
 			className="size-8! aspect-square border-r-0 border-y-0 border-l border-zinc-800 rounded-none"
 			aria-label="Open settings menu"
 		>
-			<IconSettings className="size-4" />
+			<Settings className="size-4" />
 		</Button>
 	);
 };

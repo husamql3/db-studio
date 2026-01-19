@@ -62,7 +62,9 @@ export const ReferencedTable = ({
 			setPage(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_PAGE.toString()); // page 1 for referenced table
 		}
 		if (tableName && !pageSize) {
-			setPageSize(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString()); // limit 30 for referenced table
+			setPageSize(
+				CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString(),
+			); // limit 30 for referenced table
 		}
 	}, [
 		tableName,
@@ -162,7 +164,10 @@ export const ReferencedTable = ({
 									>
 										{header.isPlaceholder
 											? null
-											: flexRender(header.column.columnDef.header, header.getContext())}
+											: flexRender(
+													header.column.columnDef.header,
+													header.getContext(),
+												)}
 									</TableHead>
 								);
 							})}

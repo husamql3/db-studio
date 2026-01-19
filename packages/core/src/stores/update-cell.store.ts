@@ -18,7 +18,10 @@ type UpdateCellStore = {
 	clearUpdates: () => void;
 	clearUpdate: (rowData: Record<string, unknown>, columnName: string) => void;
 	getUpdates: () => CellUpdate[];
-	getUpdate: (rowData: Record<string, unknown>, columnName: string) => CellUpdate | null;
+	getUpdate: (
+		rowData: Record<string, unknown>,
+		columnName: string,
+	) => CellUpdate | null;
 	hasUpdate: (rowData: Record<string, unknown>, columnName: string) => boolean;
 	hasAnyUpdates: () => boolean;
 	getUpdateCount: () => number;
@@ -26,7 +29,10 @@ type UpdateCellStore = {
 
 // Helper to create a unique key for each cell based on row data and column
 // This uses a combination of row data hash and column name
-const getCellKey = (rowData: Record<string, unknown>, columnName: string): string => {
+const getCellKey = (
+	rowData: Record<string, unknown>,
+	columnName: string,
+): string => {
 	// Create a stable key from the row data
 	// You can customize this based on your primary key structure
 	const rowId = rowData.id ?? JSON.stringify(rowData);
@@ -52,7 +58,12 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 					originalValue,
 				});
 			}
-			console.log("setUpdate", { rowData, columnName, newValue, originalValue });
+			console.log("setUpdate", {
+				rowData,
+				columnName,
+				newValue,
+				originalValue,
+			});
 			return { updates: newUpdates };
 		});
 	},

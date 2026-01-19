@@ -37,10 +37,15 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			theme: "system",
 			setTheme: (theme) => set({ theme: theme }),
 			toggleTheme: () =>
-				set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
+				set((state) => ({
+					theme: state.theme === "dark" ? "light" : "dark",
+				})),
 			setSidebarWidth: (width) =>
 				set((state) => ({
-					sidebar: { ...state.sidebar, width: Math.max(250, Math.min(500, width)) },
+					sidebar: {
+						...state.sidebar,
+						width: Math.max(250, Math.min(500, width)),
+					},
 				})),
 			setSidebarOpen: (isOpen) =>
 				set((state) => ({
@@ -56,7 +61,10 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 				})),
 			toggleSidebarPinned: () =>
 				set((state) => ({
-					sidebar: { ...state.sidebar, isPinned: !state.sidebar.isPinned },
+					sidebar: {
+						...state.sidebar,
+						isPinned: !state.sidebar.isPinned,
+					},
 				})),
 			setRunnerResultsHeight: (height) =>
 				set((state) => ({

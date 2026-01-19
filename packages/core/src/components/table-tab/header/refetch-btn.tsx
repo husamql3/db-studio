@@ -1,12 +1,16 @@
-import { IconRefresh } from "@tabler/icons-react";
+import { RefreshCw } from "lucide-react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 
 export const RefetchBtn = ({ tableName }: { tableName: string }) => {
-	const { refetchTableData, isRefetchingTableData } = useTableData({ tableName });
-	const { refetchTableCols, isRefetchingTableCols } = useTableCols({ tableName });
+	const { refetchTableData, isRefetchingTableData } = useTableData({
+		tableName,
+	});
+	const { refetchTableCols, isRefetchingTableCols } = useTableCols({
+		tableName,
+	});
 
 	const handleRefetch = useCallback(() => {
 		Promise.all([refetchTableData(), refetchTableCols()]);
@@ -21,7 +25,7 @@ export const RefetchBtn = ({ tableName }: { tableName: string }) => {
 			aria-label="Refetch table data and columns"
 			disabled={isRefetchingTableData || isRefetchingTableCols}
 		>
-			<IconRefresh className="size-4" />
+			<RefreshCw className="size-4" />
 		</Button>
 	);
 };

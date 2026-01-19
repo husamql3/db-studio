@@ -71,7 +71,15 @@ export function Highlighter({
 				resizeObserver.disconnect();
 			}
 		};
-	}, [action, color, strokeWidth, animationDuration, iterations, padding, multiline]);
+	}, [
+		action,
+		color,
+		strokeWidth,
+		animationDuration,
+		iterations,
+		padding,
+		multiline,
+	]);
 
 	return (
 		<span className="mx-1">

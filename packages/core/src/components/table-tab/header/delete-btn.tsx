@@ -16,7 +16,9 @@ export const DeleteBtn = ({
 }) => {
 	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } =
 		useDeleteCells({ tableName });
-	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
+	const [pendingRowData, setPendingRowData] = useState<
+		Record<string, unknown>[]
+	>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 

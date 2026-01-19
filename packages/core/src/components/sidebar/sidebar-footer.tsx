@@ -10,7 +10,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
 	useCurrentDatabase,
 	useDatabaseConnectionInfo,
@@ -20,19 +24,33 @@ import { cn } from "@/lib/utils";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {
-	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
-		useDatabasesList();
+	const {
+		databases,
+		isLoadingDatabases,
+		refetchDatabases,
+		isRefetchingDatabases,
+	} = useDatabasesList();
 	const { currentDatabase, isLoadingCurrentDatabase } = useCurrentDatabase();
-	const { connectionInfo, isLoadingConnectionInfo } = useDatabaseConnectionInfo();
+	const { connectionInfo, isLoadingConnectionInfo } =
+		useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const navigate = useNavigate();
 	const [showDetails, setShowDetails] = useState(false);
 
 	useEffect(() => {
-		if (currentDatabase?.database && !selectedDatabase && !isLoadingCurrentDatabase) {
+		if (
+			currentDatabase?.database &&
+			!selectedDatabase &&
+			!isLoadingCurrentDatabase
+		) {
 			setSelectedDatabase(currentDatabase.database);
 		}
-	}, [currentDatabase, selectedDatabase, setSelectedDatabase, isLoadingCurrentDatabase]);
+	}, [
+		currentDatabase,
+		selectedDatabase,
+		setSelectedDatabase,
+		isLoadingCurrentDatabase,
+	]);
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
@@ -66,7 +84,8 @@ export function SidebarFooter() {
 									<RefreshCw
 										className={cn(
 											"h-3.5 w-3.5",
-											isLoadingDatabases || (isRefetchingDatabases && "animate-spin"),
+											(isLoadingDatabases || isRefetchingDatabases) &&
+												"animate-spin",
 										)}
 									/>
 								</Button>
@@ -115,7 +134,9 @@ export function SidebarFooter() {
 								</div>
 							</div>
 
-							<span className="text-xs font-medium text-green-600">Connected</span>
+							<span className="text-xs font-medium text-green-600">
+								Connected
+							</span>
 						</div>
 						<ChevronDown
 							className={cn(

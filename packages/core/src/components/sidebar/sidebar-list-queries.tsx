@@ -10,8 +10,13 @@ export const SidebarListQueries = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
-	const { folders, queries, getFavoriteQueries, getQueriesByFolder, toggleFolder } =
-		useQueriesStore();
+	const {
+		folders,
+		queries,
+		getFavoriteQueries,
+		getQueriesByFolder,
+		toggleFolder,
+	} = useQueriesStore();
 
 	const [favoritesExpanded, setFavoritesExpanded] = useState(true);
 	const [queriesExpanded, setQueriesExpanded] = useState(true);
@@ -19,7 +24,9 @@ export const SidebarListQueries = () => {
 	const queriesCount = queries.filter((q) => !q.isFavorite).length;
 	const favoriteQueries = getFavoriteQueries();
 	const favoriteQueriesCount = favoriteQueries.length;
-	const queriesWithoutFolders = queries.filter((q) => !q.folderId && !q.isFavorite);
+	const queriesWithoutFolders = queries.filter(
+		(q) => !q.folderId && !q.isFavorite,
+	);
 
 	if (searchTerm) {
 		const filteredQueries = queries.filter((q) =>
@@ -27,7 +34,11 @@ export const SidebarListQueries = () => {
 		);
 
 		if (filteredQueries.length === 0) {
-			return <div className="flex-1 overflow-y-auto p-4">No queries found matching</div>;
+			return (
+				<div className="flex-1 overflow-y-auto p-4">
+					No queries found matching
+				</div>
+			);
 		}
 
 		return (

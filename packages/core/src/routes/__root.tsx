@@ -8,12 +8,28 @@ import { AddTableForm } from "@/components/add-table/add-table-form";
 import { Toaster } from "@/components/ui/sonner";
 import { useTheme } from "@/hooks/use-theme";
 
+const darkModeScript = String.raw`
+  try {
+    if (localStorage.theme === 'dark' || ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#09090b')
+    }
+  } catch (_) {}
+
+  try {
+    if (/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+      document.documentElement.classList.add('os-macos')
+    }
+  } catch (_) {}
+`;
+
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 
 		return (
 			<>
+				<script src={`data:text/javascript;base64,${btoa(darkModeScript)}`} />
+
 				<NuqsAdapter
 					fullPageNavigationOnShallowFalseUpdates
 					defaultOptions={{ shallow: true, clearOnDefault: true }}

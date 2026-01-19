@@ -56,7 +56,8 @@ app.post("/chat", async (c) => {
 		return toServerSentEventsResponse(stream);
 	} catch (error) {
 		console.error("Proxy error:", error);
-		const errorMessage = error instanceof Error ? error.message : "An error occurred";
+		const errorMessage =
+			error instanceof Error ? error.message : "An error occurred";
 		return c.json({ error: errorMessage }, 500);
 	}
 });

@@ -5,6 +5,7 @@ export * from "./create-table.type.js";
 export * from "./data-types.type.js";
 export * from "./database-info.type.js";
 export * from "./database-schema.type.js";
+export * from "./delete-column.type.js";
 export * from "./delete-record.type.js";
 export * from "./execute-query-params.type.js";
 export * from "./foreign-key-actions.js";
