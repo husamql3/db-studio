@@ -41,8 +41,10 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build server
-        run: bun run build:server --force
+      - name: Build
+        run: |
+          bun run build:core --force
+          bun run build:server --force
 
       - name: Publish to npm
         if: |
