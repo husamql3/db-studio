@@ -64,7 +64,7 @@ your-name <your-email>
 The app runs at `http://localhost:3001` with the API server on port `3333`.
 
 > [!NOTE]
-> It'll automatically opens the app in 3333, this have the client but static so it wont reflect any changes, the port 3001 runs with `vite`
+> The app can work on 3333 but this have the client but static so it wont reflect any changes, the port 3001 runs with `vite`
 
 ## Roadmap
 
