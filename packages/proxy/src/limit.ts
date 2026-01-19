@@ -9,7 +9,8 @@ export const keyGenerator = (c: Context) => {
 	const xForwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
 	const apiKey = c.req.header("x-api-key");
 
-	const identifier = apiKey ?? cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
+	const identifier =
+		apiKey ?? cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
 	return identifier;
 };
 

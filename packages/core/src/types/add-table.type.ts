@@ -49,7 +49,10 @@ export type AddTableFormData = z.infer<typeof addTableSchema>;
 export type ForeignKeyData = z.infer<typeof foreignKeySchema>;
 
 export type AddTableOption = {
-	name: keyof Pick<FieldData, "isNullable" | "isUnique" | "isIdentity" | "isArray">;
+	name: keyof Pick<
+		FieldData,
+		"isNullable" | "isUnique" | "isIdentity" | "isArray"
+	>;
 	label: string;
 	description: string;
 };

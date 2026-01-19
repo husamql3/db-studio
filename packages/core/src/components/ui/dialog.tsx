@@ -1,10 +1,12 @@
-import { IconX } from "@tabler/icons-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+function Dialog({
+	...props
+}: React.ComponentProps<typeof DialogPrimitive.Root>) {
 	return (
 		<DialogPrimitive.Root
 			data-slot="dialog"
@@ -24,7 +26,9 @@ function DialogTrigger({
 	);
 }
 
-function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
+function DialogPortal({
+	...props
+}: React.ComponentProps<typeof DialogPrimitive.Portal>) {
 	return (
 		<DialogPrimitive.Portal
 			data-slot="dialog-portal"
@@ -33,7 +37,9 @@ function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.
 	);
 }
 
-function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) {
+function DialogClose({
+	...props
+}: React.ComponentProps<typeof DialogPrimitive.Close>) {
 	return (
 		<DialogPrimitive.Close
 			data-slot="dialog-close"
@@ -88,7 +94,7 @@ function DialogContent({
 							className="absolute top-2 right-2"
 							size="icon-sm"
 						>
-							<IconX />
+							<X />
 							<span className="sr-only">Close</span>
 						</Button>
 					</DialogPrimitive.Close>
@@ -119,7 +125,10 @@ function DialogFooter({
 	return (
 		<div
 			data-slot="dialog-footer"
-			className={cn("gap-2 flex flex-col-reverse sm:flex-row sm:justify-end", className)}
+			className={cn(
+				"gap-2 flex flex-col-reverse sm:flex-row sm:justify-end",
+				className,
+			)}
 			{...props}
 		>
 			{children}

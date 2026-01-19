@@ -5,7 +5,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TableHeader } from "@/components/table-tab/header/table-header";
 import { TableCell } from "@/components/table-tab/table-cell";
 import { TableContainer } from "@/components/table-tab/table-container";
@@ -22,11 +22,15 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 
-	const { tableData, isLoadingTableData, errorTableData } = useTableData({ tableName });
-	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({ tableName });
+	const { tableData, isLoadingTableData, errorTableData } = useTableData({
+		tableName,
+	});
+	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
+		tableName,
+	});
 
-	const [rowSelection, setRowSelection] = useState({});
-	const [columnSizing, setColumnSizing] = useState({});
+	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+	const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
 	const [focusedCell, setFocusedCell] = useState<{
 		rowIndex: number;
 		columnId: string;
@@ -36,14 +40,15 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 		columnId: string;
 	} | null>(null);
 
+	const selectorColumn = useMemo(() => TableSelector(), []);
+
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
-			TableSelector(),
+			selectorColumn,
 			...(tableCols?.map((col) => ({
 				accessorKey: col.columnName,
 				header: col.columnName,
 				meta: {
-					// variant: col.enumValues ? "enum" : col.dataType,
 					variant: col.enumValues ? "enum" : col.dataType,
 					isPrimaryKey: col.isPrimaryKey,
 					isForeignKey: col.isForeignKey,
@@ -52,12 +57,13 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 					enumValues: col.enumValues,
 					dataTypeLabel: col.dataTypeLabel, // This is the exact DB type (int/varchar/etc.)
 				},
-				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
+				size:
+					(col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
 				minSize: 100,
 				maxSize: 500,
 			})) || []),
 		],
-		[tableCols],
+		[tableCols, selectorColumn],
 	);
 
 	// Clear row selection when table changes
@@ -73,8 +79,63 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 		return [];
 	}, [columnName, order]);
 
+	// Memoize table data to avoid unnecessary re-renders
+	const tableDataRows = useMemo(() => tableData?.data || [], [tableData?.data]);
+
+	// Stable callbacks to prevent infinite re-renders
+	const handleCellClick = useCallback((rowIndex: number, columnId: string) => {
+		setFocusedCell({ rowIndex, columnId });
+	}, []);
+
+	const handleCellDoubleClick = useCallback(
+		(rowIndex: number, columnId: string) => {
+			setEditingCell({ rowIndex, columnId });
+		},
+		[],
+	);
+
+	const handleCellEditingStart = useCallback(
+		(rowIndex: number, columnId: string) => {
+			setEditingCell({ rowIndex, columnId });
+		},
+		[],
+	);
+
+	const handleCellEditingStop = useCallback(() => {
+		setEditingCell(null);
+	}, []);
+
+	const handleDataUpdate = useCallback((update: unknown) => {
+		console.log("Data update:", update);
+	}, []);
+
+	const getIsCellSelected = useCallback(() => false, []);
+
+	const tableMeta = useMemo(
+		() => ({
+			focusedCell,
+			editingCell,
+			onCellClick: handleCellClick,
+			onCellDoubleClick: handleCellDoubleClick,
+			onCellEditingStart: handleCellEditingStart,
+			onCellEditingStop: handleCellEditingStop,
+			onDataUpdate: handleDataUpdate,
+			getIsCellSelected,
+		}),
+		[
+			focusedCell,
+			editingCell,
+			handleCellClick,
+			handleCellDoubleClick,
+			handleCellEditingStart,
+			handleCellEditingStop,
+			handleDataUpdate,
+			getIsCellSelected,
+		],
+	);
+
 	const table = useReactTable({
-		data: tableData?.data || [],
+		data: tableDataRows,
 		columns,
 		defaultColumn: {
 			cell: TableCell,
@@ -94,43 +155,14 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 		enableMultiRowSelection: true,
 		enableColumnResizing: true,
 		columnResizeMode: "onChange",
-		debugTable: true,
-		onRowSelectionChange: (rowSelection) => {
-			setRowSelection(rowSelection);
-		},
+		onRowSelectionChange: setRowSelection,
 		onColumnSizingChange: setColumnSizing,
-		meta: {
-			focusedCell,
-			editingCell,
-			onCellClick: (rowIndex: number, columnId: string) => {
-				setFocusedCell({ rowIndex, columnId });
-			},
-			onCellDoubleClick: (rowIndex: number, columnId: string) => {
-				setEditingCell({ rowIndex, columnId });
-			},
-			onCellEditingStart: (rowIndex: number, columnId: string) => {
-				setEditingCell({ rowIndex, columnId });
-			},
-			onCellEditingStop: () => {
-				setEditingCell(null);
-			},
-			onDataUpdate: (update: unknown) => {
-				console.log("Data update:", update);
-			},
-			getIsCellSelected: () => false,
-		},
-		onPaginationChange: (pagination) => {
-			console.log(pagination);
-		},
-		onColumnVisibilityChange: (columnVisibility) => {
-			console.log(columnVisibility);
-		},
-		onColumnOrderChange: (columnOrder) => {
-			console.log(columnOrder);
-		},
+		meta: tableMeta,
 	});
 
-	const hasNoData = !tableData?.data || tableData.data.length === 0;
+	const hasNoData =
+		!tableData || !tableData.data || tableData.data.length === 0;
+
 	const selectedRows = table.getSelectedRowModel().rows;
 
 	if (isLoadingTableData || isLoadingTableCols) {
@@ -158,7 +190,7 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 					tableName={tableName}
 				/>
 				<div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
-					No data available
+					No data available for "{tableName}" table
 				</div>
 			</div>
 		);

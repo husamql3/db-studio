@@ -56,6 +56,11 @@ bun install
 bun run dev
 ```
 
+At your first contribution, you should add your name and email to the `AUTHORS` file
+```bash
+your-name <your-email>
+```
+
 The app runs at `http://localhost:3001` with the API server on port `3333`.
 
 > [!NOTE]

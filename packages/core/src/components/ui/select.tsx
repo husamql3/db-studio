@@ -1,16 +1,13 @@
 "use client";
 
-import {
-	IconCheck,
-	IconChevronDown,
-	IconChevronUp,
-	IconSelector,
-} from "@tabler/icons-react";
-import * as SelectPrimitive from "@radix-ui/react-select";
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { Select as SelectPrimitive } from "radix-ui";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+function Select({
+	...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
 	return (
 		<SelectPrimitive.Root
 			data-slot="select"
@@ -32,7 +29,9 @@ function _SelectGroup({
 	);
 }
 
-function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
+function SelectValue({
+	...props
+}: React.ComponentProps<typeof SelectPrimitive.Value>) {
 	return (
 		<SelectPrimitive.Value
 			data-slot="select-value"
@@ -61,7 +60,7 @@ function SelectTrigger({
 		>
 			{children}
 			<SelectPrimitive.Icon asChild>
-				<IconSelector className="text-muted-foreground size-3.5 pointer-events-none" />
+				<ChevronsUpDown className="text-muted-foreground size-3.5 pointer-events-none" />
 			</SelectPrimitive.Icon>
 		</SelectPrimitive.Trigger>
 	);
@@ -133,7 +132,7 @@ function SelectItem({
 		>
 			<span className="pointer-events-none absolute right-2 flex items-center justify-center">
 				<SelectPrimitive.ItemIndicator>
-					<IconCheck className="pointer-events-none" />
+					<Check className="pointer-events-none" />
 				</SelectPrimitive.ItemIndicator>
 			</span>
 			<SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -148,7 +147,10 @@ function _SelectSeparator({
 	return (
 		<SelectPrimitive.Separator
 			data-slot="select-separator"
-			className={cn("bg-border/50 -mx-1 my-1 h-px pointer-events-none", className)}
+			className={cn(
+				"bg-border/50 -mx-1 my-1 h-px pointer-events-none",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -167,7 +169,7 @@ function SelectScrollUpButton({
 			)}
 			{...props}
 		>
-			<IconChevronUp />
+			<ChevronUp />
 		</SelectPrimitive.ScrollUpButton>
 	);
 }
@@ -185,7 +187,7 @@ function SelectScrollDownButton({
 			)}
 			{...props}
 		>
-			<IconChevronDown />
+			<ChevronDown />
 		</SelectPrimitive.ScrollDownButton>
 	);
 }

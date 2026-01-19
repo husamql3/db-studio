@@ -3,7 +3,9 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
+function Popover({
+	...props
+}: React.ComponentProps<typeof PopoverPrimitive.Root>) {
 	return (
 		<PopoverPrimitive.Root
 			data-slot="popover"
@@ -76,7 +78,10 @@ function _PopoverTitle({ className, ...props }: React.ComponentProps<"h2">) {
 	);
 }
 
-function _PopoverDescription({ className, ...props }: React.ComponentProps<"p">) {
+function _PopoverDescription({
+	className,
+	...props
+}: React.ComponentProps<"p">) {
 	return (
 		<p
 			data-slot="popover-description"

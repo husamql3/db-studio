@@ -76,7 +76,10 @@ export const getTableColumns = async (
 					parsedEnumValues = r.enumValues;
 				} else if (typeof r.enumValues === "string") {
 					// Parse PostgreSQL array format: "{VALUE1,VALUE2,VALUE3}"
-					parsedEnumValues = r.enumValues.replace(/[{}]/g, "").split(",").filter(Boolean);
+					parsedEnumValues = r.enumValues
+						.replace(/[{}]/g, "")
+						.split(",")
+						.filter(Boolean);
 				}
 			}
 

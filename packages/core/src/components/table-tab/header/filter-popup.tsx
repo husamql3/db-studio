@@ -1,11 +1,15 @@
-import { IconFilter, IconX } from "@tabler/icons-react";
+import { Filter, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
-import type { Filter } from "server/src/dao/tables-data.dao";
+import type { Filter as FilterType } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -17,16 +21,16 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { CONSTANTS } from "@/utils/constants";
 
 export const FilterPopup = ({ tableName }: { tableName: string }) => {
-	const [filters, setFilters] = useQueryState<Filter[]>(
+	const [filters, setFilters] = useQueryState<FilterType[]>(
 		CONSTANTS.TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as Filter[])
+		parseAsJson((value) => value as FilterType[])
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
 	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [localFilters, setLocalFilters] = useState<Filter[]>([]);
+	const [localFilters, setLocalFilters] = useState<FilterType[]>([]);
 
 	const handleAddFilter = () => {
 		const firstColumn = tableCols?.[0]?.columnName ?? "";
@@ -42,19 +46,25 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 	const handleFilterColumnChange = (index: number, columnName: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) => (i === index ? { ...filter, columnName } : filter)),
+			localFilters.map((filter, i) =>
+				i === index ? { ...filter, columnName } : filter,
+			),
 		);
 	};
 
 	const handleFilterValueChange = (index: number, value: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) => (i === index ? { ...filter, value } : filter)),
+			localFilters.map((filter, i) =>
+				i === index ? { ...filter, value } : filter,
+			),
 		);
 	};
 
 	const handleFilterOperatorChange = (index: number, operator: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) => (i === index ? { ...filter, operator } : filter)),
+			localFilters.map((filter, i) =>
+				i === index ? { ...filter, operator } : filter,
+			),
 		);
 	};
 
@@ -96,7 +106,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 					aria-label="Filter table data"
 					data-active={hasActiveFilters}
 				>
-					<IconFilter className="size-4" />
+					<Filter className="size-4" />
 				</Button>
 			</PopoverTrigger>
 
@@ -129,7 +139,9 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 							>
 								<Select
 									value={filter.columnName}
-									onValueChange={(value) => handleFilterColumnChange(index, value)}
+									onValueChange={(value) =>
+										handleFilterColumnChange(index, value)
+									}
 								>
 									<SelectTrigger className="w-full flex-1">
 										<SelectValue placeholder="Select column" />
@@ -148,7 +160,9 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 								<Select
 									value={filter.operator}
-									onValueChange={(value) => handleFilterOperatorChange(index, value)}
+									onValueChange={(value) =>
+										handleFilterOperatorChange(index, value)
+									}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Op" />
@@ -173,7 +187,9 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 									type="text"
 									placeholder="Value"
 									value={filter.value as string}
-									onChange={(e) => handleFilterValueChange(index, e.target.value)}
+									onChange={(e) =>
+										handleFilterValueChange(index, e.target.value)
+									}
 								/>
 
 								<Button
@@ -182,7 +198,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 									className="text-xs"
 									onClick={() => handleRemoveFilter(index)}
 								>
-									<IconX className="size-4" />
+									<X className="size-4" />
 								</Button>
 							</div>
 						))

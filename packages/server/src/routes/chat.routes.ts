@@ -54,7 +54,8 @@ chatRoutes.post("/", async (c) => {
 		});
 	} catch (error) {
 		console.error("POST /chat error:", error);
-		const errorMessage = error instanceof Error ? error.message : "An error occurred";
+		const errorMessage =
+			error instanceof Error ? error.message : "An error occurred";
 		return c.json(
 			{
 				error: errorMessage,

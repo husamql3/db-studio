@@ -19,15 +19,20 @@ export const changelog: ChangelogItem[] = [
 		version: "1.2.9",
 		date: "2026-01-17",
 		title: "",
-		features: [],
+		features: [
+			{
+				text: "Add delete column feature in the table tab",
+				username: "husamql3",
+			},
+		],
 		bugsFixed: [],
 		improvements: [
 			{
-				text: "Used `turbo` to run and build the project",
+				text: "Used turbo to run and build the project",
 				username: "husamql3",
 			},
 			{
-				text: "Implemented `shared` package to share code between the packages",
+				text: "Implemented shared package to share code between the packages",
 				username: "husamql3",
 			},
 		],

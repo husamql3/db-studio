@@ -15,7 +15,11 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { TableCellWrapper } from "@/components/table-tab/table-cell-wrapper";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import {
+	Popover,
+	PopoverAnchor,
+	PopoverContent,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -102,7 +106,13 @@ export const TableTextCell = memo(
 		const onChange = useCallback(
 			(event: ChangeEvent<HTMLTextAreaElement>) => {
 				const newValue = event.target.value;
-				console.log("onChange", newValue, columnName, editorValue, initialValue);
+				console.log(
+					"onChange",
+					newValue,
+					columnName,
+					editorValue,
+					initialValue,
+				);
 				setEditorValue(newValue);
 			},
 			[columnName, editorValue, initialValue],
@@ -154,11 +164,21 @@ export const TableTextCell = memo(
 			(event: KeyboardEvent<HTMLTextAreaElement>) => {
 				if (event.key === "Escape") {
 					event.preventDefault();
-					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
+					console.log(
+						"onTextareaKeyDown",
+						event.key,
+						editorValue,
+						initialValue,
+					);
 					onCancel();
 				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 					event.preventDefault();
-					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
+					console.log(
+						"onTextareaKeyDown",
+						event.key,
+						editorValue,
+						initialValue,
+					);
 					onSave();
 				}
 				// Stop propagation to prevent grid navigation
@@ -188,7 +208,12 @@ export const TableTextCell = memo(
 		}, [isEditing, open, displayValue]);
 
 		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			if (
+				isFocused &&
+				!isEditing &&
+				!meta?.isScrolling &&
+				containerRef.current
+			) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
@@ -343,7 +368,16 @@ export const TableNumberCell = memo(
 					}
 				}
 			},
-			[isEditing, open, meta, value, initialValue, columnName, rowData, setUpdate],
+			[
+				isEditing,
+				open,
+				meta,
+				value,
+				initialValue,
+				columnName,
+				rowData,
+				setUpdate,
+			],
 		);
 
 		const onTextInputKeyDown = useCallback(
@@ -378,7 +412,12 @@ export const TableNumberCell = memo(
 		}
 
 		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			if (
+				isFocused &&
+				!isEditing &&
+				!meta?.isScrolling &&
+				containerRef.current
+			) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
@@ -538,7 +577,12 @@ export const TableBooleanCell = memo(
 		}, [isEditing]);
 
 		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			if (
+				isFocused &&
+				!isEditing &&
+				!meta?.isScrolling &&
+				containerRef.current
+			) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
@@ -596,7 +640,9 @@ export const TableBooleanCell = memo(
 						</SelectContent>
 					</Select>
 				) : (
-					<span className="flex items-center size-full px-2 py-1.5">{displayValue}</span>
+					<span className="flex items-center size-full px-2 py-1.5">
+						{displayValue}
+					</span>
 				)}
 			</TableCellWrapper>
 		);
@@ -622,7 +668,9 @@ export const TableEnumCell = memo(
 		const selectTriggerRef = useRef<HTMLButtonElement>(null);
 		const isEditingRef = useRef(isEditing);
 		const meta = table.options.meta;
-		const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
+		const enumValues = cell.column.columnDef.meta?.enumValues as
+			| string[]
+			| undefined;
 
 		// Update ref when isEditing changes
 		useEffect(() => {
@@ -713,14 +761,21 @@ export const TableEnumCell = memo(
 		}, [isEditing]);
 
 		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			if (
+				isFocused &&
+				!isEditing &&
+				!meta?.isScrolling &&
+				containerRef.current
+			) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
 		// Display value (use currentValue which includes store updates)
 		const displayValue =
-			currentValue === null || currentValue === undefined ? "NULL" : currentValue;
+			currentValue === null || currentValue === undefined
+				? "NULL"
+				: currentValue;
 
 		return (
 			<TableCellWrapper
@@ -849,7 +904,12 @@ export const TableDateCell = memo(
 		);
 
 		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			if (
+				isFocused &&
+				!isEditing &&
+				!meta?.isScrolling &&
+				containerRef.current
+			) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
@@ -989,7 +1049,13 @@ export const TableJsonCell = memo(
 		const onChange = useCallback(
 			(event: ChangeEvent<HTMLTextAreaElement>) => {
 				const newValue = event.target.value;
-				console.log("onChange", newValue, columnName, editorValue, initialValue);
+				console.log(
+					"onChange",
+					newValue,
+					columnName,
+					editorValue,
+					initialValue,
+				);
 				setEditorValue(newValue);
 			},
 			[columnName, editorValue, initialValue],
@@ -1046,11 +1112,21 @@ export const TableJsonCell = memo(
 			(event: KeyboardEvent<HTMLTextAreaElement>) => {
 				if (event.key === "Escape") {
 					event.preventDefault();
-					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
+					console.log(
+						"onTextareaKeyDown",
+						event.key,
+						editorValue,
+						initialValue,
+					);
 					onCancel();
 				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 					event.preventDefault();
-					console.log("onTextareaKeyDown", event.key, editorValue, initialValue);
+					console.log(
+						"onTextareaKeyDown",
+						event.key,
+						editorValue,
+						initialValue,
+					);
 					onSave();
 				}
 				// Stop propagation to prevent grid navigation
@@ -1086,7 +1162,12 @@ export const TableJsonCell = memo(
 		}, [isEditing, open, currentJsonValue]);
 
 		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+			if (
+				isFocused &&
+				!isEditing &&
+				!meta?.isScrolling &&
+				containerRef.current
+			) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);

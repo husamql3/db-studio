@@ -7,24 +7,35 @@ import {
 	type RoadmapItemTask,
 	roadmapItems,
 } from "@/lib/content/roadmap";
-import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
+import {
+	getStatusLabel,
+	getStatusStyles,
+	getTaskIconClass,
+} from "@/lib/roadmap-helpers";
 import { cn } from "@/lib/utils";
 
 const getTaskIcon = (status: RoadmapItemStatus) => {
 	switch (status) {
 		case "completed":
 			return (
-				<CheckIcon className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))} />
+				<CheckIcon
+					className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))}
+				/>
 			);
 		case "in-progress":
 			return (
 				<Loader2Icon
-					className={cn("h-4 w-4 mt-0.5 shrink-0 animate-spin", getTaskIconClass(status))}
+					className={cn(
+						"h-4 w-4 mt-0.5 shrink-0 animate-spin",
+						getTaskIconClass(status),
+					)}
 				/>
 			);
 		case "planned":
 			return (
-				<PlusIcon className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))} />
+				<PlusIcon
+					className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))}
+				/>
 			);
 	}
 };
@@ -53,7 +64,9 @@ function RouteComponent() {
 					/>
 
 					<div className="w-full max-w-xl mx-auto text-center">
-						<h1 className="text-2xl md:text-3xl font-bold mb-2">Product Roadmap</h1>
+						<h1 className="text-2xl md:text-3xl font-bold mb-2">
+							Product Roadmap
+						</h1>
 						<p className="text-sm">
 							Follow our journey as we build the future of database management
 						</p>
@@ -104,15 +117,17 @@ function RouteComponent() {
 									</div>
 
 									<ul className="space-y-2">
-										{item.items.map((task: RoadmapItemTask, taskIndex: number) => (
-											<li
-												key={`${item.title}-${task.title}-${taskIndex}`}
-												className="flex items-start gap-2 text-sm text-muted-foreground"
-											>
-												{getTaskIcon(task.status)}
-												<span>{task.title}</span>
-											</li>
-										))}
+										{item.items.map(
+											(task: RoadmapItemTask, taskIndex: number) => (
+												<li
+													key={`${item.title}-${task.title}-${taskIndex}`}
+													className="flex items-start gap-2 text-sm text-muted-foreground"
+												>
+													{getTaskIcon(task.status)}
+													<span>{task.title}</span>
+												</li>
+											),
+										)}
 									</ul>
 								</div>
 							</div>

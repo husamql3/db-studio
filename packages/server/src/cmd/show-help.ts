@@ -13,12 +13,16 @@ export const showHelp = () => {
 
 	console.log(color.bold("Options:"));
 	console.log("  -e, --env <path>         Path to custom .env file");
-	console.log("  -p, --port <port>        Port to run the server on (default: 3333)");
+	console.log(
+		"  -p, --port <port>        Port to run the server on (default: 3333)",
+	);
 	console.log("  -d, --database-url <url> Database URL to use");
 	console.log(
 		"  -n, --var-name <name>    Custom environment variable name (default: DATABASE_URL)",
 	);
-	console.log("  -s, --status             Show status of the database connection");
+	console.log(
+		"  -s, --status             Show status of the database connection",
+	);
 	console.log("  -h, --help               Show this help message");
 	console.log("  -v, --version            Show version number\n");
 

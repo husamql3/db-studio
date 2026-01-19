@@ -33,9 +33,9 @@ export const ForceDeleteDialog = ({
 				<DialogHeader>
 					<DialogTitle>Cannot Delete - Foreign Key Constraint</DialogTitle>
 					<DialogDescription>
-						The selected records cannot be deleted because they are referenced by records
-						in other tables. You can either cancel the operation or force delete, which
-						will also delete all related records.
+						The selected records cannot be deleted because they are referenced
+						by records in other tables. You can either cancel the operation or
+						force delete, which will also delete all related records.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -62,7 +62,11 @@ export const ForceDeleteDialog = ({
 	);
 };
 
-const RelatedRecordsView = ({ relatedRecords }: { relatedRecords: RelatedRecord[] }) => {
+const RelatedRecordsView = ({
+	relatedRecords,
+}: {
+	relatedRecords: RelatedRecord[];
+}) => {
 	return (
 		<div className="space-y-4 max-h-64 overflow-y-auto">
 			{relatedRecords.map((related, idx) => (
@@ -73,7 +77,8 @@ const RelatedRecordsView = ({ relatedRecords }: { relatedRecords: RelatedRecord[
 					<div className="font-medium text-sm mb-2">
 						Table: <span className="text-primary">{related.tableName}</span>
 						<span className="text-muted-foreground ml-2">
-							({related.records.length} record{related.records.length !== 1 ? "s" : ""})
+							({related.records.length} record
+							{related.records.length !== 1 ? "s" : ""})
 						</span>
 					</div>
 					<div className="text-xs text-muted-foreground mb-2">
