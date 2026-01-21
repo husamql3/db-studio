@@ -6,7 +6,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-
 import {
 	type DatabaseTypeSchema,
 	databaseTypeParamSchema,
@@ -106,7 +105,7 @@ export const createServer = () => {
 		.route("/chat", chatRoutes)
 
 		/**
-		 * Serve the static files
+		 * Serve the static files (development only)
 		 */
 		.use("/*", serveStatic({ root: getCoreDistPath() }));
 

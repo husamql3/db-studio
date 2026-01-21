@@ -23,6 +23,7 @@
     "check:meta": "bun run --cwd www check-meta",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:server": "turbo run test --filter=db-studio",
     "changeset": "changeset",
     "version": "changeset version",
     "prepare": "husky",
