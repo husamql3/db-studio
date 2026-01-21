@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import {
 	createTableSchema,
 	databaseQuerySchema,
+	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	type Sort,
@@ -14,22 +15,19 @@ import { deleteColumn } from "@/dao/delete-column.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
-import { handleConnectionError } from "@/utils/error-handler.js";
 
 export const tablesRoutes = new Hono();
 
 /**
  * GET /tables - Get all tables
  */
-tablesRoutes.get("/", zValidator("query", databaseQuerySchema), async (c) => {
+tablesRoutes.get("/", zValidator("query", databaseSchema), async (c) => {
 	try {
-		const { database } = c.req.valid("query");
-		const tablesList = await getTablesList(database);
+		const database = c.req.valid("query");
+		const tablesList = await getTablesList(database.database);
 
-		return c.json(tablesList);
-	} catch (error) {
-		return handleConnectionError(c, error, "Failed to fetch tables");
-	}
+		return c.json({ data: tablesList }, 200);
+	} catch (_error) {}
 });
 
 /**
@@ -84,9 +82,7 @@ tablesRoutes.delete(
 				database,
 			);
 			return c.json(result);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to delete column");
-		}
+		} catch (_error) {}
 	},
 );
 
@@ -104,9 +100,7 @@ tablesRoutes.get(
 
 			const columns = await getTableColumns(tableName, database);
 			return c.json(columns);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to fetch columns");
-		}
+		} catch (_error) {}
 	},
 );
 
@@ -156,9 +150,7 @@ tablesRoutes.get(
 				database,
 			);
 			return c.json(data);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to fetch table data");
-		}
+		} catch (_error) {}
 	},
 );
 

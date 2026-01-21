@@ -1,12 +1,17 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
-import { ZodError } from "zod";
+import { prettyJSON } from "hono/pretty-json";
+import {
+	type DatabaseTypeSchema,
+	databaseTypeParamSchema,
+} from "shared/types/database.types.js";
 import type { AppType } from "@/app.types.js";
+import { handleError } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
@@ -26,58 +31,83 @@ const getCoreDistPath = () => {
 };
 
 export const createServer = () => {
-	const app = new Hono<AppType>({ strict: false });
+	const app = new Hono<AppType>({ strict: false })
+		/**
+		 * Base path for the API, /:dbType/...
+		 * @param {DatabaseTypeSchema} dbType - The type of database to use
+		 */
+		.basePath("/:dbType")
 
-	if (process.env.NODE_ENV === "development") {
-		app.use(logger());
-	}
+		/**
+		 * Validate the database type and store it in context
+		 * @param {DatabaseTypeSchema} dbType - The type of database to use
+		 */
+		.use(zValidator("param", databaseTypeParamSchema))
+		.use(async (c, next) => {
+			// dbType is already validated by zValidator above
+			const dbType = c.req.param("dbType") as DatabaseTypeSchema;
+			c.set("dbType", dbType);
+			await next();
+		})
 
-	app.use("/*", cors());
+		/**
+		 * Enable CORS
+		 */
+		.use("/*", cors())
 
-	app.use(
-		"/favicon.ico",
-		serveStatic({
-			path: path.resolve(getCoreDistPath(), "favicon.ico"),
-		}),
-	);
+		/**
+		 * Pretty print the JSON response
+		 */
+		.use(prettyJSON({ space: 2 }))
 
-	app.use("*", async (c, next) => {
-		c.header("Access-Control-Allow-Origin", "*");
-		c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-		c.header("Access-Control-Allow-Headers", "Content-Type");
-		await next();
-	});
+		/**
+		 * Enable logger in development mode
+		 */
+		.use(
+			process.env.NODE_ENV === "development" ? logger() : (_, next) => next(),
+		)
 
-	app.onError((e, c) => {
-		console.error("Server error:", e);
-		if (e instanceof HTTPException) {
-			return e.getResponse();
-		}
+		/**
+		 * Serve the favicon.ico file
+		 */
+		.use(
+			"/favicon.ico",
+			serveStatic({
+				path: path.resolve(getCoreDistPath(), "favicon.ico"),
+			}),
+		)
 
-		if (e instanceof ZodError) {
-			return c.json(
-				{
-					error: e.message,
-				},
-				400,
+		/**
+		 * Handle CORS requests
+		 */
+		.use("*", async (c, next) => {
+			c.header("Access-Control-Allow-Origin", "*");
+			c.header(
+				"Access-Control-Allow-Methods",
+				"GET, POST, PUT, DELETE, OPTIONS",
 			);
-		}
+			c.header("Access-Control-Allow-Headers", "Content-Type");
+			await next();
+		})
 
-		return c.json(
-			{
-				error: e instanceof Error ? e.message : "Internal server error",
-			},
-			500,
-		);
-	});
+		/**
+		 * Handle errors
+		 */
+		.onError(handleError)
 
-	app.route("/databases", databasesRoutes);
-	app.route("/tables", tablesRoutes);
-	app.route("/records", recordsRoutes);
-	app.route("/query", queryRoutes);
-	app.route("/chat", chatRoutes);
+		/**
+		 * Routes
+		 */
+		.route("/databases", databasesRoutes)
+		.route("/tables", tablesRoutes)
+		.route("/records", recordsRoutes)
+		.route("/query", queryRoutes)
+		.route("/chat", chatRoutes)
 
-	app.use("/*", serveStatic({ root: getCoreDistPath() }));
+		/**
+		 * Serve the static files
+		 */
+		.use("/*", serveStatic({ root: getCoreDistPath() }));
 
 	return { app };
 };

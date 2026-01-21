@@ -1,4 +1,5 @@
 import type { TypedResponse } from "hono";
+import type { DatabaseTypeSchema } from "shared/types/database.types.js";
 import type { ChatRoutes } from "@/routes/chat.routes.js";
 import type { DatabasesRoutes } from "@/routes/databases.routes.js";
 import type { QueryRoutes } from "@/routes/query.routes.js";
@@ -23,6 +24,9 @@ export type ApiErrorType = TypedResponse<ApiError, 500>;
 export type ApiHandler<T> = Promise<ApiResponseType<T> | ApiErrorType>;
 
 export type AppType = {
+	Variables: {
+		dbType: DatabaseTypeSchema;
+	};
 	Bindings: {
 		databases: DatabasesRoutes;
 		tables: TablesRoutes;
