@@ -1,13 +1,13 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
-import z, { ZodError } from "zod";
+import { ZodError } from "zod";
 
 /**
  * Centralized error handler for the application
  */
 export function handleError(e: Error | unknown, c: Context) {
-	console.error("Server error:", e);
+	console.error("handleError:", e);
 
 	if (e instanceof HTTPException) {
 		return e.getResponse();
@@ -17,7 +17,7 @@ export function handleError(e: Error | unknown, c: Context) {
 		return c.json(
 			{
 				error: "Validation error",
-				details: z.treeifyError(e),
+				details: e.issues[0].message,
 			},
 			400,
 		);

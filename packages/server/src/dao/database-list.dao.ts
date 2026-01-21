@@ -97,7 +97,7 @@ export async function getDatabaseConnectionInfo(): Promise<ConnectionQueryResult
 
 	return connectionInfoSchema.parse({
 		host: result.host || urlDefaults.host,
-		port: result.port ? result.port.toString() : null,
+		port: result.port || urlDefaults.port,
 		user: result.user,
 		database: result.database,
 		version: result.version.toString(),
