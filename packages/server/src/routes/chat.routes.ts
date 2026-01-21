@@ -64,3 +64,5 @@ chatRoutes.post("/", async (c) => {
 		);
 	}
 });
+
+export type ChatRoutes = typeof chatRoutes;

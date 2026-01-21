@@ -161,3 +161,5 @@ tablesRoutes.get(
 		}
 	},
 );
+
+export type TablesRoutes = typeof tablesRoutes.routes;

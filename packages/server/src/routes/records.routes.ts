@@ -168,3 +168,5 @@ recordsRoutes.delete(
 		}
 	},
 );
+
+export type RecordsRoutes = typeof recordsRoutes;

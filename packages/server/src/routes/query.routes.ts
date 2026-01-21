@@ -28,3 +28,5 @@ queryRoutes.post("/", zValidator("json", executeQuerySchema), async (c) => {
 		);
 	}
 });
+
+export type QueryRoutes = typeof queryRoutes;

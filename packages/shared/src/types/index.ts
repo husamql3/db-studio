@@ -1,9 +1,12 @@
+//
 export * from "./cmd-args.type.js";
 export * from "./column.type.js";
 export * from "./column-info.type.js";
 export * from "./create-table.type.js";
 export * from "./data-types.type.js";
+export * from "./database.types.js";
 export * from "./database-info.type.js";
+export * from "./database-list.types.js";
 export * from "./database-schema.type.js";
 export * from "./delete-column.type.js";
 export * from "./delete-record.type.js";

@@ -1,47 +1,49 @@
 import { Hono } from "hono";
+import type { ConnectionQueryResult, DatabaseSchemaType } from "shared/types";
+import type { DatabaseInfo } from "shared/types/index.js";
+import type { ApiHandler } from "@/app.types.js";
 import {
 	getCurrentDatabase,
 	getDatabaseConnectionInfo,
 	getDatabasesList,
 } from "@/dao/database-list.dao.js";
 
-export const databasesRoutes = new Hono();
-
 /**
- * GET /databases - Get list of all databases
+ * /databases routes
+ * GET /databases - Get list of all databases on the server (name, size, owner, encoding)
+ * GET /databases/current - Get the name of the database we are currently connected to
+ * GET /databases/connection - Get connection details and server information (PostgreSQL version, host, port, user, current database, connection counts)
  */
-databasesRoutes.get("/", async (c) => {
-	try {
+export const databasesRoutes = new Hono()
+	/**
+	 * GET /databases
+	 * Returns list of all databases on the server (name, size, owner, encoding)
+	 * @returns {Array} List of database info objects
+	 */
+	.get("/", async (c): ApiHandler<DatabaseInfo[]> => {
 		const databases = await getDatabasesList();
-		return c.json(databases);
-	} catch (error) {
-		console.error("Error fetching databases list:", error);
-		return c.json({ error: "Failed to fetch databases list" }, 500);
-	}
-});
+		return c.json({ data: databases }, 200);
+	})
 
-/**
- * GET /databases/current - Get current database name
- */
-databasesRoutes.get("/current", async (c) => {
-	try {
+	/**
+	 * GET /databases/current
+	 * Returns the name of the database we are currently connected to
+	 * @returns {Object} Object with current database name
+	 */
+	.get("/current", async (c): ApiHandler<DatabaseSchemaType> => {
 		const current = await getCurrentDatabase();
-		return c.json(current);
-	} catch (error) {
-		console.error("Error fetching current database:", error);
-		return c.json({ error: "Failed to fetch current database" }, 500);
-	}
-});
+		return c.json({ data: current }, 200);
+	})
 
-/**
- * GET /databases/connection - Get database connection information
- */
-databasesRoutes.get("/connection", async (c) => {
-	try {
+	/**
+	 * GET /databases/connection
+	 * Returns connection details and server information
+	 * (PostgreSQL version, host, port, user, current database, connection counts)
+	 * @returns {Object} Connection and server info
+	 */
+	.get("/connection", async (c): ApiHandler<ConnectionQueryResult> => {
 		const info = await getDatabaseConnectionInfo();
-		return c.json(info);
-	} catch (error) {
-		console.error("Error fetching database connection info:", error);
-		return c.json({ error: "Failed to fetch database connection info" }, 500);
-	}
-});
+		return c.json({ data: info }, 200);
+	});
+
+export type DatabasesRoutes = typeof databasesRoutes.routes;
