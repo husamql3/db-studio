@@ -1,9 +1,9 @@
 import { LinkIcon } from "lucide-react";
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
-import type { AddTableFormData } from "@/types/add-table.type";
 
 export const ColumnNameField = ({ index }: { index: number }) => {
 	const { openSheet } = useSheetStore();

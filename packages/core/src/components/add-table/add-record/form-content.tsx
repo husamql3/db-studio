@@ -1,9 +1,9 @@
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { FieldRow } from "@/components/add-table/field-row";
+import type { AddTableFormData } from "shared/types";
+import { FieldRow } from "@/components/add-table/add-record/field-row";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { AddTableFormData } from "@/types/add-table.type";
 
 export const FormContent = () => {
 	const { control } = useFormContext<AddTableFormData>();

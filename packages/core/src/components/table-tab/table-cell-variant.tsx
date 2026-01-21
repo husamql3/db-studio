@@ -14,6 +14,8 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import { TableCellWrapper } from "@/components/table-tab/table-cell-wrapper";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import {
 	Popover,
@@ -30,8 +32,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
-import { DatePicker } from "../ui/date-picker";
-import { Input } from "../ui/input";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;

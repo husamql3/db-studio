@@ -1,4 +1,5 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Button } from "@/components/ui/button";
 import {
 	Sheet,
@@ -7,19 +8,12 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { useSheetStore } from "@/stores/sheet.store";
-import type { AddTableFormData } from "@/types/add-table.type";
 import { ForeignKeySelectorField } from "./foreign-key-selector-field";
 import { ReferencedTableField } from "./referenced-table-field";
 
 export const AddForeignKeyForm = ({ index }: { index: number }) => {
 	const { closeSheet, isSheetOpen } = useSheetStore();
 	const { control } = useFormContext<AddTableFormData>();
-
-	// const { fields: fieldsData } = useFieldArray({
-	// 	control,
-	// 	name: "fields",
-	// })
-	// setValue(`foreignKeys.${index}.columnName`, fieldsData[index].columnName)
 
 	// Add useFieldArray to manage the array properly
 	const { remove: removeForeignKeys } = useFieldArray({

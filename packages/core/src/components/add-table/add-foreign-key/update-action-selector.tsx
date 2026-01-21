@@ -1,4 +1,5 @@
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -7,7 +8,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import type { AddTableFormData } from "@/types/add-table.type";
 import { FOREIGN_KEY_ACTION_OPTIONS } from "@/utils/constants/add-table";
 
 export const UpdateActionSelector = ({ index }: { index: number }) => {

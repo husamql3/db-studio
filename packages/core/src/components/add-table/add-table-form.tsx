@@ -1,13 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
+import { type AddTableFormData, addTableSchema } from "shared/types";
 import { toast } from "sonner";
-import { FormActions } from "@/components/add-table/form-actions";
-import { FormContent } from "@/components/add-table/form-content";
-import { TableNameField } from "@/components/add-table/table-name-field";
+import { FormActions } from "@/components/add-table/add-record/form-actions";
+import { FormContent } from "@/components/add-table/add-record/form-content";
+import { TableNameField } from "@/components/add-table/add-record/table-name-field";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useCreateTable } from "@/hooks/use-create-table";
 import { useSheetStore } from "@/stores/sheet.store";
-import { type AddTableFormData, addTableSchema } from "@/types/add-table.type";
-import { SheetSidebar } from "../sheet-sidebar";
 
 const defaultValues = {
 	tableName: "",

@@ -1,6 +1,6 @@
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Input } from "@/components/ui/input";
-import type { AddTableFormData } from "@/types/add-table.type";
 
 export const DefaultValueField = ({ index }: { index: number }) => {
 	const {

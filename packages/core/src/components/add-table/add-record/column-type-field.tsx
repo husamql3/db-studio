@@ -1,6 +1,7 @@
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -16,7 +17,6 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { AddTableFormData } from "@/types/add-table.type";
 import {
 	ARRAY_COMPATIBLE_TYPES,
 	PSQL_TYPES,

@@ -1,5 +1,6 @@
 import type { RowData } from "@tanstack/react-table";
 import type { DataTypes, StandardizedDataType } from "shared/types";
+
 export type TableRecord = Record<string, unknown>;
 
 export type CellVariant = DataTypes;

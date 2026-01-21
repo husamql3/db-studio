@@ -12,6 +12,7 @@ import {
 	ChevronUp,
 	Key,
 	Link,
+	Pencil,
 	Trash2,
 	X,
 } from "lucide-react";
@@ -42,6 +43,7 @@ import { Label } from "@/components/ui/label";
 import { useDeleteColumn } from "@/hooks/use-delete-column";
 import { cn } from "@/lib/utils";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
+import { useSheetStore } from "@/stores/sheet.store";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -61,7 +63,7 @@ export const TableHeadRow = ({
 	table,
 }: TableHeadRowProps) => {
 	const { table: activeTableName } = Route.useParams();
-
+	const { openSheet } = useSheetStore();
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
 	const [cascadeDelete, setCascadeDelete] = useState(false);
@@ -90,6 +92,14 @@ export const TableHeadRow = ({
 			}
 		},
 		[setColumnName, setSort, setOrder],
+	);
+
+	const handleEditColumnClick = useCallback(
+		(columnName: string) => {
+			openSheet(`edit-column-${columnName}`);
+			setColumnName(columnName);
+		},
+		[openSheet, setColumnName],
 	);
 
 	const handleDeleteClick = useCallback((columnId: string) => {
@@ -256,15 +266,15 @@ export const TableHeadRow = ({
 												</DropdownMenuGroup>
 												<DropdownMenuSeparator />
 												{/* TODO: #84 Add edit column button */}
-												{/* <DropdownMenuItem
+												<DropdownMenuItem
 													onClick={() =>
-														handleEditColumn(header.column.id)
+														handleEditColumnClick(header.column.id.toString())
 													}
 												>
-													<IconPencil />
+													<Pencil />
 													Edit column
 												</DropdownMenuItem>
-												<DropdownMenuSeparator /> */}
+												<DropdownMenuSeparator />
 
 												{/* Delete column button */}
 												<DropdownMenuItem

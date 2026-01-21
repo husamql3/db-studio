@@ -5,9 +5,9 @@ import {
 	type MouseEvent,
 	useCallback,
 } from "react";
+import type { TableRecord } from "shared/types";
 import { cn } from "@/lib/utils";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
-import type { TableRecord } from "@/types/table.type";
 
 interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
 	cell: Cell<TData, unknown>;

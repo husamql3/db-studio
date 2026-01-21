@@ -1,5 +1,5 @@
 import { type Cell, flexRender } from "@tanstack/react-table";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "shared/types";
 
 export const TableBodyCell = ({
 	cell,

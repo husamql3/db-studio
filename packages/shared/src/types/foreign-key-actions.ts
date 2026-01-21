@@ -8,3 +8,4 @@ export const FOREIGN_KEY_ACTIONS = [
 	"NO ACTION",
 ] as const;
 export const foreignKeyActionSchema = z.enum(FOREIGN_KEY_ACTIONS);
+export type ForeignKeyAction = z.infer<typeof foreignKeyActionSchema>;

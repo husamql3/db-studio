@@ -1,8 +1,8 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import type { TableRecord } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { type RelatedRecord, useDeleteCells } from "@/hooks/use-delete-cell";
-import type { TableRecord } from "@/types/table.type";
 import { ForceDeleteDialog } from "./force-delete-dialog";
 
 export const DeleteBtn = ({

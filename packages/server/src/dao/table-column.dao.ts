@@ -5,10 +5,11 @@ import {
 } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
-export const getTableColumns = async (
+export const getTableColumn = async (
 	tableName: string,
+	columnName: string,
 	database?: string,
-): Promise<ColumnInfo[]> => {
+): Promise<ColumnInfo | null> => {
 	const pool = getDbPool(database);
 	const client = await pool.connect();
 
@@ -80,43 +81,47 @@ export const getTableColumns = async (
       ) fk ON c.column_name = fk.column_name
       WHERE c.table_schema = 'public'
         AND c.table_name = $1
-      ORDER BY c.ordinal_position;
+        AND c.column_name = $2
+      ORDER BY c.ordinal_position
+      LIMIT 1;
     `,
-			[tableName],
+			[tableName, columnName],
 		);
 
-		return res.rows.map((r: any) => {
-			// Parse enumValues to always return string[] | null
-			let parsedEnumValues: string[] | null = null;
-			if (r.enumValues) {
-				if (Array.isArray(r.enumValues)) {
-					// Already an array, use as-is
-					parsedEnumValues = r.enumValues;
-				} else if (typeof r.enumValues === "string") {
-					// Parse PostgreSQL array format: "{VALUE1,VALUE2,VALUE3}"
-					parsedEnumValues = r.enumValues
-						.replace(/[{}]/g, "")
-						.split(",")
-						.filter(Boolean);
-				}
-			}
+		if (res.rows.length === 0) {
+			return null;
+		}
 
-			return {
-				columnName: r.columnName,
-				dataType: mapPostgresToDataType(r.dataType),
-				dataTypeLabel: standardizeDataTypeLabel(r.dataType),
-				isNullable: r.isNullable,
-				columnDefault: r.columnDefault,
-				isPrimaryKey: r.isPrimaryKey,
-				isUnique: r.isUnique,
-				isForeignKey: r.isForeignKey,
-				referencedTable: r.referencedTable,
-				referencedColumn: r.referencedColumn,
-				onUpdate: r.onUpdate,
-				onDelete: r.onDelete,
-				enumValues: parsedEnumValues,
-			};
-		});
+		const r = res.rows[0];
+
+		// Parse enumValues to always return string[] | null
+		let parsedEnumValues: string[] | null = null;
+		if (r.enumValues) {
+			if (Array.isArray(r.enumValues)) {
+				parsedEnumValues = r.enumValues;
+			} else if (typeof r.enumValues === "string") {
+				parsedEnumValues = r.enumValues
+					.replace(/[{}]/g, "")
+					.split(",")
+					.filter(Boolean);
+			}
+		}
+
+		return {
+			columnName: r.columnName,
+			dataType: mapPostgresToDataType(r.dataType),
+			dataTypeLabel: standardizeDataTypeLabel(r.dataType),
+			isNullable: r.isNullable,
+			columnDefault: r.columnDefault,
+			isPrimaryKey: r.isPrimaryKey,
+			isUnique: r.isUnique,
+			isForeignKey: r.isForeignKey,
+			referencedTable: r.referencedTable,
+			referencedColumn: r.referencedColumn,
+			onUpdate: r.onUpdate,
+			onDelete: r.onDelete,
+			enumValues: parsedEnumValues,
+		};
 	} finally {
 		client.release();
 	}

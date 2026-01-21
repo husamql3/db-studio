@@ -1,6 +1,7 @@
 import { Settings } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +11,6 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
-import type { AddTableFormData } from "@/types/add-table.type";
 import {
 	ADD_TABLE_OPTIONS,
 	ARRAY_COMPATIBLE_TYPES,

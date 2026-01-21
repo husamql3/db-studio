@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Label } from "@/components/ui/label";
-import type { AddTableFormData } from "@/types/add-table.type";
 import { ColNameField } from "./col-name-field";
 import { ReferencedColField } from "./referenced-col-field";
 import { RemoveActionSelector } from "./remove-action-selector";
@@ -48,7 +48,10 @@ export const ForeignKeySelectorField = ({ index }: { index: number }) => {
 					</div>
 
 					<div className="flex items-center gap-2 flex-1">
-						<ReferencedColField index={index} />
+						<ReferencedColField
+							index={index}
+							tableName={foreignKeyData.referencedTable}
+						/>
 					</div>
 				</div>
 

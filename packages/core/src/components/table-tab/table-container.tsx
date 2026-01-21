@@ -1,9 +1,9 @@
 import type { Table } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useRef } from "react";
+import type { TableRecord } from "shared/types";
 import { TableBody } from "@/components/table-tab/table-body";
 import { TableHead } from "@/components/table-tab/table-head";
-import type { TableRecord } from "@/types/table.type";
 
 export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 	const visibleColumns = table.getVisibleLeafColumns();

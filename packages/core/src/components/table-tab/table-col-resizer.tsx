@@ -1,7 +1,7 @@
 import type { Header, Table } from "@tanstack/react-table";
 import { memo, useCallback } from "react";
+import type { TableRecord } from "shared/types";
 import { cn } from "@/lib/utils";
-import type { TableRecord } from "@/types/table.type";
 
 export const TableColumnResizer = memo(TableColumnResizerImpl, (prev, next) => {
 	const prevColumn = prev.header.column;

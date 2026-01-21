@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AddRecordForm } from "@/components/add-table/add-record/add-record-form";
+import { EditColumnForm } from "@/components/add-table/edit-column-form";
 import { TableTab } from "@/components/table-tab/table-tab";
 
 export const Route = createFileRoute("/_pathlessLayout/table/$table")({
@@ -12,7 +13,9 @@ function RouteComponent() {
 	return (
 		<main className="flex-1 flex flex-col overflow-hidden">
 			<TableTab tableName={table} />
+
 			<AddRecordForm tableName={table} />
+			<EditColumnForm tableName={table} />
 		</main>
 	);
 }

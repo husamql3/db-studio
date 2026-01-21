@@ -1,6 +1,6 @@
 import type { ColumnDef, Row, Table } from "@tanstack/react-table";
+import type { TableRecord } from "shared/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { TableRecord } from "@/types/table.type";
 
 export const TableSelector = (): ColumnDef<TableRecord, unknown> => ({
 	id: "select",

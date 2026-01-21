@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // URL params schema (tableName and columnName come from URL path)
-export const deleteColumnParamSchema = z.object({
+export const tableColumnParamSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
 	columnName: z.string().min(1, "Column name is required"),
 });
@@ -16,7 +16,7 @@ export const deleteColumnQuerySchema = z.object({
 });
 
 // Combined type for the hook/frontend
-export type DeleteColumnParams = z.infer<typeof deleteColumnParamSchema> & {
+export type DeleteColumnParams = z.infer<typeof tableColumnParamSchema> & {
 	cascade?: boolean;
 };
 

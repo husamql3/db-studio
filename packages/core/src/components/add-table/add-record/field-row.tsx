@@ -1,13 +1,13 @@
 import { XIcon } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { AddForeignKeyForm } from "@/components/add-table/add-foreign-key/add-foreign-key-form";
-import { AdvancedOptions } from "@/components/add-table/advanced-options";
-import { ColumnNameField } from "@/components/add-table/column-name-field";
-import { ColumnTypeField } from "@/components/add-table/column-type-field";
-import { DefaultValueField } from "@/components/add-table/default-value-field";
-import { PrimaryField } from "@/components/add-table/primary-field";
+import { AdvancedOptions } from "@/components/add-table/add-record/advanced-options";
+import { ColumnNameField } from "@/components/add-table/add-record/column-name-field";
+import { ColumnTypeField } from "@/components/add-table/add-record/column-type-field";
+import { DefaultValueField } from "@/components/add-table/add-record/default-value-field";
+import { PrimaryField } from "@/components/add-table/add-record/primary-field";
 import { Button } from "@/components/ui/button";
-import type { AddTableFormData } from "@/types/add-table.type";
 
 export const FieldRow = ({
 	index,

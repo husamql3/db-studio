@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { foreignKeyActionSchema } from "./foreign-key-actions";
+import { foreignKeyActionSchema } from "./foreign-key-actions.js";
 
 export const fieldDataSchema = z.object({
-	columnName: z.string().min(1),
-	columnType: z.string().min(1),
+	columnName: z.string().min(1, "Column name is required"),
+	columnType: z.string().min(1, "Column type is required"),
 	defaultValue: z.string(),
 	isPrimaryKey: z.boolean(),
 	isNullable: z.boolean(),
@@ -14,21 +14,43 @@ export const fieldDataSchema = z.object({
 export type FieldDataType = z.infer<typeof fieldDataSchema>;
 
 export const foreignKeyDataSchema = z.object({
-	columnName: z.string().min(1),
-	referencedTable: z.string().min(1),
-	referencedColumn: z.string().min(1),
+	columnName: z.string().min(1, "Column name is required"),
+	referencedTable: z.string().min(1, "Referenced table is required"),
+	referencedColumn: z.string().min(1, "Referenced column is required"),
 	onUpdate: foreignKeyActionSchema,
 	onDelete: foreignKeyActionSchema,
 });
 export type ForeignKeyDataType = z.infer<typeof foreignKeyDataSchema>;
 
-export const createTableSchema = z.object({
+export const addTableSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
-	fields: z.array(fieldDataSchema).min(1, "At least one field is required"),
-	foreignKeys: z.array(foreignKeyDataSchema).optional(),
+	fields: z.array(fieldDataSchema).min(1, "At least one column is required"),
+	foreignKeys: z.preprocess((val) => {
+		// Preprocess to filter out empty/incomplete foreign keys before validation
+		if (!Array.isArray(val)) return undefined;
+		return val.filter((fk) => {
+			// Remove null entries
+			if (fk === null || fk === undefined) return false;
+			// Remove empty foreign key objects (where all required fields are empty)
+			if (typeof fk === "object") {
+				const hasRequiredFields =
+					fk.columnName && fk.referencedTable && fk.referencedColumn;
+				return hasRequiredFields;
+			}
+			return false;
+		});
+	}, z.array(foreignKeyDataSchema).optional()),
 });
+export type AddTableFormData = z.infer<typeof addTableSchema>;
 
-export type CreateTableFormData = z.infer<typeof createTableSchema>;
+export type AddTableOption = {
+	name: keyof Pick<
+		FieldDataType,
+		"isNullable" | "isUnique" | "isIdentity" | "isArray"
+	>;
+	label: string;
+	description: string;
+};
 
 export const tableNameParamSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),

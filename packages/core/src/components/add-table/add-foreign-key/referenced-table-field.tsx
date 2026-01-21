@@ -1,6 +1,7 @@
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData, ForeignKeyDataType } from "shared/types";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/popover";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { cn } from "@/lib/utils";
-import type { AddTableFormData, ForeignKeyData } from "@/types/add-table.type";
 
 export const ReferencedTableField = ({ index }: { index: number }) => {
 	const [open, setOpen] = useState<boolean>(false);
@@ -33,7 +33,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 		const currentForeignKeys = getValues("foreignKeys") || [];
 		if (!currentForeignKeys[index]) {
 			// Pad the array with nulls if necessary
-			const paddedArray: ForeignKeyData[] = [...currentForeignKeys];
+			const paddedArray: ForeignKeyDataType[] = [...currentForeignKeys];
 			// while (paddedArray.length < index) {
 			// 	paddedArray.push(null);
 			// }

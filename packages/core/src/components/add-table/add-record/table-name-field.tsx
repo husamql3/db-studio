@@ -1,8 +1,8 @@
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { AddTableFormData } from "@/types/add-table.type";
 
 export const TableNameField = () => {
 	const {

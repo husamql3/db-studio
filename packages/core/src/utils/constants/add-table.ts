@@ -1,4 +1,4 @@
-import type { AddTableOption } from "@/types/add-table.type";
+import type { AddTableOption } from "shared/types";
 
 export const PSQL_TYPES = {
 	numeric: [

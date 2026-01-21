@@ -1,6 +1,6 @@
 import { Controller, useFormContext } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { AddTableFormData } from "@/types/add-table.type";
 
 export const PrimaryField = ({ index }: { index: number }) => {
 	const { watch, control, register, setValue } =

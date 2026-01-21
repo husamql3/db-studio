@@ -1,4 +1,5 @@
 import { Controller, useFormContext, useWatch } from "react-hook-form";
+import type { AddTableFormData } from "shared/types";
 import {
 	Select,
 	SelectContent,
@@ -7,10 +8,17 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useTableCols } from "@/hooks/use-table-cols";
-import type { AddTableFormData } from "@/types/add-table.type";
 
-export const ReferencedColField = ({ index }: { index: number }) => {
-	const { tableCols, isLoadingTableCols } = useTableCols();
+export const ReferencedColField = ({
+	index,
+	tableName,
+}: {
+	index: number;
+	tableName: string;
+}) => {
+	const { tableCols, isLoadingTableCols } = useTableCols({
+		tableName: tableName,
+	});
 	const { control } = useFormContext<AddTableFormData>();
 	const foreignKeyData = useWatch({
 		control,

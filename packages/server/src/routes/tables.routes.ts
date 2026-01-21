@@ -1,16 +1,17 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
-	createTableSchema,
+	addTableSchema,
 	databaseQuerySchema,
-	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	type Sort,
+	tableColumnParamSchema,
 	tableDataQuerySchema,
 	tableNameParamSchema,
 } from "shared/types";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
+import { getTableColumn } from "@/dao/table-column.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
@@ -37,7 +38,7 @@ tablesRoutes.get("/", zValidator("query", databaseQuerySchema), async (c) => {
  */
 tablesRoutes.post(
 	"/",
-	zValidator("json", createTableSchema),
+	zValidator("json", addTableSchema),
 	zValidator("query", databaseQuerySchema),
 	async (c) => {
 		try {
@@ -63,6 +64,23 @@ tablesRoutes.post(
 	},
 );
 
+tablesRoutes.get(
+	"/:tableName/columns/:columnName",
+	zValidator("param", tableColumnParamSchema),
+	zValidator("query", databaseQuerySchema),
+	async (c) => {
+		try {
+			const { tableName, columnName } = c.req.valid("param");
+			const { database } = c.req.valid("query");
+
+			const column = await getTableColumn(tableName, columnName, database);
+			return c.json(column);
+		} catch (error) {
+			return handleConnectionError(c, error, "Failed to fetch column");
+		}
+	},
+);
+
 /**
  * DELETE /tables/:tableName/columns/:columnName - Delete a column from a table
  * Query params:
@@ -72,7 +90,7 @@ tablesRoutes.post(
  */
 tablesRoutes.delete(
 	"/:tableName/columns/:columnName",
-	zValidator("param", deleteColumnParamSchema),
+	zValidator("param", tableColumnParamSchema),
 	zValidator("query", deleteColumnQuerySchema),
 	async (c) => {
 		try {

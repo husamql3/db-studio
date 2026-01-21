@@ -1,7 +1,7 @@
 import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
+import type { TableRecord } from "shared/types";
 import { cn } from "@/lib/utils";
-import type { TableRecord } from "@/types/table.type";
 
 interface TableBodyRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;

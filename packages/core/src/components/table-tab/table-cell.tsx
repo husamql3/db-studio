@@ -1,5 +1,5 @@
 import type { Cell, Table } from "@tanstack/react-table";
-import type { CellVariant, TableRecord } from "@/types/table.type";
+import type { CellVariant, TableRecord } from "shared/types";
 import {
 	TableBooleanCell,
 	TableDateCell,
