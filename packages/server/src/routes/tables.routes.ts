@@ -9,8 +9,8 @@ import {
 	tableDataQuerySchema,
 	tableNameParamSchema,
 } from "shared/types";
-import { z } from "zod";
 import * as XLSX from "xlsx";
+import { z } from "zod";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
 import { exportTableData } from "@/dao/export-table.dao.js";
@@ -177,9 +177,12 @@ tablesRoutes.get(
 tablesRoutes.get(
 	"/:tableName/export",
 	zValidator("param", tableNameParamSchema),
-	zValidator("query", tableDataQuerySchema.extend({
-		format: z.enum(["csv", "excel"]),
-	})),
+	zValidator(
+		"query",
+		tableDataQuerySchema.extend({
+			format: z.enum(["csv", "excel"]),
+		}),
+	),
 	async (c) => {
 		try {
 			const { tableName } = c.req.valid("param");

@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -8,9 +9,9 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DEFAULTS } from "shared/constants";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
-import { toast } from "sonner";
 
 export const ExportBtn = ({ tableName }: { tableName: string }) => {
 	const [isExporting, setIsExporting] = useState(false);
@@ -35,7 +36,10 @@ export const ExportBtn = ({ tableName }: { tableName: string }) => {
 
 				// Make request to backend export endpoint
 				const response = await fetch(
-					`/api/tables/${tableName}/export?${params.toString()}`,
+					new URL(
+						`/tables/${tableName}/export?${params.toString()}`,
+						DEFAULTS.BASE_URL,
+					),
 				);
 
 				if (!response.ok) {
@@ -60,9 +64,7 @@ export const ExportBtn = ({ tableName }: { tableName: string }) => {
 				document.body.removeChild(link);
 				window.URL.revokeObjectURL(url);
 
-				toast.success(
-					`Table exported successfully as ${format.toUpperCase()}`,
-				);
+				toast.success(`Table exported successfully as ${format.toUpperCase()}`);
 			} catch (error) {
 				console.error("Export failed:", error);
 				toast.error("Failed to export table");
@@ -86,7 +88,10 @@ export const ExportBtn = ({ tableName }: { tableName: string }) => {
 					<Download className="size-4" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-40">
+			<DropdownMenuContent
+				align="start"
+				className="w-40"
+			>
 				<DropdownMenuItem onClick={() => handleExport("csv")}>
 					Export to CSV
 				</DropdownMenuItem>
