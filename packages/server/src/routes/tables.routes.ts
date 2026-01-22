@@ -9,7 +9,7 @@ import {
 	tableDataQuerySchema,
 	tableNameParamSchema,
 } from "shared/types";
-import * as XLSX from "xlsx";
+import { utils, write } from "xlsx";
 import { z } from "zod";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
@@ -263,12 +263,12 @@ tablesRoutes.get(
 				...data.map((row) => columns.map((col) => row[col] ?? "")),
 			];
 
-			const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-			const workbook = XLSX.utils.book_new();
-			XLSX.utils.book_append_sheet(workbook, worksheet, tableName);
+			const worksheet = utils.aoa_to_sheet(worksheetData);
+			const workbook = utils.book_new();
+			utils.book_append_sheet(workbook, worksheet, tableName);
 
 			// Generate buffer
-			const buffer = XLSX.write(workbook, {
+			const buffer = write(workbook, {
 				type: "buffer",
 				bookType: "xlsx",
 			});
