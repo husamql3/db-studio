@@ -2,6 +2,7 @@ import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { AddRecordBtn } from "@/components/table-tab/header/add-record-btn";
 import { ClearBtn } from "@/components/table-tab/header/clear-btn";
 import { DeleteBtn } from "@/components/table-tab/header/delete-btn";
+import { ExportBtn } from "@/components/table-tab/header/export-btn";
 import { FilterPopup } from "@/components/table-tab/header/filter-popup";
 import { RefetchBtn } from "@/components/table-tab/header/refetch-btn";
 import { SaveBtn } from "@/components/table-tab/header/save-btn";
@@ -30,6 +31,7 @@ export const TableHeader = ({
 					selectedRows={selectedRows}
 					setRowSelection={setRowSelection}
 				/>
+				<ExportBtn tableName={tableName} />
 			</div>
 
 			{/* <div className="flex items-center">
