@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { ZodError } from "zod";
-import { DatabaseError } from "pg";
 
 import { createServer } from "@/utils/create-server.js";
-import { handleError } from "@/middlewares/error-handler.js";
 import * as databaseListDao from "@/dao/database-list.dao.js";
 
 // Mock the DAO module

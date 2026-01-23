@@ -510,14 +510,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("DELETE /pg/tables/:tableName/columns/:columnName", () => {
 		it("should delete a column and return 200", async () => {
-			const mockResponse = {
-				message: 'Column "email" deleted successfully from table "users"',
-				tableName: "users",
-				columnName: "email",
-				deletedCount: 0,
-			};
-
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue(mockResponse);
+			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request("/pg/tables/users/columns/email?database=testdb", {
 				method: "DELETE",
@@ -525,7 +518,9 @@ describe("Tables Routes", () => {
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
-			expect(json.data).toEqual(mockResponse);
+			expect(json.data).toBe(
+				'Column "email" deleted successfully from table "users" with 0 rows deleted'
+			);
 			expect(deleteColumnDao.deleteColumn).toHaveBeenCalledWith({
 				tableName: "users",
 				columnName: "email",
@@ -535,14 +530,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should delete a column with cascade option", async () => {
-			const mockResponse = {
-				message: 'Column "user_id" deleted successfully from table "orders"',
-				tableName: "orders",
-				columnName: "user_id",
-				deletedCount: 0,
-			};
-
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue(mockResponse);
+			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
 				"/pg/tables/orders/columns/user_id?database=testdb&cascade=true",
@@ -559,14 +547,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle cascade=false explicitly", async () => {
-			const mockResponse = {
-				message: 'Column "name" deleted successfully from table "products"',
-				tableName: "products",
-				columnName: "name",
-				deletedCount: 0,
-			};
-
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue(mockResponse);
+			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
 				"/pg/tables/products/columns/name?database=testdb&cascade=false",
@@ -583,14 +564,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle column names with underscores", async () => {
-			const mockResponse = {
-				message: 'Column "created_at" deleted successfully from table "users"',
-				tableName: "users",
-				columnName: "created_at",
-				deletedCount: 0,
-			};
-
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue(mockResponse);
+			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
 				"/pg/tables/users/columns/created_at?database=testdb",
@@ -599,7 +573,9 @@ describe("Tables Routes", () => {
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
-			expect(json.data.columnName).toBe("created_at");
+			expect(json.data).toBe(
+				'Column "created_at" deleted successfully from table "users" with 0 rows deleted'
+			);
 		});
 
 		it("should return 400 when database query param is missing", async () => {

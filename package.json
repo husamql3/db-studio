@@ -31,11 +31,11 @@
     "knip": "knip"
   },
   "dependencies": {
-    "turbo": "^2.7.4"
+    "turbo": "^2.7.5"
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "knip": "^5.81.0"
+    "knip": "^5.82.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

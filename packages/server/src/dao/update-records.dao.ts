@@ -1,47 +1,53 @@
-import type { UpdateRecordParams } from "shared/types";
+import { HTTPException } from "hono/http-exception";
+import type { DatabaseSchemaType, UpdateRecordsSchemaType } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 /**
  * Updates multiple cells in a table. Can update multiple rows or multiple cells in the same row.
  * Groups updates by row and executes them efficiently.
  */
-export const updateRecords = async (params: UpdateRecordParams) => {
-	const { tableName, updates, primaryKey = "id", database } = params;
+export async function updateRecords({
+	params,
+	database,
+}: {
+	params: UpdateRecordsSchemaType;
+	database: DatabaseSchemaType["database"];
+}): Promise<{ updatedCount: number }> {
+	const { tableName, updates, primaryKey } = params;
 	const pool = getDbPool(database);
-	const client = await pool.connect();
 
-	try {
-		await client.query("BEGIN");
+	// Group updates by row (using the primary key value)
+	const updatesByRow = new Map<
+		unknown,
+		Array<{
+			columnName: string;
+			value: unknown;
+			rowData: Record<string, unknown>;
+		}>
+	>();
 
-		// Group updates by row (using the primary key value)
-		const updatesByRow = new Map<
-			unknown,
-			Array<{
-				columnName: string;
-				value: unknown;
-				rowData: Record<string, unknown>;
-			}>
-		>();
-
-		for (const update of updates) {
-			const pkValue = update.rowData[primaryKey];
-			if (pkValue === undefined) {
-				throw new Error(
-					`Primary key "${primaryKey}" not found in row data. Please ensure the row has a primary key.`,
-				);
-			}
-
-			if (!updatesByRow.has(pkValue)) {
-				updatesByRow.set(pkValue, []);
-			}
-			updatesByRow.get(pkValue)?.push({
-				columnName: update.columnName,
-				value: update.value,
-				rowData: update.rowData,
+	for (const update of updates) {
+		const pkValue = update.rowData[primaryKey];
+		if (pkValue === undefined || pkValue === null) {
+			throw new HTTPException(400, {
+				message: `Primary key "${primaryKey}" not found in row data. Please ensure the row has a "${primaryKey}" column.`,
 			});
 		}
 
-		const results = [];
+		if (!updatesByRow.has(pkValue)) {
+			updatesByRow.set(pkValue, []);
+		}
+		updatesByRow.get(pkValue)?.push({
+			columnName: update.columnName,
+			value: update.value,
+			rowData: update.rowData,
+		});
+	}
+
+	// Use transaction for multiple updates
+	await pool.query("BEGIN");
+
+	try {
 		let totalUpdated = 0;
 
 		// Execute updates for each row
@@ -50,7 +56,6 @@ export const updateRecords = async (params: UpdateRecordParams) => {
 				(u, index) => `"${u.columnName}" = $${index + 1}`,
 			);
 			const values = rowUpdates.map((u) => {
-				console.log(`Value for ${u.columnName}:`, typeof u.value, u.value);
 				// If the value is an object or array, stringify it for JSON/JSONB columns
 				if (u.value !== null && typeof u.value === "object") {
 					return JSON.stringify(u.value);
@@ -61,39 +66,35 @@ export const updateRecords = async (params: UpdateRecordParams) => {
 			// Add the primary key value as the last parameter
 			values.push(pkValue);
 
-			const updateSQL = `
+			const query = `
 				UPDATE "${tableName}"
 				SET ${setClauses.join(", ")}
 				WHERE "${primaryKey}" = $${values.length}
 				RETURNING *
 			`;
 
-			console.log("Updating record with SQL:", updateSQL, "Values:", values);
-			const result = await client.query(updateSQL, values);
-
+			const result = await pool.query(query, values);
 			if (result.rowCount === 0) {
-				throw new Error(
-					`Record with ${primaryKey} = ${pkValue} not found in table "${tableName}"`,
-				);
+				throw new HTTPException(404, {
+					message: `Record with ${primaryKey} = ${pkValue} not found in table "${tableName}"`,
+				});
 			}
 
-			results.push(result.rows[0]);
-			totalUpdated += result.rowCount || 0;
+			totalUpdated += result.rowCount ?? 0;
 		}
 
-		await client.query("COMMIT");
+		await pool.query("COMMIT");
 
-		return {
-			success: true,
-			message: `Successfully updated ${totalUpdated} ${totalUpdated === 1 ? "row" : "rows"} in "${tableName}"`,
-			data: results,
-			updatedCount: totalUpdated,
-		};
+		return { updatedCount: totalUpdated };
 	} catch (error) {
-		await client.query("ROLLBACK");
-		console.error("Error updating records:", error);
-		throw error;
-	} finally {
-		client.release();
+		await pool.query("ROLLBACK");
+
+		if (error instanceof HTTPException) {
+			throw error;
+		}
+
+		throw new HTTPException(500, {
+			message: `Failed to update records in "${tableName}"`,
+		});
 	}
-};
+}

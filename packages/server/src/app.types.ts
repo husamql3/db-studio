@@ -13,6 +13,7 @@ export type ApiResponse<T> = {
 
 export type ApiError = {
 	error: string;
+	details?: string;
 };
 
 export type ApiResponseType<T> = TypedResponse<ApiResponse<T>, 200>;

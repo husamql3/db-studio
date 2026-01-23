@@ -1,5 +1,8 @@
+import { HTTPException } from "hono/http-exception";
 import type {
+	DatabaseSchemaType,
 	DeleteRecordParams,
+	DeleteRecordSchemaType,
 	DeleteResult,
 	ForeignKeyConstraint,
 	ForeignKeyConstraintRow,
@@ -10,10 +13,10 @@ import { getDbPool } from "@/db-manager.js";
 /**
  * Gets foreign key constraints that reference the given table
  */
-const getForeignKeyReferences = async (
+async function getForeignKeyReferences(
 	tableName: string,
-	database?: string,
-): Promise<ForeignKeyConstraint[]> => {
+	database: DatabaseSchemaType["database"],
+): Promise<ForeignKeyConstraint[]> {
 	const query = `
 		SELECT
 			tc.constraint_name,
@@ -42,16 +45,16 @@ const getForeignKeyReferences = async (
 		referencedTable: row.referenced_table,
 		referencedColumn: row.referenced_column,
 	}));
-};
+}
 
 /**
  * Finds all records in other tables that reference the given primary key values
  */
-const getRelatedRecords = async (
+async function getRelatedRecords(
 	tableName: string,
-	primaryKeys: Array<{ columnName: string; value: unknown }>,
-	database?: string,
-): Promise<RelatedRecord[]> => {
+	primaryKeys: DeleteRecordSchemaType["primaryKeys"],
+	database: DatabaseSchemaType["database"],
+): Promise<RelatedRecord[]> {
 	const fkConstraints = await getForeignKeyReferences(tableName, database);
 
 	if (fkConstraints.length === 0) {
@@ -86,74 +89,63 @@ const getRelatedRecords = async (
 
 		// Build query to find related records
 		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-		const query = `
+		const relatedQuery = `
 			SELECT * FROM "${constraint.referencingTable}"
 			WHERE "${constraint.referencingColumn}" IN (${placeholders})
 			LIMIT 100
 		`;
 
-		try {
-			const result = await pool.query(query, pkValues);
+		const relatedResult = await pool.query(relatedQuery, pkValues);
 
-			if (result.rows.length > 0) {
-				relatedRecords.push({
-					tableName: constraint.referencingTable,
-					columnName: constraint.referencingColumn,
-					constraintName: constraint.constraintName,
-					records: result.rows,
-				});
-			}
-		} catch (error) {
-			console.error(
-				`Error fetching related records from ${constraint.referencingTable}:`,
-				error,
-			);
+		if (relatedResult.rows.length > 0) {
+			relatedRecords.push({
+				tableName: constraint.referencingTable,
+				columnName: constraint.referencingColumn,
+				constraintName: constraint.constraintName,
+				records: relatedResult.rows,
+			});
 		}
 	}
 
 	return relatedRecords;
-};
+}
 
 /**
  * Attempts to delete records. If FK violation occurs, returns related records.
  */
-export const deleteRecords = async (
-	params: DeleteRecordParams,
-): Promise<DeleteResult> => {
-	const { tableName, primaryKeys, database } = params;
+export async function deleteRecords({
+	tableName,
+	primaryKeys,
+	database,
+}: DeleteRecordParams): Promise<DeleteResult> {
 	const pool = getDbPool(database);
-	const client = await pool.connect();
+
+	const pkColumn = primaryKeys[0]?.columnName;
+	if (!pkColumn) {
+		throw new HTTPException(400, {
+			message: "Primary key column name is required",
+		});
+	}
+
+	const pkValues = primaryKeys.map((pk) => pk.value);
+	const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
+
+	const query = `
+		DELETE FROM "${tableName}"
+		WHERE "${pkColumn}" IN (${placeholders})
+		RETURNING *
+	`;
+
+	await pool.query("BEGIN");
 
 	try {
-		await client.query("BEGIN");
+		const result = await pool.query(query, pkValues);
 
-		// Build the delete query
-		const pkColumn = primaryKeys[0]?.columnName;
-		if (!pkColumn) {
-			throw new Error("Primary key column name is required");
-		}
+		await pool.query("COMMIT");
 
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-
-		const deleteSQL = `
-			DELETE FROM "${tableName}"
-			WHERE "${pkColumn}" IN (${placeholders})
-			RETURNING *
-		`;
-
-		console.log("Deleting records with SQL:", deleteSQL, "Values:", pkValues);
-		const result = await client.query(deleteSQL, pkValues);
-
-		await client.query("COMMIT");
-
-		return {
-			success: true,
-			message: `Successfully deleted ${result.rowCount} ${result.rowCount === 1 ? "record" : "records"} from "${tableName}"`,
-			deletedCount: result.rowCount ?? 0,
-		};
+		return { deletedCount: result.rowCount ?? 0 };
 	} catch (error) {
-		await client.query("ROLLBACK");
+		await pool.query("ROLLBACK");
 
 		// Check if this is a foreign key violation
 		const pgError = error as {
@@ -163,47 +155,52 @@ export const deleteRecords = async (
 		};
 
 		if (pgError.code === "23503") {
-			// Foreign key violation
-			console.log("FK violation detected, fetching related records...");
-
 			// Fetch related records to show the user
-			const relatedRecords = await getRelatedRecords(tableName, primaryKeys);
+			const relatedRecords = await getRelatedRecords(
+				tableName,
+				primaryKeys,
+				database,
+			);
 
 			return {
-				success: false,
-				message: "Cannot delete: Records are referenced by other tables",
+				deletedCount: 0,
 				fkViolation: true,
 				relatedRecords,
 			};
 		}
 
-		console.error("Error deleting records:", error);
-		throw error;
-	} finally {
-		client.release();
+		if (error instanceof HTTPException) {
+			throw error;
+		}
+
+		throw new HTTPException(500, {
+			message: `Failed to delete records from "${tableName}"`,
+		});
 	}
-};
+}
 
 /**
  * Force deletes records by first deleting all related records in referencing tables (cascade)
  */
-export const forceDeleteRecords = async (
-	params: DeleteRecordParams,
-): Promise<DeleteResult> => {
-	const { tableName, primaryKeys, database } = params;
+export async function forceDeleteRecords({
+	tableName,
+	primaryKeys,
+	database,
+}: DeleteRecordParams): Promise<{ deletedCount: number }> {
 	const pool = getDbPool(database);
-	const client = await pool.connect();
+
+	const pkColumn = primaryKeys[0]?.columnName;
+	if (!pkColumn) {
+		throw new HTTPException(400, {
+			message: "Primary key column name is required",
+		});
+	}
+
+	const pkValues = primaryKeys.map((pk) => pk.value);
+
+	await pool.query("BEGIN");
 
 	try {
-		await client.query("BEGIN");
-
-		const pkColumn = primaryKeys[0]?.columnName;
-		if (!pkColumn) {
-			throw new Error("Primary key column name is required");
-		}
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-
 		// Get all FK constraints that reference this table
 		const fkConstraints = await getForeignKeyReferences(tableName, database);
 
@@ -223,13 +220,13 @@ export const forceDeleteRecords = async (
 
 			for (const nestedFk of nestedFks) {
 				// Get the values that will be deleted from the target table
-				const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+				const nestedPlaceholders = values.map((_, i) => `$${i + 1}`).join(", ");
 				const selectQuery = `
 					SELECT "${nestedFk.referencedColumn}" FROM "${targetTable}"
-					WHERE "${targetColumn}" IN (${placeholders})
+					WHERE "${targetColumn}" IN (${nestedPlaceholders})
 				`;
 
-				const selectResult = await client.query(selectQuery, values);
+				const selectResult = await pool.query(selectQuery, values);
 				const nestedValues = selectResult.rows.map(
 					({ row }: { row: { [nestedFk.referencedColumn]: unknown } }) =>
 						row[nestedFk.referencedColumn],
@@ -245,13 +242,13 @@ export const forceDeleteRecords = async (
 			}
 
 			// Now delete from the target table
-			const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+			const deletePlaceholders = values.map((_, i) => `$${i + 1}`).join(", ");
 			const deleteQuery = `
 				DELETE FROM "${targetTable}"
-				WHERE "${targetColumn}" IN (${placeholders})
+				WHERE "${targetColumn}" IN (${deletePlaceholders})
 			`;
 
-			const deleteResult = await client.query(deleteQuery, values);
+			const deleteResult = await pool.query(deleteQuery, values);
 			totalRelatedDeleted += deleteResult.rowCount ?? 0;
 			deletedTables.add(targetTable);
 		};
@@ -269,38 +266,28 @@ export const forceDeleteRecords = async (
 
 		// Finally delete the main records
 		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-		const deleteSQL = `
+		const query = `
 			DELETE FROM "${tableName}"
 			WHERE "${pkColumn}" IN (${placeholders})
 			RETURNING *
 		`;
 
-		console.log(
-			"Force deleting records with SQL:",
-			deleteSQL,
-			"Values:",
-			pkValues,
-		);
-		const result = await client.query(deleteSQL, pkValues);
+		const result = await pool.query(query, pkValues);
 
-		await client.query("COMMIT");
+		await pool.query("COMMIT");
 
 		const mainDeleted = result.rowCount ?? 0;
-		const message =
-			totalRelatedDeleted > 0
-				? `Successfully deleted ${mainDeleted} ${mainDeleted === 1 ? "record" : "records"} from "${tableName}" and ${totalRelatedDeleted} related ${totalRelatedDeleted === 1 ? "record" : "records"} from other tables`
-				: `Successfully deleted ${mainDeleted} ${mainDeleted === 1 ? "record" : "records"} from "${tableName}"`;
 
-		return {
-			success: true,
-			message,
-			deletedCount: mainDeleted + totalRelatedDeleted,
-		};
+		return { deletedCount: mainDeleted + totalRelatedDeleted };
 	} catch (error) {
-		await client.query("ROLLBACK");
-		console.error("Error force deleting records:", error);
-		throw error;
-	} finally {
-		client.release();
+		await pool.query("ROLLBACK");
+
+		if (error instanceof HTTPException) {
+			throw error;
+		}
+
+		throw new HTTPException(500, {
+			message: `Failed to force delete records from "${tableName}"`,
+		});
 	}
-};
+}

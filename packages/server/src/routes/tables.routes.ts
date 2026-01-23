@@ -34,7 +34,6 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<TableInfo[]> => {
 			const { database } = c.req.valid("query");
 			const tablesList = await getTablesList(database);
-
 			return c.json({ data: tablesList }, 200);
 		},
 	)
@@ -49,13 +48,12 @@ export const tablesRoutes = new Hono()
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", createTableSchema),
-		async (c): ApiHandler<{ message: string }> => {
+		async (c): ApiHandler<string> => {
 			const { database } = c.req.valid("query");
 			const body = c.req.valid("json");
 			await createTable({ tableData: body, database });
-
 			return c.json(
-				{ message: `Table ${body.tableName} created successfully` },
+				{ data: `Table ${body.tableName} created successfully` },
 				200,
 			);
 		},
@@ -72,7 +70,7 @@ export const tablesRoutes = new Hono()
 		"/:tableName/columns/:columnName",
 		zValidator("query", deleteColumnQuerySchema),
 		zValidator("param", deleteColumnParamSchema),
-		async (c): ApiHandler<{ message: string }> => {
+		async (c): ApiHandler<string> => {
 			const { database, cascade } = c.req.valid("query");
 			const { tableName, columnName } = c.req.valid("param");
 			const { deletedCount } = await deleteColumn({
@@ -83,7 +81,7 @@ export const tablesRoutes = new Hono()
 			});
 			return c.json(
 				{
-					message: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
+					data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
 				},
 				200,
 			);
@@ -125,7 +123,6 @@ export const tablesRoutes = new Hono()
 			const { tableName } = c.req.valid("param");
 			const { cursor, limit, direction, sort, order, filters, database } =
 				c.req.valid("query");
-
 			const tableData = await getTableData({
 				tableName,
 				cursor,

@@ -8,7 +8,7 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { type DatabaseTypeSchema, databaseTypeParamSchema } from "shared/types";
 import type { AppType } from "@/app.types.js";
-import { handleError } from "@/middlewares/error-handler.js";
+import { handleError, validationHook } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
@@ -44,7 +44,12 @@ export const createServer = () => {
 		 * Validate the database type and store it in context
 		 * @param {DatabaseTypeSchema} dbType - The type of database to use
 		 */
-		.use(zValidator("param", databaseTypeParamSchema))
+		.use(zValidator("param", databaseTypeParamSchema, validationHook))
+
+		/**
+		 * Store the database type in context
+		 * @param {DatabaseTypeSchema} dbType - The type of database to use
+		 */
 		.use(async (c, next) => {
 			// dbType is already validated by zValidator above
 			const dbType = c.req.param("dbType") as DatabaseTypeSchema;
@@ -97,7 +102,7 @@ export const createServer = () => {
 		 */
 		.route("/", databasesRoutes)
 		.route("/", tablesRoutes)
-		.route("/records", recordsRoutes)
+		.route("/", recordsRoutes)
 		.route("/query", queryRoutes)
 		.route("/chat", chatRoutes)
 

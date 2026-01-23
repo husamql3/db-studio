@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
 import { ZodError } from "zod";
+import type { ApiError } from "@/app.types.js";
 
 /**
  * Centralized error handler for the application
@@ -14,10 +15,11 @@ export function handleError(e: Error | unknown, c: Context) {
 	}
 
 	if (e instanceof ZodError) {
-		return c.json(
+		const issue = e.issues[0];
+		return c.json<ApiError>(
 			{
 				error: "Validation error",
-				details: e.issues[0].message,
+				details: issue.message,
 			},
 			400,
 		);
@@ -32,17 +34,33 @@ export function handleError(e: Error | unknown, c: Context) {
 			(e instanceof DatabaseError && e.code?.startsWith("08")); // Connection exception class
 
 		if (isConnectionError) {
-			return c.json(
-				{ error: "Database connection failed", cause: e.message },
+			return c.json<ApiError>(
+				{ error: "Database connection failed", details: e.message },
 				503,
 			);
 		}
 	}
 
-	return c.json(
+	return c.json<ApiError>(
 		{
 			error: e instanceof Error ? e.message : "Internal server error",
 		},
 		500,
 	);
 }
+
+export const validationHook = (
+	result: { success: boolean; data?: unknown; error?: ZodError },
+	c: Context,
+) => {
+	if (!result.success) {
+		const issue = result.error?.issues[0];
+		return c.json<ApiError>(
+			{
+				error: "Validation error",
+				details: issue?.message ?? "Unknown validation error",
+			},
+			400,
+		);
+	}
+};

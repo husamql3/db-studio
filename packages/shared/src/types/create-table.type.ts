@@ -72,7 +72,7 @@ export const updateRecordsSchema = z.object({
 	primaryKey: z.string().optional(),
 });
 
-export const deleteRecordsSchema = z.object({
+export const deleteRecordSchema = z.object({
 	tableName: z.string().min(1, "Table name is required"),
 	primaryKeys: z
 		.array(

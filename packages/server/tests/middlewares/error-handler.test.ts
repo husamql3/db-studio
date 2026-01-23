@@ -251,7 +251,7 @@ describe("Error Handler Middleware", () => {
 			expect(res.status).toBe(503);
 			const json = await res.json();
 			expect(json.error).toBe("Database connection failed");
-			expect(json.cause).toContain("ECONNREFUSED");
+			expect(json.details).toContain("ECONNREFUSED");
 		});
 
 		it("should return 503 for connection refused error", async () => {
@@ -337,7 +337,7 @@ describe("Error Handler Middleware", () => {
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
-			expect(json.cause).toContain("ECONNREFUSED");
+			expect(json.details).toContain("ECONNREFUSED");
 		});
 
 		it("should handle lowercase connection refused", async () => {
@@ -625,7 +625,7 @@ describe("Error Handler Middleware", () => {
 			const json = await res.json();
 
 			expect(json).toHaveProperty("error");
-			expect(json).toHaveProperty("cause");
+			expect(json).toHaveProperty("details");
 		});
 
 		it("should return consistent error shape for generic errors", async () => {

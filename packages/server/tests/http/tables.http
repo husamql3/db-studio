@@ -3,7 +3,8 @@
 ### Replace :dbType with 'pg' for PostgreSQL
 
 @baseUrl = http://localhost:3333/pg
-@database = postgres
+@database = flowx
+@tableName = user
 
 ### ============================================
 ### GET /tables - List all tables
@@ -75,7 +76,7 @@ Content-Type: application/json
       "isNullable": true
     },
     {
-      "columnName": "status",
+      "columnName": "active",
       "columnType": "VARCHAR(50)",
       "defaultValue": "'active'",
       "isNullable": false
@@ -233,7 +234,7 @@ Content-Type: application/json
 ### ============================================
 
 ### Get columns for a table
-GET {{baseUrl}}/tables/test_users/columns?database={{database}}
+GET {{baseUrl}}/tables/{{tableName}}/columns?database={{database}}
 Content-Type: application/json
 
 ###
@@ -257,7 +258,7 @@ Content-Type: application/json
 ###
 
 ### Get columns - Missing database param (should return 400)
-GET {{baseUrl}}/tables/test_users/columns
+GET {{baseUrl}}/tables/{{tableName}}/columns
 Content-Type: application/json
 
 ### ============================================
@@ -266,99 +267,99 @@ Content-Type: application/json
 ### ============================================
 
 ### Get table data with default pagination
-GET {{baseUrl}}/tables/test_users/data?database={{database}}
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}
 Content-Type: application/json
 
 ###
 
 ### Get table data with custom limit
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&limit=10
 Content-Type: application/json
 
 ###
 
 ### Get table data with limit=100
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=100
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&limit=100
 Content-Type: application/json
 
 ###
 
 ### Get table data sorted by column (ascending)
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=name&order=asc
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&sort=name&order=asc
 Content-Type: application/json
 
 ###
 
 ### Get table data sorted by column (descending)
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=id&order=desc
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&sort=id&order=desc
 Content-Type: application/json
 
 ###
 
 ### Get table data with multi-column sort
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=[{"columnName":"name","direction":"asc"},{"columnName":"id","direction":"desc"}]
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&sort=[{"columnName":"name","direction":"asc"},{"columnName":"id","direction":"desc"}]
 Content-Type: application/json
 
 ###
 
 ### Get table data with single filter (equals)
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&filters=[{"columnName":"name","operator":"=","value":"John"}]
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&filters=[{"columnName":"name","operator":"=","value":"John"}]
 Content-Type: application/json
 
 ###
 
 ### Get table data with LIKE filter
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&filters=[{"columnName":"name","operator":"LIKE","value":"%John%"}]
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&filters=[{"columnName":"name","operator":"LIKE","value":"%John%"}]
 Content-Type: application/json
 
 ###
 
 ### Get table data with multiple filters
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&filters=[{"columnName":"status","operator":"=","value":"active"},{"columnName":"id","operator":">","value":"10"}]
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&filters=[{"columnName":"active","operator":"=","value":"TRUE"},{"columnName":"id","operator":">","value":"10"}]
 Content-Type: application/json
 
 ###
 
 ### Get table data with sort and filters combined
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=name&order=asc&filters=[{"columnName":"status","operator":"=","value":"active"}]
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&sort=name&order=asc&filters=[{"columnName":"active","operator":"=","value":"TRUE"}]
 Content-Type: application/json
 
 ###
 
 ### Get table data - Forward pagination (first page)
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10&direction=forward
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&limit=10&direction=forward
 Content-Type: application/json
 
 ###
 
 ### Get table data - Forward pagination with cursor
 # Replace CURSOR_VALUE with actual cursor from previous response
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10&direction=forward&cursor=eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&limit=10&direction=forward&cursor=eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0
 Content-Type: application/json
 
 ###
 
 ### Get table data - Backward pagination with cursor
 # Replace CURSOR_VALUE with actual cursor from previous response
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10&direction=backward&cursor=eyJ2YWx1ZXMiOnsiaWQiOjIwfSwic29ydENvbHVtbnMiOlsiaWQiXX0
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&limit=10&direction=backward&cursor=eyJ2YWx1ZXMiOnsiaWQiOjIwfSwic29ydENvbHVtbnMiOlsiaWQiXX0
 Content-Type: application/json
 
 ###
 
 ### Get table data - Missing database param (should return 400)
-GET {{baseUrl}}/tables/test_users/data
+GET {{baseUrl}}/tables/{{tableName}}/data
 Content-Type: application/json
 
 ###
 
 ### Get table data - Invalid direction (should return 400)
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&direction=invalid
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&direction=invalid
 Content-Type: application/json
 
 ###
 
 ### Get table data - Invalid order (should return 400)
-GET {{baseUrl}}/tables/test_users/data?database={{database}}&order=invalid
+GET {{baseUrl}}/tables/{{tableName}}/data?database={{database}}&order=invalid
 Content-Type: application/json
 
 ### ============================================
@@ -367,7 +368,7 @@ Content-Type: application/json
 ### ============================================
 
 ### Delete a column (RESTRICT mode - default)
-DELETE {{baseUrl}}/tables/test_users/columns/email?database={{database}}
+DELETE {{baseUrl}}/tables/{{tableName}}/columns/email?database={{database}}
 Content-Type: application/json
 
 ###
@@ -379,7 +380,7 @@ Content-Type: application/json
 ###
 
 ### Delete a column with explicit RESTRICT
-DELETE {{baseUrl}}/tables/test_users/columns/name?database={{database}}&cascade=false
+DELETE {{baseUrl}}/tables/{{tableName}}/columns/name?database={{database}}&cascade=false
 Content-Type: application/json
 
 ###
@@ -391,13 +392,13 @@ Content-Type: application/json
 ###
 
 ### Delete column - Non-existent column (should return 404)
-DELETE {{baseUrl}}/tables/test_users/columns/nonexistent_column?database={{database}}
+DELETE {{baseUrl}}/tables/{{tableName}}/columns/nonexistent_column?database={{database}}
 Content-Type: application/json
 
 ###
 
 ### Delete column - Missing database param (should return 400)
-DELETE {{baseUrl}}/tables/test_users/columns/email
+DELETE {{baseUrl}}/tables/{{tableName}}/columns/email
 Content-Type: application/json
 
 ### ============================================
@@ -445,7 +446,7 @@ Content-Type: application/json
 ###
 
 ### POST /tables/:tableName/columns - Not allowed (should return 404)
-POST {{baseUrl}}/tables/test_users/columns?database={{database}}
+POST {{baseUrl}}/tables/{{tableName}}/columns?database={{database}}
 Content-Type: application/json
 
 {
@@ -456,7 +457,7 @@ Content-Type: application/json
 ###
 
 ### PUT /tables/:tableName/data - Not allowed (should return 404)
-PUT {{baseUrl}}/tables/test_users/data?database={{database}}
+PUT {{baseUrl}}/tables/{{tableName}}/data?database={{database}}
 Content-Type: application/json
 
 {
