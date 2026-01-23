@@ -7,6 +7,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { type DatabaseTypeSchema, databaseTypeParamSchema } from "shared/types";
+
 import type { AppType } from "@/app.types.js";
 import { handleError, validationHook } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
@@ -44,7 +45,7 @@ export const createServer = () => {
 		 * Validate the database type and store it in context
 		 * @param {DatabaseTypeSchema} dbType - The type of database to use
 		 */
-		.use(zValidator("param", databaseTypeParamSchema, validationHook))
+		.use("/*", zValidator("param", databaseTypeParamSchema, validationHook))
 
 		/**
 		 * Store the database type in context
@@ -103,8 +104,8 @@ export const createServer = () => {
 		.route("/", databasesRoutes)
 		.route("/", tablesRoutes)
 		.route("/", recordsRoutes)
-		.route("/query", queryRoutes)
-		.route("/chat", chatRoutes)
+		.route("/", queryRoutes)
+		.route("/", chatRoutes)
 
 		/**
 		 * Serve the static files (development only)

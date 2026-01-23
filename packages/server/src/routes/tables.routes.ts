@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import type { TableInfo } from "shared/types";
+import type { TableInfoSchemaType } from "shared/types";
 import { databaseSchema, type TableDataResultSchemaType } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { createTable } from "@/dao/create-table.dao.js";
@@ -31,7 +31,7 @@ export const tablesRoutes = new Hono()
 	.get(
 		"/",
 		zValidator("query", databaseSchema),
-		async (c): ApiHandler<TableInfo[]> => {
+		async (c): ApiHandler<TableInfoSchemaType[]> => {
 			const { database } = c.req.valid("query");
 			const tablesList = await getTablesList(database);
 			return c.json({ data: tablesList }, 200);

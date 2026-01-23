@@ -50,9 +50,13 @@ export function handleError(e: Error | unknown, c: Context) {
 }
 
 export const validationHook = (
-	result: { success: boolean; data?: unknown; error?: ZodError },
+	result: {
+		success: boolean;
+		data?: unknown;
+		error?: { issues: { message: string }[] };
+	},
 	c: Context,
-) => {
+): Response | undefined => {
 	if (!result.success) {
 		const issue = result.error?.issues[0];
 		return c.json<ApiError>(

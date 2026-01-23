@@ -2,31 +2,30 @@ import type {
 	Column,
 	ColumnInfo,
 	DatabaseSchema,
+	DatabaseSchemaType,
 	Relationship,
 	Table,
 } from "shared/types";
 import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 import { getTableColumns } from "./table-columns.dao.js";
 
 /**
  * Get all table names from the database
  */
-async function getTableNames(): Promise<string[]> {
-	const client = await db.connect();
-	try {
-		const res = await client.query(
-			`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_type = 'BASE TABLE'
-      ORDER BY table_name;
-    `,
-		);
-		return res.rows.map((r) => r.table_name);
-	} finally {
-		client.release();
-	}
+async function getTableNames(
+	database: DatabaseSchemaType["database"],
+): Promise<string[]> {
+	const pool = getDbPool(database);
+	const query = `
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = 'public'
+			AND table_type = 'BASE TABLE'
+		ORDER BY table_name;
+	`;
+	const { rows } = await pool.query(query);
+	return rows.map((r) => r.table_name);
 }
 
 /**
@@ -125,7 +124,7 @@ function extractRelationships(tables: Table[]): Relationship[] {
  * Get complete database schema with all tables, columns, and relationships
  */
 async function getDatabaseSchema(
-	// connectionId: string,
+	database: DatabaseSchemaType["database"],
 	options: {
 		includeSampleData?: boolean;
 		includeDescriptions?: boolean;
@@ -139,23 +138,12 @@ async function getDatabaseSchema(
 	} = options;
 
 	try {
-		// Get all table names
-		const tableNames = await getTableNames();
-
-		// Limit tables if needed to prevent token overflow
-		// const limitedTableNames = tableNames.slice(0, maxTables);
-
-		// if (tableNames.length > maxTables) {
-		//   console.warn(
-		//     `Database has ${tableNames.length} tables, only including first ${maxTables} in schema context`
-		//   );
-		// }
+		const tableNames = await getTableNames(database);
 
 		// Fetch schema info for each table in parallel
-		// const tablePromises = limitedTableNames.map(async (tableName) => {
 		const tablePromises = tableNames.map(async (tableName) => {
 			const [columns, description, sampleData] = await Promise.all([
-				getTableColumns(tableName),
+				getTableColumns({ tableName, database }),
 				includeDescriptions
 					? getTableDescription(tableName)
 					: Promise.resolve(undefined),
@@ -203,8 +191,10 @@ async function getDatabaseSchema(
 /**
  * Get detailed schema with sample data (for initial conversation context)
  */
-export async function getDetailedSchema(): Promise<DatabaseSchema> {
-	return getDatabaseSchema({
+export async function getDetailedSchema(
+	database: DatabaseSchemaType["database"],
+): Promise<DatabaseSchema> {
+	return getDatabaseSchema(database, {
 		includeSampleData: true,
 		includeDescriptions: true,
 		// maxTables: 30, // todo: DELETE THIS AFTER TESTING

@@ -1,11 +1,11 @@
 import { HTTPException } from "hono/http-exception";
-import type { TableInfo } from "shared/types";
+import type { TableInfoSchemaType } from "shared/types";
 import type { DatabaseSchemaType } from "shared/types/database.types.js";
 import { getDbPool } from "@/db-manager.js";
 
-export const getTablesList = async (
+export async function getTablesList(
 	database: DatabaseSchemaType["database"],
-): Promise<TableInfo[]> => {
+): Promise<TableInfoSchemaType[]> {
 	const pool = getDbPool(database);
 	const query = `
 		SELECT 
@@ -26,4 +26,4 @@ export const getTablesList = async (
 	}
 
 	return rows;
-};
+}
