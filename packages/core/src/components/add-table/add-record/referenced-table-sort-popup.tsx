@@ -1,7 +1,7 @@
 import { ArrowUpDown, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
-import type { Sort, SortDirection } from "server/src/dao/tables-data.dao";
+import type { SortType as Sort, SortDirection } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,12 @@ export const ReferencedTableSortPopup = ({
 		parseAsJson((value) => value as Sort[])
 			.withDefault([])
 			.withOptions({ history: "push" }),
+	);
+	const [, setCursor] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR,
+	);
+	const [, setDirection] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION,
 	);
 
 	const [isOpen, setIsOpen] = useState(false);
@@ -66,12 +72,18 @@ export const ReferencedTableSortPopup = ({
 	const handleReset = () => {
 		setLocalSort([]);
 		setSorts([]);
+		// Reset cursor when sorts change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 
 	const applySorts = () => {
 		const validSorts = localSort.filter((s) => s.columnName);
 		setSorts(validSorts);
+		// Reset cursor when sorts change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 

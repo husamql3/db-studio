@@ -1,11 +1,9 @@
 import { HTTPException } from "hono/http-exception";
 import {
-	type ConnectionQueryResult,
+	type ConnectionInfoSchemaType,
 	connectionInfoSchema,
-	type DatabaseInfoType,
+	type DatabaseInfoSchemaType,
 	type DatabaseSchemaType,
-	databaseInfoSchema,
-	databaseSchema,
 } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
@@ -17,7 +15,7 @@ import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
  * @returns List of database information objects
  * @throws Error if query fails or no databases are found
  */
-export async function getDatabasesList(): Promise<DatabaseInfoType[]> {
+export async function getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 	const pool = getDbPool();
 	const query = `
     SELECT 
@@ -37,7 +35,7 @@ export async function getDatabasesList(): Promise<DatabaseInfoType[]> {
 		});
 	}
 
-	return databaseInfoSchema.array().parse(rows);
+	return rows;
 }
 
 /**
@@ -57,7 +55,7 @@ export async function getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		});
 	}
 
-	return databaseSchema.parse(rows[0]);
+	return rows[0];
 }
 
 /**
@@ -69,7 +67,7 @@ export async function getCurrentDatabase(): Promise<DatabaseSchemaType> {
  * @returns Connection and server information object
  * @throws Error if query fails or result is invalid
  */
-export async function getDatabaseConnectionInfo(): Promise<ConnectionQueryResult> {
+export async function getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 	const pool = getDbPool();
 	const query = `
     SELECT 
@@ -95,7 +93,7 @@ export async function getDatabaseConnectionInfo(): Promise<ConnectionQueryResult
 	// Use DATABASE_URL as backup for host/port if needed
 	const urlDefaults = parseDatabaseUrl();
 
-	return connectionInfoSchema.parse({
+	return {
 		host: result.host || urlDefaults.host,
 		port: result.port || urlDefaults.port,
 		user: result.user,
@@ -103,5 +101,5 @@ export async function getDatabaseConnectionInfo(): Promise<ConnectionQueryResult
 		version: result.version.toString(),
 		active_connections: result.active_connections,
 		max_connections: result.max_connections,
-	});
+	};
 }

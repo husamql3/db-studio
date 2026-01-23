@@ -31,6 +31,12 @@ export const ReferencedTableFilterPopup = ({
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
+	const [, setCursor] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR,
+	);
+	const [, setDirection] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION,
+	);
 	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
@@ -75,6 +81,9 @@ export const ReferencedTableFilterPopup = ({
 	const handleReset = () => {
 		setLocalFilters([]);
 		setFilters([]);
+		// Reset cursor when filters change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 
@@ -84,6 +93,9 @@ export const ReferencedTableFilterPopup = ({
 		);
 
 		setFilters(validFilters);
+		// Reset cursor when filters change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 

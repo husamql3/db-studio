@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 export const databaseInfoSchema = z.object({
-	name: z.string(),
-	size: z.string(),
-	owner: z.string(),
-	encoding: z.string(),
+	name: z.string("Name is required"),
+	size: z.string("Size is required"),
+	owner: z.string("Owner is required"),
+	encoding: z.string("Encoding is required"),
 });
 
-export type DatabaseInfoType = z.infer<typeof databaseInfoSchema>;
+export type DatabaseInfoSchemaType = z.infer<typeof databaseInfoSchema>;
 
 export const connectionInfoSchema = z.object({
 	version: z.string("Version is required"),
@@ -19,4 +19,4 @@ export const connectionInfoSchema = z.object({
 	max_connections: z.coerce.number("Max connections is required"),
 });
 
-export type ConnectionQueryResult = z.infer<typeof connectionInfoSchema>;
+export type ConnectionInfoSchemaType = z.infer<typeof connectionInfoSchema>;

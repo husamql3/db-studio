@@ -6,10 +6,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-import {
-	type DatabaseTypeSchema,
-	databaseTypeParamSchema,
-} from "shared/types/database.types.js";
+import { type DatabaseTypeSchema, databaseTypeParamSchema } from "shared/types";
 import type { AppType } from "@/app.types.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
@@ -39,6 +36,11 @@ export const createServer = () => {
 		.basePath("/:dbType")
 
 		/**
+		 * Enable CORS
+		 */
+		.use("/*", cors())
+
+		/**
 		 * Validate the database type and store it in context
 		 * @param {DatabaseTypeSchema} dbType - The type of database to use
 		 */
@@ -49,11 +51,6 @@ export const createServer = () => {
 			c.set("dbType", dbType);
 			await next();
 		})
-
-		/**
-		 * Enable CORS
-		 */
-		.use("/*", cors())
 
 		/**
 		 * Pretty print the JSON response
@@ -98,8 +95,8 @@ export const createServer = () => {
 		/**
 		 * Routes
 		 */
-		.route("/databases", databasesRoutes)
-		.route("/tables", tablesRoutes)
+		.route("/", databasesRoutes)
+		.route("/", tablesRoutes)
 		.route("/records", recordsRoutes)
 		.route("/query", queryRoutes)
 		.route("/chat", chatRoutes)

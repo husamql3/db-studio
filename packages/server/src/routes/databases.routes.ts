@@ -1,6 +1,9 @@
 import { Hono } from "hono";
-import type { ConnectionQueryResult, DatabaseSchemaType } from "shared/types";
-import type { DatabaseInfo } from "shared/types/index.js";
+import type {
+	ConnectionInfoSchemaType,
+	DatabaseInfoSchemaType,
+	DatabaseSchemaType,
+} from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import {
 	getCurrentDatabase,
@@ -16,11 +19,16 @@ import {
  */
 export const databasesRoutes = new Hono()
 	/**
+	 * Base path for the endpoints, /:dbType/databases/...
+	 */
+	.basePath("/databases")
+
+	/**
 	 * GET /databases
 	 * Returns list of all databases on the server (name, size, owner, encoding)
 	 * @returns {Array} List of database info objects
 	 */
-	.get("/", async (c): ApiHandler<DatabaseInfo[]> => {
+	.get("/", async (c): ApiHandler<DatabaseInfoSchemaType[]> => {
 		const databases = await getDatabasesList();
 		return c.json({ data: databases }, 200);
 	})
@@ -41,7 +49,7 @@ export const databasesRoutes = new Hono()
 	 * (PostgreSQL version, host, port, user, current database, connection counts)
 	 * @returns {Object} Connection and server info
 	 */
-	.get("/connection", async (c): ApiHandler<ConnectionQueryResult> => {
+	.get("/connection", async (c): ApiHandler<ConnectionInfoSchemaType> => {
 		const info = await getDatabaseConnectionInfo();
 		return c.json({ data: info }, 200);
 	});

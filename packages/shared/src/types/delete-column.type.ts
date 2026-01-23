@@ -21,7 +21,6 @@ export type DeleteColumnParams = z.infer<typeof deleteColumnParamSchema> & {
 };
 
 export type DeleteColumnResponse = {
-	success: boolean;
 	message: string;
 	tableName: string;
 	columnName: string;

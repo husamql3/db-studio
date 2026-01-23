@@ -1,7 +1,7 @@
 import { Filter, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
-import type { Filter as FilterType } from "shared/types";
+import type { FilterType } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -27,6 +27,8 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
+	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
@@ -71,6 +73,9 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 	const handleReset = () => {
 		setLocalFilters([]);
 		setFilters([]);
+		// Reset cursor when filters change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 
@@ -80,6 +85,9 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 		);
 
 		setFilters(validFilters);
+		// Reset cursor when filters change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 

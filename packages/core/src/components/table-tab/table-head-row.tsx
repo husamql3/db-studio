@@ -70,6 +70,8 @@ export const TableHeadRow = ({
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
+	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const isAnyColumnResizing =
@@ -88,8 +90,11 @@ export const TableHeadRow = ({
 				setSort(columnId);
 				setOrder(direction === "desc" ? "desc" : "asc");
 			}
+			// Reset cursor when sort changes
+			setCursor(null);
+			setDirection(null);
 		},
-		[setColumnName, setSort, setOrder],
+		[setColumnName, setSort, setOrder, setCursor, setDirection],
 	);
 
 	const handleDeleteClick = useCallback((columnId: string) => {

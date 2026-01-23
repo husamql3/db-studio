@@ -7,7 +7,8 @@ import type { RecordsRoutes } from "@/routes/records.routes.js";
 import type { TablesRoutes } from "@/routes/tables.routes.js";
 
 export type ApiResponse<T> = {
-	data: T;
+	data?: T;
+	message?: string;
 };
 
 export type ApiError = {

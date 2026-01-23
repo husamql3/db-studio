@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { foreignKeyActionSchema } from "./foreign-key-actions";
+import { foreignKeyActionSchema } from "./create-table.types";
 
 export const fieldDataSchema = z.object({
 	columnName: z.string().min(1),

@@ -1,0 +1,475 @@
+### Tables API Endpoints
+### Base URL: http://localhost:3333/:dbType
+### Replace :dbType with 'pg' for PostgreSQL
+
+@baseUrl = http://localhost:3333/pg
+@database = postgres
+
+### ============================================
+### GET /tables - List all tables
+### Returns list of all tables in the database
+### ============================================
+
+### List all tables (basic)
+GET {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+### ============================================
+### POST /tables - Create a new table
+### Creates a new table with specified columns
+### ============================================
+
+### Create a simple table with basic fields
+POST {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "test_users",
+  "fields": [
+    {
+      "columnName": "id",
+      "columnType": "SERIAL",
+      "isPrimaryKey": true,
+      "isNullable": false
+    },
+    {
+      "columnName": "name",
+      "columnType": "VARCHAR(255)",
+      "isNullable": false
+    },
+    {
+      "columnName": "email",
+      "columnType": "VARCHAR(255)",
+      "isNullable": false,
+      "isUnique": true
+    }
+  ]
+}
+
+###
+
+### Create a table with all field options
+POST {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "test_complex_table",
+  "fields": [
+    {
+      "columnName": "id",
+      "columnType": "INTEGER",
+      "isPrimaryKey": true,
+      "isNullable": false,
+      "isIdentity": true
+    },
+    {
+      "columnName": "username",
+      "columnType": "VARCHAR(100)",
+      "isNullable": false,
+      "isUnique": true
+    },
+    {
+      "columnName": "tags",
+      "columnType": "TEXT",
+      "isArray": true,
+      "isNullable": true
+    },
+    {
+      "columnName": "status",
+      "columnType": "VARCHAR(50)",
+      "defaultValue": "'active'",
+      "isNullable": false
+    },
+    {
+      "columnName": "metadata",
+      "columnType": "JSONB",
+      "isNullable": true
+    },
+    {
+      "columnName": "created_at",
+      "columnType": "TIMESTAMPTZ",
+      "defaultValue": "CURRENT_TIMESTAMP",
+      "isNullable": false
+    }
+  ]
+}
+
+###
+
+### Create a table with foreign keys
+POST {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "test_orders",
+  "fields": [
+    {
+      "columnName": "id",
+      "columnType": "SERIAL",
+      "isPrimaryKey": true,
+      "isNullable": false
+    },
+    {
+      "columnName": "user_id",
+      "columnType": "INTEGER",
+      "isNullable": false
+    },
+    {
+      "columnName": "total_amount",
+      "columnType": "DECIMAL(10,2)",
+      "isNullable": false
+    },
+    {
+      "columnName": "order_date",
+      "columnType": "TIMESTAMPTZ",
+      "defaultValue": "CURRENT_TIMESTAMP",
+      "isNullable": false
+    }
+  ],
+  "foreignKeys": [
+    {
+      "columnName": "user_id",
+      "referencedTable": "test_users",
+      "referencedColumn": "id",
+      "onUpdate": "CASCADE",
+      "onDelete": "SET NULL"
+    }
+  ]
+}
+
+###
+
+### Create a table with multiple foreign keys
+POST {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "test_order_items",
+  "fields": [
+    {
+      "columnName": "id",
+      "columnType": "SERIAL",
+      "isPrimaryKey": true,
+      "isNullable": false
+    },
+    {
+      "columnName": "order_id",
+      "columnType": "INTEGER",
+      "isNullable": false
+    },
+    {
+      "columnName": "product_id",
+      "columnType": "INTEGER",
+      "isNullable": false
+    },
+    {
+      "columnName": "quantity",
+      "columnType": "INTEGER",
+      "defaultValue": "1",
+      "isNullable": false
+    },
+    {
+      "columnName": "unit_price",
+      "columnType": "DECIMAL(10,2)",
+      "isNullable": false
+    }
+  ],
+  "foreignKeys": [
+    {
+      "columnName": "order_id",
+      "referencedTable": "test_orders",
+      "referencedColumn": "id",
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    }
+  ]
+}
+
+###
+
+### Create table - Missing tableName (should return 400)
+POST {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "fields": [
+    {
+      "columnName": "id",
+      "columnType": "SERIAL"
+    }
+  ]
+}
+
+###
+
+### Create table - Empty fields array (should return 400)
+POST {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "empty_fields_table",
+  "fields": []
+}
+
+###
+
+### Create table - Missing database param (should return 400)
+POST {{baseUrl}}/tables
+Content-Type: application/json
+
+{
+  "tableName": "test_table",
+  "fields": [
+    {
+      "columnName": "id",
+      "columnType": "SERIAL"
+    }
+  ]
+}
+
+### ============================================
+### GET /tables/:tableName/columns - Get table columns
+### Returns list of all columns in a table
+### ============================================
+
+### Get columns for a table
+GET {{baseUrl}}/tables/test_users/columns?database={{database}}
+Content-Type: application/json
+
+###
+
+### Get columns for complex table
+GET {{baseUrl}}/tables/test_complex_table/columns?database={{database}}
+Content-Type: application/json
+
+###
+
+### Get columns for table with foreign keys
+GET {{baseUrl}}/tables/test_orders/columns?database={{database}}
+Content-Type: application/json
+
+###
+
+### Get columns - Non-existent table (should return 404)
+GET {{baseUrl}}/tables/nonexistent_table/columns?database={{database}}
+Content-Type: application/json
+
+###
+
+### Get columns - Missing database param (should return 400)
+GET {{baseUrl}}/tables/test_users/columns
+Content-Type: application/json
+
+### ============================================
+### GET /tables/:tableName/data - Get table data
+### Returns paginated data from a table
+### ============================================
+
+### Get table data with default pagination
+GET {{baseUrl}}/tables/test_users/data?database={{database}}
+Content-Type: application/json
+
+###
+
+### Get table data with custom limit
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10
+Content-Type: application/json
+
+###
+
+### Get table data with limit=100
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=100
+Content-Type: application/json
+
+###
+
+### Get table data sorted by column (ascending)
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=name&order=asc
+Content-Type: application/json
+
+###
+
+### Get table data sorted by column (descending)
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=id&order=desc
+Content-Type: application/json
+
+###
+
+### Get table data with multi-column sort
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=[{"columnName":"name","direction":"asc"},{"columnName":"id","direction":"desc"}]
+Content-Type: application/json
+
+###
+
+### Get table data with single filter (equals)
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&filters=[{"columnName":"name","operator":"=","value":"John"}]
+Content-Type: application/json
+
+###
+
+### Get table data with LIKE filter
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&filters=[{"columnName":"name","operator":"LIKE","value":"%John%"}]
+Content-Type: application/json
+
+###
+
+### Get table data with multiple filters
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&filters=[{"columnName":"status","operator":"=","value":"active"},{"columnName":"id","operator":">","value":"10"}]
+Content-Type: application/json
+
+###
+
+### Get table data with sort and filters combined
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&sort=name&order=asc&filters=[{"columnName":"status","operator":"=","value":"active"}]
+Content-Type: application/json
+
+###
+
+### Get table data - Forward pagination (first page)
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10&direction=forward
+Content-Type: application/json
+
+###
+
+### Get table data - Forward pagination with cursor
+# Replace CURSOR_VALUE with actual cursor from previous response
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10&direction=forward&cursor=eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0
+Content-Type: application/json
+
+###
+
+### Get table data - Backward pagination with cursor
+# Replace CURSOR_VALUE with actual cursor from previous response
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&limit=10&direction=backward&cursor=eyJ2YWx1ZXMiOnsiaWQiOjIwfSwic29ydENvbHVtbnMiOlsiaWQiXX0
+Content-Type: application/json
+
+###
+
+### Get table data - Missing database param (should return 400)
+GET {{baseUrl}}/tables/test_users/data
+Content-Type: application/json
+
+###
+
+### Get table data - Invalid direction (should return 400)
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&direction=invalid
+Content-Type: application/json
+
+###
+
+### Get table data - Invalid order (should return 400)
+GET {{baseUrl}}/tables/test_users/data?database={{database}}&order=invalid
+Content-Type: application/json
+
+### ============================================
+### DELETE /tables/:tableName/columns/:columnName
+### Deletes a column from a table
+### ============================================
+
+### Delete a column (RESTRICT mode - default)
+DELETE {{baseUrl}}/tables/test_users/columns/email?database={{database}}
+Content-Type: application/json
+
+###
+
+### Delete a column with CASCADE
+DELETE {{baseUrl}}/tables/test_orders/columns/user_id?database={{database}}&cascade=true
+Content-Type: application/json
+
+###
+
+### Delete a column with explicit RESTRICT
+DELETE {{baseUrl}}/tables/test_users/columns/name?database={{database}}&cascade=false
+Content-Type: application/json
+
+###
+
+### Delete column - Non-existent table (should return 404)
+DELETE {{baseUrl}}/tables/nonexistent_table/columns/id?database={{database}}
+Content-Type: application/json
+
+###
+
+### Delete column - Non-existent column (should return 404)
+DELETE {{baseUrl}}/tables/test_users/columns/nonexistent_column?database={{database}}
+Content-Type: application/json
+
+###
+
+### Delete column - Missing database param (should return 400)
+DELETE {{baseUrl}}/tables/test_users/columns/email
+Content-Type: application/json
+
+### ============================================
+### Error Cases - Invalid Database Type
+### ============================================
+
+### Invalid database type (should return 400)
+GET http://localhost:3333/invalid/tables?database={{database}}
+Content-Type: application/json
+
+###
+
+### MySQL database type - not supported (should return 400)
+GET http://localhost:3333/mysql/tables?database={{database}}
+Content-Type: application/json
+
+###
+
+### SQLite database type - not supported (should return 400)
+GET http://localhost:3333/sqlite/tables?database={{database}}
+Content-Type: application/json
+
+### ============================================
+### HTTP Method Validation
+### ============================================
+
+### PUT /tables - Not allowed (should return 404)
+PUT {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "test"
+}
+
+###
+
+### PATCH /tables - Not allowed (should return 404)
+PATCH {{baseUrl}}/tables?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "test"
+}
+
+###
+
+### POST /tables/:tableName/columns - Not allowed (should return 404)
+POST {{baseUrl}}/tables/test_users/columns?database={{database}}
+Content-Type: application/json
+
+{
+  "columnName": "new_column",
+  "columnType": "TEXT"
+}
+
+###
+
+### PUT /tables/:tableName/data - Not allowed (should return 404)
+PUT {{baseUrl}}/tables/test_users/data?database={{database}}
+Content-Type: application/json
+
+{
+  "data": []
+}
+
+### ============================================
+### Cleanup - Drop test tables
+### (Run these manually after testing)
+### ============================================
+
+### Note: To clean up test tables, you would need to run these SQL commands:
+### DROP TABLE IF EXISTS test_order_items CASCADE;
+### DROP TABLE IF EXISTS test_orders CASCADE;
+### DROP TABLE IF EXISTS test_complex_table CASCADE;
+### DROP TABLE IF EXISTS test_users CASCADE;

@@ -1,157 +1,143 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import {
-	createTableSchema,
-	databaseQuerySchema,
-	databaseSchema,
-	deleteColumnParamSchema,
-	deleteColumnQuerySchema,
-	type Sort,
-	tableDataQuerySchema,
-	tableNameParamSchema,
-} from "shared/types";
+import type { TableInfo } from "shared/types";
+import { databaseSchema, type TableDataResultSchemaType } from "shared/types";
+import type { ApiHandler } from "@/app.types.js";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
+import type { ColumnInfoSchemaType } from "@/dao/table-list.types.js";
+import {
+	createTableSchema,
+	deleteColumnParamSchema,
+	deleteColumnQuerySchema,
+	tableDataQuerySchema,
+	tableNameSchema,
+} from "@/dao/table-list.types.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
 
-export const tablesRoutes = new Hono();
+export const tablesRoutes = new Hono()
+	/**
+	 * Base path for the endpoints, /:dbType/tables/...
+	 */
+	.basePath("/tables")
 
-/**
- * GET /tables - Get all tables
- */
-tablesRoutes.get("/", zValidator("query", databaseSchema), async (c) => {
-	try {
-		const database = c.req.valid("query");
-		const tablesList = await getTablesList(database.database);
-
-		return c.json({ data: tablesList }, 200);
-	} catch (_error) {}
-});
-
-/**
- * POST /tables - Create a new table
- */
-tablesRoutes.post(
-	"/",
-	zValidator("json", createTableSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
-			const body = c.req.valid("json");
+	/**
+	 * GET /tables
+	 * Returns list of all tables in the currently connected database
+	 * @returns {Array} List of table info objects
+	 */
+	.get(
+		"/",
+		zValidator("query", databaseSchema),
+		async (c): ApiHandler<TableInfo[]> => {
 			const { database } = c.req.valid("query");
-			const data = await createTable(body, database);
-			return c.json(data);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
+			const tablesList = await getTablesList(database);
+
+			return c.json({ data: tablesList }, 200);
+		},
+	)
+
+	/**
+	 * POST /tables
+	 * Creates a new table in the currently connected database
+	 * @param {CreateTableSchemaType} body - The data for the new table
+	 * @returns {string} A success message
+	 */
+	.post(
+		"/",
+		zValidator("query", databaseSchema),
+		zValidator("json", createTableSchema),
+		async (c): ApiHandler<{ message: string }> => {
+			const { database } = c.req.valid("query");
+			const body = c.req.valid("json");
+			await createTable({ tableData: body, database });
+
+			return c.json(
+				{ message: `Table ${body.tableName} created successfully` },
+				200,
+			);
+		},
+	)
+
+	/**
+	 * DELETE /tables/:tableName/columns/:columnName
+	 * Deletes a column from a table
+	 * @param {DeleteColumnQuerySchemaType} query - The query parameters
+	 * @param {DeleteColumnParamSchemaType} param - The URL parameters
+	 * @returns {DeleteColumnResponseType} The response
+	 */
+	.delete(
+		"/:tableName/columns/:columnName",
+		zValidator("query", deleteColumnQuerySchema),
+		zValidator("param", deleteColumnParamSchema),
+		async (c): ApiHandler<{ message: string }> => {
+			const { database, cascade } = c.req.valid("query");
+			const { tableName, columnName } = c.req.valid("param");
+			const { deletedCount } = await deleteColumn({
+				tableName,
+				columnName,
+				cascade,
+				database,
+			});
 			return c.json(
 				{
-					success: false,
-					message:
-						error instanceof Error ? error.message : "Failed to create table",
-					detail: errorDetail,
+					message: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
 				},
-				500,
+				200,
 			);
-		}
-	},
-);
+		},
+	)
 
-/**
- * DELETE /tables/:tableName/columns/:columnName - Delete a column from a table
- * Query params:
- *   - database: optional database name
- *   - cascade: if "true", drops dependent objects (indexes, constraints, foreign keys)
- * response: DeleteColumnResponse
- */
-tablesRoutes.delete(
-	"/:tableName/columns/:columnName",
-	zValidator("param", deleteColumnParamSchema),
-	zValidator("query", deleteColumnQuerySchema),
-	async (c) => {
-		try {
-			const { tableName, columnName } = c.req.valid("param");
-			const { database, cascade } = c.req.valid("query");
-
-			const result = await deleteColumn(
-				{ tableName, columnName, cascade },
-				database,
-			);
-			return c.json(result);
-		} catch (_error) {}
-	},
-);
-
-/**
- * GET /tables/:tableName/columns - Get all columns for a table
- */
-tablesRoutes.get(
-	"/:tableName/columns",
-	zValidator("param", tableNameParamSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
+	/**
+	 * GET /tables/:tableName/columns
+	 * Returns list of all columns in a table
+	 * @param {DatabaseSchemaType} query - The query parameters
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @returns {ColumnInfoSchemaType[]} The response
+	 */
+	.get(
+		"/:tableName/columns",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		async (c): ApiHandler<ColumnInfoSchemaType[]> => {
 			const { tableName } = c.req.valid("param");
 			const { database } = c.req.valid("query");
+			const columns = await getTableColumns({ tableName, database });
+			return c.json({ data: columns }, 200);
+		},
+	)
 
-			const columns = await getTableColumns(tableName, database);
-			return c.json(columns);
-		} catch (_error) {}
-	},
-);
-
-/**
- * GET /tables/:tableName/data - Get paginated data for a table
- */
-tablesRoutes.get(
-	"/:tableName/data",
-	zValidator("param", tableNameParamSchema),
-	zValidator("query", tableDataQuerySchema),
-	async (c) => {
-		try {
+	/**
+	 * GET /tables/:tableName/data
+	 * Get cursor-paginated data for a table
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @param {TableDataQuerySchemaType} query - The query parameters
+	 * @returns {TableDataResultSchemaType} The response
+	 * @throws {HTTPException} If the table does not exist or the query is invalid
+	 */
+	.get(
+		"/:tableName/data",
+		zValidator("param", tableNameSchema),
+		zValidator("query", tableDataQuerySchema),
+		async (c): ApiHandler<TableDataResultSchemaType> => {
 			const { tableName } = c.req.valid("param");
-			const {
-				page,
-				pageSize,
-				sort: sortParam,
-				order,
-				filters,
-				database,
-			} = c.req.valid("query");
+			const { cursor, limit, direction, sort, order, filters, database } =
+				c.req.valid("query");
 
-			// Parse sort - can be either a string (legacy) or JSON array (new format)
-			let sort: Sort[] | string = "";
-			if (sortParam) {
-				try {
-					// Try to parse as JSON first (new format)
-					const parsed = JSON.parse(sortParam);
-					if (Array.isArray(parsed)) {
-						sort = parsed;
-					} else {
-						sort = sortParam;
-					}
-				} catch {
-					// If JSON parse fails, use as string (legacy format)
-					sort = sortParam;
-				}
-			}
-
-			const data = await getTableData(
+			const tableData = await getTableData({
 				tableName,
-				page,
-				pageSize,
+				cursor,
+				limit,
+				direction,
 				sort,
 				order,
 				filters,
 				database,
-			);
-			return c.json(data);
-		} catch (_error) {}
-	},
-);
+			});
+			return c.json({ data: tableData }, 200);
+		},
+	);
 
 export type TablesRoutes = typeof tablesRoutes.routes;

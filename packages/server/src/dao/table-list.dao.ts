@@ -1,17 +1,11 @@
 import { HTTPException } from "hono/http-exception";
+import type { TableInfo } from "shared/types";
 import type { DatabaseSchemaType } from "shared/types/database.types.js";
-import { z } from "zod";
 import { getDbPool } from "@/db-manager.js";
-
-export const tableInfoSchema = z.object({
-	tableName: z.string(),
-	rowCount: z.coerce.number(),
-});
-export type TableInfoType = z.infer<typeof tableInfoSchema>;
 
 export const getTablesList = async (
 	database: DatabaseSchemaType["database"],
-): Promise<TableInfoType[]> => {
+): Promise<TableInfo[]> => {
 	const pool = getDbPool(database);
 	const query = `
 		SELECT 
@@ -31,5 +25,5 @@ export const getTablesList = async (
 		});
 	}
 
-	return tableInfoSchema.array().parse(rows);
+	return rows;
 };

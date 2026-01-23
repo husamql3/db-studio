@@ -8,14 +8,19 @@ export function useTableNavigation() {
 	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [, setFilters] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.FILTERS);
+	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const [, setReferencedPage] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE,
+	const [, setReferencedCursor] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR,
 	);
-	const [, setReferencedPageSize] = useQueryState(
+	const [, setReferencedDirection] = useQueryState(
+		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION,
+	);
+	const [, setReferencedLimit] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);
 	const [, setReferencedSort] = useQueryState(
@@ -35,10 +40,13 @@ export function useTableNavigation() {
 			setOrder(null);
 			setSort(null);
 			setFilters(null);
+			setCursor(null);
+			setDirection(null);
 			setColumnName(null);
 			setReferencedActiveTable(null);
-			setReferencedPage(null);
-			setReferencedPageSize(null);
+			setReferencedCursor(null);
+			setReferencedDirection(null);
+			setReferencedLimit(null);
 			setReferencedSort(null);
 			setReferencedOrder(null);
 			setReferencedFilters(null);
