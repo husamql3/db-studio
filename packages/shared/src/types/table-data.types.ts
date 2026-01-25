@@ -35,7 +35,6 @@ export const tableDataResultSchema = z.object({
 
 export type TableDataResultSchemaType = z.infer<typeof tableDataResultSchema>;
 
-
 export const tableDataQuerySchema = z.object({
 	database: databaseSchema.shape.database,
 	cursor: z.string().optional(), // Base64 encoded cursor for pagination
