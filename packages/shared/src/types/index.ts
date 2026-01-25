@@ -2,9 +2,8 @@ export * from "./add-record.types.js"; // done
 export * from "./chat.types.js"; // done
 export * from "./cmd-args.types.js"; // done
 export * from "./column.type.js";
-export * from "./column-info.type.js";
+export * from "./column-info.types.js";
 export * from "./create-table.types.js"; // done
-export * from "./data-types.type.js";
 export * from "./database.types.js"; // done
 export * from "./database-list.types.js"; // done
 export * from "./database-schema.type.js"; // done

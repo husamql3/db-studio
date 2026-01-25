@@ -1,6 +1,6 @@
 import type {
 	Column,
-	ColumnInfo,
+	ColumnInfoSchemaType,
 	DatabaseSchema,
 	DatabaseSchemaType,
 	Relationship,
@@ -74,7 +74,7 @@ async function getSampleData(
 /**
  * Convert ColumnInfo to the schema Column format
  */
-function convertColumnInfo(col: ColumnInfo): Column {
+function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	const column: Column = {
 		name: col.columnName,
 		type: col.dataTypeLabel,

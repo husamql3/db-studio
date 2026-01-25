@@ -2,7 +2,7 @@ import type {
 	CreateTableSchemaType,
 	FieldDataType,
 	ForeignKeyDataType,
-} from "@/dao/table-list.types.js";
+} from "shared/types/create-table.types.js";
 import { getDbPool } from "@/db-manager.js";
 
 export async function createTable({

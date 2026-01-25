@@ -1,13 +1,15 @@
 import { HTTPException } from "hono/http-exception";
 import {
+	type ColumnInfoSchemaType,
 	type DatabaseSchemaType,
 	mapPostgresToDataType,
 	standardizeDataTypeLabel,
+	type TableNameSchemaType,
 } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 import type {
-	ColumnInfoSchemaType,
-	TableNameSchemaType,
+	// ColumnInfoSchemaType,
+	// TableNameSchemaType,
 } from "./table-list.types.js";
 
 export async function getTableColumns({

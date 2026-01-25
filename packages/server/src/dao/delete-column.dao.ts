@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
+import type { DeleteColumnParamsSchemaType } from "shared/types/delete-column.types.js";
 import { getDbPool } from "@/db-manager.js";
-import type { DeleteColumnParamsSchemaType } from "./table-list.types.js";
 
 /**
  * Deletes a column from a table using ALTER TABLE DROP COLUMN.

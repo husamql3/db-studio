@@ -1,4 +1,4 @@
-import { DataTypes } from "./data-types.type.js";
+import { DataTypes } from "./column-info.types.js";
 
 /**
  * Maps PostgreSQL data types to generic DataType enum

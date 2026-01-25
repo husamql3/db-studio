@@ -1,20 +1,20 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import type { TableInfoSchemaType } from "shared/types";
-import { databaseSchema, type TableDataResultSchemaType } from "shared/types";
+import type { ColumnInfoSchemaType, TableInfoSchemaType } from "shared/types";
+import {
+	createTableSchema,
+	databaseSchema,
+	deleteColumnParamSchema,
+	deleteColumnQuerySchema,
+	type TableDataResultSchemaType,
+	tableDataQuerySchema,
+	tableNameSchema,
+} from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
-import type { ColumnInfoSchemaType } from "@/dao/table-list.types.js";
-import {
-	createTableSchema,
-	deleteColumnParamSchema,
-	deleteColumnQuerySchema,
-	tableDataQuerySchema,
-	tableNameSchema,
-} from "@/dao/table-list.types.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
 
 export const tablesRoutes = new Hono()
