@@ -14,9 +14,7 @@ export function useTableNavigation() {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const [, setReferencedCursor] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR,
-	);
+	const [, setReferencedCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
 	const [, setReferencedDirection] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION,
 	);

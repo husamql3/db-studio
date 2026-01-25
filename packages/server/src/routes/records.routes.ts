@@ -22,7 +22,7 @@ export const recordsRoutes = new Hono()
 	 * Adds a new record into a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {AddRecordSchemaType} json - The data for the new record
-	 * @returns {ApiResponseType<{ message: string }>} A success message
+	 * @returns {BaseResponseType<{ message: string }>} A success message
 	 */
 	.post(
 		"/",

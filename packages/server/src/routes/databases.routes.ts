@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type {
 	ConnectionInfoSchemaType,
-	DatabaseInfoSchemaType,
-	DatabaseSchemaType,
+	CurrentDatabaseSchemaType,
+	DatabaseListSchemaType,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import {
@@ -10,37 +10,40 @@ import {
 	getDatabaseConnectionInfo,
 	getDatabasesList,
 } from "@/dao/database-list.dao.js";
+import { getDbType } from "@/db-manager.js";
 
 /**
- * /databases routes
+ * /databases routes (at root level, no dbType required)
  * GET /databases - Get list of all databases on the server (name, size, owner, encoding)
  * GET /databases/current - Get the name of the database we are currently connected to
  * GET /databases/connection - Get connection details and server information (PostgreSQL version, host, port, user, current database, connection counts)
  */
 export const databasesRoutes = new Hono()
 	/**
-	 * Base path for the endpoints, /:dbType/databases/...
+	 * Base path for the endpoints, /databases/...
 	 */
 	.basePath("/databases")
 
 	/**
 	 * GET /databases
-	 * Returns list of all databases on the server (name, size, owner, encoding)
-	 * @returns {Array} List of database info objects
+	 * Returns list of all databases on the server (name, size, owner, encoding) and the database type
+	 * @returns {Object} Object with databases array and dbType
 	 */
-	.get("/", async (c): ApiHandler<DatabaseInfoSchemaType[]> => {
+	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
 		const databases = await getDatabasesList();
-		return c.json({ data: databases }, 200);
+		const dbType = getDbType();
+		return c.json({ data: { databases, dbType } }, 200);
 	})
 
 	/**
 	 * GET /databases/current
-	 * Returns the name of the database we are currently connected to
-	 * @returns {Object} Object with current database name
+	 * Returns the name of the database we are currently connected to and the database type
+	 * @returns {Object} Object with current database name and type
 	 */
-	.get("/current", async (c): ApiHandler<DatabaseSchemaType> => {
+	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
 		const current = await getCurrentDatabase();
-		return c.json({ data: current }, 200);
+		const dbType = getDbType();
+		return c.json({ data: { ...current, dbType } }, 200);
 	})
 
 	/**

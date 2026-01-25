@@ -57,8 +57,7 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 					enumValues: col.enumValues,
 					dataTypeLabel: col.dataTypeLabel, // This is the exact DB type (int/varchar/etc.)
 				},
-				size:
-					(col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
+				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
 				minSize: 100,
 				maxSize: 500,
 			})) || []),
@@ -87,19 +86,13 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 		setFocusedCell({ rowIndex, columnId });
 	}, []);
 
-	const handleCellDoubleClick = useCallback(
-		(rowIndex: number, columnId: string) => {
-			setEditingCell({ rowIndex, columnId });
-		},
-		[],
-	);
+	const handleCellDoubleClick = useCallback((rowIndex: number, columnId: string) => {
+		setEditingCell({ rowIndex, columnId });
+	}, []);
 
-	const handleCellEditingStart = useCallback(
-		(rowIndex: number, columnId: string) => {
-			setEditingCell({ rowIndex, columnId });
-		},
-		[],
-	);
+	const handleCellEditingStart = useCallback((rowIndex: number, columnId: string) => {
+		setEditingCell({ rowIndex, columnId });
+	}, []);
 
 	const handleCellEditingStop = useCallback(() => {
 		setEditingCell(null);
@@ -160,8 +153,7 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 		meta: tableMeta,
 	});
 
-	const hasNoData =
-		!tableData || !tableData.data || tableData.data.length === 0;
+	const hasNoData = !tableData || !tableData.data || tableData.data.length === 0;
 
 	const selectedRows = table.getSelectedRowModel().rows;
 

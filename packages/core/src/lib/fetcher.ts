@@ -50,13 +50,7 @@ function createFetcher(config: FetcherConfig = {}) {
 		endpoint: string,
 		options: RequestOptions<TBody> = {},
 	): Promise<TResponse> {
-		const {
-			method = "GET",
-			params,
-			body,
-			headers = {},
-			throwOnError = true,
-		} = options;
+		const { method = "GET", params, body, headers = {}, throwOnError = true } = options;
 
 		// Build URL with search params
 		const url = new URL(endpoint, baseUrl);
@@ -77,8 +71,7 @@ function createFetcher(config: FetcherConfig = {}) {
 
 		// Add Content-Type for requests with body
 		if (body && !("Content-Type" in mergedHeaders)) {
-			(mergedHeaders as Record<string, string>)["Content-Type"] =
-				"application/json";
+			(mergedHeaders as Record<string, string>)["Content-Type"] = "application/json";
 		}
 
 		const fetchOptions: RequestInit = {
@@ -94,8 +87,7 @@ function createFetcher(config: FetcherConfig = {}) {
 		const data = await response.json();
 
 		if (!response.ok && throwOnError) {
-			const errorMessage =
-				data?.message || data?.error || data?.detail || `Request failed`;
+			const errorMessage = data?.message || data?.error || data?.detail || `Request failed`;
 			throw new FetcherError(errorMessage, response.status, data);
 		}
 

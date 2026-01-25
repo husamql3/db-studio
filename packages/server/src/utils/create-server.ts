@@ -31,32 +31,9 @@ const getCoreDistPath = () => {
 export const createServer = () => {
 	const app = new Hono<AppType>({ strict: false })
 		/**
-		 * Base path for the API, /:dbType/...
-		 * @param {DatabaseTypeSchema} dbType - The type of database to use
-		 */
-		.basePath("/:dbType")
-
-		/**
 		 * Enable CORS
 		 */
 		.use("/*", cors())
-
-		/**
-		 * Validate the database type and store it in context
-		 * @param {DatabaseTypeSchema} dbType - The type of database to use
-		 */
-		.use("/*", zValidator("param", databaseTypeParamSchema, validationHook))
-
-		/**
-		 * Store the database type in context
-		 * @param {DatabaseTypeSchema} dbType - The type of database to use
-		 */
-		.use(async (c, next) => {
-			// dbType is already validated by zValidator above
-			const dbType = c.req.param("dbType") as DatabaseTypeSchema;
-			c.set("dbType", dbType);
-			await next();
-		})
 
 		/**
 		 * Pretty print the JSON response
@@ -99,13 +76,26 @@ export const createServer = () => {
 		.onError(handleError)
 
 		/**
-		 * Routes
+		 * Database routes - available at root level (no dbType required)
 		 */
 		.route("/", databasesRoutes)
-		.route("/", tablesRoutes)
-		.route("/", recordsRoutes)
-		.route("/", queryRoutes)
-		.route("/", chatRoutes)
+
+		/**
+		 * Routes that require dbType validation - under /:dbType/...
+		 */
+		.use(
+			"/:dbType/*",
+			zValidator("param", databaseTypeParamSchema, validationHook),
+		)
+		.use("/:dbType/*", async (c, next) => {
+			const dbType = c.req.param("dbType") as DatabaseTypeSchema;
+			c.set("dbType", dbType);
+			await next();
+		})
+		.route("/:dbType", tablesRoutes)
+		.route("/:dbType", recordsRoutes)
+		.route("/:dbType", queryRoutes)
+		.route("/:dbType", chatRoutes)
 
 		/**
 		 * Serve the static files (development only)
@@ -116,3 +106,6 @@ export const createServer = () => {
 };
 
 export type { AppType };
+
+// Export the app type for hc client
+export type AppRoutes = ReturnType<typeof createServer>["app"];

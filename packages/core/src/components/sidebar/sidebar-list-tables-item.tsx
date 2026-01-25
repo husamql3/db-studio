@@ -23,9 +23,7 @@ export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfo) => {
 					isActive ? "text-white bg-zinc-800/50" : "text-zinc-400",
 				)}
 			>
-				{isActive && (
-					<span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />
-				)}
+				{isActive && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
 				<span className="flex-1">{tableName}</span>
 				<div className="flex items-center gap-1">
 					{/* 	{isActive && (

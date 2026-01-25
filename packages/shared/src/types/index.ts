@@ -1,4 +1,5 @@
 export * from "./add-record.types.js"; // done
+export * from "./api-response.types.js";
 export * from "./chat.types.js"; // done
 export * from "./cmd-args.types.js"; // done
 export * from "./column.type.js";

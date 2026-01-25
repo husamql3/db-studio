@@ -141,9 +141,7 @@ export const CodeEditor = ({
 					[/""/, "string.double"],
 					[/"/, { token: "string.double", next: "@pop" }],
 				],
-				complexIdentifiers: [
-					[/"/, { token: "identifier.quote", next: "@quotedIdentifier" }],
-				],
+				complexIdentifiers: [[/"/, { token: "identifier.quote", next: "@quotedIdentifier" }]],
 				quotedIdentifier: [
 					[/[^"]+/, "identifier"],
 					[/""/, "identifier"],
@@ -174,8 +172,7 @@ export const CodeEditor = ({
 						label: fn,
 						kind: monaco.languages.CompletionItemKind.Function,
 						insertText: fn.includes("(*)") ? fn : fn.replace("()", "($0)"),
-						insertTextRules:
-							monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+						insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 						range,
 					})),
 					...DATA_TYPES.map((type) => ({
@@ -192,8 +189,7 @@ export const CodeEditor = ({
 							"FROM ${2:table}",
 							"WHERE ${3:condition};",
 						].join("\n"),
-						insertTextRules:
-							monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+						insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 						documentation: "SELECT statement template",
 						range,
 					},
@@ -207,8 +203,7 @@ export const CodeEditor = ({
 							"    created_at TIMESTAMP DEFAULT NOW()",
 							");",
 						].join("\n"),
-						insertTextRules:
-							monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+						insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 						documentation: "CREATE TABLE template",
 						range,
 					},
@@ -220,8 +215,7 @@ export const CodeEditor = ({
 							"VALUES (${3:values})",
 							"RETURNING *;",
 						].join("\n"),
-						insertTextRules:
-							monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+						insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 						documentation: "INSERT statement template",
 						range,
 					},
@@ -272,17 +266,14 @@ export const CodeEditor = ({
 
 		// Keyboard shortcuts
 		// Ctrl/Cmd+Enter to run query
-		editorInstance.addCommand(
-			monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-			() => {
-				const query = editorInstance.getValue();
-				if (!query.trim()) {
-					toast.error("Query is empty!");
-					return;
-				}
-				onExecuteQuery(query);
-			},
-		);
+		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+			const query = editorInstance.getValue();
+			if (!query.trim()) {
+				toast.error("Query is empty!");
+				return;
+			}
+			onExecuteQuery(query);
+		});
 
 		// Ctrl/Cmd+Shift+F to format query
 		editorInstance.addCommand(
@@ -294,12 +285,9 @@ export const CodeEditor = ({
 		);
 
 		// Ctrl/Cmd+S to save query
-		editorInstance.addCommand(
-			monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-			() => {
-				onSaveQuery();
-			},
-		);
+		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+			onSaveQuery();
+		});
 
 		// Set initial query change
 		onQueryChange(editorInstance.getValue());

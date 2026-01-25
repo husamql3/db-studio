@@ -13,6 +13,11 @@ export const databaseTypeSchema = z.enum(DATABASE_TYPES, {
 });
 export type DatabaseTypeSchema = z.infer<typeof databaseTypeSchema>;
 
+export const currentDatabaseSchema = databaseSchema.extend({
+	dbType: databaseTypeSchema,
+});
+export type CurrentDatabaseSchemaType = z.infer<typeof currentDatabaseSchema>;
+
 export const databaseTypeParamSchema = z.object({
 	dbType: databaseTypeSchema,
 });

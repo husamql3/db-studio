@@ -46,9 +46,7 @@ export const SheetSidebar = ({
 				showCloseButton={closeButton}
 			>
 				<SheetHeader className={headerClassName}>
-					<SheetTitle
-						className={cn(titleClassName, "flex justify-between items-center")}
-					>
+					<SheetTitle className={cn(titleClassName, "flex justify-between items-center")}>
 						{title}
 						{cta}
 					</SheetTitle>
@@ -60,9 +58,7 @@ export const SheetSidebar = ({
 					)}
 				</SheetHeader>
 
-				<div className={cn(contentClassName, "overflow-y-auto")}>
-					{children}
-				</div>
+				<div className={cn(contentClassName, "overflow-y-auto")}>{children}</div>
 			</SheetContent>
 		</Sheet>
 	);

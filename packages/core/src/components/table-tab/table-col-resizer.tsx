@@ -25,11 +25,7 @@ interface TableColumnResizerProps {
 	label: string;
 }
 
-function TableColumnResizerImpl({
-	header,
-	table,
-	label,
-}: TableColumnResizerProps) {
+function TableColumnResizerImpl({ header, table, label }: TableColumnResizerProps) {
 	const defaultColumnDef = table._getDefaultColumnDef();
 
 	const onDoubleClick = useCallback(() => {
@@ -51,9 +47,7 @@ function TableColumnResizerImpl({
 			tabIndex={0}
 			className={cn(
 				"after:-translate-x-1/2 -right-px absolute top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none select-none bg-border transition-opacity after:absolute after:inset-y-0 after:left-1/2 after:h-full after:w-[18px] after:content-[''] hover:bg-primary focus:bg-primary focus:outline-none",
-				header.column.getIsResizing()
-					? "bg-primary"
-					: "opacity-0 hover:opacity-100",
+				header.column.getIsResizing() ? "bg-primary" : "opacity-0 hover:opacity-100",
 			)}
 			onDoubleClick={onDoubleClick}
 			onMouseDown={header.getResizeHandler()}

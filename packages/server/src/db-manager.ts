@@ -1,4 +1,5 @@
 import { Pool, type PoolConfig } from "pg";
+import type { DatabaseTypeSchema } from "shared/types";
 
 /**
  * DatabaseManager - Manages multiple database connection pools
@@ -12,10 +13,24 @@ class DatabaseManager {
 		port: number;
 		user: string;
 		password: string;
+		dbType: DatabaseTypeSchema;
 	} | null = null;
 
 	constructor() {
 		this.initializeBaseConfig();
+	}
+
+	/**
+	 * Detect database type from URL protocol
+	 */
+	private detectDbType(url: URL): DatabaseTypeSchema {
+		const protocol = url.protocol.replace(":", "");
+		// postgres:// or postgresql:// -> pg
+		if (protocol === "postgres" || protocol === "postgresql") {
+			return "pg";
+		}
+		// Default to pg for now, can be extended for mysql, sqlite, etc.
+		return "pg";
 	}
 
 	/**
@@ -37,10 +52,21 @@ class DatabaseManager {
 				port: Number.parseInt(url.port, 10) || 5432,
 				user: url.username,
 				password: url.password,
+				dbType: this.detectDbType(url),
 			};
 		} catch (error) {
 			throw new Error(`Failed to parse DATABASE_URL: ${error}`);
 		}
+	}
+
+	/**
+	 * Get the detected database type
+	 */
+	getDbType(): DatabaseTypeSchema {
+		if (!this.baseConfig) {
+			throw new Error("Base configuration not initialized");
+		}
+		return this.baseConfig.dbType;
 	}
 
 	/**
@@ -62,18 +88,6 @@ class DatabaseManager {
 				database = url.pathname.slice(1); // Remove leading slash
 			}
 		}
-
-		// if (!database || database.trim() === "") {
-		// 	throw new Error("Database name is required and cannot be empty");
-		// }
-
-		// Validate database name format (PostgreSQL identifiers)
-		// Database names cannot contain special characters that would break URL parsing
-		// if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(database)) {
-		// 	throw new Error(
-		// 		`Invalid database name: "${database}". Database names must start with a letter or underscore and contain only alphanumeric characters, underscores, or dollar signs.`,
-		// 	);
-		// }
 
 		try {
 			const url = new URL(this.baseConfig.url);
@@ -171,6 +185,13 @@ const databaseManager = new DatabaseManager();
  */
 export const getDbPool = (database?: string): Pool => {
 	return databaseManager.getPool(database);
+};
+
+/**
+ * Get the detected database type from DATABASE_URL
+ */
+export const getDbType = (): DatabaseTypeSchema => {
+	return databaseManager.getDbType();
 };
 
 /**

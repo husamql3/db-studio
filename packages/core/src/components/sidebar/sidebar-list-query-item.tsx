@@ -59,9 +59,7 @@ export const SidebarListQueryItem = ({
 	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 	const [renameValue, setRenameValue] = useState("");
 	const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
-	const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(
-		undefined,
-	);
+	const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined);
 	const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 	const [newFolderName, setNewFolderName] = useState("");
 
@@ -141,14 +139,7 @@ export const SidebarListQueryItem = ({
 		setIsCreatingFolder(false);
 		setNewFolderName("");
 		setSelectedFolderId(undefined);
-	}, [
-		isCreatingFolder,
-		newFolderName,
-		selectedFolderId,
-		id,
-		addFolder,
-		moveQuery,
-	]);
+	}, [isCreatingFolder, newFolderName, selectedFolderId, id, addFolder, moveQuery]);
 
 	return (
 		<li className="relative">
@@ -165,9 +156,7 @@ export const SidebarListQueryItem = ({
 								isNested ? "px-4 pl-12" : "px-4",
 							)}
 						>
-							{isSelected && (
-								<span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />
-							)}
+							{isSelected && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
 							<span className="flex-1">{tableName}</span>
 						</button>
 					</ContextMenuTrigger>
@@ -207,9 +196,7 @@ export const SidebarListQueryItem = ({
 						isNested ? "px-4 pl-12" : "px-4",
 					)}
 				>
-					{isSelected && (
-						<span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />
-					)}
+					{isSelected && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
 					<span className="flex-1">{tableName}</span>
 				</button>
 			)}
@@ -221,9 +208,7 @@ export const SidebarListQueryItem = ({
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Rename Query</DialogTitle>
-						<DialogDescription>
-							Enter a new name for this query.
-						</DialogDescription>
+						<DialogDescription>Enter a new name for this query.</DialogDescription>
 					</DialogHeader>
 					<Input
 						value={renameValue}
@@ -270,9 +255,7 @@ export const SidebarListQueryItem = ({
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Move to Folder</DialogTitle>
-						<DialogDescription>
-							Select a folder to move this query to.
-						</DialogDescription>
+						<DialogDescription>Select a folder to move this query to.</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						{!isCreatingFolder ? (

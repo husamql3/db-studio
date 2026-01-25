@@ -1,10 +1,6 @@
 import { Clock, Link, RefreshCw } from "lucide-react";
 import { useQueryState } from "nuqs";
-import {
-	Controller,
-	type ControllerRenderProps,
-	useFormContext,
-} from "react-hook-form";
+import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import type { ColumnInfo } from "server/src/dao/table-columns.dao";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -44,9 +40,7 @@ export const AddRecordField = ({
 	const { control } = useFormContext<AddRecordFormData>();
 	const { openSheet, setRecordReference } = useSheetStore();
 
-	const renderInputField = (
-		field: ControllerRenderProps<AddRecordFormData, string>,
-	) => {
+	const renderInputField = (field: ControllerRenderProps<AddRecordFormData, string>) => {
 		// Create a safe field object that ensures value is never undefined
 		const safeField = {
 			...field,
@@ -73,11 +67,7 @@ export const AddRecordField = ({
 										type="button"
 										onClick={() => {
 											if (referencedTable && columnName && referencedColumn) {
-												setRecordReference(
-													referencedTable,
-													columnName,
-													referencedColumn,
-												);
+												setRecordReference(referencedTable, columnName, referencedColumn);
 											}
 											openSheet("record-reference");
 											setReferencedActiveTable(referencedTable);
@@ -90,9 +80,7 @@ export const AddRecordField = ({
 										/>
 									</button>
 								</TooltipTrigger>
-								<TooltipContent className="px-2 py-1 text-xs">
-									Go to table
-								</TooltipContent>
+								<TooltipContent className="px-2 py-1 text-xs">Go to table</TooltipContent>
 							</Tooltip>
 						</TooltipProvider>
 					</div>
@@ -104,11 +92,7 @@ export const AddRecordField = ({
 							className="font-mono text-primary"
 							onClick={() => {
 								if (referencedTable && columnName && referencedColumn) {
-									setRecordReference(
-										referencedTable,
-										columnName,
-										referencedColumn,
-									);
+									setRecordReference(referencedTable, columnName, referencedColumn);
 								}
 								openSheet("record-reference");
 								setReferencedActiveTable(referencedTable);
@@ -189,16 +173,8 @@ export const AddRecordField = ({
 			return (
 				<div className="flex">
 					<DatePicker
-						value={
-							field.value
-								? new Date(field.value)
-								: field.value === ""
-									? null
-									: undefined
-						}
-						onChange={(date) =>
-							field.onChange(date ? date.toISOString().split("T")[0] : "")
-						}
+						value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
+						onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
 						placeholder={columnDefault ?? "Select a date"}
 						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
 					/>
@@ -221,9 +197,7 @@ export const AddRecordField = ({
 									/>
 								</button>
 							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">
-								Set to now
-							</TooltipContent>
+							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				</div>
@@ -235,13 +209,7 @@ export const AddRecordField = ({
 			return (
 				<div className="flex">
 					<DatePicker
-						value={
-							field.value
-								? new Date(field.value)
-								: field.value === ""
-									? null
-									: undefined
-						}
+						value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
 						onChange={(date) => field.onChange(date ? date.toISOString() : "")}
 						showTime={true}
 						isFormatted={false}
@@ -267,9 +235,7 @@ export const AddRecordField = ({
 									/>
 								</button>
 							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">
-								Set to now
-							</TooltipContent>
+							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				</div>
@@ -281,13 +247,7 @@ export const AddRecordField = ({
 			return (
 				<div className="flex">
 					<DatePicker
-						value={
-							field.value
-								? new Date(field.value)
-								: field.value === ""
-									? null
-									: undefined
-						}
+						value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
 						onChange={(date) => field.onChange(date ? date.toISOString() : "")}
 						showTime={true}
 						isFormatted={false}
@@ -318,9 +278,7 @@ export const AddRecordField = ({
 									/>
 								</button>
 							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">
-								Set to now
-							</TooltipContent>
+							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				</div>
@@ -358,9 +316,7 @@ export const AddRecordField = ({
 									/>
 								</button>
 							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">
-								Generate UUID
-							</TooltipContent>
+							<TooltipContent className="px-2 py-1 text-xs">Generate UUID</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				</div>
@@ -462,11 +418,7 @@ export const AddRecordField = ({
 		}
 
 		// Geometric types (point, line, polygon)
-		if (
-			dataTypeLabel === "point" ||
-			dataTypeLabel === "line" ||
-			dataTypeLabel === "polygon"
-		) {
+		if (dataTypeLabel === "point" || dataTypeLabel === "line" || dataTypeLabel === "polygon") {
 			return (
 				<Input
 					id={columnName}
@@ -503,9 +455,7 @@ export const AddRecordField = ({
 				<div className="grid grid-cols-3 gap-4">
 					<div className="col-span-1 flex flex-col gap-1">
 						<Label htmlFor={columnName}>{columnName}</Label>
-						<span className="text-xs text-muted-foreground">
-							{dataTypeLabel}
-						</span>
+						<span className="text-xs text-muted-foreground">{dataTypeLabel}</span>
 					</div>
 					<div className="col-span-2 w-full">{renderInputField(field)}</div>
 				</div>

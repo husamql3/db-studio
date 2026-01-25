@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { databaseTypeSchema } from "./database.types.js";
 
 export const databaseInfoSchema = z.object({
 	name: z.string("Name is required"),
@@ -8,6 +9,13 @@ export const databaseInfoSchema = z.object({
 });
 
 export type DatabaseInfoSchemaType = z.infer<typeof databaseInfoSchema>;
+
+export const databaseListSchema = z.object({
+	databases: z.array(databaseInfoSchema),
+	dbType: databaseTypeSchema,
+});
+
+export type DatabaseListSchemaType = z.infer<typeof databaseListSchema>;
 
 export const connectionInfoSchema = z.object({
 	version: z.string("Version is required"),

@@ -9,21 +9,11 @@ export const RecordReferenceSheet = () => {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const [, setRCursor] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR,
-	);
-	const [, setRDirection] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION,
-	);
-	const [, setRLimit] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
-	);
-	const [, setRSort] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT.toString(),
-	);
-	const [, setROrder] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER.toString(),
-	);
+	const [, setRCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
+	const [, setRDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
+	const [, setRLimit] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString());
+	const [, setRSort] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT.toString());
+	const [, setROrder] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER.toString());
 	const [, setRFilters] = useQueryState<FilterType[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
 		parseAsJson((value) => value as FilterType[])

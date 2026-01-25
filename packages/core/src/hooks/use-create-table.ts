@@ -26,30 +26,29 @@ export const useCreateTable = () => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
 
-	const { mutateAsync: createTableMutation, isPending: isCreatingTable } =
-		useMutation({
-			mutationFn: (data: AddTableFormData) =>
-				fetcher.post<{ message?: string }>("/tables", data, {
-					params: { database: selectedDatabase },
+	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
+		mutationFn: (data: AddTableFormData) =>
+			fetcher.post<{ message?: string }>("/tables", data, {
+				params: { database: selectedDatabase },
+			}),
+		onSuccess: async (data) => {
+			// Invalidate the tables list and table names queries to refetch the updated lists
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
 				}),
-			onSuccess: async (data) => {
-				// Invalidate the tables list and table names queries to refetch the updated lists
-				await Promise.all([
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
-					}),
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS],
-					}),
-				]);
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS],
+				}),
+			]);
 
-				closeSheet();
-				console.log("Table created successfully:", data);
-			},
-			onError: (error: Error & { detail?: string }) => {
-				console.error("Error creating table:", error);
-			},
-		});
+			closeSheet();
+			console.log("Table created successfully:", data);
+		},
+		onError: (error: Error & { detail?: string }) => {
+			console.error("Error creating table:", error);
+		},
+	});
 
 	const createTable = async (
 		data: AddTableFormData,

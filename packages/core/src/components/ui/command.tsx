@@ -11,10 +11,7 @@ import {
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 
-function Command({
-	className,
-	...props
-}: React.ComponentProps<typeof CommandPrimitive>) {
+function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
 	return (
 		<CommandPrimitive
 			data-slot="command"
@@ -162,10 +159,7 @@ function CommandItem({
 	);
 }
 
-function CommandShortcut({
-	className,
-	...props
-}: React.ComponentProps<"span">) {
+function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="command-shortcut"

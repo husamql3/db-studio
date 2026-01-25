@@ -1,9 +1,4 @@
-import {
-	flexRender,
-	getCoreRowModel,
-	type Row,
-	useReactTable,
-} from "@tanstack/react-table";
+import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
@@ -46,12 +41,8 @@ export const ReferencedTable = ({
 		tableName,
 		isReferencedTable: true,
 	});
-	const [, setCursor] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR,
-	);
-	const [, setDirection] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION,
-	);
+	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
 	const [limit, setLimit] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);
@@ -64,13 +55,7 @@ export const ReferencedTable = ({
 		if (tableName && !limit) {
 			setLimit(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString()); // limit 30 for referenced table
 		}
-	}, [
-		tableName,
-		referencedActiveTable,
-		limit,
-		setReferencedActiveTable,
-		setLimit,
-	]);
+	}, [tableName, referencedActiveTable, limit, setReferencedActiveTable, setLimit]);
 
 	const handleNextPage = () => {
 		if (tableData?.meta?.nextCursor) {
@@ -168,10 +153,7 @@ export const ReferencedTable = ({
 									>
 										{header.isPlaceholder
 											? null
-											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+											: flexRender(header.column.columnDef.header, header.getContext())}
 									</TableHead>
 								);
 							})}

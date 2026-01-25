@@ -24,11 +24,7 @@ export const TableNameField = () => {
 							{...register("tableName", {
 								required: "Table name is required",
 							})}
-							className={
-								errors.tableName
-									? "border-destructive ring-destructive ring-1"
-									: ""
-							}
+							className={errors.tableName ? "border-destructive ring-destructive ring-1" : ""}
 						/>
 						{errors.tableName && <FieldError errors={[errors.tableName]} />}
 					</div>

@@ -14,31 +14,30 @@ export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 	const { closeSheet } = useSheetStore();
 	const { selectedDatabase } = useDatabaseStore();
 
-	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } =
-		useMutation({
-			mutationFn: (data: AddRecordFormData) =>
-				fetcher.post<{ message?: string }>(
-					"/records",
-					{ tableName, data },
-					{ params: { database: selectedDatabase } },
-				),
-			onSuccess: async (data) => {
-				await Promise.all([
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
-						exact: false,
-					}),
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
-					}),
-				]);
-				closeSheet("add-record");
-				console.log("Record created successfully:", data);
-			},
-			onError: (error: Error & { detail?: string }) => {
-				console.error("Error creating record:", error);
-			},
-		});
+	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
+		mutationFn: (data: AddRecordFormData) =>
+			fetcher.post<{ message?: string }>(
+				"/records",
+				{ tableName, data },
+				{ params: { database: selectedDatabase } },
+			),
+		onSuccess: async (data) => {
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
+					exact: false,
+				}),
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
+				}),
+			]);
+			closeSheet("add-record");
+			console.log("Record created successfully:", data);
+		},
+		onError: (error: Error & { detail?: string }) => {
+			console.error("Error creating record:", error);
+		},
+	});
 
 	const createRecord = async (
 		data: AddRecordFormData,

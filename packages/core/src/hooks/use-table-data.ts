@@ -1,10 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
-import type {
-	FilterType,
-	SortType,
-	TableDataResultSchemaType,
-} from "shared/types";
+import type { FilterType, SortType, TableDataResultSchemaType } from "shared/types";
 import { fetcher } from "@/lib/fetcher";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
@@ -17,9 +13,7 @@ export const useTableData = ({
 	isReferencedTable?: boolean;
 }) => {
 	const { selectedDatabase } = useDatabaseStore();
-	const [activeTable] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
-	);
+	const [activeTable] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE);
 	const activeTableName = tableName || activeTable;
 
 	// Cursor-based pagination state
@@ -111,10 +105,7 @@ export const useTableData = ({
 				params.filters = JSON.stringify(filters);
 			}
 
-			return fetcher.get<TableDataResultSchemaType>(
-				`/tables/${activeTableName}/data`,
-				params,
-			);
+			return fetcher.get<TableDataResultSchemaType>(`/tables/${activeTableName}/data`, params);
 		},
 		enabled: !!activeTableName,
 	});

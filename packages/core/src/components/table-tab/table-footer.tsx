@@ -2,11 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-} from "@/components/ui/pagination";
+import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
 import {
 	Select,
 	SelectContent,
@@ -66,9 +62,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 		>
 			<div className="flex items-center gap-2">
 				{/* Results per page */}
-				<Label className="text-xs text-zinc-400 whitespace-nowrap">
-					Rows per page
-				</Label>
+				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
 				<Select
 					value={limit?.toString() || "50"}
 					onValueChange={(value) => {

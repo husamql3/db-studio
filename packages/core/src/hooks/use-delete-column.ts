@@ -46,19 +46,12 @@ export const useDeleteColumn = () => {
 		},
 	});
 
-	const deleteColumn = async ({
-		tableName,
-		columnName,
-		cascade,
-	}: DeleteColumnParams) => {
-		return toast.promise(
-			deleteColumnAsync({ tableName, columnName, cascade }),
-			{
-				loading: "Deleting column...",
-				success: (result) => result.message || "Column deleted successfully",
-				error: (error: Error) => error.message || "Failed to delete column",
-			},
-		);
+	const deleteColumn = async ({ tableName, columnName, cascade }: DeleteColumnParams) => {
+		return toast.promise(deleteColumnAsync({ tableName, columnName, cascade }), {
+			loading: "Deleting column...",
+			success: (result) => result.message || "Column deleted successfully",
+			error: (error: Error) => error.message || "Failed to delete column",
+		});
 	};
 
 	return {

@@ -74,15 +74,12 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 		onError: (error) => {
 			console.error("Delete error:", error);
 			toast.error("Failed to delete records", {
-				description:
-					error instanceof Error ? error.message : "Unknown error occurred",
+				description: error instanceof Error ? error.message : "Unknown error occurred",
 			});
 		},
 	});
 
-	const deleteCells = async (
-		rowData: Record<string, unknown>[],
-	): Promise<DeleteResult> => {
+	const deleteCells = async (rowData: Record<string, unknown>[]): Promise<DeleteResult> => {
 		return deleteCellsAsync({ rowData, force: false });
 	};
 
