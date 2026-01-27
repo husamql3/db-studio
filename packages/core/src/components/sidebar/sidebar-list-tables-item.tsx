@@ -1,11 +1,11 @@
 import { Link, useParams } from "@tanstack/react-router";
-import type { TableInfo } from "shared/types";
+import type { TableInfoSchemaType } from "shared/types";
 // import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 // import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfo) => {
+export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaType) => {
 	const params = useParams({ strict: false });
 	const table = params.table as string | undefined;
 	const isActive = table === tableName;

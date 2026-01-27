@@ -317,15 +317,7 @@ export const CodeEditor = ({
 			disposable.dispose();
 			editorInstance.dispose();
 		};
-	}, [
-		initialQuery,
-		queryId,
-		savedQuery,
-		onQueryChange,
-		onUnsavedChanges,
-		onExecuteQuery,
-		onSaveQuery,
-	]);
+	}, [initialQuery, queryId, savedQuery, onQueryChange, onUnsavedChanges, onExecuteQuery]);
 
 	return (
 		<div
