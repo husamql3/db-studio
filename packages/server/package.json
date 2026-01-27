@@ -1,7 +1,7 @@
 {
   "name": "db-studio",
   "type": "module",
-  "version": "1.2.20",
+  "version": "1.2.21",
   "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
   "keywords": [
     "database",
@@ -60,6 +60,7 @@
     "open": "^10.0.2",
     "pg": "^8.13.1",
     "picocolors": "^1.1.1",
+    "xlsx": "^0.18.5",
     "zod": "^4.2.1"
   },
   "devDependencies": {

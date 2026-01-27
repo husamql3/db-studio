@@ -1,3 +1,6 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { PlusIcon } from "lucide-react";
+import { IoMdHeartEmpty } from "react-icons/io";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -8,9 +11,6 @@ import {
 import { Silk } from "@/components/silk";
 import { Badge } from "@/components/ui/badge";
 import { Highlighter } from "@/components/ui/highlighter";
-import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
-import { IoMdHeartEmpty } from "react-icons/io";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,

@@ -1,8 +1,8 @@
-import { type ChangelogItem, changelog } from "@/lib/content/changelog";
-import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
 import { Image } from "fumadocs-core/framework";
 import { PlusIcon } from "lucide-react";
+import { type ChangelogItem, changelog } from "@/lib/content/changelog";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/changelog")({
 	component: RouteComponent,

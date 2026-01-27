@@ -1,3 +1,5 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { CheckIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import { Silk } from "@/components/silk";
 import {
 	type RoadmapItem,
@@ -7,8 +9,6 @@ import {
 } from "@/lib/content/roadmap";
 import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
 import { cn } from "@/lib/utils";
-import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, Loader2Icon, PlusIcon } from "lucide-react";
 
 const getTaskIcon = (status: RoadmapItemStatus) => {
 	switch (status) {

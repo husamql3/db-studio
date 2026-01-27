@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { databaseSchema } from "./database.types.js";
 
 export const chatSchema = z.object({
 	messages: z.array(
@@ -8,4 +9,5 @@ export const chatSchema = z.object({
 		}),
 	),
 	conversationId: z.string().optional(),
+	db: databaseSchema.shape.db,
 });

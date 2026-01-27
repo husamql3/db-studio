@@ -1,7 +1,7 @@
-import { META } from "shared/constants";
 import { Link } from "@tanstack/react-router";
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { FaXTwitter } from "react-icons/fa6";
+import { META } from "shared/constants";
 
 export function baseOptions(): BaseLayoutProps {
 	return {

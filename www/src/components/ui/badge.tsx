@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
 import * as Slot from "@radix-ui/react-slot";
 import { motion } from "motion/react";
 import type React from "react";
+import { cn } from "@/lib/utils";
 
 type Variant = {
 	variant: string;

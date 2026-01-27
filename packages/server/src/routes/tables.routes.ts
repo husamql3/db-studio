@@ -6,6 +6,7 @@ import {
 	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
+	exportTableSchema,
 	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
 	tableDataQuerySchema,
@@ -14,9 +15,11 @@ import {
 import type { ApiHandler } from "@/app.types.js";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
+import { exportTableData } from "@/dao/export-table.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
+import { getExportFile } from "@/utils/get-export-file.js";
 
 export const tablesRoutes = new Hono()
 	/**
@@ -131,6 +134,38 @@ export const tablesRoutes = new Hono()
 				db,
 			});
 			return c.json({ data: tableData }, 200);
+		},
+	)
+
+	/**
+	 * GET /tables/:tableName/export
+	 * Export table data to CSV or XLSX format
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @param {ExportTableSchemaType} query - The query parameters (db, format)
+	 * @returns {BodyInit} The file content as a binary response
+	 */
+	.get(
+		"/:tableName/export",
+		zValidator("param", tableNameSchema),
+		zValidator("query", exportTableSchema),
+		async (c) => {
+			const { tableName } = c.req.valid("param");
+			const { db, format } = c.req.valid("query");
+
+			const { cols, rows } = await exportTableData({ tableName, db });
+			const fileContent = getExportFile({ cols, rows, format, tableName });
+
+			const contentType =
+				format === "csv"
+					? "text/csv"
+					: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+			return new Response(fileContent, {
+				headers: {
+					"Content-Type": contentType,
+					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
+				},
+			});
 		},
 	);
 

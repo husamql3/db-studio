@@ -13,8 +13,8 @@ import { getTableColumns } from "./table-columns.dao.js";
 /**
  * Get all table names from the database
  */
-async function getTableNames(database: DatabaseSchemaType["database"]): Promise<string[]> {
-	const pool = getDbPool(database);
+async function getTableNames(db: DatabaseSchemaType["db"]): Promise<string[]> {
+	const pool = getDbPool(db);
 	const query = `
 		SELECT table_name
 		FROM information_schema.tables
@@ -118,7 +118,7 @@ function extractRelationships(tables: Table[]): Relationship[] {
  * Get complete database schema with all tables, columns, and relationships
  */
 async function getDatabaseSchema(
-	database: DatabaseSchemaType["database"],
+	db: DatabaseSchemaType["db"],
 	options: {
 		includeSampleData?: boolean;
 		includeDescriptions?: boolean;
@@ -132,12 +132,12 @@ async function getDatabaseSchema(
 	} = options;
 
 	try {
-		const tableNames = await getTableNames(database);
+		const tableNames = await getTableNames(db);
 
 		// Fetch schema info for each table in parallel
 		const tablePromises = tableNames.map(async (tableName) => {
 			const [columns, description, sampleData] = await Promise.all([
-				getTableColumns({ tableName, database }),
+				getTableColumns({ tableName, db }),
 				includeDescriptions ? getTableDescription(tableName) : Promise.resolve(undefined),
 				includeSampleData ? getSampleData(tableName) : Promise.resolve([]),
 			]);
@@ -182,9 +182,9 @@ async function getDatabaseSchema(
  * Get detailed schema with sample data (for initial conversation context)
  */
 export async function getDetailedSchema(
-	database: DatabaseSchemaType["database"],
+	db: DatabaseSchemaType["db"],
 ): Promise<DatabaseSchema> {
-	return getDatabaseSchema(database, {
+	return getDatabaseSchema(db, {
 		includeSampleData: true,
 		includeDescriptions: true,
 		// maxTables: 30, // todo: DELETE THIS AFTER TESTING
