@@ -1,5 +1,3 @@
-import { Link } from "@tanstack/react-router";
-import { Home } from "lucide-react";
 import { Button } from "@/components/ui/btn";
 import {
 	Empty,
@@ -8,6 +6,8 @@ import {
 	EmptyHeader,
 	EmptyTitle,
 } from "@/components/ui/empty";
+import { Link } from "@tanstack/react-router";
+import { Home } from "lucide-react";
 
 export const NotFound = () => {
 	return (

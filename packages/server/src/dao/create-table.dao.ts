@@ -1,19 +1,20 @@
 import type {
 	CreateTableSchemaType,
+	DatabaseSchemaType,
 	FieldDataType,
 	ForeignKeyDataType,
-} from "shared/types/create-table.types.js";
+} from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 export async function createTable({
 	tableData,
-	database,
+	db,
 }: {
 	tableData: CreateTableSchemaType;
-	database: string;
+	db: DatabaseSchemaType["db"];
 }) {
 	const { tableName, fields, foreignKeys } = tableData;
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	// Build column definitions
 	const columnDefinitions = fields.map((field: FieldDataType) => {

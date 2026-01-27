@@ -16,7 +16,7 @@ export const deleteRecordSchema = z.object({
 export type DeleteRecordSchemaType = z.infer<typeof deleteRecordSchema>;
 
 export type DeleteRecordParams = DeleteRecordSchemaType & {
-	database: DatabaseSchemaType["database"];
+	db: DatabaseSchemaType["db"];
 };
 
 export type DeleteResult =

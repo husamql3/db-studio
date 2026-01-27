@@ -1,9 +1,9 @@
+import { META } from "shared/constants";
+import { NotFound } from "@/components/not-found";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
-import { META } from "shared/constants";
-import { NotFound } from "@/components/not-found";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({

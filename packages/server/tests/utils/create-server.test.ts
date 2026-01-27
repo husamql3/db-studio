@@ -20,6 +20,7 @@ vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({
 		query: vi.fn(),
 	})),
+	getDbType: vi.fn(() => "pg"),
 }));
 
 import { createServer } from "@/utils/create-server.js";
@@ -51,8 +52,8 @@ describe("createServer", () => {
 
 		it("should create app with strict: false option", async () => {
 			// Test that trailing slashes are handled gracefully
-			const res1 = await server.app.request("/pg/databases");
-			const res2 = await server.app.request("/pg/databases/");
+			const res1 = await server.app.request("/databases");
+			const res2 = await server.app.request("/databases/");
 
 			// Both should work (or at least not throw 500)
 			expect([200, 404]).toContain(res1.status);
@@ -62,7 +63,7 @@ describe("createServer", () => {
 
 	describe("Database type validation middleware", () => {
 		it("should accept pg as valid database type", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 			expect(res.status).toBe(200);
 		});
 
@@ -114,13 +115,13 @@ describe("createServer", () => {
 
 	describe("CORS middleware", () => {
 		it("should include Access-Control-Allow-Origin header", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
 
 		it("should include Access-Control-Allow-Methods header", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 
 			const methods = res.headers.get("Access-Control-Allow-Methods");
 			expect(methods).toContain("GET");
@@ -131,13 +132,13 @@ describe("createServer", () => {
 		});
 
 		it("should include Access-Control-Allow-Headers header", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
 		});
 
 		it("should handle OPTIONS preflight request", async () => {
-			const res = await server.app.request("/pg/databases", {
+			const res = await server.app.request("/databases", {
 				method: "OPTIONS",
 			});
 
@@ -148,7 +149,7 @@ describe("createServer", () => {
 
 	describe("Pretty JSON middleware", () => {
 		it("should return JSON response", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 			const json = await res.json();
 
 			// Verify it's valid JSON with expected structure
@@ -160,17 +161,17 @@ describe("createServer", () => {
 	describe("Routes registration", () => {
 		describe("/databases routes", () => {
 			it("should register GET /databases", async () => {
-				const res = await server.app.request("/pg/databases");
+				const res = await server.app.request("/databases");
 				expect(res.status).toBe(200);
 			});
 
 			it("should register GET /databases/current", async () => {
-				const res = await server.app.request("/pg/databases/current");
+				const res = await server.app.request("/databases/current");
 				expect(res.status).toBe(200);
 			});
 
 			it("should register GET /databases/connection", async () => {
-				const res = await server.app.request("/pg/databases/connection");
+				const res = await server.app.request("/databases/connection");
 				expect(res.status).toBe(200);
 			});
 		});
@@ -221,29 +222,34 @@ describe("createServer", () => {
 	});
 
 	describe("Base path handling", () => {
-		it("should use /:dbType as base path", async () => {
-			// Request without proper dbType gets validated and fails
+		it("should have /databases routes at root level", async () => {
+			// /databases routes are now at root level (no dbType required)
 			const res = await server.app.request("/databases");
-			// "databases" is treated as dbType and fails validation
+			expect(res.status).toBe(200);
+		});
+
+		it("should require valid database type for dbType-specific routes", async () => {
+			// Request with invalid dbType gets validated and fails
+			const res = await server.app.request("/invalid/tables?db=testdb");
 			expect(res.status).toBe(400);
 		});
 
-		it("should require valid database type in URL", async () => {
+		it("should return 404 for root path", async () => {
 			const res = await server.app.request("/");
-			// Root path doesn't match the base path pattern
+			// Root path doesn't match any registered routes
 			expect(res.status).toBe(404);
 		});
 	});
 
 	describe("Response format", () => {
 		it("should return JSON responses", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
 
 		it("should wrap data in data property", async () => {
-			const res = await server.app.request("/pg/databases");
+			const res = await server.app.request("/databases");
 			const json = await res.json();
 
 			expect(json).toHaveProperty("data");
@@ -263,8 +269,8 @@ describe("createServer", () => {
 			const server2 = createServer();
 
 			const [res1, res2] = await Promise.all([
-				server1.app.request("/pg/databases"),
-				server2.app.request("/pg/databases"),
+				server1.app.request("/databases"),
+				server2.app.request("/databases"),
 			]);
 
 			expect(res1.status).toBe(200);
@@ -274,12 +280,12 @@ describe("createServer", () => {
 
 	describe("Query parameters handling", () => {
 		it("should ignore unknown query parameters", async () => {
-			const res = await server.app.request("/pg/databases?unknown=value&foo=bar");
+			const res = await server.app.request("/databases?unknown=value&foo=bar");
 			expect(res.status).toBe(200);
 		});
 
 		it("should handle empty query string", async () => {
-			const res = await server.app.request("/pg/databases?");
+			const res = await server.app.request("/databases?");
 			expect(res.status).toBe(200);
 		});
 	});
@@ -297,7 +303,7 @@ describe("createServer", () => {
 		});
 
 		it("should return 404 for deeply nested unknown routes", async () => {
-			const res = await server.app.request("/pg/databases/unknown/deep/path");
+			const res = await server.app.request("/pg/unknown/deep/path");
 			expect(res.status).toBe(404);
 		});
 	});

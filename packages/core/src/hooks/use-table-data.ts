@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
-import type { FilterType, SortType, TableDataResultSchemaType } from "shared/types";
-import { fetcher } from "@/lib/fetcher";
+import type {
+	BaseResponse,
+	FilterType,
+	SortType,
+	TableDataResultSchemaType,
+} from "shared/types";
+import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -60,7 +65,7 @@ export const useTableData = ({
 		isRefetching: isRefetchingTableData,
 		refetch: refetchTableData,
 		error: errorTableData,
-	} = useQuery<TableDataResultSchemaType, Error>({
+	} = useQuery({
 		queryKey: [
 			CONSTANTS.CACHE_KEYS.TABLE_DATA,
 			activeTableName,
@@ -72,13 +77,13 @@ export const useTableData = ({
 			JSON.stringify(filters),
 			selectedDatabase,
 		],
-		queryFn: () => {
+		queryFn: async () => {
 			const defaultLimit = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString();
 
 			// Build params object for cursor-based pagination
 			const params: Record<string, string | undefined> = {
 				limit: limit?.toString() || defaultLimit,
-				database: selectedDatabase ?? undefined,
+				db: selectedDatabase ?? undefined,
 			};
 
 			// Add cursor if present
@@ -105,8 +110,13 @@ export const useTableData = ({
 				params.filters = JSON.stringify(filters);
 			}
 
-			return fetcher.get<TableDataResultSchemaType>(`/tables/${activeTableName}/data`, params);
+			const res = await api.get<BaseResponse<TableDataResultSchemaType>>(
+				`/tables/${activeTableName}/data`,
+				{ params },
+			);
+			return res;
 		},
+		select: (res) => res.data.data,
 		enabled: !!activeTableName,
 	});
 

@@ -53,7 +53,12 @@ const setupInterceptors = (instance: ReturnType<typeof axios.create>) => {
 			const message = data?.error ?? error.message ?? "An error occurred";
 			const details = data?.details;
 
-			return Promise.reject({ status, message, details });
+			// Create a proper Error object for react-query to handle correctly
+			const apiError = new Error(message);
+			(apiError as Error & { status: number; details?: unknown }).status = status;
+			(apiError as Error & { status: number; details?: unknown }).details = details;
+
+			return Promise.reject(apiError);
 		},
 	);
 

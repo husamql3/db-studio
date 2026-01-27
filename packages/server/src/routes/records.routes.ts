@@ -22,17 +22,17 @@ export const recordsRoutes = new Hono()
 	 * Adds a new record into a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {AddRecordSchemaType} json - The data for the new record
-	 * @returns {BaseResponseType<{ message: string }>} A success message
+	 * @returns {BaseResponseType<string>} A success message
 	 */
 	.post(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", addRecordSchema),
-		async (c): ApiHandler<{ message: string }> => {
-			const { database } = c.req.valid("query");
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
 			const { insertedCount } = await addRecord({
-				database,
+				db,
 				params: {
 					tableName,
 					data,
@@ -40,7 +40,7 @@ export const recordsRoutes = new Hono()
 			});
 			return c.json(
 				{
-					message: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
+					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
 				},
 				200,
 			);
@@ -52,14 +52,14 @@ export const recordsRoutes = new Hono()
 	 * Updates one or more cells in a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {UpdateRecordsSchemaType} json - The data for the updates
-	 * @returns {ApiHandler<{ message: string }>} A success message
+	 * @returns {ApiHandler<string>} A success message
 	 */
 	.patch(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", updateRecordsSchema),
-		async (c): ApiHandler<{ message: string }> => {
-			const { database } = c.req.valid("query");
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
 			const { updatedCount } = await updateRecords({
 				params: {
@@ -67,11 +67,11 @@ export const recordsRoutes = new Hono()
 					primaryKey,
 					updates,
 				},
-				database,
+				db,
 			});
 			return c.json(
 				{
-					message: `Updated ${updatedCount} records in "${tableName}"`,
+					data: `Updated ${updatedCount} records in "${tableName}"`,
 				},
 				200,
 			);
@@ -83,23 +83,23 @@ export const recordsRoutes = new Hono()
 	 * Deletes records from a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<{ message: string }>} A success message
+	 * @returns {ApiHandler<string>} A success message
 	 */
 	.delete(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<{ message: string }> => {
-			const { database } = c.req.valid("query");
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const { deletedCount } = await deleteRecords({
 				tableName,
 				primaryKeys,
-				database,
+				db,
 			});
 			return c.json(
 				{
-					message: `Deleted ${deletedCount} records from "${tableName}"`,
+					data: `Deleted ${deletedCount} records from "${tableName}"`,
 				},
 				200,
 			);
@@ -111,23 +111,23 @@ export const recordsRoutes = new Hono()
 	 * Force deletes records and all related FK records
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<{ message: string }>} A success message
+	 * @returns {ApiHandler<string>} A success message
 	 */
 	.delete(
 		"/force",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<{ message: string }> => {
-			const { database } = c.req.valid("query");
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const { deletedCount } = await forceDeleteRecords({
 				tableName,
 				primaryKeys,
-				database,
+				db,
 			});
 			return c.json(
 				{
-					message: `Deleted ${deletedCount} records from "${tableName}"`,
+					data: `Deleted ${deletedCount} records from "${tableName}"`,
 				},
 				200,
 			);

@@ -1,7 +1,7 @@
 import { Clock, Link, RefreshCw } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
-import type { ColumnInfo } from "server/src/dao/table-columns.dao";
+import type { ColumnInfoSchemaType } from "shared/types";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +33,7 @@ export const AddRecordField = ({
 	isForeignKey,
 	referencedTable,
 	referencedColumn,
-}: ColumnInfo) => {
+}: ColumnInfoSchemaType) => {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);

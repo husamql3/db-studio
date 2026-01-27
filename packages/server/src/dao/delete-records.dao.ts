@@ -15,7 +15,7 @@ import { getDbPool } from "@/db-manager.js";
  */
 async function getForeignKeyReferences(
 	tableName: string,
-	database: DatabaseSchemaType["database"],
+	db: DatabaseSchemaType["db"],
 ): Promise<ForeignKeyConstraint[]> {
 	const query = `
 		SELECT
@@ -35,7 +35,7 @@ async function getForeignKeyReferences(
 			AND ccu.table_name = $1
 	`;
 
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 	const result = await pool.query(query, [tableName]);
 
 	return result.rows.map(({ row }: { row: ForeignKeyConstraintRow }) => ({
@@ -53,16 +53,16 @@ async function getForeignKeyReferences(
 async function getRelatedRecords(
 	tableName: string,
 	primaryKeys: DeleteRecordSchemaType["primaryKeys"],
-	database: DatabaseSchemaType["database"],
+	db: DatabaseSchemaType["db"],
 ): Promise<RelatedRecord[]> {
-	const fkConstraints = await getForeignKeyReferences(tableName, database);
+	const fkConstraints = await getForeignKeyReferences(tableName, db);
 
 	if (fkConstraints.length === 0) {
 		return [];
 	}
 
 	const relatedRecords: RelatedRecord[] = [];
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	// Group constraints by referencing table and column for efficiency
 	const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
@@ -82,9 +82,7 @@ async function getRelatedRecords(
 		if (!constraint) continue;
 
 		// Find which primary key column matches this FK's referenced column
-		const matchingPk = primaryKeys.find(
-			(pk) => pk.columnName === constraint.referencedColumn,
-		);
+		const matchingPk = primaryKeys.find((pk) => pk.columnName === constraint.referencedColumn);
 		if (!matchingPk) continue;
 
 		// Build query to find related records
@@ -116,9 +114,9 @@ async function getRelatedRecords(
 export async function deleteRecords({
 	tableName,
 	primaryKeys,
-	database,
+	db,
 }: DeleteRecordParams): Promise<DeleteResult> {
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	const pkColumn = primaryKeys[0]?.columnName;
 	if (!pkColumn) {
@@ -156,11 +154,7 @@ export async function deleteRecords({
 
 		if (pgError.code === "23503") {
 			// Fetch related records to show the user
-			const relatedRecords = await getRelatedRecords(
-				tableName,
-				primaryKeys,
-				database,
-			);
+			const relatedRecords = await getRelatedRecords(tableName, primaryKeys, db);
 
 			return {
 				deletedCount: 0,
@@ -185,9 +179,9 @@ export async function deleteRecords({
 export async function forceDeleteRecords({
 	tableName,
 	primaryKeys,
-	database,
+	db,
 }: DeleteRecordParams): Promise<{ deletedCount: number }> {
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	const pkColumn = primaryKeys[0]?.columnName;
 	if (!pkColumn) {
@@ -202,7 +196,7 @@ export async function forceDeleteRecords({
 
 	try {
 		// Get all FK constraints that reference this table
-		const fkConstraints = await getForeignKeyReferences(tableName, database);
+		const fkConstraints = await getForeignKeyReferences(tableName, db);
 
 		let totalRelatedDeleted = 0;
 
@@ -216,7 +210,7 @@ export async function forceDeleteRecords({
 			values: unknown[],
 		) => {
 			// First, find if there are tables referencing the target table
-			const nestedFks = await getForeignKeyReferences(targetTable, database);
+			const nestedFks = await getForeignKeyReferences(targetTable, db);
 
 			for (const nestedFk of nestedFks) {
 				// Get the values that will be deleted from the target table

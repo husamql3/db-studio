@@ -1,5 +1,5 @@
-import { PlusIcon } from "lucide-react";
 import { META } from "shared/constants";
+import { PlusIcon } from "lucide-react";
 
 export const Footer = () => {
 	return (

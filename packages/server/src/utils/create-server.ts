@@ -7,7 +7,6 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { type DatabaseTypeSchema, databaseTypeParamSchema } from "shared/types";
-
 import type { AppType } from "@/app.types.js";
 import { handleError, validationHook } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
@@ -43,9 +42,7 @@ export const createServer = () => {
 		/**
 		 * Enable logger in development mode
 		 */
-		.use(
-			process.env.NODE_ENV === "development" ? logger() : (_, next) => next(),
-		)
+		.use(process.env.NODE_ENV === "development" ? logger() : (_, next) => next())
 
 		/**
 		 * Serve the favicon.ico file
@@ -62,10 +59,7 @@ export const createServer = () => {
 		 */
 		.use("*", async (c, next) => {
 			c.header("Access-Control-Allow-Origin", "*");
-			c.header(
-				"Access-Control-Allow-Methods",
-				"GET, POST, PUT, DELETE, OPTIONS",
-			);
+			c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 			c.header("Access-Control-Allow-Headers", "Content-Type");
 			await next();
 		})
@@ -83,10 +77,7 @@ export const createServer = () => {
 		/**
 		 * Routes that require dbType validation - under /:dbType/...
 		 */
-		.use(
-			"/:dbType/*",
-			zValidator("param", databaseTypeParamSchema, validationHook),
-		)
+		.use("/:dbType/*", zValidator("param", databaseTypeParamSchema, validationHook))
 		.use("/:dbType/*", async (c, next) => {
 			const dbType = c.req.param("dbType") as DatabaseTypeSchema;
 			c.set("dbType", dbType);

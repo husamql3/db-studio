@@ -14,7 +14,7 @@ export const useTablesList = () => {
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST, selectedDatabase],
 		queryFn: () => {
-			const params = new URLSearchParams({ database: selectedDatabase ?? "" });
+			const params = new URLSearchParams({ db: selectedDatabase ?? "" });
 			return api.get<BaseResponse<TableInfoSchemaType[]>>("/tables", { params });
 		},
 		select: (res) => res.data.data,

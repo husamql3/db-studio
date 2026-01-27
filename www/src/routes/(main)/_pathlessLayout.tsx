@@ -1,7 +1,7 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { getStarsCount } from "@/utils/get-stars-count";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout")({
 	component: RouteComponent,

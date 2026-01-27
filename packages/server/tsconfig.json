@@ -7,15 +7,26 @@
 		"verbatimModuleSyntax": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
-		"types": ["node", "vitest/globals"],
+		"types": [
+			"node",
+			"vitest/globals"
+		],
 		"jsx": "react-jsx",
 		"jsxImportSource": "hono/jsx",
-		"outDir": "./dist",	
+		"outDir": "./dist",
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["./src/*"],
-			"shared/*": ["../shared/src/*"]
+			"@/*": [
+				"./src/*"
+			],
+			"shared/*": [
+				"../shared/src/*"
+			]
 		}
 	},
-	"exclude": ["node_modules"]
+	"exclude": [
+		"node_modules",
+		"dist",
+		"./src/tests/**"
+	]
 }

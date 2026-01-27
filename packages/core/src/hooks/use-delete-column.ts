@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DeleteColumnParams, DeleteColumnResponse } from "shared/types";
+import type { BaseResponse, DeleteColumnParamsSchemaType } from "shared/types";
 import { toast } from "sonner";
-import { fetcher } from "@/lib/fetcher";
+import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -10,29 +10,29 @@ export const useDeleteColumn = () => {
 	const { selectedDatabase } = useDatabaseStore();
 
 	const { mutateAsync: deleteColumnAsync } = useMutation<
-		DeleteColumnResponse,
+		string,
 		Error,
-		DeleteColumnParams
+		DeleteColumnParamsSchemaType
 	>({
-		mutationFn: ({ tableName, columnName, cascade }: DeleteColumnParams) =>
-			fetcher.delete<DeleteColumnResponse>(
+		mutationFn: async ({ tableName, columnName, cascade }: DeleteColumnParamsSchemaType) => {
+			const params = new URLSearchParams({
+				db: selectedDatabase ?? "",
+				cascade: cascade ? "true" : "false",
+			});
+			const res = await api.delete<BaseResponse<string>>(
 				`/tables/${encodeURIComponent(tableName)}/columns/${encodeURIComponent(columnName)}`,
-				undefined,
-				{
-					params: {
-						database: selectedDatabase,
-						cascade: cascade ? "true" : undefined,
-					},
-				},
-			),
-		onSuccess: async (data) => {
+				{ params },
+			);
+			return res.data.data;
+		},
+		onSuccess: async (_, variables) => {
 			await Promise.all([
 				queryClient.invalidateQueries({
-					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, data.tableName],
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, variables.tableName],
 					exact: false,
 				}),
 				queryClient.invalidateQueries({
-					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, data.tableName],
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, variables.tableName],
 					exact: false,
 				}),
 				queryClient.invalidateQueries({
@@ -46,10 +46,14 @@ export const useDeleteColumn = () => {
 		},
 	});
 
-	const deleteColumn = async ({ tableName, columnName, cascade }: DeleteColumnParams) => {
-		return toast.promise(deleteColumnAsync({ tableName, columnName, cascade }), {
+	const deleteColumn = async ({
+		tableName,
+		columnName,
+		cascade,
+	}: DeleteColumnParamsSchemaType) => {
+		return toast.promise(deleteColumnAsync({ tableName, columnName, cascade, db: "" }), {
 			loading: "Deleting column...",
-			success: (result) => result.message || "Column deleted successfully",
+			success: (message) => message || "Column deleted successfully",
 			error: (error: Error) => error.message || "Failed to delete column",
 		});
 	};

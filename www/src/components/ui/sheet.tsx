@@ -1,8 +1,7 @@
+import { cn } from "@/lib/utils";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
-
-import { cn } from "@/lib/utils";
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
 	return (
@@ -13,9 +12,7 @@ function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
 	);
 }
 
-function SheetTrigger({
-	...props
-}: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
+function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
 	return (
 		<SheetPrimitive.Trigger
 			data-slot="sheet-trigger"
@@ -24,9 +21,7 @@ function SheetTrigger({
 	);
 }
 
-function _SheetClose({
-	...props
-}: React.ComponentProps<typeof SheetPrimitive.Close>) {
+function _SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
 	return (
 		<SheetPrimitive.Close
 			data-slot="sheet-close"
@@ -35,9 +30,7 @@ function _SheetClose({
 	);
 }
 
-function SheetPortal({
-	...props
-}: React.ComponentProps<typeof SheetPrimitive.Portal>) {
+function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
 	return (
 		<SheetPrimitive.Portal
 			data-slot="sheet-portal"

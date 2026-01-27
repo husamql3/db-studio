@@ -7,19 +7,15 @@ import {
 	type TableNameSchemaType,
 } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-import type {
-	// ColumnInfoSchemaType,
-	// TableNameSchemaType,
-} from "./table-list.types.js";
 
 export async function getTableColumns({
 	tableName,
-	database,
+	db,
 }: {
 	tableName: TableNameSchemaType["tableName"];
-	database: DatabaseSchemaType["database"];
+	db: DatabaseSchemaType["db"];
 }): Promise<ColumnInfoSchemaType[]> {
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 	const query = `
     SELECT 
       c.column_name as "columnName",
@@ -72,7 +68,7 @@ export async function getTableColumns({
   `;
 
 	const { rows } = await pool.query(query, [tableName]);
-	if (!rows[0]) {
+	if (!rows || rows.length === 0) {
 		throw new HTTPException(404, {
 			message: `Table "${tableName}" does not exist`,
 		});
@@ -87,10 +83,7 @@ export async function getTableColumns({
 				parsedEnumValues = r.enumValues;
 			} else if (typeof r.enumValues === "string") {
 				// Parse PostgreSQL array format: "{VALUE1,VALUE2,VALUE3}"
-				parsedEnumValues = r.enumValues
-					.replace(/[{}]/g, "")
-					.split(",")
-					.filter(Boolean);
+				parsedEnumValues = r.enumValues.replace(/[{}]/g, "").split(",").filter(Boolean);
 			}
 		}
 

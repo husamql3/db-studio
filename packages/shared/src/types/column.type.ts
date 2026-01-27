@@ -4,7 +4,7 @@ import { DataTypes } from "./column-info.types.js";
  * Maps PostgreSQL data types to generic DataType enum
  */
 export function mapPostgresToDataType(pgType: string): DataTypes {
-	const normalized = pgType.toLowerCase().trim();
+	const normalized = pgType?.toLowerCase().trim() || "";
 
 	// Handle array types and date/time types
 	if (
@@ -150,7 +150,12 @@ export type StandardizedDataType =
 /**
  * Maps PostgreSQL data types to standardized display labels
  */
-export function standardizeDataTypeLabel(pgType: string): StandardizedDataType {
+export function standardizeDataTypeLabel(
+	pgType: string | null | undefined,
+): StandardizedDataType {
+	if (!pgType) {
+		return StandardizedDataType.text; // Default fallback
+	}
 	const normalized = pgType.toLowerCase().trim();
 
 	// Numeric types
@@ -190,11 +195,7 @@ export function standardizeDataTypeLabel(pgType: string): StandardizedDataType {
 		return StandardizedDataType.float;
 	}
 
-	if (
-		normalized === "double precision" ||
-		normalized === "float8" ||
-		normalized === "float"
-	) {
+	if (normalized === "double precision" || normalized === "float8" || normalized === "float") {
 		return StandardizedDataType.double;
 	}
 

@@ -8,13 +8,13 @@ import { getDbPool } from "@/db-manager.js";
  */
 export async function updateRecords({
 	params,
-	database,
+	db,
 }: {
 	params: UpdateRecordsSchemaType;
-	database: DatabaseSchemaType["database"];
+	db: DatabaseSchemaType["db"];
 }): Promise<{ updatedCount: number }> {
 	const { tableName, updates, primaryKey } = params;
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	// Group updates by row (using the primary key value)
 	const updatesByRow = new Map<
@@ -52,9 +52,7 @@ export async function updateRecords({
 
 		// Execute updates for each row
 		for (const [pkValue, rowUpdates] of updatesByRow.entries()) {
-			const setClauses = rowUpdates.map(
-				(u, index) => `"${u.columnName}" = $${index + 1}`,
-			);
+			const setClauses = rowUpdates.map((u, index) => `"${u.columnName}" = $${index + 1}`);
 			const values = rowUpdates.map((u) => {
 				// If the value is an object or array, stringify it for JSON/JSONB columns
 				if (u.value !== null && typeof u.value === "object") {

@@ -153,10 +153,6 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 		meta: tableMeta,
 	});
 
-	const hasNoData = !tableData || !tableData.data || tableData.data.length === 0;
-
-	const selectedRows = table.getSelectedRowModel().rows;
-
 	if (isLoadingTableData || isLoadingTableCols) {
 		return (
 			<div className="size-full flex items-center justify-center">
@@ -166,12 +162,41 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 	}
 
 	if (errorTableData || errorTableCols) {
+		const error = errorTableData || errorTableCols;
+		const errorMessage = error?.message || "";
+		const isTableNotFound =
+			errorMessage.includes("does not exist") ||
+			errorMessage.includes("404") ||
+			(error as Error & { status?: number })?.status === 404;
+		const isNetworkError =
+			errorMessage.includes("Network Error") || errorMessage.includes("Failed to fetch");
+
+		let errorTitle = "Something went wrong";
+		let errorDescription = errorMessage || "An unexpected error occurred";
+
+		if (isTableNotFound) {
+			errorTitle = "Table not found";
+			errorDescription =
+				errorMessage || `The table "${tableName}" does not exist or has been deleted`;
+		} else if (isNetworkError) {
+			errorTitle = "Connection failed";
+			errorDescription =
+				"Unable to connect to the database server. Please check your connection.";
+		}
+
 		return (
-			<div className="size-full flex items-center justify-center">
-				Error: {errorTableData?.message || errorTableCols?.message}
+			<div className="size-full flex flex-col items-center justify-center">
+				<div className="flex-1 flex flex-col items-center justify-center gap-2">
+					<div className="text-sm font-medium">{errorTitle}</div>
+					<div className="text-sm text-muted-foreground">{errorDescription}</div>
+				</div>
 			</div>
 		);
 	}
+
+	const hasNoData = !tableData || !tableData.data || tableData.data.length === 0;
+
+	const selectedRows = table.getSelectedRowModel().rows;
 
 	if (hasNoData) {
 		return (

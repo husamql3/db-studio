@@ -62,7 +62,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -75,7 +75,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -91,7 +91,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -107,7 +107,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -122,7 +122,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -137,7 +137,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -155,7 +155,7 @@ describe("Tables Routes", () => {
 				new HTTPException(500, { message: "No tables returned from database" })
 			);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(500);
 		});
@@ -164,7 +164,7 @@ describe("Tables Routes", () => {
 			const connectionError = new Error("connect ECONNREFUSED 127.0.0.1:5432");
 			vi.mocked(tableListDao.getTablesList).mockRejectedValue(connectionError);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -175,7 +175,7 @@ describe("Tables Routes", () => {
 			const timeoutError = new Error("timeout expired");
 			vi.mocked(tableListDao.getTablesList).mockRejectedValue(timeoutError);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -205,7 +205,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -216,7 +216,7 @@ describe("Tables Routes", () => {
 			expect(json.data).toBe("Table new_table created successfully");
 			expect(createTableDao.createTable).toHaveBeenCalledWith({
 				tableData: expect.objectContaining({ tableName: "new_table" }),
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -254,7 +254,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -294,7 +294,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -310,7 +310,7 @@ describe("Tables Routes", () => {
 						}),
 					]),
 				}),
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -342,7 +342,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -356,7 +356,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -371,7 +371,7 @@ describe("Tables Routes", () => {
 				fields: [],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -385,7 +385,7 @@ describe("Tables Routes", () => {
 				tableName: "no_fields_table",
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -400,7 +400,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -415,7 +415,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id" }],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -457,7 +457,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -476,7 +476,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -495,7 +495,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -512,7 +512,7 @@ describe("Tables Routes", () => {
 		it("should delete a column and return 200", async () => {
 			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
-			const res = await app.request("/pg/tables/users/columns/email?database=testdb", {
+			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -525,7 +525,7 @@ describe("Tables Routes", () => {
 				tableName: "users",
 				columnName: "email",
 				cascade: false,
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -533,7 +533,7 @@ describe("Tables Routes", () => {
 			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
-				"/pg/tables/orders/columns/user_id?database=testdb&cascade=true",
+				"/pg/tables/orders/columns/user_id?db=testdb&cascade=true",
 				{ method: "DELETE" }
 			);
 
@@ -542,7 +542,7 @@ describe("Tables Routes", () => {
 				tableName: "orders",
 				columnName: "user_id",
 				cascade: true,
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -550,7 +550,7 @@ describe("Tables Routes", () => {
 			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
-				"/pg/tables/products/columns/name?database=testdb&cascade=false",
+				"/pg/tables/products/columns/name?db=testdb&cascade=false",
 				{ method: "DELETE" }
 			);
 
@@ -559,7 +559,7 @@ describe("Tables Routes", () => {
 				tableName: "products",
 				columnName: "name",
 				cascade: false,
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -567,7 +567,7 @@ describe("Tables Routes", () => {
 			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
-				"/pg/tables/users/columns/created_at?database=testdb",
+				"/pg/tables/users/columns/created_at?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -592,7 +592,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/nonexistent/columns/email?database=testdb",
+				"/pg/tables/nonexistent/columns/email?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -607,7 +607,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/users/columns/nonexistent?database=testdb",
+				"/pg/tables/users/columns/nonexistent?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -620,7 +620,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/users/columns/id?database=testdb&cascade=false",
+				"/pg/tables/users/columns/id?db=testdb&cascade=false",
 				{ method: "DELETE" }
 			);
 
@@ -633,7 +633,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/users/columns/email?database=testdb",
+				"/pg/tables/users/columns/email?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -675,14 +675,14 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/users/columns?database=testdb");
+			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockColumns);
 			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "users",
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -716,7 +716,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/orders/columns?database=testdb");
+			const res = await app.request("/pg/tables/orders/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -742,7 +742,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/tasks/columns?database=testdb");
+			const res = await app.request("/pg/tables/tasks/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -784,7 +784,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/users/columns?database=testdb");
+			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -804,7 +804,7 @@ describe("Tables Routes", () => {
 
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/users/columns?database=testdb");
+			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -823,7 +823,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/nonexistent/columns?database=testdb"
+				"/pg/tables/nonexistent/columns?db=testdb"
 			);
 
 			expect(res.status).toBe(404);
@@ -834,7 +834,7 @@ describe("Tables Routes", () => {
 				new Error("connect ECONNREFUSED")
 			);
 
-			const res = await app.request("/pg/tables/users/columns?database=testdb");
+			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -862,7 +862,7 @@ describe("Tables Routes", () => {
 		it("should return table data with default pagination", async () => {
 			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
 
-			const res = await app.request("/pg/tables/users/data?database=testdb");
+			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -871,11 +871,11 @@ describe("Tables Routes", () => {
 				tableName: "users",
 				cursor: undefined,
 				limit: 50,
-				direction: "forward",
+				direction: "asc",
 				sort: "",
 				order: undefined,
 				filters: [],
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -886,7 +886,7 @@ describe("Tables Routes", () => {
 			});
 
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&limit=25"
+				"/pg/tables/users/data?db=testdb&limit=25"
 			);
 
 			expect(res.status).toBe(200);
@@ -907,14 +907,14 @@ describe("Tables Routes", () => {
 			});
 
 			const res = await app.request(
-				`/pg/tables/users/data?database=testdb&cursor=${cursor}&direction=forward`
+				`/pg/tables/users/data?db=testdb&cursor=${cursor}&direction=asc`
 			);
 
 			expect(res.status).toBe(200);
 			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					cursor,
-					direction: "forward",
+					direction: "asc",
 				})
 			);
 		});
@@ -931,14 +931,14 @@ describe("Tables Routes", () => {
 			});
 
 			const res = await app.request(
-				`/pg/tables/users/data?database=testdb&cursor=${cursor}&direction=backward`
+				`/pg/tables/users/data?db=testdb&cursor=${cursor}&direction=desc`
 			);
 
 			expect(res.status).toBe(200);
 			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					cursor,
-					direction: "backward",
+					direction: "desc",
 				})
 			);
 		});
@@ -947,7 +947,7 @@ describe("Tables Routes", () => {
 			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&sort=name&order=asc"
+				"/pg/tables/users/data?db=testdb&sort=name&order=asc"
 			);
 
 			expect(res.status).toBe(200);
@@ -968,7 +968,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?database=testdb&sort=${encodeURIComponent(sortArray)}`
+				`/pg/tables/users/data?db=testdb&sort=${encodeURIComponent(sortArray)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -986,7 +986,7 @@ describe("Tables Routes", () => {
 			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&sort=id&order=desc"
+				"/pg/tables/users/data?db=testdb&sort=id&order=desc"
 			);
 
 			expect(res.status).toBe(200);
@@ -1010,7 +1010,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?database=testdb&filters=${encodeURIComponent(filters)}`
+				`/pg/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1031,7 +1031,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?database=testdb&filters=${encodeURIComponent(filters)}`
+				`/pg/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1054,7 +1054,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?database=testdb&sort=name&order=asc&filters=${encodeURIComponent(filters)}`
+				`/pg/tables/users/data?db=testdb&sort=name&order=asc&filters=${encodeURIComponent(filters)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1080,7 +1080,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/empty_table/data?database=testdb");
+			const res = await app.request("/pg/tables/empty_table/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1104,7 +1104,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/users/data?database=testdb");
+			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1121,7 +1121,7 @@ describe("Tables Routes", () => {
 
 		it("should return 400 for invalid direction parameter", async () => {
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&direction=invalid"
+				"/pg/tables/users/data?db=testdb&direction=invalid"
 			);
 
 			expect(res.status).toBe(400);
@@ -1129,7 +1129,7 @@ describe("Tables Routes", () => {
 
 		it("should return 400 for invalid order parameter", async () => {
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&order=invalid"
+				"/pg/tables/users/data?db=testdb&order=invalid"
 			);
 
 			expect(res.status).toBe(400);
@@ -1139,7 +1139,7 @@ describe("Tables Routes", () => {
 			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&filters=invalid-json"
+				"/pg/tables/users/data?db=testdb&filters=invalid-json"
 			);
 
 			expect(res.status).toBe(200);
@@ -1153,7 +1153,7 @@ describe("Tables Routes", () => {
 			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?database=testdb&sort=invalid-json"
+				"/pg/tables/users/data?db=testdb&sort=invalid-json"
 			);
 
 			expect(res.status).toBe(200);
@@ -1168,7 +1168,7 @@ describe("Tables Routes", () => {
 				new Error("connect ECONNREFUSED")
 			);
 
-			const res = await app.request("/pg/tables/users/data?database=testdb");
+			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -1178,7 +1178,7 @@ describe("Tables Routes", () => {
 				new Error("Unexpected error")
 			);
 
-			const res = await app.request("/pg/tables/users/data?database=testdb");
+			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(500);
 		});
@@ -1189,25 +1189,25 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type", async () => {
-			const res = await app.request("/invalid/tables?database=testdb");
+			const res = await app.request("/invalid/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for mysql database type (not supported)", async () => {
-			const res = await app.request("/mysql/tables?database=testdb");
+			const res = await app.request("/mysql/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
-			const res = await app.request("/sqlite/tables?database=testdb");
+			const res = await app.request("/sqlite/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for numeric database type", async () => {
-			const res = await app.request("/123/tables?database=testdb");
+			const res = await app.request("/123/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
@@ -1215,7 +1215,7 @@ describe("Tables Routes", () => {
 		it("should accept valid pg database type", async () => {
 			vi.mocked(tableListDao.getTablesList).mockResolvedValue([]);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			// This should fail because getTablesList throws when no tables exist
 			// but the route itself should be valid
@@ -1228,7 +1228,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("HTTP methods validation", () => {
 		it("should return 404 for PUT /tables", async () => {
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "PUT",
 			});
 
@@ -1236,7 +1236,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for DELETE /tables (without column path)", async () => {
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -1244,7 +1244,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for PATCH /tables", async () => {
-			const res = await app.request("/pg/tables?database=testdb", {
+			const res = await app.request("/pg/tables?db=testdb", {
 				method: "PATCH",
 			});
 
@@ -1252,7 +1252,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for POST /tables/:tableName/columns", async () => {
-			const res = await app.request("/pg/tables/users/columns?database=testdb", {
+			const res = await app.request("/pg/tables/users/columns?db=testdb", {
 				method: "POST",
 			});
 
@@ -1260,7 +1260,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for PUT /tables/:tableName/data", async () => {
-			const res = await app.request("/pg/tables/users/data?database=testdb", {
+			const res = await app.request("/pg/tables/users/data?db=testdb", {
 				method: "PUT",
 			});
 
@@ -1277,7 +1277,7 @@ describe("Tables Routes", () => {
 				{ tableName: "test", rowCount: 0 },
 			]);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
@@ -1287,7 +1287,7 @@ describe("Tables Routes", () => {
 				{ tableName: "test", rowCount: 0 },
 			]);
 
-			const res = await app.request("/pg/tables?database=testdb");
+			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
@@ -1303,7 +1303,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const requests = Array.from({ length: 10 }, () =>
-				app.request("/pg/tables?database=testdb")
+				app.request("/pg/tables?db=testdb")
 			);
 
 			const responses = await Promise.all(requests);
@@ -1333,9 +1333,9 @@ describe("Tables Routes", () => {
 			});
 
 			const [res1, res2, res3] = await Promise.all([
-				app.request("/pg/tables?database=testdb"),
-				app.request("/pg/tables/users/columns?database=testdb"),
-				app.request("/pg/tables/users/data?database=testdb"),
+				app.request("/pg/tables?db=testdb"),
+				app.request("/pg/tables/users/columns?db=testdb"),
+				app.request("/pg/tables/users/data?db=testdb"),
 			]);
 
 			expect(res1.status).toBe(200);
@@ -1352,12 +1352,12 @@ describe("Tables Routes", () => {
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
 
 			const res = await app.request(
-				"/pg/tables/user_profiles/columns?database=testdb"
+				"/pg/tables/user_profiles/columns?db=testdb"
 			);
 
 			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "user_profiles",
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -1367,21 +1367,21 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				"/pg/tables?database=testdb&foo=bar&baz=123"
+				"/pg/tables?db=testdb&foo=bar&baz=123"
 			);
 
 			expect(res.status).toBe(200);
 		});
 
 		it("should return 404 for non-existent sub-routes", async () => {
-			const res = await app.request("/pg/tables/users/nonexistent?database=testdb");
+			const res = await app.request("/pg/tables/users/nonexistent?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for deeply nested non-existent routes", async () => {
 			const res = await app.request(
-				"/pg/tables/users/columns/extra/path?database=testdb"
+				"/pg/tables/users/columns/extra/path?db=testdb"
 			);
 
 			expect(res.status).toBe(404);
@@ -1392,12 +1392,12 @@ describe("Tables Routes", () => {
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
 
 			const res = await app.request(
-				`/pg/tables/${longTableName}/columns?database=testdb`
+				`/pg/tables/${longTableName}/columns?db=testdb`
 			);
 
 			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: longTableName,
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 
@@ -1405,12 +1405,12 @@ describe("Tables Routes", () => {
 			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
 
 			const res = await app.request(
-				"/pg/tables/user%5Fprofiles/columns?database=testdb"
+				"/pg/tables/user%5Fprofiles/columns?db=testdb"
 			);
 
 			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "user_profiles",
-				database: "testdb",
+				db: "testdb",
 			});
 		});
 	});
@@ -1442,7 +1442,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/users/data?database=testdb");
+			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1476,7 +1476,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/users/data?database=testdb");
+			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();

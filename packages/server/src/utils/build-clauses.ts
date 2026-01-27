@@ -1,6 +1,6 @@
-import type { Filter, Sort, SortDirection } from "shared/types/index.js";
+import type { CursorData, FilterType, SortDirection, SortType } from "shared/types";
 
-export function buildWhereClause(filters: Filter[]): {
+export function buildWhereClause(filters: FilterType[]): {
 	clause: string;
 	values: unknown[];
 } {
@@ -71,10 +71,7 @@ export function buildWhereClause(filters: Filter[]): {
 	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
 }
 
-export function buildSortClause(
-	sorts: Sort[] | string,
-	order: SortDirection,
-): string {
+export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	// Handle array of Sort objects (new format for referenced tables)
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) {
@@ -92,4 +89,40 @@ export function buildSortClause(
 	}
 
 	return "";
+}
+
+export function buildCursorWhereClause(
+	cursorData: CursorData,
+	direction: SortDirection,
+	sortDirection: SortDirection,
+	startParamIndex: number,
+): { clause: string; values: unknown[] } {
+	const { values, sortColumns } = cursorData;
+	const conditions: string[] = [];
+	const queryValues: unknown[] = [];
+
+	// Determine comparison operator based on direction and sort order
+	// Forward + ASC = >, Forward + DESC = <
+	// Backward + ASC = <, Backward + DESC = >
+	const isAscending = sortDirection === "asc";
+	const isForward = direction === "asc";
+	const useGreaterThan = isAscending === isForward;
+
+	// Build row comparison for multi-column cursor
+	// Uses tuple comparison: (col1, col2, ...) > (val1, val2, ...)
+	if (sortColumns.length > 0) {
+		const columnList = sortColumns.map((col) => `"${col}"`).join(", ");
+		const placeholders = sortColumns.map((_, i) => `$${startParamIndex + i}`).join(", ");
+		const operator = useGreaterThan ? ">" : "<";
+
+		conditions.push(`(${columnList}) ${operator} (${placeholders})`);
+		for (const col of sortColumns) {
+			queryValues.push(values[col]);
+		}
+	}
+
+	return {
+		clause: conditions.length > 0 ? `(${conditions.join(" AND ")})` : "",
+		values: queryValues,
+	};
 }

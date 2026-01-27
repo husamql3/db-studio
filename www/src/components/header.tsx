@@ -1,17 +1,12 @@
+import { HEADER_LINKS, META } from "shared/constants";
+import { Button } from "@/components/ui/btn";
+import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
 import { IoMenuOutline } from "react-icons/io5";
-import { HEADER_LINKS, META } from "shared/constants";
-import { Button } from "@/components/ui/btn";
-import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTrigger,
-} from "@/components/ui/sheet";
 
 export const Header = ({ stars }: { stars: string | null }) => {
 	const [open, setOpen] = useState(false);
@@ -100,9 +95,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 						>
 							<IoLogoGithub className="size-4" />
 							{stars && (
-								<span className="leading-none text-xs">
-									{stars.replace(".0k", "k")}
-								</span>
+								<span className="leading-none text-xs">{stars.replace(".0k", "k")}</span>
 							)}
 						</Button>
 					</a>

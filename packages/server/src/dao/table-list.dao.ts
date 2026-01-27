@@ -4,9 +4,9 @@ import type { DatabaseSchemaType } from "shared/types/database.types.js";
 import { getDbPool } from "@/db-manager.js";
 
 export async function getTablesList(
-	database: DatabaseSchemaType["database"],
+	db: DatabaseSchemaType["db"],
 ): Promise<TableInfoSchemaType[]> {
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 	const query = `
 		SELECT 
 			t.table_name as "tableName",

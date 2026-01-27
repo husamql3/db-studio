@@ -8,9 +8,7 @@ export const deleteColumnQuerySchema = databaseSchema.extend({
 		.transform((val) => val === "true"),
 });
 
-export type DeleteColumnQuerySchemaType = z.infer<
-	typeof deleteColumnQuerySchema
->;
+export type DeleteColumnQuerySchemaType = z.infer<typeof deleteColumnQuerySchema>;
 
 export const deleteColumnParamSchema = z.object({
 	tableName: z.string("Table name is required"),
@@ -18,15 +16,13 @@ export const deleteColumnParamSchema = z.object({
 });
 
 export const deleteColumnParamsSchema = z.object({
-	database: databaseSchema.shape.database,
+	db: databaseSchema.shape.db,
 	tableName: deleteColumnParamSchema.shape.tableName,
 	columnName: deleteColumnParamSchema.shape.columnName,
 	cascade: z.boolean().optional(),
 });
 
-export type DeleteColumnParamsSchemaType = z.infer<
-	typeof deleteColumnParamsSchema
->;
+export type DeleteColumnParamsSchemaType = z.infer<typeof deleteColumnParamsSchema>;
 
 export const deleteColumnSuccessResponseSchema = z.object({
 	message: z.string("Message is required"),
@@ -35,6 +31,4 @@ export const deleteColumnSuccessResponseSchema = z.object({
 	deletedCount: z.number("Deleted count is required").default(0),
 });
 
-export type DeleteColumnResponseType = z.infer<
-	typeof deleteColumnSuccessResponseSchema
->;
+export type DeleteColumnResponseType = z.infer<typeof deleteColumnSuccessResponseSchema>;

@@ -1,10 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import {
-	databaseSchema,
-	type ExecuteQueryResult,
-	executeQuerySchema,
-} from "shared/types";
+import { databaseSchema, type ExecuteQueryResult, executeQuerySchema } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { executeQuery } from "@/dao/query.dao.js";
 
@@ -18,7 +14,7 @@ export const queryRoutes = new Hono()
 	 * POST /query
 	 * Executes a SQL query on the currently connected database
 	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {ExecuteQueryParams} json - The query to execute
+	 * @param {ExecuteQuerySchemaType} json - The query to execute
 	 * @returns {ApiHandler<ExecuteQueryResult>} The result of the query
 	 */
 	.post(
@@ -27,8 +23,8 @@ export const queryRoutes = new Hono()
 		zValidator("json", executeQuerySchema),
 		async (c): ApiHandler<ExecuteQueryResult> => {
 			const { query } = c.req.valid("json");
-			const { database } = c.req.valid("query");
-			const data = await executeQuery({ query, database });
+			const { db } = c.req.valid("query");
+			const data = await executeQuery({ query, db });
 			return c.json({ data }, 200);
 		},
 	);

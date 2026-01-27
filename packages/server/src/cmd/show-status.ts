@@ -6,11 +6,7 @@ import { loadEnv } from "@/cmd/load-env.js";
 /**
  * Show connection status
  */
-export const showStatus = async (
-	env?: string,
-	databaseUrl?: string,
-	varName?: string,
-) => {
+export const showStatus = async (env?: string, databaseUrl?: string, varName?: string) => {
 	intro(color.inverse(" db-studio "));
 
 	const envVarName = varName || DEFAULTS.VAR_NAME;
@@ -28,9 +24,7 @@ export const showStatus = async (
 	}
 
 	if (foundUrl) {
-		outro(
-			color.green(`✓ Database connection configured (using ${envVarName})`),
-		);
+		outro(color.green(`✓ Database connection configured (using ${envVarName})`));
 	} else {
 		note(color.red(`✗ ${envVarName} not found`), "Status");
 		console.log(color.yellow("\n  To configure database connection:"));

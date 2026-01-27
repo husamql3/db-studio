@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -36,14 +36,14 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const handleNextPage = () => {
 		if (tableData?.meta?.nextCursor) {
 			setCursor(tableData.meta.nextCursor);
-			setDirection("forward");
+			setDirection("asc");
 		}
 	};
 
 	const handlePrevPage = () => {
 		if (tableData?.meta?.prevCursor) {
 			setCursor(tableData.meta.prevCursor);
-			setDirection("backward");
+			setDirection("desc");
 		}
 	};
 
@@ -100,16 +100,16 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 			</div>
 
 			{/* Pagination buttons */}
-			<div className="flex items-center gap-1">
+			<div className="flex items-center gap-0.5">
 				<Button
 					size="sm"
 					variant="ghost"
-					className="h-6 px-2 text-xs disabled:opacity-30"
+					className="h-6 w-6 disabled:opacity-30"
 					onClick={handleFirstPage}
 					disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 					aria-label="Go to first page"
 				>
-					First
+					<ChevronsLeft aria-hidden="true" />
 				</Button>
 				<Pagination>
 					<PaginationContent className="gap-0.5">

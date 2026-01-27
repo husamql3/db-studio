@@ -1,5 +1,5 @@
 import { HTTPException } from "hono/http-exception";
-import type { DeleteColumnParamsSchemaType } from "shared/types/delete-column.types.js";
+import type { DeleteColumnParamsSchemaType } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 /**
@@ -9,15 +9,15 @@ import { getDbPool } from "@/db-manager.js";
  * @param params.tableName - Name of the table containing the column
  * @param params.columnName - Name of the column to delete
  * @param params.cascade - If true, uses CASCADE; if false, uses RESTRICT
- * @param params.database - Optional database name to connect to
- * @returns Success response with deleted column info and deleted count
+ * @param params.db - Optional database name to connect to
+ * @returns {Object} Object with deleted count
  * @throws HTTPException if table or column does not exist
  */
 export async function deleteColumn(
 	params: DeleteColumnParamsSchemaType,
 ): Promise<{ deletedCount: number }> {
-	const { tableName, columnName, cascade, database } = params;
-	const pool = getDbPool(database);
+	const { tableName, columnName, cascade, db } = params;
+	const pool = getDbPool(db);
 
 	// Check if table exists
 	const tableExistsQuery = `
@@ -40,10 +40,7 @@ export async function deleteColumn(
 			WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public'
 		) as exists;
 	`;
-	const { rows: columnRows } = await pool.query(columnExistsQuery, [
-		tableName,
-		columnName,
-	]);
+	const { rows: columnRows } = await pool.query(columnExistsQuery, [tableName, columnName]);
 	if (!columnRows[0]?.exists) {
 		throw new HTTPException(404, {
 			message: `Column "${columnName}" does not exist in table "${tableName}"`,

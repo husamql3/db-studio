@@ -31,7 +31,8 @@
     "knip": "knip"
   },
   "dependencies": {
-    "turbo": "^2.7.5"
+    "@biomejs/biome": "^2.3.13",
+    "turbo": "^2.7.6"
   },
   "devDependencies": {
     "husky": "^9.1.7",

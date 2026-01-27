@@ -1,19 +1,15 @@
 import { HTTPException } from "hono/http-exception";
-import type {
-	DatabaseSchemaType,
-	ExecuteQueryParams,
-	ExecuteQueryResult,
-} from "shared/types";
+import type { DatabaseSchemaType, ExecuteQueryParams, ExecuteQueryResult } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 export const executeQuery = async ({
 	query,
-	database,
+	db,
 }: {
 	query: ExecuteQueryParams["query"];
-	database: DatabaseSchemaType["database"];
+	db: DatabaseSchemaType["db"];
 }): Promise<ExecuteQueryResult> => {
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 	if (!query || !query.trim()) {
 		throw new HTTPException(400, {
 			message: "Query is required",

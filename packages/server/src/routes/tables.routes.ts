@@ -1,12 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import type { ColumnInfoSchemaType, TableInfoSchemaType } from "shared/types";
 import {
+	type ColumnInfoSchemaType,
 	createTableSchema,
 	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	type TableDataResultSchemaType,
+	type TableInfoSchemaType,
 	tableDataQuerySchema,
 	tableNameSchema,
 } from "shared/types";
@@ -32,8 +33,8 @@ export const tablesRoutes = new Hono()
 		"/",
 		zValidator("query", databaseSchema),
 		async (c): ApiHandler<TableInfoSchemaType[]> => {
-			const { database } = c.req.valid("query");
-			const tablesList = await getTablesList(database);
+			const { db } = c.req.valid("query");
+			const tablesList = await getTablesList(db);
 			return c.json({ data: tablesList }, 200);
 		},
 	)
@@ -49,20 +50,17 @@ export const tablesRoutes = new Hono()
 		zValidator("query", databaseSchema),
 		zValidator("json", createTableSchema),
 		async (c): ApiHandler<string> => {
-			const { database } = c.req.valid("query");
+			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
-			await createTable({ tableData: body, database });
-			return c.json(
-				{ data: `Table ${body.tableName} created successfully` },
-				200,
-			);
+			await createTable({ tableData: body, db });
+			return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
 		},
 	)
 
 	/**
 	 * DELETE /tables/:tableName/columns/:columnName
 	 * Deletes a column from a table
-	 * @param {DeleteColumnQuerySchemaType} query - The query parameters
+	 * @param {DatabaseSchemaType} query - The query parameters
 	 * @param {DeleteColumnParamSchemaType} param - The URL parameters
 	 * @returns {DeleteColumnResponseType} The response
 	 */
@@ -71,13 +69,13 @@ export const tablesRoutes = new Hono()
 		zValidator("query", deleteColumnQuerySchema),
 		zValidator("param", deleteColumnParamSchema),
 		async (c): ApiHandler<string> => {
-			const { database, cascade } = c.req.valid("query");
+			const { db, cascade } = c.req.valid("query");
 			const { tableName, columnName } = c.req.valid("param");
 			const { deletedCount } = await deleteColumn({
 				tableName,
 				columnName,
 				cascade,
-				database,
+				db,
 			});
 			return c.json(
 				{
@@ -100,9 +98,9 @@ export const tablesRoutes = new Hono()
 		zValidator("query", databaseSchema),
 		zValidator("param", tableNameSchema),
 		async (c): ApiHandler<ColumnInfoSchemaType[]> => {
+			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
-			const { database } = c.req.valid("query");
-			const columns = await getTableColumns({ tableName, database });
+			const columns = await getTableColumns({ tableName, db });
 			return c.json({ data: columns }, 200);
 		},
 	)
@@ -121,8 +119,7 @@ export const tablesRoutes = new Hono()
 		zValidator("query", tableDataQuerySchema),
 		async (c): ApiHandler<TableDataResultSchemaType> => {
 			const { tableName } = c.req.valid("param");
-			const { cursor, limit, direction, sort, order, filters, database } =
-				c.req.valid("query");
+			const { cursor, limit, direction, sort, order, filters, db } = c.req.valid("query");
 			const tableData = await getTableData({
 				tableName,
 				cursor,
@@ -131,7 +128,7 @@ export const tablesRoutes = new Hono()
 				sort,
 				order,
 				filters,
-				database,
+				db,
 			});
 			return c.json({ data: tableData }, 200);
 		},

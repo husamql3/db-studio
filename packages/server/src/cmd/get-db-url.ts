@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+
 import { cancel, isCancel, note, select, spinner, text } from "@clack/prompts";
 import { type DotenvParseOutput, parse as parseDotenv } from "dotenv";
 import color from "picocolors";
@@ -7,10 +8,7 @@ import color from "picocolors";
 /**
  * Get the database URL from the environment variables
  */
-export const getDatabaseUrl = async (
-	env?: DotenvParseOutput | null,
-	varName?: string,
-) => {
+export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: string) => {
 	const envVarName = varName || "DATABASE_URL";
 
 	if (env?.[envVarName]) {

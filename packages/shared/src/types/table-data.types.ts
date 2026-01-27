@@ -36,10 +36,10 @@ export const tableDataResultSchema = z.object({
 export type TableDataResultSchemaType = z.infer<typeof tableDataResultSchema>;
 
 export const tableDataQuerySchema = z.object({
-	database: databaseSchema.shape.database,
+	db: databaseSchema.shape.db,
 	cursor: z.string().optional(), // Base64 encoded cursor for pagination
 	limit: z.string().optional().default("50").transform(Number),
-	direction: z.enum(["forward", "backward"]).optional().default("forward"), // Pagination direction
+	direction: z.enum(sortDirections).optional().default(sortDirections[0]), // Pagination direction
 	sort: z
 		.string()
 		.optional()
@@ -56,7 +56,7 @@ export const tableDataQuerySchema = z.object({
 				return val;
 			}
 		}),
-	order: z.enum(["asc", "desc"]).optional(),
+	order: z.enum(sortDirections).optional(),
 	filters: z
 		.string()
 		.optional()
@@ -71,3 +71,8 @@ export const tableDataQuerySchema = z.object({
 });
 
 export type TableDataQuerySchemaType = z.infer<typeof tableDataQuerySchema>;
+
+export interface CursorData {
+	values: Record<string, unknown>;
+	sortColumns: string[];
+}

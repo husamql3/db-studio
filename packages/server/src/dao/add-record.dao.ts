@@ -3,14 +3,14 @@ import type { AddRecordSchemaType, DatabaseSchemaType } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 export async function addRecord({
-	database,
+	db,
 	params,
 }: {
-	database: DatabaseSchemaType["database"];
+	db: DatabaseSchemaType["db"];
 	params: AddRecordSchemaType;
 }): Promise<{ insertedCount: number }> {
 	const { tableName, data } = params;
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	// Extract column names and values
 	const columns = Object.keys(data);

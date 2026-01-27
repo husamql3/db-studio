@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ColumnInfo } from "shared/types";
+import type { AxiosError } from "axios";
+import type { BaseResponse, ColumnInfoSchemaType } from "shared/types";
 import { toast } from "sonner";
 import { useTableCols } from "@/hooks/use-table-cols";
-import { FetcherError, fetcher } from "@/lib/fetcher";
+import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -99,7 +100,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 
 const deleteCellsService = async (
 	tableName: string,
-	tableCols: ColumnInfo[],
+	tableCols: ColumnInfoSchemaType[],
 	rowData: Record<string, unknown>[],
 	force: boolean,
 	database?: string,
@@ -124,13 +125,19 @@ const deleteCellsService = async (
 	};
 
 	try {
-		return await fetcher.delete<DeleteResult>(endpoint, payload, {
-			params: { database },
+		const res = await api.delete<BaseResponse<string>>(endpoint, {
+			data: payload,
+			params: { db: database },
 		});
+		return {
+			success: true,
+			message: res.data.data,
+		};
 	} catch (error) {
 		// For FK violations (409), we return the result with relatedRecords instead of throwing
-		if (error instanceof FetcherError && error.status === 409) {
-			const result = error.data as DeleteResult;
+		const axiosError = error as AxiosError<DeleteResult>;
+		if (axiosError.response?.status === 409) {
+			const result = axiosError.response.data;
 			if (result.fkViolation) {
 				return result;
 			}

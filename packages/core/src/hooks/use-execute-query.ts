@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import type { ExecuteQueryResponse } from "shared/types";
-import { fetcher } from "@/lib/fetcher";
+import type { BaseResponse, ExecuteQueryResult } from "shared/types";
+import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useExecuteQuery = () => {
@@ -10,13 +10,16 @@ export const useExecuteQuery = () => {
 		mutateAsync: executeQuery,
 		isPending: isExecutingQuery,
 		error: executeQueryError,
-	} = useMutation<ExecuteQueryResponse, Error, { query: string }>({
-		mutationFn: ({ query }) =>
-			fetcher.post<ExecuteQueryResponse>(
+	} = useMutation<ExecuteQueryResult, Error, { query: string }>({
+		mutationFn: async ({ query }) => {
+			const params = new URLSearchParams({ db: selectedDatabase ?? "" });
+			const res = await api.post<BaseResponse<ExecuteQueryResult>>(
 				"/query",
 				{ query },
-				{ params: { database: selectedDatabase } },
-			),
+				{ params },
+			);
+			return res.data.data;
+		},
 	});
 
 	return {

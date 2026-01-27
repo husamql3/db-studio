@@ -39,9 +39,7 @@ class DatabaseManager {
 	private initializeBaseConfig() {
 		const databaseUrl = process.env.DATABASE_URL;
 		if (!databaseUrl) {
-			throw new Error(
-				"DATABASE_URL is not set. Please provide a database connection string.",
-			);
+			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
 		}
 
 		try {
@@ -211,9 +209,7 @@ const _closeDbPool = async (database: string): Promise<void> => {
 /**
  * Close a specific database pool by connection string
  */
-const _closeDbPoolByConnectionString = async (
-	connectionString: string,
-): Promise<void> => {
+const _closeDbPoolByConnectionString = async (connectionString: string): Promise<void> => {
 	return databaseManager.closePool(connectionString);
 };
 

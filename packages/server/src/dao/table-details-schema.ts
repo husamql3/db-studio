@@ -13,9 +13,7 @@ import { getTableColumns } from "./table-columns.dao.js";
 /**
  * Get all table names from the database
  */
-async function getTableNames(
-	database: DatabaseSchemaType["database"],
-): Promise<string[]> {
+async function getTableNames(database: DatabaseSchemaType["database"]): Promise<string[]> {
 	const pool = getDbPool(database);
 	const query = `
 		SELECT table_name
@@ -31,9 +29,7 @@ async function getTableNames(
 /**
  * Get table comment/description if available
  */
-async function getTableDescription(
-	tableName: string,
-): Promise<string | undefined> {
+async function getTableDescription(tableName: string): Promise<string | undefined> {
 	const client = await db.connect();
 	try {
 		const res = await client.query(
@@ -54,9 +50,7 @@ async function getTableDescription(
 /**
  * Get sample data from a table (first 3 rows)
  */
-async function getSampleData(
-	tableName: string,
-): Promise<Record<string, unknown>[]> {
+async function getSampleData(tableName: string): Promise<Record<string, unknown>[]> {
 	const client = await db.connect();
 	try {
 		// Sanitize table name to prevent SQL injection
@@ -144,9 +138,7 @@ async function getDatabaseSchema(
 		const tablePromises = tableNames.map(async (tableName) => {
 			const [columns, description, sampleData] = await Promise.all([
 				getTableColumns({ tableName, database }),
-				includeDescriptions
-					? getTableDescription(tableName)
-					: Promise.resolve(undefined),
+				includeDescriptions ? getTableDescription(tableName) : Promise.resolve(undefined),
 				includeSampleData ? getSampleData(tableName) : Promise.resolve([]),
 			]);
 
@@ -161,9 +153,7 @@ async function getDatabaseSchema(
 
 			if (sampleData.length > 0) {
 				table.sampleData = sampleData.map((row) =>
-					Object.fromEntries(
-						Object.entries(row).map(([key, value]) => [key, String(value)]),
-					),
+					Object.fromEntries(Object.entries(row).map(([key, value]) => [key, String(value)])),
 				);
 			}
 

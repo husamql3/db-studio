@@ -90,10 +90,7 @@ interface SilkPlaneProps {
 	uniforms: SilkUniforms;
 }
 
-const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane(
-	{ uniforms },
-	ref,
-) {
+const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane({ uniforms }, ref) {
 	const { viewport } = useThree();
 
 	useLayoutEffect(() => {

@@ -1,17 +1,17 @@
 import type {
+	CursorData,
+	DatabaseSchemaType,
 	FilterType,
 	SortDirection,
 	SortType,
 	TableDataResultSchemaType,
 } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
-import { buildSortClause, buildWhereClause } from "@/utils/build-clauses.js";
-
-// Cursor structure for encoding/decoding pagination state
-interface CursorData {
-	values: Record<string, unknown>; // Values of the cursor columns (sort columns + primary key)
-	sortColumns: string[]; // Column names used for sorting
-}
+import {
+	buildCursorWhereClause,
+	buildSortClause,
+	buildWhereClause,
+} from "@/utils/build-clauses.js";
 
 // Encode cursor data to base64 string
 const encodeCursor = (data: CursorData): string => {
@@ -32,78 +32,41 @@ const getPrimaryKeyColumns = async (
 	pool: ReturnType<typeof getDbPool>,
 	tableName: string,
 ): Promise<string[]> => {
+	// Quote the table name to preserve case sensitivity in PostgreSQL
+	const quotedTableName = `"${tableName}"`;
 	const result = await pool.query(
 		`SELECT a.attname as column_name
 		 FROM pg_index i
 		 JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
 		 WHERE i.indrelid = $1::regclass AND i.indisprimary
 		 ORDER BY array_position(i.indkey, a.attnum)`,
-		[tableName],
+		[quotedTableName],
 	);
 	return result.rows.map((row) => row.column_name);
-};
-
-// Build cursor-based WHERE clause for pagination
-const buildCursorWhereClause = (
-	cursorData: CursorData,
-	direction: "forward" | "backward",
-	sortDirection: SortDirection,
-	startParamIndex: number,
-): { clause: string; values: unknown[] } => {
-	const { values, sortColumns } = cursorData;
-	const conditions: string[] = [];
-	const queryValues: unknown[] = [];
-
-	// Determine comparison operator based on direction and sort order
-	// Forward + ASC = >, Forward + DESC = <
-	// Backward + ASC = <, Backward + DESC = >
-	const isAscending = sortDirection === "asc";
-	const isForward = direction === "forward";
-	const useGreaterThan = isAscending === isForward;
-
-	// Build row comparison for multi-column cursor
-	// Uses tuple comparison: (col1, col2, ...) > (val1, val2, ...)
-	if (sortColumns.length > 0) {
-		const columnList = sortColumns.map((col) => `"${col}"`).join(", ");
-		const placeholders = sortColumns
-			.map((_, i) => `$${startParamIndex + i}`)
-			.join(", ");
-		const operator = useGreaterThan ? ">" : "<";
-
-		conditions.push(`(${columnList}) ${operator} (${placeholders})`);
-		for (const col of sortColumns) {
-			queryValues.push(values[col]);
-		}
-	}
-
-	return {
-		clause: conditions.length > 0 ? `(${conditions.join(" AND ")})` : "",
-		values: queryValues,
-	};
 };
 
 export interface GetTableDataParams {
 	tableName: string;
 	cursor?: string;
 	limit?: number;
-	direction?: "forward" | "backward";
+	direction?: SortDirection;
 	sort?: string | SortType[];
 	order?: SortDirection;
 	filters?: FilterType[];
-	database?: string;
+	db: DatabaseSchemaType["db"];
 }
 
 export const getTableData = async ({
 	tableName,
-	cursor,
+	cursor = "",
 	limit = 50,
-	direction = "forward",
-	sort = "",
+	direction = "asc",
+	sort = [],
 	order = "asc",
 	filters = [],
-	database,
+	db,
 }: GetTableDataParams): Promise<TableDataResultSchemaType> => {
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 
 	// Get primary key columns for stable cursor pagination
 	const primaryKeyColumns = await getPrimaryKeyColumns(pool, tableName);
@@ -118,7 +81,6 @@ export const getTableData = async ({
 	} else if (typeof sort === "string" && sort) {
 		sortColumns = [sort];
 	}
-
 	// Always include primary key columns for stable pagination
 	const cursorColumns = [
 		...sortColumns,
@@ -129,11 +91,8 @@ export const getTableData = async ({
 	if (cursorColumns.length === 0) {
 		cursorColumns.push("ctid");
 	}
-
 	// Build filter WHERE clause
-	const { clause: filterWhereClause, values: filterValues } =
-		buildWhereClause(filters);
-
+	const { clause: filterWhereClause, values: filterValues } = buildWhereClause(filters);
 	// Build cursor WHERE clause if cursor is provided
 	let cursorWhereClause = "";
 	let cursorValues: unknown[] = [];
@@ -151,7 +110,6 @@ export const getTableData = async ({
 			cursorValues = cursorResult.values;
 		}
 	}
-
 	// Combine WHERE clauses
 	let combinedWhereClause = "";
 	if (filterWhereClause && cursorWhereClause) {
@@ -169,7 +127,7 @@ export const getTableData = async ({
 
 	// For backward pagination, reverse the sort order
 	let effectiveSortClause = sortClause;
-	if (direction === "backward") {
+	if (direction === "desc") {
 		if (sortClause) {
 			effectiveSortClause = sortClause
 				.replace(/\bASC\b/gi, "TEMP_DESC")
@@ -178,8 +136,7 @@ export const getTableData = async ({
 		} else {
 			// Default sort by cursor columns in reverse
 			const reverseSortParts = cursorColumns.map(
-				(col) =>
-					`"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
+				(col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
 			);
 			effectiveSortClause = `ORDER BY ${reverseSortParts.join(", ")}`;
 		}
@@ -197,49 +154,40 @@ export const getTableData = async ({
 		filterValues,
 	);
 	const totalRows = Number(countRes.rows[0].total);
-
 	// Fetch one extra row to determine if there are more results
 	const limitParamIndex = filterValues.length + cursorValues.length + 1;
 	const dataRes = await pool.query(
 		`SELECT * FROM "${tableName}" ${combinedWhereClause} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
 		[...filterValues, ...cursorValues, limit + 1],
 	);
-
 	// Check if table has columns
 	const hasColumns = dataRes.fields && dataRes.fields.length > 0;
-
 	// Filter out empty objects
 	let rows = hasColumns
 		? dataRes.rows.filter((row) => Object.keys(row).length > 0)
 		: dataRes.rows;
-
 	// Determine if there are more results
 	const hasMore = rows.length > limit;
 	if (hasMore) {
 		rows = rows.slice(0, limit);
 	}
-
 	// For backward pagination, reverse the results to maintain correct order
-	if (direction === "backward") {
+	if (direction === "desc") {
 		rows = rows.reverse();
 	}
-
 	// Build cursors for next/previous pages
 	let nextCursor: string | null = null;
 	let prevCursor: string | null = null;
-
 	if (rows.length > 0) {
 		const firstRow = rows[0];
 		const lastRow = rows[rows.length - 1];
-
 		// Create cursor from row values
 		const createCursorFromRow = (row: Record<string, unknown>): CursorData => ({
 			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
 			sortColumns: cursorColumns,
 		});
-
 		// For forward pagination
-		if (direction === "forward") {
+		if (direction === "asc") {
 			// Next cursor: if there are more results, encode the last row
 			if (hasMore) {
 				nextCursor = encodeCursor(createCursorFromRow(lastRow));
@@ -260,14 +208,13 @@ export const getTableData = async ({
 			}
 		}
 	}
-
 	return {
 		data: rows,
 		meta: {
 			limit,
 			total: totalRows,
-			hasNextPage: direction === "forward" ? hasMore : !!cursor,
-			hasPreviousPage: direction === "forward" ? !!cursor : hasMore,
+			hasNextPage: direction === "asc" ? hasMore : !!cursor,
+			hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
 			nextCursor,
 			prevCursor,
 		},

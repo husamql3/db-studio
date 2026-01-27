@@ -8,7 +8,7 @@ const createQueryClient = () => {
 			queries: {
 				staleTime: 30 * 1000, // 30 seconds
 				gcTime: 5 * 60 * 1000, // 5 minutes (was cacheTime)
-				retry: 2,
+				retry: 0,
 				retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
 				refetchOnWindowFocus: false, // refetch on window focus
 				refetchOnMount: false, // refetch on mount

@@ -1,6 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
-import { IoMdHeartEmpty } from "react-icons/io";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -11,6 +8,9 @@ import {
 import { Silk } from "@/components/silk";
 import { Badge } from "@/components/ui/badge";
 import { Highlighter } from "@/components/ui/highlighter";
+import { createFileRoute } from "@tanstack/react-router";
+import { PlusIcon } from "lucide-react";
+import { IoMdHeartEmpty } from "react-icons/io";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
@@ -70,8 +70,8 @@ function App() {
 						<div className="flex flex-col gap-1 text-center md:text-left">
 							<h1 className="font-semibold">Getting Started</h1>
 							<p className="text-xs text-muted-foreground">
-								Run DB Studio directly in your terminal with a single command,
-								no installation required.
+								Run DB Studio directly in your terminal with a single command, no installation
+								required.
 							</p>
 						</div>
 
