@@ -1,11 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
+	bulkInsertRecordsSchema,
 	databaseQuerySchema,
 	deleteRecordsSchema,
 	insertRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
+import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
 import { insertRecord } from "@/dao/insert-record.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
@@ -41,6 +43,43 @@ recordsRoutes.post(
 					success: false,
 					message:
 						error instanceof Error ? error.message : "Failed to create record",
+					detail: errorDetail,
+				},
+				500,
+			);
+		}
+	},
+);
+
+/**
+ * POST /records/bulk - Bulk insert records from CSV/JSON
+ */
+recordsRoutes.post(
+	"/bulk",
+	zValidator("json", bulkInsertRecordsSchema),
+	zValidator("query", databaseQuerySchema),
+	async (c) => {
+		try {
+			const body = c.req.valid("json");
+			const { tableName, records } = body;
+			const { database } = c.req.valid("query");
+
+			const result = await bulkInsertRecords({
+				tableName,
+				records,
+				database,
+			});
+			return c.json(result);
+		} catch (error) {
+			const errorDetail =
+				error && typeof error === "object" && "detail" in error
+					? (error as { detail?: string }).detail
+					: undefined;
+			return c.json(
+				{
+					success: false,
+					message:
+						error instanceof Error ? error.message : "Failed to bulk insert records",
 					detail: errorDetail,
 				},
 				500,

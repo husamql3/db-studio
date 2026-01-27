@@ -1,3 +1,4 @@
+export * from "./bulk-insert-records.type.js";
 export * from "./cmd-args.type.js";
 export * from "./column.type.js";
 export * from "./column-info.type.js";

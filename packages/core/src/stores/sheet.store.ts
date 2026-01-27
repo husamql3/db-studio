@@ -4,6 +4,7 @@ type SheetName =
 	| "sidebar"
 	| "add-table"
 	| "add-record"
+	| "bulk-insert-records"
 	| `add-foreign-key-${number}`
 	| "record-reference"
 	| "ai-assistant";
