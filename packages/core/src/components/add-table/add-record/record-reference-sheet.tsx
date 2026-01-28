@@ -1,5 +1,5 @@
 import { parseAsJson, useQueryState } from "nuqs";
-import type { Filter } from "server/src/dao/tables-data.dao";
+import type { FilterType } from "shared/types";
 import { ReferencedTable } from "@/components/add-table/add-record/referenced-table";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -9,21 +9,14 @@ export const RecordReferenceSheet = () => {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
-	const [, setRPage] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE,
-	);
-	const [, setRPageSize] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
-	);
-	const [, setRSort] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT.toString(),
-	);
-	const [, setROrder] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER.toString(),
-	);
-	const [, setRFilters] = useQueryState<Filter[]>(
+	const [, setRCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
+	const [, setRDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
+	const [, setRLimit] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString());
+	const [, setRSort] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT.toString());
+	const [, setROrder] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ORDER.toString());
+	const [, setRFilters] = useQueryState<FilterType[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as Filter[])
+		parseAsJson((value) => value as FilterType[])
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
@@ -43,8 +36,9 @@ export const RecordReferenceSheet = () => {
 				if (!open) {
 					closeSheet("record-reference");
 					setReferencedActiveTable(null);
-					setRPage(null);
-					setRPageSize(null);
+					setRCursor(null);
+					setRDirection(null);
+					setRLimit(null);
 					setRSort(null);
 					setROrder(null);
 					setRFilters(null);

@@ -1,4 +1,5 @@
 import { Pool, type PoolConfig } from "pg";
+import type { DatabaseTypeSchema } from "shared/types";
 
 /**
  * DatabaseManager - Manages multiple database connection pools
@@ -12,10 +13,24 @@ class DatabaseManager {
 		port: number;
 		user: string;
 		password: string;
+		dbType: DatabaseTypeSchema;
 	} | null = null;
 
 	constructor() {
 		this.initializeBaseConfig();
+	}
+
+	/**
+	 * Detect database type from URL protocol
+	 */
+	private detectDbType(url: URL): DatabaseTypeSchema {
+		const protocol = url.protocol.replace(":", "");
+		// postgres:// or postgresql:// -> pg
+		if (protocol === "postgres" || protocol === "postgresql") {
+			return "pg";
+		}
+		// Default to pg for now, can be extended for mysql, sqlite, etc.
+		return "pg";
 	}
 
 	/**
@@ -24,9 +39,7 @@ class DatabaseManager {
 	private initializeBaseConfig() {
 		const databaseUrl = process.env.DATABASE_URL;
 		if (!databaseUrl) {
-			throw new Error(
-				"DATABASE_URL is not set. Please provide a database connection string.",
-			);
+			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
 		}
 
 		try {
@@ -37,10 +50,21 @@ class DatabaseManager {
 				port: Number.parseInt(url.port, 10) || 5432,
 				user: url.username,
 				password: url.password,
+				dbType: this.detectDbType(url),
 			};
 		} catch (error) {
 			throw new Error(`Failed to parse DATABASE_URL: ${error}`);
 		}
+	}
+
+	/**
+	 * Get the detected database type
+	 */
+	getDbType(): DatabaseTypeSchema {
+		if (!this.baseConfig) {
+			throw new Error("Base configuration not initialized");
+		}
+		return this.baseConfig.dbType;
 	}
 
 	/**
@@ -62,18 +86,6 @@ class DatabaseManager {
 				database = url.pathname.slice(1); // Remove leading slash
 			}
 		}
-
-		// if (!database || database.trim() === "") {
-		// 	throw new Error("Database name is required and cannot be empty");
-		// }
-
-		// Validate database name format (PostgreSQL identifiers)
-		// Database names cannot contain special characters that would break URL parsing
-		// if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(database)) {
-		// 	throw new Error(
-		// 		`Invalid database name: "${database}". Database names must start with a letter or underscore and contain only alphanumeric characters, underscores, or dollar signs.`,
-		// 	);
-		// }
 
 		try {
 			const url = new URL(this.baseConfig.url);
@@ -174,6 +186,13 @@ export const getDbPool = (database?: string): Pool => {
 };
 
 /**
+ * Get the detected database type from DATABASE_URL
+ */
+export const getDbType = (): DatabaseTypeSchema => {
+	return databaseManager.getDbType();
+};
+
+/**
  * Build a connection string for the specified database
  */
 const _buildDbConnectionString = (database?: string): string => {
@@ -190,9 +209,7 @@ const _closeDbPool = async (database: string): Promise<void> => {
 /**
  * Close a specific database pool by connection string
  */
-const _closeDbPoolByConnectionString = async (
-	connectionString: string,
-): Promise<void> => {
+const _closeDbPoolByConnectionString = async (connectionString: string): Promise<void> => {
 	return databaseManager.closePool(connectionString);
 };
 

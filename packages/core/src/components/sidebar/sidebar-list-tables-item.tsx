@@ -1,11 +1,11 @@
 import { Link, useParams } from "@tanstack/react-router";
-import type { TableInfo } from "shared/types";
+import type { TableInfoSchemaType } from "shared/types";
 // import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 // import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfo) => {
+export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaType) => {
 	const params = useParams({ strict: false });
 	const table = params.table as string | undefined;
 	const isActive = table === tableName;
@@ -23,9 +23,7 @@ export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfo) => {
 					isActive ? "text-white bg-zinc-800/50" : "text-zinc-400",
 				)}
 			>
-				{isActive && (
-					<span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />
-				)}
+				{isActive && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
 				<span className="flex-1">{tableName}</span>
 				<div className="flex items-center gap-1">
 					{/* 	{isActive && (

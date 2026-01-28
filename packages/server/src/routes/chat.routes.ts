@@ -1,21 +1,26 @@
+import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { DEFAULTS } from "shared/constants";
+import { chatSchema } from "shared/types";
 import { getDetailedSchema } from "@/dao/table-details-schema.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 
-export const chatRoutes = new Hono();
+export const chatRoutes = new Hono()
+	/**
+	 * Base path for the endpoints, /:dbType/chat/...
+	 */
+	.basePath("/chat")
 
-/**
- * POST /chat - Handle AI chat requests with streaming
- * Proxies to the Cloudflare Worker which has the Gemini API key
- */
-chatRoutes.post("/", async (c) => {
-	try {
-		const { messages, conversationId } = await c.req.json();
+	/**
+	 * POST /chat - Handle AI chat requests with streaming
+	 * Proxies to the Cloudflare Worker which has the Gemini API key
+	 */
+	.post("/", zValidator("json", chatSchema), async (c) => {
+		const { messages, conversationId, db } = c.req.valid("json");
 		console.log("POST /chat messages", messages);
 
 		// Get the database schema and generate system prompt
-		const schema = await getDetailedSchema();
+		const schema = await getDetailedSchema(db);
 		const systemPrompt = generateSystemPrompt(schema);
 
 		const payload = {
@@ -52,15 +57,6 @@ chatRoutes.post("/", async (c) => {
 				Connection: "keep-alive",
 			},
 		});
-	} catch (error) {
-		console.error("POST /chat error:", error);
-		const errorMessage =
-			error instanceof Error ? error.message : "An error occurred";
-		return c.json(
-			{
-				error: errorMessage,
-			},
-			500,
-		);
-	}
-});
+	});
+
+export type ChatRoutes = typeof chatRoutes;

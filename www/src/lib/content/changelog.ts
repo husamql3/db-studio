@@ -16,13 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.2.9",
-		date: "2026-01-17",
+		version: "1.2.21",
+		date: "2026-01-27",
 		title: "",
 		features: [
 			{
 				text: "Add delete column feature in the table tab",
 				username: "husamql3",
+			},
+			{
+				text: "Add export table data to CSV or Excel files feature in the table tab",
+				username: "Zeyad-F16",
 			},
 		],
 		bugsFixed: [],

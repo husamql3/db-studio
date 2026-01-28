@@ -77,8 +77,7 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title:
-					"Smart SQL editor with color coding, auto-complete, and formatting",
+				title: "Smart SQL editor with color coding, auto-complete, and formatting",
 				status: "planned",
 			},
 		],
@@ -92,8 +91,7 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title:
-					"Smart dropdowns for related tables with search and easy navigation",
+				title: "Smart dropdowns for related tables with search and easy navigation",
 				status: "planned",
 			},
 			{
@@ -101,8 +99,7 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title:
-					"Better JSON editor inside cells with formatting and line numbers",
+				title: "Better JSON editor inside cells with formatting and line numbers",
 				status: "planned",
 			},
 			{
@@ -116,8 +113,7 @@ export const roadmapItems: RoadmapItem[] = [
 		status: "planned",
 		items: [
 			{
-				title:
-					"Turn plain English into accurate SQL using knowledge of your full database",
+				title: "Turn plain English into accurate SQL using knowledge of your full database",
 				status: "planned",
 			},
 			{
@@ -125,23 +121,19 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title:
-					"Support for adding personal AI provider credentials (OpenAI, Anthropic, etc.)",
+				title: "Support for adding personal AI provider credentials (OpenAI, Anthropic, etc.)",
 				status: "planned",
 			},
 			{
-				title:
-					"Suggest faster ways to write queries and show how much quicker they’ll run",
+				title: "Suggest faster ways to write queries and show how much quicker they’ll run",
 				status: "planned",
 			},
 			{
-				title:
-					"Help design tables and suggest smart improvements to your database structure",
+				title: "Help design tables and suggest smart improvements to your database structure",
 				status: "planned",
 			},
 			{
-				title:
-					"Ask questions about your data in normal English and get instant answers",
+				title: "Ask questions about your data in normal English and get instant answers",
 				status: "planned",
 			},
 			{

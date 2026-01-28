@@ -28,8 +28,7 @@ const inputGroupAddonVariants = cva(
 			align: {
 				"inline-start":
 					"pl-2 has-[>button]:ml-[-0.275rem] has-[>kbd]:ml-[-0.275rem] order-first",
-				"inline-end":
-					"pr-2 has-[>button]:mr-[-0.275rem] has-[>kbd]:mr-[-0.275rem] order-last",
+				"inline-end": "pr-2 has-[>button]:mr-[-0.275rem] has-[>kbd]:mr-[-0.275rem] order-last",
 				"block-start":
 					"px-2 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2 order-first w-full justify-start",
 				"block-end":
@@ -100,10 +99,7 @@ function InputGroupButton({
 	);
 }
 
-function _InputGroupText({
-	className,
-	...props
-}: React.ComponentProps<"span">) {
+function _InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			className={cn(
@@ -115,10 +111,7 @@ function _InputGroupText({
 	);
 }
 
-function _InputGroupInput({
-	className,
-	...props
-}: React.ComponentProps<"input">) {
+function _InputGroupInput({ className, ...props }: React.ComponentProps<"input">) {
 	return (
 		<Input
 			data-slot="input-group-control"
@@ -131,10 +124,7 @@ function _InputGroupInput({
 	);
 }
 
-function InputGroupTextarea({
-	className,
-	...props
-}: React.ComponentProps<"textarea">) {
+function InputGroupTextarea({ className, ...props }: React.ComponentProps<"textarea">) {
 	return (
 		<Textarea
 			data-slot="input-group-control"

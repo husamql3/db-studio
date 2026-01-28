@@ -6,6 +6,8 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { AddTableForm } from "@/components/add-table/add-table-form";
 import { Toaster } from "@/components/ui/sonner";
+import { Spinner } from "@/components/ui/spinner";
+import { useCurrentDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
 
 const darkModeScript = String.raw`
@@ -26,6 +28,9 @@ export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 
+		// Wait for the current database to be loaded before rendering the outlet
+		const { isLoadingCurrentDatabase } = useCurrentDatabase();
+
 		return (
 			<>
 				<script src={`data:text/javascript;base64,${btoa(darkModeScript)}`} />
@@ -34,7 +39,16 @@ export const Route = createRootRoute({
 					fullPageNavigationOnShallowFalseUpdates
 					defaultOptions={{ shallow: true, clearOnDefault: true }}
 				>
-					<Outlet />
+					{isLoadingCurrentDatabase ? (
+						<div className="flex items-center justify-center h-screen">
+							<Spinner
+								size="size-5"
+								color="text-primary"
+							/>
+						</div>
+					) : (
+						<Outlet />
+					)}
 				</NuqsAdapter>
 				<Toaster position="top-right" />
 				{/* Global sheets */}

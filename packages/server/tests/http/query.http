@@ -1,0 +1,587 @@
+### Query API Endpoints
+### Base URL: http://localhost:3333/:dbType
+### Replace :dbType with 'pg' for PostgreSQL
+
+@baseUrl = http://localhost:3333/pg
+@database = flowx
+
+### ============================================
+### POST /query - Execute SQL query
+### Executes a SQL query on the connected database
+### ============================================
+
+### Simple SELECT query
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user LIMIT 10"
+}
+
+###
+
+### SELECT with specific columns
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT id, name, email FROM user LIMIT 5"
+}
+
+###
+
+### SELECT with WHERE clause
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user WHERE id = 1"
+}
+
+###
+
+### SELECT with ORDER BY
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user ORDER BY id DESC LIMIT 10"
+}
+
+###
+
+### SELECT with COUNT aggregation
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT COUNT(*) as total FROM user"
+}
+
+###
+
+### SELECT with GROUP BY
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT COUNT(*) as count FROM user GROUP BY id"
+}
+
+###
+
+### SELECT with JOIN
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT u.id, u.name FROM user u LIMIT 5"
+}
+
+###
+
+### SELECT with LIKE pattern
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user WHERE name LIKE '%test%'"
+}
+
+###
+
+### SELECT with IN clause
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user WHERE id IN (1, 2, 3)"
+}
+
+###
+
+### SELECT with BETWEEN
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user WHERE id BETWEEN 1 AND 10"
+}
+
+###
+
+### SELECT with NULL check
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user WHERE email IS NOT NULL LIMIT 10"
+}
+
+###
+
+### SELECT with DISTINCT
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT DISTINCT name FROM user LIMIT 10"
+}
+
+###
+
+### SELECT with subquery
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user WHERE id IN (SELECT id FROM user LIMIT 5)"
+}
+
+###
+
+### SELECT with CASE statement
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT id, name, CASE WHEN id > 5 THEN 'high' ELSE 'low' END as category FROM user LIMIT 10"
+}
+
+###
+
+### SELECT with COALESCE
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT id, COALESCE(name, 'Unknown') as name FROM user LIMIT 10"
+}
+
+### ============================================
+### INSERT queries
+### ============================================
+
+### INSERT single row
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "INSERT INTO user (name, email) VALUES ('Test User', 'test@example.com') RETURNING *"
+}
+
+###
+
+### INSERT with RETURNING id
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "INSERT INTO user (name, email) VALUES ('Another User', 'another@example.com') RETURNING id"
+}
+
+### ============================================
+### UPDATE queries
+### ============================================
+
+### UPDATE single row
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "UPDATE user SET name = 'Updated Name' WHERE id = 1 RETURNING *"
+}
+
+###
+
+### UPDATE with multiple columns
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "UPDATE user SET name = 'Updated', email = 'updated@example.com' WHERE id = 1 RETURNING *"
+}
+
+### ============================================
+### DELETE queries
+### ============================================
+
+### DELETE single row
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "DELETE FROM user WHERE id = 9999 RETURNING *"
+}
+
+###
+
+### DELETE with condition
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "DELETE FROM user WHERE name LIKE '%test%' RETURNING id"
+}
+
+### ============================================
+### DDL queries (Data Definition Language)
+### ============================================
+
+### CREATE TABLE
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "CREATE TABLE IF NOT EXISTS test_query_table (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)"
+}
+
+###
+
+### ALTER TABLE - Add column
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "ALTER TABLE test_query_table ADD COLUMN IF NOT EXISTS description TEXT"
+}
+
+###
+
+### ALTER TABLE - Drop column
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "ALTER TABLE test_query_table DROP COLUMN IF EXISTS description"
+}
+
+###
+
+### ALTER TABLE - Rename column
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "ALTER TABLE test_query_table RENAME COLUMN name TO title"
+}
+
+###
+
+### CREATE INDEX
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "CREATE INDEX IF NOT EXISTS idx_test_query_table_title ON test_query_table(title)"
+}
+
+###
+
+### DROP INDEX
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "DROP INDEX IF EXISTS idx_test_query_table_title"
+}
+
+###
+
+### DROP TABLE
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "DROP TABLE IF EXISTS test_query_table"
+}
+
+### ============================================
+### Utility queries
+### ============================================
+
+### Get current timestamp
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT CURRENT_TIMESTAMP as now"
+}
+
+###
+
+### Get current database
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT current_database() as database"
+}
+
+###
+
+### Get current user
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT current_user as user"
+}
+
+###
+
+### Get PostgreSQL version
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT version() as version"
+}
+
+###
+
+### List all tables
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+}
+
+###
+
+### Get table columns info
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_name = 'user' ORDER BY ordinal_position"
+}
+
+###
+
+### EXPLAIN query
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "EXPLAIN SELECT * FROM user WHERE id = 1"
+}
+
+###
+
+### EXPLAIN ANALYZE query
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "EXPLAIN ANALYZE SELECT * FROM user WHERE id = 1"
+}
+
+### ============================================
+### Edge cases
+### ============================================
+
+### Query with comments
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "-- This is a comment\nSELECT 1 as id /* inline comment */"
+}
+
+###
+
+### Query with newlines
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT\n  id,\n  name\nFROM\n  user\nLIMIT 5"
+}
+
+###
+
+### Query with trailing semicolon
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1 as id;"
+}
+
+###
+
+### Query with Unicode characters
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT '日本語テスト' as text, 'émojis: 🎉' as emoji"
+}
+
+###
+
+### Simple math expression
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1 + 1 as result"
+}
+
+###
+
+### String concatenation
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 'Hello' || ' ' || 'World' as greeting"
+}
+
+### ============================================
+### Error Cases - Validation Errors
+### ============================================
+
+### Missing database parameter (should return 400)
+POST {{baseUrl}}/query
+Content-Type: application/json
+
+{
+  "query": "SELECT 1"
+}
+
+###
+
+### Missing query in body (should return 400)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{}
+
+###
+
+### Empty query string (should return 400)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": ""
+}
+
+###
+
+### Query is not a string (should return 400)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": 123
+}
+
+###
+
+### Invalid JSON body (should return 400)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+invalid json here
+
+### ============================================
+### Error Cases - SQL Errors
+### ============================================
+
+### Syntax error (should return 500)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELEC * FROM user"
+}
+
+###
+
+### Non-existent table (should return 500)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM nonexistent_table_xyz"
+}
+
+###
+
+### Non-existent column (should return 500)
+POST {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT nonexistent_column FROM user"
+}
+
+### ============================================
+### Error Cases - Invalid Database Type
+### ============================================
+
+### Invalid database type (should return 400)
+POST http://localhost:3333/invalid/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1"
+}
+
+###
+
+### MySQL database type - not supported (should return 400)
+POST http://localhost:3333/mysql/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1"
+}
+
+###
+
+### SQLite database type - not supported (should return 400)
+POST http://localhost:3333/sqlite/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1"
+}
+
+### ============================================
+### HTTP Method Validation
+### ============================================
+
+### GET /query - Not allowed (should return 404)
+GET {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+###
+
+### PUT /query - Not allowed (should return 404)
+PUT {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1"
+}
+
+###
+
+### DELETE /query - Not allowed (should return 404)
+DELETE {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+###
+
+### PATCH /query - Not allowed (should return 404)
+PATCH {{baseUrl}}/query?database={{database}}
+Content-Type: application/json
+
+{
+  "query": "SELECT 1"
+}

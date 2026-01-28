@@ -10,8 +10,7 @@ export function useTheme() {
 		root.classList.remove("light", "dark");
 
 		if (theme === "system") {
-			const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-				.matches
+			const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
 				? "dark"
 				: "light";
 

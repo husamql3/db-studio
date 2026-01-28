@@ -6,16 +6,8 @@ export const META = {
 	AUTHOR_USERNAME: "husamql3",
 	AUTHOR_GITHUB_LINK: "https://github.com/husamql3",
 	//* site
-	SITE_DESCRIPTION:
-		"The modern pgAdmin alternative that works with every database.",
-	SITE_KEYWORDS: [
-		"database",
-		"management",
-		"studio",
-		"spreadsheet",
-		"ai",
-		"sql",
-	],
+	SITE_DESCRIPTION: "The modern pgAdmin alternative that works with every database.",
+	SITE_KEYWORDS: ["database", "management", "studio", "spreadsheet", "ai", "sql"],
 	SITE_TITLE: "DB Studio",
 	SITE_NAME: "dbstudio.sh",
 	SITE_URL: "https://dbstudio.sh",

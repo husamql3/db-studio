@@ -29,16 +29,10 @@ export type TextProps = {
 	variant?: (typeof variants)[number]["variant"];
 } & React.ComponentProps<"span">;
 
-export function LoadingText({
-	variant = "shine",
-	className,
-	...props
-}: TextProps) {
+export function LoadingText({ variant = "shine", className, ...props }: TextProps) {
 	const FALLBACK_INDEX = 0;
 
-	const variantComponent = variants.find(
-		(v) => v.variant === variant,
-	)?.component;
+	const variantComponent = variants.find((v) => v.variant === variant)?.component;
 
 	const Component = variantComponent || variants[FALLBACK_INDEX].component;
 

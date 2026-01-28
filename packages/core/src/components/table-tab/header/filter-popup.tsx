@@ -1,15 +1,11 @@
 import { Filter, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
-import type { Filter as FilterType } from "shared/types";
+import type { FilterType } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -27,6 +23,8 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
+	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
@@ -34,10 +32,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 	const handleAddFilter = () => {
 		const firstColumn = tableCols?.[0]?.columnName ?? "";
-		setLocalFilters([
-			...localFilters,
-			{ columnName: firstColumn, operator: "=", value: "" },
-		]);
+		setLocalFilters([...localFilters, { columnName: firstColumn, operator: "=", value: "" }]);
 	};
 
 	const handleRemoveFilter = (index: number) => {
@@ -46,31 +41,28 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 	const handleFilterColumnChange = (index: number, columnName: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) =>
-				i === index ? { ...filter, columnName } : filter,
-			),
+			localFilters.map((filter, i) => (i === index ? { ...filter, columnName } : filter)),
 		);
 	};
 
 	const handleFilterValueChange = (index: number, value: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) =>
-				i === index ? { ...filter, value } : filter,
-			),
+			localFilters.map((filter, i) => (i === index ? { ...filter, value } : filter)),
 		);
 	};
 
 	const handleFilterOperatorChange = (index: number, operator: string) => {
 		setLocalFilters(
-			localFilters.map((filter, i) =>
-				i === index ? { ...filter, operator } : filter,
-			),
+			localFilters.map((filter, i) => (i === index ? { ...filter, operator } : filter)),
 		);
 	};
 
 	const handleReset = () => {
 		setLocalFilters([]);
 		setFilters([]);
+		// Reset cursor when filters change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 
@@ -80,6 +72,9 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 		);
 
 		setFilters(validFilters);
+		// Reset cursor when filters change
+		setCursor(null);
+		setDirection(null);
 		setIsOpen(false);
 	};
 
@@ -139,9 +134,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 							>
 								<Select
 									value={filter.columnName}
-									onValueChange={(value) =>
-										handleFilterColumnChange(index, value)
-									}
+									onValueChange={(value) => handleFilterColumnChange(index, value)}
 								>
 									<SelectTrigger className="w-full flex-1">
 										<SelectValue placeholder="Select column" />
@@ -160,9 +153,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 								<Select
 									value={filter.operator}
-									onValueChange={(value) =>
-										handleFilterOperatorChange(index, value)
-									}
+									onValueChange={(value) => handleFilterOperatorChange(index, value)}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Op" />
@@ -187,9 +178,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 									type="text"
 									placeholder="Value"
 									value={filter.value as string}
-									onChange={(e) =>
-										handleFilterValueChange(index, e.target.value)
-									}
+									onChange={(e) => handleFilterValueChange(index, e.target.value)}
 								/>
 
 								<Button
@@ -204,9 +193,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 						))
 					) : (
 						<div className="flex-1 flex h-9 gap-2 items-center justify-center">
-							<p className="text-sm text-muted-foreground text-center">
-								No filters applied
-							</p>
+							<p className="text-sm text-muted-foreground text-center">No filters applied</p>
 						</div>
 					)}
 				</div>

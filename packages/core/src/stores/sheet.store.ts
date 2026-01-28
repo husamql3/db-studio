@@ -41,10 +41,7 @@ export const useSheetStore = create<SheetState>()((set, get) => ({
 			// If sheet is already open, bring it to front
 			if (state.openSheets.includes(sheetName)) {
 				return {
-					openSheets: [
-						...state.openSheets.filter((s) => s !== sheetName),
-						sheetName,
-					],
+					openSheets: [...state.openSheets.filter((s) => s !== sheetName), sheetName],
 				};
 			}
 			// Otherwise add it to the stack
@@ -80,11 +77,7 @@ export const useSheetStore = create<SheetState>()((set, get) => ({
 
 	getSheetIndex: (sheetName: SheetName) => get().openSheets.indexOf(sheetName),
 
-	setRecordReference: (
-		tableName: string,
-		columnName: string,
-		referencedColumn: string,
-	) =>
+	setRecordReference: (tableName: string, columnName: string, referencedColumn: string) =>
 		set({
 			recordReferenceData: { tableName, columnName, referencedColumn },
 		}),

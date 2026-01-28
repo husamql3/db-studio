@@ -20,11 +20,7 @@ export const SidebarToggleButton = () => {
 			onClick={handleClick}
 			className="h-full aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
 		>
-			{isOpen ? (
-				<PanelLeftClose className="size-5" />
-			) : (
-				<PanelLeft className="size-5" />
-			)}
+			{isOpen ? <PanelLeftClose className="size-5" /> : <PanelLeft className="size-5" />}
 		</Button>
 	);
 };

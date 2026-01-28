@@ -1,40 +1,35 @@
 import type {
 	Column,
-	ColumnInfo,
+	ColumnInfoSchemaType,
 	DatabaseSchema,
+	DatabaseSchemaType,
 	Relationship,
 	Table,
 } from "shared/types";
 import { db } from "@/db.js";
+import { getDbPool } from "@/db-manager.js";
 import { getTableColumns } from "./table-columns.dao.js";
 
 /**
  * Get all table names from the database
  */
-async function getTableNames(): Promise<string[]> {
-	const client = await db.connect();
-	try {
-		const res = await client.query(
-			`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_type = 'BASE TABLE'
-      ORDER BY table_name;
-    `,
-		);
-		return res.rows.map((r) => r.table_name);
-	} finally {
-		client.release();
-	}
+async function getTableNames(db: DatabaseSchemaType["db"]): Promise<string[]> {
+	const pool = getDbPool(db);
+	const query = `
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = 'public'
+			AND table_type = 'BASE TABLE'
+		ORDER BY table_name;
+	`;
+	const { rows } = await pool.query(query);
+	return rows.map((r) => r.table_name);
 }
 
 /**
  * Get table comment/description if available
  */
-async function getTableDescription(
-	tableName: string,
-): Promise<string | undefined> {
+async function getTableDescription(tableName: string): Promise<string | undefined> {
 	const client = await db.connect();
 	try {
 		const res = await client.query(
@@ -55,9 +50,7 @@ async function getTableDescription(
 /**
  * Get sample data from a table (first 3 rows)
  */
-async function getSampleData(
-	tableName: string,
-): Promise<Record<string, unknown>[]> {
+async function getSampleData(tableName: string): Promise<Record<string, unknown>[]> {
 	const client = await db.connect();
 	try {
 		// Sanitize table name to prevent SQL injection
@@ -75,7 +68,7 @@ async function getSampleData(
 /**
  * Convert ColumnInfo to the schema Column format
  */
-function convertColumnInfo(col: ColumnInfo): Column {
+function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	const column: Column = {
 		name: col.columnName,
 		type: col.dataTypeLabel,
@@ -125,7 +118,7 @@ function extractRelationships(tables: Table[]): Relationship[] {
  * Get complete database schema with all tables, columns, and relationships
  */
 async function getDatabaseSchema(
-	// connectionId: string,
+	db: DatabaseSchemaType["db"],
 	options: {
 		includeSampleData?: boolean;
 		includeDescriptions?: boolean;
@@ -139,26 +132,13 @@ async function getDatabaseSchema(
 	} = options;
 
 	try {
-		// Get all table names
-		const tableNames = await getTableNames();
-
-		// Limit tables if needed to prevent token overflow
-		// const limitedTableNames = tableNames.slice(0, maxTables);
-
-		// if (tableNames.length > maxTables) {
-		//   console.warn(
-		//     `Database has ${tableNames.length} tables, only including first ${maxTables} in schema context`
-		//   );
-		// }
+		const tableNames = await getTableNames(db);
 
 		// Fetch schema info for each table in parallel
-		// const tablePromises = limitedTableNames.map(async (tableName) => {
 		const tablePromises = tableNames.map(async (tableName) => {
 			const [columns, description, sampleData] = await Promise.all([
-				getTableColumns(tableName),
-				includeDescriptions
-					? getTableDescription(tableName)
-					: Promise.resolve(undefined),
+				getTableColumns({ tableName, db }),
+				includeDescriptions ? getTableDescription(tableName) : Promise.resolve(undefined),
 				includeSampleData ? getSampleData(tableName) : Promise.resolve([]),
 			]);
 
@@ -173,9 +153,7 @@ async function getDatabaseSchema(
 
 			if (sampleData.length > 0) {
 				table.sampleData = sampleData.map((row) =>
-					Object.fromEntries(
-						Object.entries(row).map(([key, value]) => [key, String(value)]),
-					),
+					Object.fromEntries(Object.entries(row).map(([key, value]) => [key, String(value)])),
 				);
 			}
 
@@ -203,8 +181,10 @@ async function getDatabaseSchema(
 /**
  * Get detailed schema with sample data (for initial conversation context)
  */
-export async function getDetailedSchema(): Promise<DatabaseSchema> {
-	return getDatabaseSchema({
+export async function getDetailedSchema(
+	db: DatabaseSchemaType["db"],
+): Promise<DatabaseSchema> {
+	return getDatabaseSchema(db, {
 		includeSampleData: true,
 		includeDescriptions: true,
 		// maxTables: 30, // todo: DELETE THIS AFTER TESTING

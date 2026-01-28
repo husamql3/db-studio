@@ -1,17 +1,8 @@
-import {
-	ChevronLeft,
-	ChevronRight,
-	ChevronsLeft,
-	ChevronsRight,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-} from "@/components/ui/pagination";
+import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
 import {
 	Select,
 	SelectContent,
@@ -27,21 +18,39 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
-	const [pageSize, setPageSize] = useQueryState(
-		CONSTANTS.TABLE_STATE_KEYS.LIMIT,
-	);
-	const [page, setPage] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.PAGE);
+	const [limit, setLimit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
+	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 	const { tableData } = useTableData({ tableName });
 
 	const totalRows = tableData?.meta?.total ?? 0;
-	const totalPages = tableData?.meta?.totalPages ?? 0;
+	const dataLength = tableData?.data?.length ?? 0;
 
-	const handlePageSizeChange = (value: string) => {
-		setPageSize(value);
+	const handleLimitChange = (value: string) => {
+		setLimit(value);
+		// Reset cursor when changing page size
+		setCursor(null);
+		setDirection(null);
 	};
 
-	const handlePageChange = (newPage: number) => {
-		setPage(newPage.toString());
+	const handleNextPage = () => {
+		if (tableData?.meta?.nextCursor) {
+			setCursor(tableData.meta.nextCursor);
+			setDirection("asc");
+		}
+	};
+
+	const handlePrevPage = () => {
+		if (tableData?.meta?.prevCursor) {
+			setCursor(tableData.meta.prevCursor);
+			setDirection("desc");
+		}
+	};
+
+	const handleFirstPage = () => {
+		// Reset to first page by clearing cursor
+		setCursor(null);
+		setDirection(null);
 	};
 
 	return (
@@ -53,13 +62,11 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 		>
 			<div className="flex items-center gap-2">
 				{/* Results per page */}
-				<Label className="text-xs text-zinc-400 whitespace-nowrap">
-					Rows per page
-				</Label>
+				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
 				<Select
-					value={pageSize?.toString() || "50"}
+					value={limit?.toString() || "50"}
 					onValueChange={(value) => {
-						handlePageSizeChange(value);
+						handleLimitChange(value);
 					}}
 				>
 					<SelectTrigger
@@ -81,25 +88,29 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 				</Select>
 			</div>
 
-			{/* Page number information */}
+			{/* Row count information */}
 			<div className="flex items-center justify-center text-xs text-zinc-400">
 				<p
 					className="whitespace-nowrap"
 					aria-live="polite"
 				>
-					<span className="text-zinc-200">
-						{(Number(page) - 1) * Number(pageSize) + 1}-
-						{Math.min(Number(page) * Number(pageSize), totalRows)}
-					</span>{" "}
-					of{" "}
-					<span className="text-zinc-200">
-						{tableData?.meta?.total.toString()}
-					</span>
+					Showing <span className="text-zinc-200">{dataLength}</span> of{" "}
+					<span className="text-zinc-200">{totalRows}</span> rows
 				</p>
 			</div>
 
 			{/* Pagination buttons */}
-			<div className="flex items-center">
+			<div className="flex items-center gap-0.5">
+				<Button
+					size="sm"
+					variant="ghost"
+					className="h-6 w-6 disabled:opacity-30"
+					onClick={handleFirstPage}
+					disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
+					aria-label="Go to first page"
+				>
+					<ChevronsLeft aria-hidden="true" />
+				</Button>
 				<Pagination>
 					<PaginationContent className="gap-0.5">
 						<PaginationItem>
@@ -107,24 +118,8 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								size="icon-sm"
 								variant="ghost"
 								className="h-6 w-6 disabled:opacity-30"
-								onClick={() => {
-									handlePageChange(1);
-								}}
-								disabled={Number(page) <= 1 || totalRows === 0}
-								aria-label="Go to first page"
-							>
-								<ChevronsLeft aria-hidden="true" />
-							</Button>
-						</PaginationItem>
-						<PaginationItem>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								className="h-6 w-6 disabled:opacity-30"
-								onClick={() => {
-									handlePageChange(Number(page) - 1);
-								}}
-								disabled={Number(page) <= 1 || totalRows === 0}
+								onClick={handlePrevPage}
+								disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 								aria-label="Go to previous page"
 							>
 								<ChevronLeft aria-hidden="true" />
@@ -135,27 +130,11 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 								size="icon-sm"
 								variant="ghost"
 								className="h-6 w-6 disabled:opacity-30"
-								onClick={() => {
-									handlePageChange(Number(page) + 1);
-								}}
-								disabled={Number(page) >= totalPages || totalRows === 0}
+								onClick={handleNextPage}
+								disabled={!tableData?.meta?.hasNextPage || totalRows === 0}
 								aria-label="Go to next page"
 							>
 								<ChevronRight aria-hidden="true" />
-							</Button>
-						</PaginationItem>
-						<PaginationItem>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								className="h-6 w-6 disabled:opacity-30"
-								onClick={() => {
-									handlePageChange(totalPages);
-								}}
-								disabled={Number(page) >= totalPages || totalRows === 0}
-								aria-label="Go to last page"
-							>
-								<ChevronsRight aria-hidden="true" />
 							</Button>
 						</PaginationItem>
 					</PaginationContent>
