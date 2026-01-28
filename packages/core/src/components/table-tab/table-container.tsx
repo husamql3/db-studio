@@ -12,10 +12,7 @@ export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 	const tableContainerRef = useRef<HTMLDivElement | null>(null);
 
 	// we are using a slightly different virtualization strategy for columns (compared to virtual rows) in order to support dynamic row heights
-	const columnVirtualizer = useVirtualizer<
-		HTMLDivElement,
-		HTMLTableCellElement
-	>({
+	const columnVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableCellElement>({
 		count: visibleColumns.length,
 		estimateSize: (index) => visibleColumns[index].getSize(), //estimate width of each column for accurate scrollbar dragging
 		getScrollElement: () => tableContainerRef.current,
@@ -32,8 +29,7 @@ export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 	if (columnVirtualizer && virtualColumns?.length) {
 		virtualPaddingLeft = virtualColumns[0]?.start ?? 0;
 		virtualPaddingRight =
-			columnVirtualizer.getTotalSize() -
-			(virtualColumns[virtualColumns.length - 1]?.end ?? 0);
+			columnVirtualizer.getTotalSize() - (virtualColumns[virtualColumns.length - 1]?.end ?? 0);
 	}
 
 	return (

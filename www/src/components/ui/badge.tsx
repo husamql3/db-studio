@@ -1,7 +1,6 @@
 import * as Slot from "@radix-ui/react-slot";
 import { motion } from "motion/react";
 import type React from "react";
-
 import { cn } from "@/lib/utils";
 
 type Variant = {
@@ -144,16 +143,10 @@ export type BadgeProps = {
 	variant?: (typeof variants)[number]["variant"];
 } & React.ComponentProps<"div">;
 
-export function Badge({
-	variant = "default",
-	className,
-	...props
-}: BadgeProps) {
+export function Badge({ variant = "default", className, ...props }: BadgeProps) {
 	const FALLBACK_INDEX = 0;
 
-	const variantComponent = variants.find(
-		(v) => v.variant === variant,
-	)?.component;
+	const variantComponent = variants.find((v) => v.variant === variant)?.component;
 
 	const Component = variantComponent || variants[FALLBACK_INDEX].component;
 

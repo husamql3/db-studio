@@ -33,20 +33,22 @@ export const CONSTANTS = {
 		SHOW_AS: "view",
 	},
 
-	//* table state keys
+	//* table state keys (cursor-based pagination)
 	TABLE_STATE_KEYS: {
 		SORT: "sort",
 		ORDER: "order",
-		PAGE: "page",
+		CURSOR: "cursor",
+		DIRECTION: "dir",
 		LIMIT: "limit",
 		FILTERS: "filters",
 	},
 
-	//* referenced table state keys
+	//* referenced table state keys (cursor-based pagination)
 	REFERENCED_TABLE_STATE_KEYS: {
 		ACTIVE_TABLE: "rTable",
-		PAGE: "rPage",
-		DEFAULT_PAGE: 1,
+		CURSOR: "rCursor",
+		DIRECTION: "rDir",
+		DEFAULT_PAGE: 1, // Keep for backwards compatibility during transition
 		LIMIT: "rLimit",
 		DEFAULT_LIMIT: 30,
 		FILTERS: "rFilters",

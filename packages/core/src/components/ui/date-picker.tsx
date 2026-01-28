@@ -4,11 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DropdownNavProps, DropdownProps } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
@@ -50,10 +46,7 @@ export function DatePicker({
 	const minutes = value ? value.getMinutes() : 0;
 	const seconds = value ? value.getSeconds() : 0;
 
-	const handleCalendarChange = (
-		_value: string | number,
-		_e: React.ChangeEventHandler,
-	) => {
+	const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler) => {
 		const _event = {
 			target: {
 				value: String(_value),
@@ -74,10 +67,7 @@ export function DatePicker({
 		}
 	};
 
-	const handleTimeChange = (
-		type: "hours" | "minutes" | "seconds",
-		val: number,
-	) => {
+	const handleTimeChange = (type: "hours" | "minutes" | "seconds", val: number) => {
 		const newDate = value ? new Date(value) : new Date();
 		if (type === "hours") newDate.setHours(val);
 		if (type === "minutes") newDate.setMinutes(val);
@@ -85,9 +75,7 @@ export function DatePicker({
 		onChange?.(newDate);
 	};
 
-	const handlePreset = (
-		preset: "NULL" | "NOW" | "TODAY" | "YESTERDAY" | "TOMORROW",
-	) => {
+	const handlePreset = (preset: "NULL" | "NOW" | "TODAY" | "YESTERDAY" | "TOMORROW") => {
 		const today = startOfDay(new Date());
 		switch (preset) {
 			case "NULL":
@@ -220,11 +208,7 @@ export function DatePicker({
 								);
 							},
 							DropdownNav: (props: DropdownNavProps) => {
-								return (
-									<div className="flex w-full items-center gap-2">
-										{props.children}
-									</div>
-								);
+								return <div className="flex w-full items-center gap-2">{props.children}</div>;
 							},
 						}}
 						defaultMonth={value || new Date()}
@@ -300,8 +284,7 @@ function TimeColumn({
 							onClick={() => onChange(val)}
 							className={cn(
 								"w-10 h-8 text-sm rounded-md hover:bg-accent flex items-center justify-center",
-								selected === val &&
-									"bg-primary text-primary-foreground hover:bg-primary",
+								selected === val && "bg-primary text-primary-foreground hover:bg-primary",
 							)}
 						>
 							{val.toString().padStart(2, "0")}

@@ -9,11 +9,7 @@ export const SidebarListTables = () => {
 		defaultValue: "",
 	});
 
-	const {
-		tablesList = [],
-		isLoadingTablesList,
-		errorTablesList,
-	} = useTablesList();
+	const { tablesList = [], isLoadingTablesList, errorTablesList } = useTablesList();
 
 	const filteredTables = tablesList?.filter((table) =>
 		table.tableName.toLowerCase().includes(searchTerm.toLowerCase()),

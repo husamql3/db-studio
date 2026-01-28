@@ -196,8 +196,7 @@ export const ADD_TABLE_OPTIONS: AddTableOption[] = [
 	{
 		name: "isNullable",
 		label: "Is Nullable",
-		description:
-			"Specify if the column can assume a NULL value if no value is provided",
+		description: "Specify if the column can assume a NULL value if no value is provided",
 	},
 	{
 		name: "isUnique",
@@ -207,14 +206,12 @@ export const ADD_TABLE_OPTIONS: AddTableOption[] = [
 	{
 		name: "isIdentity",
 		label: "Is Identity",
-		description:
-			"Automatically assign a sequential unique number to the column",
+		description: "Automatically assign a sequential unique number to the column",
 	},
 	{
 		name: "isArray",
 		label: "Define as Array",
-		description:
-			"Define your column as a variable-length multidimensional array",
+		description: "Define your column as a variable-length multidimensional array",
 	},
 ];
 

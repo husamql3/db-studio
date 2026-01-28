@@ -1,9 +1,4 @@
-import {
-	flexRender,
-	getCoreRowModel,
-	type Row,
-	useReactTable,
-} from "@tanstack/react-table";
+import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
@@ -46,10 +41,9 @@ export const ReferencedTable = ({
 		tableName,
 		isReferencedTable: true,
 	});
-	const [page, setPage] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.PAGE.toString(),
-	);
-	const [pageSize, setPageSize] = useQueryState(
+	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
+	const [limit, setLimit] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);
 
@@ -58,28 +52,23 @@ export const ReferencedTable = ({
 		if (tableName && referencedActiveTable !== tableName) {
 			setReferencedActiveTable(tableName);
 		}
-		if (tableName && !page) {
-			setPage(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_PAGE.toString()); // page 1 for referenced table
+		if (tableName && !limit) {
+			setLimit(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString()); // limit 30 for referenced table
 		}
-		if (tableName && !pageSize) {
-			setPageSize(
-				CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString(),
-			); // limit 30 for referenced table
+	}, [tableName, referencedActiveTable, limit, setReferencedActiveTable, setLimit]);
+
+	const handleNextPage = () => {
+		if (tableData?.meta?.nextCursor) {
+			setCursor(tableData.meta.nextCursor);
+			setDirection("forward");
 		}
-	}, [
-		tableName,
-		referencedActiveTable,
-		page,
-		pageSize,
-		setReferencedActiveTable,
-		setPage,
-		setPageSize,
-	]);
+	};
 
-	const totalPages = tableData?.meta?.totalPages ?? 0;
-
-	const handlePageChange = (newPage: number) => {
-		setPage(newPage.toString());
+	const handlePrevPage = () => {
+		if (tableData?.meta?.prevCursor) {
+			setCursor(tableData.meta.prevCursor);
+			setDirection("backward");
+		}
 	};
 
 	const columns = useMemo(() => {
@@ -131,8 +120,8 @@ export const ReferencedTable = ({
 						variant="ghost"
 						size="icon"
 						className="border-l border-r-0 border-y-0 border-zinc-800 rounded-none text-xs h-full aspect-square size-8"
-						onClick={() => handlePageChange(Number(page) - 1)}
-						disabled={Number(page) <= 1}
+						onClick={handlePrevPage}
+						disabled={!tableData?.meta?.hasPreviousPage}
 					>
 						<ArrowLeftIcon className="size-3" />
 					</Button>
@@ -141,8 +130,8 @@ export const ReferencedTable = ({
 						variant="ghost"
 						size="icon"
 						className="border-r border-l border-y-0 border-zinc-800 rounded-none text-xs h-full aspect-square size-8"
-						onClick={() => handlePageChange(Number(page) + 1)}
-						disabled={Number(page) >= totalPages}
+						onClick={handleNextPage}
+						disabled={!tableData?.meta?.hasNextPage}
 					>
 						<ArrowRightIcon className="size-3" />
 					</Button>
@@ -164,10 +153,7 @@ export const ReferencedTable = ({
 									>
 										{header.isPlaceholder
 											? null
-											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+											: flexRender(header.column.columnDef.header, header.getContext())}
 									</TableHead>
 								);
 							})}

@@ -1,209 +1,137 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
-	bulkInsertRecordsSchema,
-	databaseQuerySchema,
-	deleteRecordsSchema,
-	insertRecordSchema,
+	addRecordSchema,
+	databaseSchema,
+	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
-import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
+import type { ApiHandler } from "@/app.types.js";
+import { addRecord } from "@/dao/add-record.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
-import { insertRecord } from "@/dao/insert-record.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
 
-export const recordsRoutes = new Hono();
+export const recordsRoutes = new Hono()
+	/**
+	 * Base path for the endpoints, /:dbType/records/...
+	 */
+	.basePath("/records")
 
-/**
- * POST /records - Insert a new record into a table
- */
-recordsRoutes.post(
-	"/",
-	zValidator("json", insertRecordSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
-			const body = c.req.valid("json");
-			const { tableName, data } = body;
-			const { database } = c.req.valid("query");
-
-			const result = await insertRecord({
-				tableName,
-				data,
-				database,
+	/**
+	 * POST /records
+	 * Adds a new record into a table
+	 * @param {DatabaseSchemaType} query - The database to use
+	 * @param {AddRecordSchemaType} json - The data for the new record
+	 * @returns {BaseResponseType<string>} A success message
+	 */
+	.post(
+		"/",
+		zValidator("query", databaseSchema),
+		zValidator("json", addRecordSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, data } = c.req.valid("json");
+			const { insertedCount } = await addRecord({
+				db,
+				params: {
+					tableName,
+					data,
+				},
 			});
-			return c.json(result);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
 			return c.json(
 				{
-					success: false,
-					message:
-						error instanceof Error ? error.message : "Failed to create record",
-					detail: errorDetail,
+					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
 				},
-				500,
+				200,
 			);
-		}
-	},
-);
+		},
+	)
 
-/**
- * POST /records/bulk - Bulk insert records from CSV/JSON
- */
-recordsRoutes.post(
-	"/bulk",
-	zValidator("json", bulkInsertRecordsSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
-			const body = c.req.valid("json");
-			const { tableName, records } = body;
-			const { database } = c.req.valid("query");
-
-			const result = await bulkInsertRecords({
-				tableName,
-				records,
-				database,
+	/**
+	 * PATCH /records
+	 * Updates one or more cells in a table
+	 * @param {DatabaseSchemaType} query - The database to use
+	 * @param {UpdateRecordsSchemaType} json - The data for the updates
+	 * @returns {ApiHandler<string>} A success message
+	 */
+	.patch(
+		"/",
+		zValidator("query", databaseSchema),
+		zValidator("json", updateRecordsSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, primaryKey, updates } = c.req.valid("json");
+			const { updatedCount } = await updateRecords({
+				params: {
+					tableName,
+					primaryKey,
+					updates,
+				},
+				db,
 			});
-			return c.json(result);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
 			return c.json(
 				{
-					success: false,
-					message:
-						error instanceof Error ? error.message : "Failed to bulk insert records",
-					detail: errorDetail,
+					data: `Updated ${updatedCount} records in "${tableName}"`,
 				},
-				500,
+				200,
 			);
-		}
-	},
-);
+		},
+	)
 
-/**
- * PATCH /records - Update one or more cells in a table
- */
-recordsRoutes.patch(
-	"/",
-	zValidator("json", updateRecordsSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
-			const body = c.req.valid("json");
-			const { tableName, updates, primaryKey } = body;
-			const { database } = c.req.valid("query");
-
-			const result = await updateRecords({
-				tableName,
-				updates,
-				primaryKey,
-				database,
-			});
-			return c.json(result);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
-			return c.json(
-				{
-					success: false,
-					message:
-						error instanceof Error ? error.message : "Failed to update records",
-					detail: errorDetail,
-				},
-				500,
-			);
-		}
-	},
-);
-
-/**
- * DELETE /records - Delete records from a table
- */
-recordsRoutes.delete(
-	"/",
-	zValidator("json", deleteRecordsSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
-			const body = c.req.valid("json");
-			const { tableName, primaryKeys } = body;
-			const { database } = c.req.valid("query");
-
-			const result = await deleteRecords({
+	/**
+	 * DELETE /records
+	 * Deletes records from a table
+	 * @param {DatabaseSchemaType} query - The database to use
+	 * @param {DeleteRecordSchemaType} json - The data for the deletes
+	 * @returns {ApiHandler<string>} A success message
+	 */
+	.delete(
+		"/",
+		zValidator("query", databaseSchema),
+		zValidator("json", deleteRecordSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, primaryKeys } = c.req.valid("json");
+			const { deletedCount } = await deleteRecords({
 				tableName,
 				primaryKeys,
-				database,
+				db,
 			});
-
-			if (result.fkViolation) {
-				return c.json(result, 409);
-			}
-
-			return c.json(result);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
 			return c.json(
 				{
-					success: false,
-					message:
-						error instanceof Error ? error.message : "Failed to delete records",
-					detail: errorDetail,
+					data: `Deleted ${deletedCount} records from "${tableName}"`,
 				},
-				500,
+				200,
 			);
-		}
-	},
-);
+		},
+	)
 
-/**
- * DELETE /records/force - Force delete records and all related FK records
- */
-recordsRoutes.delete(
-	"/force",
-	zValidator("json", deleteRecordsSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
-			const body = c.req.valid("json");
-			const { tableName, primaryKeys } = body;
-			const { database } = c.req.valid("query");
-
-			const result = await forceDeleteRecords({
+	/**
+	 * DELETE /records/force
+	 * Force deletes records and all related FK records
+	 * @param {DatabaseSchemaType} query - The database to use
+	 * @param {DeleteRecordSchemaType} json - The data for the deletes
+	 * @returns {ApiHandler<string>} A success message
+	 */
+	.delete(
+		"/force",
+		zValidator("query", databaseSchema),
+		zValidator("json", deleteRecordSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, primaryKeys } = c.req.valid("json");
+			const { deletedCount } = await forceDeleteRecords({
 				tableName,
 				primaryKeys,
-				database,
+				db,
 			});
-
-			return c.json(result);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
 			return c.json(
 				{
-					success: false,
-					message:
-						error instanceof Error
-							? error.message
-							: "Failed to force delete records",
-					detail: errorDetail,
+					data: `Deleted ${deletedCount} records from "${tableName}"`,
 				},
-				500,
+				200,
 			);
-		}
-	},
-);
+		},
+	);
+
+export type RecordsRoutes = typeof recordsRoutes;

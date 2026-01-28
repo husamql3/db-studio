@@ -1,10 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-	CircleAlert,
-	CircleCheckIcon,
-	InfoIcon,
-	TriangleAlert,
-} from "lucide-react";
+import { CircleAlert, CircleCheckIcon, InfoIcon, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type AlertVariant = "info" | "warning" | "error" | "success";
@@ -26,20 +21,17 @@ const alertConfig: Record<
 > = {
 	info: {
 		icon: InfoIcon,
-		containerClass:
-			"border-blue-500/50 bg-blue-50/50 text-blue-600 dark:bg-blue-950/20",
+		containerClass: "border-blue-500/50 bg-blue-50/50 text-blue-600 dark:bg-blue-950/20",
 		iconClass: "text-blue-500",
 	},
 	warning: {
 		icon: TriangleAlert,
-		containerClass:
-			"border-amber-500/50 bg-amber-50/50 text-amber-600 dark:bg-amber-950/20",
+		containerClass: "border-amber-500/50 bg-amber-50/50 text-amber-600 dark:bg-amber-950/20",
 		iconClass: "text-amber-500",
 	},
 	error: {
 		icon: CircleAlert,
-		containerClass:
-			"border-red-500/50 bg-red-50/50 text-red-600 dark:bg-red-950/20",
+		containerClass: "border-red-500/50 bg-red-50/50 text-red-600 dark:bg-red-950/20",
 		iconClass: "text-red-500",
 	},
 	success: {
@@ -55,16 +47,8 @@ export const Alert = ({ variant, title, message, className }: AlertProps) => {
 	const Icon = config.icon;
 
 	return (
-		<div
-			className={cn(
-				"rounded-md border px-4 py-3",
-				config.containerClass,
-				className,
-			)}
-		>
-			<p
-				className={cn("text-sm flex items-center gap-2", message ? "mb-1" : "")}
-			>
+		<div className={cn("rounded-md border px-4 py-3", config.containerClass, className)}>
+			<p className={cn("text-sm flex items-center gap-2", message ? "mb-1" : "")}>
 				<Icon
 					aria-hidden="true"
 					className={cn("-mt-0.5 inline-flex opacity-80", config.iconClass)}

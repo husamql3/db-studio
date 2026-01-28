@@ -1,8 +1,4 @@
-import {
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	MoreHorizontalIcon,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 import type * as React from "react";
 import type { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,10 +15,7 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
 	);
 }
 
-function PaginationContent({
-	className,
-	...props
-}: React.ComponentProps<"ul">) {
+function PaginationContent({ className, ...props }: React.ComponentProps<"ul">) {
 	return (
 		<ul
 			data-slot="pagination-content"
@@ -104,10 +97,7 @@ function _PaginationNext({
 	);
 }
 
-function _PaginationEllipsis({
-	className,
-	...props
-}: React.ComponentProps<"span">) {
+function _PaginationEllipsis({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			aria-hidden

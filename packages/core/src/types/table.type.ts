@@ -1,8 +1,6 @@
 import type { RowData } from "@tanstack/react-table";
-import type {
-	DataTypes,
-	StandardizedDataType,
-} from "server/src/types/column.types";
+import type { DataTypes, StandardizedDataType } from "shared/types";
+
 export type TableRecord = Record<string, unknown>;
 
 export type CellVariant = DataTypes;
@@ -50,32 +48,16 @@ declare module "@tanstack/react-table" {
 		isScrolling?: boolean;
 
 		onCellEditingStart?: (rowIndex: number, columnId: string) => void;
-		onCellClick?: (
-			rowIndex: number,
-			columnId: string,
-			event?: React.MouseEvent,
-		) => void;
+		onCellClick?: (rowIndex: number, columnId: string, event?: React.MouseEvent) => void;
 
 		getIsCellSelected?: (rowIndex: number, columnId: string) => boolean;
 		onCellMouseUp?: () => void;
 		onDataUpdate?: (props: UpdateCell | Array<UpdateCell>) => void;
 
 		onCellDoubleClick?: (rowIndex: number, columnId: string) => void;
-		onCellContextMenu?: (
-			rowIndex: number,
-			columnId: string,
-			event: React.MouseEvent,
-		) => void;
-		onCellMouseDown?: (
-			rowIndex: number,
-			columnId: string,
-			event: React.MouseEvent,
-		) => void;
-		onCellMouseEnter?: (
-			rowIndex: number,
-			columnId: string,
-			event: React.MouseEvent,
-		) => void;
+		onCellContextMenu?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
+		onCellMouseDown?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
+		onCellMouseEnter?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
 		onCellEditingStop?: (opts?: {
 			direction?: NavigationDirection;
 			moveToNextRow?: boolean;

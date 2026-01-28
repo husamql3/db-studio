@@ -1,54 +1,57 @@
-import type { DeleteColumnParams, DeleteColumnResponse } from "shared/types";
+import { HTTPException } from "hono/http-exception";
+import type { DeleteColumnParamsSchemaType } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
 /**
- * Deletes a column from a table using ALTER TABLE DROP COLUMN
- * @param params.cascade - If true, uses CASCADE to drop dependent objects (indexes, constraints, foreign keys)
- *                         If false, uses RESTRICT which will fail if there are dependencies
+ * Deletes a column from a table using ALTER TABLE DROP COLUMN.
+ * Uses CASCADE to drop dependent objects, or RESTRICT to fail if there are dependencies.
+ *
+ * @param params.tableName - Name of the table containing the column
+ * @param params.columnName - Name of the column to delete
+ * @param params.cascade - If true, uses CASCADE; if false, uses RESTRICT
+ * @param params.db - Optional database name to connect to
+ * @returns {Object} Object with deleted count
+ * @throws HTTPException if table or column does not exist
  */
-export const deleteColumn = async (
-	params: DeleteColumnParams,
-	database?: string,
-): Promise<DeleteColumnResponse> => {
-	const { tableName, columnName, cascade = false } = params;
-	const pool = getDbPool(database);
-	const client = await pool.connect();
+export async function deleteColumn(
+	params: DeleteColumnParamsSchemaType,
+): Promise<{ deletedCount: number }> {
+	const { tableName, columnName, cascade, db } = params;
+	const pool = getDbPool(db);
 
-	try {
-		// Use CASCADE to drop dependent objects, or RESTRICT to fail if there are dependencies
-		const dropMode = cascade ? "CASCADE" : "RESTRICT";
-		const dropColumnSQL = `ALTER TABLE "${tableName}" DROP COLUMN "${columnName}" ${dropMode}`;
-
-		console.log("Deleting column with SQL:", dropColumnSQL);
-		await client.query(dropColumnSQL);
-
-		return {
-			success: true,
-			message: `Column "${columnName}" deleted successfully from table "${tableName}"`,
-			tableName,
-			columnName,
-			deletedCount: 1,
-		};
-	} catch (error) {
-		console.error("Error deleting column:", error);
-
-		// Check for specific PostgreSQL errors
-		const pgError = error as { code?: string; message?: string };
-
-		if (pgError.code === "42703") {
-			// Column does not exist
-			throw new Error(
-				`Column "${columnName}" does not exist in table "${tableName}"`,
-			);
-		}
-
-		if (pgError.code === "42P01") {
-			// Table does not exist
-			throw new Error(`Table "${tableName}" does not exist`);
-		}
-
-		throw error;
-	} finally {
-		client.release();
+	// Check if table exists
+	const tableExistsQuery = `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables 
+			WHERE table_name = $1 AND table_schema = 'public'
+		) as exists;
+	`;
+	const { rows: tableRows } = await pool.query(tableExistsQuery, [tableName]);
+	if (!tableRows[0]?.exists) {
+		throw new HTTPException(404, {
+			message: `Table "${tableName}" does not exist`,
+		});
 	}
-};
+
+	// Check if column exists
+	const columnExistsQuery = `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns 
+			WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public'
+		) as exists;
+	`;
+	const { rows: columnRows } = await pool.query(columnExistsQuery, [tableName, columnName]);
+	if (!columnRows[0]?.exists) {
+		throw new HTTPException(404, {
+			message: `Column "${columnName}" does not exist in table "${tableName}"`,
+		});
+	}
+
+	// Use CASCADE to drop dependent objects, or RESTRICT to fail if there are dependencies
+	const dropMode = cascade ? "CASCADE" : "RESTRICT";
+	const dropColumnSQL = `ALTER TABLE "${tableName}" DROP COLUMN "${columnName}" ${dropMode}`;
+
+	const { rowCount } = await pool.query(dropColumnSQL);
+
+	return { deletedCount: rowCount ?? 0 };
+}

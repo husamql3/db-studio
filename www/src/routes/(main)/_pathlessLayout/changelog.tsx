@@ -83,33 +83,31 @@ function RouteComponent() {
 													🚀 Features
 												</h4>
 												<ul className="space-y-1">
-													{item.features.map(
-														(feature, featureIndex: number) => (
-															<li
-																key={`${item.title}-feature-${featureIndex}`}
-																className="flex items-start gap-2"
-															>
-																<span className="flex-1">
-																	• {feature.text}
-																	{feature.username && (
-																		<>
-																			{" - "}
-																			<a
-																				href={`https://github.com/${feature.username}`}
-																				target="_blank"
-																				rel="noopener noreferrer"
-																				className="inline-flex items-center gap-1 text-primary-light group"
-																			>
-																				<span className="text-xs font-medium">
-																					@{feature.username}
-																				</span>
-																			</a>
-																		</>
-																	)}
-																</span>
-															</li>
-														),
-													)}
+													{item.features.map((feature, featureIndex: number) => (
+														<li
+															key={`${item.title}-feature-${featureIndex}`}
+															className="flex items-start gap-2"
+														>
+															<span className="flex-1">
+																• {feature.text}
+																{feature.username && (
+																	<>
+																		{" - "}
+																		<a
+																			href={`https://github.com/${feature.username}`}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			className="inline-flex items-center gap-1 text-primary-light group"
+																		>
+																			<span className="text-xs font-medium">
+																				@{feature.username}
+																			</span>
+																		</a>
+																	</>
+																)}
+															</span>
+														</li>
+													))}
 												</ul>
 											</div>
 										)}
@@ -120,33 +118,31 @@ function RouteComponent() {
 													🔧 Improvements
 												</h4>
 												<ul className="space-y-1">
-													{item.improvements.map(
-														(improvement, improvementIndex: number) => (
-															<li
-																key={`${item.title}-improvement-${improvementIndex}`}
-																className="flex items-start gap-2"
-															>
-																<span className="flex-1">
-																	• {improvement.text}
-																	{improvement.username && (
-																		<>
-																			{" - "}
-																			<a
-																				href={`https://github.com/${improvement.username}`}
-																				target="_blank"
-																				rel="noopener noreferrer"
-																				className="inline-flex items-center gap-1 text-primary-light group"
-																			>
-																				<span className="text-xs font-medium">
-																					@{improvement.username}
-																				</span>
-																			</a>
-																		</>
-																	)}
-																</span>
-															</li>
-														),
-													)}
+													{item.improvements.map((improvement, improvementIndex: number) => (
+														<li
+															key={`${item.title}-improvement-${improvementIndex}`}
+															className="flex items-start gap-2"
+														>
+															<span className="flex-1">
+																• {improvement.text}
+																{improvement.username && (
+																	<>
+																		{" - "}
+																		<a
+																			href={`https://github.com/${improvement.username}`}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			className="inline-flex items-center gap-1 text-primary-light group"
+																		>
+																			<span className="text-xs font-medium">
+																				@{improvement.username}
+																			</span>
+																		</a>
+																	</>
+																)}
+															</span>
+														</li>
+													))}
 												</ul>
 											</div>
 										)}

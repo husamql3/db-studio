@@ -7,11 +7,7 @@ import { cn } from "@/lib/utils";
 
 type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 
-export const Suggestions = ({
-	className,
-	children,
-	...props
-}: SuggestionsProps) => (
+export const Suggestions = ({ className, children, ...props }: SuggestionsProps) => (
 	<ScrollArea
 		className="w-full overflow-x-auto whitespace-nowrap"
 		{...props}

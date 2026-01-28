@@ -70,10 +70,11 @@ export const TableHeadRow = ({
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
+	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 
 	const virtualColumns = columnVirtualizer.getVirtualItems();
-	const isAnyColumnResizing =
-		table.getState().columnSizingInfo.isResizingColumn;
+	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
 	const createSortHandler = useCallback(
 		(columnId: string) => (direction: SortDirection | null) => {
@@ -88,8 +89,11 @@ export const TableHeadRow = ({
 				setSort(columnId);
 				setOrder(direction === "desc" ? "desc" : "asc");
 			}
+			// Reset cursor when sort changes
+			setCursor(null);
+			setDirection(null);
 		},
-		[setColumnName, setSort, setOrder],
+		[setColumnName, setSort, setOrder, setCursor, setDirection],
 	);
 
 	const handleDeleteClick = useCallback((columnId: string) => {
@@ -159,18 +163,13 @@ export const TableHeadRow = ({
 									className: cn(
 										"relative w-full h-full flex items-center justify-between gap-2 text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
 										"border-r border-zinc-800",
-										header.column.getCanSort()
-											? "cursor-pointer select-none"
-											: "",
+										header.column.getCanSort() ? "cursor-pointer select-none" : "",
 									),
 									// onClick: header.column.getToggleSortingHandler(),
 								}}
 							>
 								{virtualColumn.index === 0 ? (
-									flexRender(
-										header.column.columnDef.header,
-										header.getContext(),
-									)
+									flexRender(header.column.columnDef.header, header.getContext())
 								) : (
 									<>
 										<DropdownMenu>
@@ -193,10 +192,7 @@ export const TableHeadRow = ({
 																className="text-primary"
 															/>
 														)}
-														{flexRender(
-															header.column.columnDef.header,
-															header.getContext(),
-														)}
+														{flexRender(header.column.columnDef.header, header.getContext())}
 													</div>
 
 													<div className="flex items-center gap-1">
@@ -210,9 +206,7 @@ export const TableHeadRow = ({
 															{{
 																asc: <ChevronDown />,
 																desc: <ChevronUp />,
-															}[
-																header.column.getIsSorted() as "asc" | "desc"
-															] ?? null}
+															}[header.column.getIsSorted() as "asc" | "desc"] ?? null}
 														</span>
 													</div>
 												</Button>
@@ -224,9 +218,7 @@ export const TableHeadRow = ({
 												<DropdownMenuGroup>
 													{/* Sort ascending button */}
 													<DropdownMenuItem
-														onClick={() =>
-															createSortHandler(header.column.id)("asc")
-														}
+														onClick={() => createSortHandler(header.column.id)("asc")}
 													>
 														<ArrowUp />
 														Sort ascending
@@ -234,9 +226,7 @@ export const TableHeadRow = ({
 
 													{/* Sort descending button */}
 													<DropdownMenuItem
-														onClick={() =>
-															createSortHandler(header.column.id)("desc")
-														}
+														onClick={() => createSortHandler(header.column.id)("desc")}
 													>
 														<ArrowDown />
 														Sort descending
@@ -245,9 +235,7 @@ export const TableHeadRow = ({
 													{/* Remove sort button */}
 													{header.column.getIsSorted() && (
 														<DropdownMenuItem
-															onClick={() =>
-																createSortHandler(header.column.id)(null)
-															}
+															onClick={() => createSortHandler(header.column.id)(null)}
 														>
 															<X />
 															Remove sort
@@ -305,8 +293,8 @@ export const TableHeadRow = ({
 						<AlertDialogTitle>Delete Column</AlertDialogTitle>
 						<AlertDialogDescription>
 							Are you sure you want to delete the column "{columnToDelete}
-							"? This action cannot be undone and will permanently remove all
-							data in this column.
+							"? This action cannot be undone and will permanently remove all data in this
+							column.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
@@ -320,15 +308,13 @@ export const TableHeadRow = ({
 							htmlFor="cascade-delete"
 							className="text-xs text-muted-foreground cursor-pointer"
 						>
-							Drop with CASCADE (also remove dependent indexes, constraints, and
-							foreign key references)
+							Drop with CASCADE (also remove dependent indexes, constraints, and foreign key
+							references)
 						</Label>
 					</div>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel onClick={handleCancelDelete}>
-							Cancel
-						</AlertDialogCancel>
+						<AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
 						<AlertDialogAction
 							variant="destructive"
 							onClick={handleConfirmDelete}

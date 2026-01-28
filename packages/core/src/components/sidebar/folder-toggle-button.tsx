@@ -47,8 +47,7 @@ export const FolderToggleButton = ({
 	showContextMenu?: boolean;
 }) => {
 	const navigate = useNavigate();
-	const { deleteFolder, getQueriesByFolder, addQuery, updateFolder } =
-		useQueriesStore();
+	const { deleteFolder, getQueriesByFolder, addQuery, updateFolder } = useQueriesStore();
 
 	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 	const [renameValue, setRenameValue] = useState("");
@@ -158,9 +157,7 @@ export const FolderToggleButton = ({
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Rename Folder</DialogTitle>
-						<DialogDescription>
-							Enter a new name for this folder.
-						</DialogDescription>
+						<DialogDescription>Enter a new name for this folder.</DialogDescription>
 					</DialogHeader>
 					<Input
 						value={renameValue}
@@ -201,9 +198,8 @@ export const FolderToggleButton = ({
 					<AlertDialogHeader>
 						<AlertDialogTitle>Delete Folder</AlertDialogTitle>
 						<AlertDialogDescription>
-							This folder contains {count} {count === 1 ? "query" : "queries"}.
-							Deleting this folder will also delete all queries inside it. This
-							action cannot be undone.
+							This folder contains {count} {count === 1 ? "query" : "queries"}. Deleting this
+							folder will also delete all queries inside it. This action cannot be undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

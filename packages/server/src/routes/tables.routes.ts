@@ -1,290 +1,172 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
+	type ColumnInfoSchemaType,
 	createTableSchema,
-	databaseQuerySchema,
+	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
-	type Sort,
+	exportTableSchema,
+	type TableDataResultSchemaType,
+	type TableInfoSchemaType,
 	tableDataQuerySchema,
-	tableNameParamSchema,
+	tableNameSchema,
 } from "shared/types";
-import { utils, write } from "xlsx";
-import { z } from "zod";
+import type { ApiHandler } from "@/app.types.js";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
 import { exportTableData } from "@/dao/export-table.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
-import { handleConnectionError } from "@/utils/error-handler.js";
+import { getExportFile } from "@/utils/get-export-file.js";
 
-export const tablesRoutes = new Hono();
+export const tablesRoutes = new Hono()
+	/**
+	 * Base path for the endpoints, /:dbType/tables/...
+	 */
+	.basePath("/tables")
 
-/**
- * GET /tables - Get all tables
- */
-tablesRoutes.get("/", zValidator("query", databaseQuerySchema), async (c) => {
-	try {
-		const { database } = c.req.valid("query");
-		const tablesList = await getTablesList(database);
+	/**
+	 * GET /tables
+	 * Returns list of all tables in the currently connected database
+	 * @returns {Array} List of table info objects
+	 */
+	.get(
+		"/",
+		zValidator("query", databaseSchema),
+		async (c): ApiHandler<TableInfoSchemaType[]> => {
+			const { db } = c.req.valid("query");
+			const tablesList = await getTablesList(db);
+			return c.json({ data: tablesList }, 200);
+		},
+	)
 
-		return c.json(tablesList);
-	} catch (error) {
-		return handleConnectionError(c, error, "Failed to fetch tables");
-	}
-});
-
-/**
- * POST /tables - Create a new table
- */
-tablesRoutes.post(
-	"/",
-	zValidator("json", createTableSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
+	/**
+	 * POST /tables
+	 * Creates a new table in the currently connected database
+	 * @param {CreateTableSchemaType} body - The data for the new table
+	 * @returns {string} A success message
+	 */
+	.post(
+		"/",
+		zValidator("query", databaseSchema),
+		zValidator("json", createTableSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
-			const { database } = c.req.valid("query");
-			const data = await createTable(body, database);
-			return c.json(data);
-		} catch (error) {
-			const errorDetail =
-				error && typeof error === "object" && "detail" in error
-					? (error as { detail?: string }).detail
-					: undefined;
+			await createTable({ tableData: body, db });
+			return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
+		},
+	)
+
+	/**
+	 * DELETE /tables/:tableName/columns/:columnName
+	 * Deletes a column from a table
+	 * @param {DatabaseSchemaType} query - The query parameters
+	 * @param {DeleteColumnParamSchemaType} param - The URL parameters
+	 * @returns {DeleteColumnResponseType} The response
+	 */
+	.delete(
+		"/:tableName/columns/:columnName",
+		zValidator("query", deleteColumnQuerySchema),
+		zValidator("param", deleteColumnParamSchema),
+		async (c): ApiHandler<string> => {
+			const { db, cascade } = c.req.valid("query");
+			const { tableName, columnName } = c.req.valid("param");
+			const { deletedCount } = await deleteColumn({
+				tableName,
+				columnName,
+				cascade,
+				db,
+			});
 			return c.json(
 				{
-					success: false,
-					message:
-						error instanceof Error ? error.message : "Failed to create table",
-					detail: errorDetail,
+					data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
 				},
-				500,
+				200,
 			);
-		}
-	},
-);
+		},
+	)
 
-/**
- * DELETE /tables/:tableName/columns/:columnName - Delete a column from a table
- * Query params:
- *   - database: optional database name
- *   - cascade: if "true", drops dependent objects (indexes, constraints, foreign keys)
- * response: DeleteColumnResponse
- */
-tablesRoutes.delete(
-	"/:tableName/columns/:columnName",
-	zValidator("param", deleteColumnParamSchema),
-	zValidator("query", deleteColumnQuerySchema),
-	async (c) => {
-		try {
-			const { tableName, columnName } = c.req.valid("param");
-			const { database, cascade } = c.req.valid("query");
-
-			const result = await deleteColumn(
-				{ tableName, columnName, cascade },
-				database,
-			);
-			return c.json(result);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to delete column");
-		}
-	},
-);
-
-/**
- * GET /tables/:tableName/columns - Get all columns for a table
- */
-tablesRoutes.get(
-	"/:tableName/columns",
-	zValidator("param", tableNameParamSchema),
-	zValidator("query", databaseQuerySchema),
-	async (c) => {
-		try {
+	/**
+	 * GET /tables/:tableName/columns
+	 * Returns list of all columns in a table
+	 * @param {DatabaseSchemaType} query - The query parameters
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @returns {ColumnInfoSchemaType[]} The response
+	 */
+	.get(
+		"/:tableName/columns",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		async (c): ApiHandler<ColumnInfoSchemaType[]> => {
+			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
-			const { database } = c.req.valid("query");
+			const columns = await getTableColumns({ tableName, db });
+			return c.json({ data: columns }, 200);
+		},
+	)
 
-			const columns = await getTableColumns(tableName, database);
-			return c.json(columns);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to fetch columns");
-		}
-	},
-);
-
-/**
- * GET /tables/:tableName/data - Get paginated data for a table
- */
-tablesRoutes.get(
-	"/:tableName/data",
-	zValidator("param", tableNameParamSchema),
-	zValidator("query", tableDataQuerySchema),
-	async (c) => {
-		try {
+	/**
+	 * GET /tables/:tableName/data
+	 * Get cursor-paginated data for a table
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @param {TableDataQuerySchemaType} query - The query parameters
+	 * @returns {TableDataResultSchemaType} The response
+	 * @throws {HTTPException} If the table does not exist or the query is invalid
+	 */
+	.get(
+		"/:tableName/data",
+		zValidator("param", tableNameSchema),
+		zValidator("query", tableDataQuerySchema),
+		async (c): ApiHandler<TableDataResultSchemaType> => {
 			const { tableName } = c.req.valid("param");
-			const {
-				page,
-				pageSize,
-				sort: sortParam,
-				order,
-				filters,
-				database,
-			} = c.req.valid("query");
-
-			// Parse sort - can be either a string (legacy) or JSON array (new format)
-			let sort: Sort[] | string = "";
-			if (sortParam) {
-				try {
-					// Try to parse as JSON first (new format)
-					const parsed = JSON.parse(sortParam);
-					if (Array.isArray(parsed)) {
-						sort = parsed;
-					} else {
-						sort = sortParam;
-					}
-				} catch {
-					// If JSON parse fails, use as string (legacy format)
-					sort = sortParam;
-				}
-			}
-
-			const data = await getTableData(
+			const { cursor, limit, direction, sort, order, filters, db } = c.req.valid("query");
+			const tableData = await getTableData({
 				tableName,
-				page,
-				pageSize,
+				cursor,
+				limit,
+				direction,
 				sort,
 				order,
 				filters,
-				database,
-			);
-			return c.json(data);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to fetch table data");
-		}
-	},
-);
-
-/**
- * GET /tables/:tableName/export - Export table data to CSV or Excel
- * Query params:
- *   - format: "csv" or "excel" (required)
- *   - sort: optional sort column or JSON array of Sort objects
- *   - order: optional sort order (asc/desc)
- *   - filters: optional JSON array of filters
- *   - database: optional database name
- */
-tablesRoutes.get(
-	"/:tableName/export",
-	zValidator("param", tableNameParamSchema),
-	zValidator(
-		"query",
-		tableDataQuerySchema.extend({
-			format: z.enum(["csv", "excel"]),
-		}),
-	),
-	async (c) => {
-		try {
-			const { tableName } = c.req.valid("param");
-			const {
-				format,
-				sort: sortParam,
-				order,
-				filters,
-				database,
-			} = c.req.valid("query");
-
-			// Parse sort - can be either a string (legacy) or JSON array (new format)
-			let sort: Sort[] | string = "";
-			if (sortParam) {
-				try {
-					const parsed = JSON.parse(sortParam);
-					if (Array.isArray(parsed)) {
-						sort = parsed;
-					} else {
-						sort = sortParam;
-					}
-				} catch {
-					sort = sortParam;
-				}
-			}
-
-			// Fetch all table data (without pagination)
-			const data = await exportTableData(
-				tableName,
-				sort,
-				order,
-				filters,
-				database,
-			);
-
-			if (data.length === 0) {
-				return c.json({ error: "No data to export" }, 400);
-			}
-
-			// Get column names from the first row
-			const columns = Object.keys(data[0]);
-
-			if (format === "csv") {
-				// Generate CSV
-				const csvHeader = columns.join(",");
-				const csvRows = data.map((row) => {
-					return columns
-						.map((col) => {
-							const value = row[col];
-							if (value === null || value === undefined) return "";
-							const stringValue = String(value);
-							// Escape quotes and wrap in quotes if contains comma, newline, or quote
-							if (
-								stringValue.includes(",") ||
-								stringValue.includes("\n") ||
-								stringValue.includes('"')
-							) {
-								return `"${stringValue.replace(/"/g, '""')}"`;
-							}
-							return stringValue;
-						})
-						.join(",");
-				});
-				const csv = [csvHeader, ...csvRows].join("\n");
-
-				// Set headers for CSV download
-				c.header("Content-Type", "text/csv");
-				c.header(
-					"Content-Disposition",
-					`attachment; filename="${tableName}_export.csv"`,
-				);
-				return c.body(csv);
-			}
-
-			// Generate Excel
-			const worksheetData = [
-				columns, // Header row
-				...data.map((row) => columns.map((col) => row[col] ?? "")),
-			];
-
-			const worksheet = utils.aoa_to_sheet(worksheetData);
-			const workbook = utils.book_new();
-			utils.book_append_sheet(workbook, worksheet, tableName);
-
-			// Generate buffer
-			const buffer = write(workbook, {
-				type: "buffer",
-				bookType: "xlsx",
+				db,
 			});
+			return c.json({ data: tableData }, 200);
+		},
+	)
 
-			// Set headers for Excel download
-			c.header(
-				"Content-Type",
-				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-			);
-			c.header(
-				"Content-Disposition",
-				`attachment; filename="${tableName}_export.xlsx"`,
-			);
-			return c.body(buffer);
-		} catch (error) {
-			return handleConnectionError(c, error, "Failed to export table data");
-		}
-	},
-);
+	/**
+	 * GET /tables/:tableName/export
+	 * Export table data to CSV or XLSX format
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @param {ExportTableSchemaType} query - The query parameters (db, format)
+	 * @returns {BodyInit} The file content as a binary response
+	 */
+	.get(
+		"/:tableName/export",
+		zValidator("param", tableNameSchema),
+		zValidator("query", exportTableSchema),
+		async (c) => {
+			const { tableName } = c.req.valid("param");
+			const { db, format } = c.req.valid("query");
+
+			const { cols, rows } = await exportTableData({ tableName, db });
+			const fileContent = getExportFile({ cols, rows, format, tableName });
+
+			const contentType =
+				format === "csv"
+					? "text/csv"
+					: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+			return new Response(fileContent, {
+				headers: {
+					"Content-Type": contentType,
+					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
+				},
+			});
+		},
+	);
+
+export type TablesRoutes = typeof tablesRoutes.routes;

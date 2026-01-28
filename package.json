@@ -23,6 +23,7 @@
     "check:meta": "bun run --cwd www check-meta",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:server": "turbo run test --filter=db-studio",
     "changeset": "changeset",
     "version": "changeset version",
     "prepare": "husky",
@@ -30,11 +31,12 @@
     "knip": "knip"
   },
   "dependencies": {
-    "turbo": "^2.7.4"
+    "@biomejs/biome": "^2.3.13",
+    "turbo": "^2.7.6"
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "knip": "^5.81.0"
+    "knip": "^5.82.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

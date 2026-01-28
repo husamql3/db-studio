@@ -24,11 +24,7 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
 
 type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
-export const MessageContent = ({
-	children,
-	className,
-	...props
-}: MessageContentProps) => (
+export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
 	<div
 		className={cn(
 			"is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden text-sm",
@@ -51,17 +47,13 @@ type MessageBranchContextType = {
 	setBranches: (branches: ReactElement[]) => void;
 };
 
-const MessageBranchContext = createContext<MessageBranchContextType | null>(
-	null,
-);
+const MessageBranchContext = createContext<MessageBranchContextType | null>(null);
 
 const useMessageBranch = () => {
 	const context = useContext(MessageBranchContext);
 
 	if (!context) {
-		throw new Error(
-			"MessageBranch components must be used within MessageBranch",
-		);
+		throw new Error("MessageBranch components must be used within MessageBranch");
 	}
 
 	return context;
@@ -87,14 +79,12 @@ export const MessageBranch = ({
 	};
 
 	const goToPrevious = () => {
-		const newBranch =
-			currentBranch > 0 ? currentBranch - 1 : branches.length - 1;
+		const newBranch = currentBranch > 0 ? currentBranch - 1 : branches.length - 1;
 		handleBranchChange(newBranch);
 	};
 
 	const goToNext = () => {
-		const newBranch =
-			currentBranch < branches.length - 1 ? currentBranch + 1 : 0;
+		const newBranch = currentBranch < branches.length - 1 ? currentBranch + 1 : 0;
 		handleBranchChange(newBranch);
 	};
 
@@ -119,10 +109,7 @@ export const MessageBranch = ({
 
 type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
-export const MessageBranchContent = ({
-	children,
-	...props
-}: MessageBranchContentProps) => {
+export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
 	const { currentBranch, setBranches, branches } = useMessageBranch();
 	const childrenArray = Array.isArray(children) ? children : [children];
 
@@ -152,10 +139,7 @@ type MessageResponseProps = ComponentProps<typeof Streamdown>;
 export const MessageResponse = memo(
 	({ className, ...props }: MessageResponseProps) => (
 		<Streamdown
-			className={cn(
-				"size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-				className,
-			)}
+			className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
 			{...props}
 		/>
 	),

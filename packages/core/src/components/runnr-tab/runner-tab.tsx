@@ -21,14 +21,11 @@ export type QueryResult = {
 
 export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const navigate = useNavigate();
-	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(
-		undefined,
-	);
+	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
 	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
 	const isFavorite = query?.isFavorite ?? false;
-	const { executeQuery, isExecutingQuery, executeQueryError } =
-		useExecuteQuery();
+	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 	const [currentQuery, setCurrentQuery] = useState<string>("");
 

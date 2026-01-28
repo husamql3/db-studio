@@ -5,10 +5,7 @@ import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SheetClose } from "@/components/ui/sheet";
-import {
-	type AddRecordFormData,
-	useCreateRecord,
-} from "@/hooks/use-create-record";
+import { type AddRecordFormData, useCreateRecord } from "@/hooks/use-create-record";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useSheetStore } from "@/stores/sheet.store";
 

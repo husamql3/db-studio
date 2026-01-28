@@ -95,9 +95,7 @@ export const Reasoning = memo(
 		};
 
 		return (
-			<ReasoningContext.Provider
-				value={{ isStreaming, isOpen, setIsOpen, duration }}
-			>
+			<ReasoningContext.Provider value={{ isStreaming, isOpen, setIsOpen, duration }}>
 				<Collapsible
 					className={cn("not-prose mb-4", className)}
 					onOpenChange={handleOpenChange}
@@ -147,10 +145,7 @@ export const ReasoningTrigger = memo(
 						<BrainIcon className="size-4" />
 						{getThinkingMessage(isStreaming, duration)}
 						<ChevronDownIcon
-							className={cn(
-								"size-4 transition-transform",
-								isOpen ? "rotate-180" : "rotate-0",
-							)}
+							className={cn("size-4 transition-transform", isOpen ? "rotate-180" : "rotate-0")}
 						/>
 					</>
 				)}

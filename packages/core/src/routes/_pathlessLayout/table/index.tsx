@@ -6,8 +6,6 @@ export const Route = createFileRoute("/_pathlessLayout/table/")({
 
 function RouteComponent() {
 	return (
-		<div className="flex-1 flex items-center justify-center">
-			Select a table to view data
-		</div>
+		<div className="flex-1 flex items-center justify-center">Select a table to view data</div>
 	);
 }

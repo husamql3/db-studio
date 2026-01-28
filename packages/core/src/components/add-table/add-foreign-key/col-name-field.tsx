@@ -12,9 +12,7 @@ import type { AddTableFormData } from "@/types/add-table.type";
 
 export const ColNameField = ({ index }: { index: number }) => {
 	const { control, watch } = useFormContext<AddTableFormData>();
-	const columns = watch("fields")?.filter((column) =>
-		column.columnName?.trim(),
-	);
+	const columns = watch("fields")?.filter((column) => column.columnName?.trim());
 	const columnName = watch(`fields.${index}.columnName`);
 
 	console.log("columns", watch("fields"));
@@ -29,15 +27,11 @@ export const ColNameField = ({ index }: { index: number }) => {
 					<Select
 						defaultValue={columnName || "none"}
 						value={field.value?.columnName}
-						onValueChange={(value) =>
-							field.onChange({ ...field.value, columnName: value })
-						}
+						onValueChange={(value) => field.onChange({ ...field.value, columnName: value })}
 					>
 						<SelectTrigger className="w-full flex-1">
 							<SelectValue
-								placeholder={
-									columns?.length ? "Select a column" : "No columns found"
-								}
+								placeholder={columns?.length ? "Select a column" : "No columns found"}
 							/>
 						</SelectTrigger>
 						<SelectContent>
