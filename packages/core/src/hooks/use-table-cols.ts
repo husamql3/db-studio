@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ColumnInfo } from "shared/types";
-import { fetcher } from "@/lib/fetcher";
+import type { BaseResponse, ColumnInfoSchemaType } from "shared/types";
+import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -13,12 +13,15 @@ export const useTableCols = ({ tableName }: { tableName: string }) => {
 		isRefetching: isRefetchingTableCols,
 		error: errorTableCols,
 		refetch: refetchTableCols,
-	} = useQuery<ColumnInfo[], Error>({
+	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName, selectedDatabase],
-		queryFn: () =>
-			fetcher.get<ColumnInfo[]>(`/tables/${tableName}/columns`, {
-				database: selectedDatabase,
-			}),
+		queryFn: () => {
+			const params = new URLSearchParams({ db: selectedDatabase ?? "" });
+			return api.get<BaseResponse<ColumnInfoSchemaType[]>>(`/tables/${tableName}/columns`, {
+				params,
+			});
+		},
+		select: (res) => res.data.data,
 		enabled: !!tableName && !!selectedDatabase,
 	});
 

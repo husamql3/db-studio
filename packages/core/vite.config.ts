@@ -6,8 +6,20 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from "@tailwindcss/vite"
 
+// Devtools packages to exclude from production builds
+const devtoolsPackages = [
+  '@tanstack/react-devtools',
+  '@tanstack/react-query-devtools',
+  '@tanstack/react-router-devtools',
+  '@tanstack/react-ai-devtools',
+  '@tanstack/ai-devtools-core',
+];
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const isProduction = mode === 'production';
+  
+  return {
   build: {
     outDir: "dist",
     // Enable minification (esbuild is faster and produces good results)
@@ -30,8 +42,8 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'icons';
           }
-          // TanStack libraries
-          if (id.includes('@tanstack')) {
+          // TanStack libraries (excluding devtools)
+          if (id.includes('@tanstack') && !devtoolsPackages.some(pkg => id.includes(pkg))) {
             return 'tanstack';
           }
           // React core
@@ -70,6 +82,7 @@ export default defineConfig({
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,
+      disableLogging: true,
     }),
     viteReact(),
     visualizer({
@@ -82,6 +95,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Replace devtools with empty modules in production
+      ...(isProduction ? Object.fromEntries(
+        devtoolsPackages.map(pkg => [pkg, fileURLToPath(new URL('./src/lib/empty-module.ts', import.meta.url))])
+      ) : {}),
     },
   },
   server: {
@@ -94,4 +111,4 @@ export default defineConfig({
       },
     },
   },
-})
+}})

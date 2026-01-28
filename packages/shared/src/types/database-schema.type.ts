@@ -1,5 +1,7 @@
+import type { DatabaseTypeSchema } from "./database.types";
+
 export type DatabaseSchema = {
-	dbType: string;
+	dbType: DatabaseTypeSchema;
 	tables: Table[];
 	relationships: Relationship[];
 };

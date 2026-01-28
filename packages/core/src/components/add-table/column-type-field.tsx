@@ -10,18 +10,10 @@ import {
 	CommandItem,
 	CommandList,
 } from "@/components/ui/command";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { AddTableFormData } from "@/types/add-table.type";
-import {
-	ARRAY_COMPATIBLE_TYPES,
-	PSQL_TYPES,
-	SERIAL_TYPES,
-} from "@/utils/constants/add-table";
+import { ARRAY_COMPATIBLE_TYPES, PSQL_TYPES, SERIAL_TYPES } from "@/utils/constants/add-table";
 
 export const ColumnTypeField = ({ index }: { index: number }) => {
 	const [typePickerOpen, setTypePickerOpen] = useState(false);
@@ -88,10 +80,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 													}
 
 													// Auto-disable array when type is not array-compatible
-													if (
-														type.value &&
-														!ARRAY_COMPATIBLE_TYPES.includes(type.value)
-													) {
+													if (type.value && !ARRAY_COMPATIBLE_TYPES.includes(type.value)) {
 														setValue(`fields.${index}.isArray`, false);
 													}
 

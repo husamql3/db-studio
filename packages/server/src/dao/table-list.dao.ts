@@ -1,26 +1,29 @@
-import type { TableInfo } from "shared/types";
+import { HTTPException } from "hono/http-exception";
+import type { TableInfoSchemaType } from "shared/types";
+import type { DatabaseSchemaType } from "shared/types/database.types.js";
 import { getDbPool } from "@/db-manager.js";
 
-export const getTablesList = async (
-	database?: string,
-): Promise<TableInfo[]> => {
-	const pool = getDbPool(database);
-	const client = await pool.connect();
-	try {
-		const tablesWithCounts = await client.query(`
-			SELECT 
-				t.table_name as "tableName",
-				COALESCE(s.n_live_tup, 0)::integer as "rowCount"
-			FROM information_schema.tables t
-			LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
-			WHERE t.table_schema = 'public'
-				AND t.table_type = 'BASE TABLE'
-			ORDER BY t.table_name;
-		`);
-		const tables: TableInfo[] = tablesWithCounts.rows;
+export async function getTablesList(
+	db: DatabaseSchemaType["db"],
+): Promise<TableInfoSchemaType[]> {
+	const pool = getDbPool(db);
+	const query = `
+		SELECT 
+			t.table_name as "tableName",
+			COALESCE(s.n_live_tup, 0)::integer as "rowCount"
+		FROM information_schema.tables t
+		LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
+		WHERE t.table_schema = 'public'
+			AND t.table_type = 'BASE TABLE'
+		ORDER BY t.table_name;
+	`;
 
-		return tables;
-	} finally {
-		client.release();
+	const { rows } = await pool.query(query);
+	if (!rows[0]) {
+		throw new HTTPException(500, {
+			message: "No tables returned from database",
+		});
 	}
-};
+
+	return rows;
+}

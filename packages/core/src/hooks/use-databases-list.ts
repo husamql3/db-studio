@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type {
-	CurrentDatabase,
-	DatabaseConnectionInfo,
-	DatabaseInfo,
+	BaseResponse,
+	ConnectionInfoSchemaType,
+	CurrentDatabaseSchemaType,
+	DatabaseListSchemaType,
 } from "shared/types";
-import { fetcher } from "@/lib/fetcher";
+import { rootApi, setDbType } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -14,19 +15,21 @@ import { CONSTANTS } from "@/utils/constants";
  */
 export const useDatabasesList = () => {
 	const {
-		data: databases,
+		data,
 		isLoading: isLoadingDatabases,
 		error: databasesError,
 		refetch: refetchDatabases,
 		isRefetching: isRefetchingDatabases,
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
-		queryFn: () => fetcher.get<DatabaseInfo[]>("/databases"),
+		queryFn: () => rootApi.get<BaseResponse<DatabaseListSchemaType>>("/databases"),
+		select: (response) => response.data.data,
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
 
 	return {
-		databases,
+		databases: data?.databases,
+		dbType: data?.dbType,
 		isLoadingDatabases,
 		databasesError,
 		refetchDatabases,
@@ -44,28 +47,26 @@ export const useCurrentDatabase = () => {
 		data: currentDatabase,
 		isLoading: isLoadingCurrentDatabase,
 		error: currentDatabaseError,
-	} = useQuery<CurrentDatabase, Error>({
+	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
-		queryFn: () => fetcher.get<CurrentDatabase>("/databases/current"),
+		queryFn: async () => {
+			const res =
+				await rootApi.get<BaseResponse<CurrentDatabaseSchemaType>>("/databases/current");
+
+			// init the api baseURL with the dbType from the first request
+			setDbType(res.data.data.dbType);
+			return res.data.data;
+		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
 
 	useEffect(() => {
 		if (currentDatabase) {
-			if (
-				currentDatabase.database &&
-				!selectedDatabase &&
-				!isLoadingCurrentDatabase
-			) {
+			if (currentDatabase.database && !selectedDatabase && !isLoadingCurrentDatabase) {
 				setSelectedDatabase(currentDatabase.database);
 			}
 		}
-	}, [
-		currentDatabase,
-		selectedDatabase,
-		isLoadingCurrentDatabase,
-		setSelectedDatabase,
-	]);
+	}, [currentDatabase, selectedDatabase, isLoadingCurrentDatabase, setSelectedDatabase]);
 
 	return {
 		currentDatabase,
@@ -84,7 +85,9 @@ export const useDatabaseConnectionInfo = () => {
 		error: connectionInfoError,
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.DATABASE_CONNECTION_INFO],
-		queryFn: () => fetcher.get<DatabaseConnectionInfo>("/databases/connection"),
+		queryFn: () =>
+			rootApi.get<BaseResponse<ConnectionInfoSchemaType>>("/databases/connection"),
+		select: (response) => response.data.data,
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
 

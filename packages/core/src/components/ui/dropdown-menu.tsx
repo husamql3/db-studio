@@ -3,9 +3,7 @@ import { Check, ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-function DropdownMenu({
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
 	return (
 		<DropdownMenuPrimitive.Root
 			data-slot="dropdown-menu"
@@ -170,10 +168,7 @@ function _DropdownMenuLabel({
 		<DropdownMenuPrimitive.Label
 			data-slot="dropdown-menu-label"
 			data-inset={inset}
-			className={cn(
-				"text-muted-foreground px-2 py-1.5 text-xs data-[inset]:pl-8",
-				className,
-			)}
+			className={cn("text-muted-foreground px-2 py-1.5 text-xs data-[inset]:pl-8", className)}
 			{...props}
 		/>
 	);
@@ -192,10 +187,7 @@ function DropdownMenuSeparator({
 	);
 }
 
-function _DropdownMenuShortcut({
-	className,
-	...props
-}: React.ComponentProps<"span">) {
+function _DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="dropdown-menu-shortcut"

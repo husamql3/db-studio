@@ -3,9 +3,7 @@ import { Check, ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-function ContextMenu({
-	...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
+function ContextMenu({ ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
 	return (
 		<ContextMenuPrimitive.Root
 			data-slot="context-menu"
@@ -49,9 +47,7 @@ function _ContextMenuPortal({
 	);
 }
 
-function _ContextMenuSub({
-	...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Sub>) {
+function _ContextMenuSub({ ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Sub>) {
 	return (
 		<ContextMenuPrimitive.Sub
 			data-slot="context-menu-sub"
@@ -215,10 +211,7 @@ function _ContextMenuLabel({
 		<ContextMenuPrimitive.Label
 			data-slot="context-menu-label"
 			data-inset={inset}
-			className={cn(
-				"text-muted-foreground px-2 py-1.5 text-xs data-[inset]:pl-8",
-				className,
-			)}
+			className={cn("text-muted-foreground px-2 py-1.5 text-xs data-[inset]:pl-8", className)}
 			{...props}
 		/>
 	);
@@ -237,10 +230,7 @@ function ContextMenuSeparator({
 	);
 }
 
-function _ContextMenuShortcut({
-	className,
-	...props
-}: React.ComponentProps<"span">) {
+function _ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="context-menu-shortcut"

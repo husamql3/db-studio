@@ -16,7 +16,6 @@ export const useRateLimit = () => {
 				throw new Error("Failed to fetch rate limit");
 			}
 			const data = await response.json();
-			console.log("useRateLimit data:", data);
 			return data;
 		},
 	});

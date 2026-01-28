@@ -1,19 +1,10 @@
-import {
-	flexRender,
-	getCoreRowModel,
-	type Row,
-	useReactTable,
-} from "@tanstack/react-table";
+import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
 import type { ExecuteQueryResponse } from "shared/types";
 import { formatCellValue } from "@/utils/format-cell-value";
 
-export const TableView = ({
-	results,
-}: {
-	results: ExecuteQueryResponse | null;
-}) => {
+export const TableView = ({ results }: { results: ExecuteQueryResponse | null }) => {
 	const columns = useMemo(() => {
 		if (!results?.columns) return [];
 
@@ -51,9 +42,7 @@ export const TableView = ({
 	const items = virtualizer.getVirtualItems();
 
 	// Calculate total table width based on actual column sizes
-	const totalTableWidth = table
-		.getAllColumns()
-		.reduce((sum, col) => sum + col.getSize(), 0);
+	const totalTableWidth = table.getAllColumns().reduce((sum, col) => sum + col.getSize(), 0);
 
 	return (
 		<div
@@ -78,10 +67,7 @@ export const TableView = ({
 							>
 								{header.isPlaceholder
 									? null
-									: flexRender(
-											header.column.columnDef.header,
-											header.getContext(),
-										)}
+									: flexRender(header.column.columnDef.header, header.getContext())}
 
 								{/* Resize Handle */}
 								<div
@@ -138,9 +124,7 @@ export const TableView = ({
 
 			{/* No Results Message */}
 			{rows.length === 0 && (
-				<div className="flex items-center justify-center h-24 text-gray-400">
-					No results.
-				</div>
+				<div className="flex items-center justify-center h-24 text-gray-400">No results.</div>
 			)}
 		</div>
 	);

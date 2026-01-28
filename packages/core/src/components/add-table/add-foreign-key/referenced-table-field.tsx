@@ -11,11 +11,7 @@ import {
 	CommandList,
 } from "@/components/ui/command";
 import { Label } from "@/components/ui/label";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { cn } from "@/lib/utils";
 import type { AddTableFormData, ForeignKeyData } from "@/types/add-table.type";
@@ -23,8 +19,7 @@ import type { AddTableFormData, ForeignKeyData } from "@/types/add-table.type";
 export const ReferencedTableField = ({ index }: { index: number }) => {
 	const [open, setOpen] = useState<boolean>(false);
 	const { tablesList, isLoadingTablesList } = useTablesList();
-	const { control, watch, setValue, getValues } =
-		useFormContext<AddTableFormData>();
+	const { control, watch, setValue, getValues } = useFormContext<AddTableFormData>();
 
 	const columnName = watch(`fields.${index}.columnName`);
 
@@ -54,9 +49,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 			name={`foreignKeys.${index}`}
 			render={({ field }) => (
 				<div className="flex flex-col gap-2">
-					<Label htmlFor="referencedTable">
-						Select a table to reference to
-					</Label>
+					<Label htmlFor="referencedTable">Select a table to reference to</Label>
 					<Popover
 						onOpenChange={(isOpen) => {
 							if (isOpen) {
@@ -110,14 +103,8 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 													});
 
 													//* set the column name field to the column name of the referenced table
-													setValue(
-														`foreignKeys.${index}.columnName`,
-														columnName,
-													);
-													console.log(
-														`foreignKeys.${index}.columnName`,
-														columnName,
-													);
+													setValue(`foreignKeys.${index}.columnName`, columnName);
+													console.log(`foreignKeys.${index}.columnName`, columnName);
 
 													setOpen(false);
 												}}

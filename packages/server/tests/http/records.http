@@ -1,0 +1,891 @@
+### Records API Endpoints
+### Base URL: http://localhost:3333/:dbType
+### Replace :dbType with 'pg' for PostgreSQL
+
+@baseUrl = http://localhost:3333/pg
+@database = postgres
+
+### ============================================
+### POST /records - Add a new record
+### Inserts a new row into a table
+### ============================================
+
+### Add a simple record to users table
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": {
+    "name": "John Doe",
+    "email": "john@example.com"
+  }
+}
+
+###
+
+### Add a record with multiple data types
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "products",
+  "data": {
+    "name": "Widget Pro",
+    "price": 99.99,
+    "category": "electronics",
+    "is_active": true,
+    "stock_count": 100
+  }
+}
+
+###
+
+### Add a record with null values
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": {
+    "name": "Jane Doe",
+    "email": null,
+    "phone": null
+  }
+}
+
+###
+
+### Add a record with JSON/JSONB data
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "settings",
+  "data": {
+    "user_id": 1,
+    "preferences": {
+      "theme": "dark",
+      "notifications": true,
+      "language": "en"
+    }
+  }
+}
+
+###
+
+### Add a record with array data
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "posts",
+  "data": {
+    "title": "My Post",
+    "content": "Post content here",
+    "tags": ["tech", "programming", "database"]
+  }
+}
+
+###
+
+### Add a record with nested JSON
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "configs",
+  "data": {
+    "name": "app_config",
+    "settings": {
+      "database": {
+        "host": "localhost",
+        "port": 5432
+      },
+      "cache": {
+        "enabled": true,
+        "ttl": 3600
+      }
+    }
+  }
+}
+
+###
+
+### Add record - Missing tableName (should return 400)
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "data": {
+    "name": "Test"
+  }
+}
+
+###
+
+### Add record - Missing data (should return 400)
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users"
+}
+
+###
+
+### Add record - Missing database param (should return 400)
+POST {{baseUrl}}/records
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": {
+    "name": "Test"
+  }
+}
+
+### ============================================
+### PATCH /records - Update records
+### Updates one or more cells in a table
+### ============================================
+
+### Update a single cell
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1, "name": "Old Name" },
+      "columnName": "name",
+      "value": "New Name"
+    }
+  ]
+}
+
+###
+
+### Update multiple cells in the same row
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "name",
+      "value": "Updated Name"
+    },
+    {
+      "rowData": { "id": 1 },
+      "columnName": "email",
+      "value": "updated@example.com"
+    }
+  ]
+}
+
+###
+
+### Update multiple rows
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "status",
+      "value": "active"
+    },
+    {
+      "rowData": { "id": 2 },
+      "columnName": "status",
+      "value": "active"
+    },
+    {
+      "rowData": { "id": 3 },
+      "columnName": "status",
+      "value": "active"
+    }
+  ]
+}
+
+###
+
+### Update with default primary key (id)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "name",
+      "value": "Updated with default PK"
+    }
+  ]
+}
+
+###
+
+### Update with custom primary key
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "products",
+  "primaryKey": "sku",
+  "updates": [
+    {
+      "rowData": { "sku": "PROD-123" },
+      "columnName": "price",
+      "value": 149.99
+    }
+  ]
+}
+
+###
+
+### Update with JSON value
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "settings",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "preferences",
+      "value": {
+        "theme": "dark",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "push": false
+        }
+      }
+    }
+  ]
+}
+
+###
+
+### Update with array value
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "tags",
+      "value": ["admin", "verified", "premium"]
+    }
+  ]
+}
+
+###
+
+### Update with null value
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "deleted_at",
+      "value": null
+    }
+  ]
+}
+
+###
+
+### Update - Missing tableName (should return 400)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "name",
+      "value": "Test"
+    }
+  ]
+}
+
+###
+
+### Update - Empty updates array (should return 400)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": []
+}
+
+###
+
+### Update - Missing updates (should return 400)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id"
+}
+
+###
+
+### Update - Missing rowData (should return 400)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "columnName": "name",
+      "value": "Test"
+    }
+  ]
+}
+
+###
+
+### Update - Missing columnName (should return 400)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "value": "Test"
+    }
+  ]
+}
+
+###
+
+### Update - Missing database param (should return 400)
+PATCH {{baseUrl}}/records
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "name",
+      "value": "Test"
+    }
+  ]
+}
+
+### ============================================
+### DELETE /records - Delete records
+### Deletes records from a table (respects FK constraints)
+### ============================================
+
+### Delete a single record
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+###
+
+### Delete multiple records
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 },
+    { "columnName": "id", "value": 2 },
+    { "columnName": "id", "value": 3 }
+  ]
+}
+
+###
+
+### Delete with string primary key
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "products",
+  "primaryKeys": [
+    { "columnName": "sku", "value": "PROD-123" }
+  ]
+}
+
+###
+
+### Delete with UUID primary key
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "sessions",
+  "primaryKeys": [
+    { "columnName": "session_id", "value": "550e8400-e29b-41d4-a716-446655440000" }
+  ]
+}
+
+###
+
+### Delete - Missing tableName (should return 400)
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+###
+
+### Delete - Empty primaryKeys (should return 400)
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": []
+}
+
+###
+
+### Delete - Missing primaryKeys (should return 400)
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users"
+}
+
+###
+
+### Delete - Missing columnName in primaryKey (should return 400)
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "value": 1 }
+  ]
+}
+
+###
+
+### Delete - Missing database param (should return 400)
+DELETE {{baseUrl}}/records
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+### ============================================
+### DELETE /records/force - Force delete records
+### Deletes records and all related FK records (cascade)
+### ============================================
+
+### Force delete a single record (cascades to related tables)
+DELETE {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+###
+
+### Force delete multiple records
+DELETE {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 },
+    { "columnName": "id", "value": 2 }
+  ]
+}
+
+###
+
+### Force delete with string primary key
+DELETE {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "categories",
+  "primaryKeys": [
+    { "columnName": "slug", "value": "electronics" }
+  ]
+}
+
+###
+
+### Force delete - Missing tableName (should return 400)
+DELETE {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+###
+
+### Force delete - Empty primaryKeys (should return 400)
+DELETE {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": []
+}
+
+###
+
+### Force delete - Missing database param (should return 400)
+DELETE {{baseUrl}}/records/force
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+### ============================================
+### Error Cases - Invalid Database Type
+### ============================================
+
+### Invalid database type on POST (should return 400)
+POST http://localhost:3333/invalid/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": { "name": "Test" }
+}
+
+###
+
+### MySQL database type on PATCH - not supported (should return 400)
+PATCH http://localhost:3333/mysql/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "name",
+      "value": "Test"
+    }
+  ]
+}
+
+###
+
+### SQLite database type on DELETE - not supported (should return 400)
+DELETE http://localhost:3333/sqlite/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+### ============================================
+### HTTP Method Validation
+### ============================================
+
+### GET /records - Not allowed (should return 404)
+GET {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+###
+
+### PUT /records - Not allowed (should return 404)
+PUT {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": { "name": "Test" }
+}
+
+###
+
+### GET /records/force - Not allowed (should return 404)
+GET {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+###
+
+### POST /records/force - Not allowed (should return 404)
+POST {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+### ============================================
+### Edge Cases
+### ============================================
+
+### Add record with very long string
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "posts",
+  "data": {
+    "title": "Test Post",
+    "content": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+  }
+}
+
+###
+
+### Add record with special characters
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": {
+    "name": "O'Brien",
+    "bio": "Test \"quoted\" text with 'apostrophes'",
+    "notes": "Line1\nLine2\tTabbed"
+  }
+}
+
+###
+
+### Add record with all numeric types
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "metrics",
+  "data": {
+    "integer_val": 42,
+    "float_val": 3.14159,
+    "negative_val": -100,
+    "zero_val": 0,
+    "large_val": 9007199254740991
+  }
+}
+
+###
+
+### Add record with boolean values
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "flags",
+  "data": {
+    "is_enabled": true,
+    "is_archived": false,
+    "is_deleted": false
+  }
+}
+
+###
+
+### Update with deeply nested JSON
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "configs",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "settings",
+      "value": {
+        "level1": {
+          "level2": {
+            "level3": {
+              "level4": {
+                "value": "deeply nested"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+
+### ============================================
+### Real-World Scenarios
+### ============================================
+
+### Create a new user
+POST {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "data": {
+    "name": "Alice Johnson",
+    "email": "alice@example.com",
+    "role": "user",
+    "is_active": true,
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+
+###
+
+### Update user profile
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "name",
+      "value": "Alice Johnson-Smith"
+    },
+    {
+      "rowData": { "id": 1 },
+      "columnName": "profile",
+      "value": {
+        "bio": "Software developer",
+        "location": "San Francisco",
+        "website": "https://alice.dev"
+      }
+    }
+  ]
+}
+
+###
+
+### Soft delete a user (set deleted_at)
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKey": "id",
+  "updates": [
+    {
+      "rowData": { "id": 1 },
+      "columnName": "deleted_at",
+      "value": "2024-01-20T15:00:00Z"
+    },
+    {
+      "rowData": { "id": 1 },
+      "columnName": "is_active",
+      "value": false
+    }
+  ]
+}
+
+###
+
+### Hard delete a user (use force to cascade)
+DELETE {{baseUrl}}/records/force?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "users",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 }
+  ]
+}
+
+###
+
+### Bulk status update
+PATCH {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "orders",
+  "primaryKey": "id",
+  "updates": [
+    { "rowData": { "id": 101 }, "columnName": "status", "value": "shipped" },
+    { "rowData": { "id": 102 }, "columnName": "status", "value": "shipped" },
+    { "rowData": { "id": 103 }, "columnName": "status", "value": "shipped" },
+    { "rowData": { "id": 104 }, "columnName": "status", "value": "shipped" },
+    { "rowData": { "id": 105 }, "columnName": "status", "value": "shipped" }
+  ]
+}
+
+###
+
+### Delete old inactive records
+DELETE {{baseUrl}}/records?database={{database}}
+Content-Type: application/json
+
+{
+  "tableName": "sessions",
+  "primaryKeys": [
+    { "columnName": "id", "value": 1 },
+    { "columnName": "id", "value": 2 },
+    { "columnName": "id", "value": 3 },
+    { "columnName": "id", "value": 4 },
+    { "columnName": "id", "value": 5 }
+  ]
+}

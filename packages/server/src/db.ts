@@ -5,9 +5,7 @@ let dbInstance: Pool | null = null;
 const getPool = (): Pool => {
 	if (!dbInstance) {
 		if (!process.env.DATABASE_URL) {
-			throw new Error(
-				"DATABASE_URL is not set. Please provide a database connection string.",
-			);
+			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
 		}
 		try {
 			dbInstance = new Pool({

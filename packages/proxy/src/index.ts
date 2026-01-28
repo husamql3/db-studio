@@ -1,10 +1,9 @@
+import { LIMIT } from "shared/constants";
 import { env } from "cloudflare:workers";
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-
-import { LIMIT } from "shared/constants";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { getRedis } from "./redis";
 
@@ -56,8 +55,7 @@ app.post("/chat", async (c) => {
 		return toServerSentEventsResponse(stream);
 	} catch (error) {
 		console.error("Proxy error:", error);
-		const errorMessage =
-			error instanceof Error ? error.message : "An error occurred";
+		const errorMessage = error instanceof Error ? error.message : "An error occurred";
 		return c.json({ error: errorMessage }, 500);
 	}
 });

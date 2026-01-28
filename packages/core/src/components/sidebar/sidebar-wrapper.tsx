@@ -54,8 +54,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 			// Add overlay to prevent interference with iframe or other elements
 			const overlay = document.createElement("div");
 			overlay.id = "resize-overlay";
-			overlay.style.cssText =
-				"position:fixed;inset:0;z-index:9999;cursor:col-resize;";
+			overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
 			document.body.appendChild(overlay);
 		},
 		[width],

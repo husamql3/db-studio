@@ -57,8 +57,7 @@ export function CommandPalette() {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { navigateToTable } = useTableNavigation();
 	const { openSheet } = useSheetStore();
-	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } =
-		usePersonalPreferencesStore();
+	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
 	const { tablesList, isLoadingTablesList } = useTablesList();
 
 	const [open, setOpen] = useState(false);
@@ -139,9 +138,7 @@ export function CommandPalette() {
 	useHotkeys("ctrl+k, meta+k", () => setOpen((open) => !open));
 
 	const placeholder =
-		mode === "all"
-			? "Search commands... (type > for tables)"
-			: "Search tables...";
+		mode === "all" ? "Search commands... (type > for tables)" : "Search tables...";
 
 	return (
 		<CommandDialog
@@ -252,8 +249,7 @@ export function CommandPalette() {
 								onSelect={() =>
 									handleAction(() => {
 										toast.info("AI Table Designer - Coming Soon!", {
-											description:
-												"Design your database schema with AI assistance",
+											description: "Design your database schema with AI assistance",
 										});
 									})
 								}
@@ -270,8 +266,7 @@ export function CommandPalette() {
 								onSelect={() =>
 									handleAction(() => {
 										toast.info("Schema Explainer - Coming Soon!", {
-											description:
-												"Get AI-powered explanations of your database structure",
+											description: "Get AI-powered explanations of your database structure",
 										});
 									})
 								}
@@ -288,8 +283,7 @@ export function CommandPalette() {
 								onSelect={() =>
 									handleAction(() => {
 										toast.info("AI Query Optimizer - Coming Soon!", {
-											description:
-												"Optimize your queries for better performance",
+											description: "Optimize your queries for better performance",
 										});
 									})
 								}
@@ -323,8 +317,7 @@ export function CommandPalette() {
 								onSelect={() =>
 									handleAction(() => {
 										toast.info("Smart Suggestions - Coming Soon!", {
-											description:
-												"Get AI-powered recommendations for your schema",
+											description: "Get AI-powered recommendations for your schema",
 										});
 									})
 								}
@@ -343,9 +336,7 @@ export function CommandPalette() {
 
 						{/* Database Actions */}
 						<CommandGroup heading="Database Actions">
-							<CommandItem
-								onSelect={() => handleAction(() => openSheet("add-table"))}
-							>
+							<CommandItem onSelect={() => handleAction(() => openSheet("add-table"))}>
 								<Plus className="mr-2 h-4 w-4" />
 								<div className="flex flex-col">
 									<span>Create New Table</span>
@@ -356,10 +347,7 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									handleAction(
-										() => openSheet("add-record"),
-										"Opening add row form",
-									)
+									handleAction(() => openSheet("add-record"), "Opening add row form")
 								}
 								disabled={!activeTable}
 							>
@@ -669,11 +657,7 @@ export function CommandPalette() {
 
 						{/* View & Settings */}
 						<CommandGroup heading="View & Settings">
-							<CommandItem
-								onSelect={() =>
-									handleAction(toggleSidebarOpen, "Sidebar toggled")
-								}
-							>
+							<CommandItem onSelect={() => handleAction(toggleSidebarOpen, "Sidebar toggled")}>
 								<Sidebar className="mr-2 h-4 w-4" />
 								<div className="flex flex-col">
 									<span>{sidebar.isOpen ? "Hide" : "Show"} Sidebar</span>
@@ -683,9 +667,7 @@ export function CommandPalette() {
 								</div>
 							</CommandItem>
 							<CommandItem
-								onSelect={() =>
-									handleAction(toggleSidebarPinned, "Sidebar pin toggled")
-								}
+								onSelect={() => handleAction(toggleSidebarPinned, "Sidebar pin toggled")}
 							>
 								{sidebar.isPinned ? (
 									<PinOff className="mr-2 h-4 w-4" />
@@ -732,8 +714,7 @@ export function CommandPalette() {
 											<div className="flex flex-col">
 												<span>{table.tableName}</span>
 												<span className="text-xs text-muted-foreground">
-													{table.rowCount}{" "}
-													{table.rowCount === 1 ? "row" : "rows"}
+													{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
 												</span>
 											</div>
 										</CommandItem>

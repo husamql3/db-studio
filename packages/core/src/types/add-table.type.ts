@@ -34,8 +34,7 @@ export const addTableSchema = z.object({
 			if (fk === null || fk === undefined) return false;
 			// Remove empty foreign key objects (where all required fields are empty)
 			if (typeof fk === "object") {
-				const hasRequiredFields =
-					fk.columnName && fk.referencedTable && fk.referencedColumn;
+				const hasRequiredFields = fk.columnName && fk.referencedTable && fk.referencedColumn;
 				return hasRequiredFields;
 			}
 			return false;
@@ -49,10 +48,7 @@ export type AddTableFormData = z.infer<typeof addTableSchema>;
 export type ForeignKeyData = z.infer<typeof foreignKeySchema>;
 
 export type AddTableOption = {
-	name: keyof Pick<
-		FieldData,
-		"isNullable" | "isUnique" | "isIdentity" | "isArray"
-	>;
+	name: keyof Pick<FieldData, "isNullable" | "isUnique" | "isIdentity" | "isArray">;
 	label: string;
 	description: string;
 };

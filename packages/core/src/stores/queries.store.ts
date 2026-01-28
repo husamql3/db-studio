@@ -51,14 +51,11 @@ export const useQueriesStore = create<QueriesStore>()(
 			folders: [],
 			queries: [],
 
-			addFolder: (folder) =>
-				set((state) => ({ folders: [...state.folders, folder] })),
+			addFolder: (folder) => set((state) => ({ folders: [...state.folders, folder] })),
 
 			updateFolder: (id, updates) =>
 				set((state) => ({
-					folders: state.folders.map((f) =>
-						f.id === id ? { ...f, ...updates } : f,
-					),
+					folders: state.folders.map((f) => (f.id === id ? { ...f, ...updates } : f)),
 				})),
 
 			deleteFolder: (id) =>
@@ -99,9 +96,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			updateQuery: (id, updates) =>
 				set((state) => ({
-					queries: state.queries.map((q) =>
-						q.id === id ? { ...q, ...updates } : q,
-					),
+					queries: state.queries.map((q) => (q.id === id ? { ...q, ...updates } : q)),
 				})),
 
 			deleteQuery: (id) =>
@@ -111,9 +106,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			moveQuery: (queryId, folderId) =>
 				set((state) => ({
-					queries: state.queries.map((q) =>
-						q.id === queryId ? { ...q, folderId } : q,
-					),
+					queries: state.queries.map((q) => (q.id === queryId ? { ...q, folderId } : q)),
 				})),
 
 			toggleFavorite: (id) =>
@@ -150,9 +143,7 @@ export const useQueriesStore = create<QueriesStore>()(
 			setSelectedQuery: (id) =>
 				set((state) => ({
 					queries: state.queries.map((q) =>
-						q.id === id
-							? { ...q, isSelected: true }
-							: { ...q, isSelected: false },
+						q.id === id ? { ...q, isSelected: true } : { ...q, isSelected: false },
 					),
 				})),
 

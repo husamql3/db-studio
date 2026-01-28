@@ -1,0 +1,30 @@
+### Database API Endpoints
+### Base URL: http://localhost:3333/:dbType
+### Replace :dbType with 'pg' for PostgreSQL or 'mysql' for MySQL
+
+@baseUrl = http://localhost:3333/pg
+
+### ============================================
+### GET /databases - List all databases
+### Returns list of all databases on the server
+### ============================================
+
+GET {{baseUrl}}/databases
+Content-Type: application/json
+
+### ============================================
+### GET /databases/current - Get current database
+### Returns the name of the currently connected database
+### ============================================
+
+GET {{baseUrl}}/databases/current
+Content-Type: application/json
+
+### ============================================
+### GET /databases/connection - Get connection info
+### Returns connection details and server information
+### (PostgreSQL version, host, port, user, current database, connection counts)
+### ============================================
+
+GET {{baseUrl}}/databases/connection
+Content-Type: application/json
