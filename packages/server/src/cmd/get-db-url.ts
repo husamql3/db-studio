@@ -24,9 +24,9 @@ export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: s
 	s.start("Looking for database connection...");
 
 	if (!env) {
-		note(color.red("No .env file found and " + envVarName + " not set in process.env"));
+		note(color.red(`No .env file found and ${envVarName} not set in process.env`));
 	} else {
-		note(color.red(envVarName + " not found in .env or process.env"));
+		note(color.red(`${envVarName} not found in .env or process.env`));
 	}
 
 	const choice = await select({
