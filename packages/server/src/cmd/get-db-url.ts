@@ -6,7 +6,7 @@ import { type DotenvParseOutput, parse as parseDotenv } from "dotenv";
 import color from "picocolors";
 
 /**
- * Get the database URL from the environment variables
+ * Get the database URL from .env file, then process.env
  */
 export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: string) => {
 	const envVarName = varName || "DATABASE_URL";
@@ -15,13 +15,18 @@ export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: s
 		return env[envVarName];
 	}
 
+	// Fall back to process.env (e.g. from shell or package.json script)
+	if (process.env[envVarName]) {
+		return process.env[envVarName];
+	}
+
 	const s = spinner();
 	s.start("Looking for database connection...");
 
 	if (!env) {
-		note(color.red("No .env file found in current directory"));
+		note(color.red("No .env file found and " + envVarName + " not set in process.env"));
 	} else {
-		note(color.red(`${envVarName} not found in .env`));
+		note(color.red(envVarName + " not found in .env or process.env"));
 	}
 
 	const choice = await select({
