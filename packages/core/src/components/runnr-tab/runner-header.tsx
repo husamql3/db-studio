@@ -5,8 +5,8 @@ import {
 	CornerDownLeft,
 	Heart,
 	Save,
-	Sparkles,
 	Shield,
+	Sparkles,
 	Table,
 	Zap,
 } from "lucide-react";
@@ -165,9 +165,7 @@ export const RunnerHeader = ({
 						{lastRunMode === "sandbox" && (
 							<span className="text-xs text-amber-400">Sandbox</span>
 						)}
-						{lastRunMode === "sandbox" && (
-							<span className="text-xs text-gray-500">•</span>
-						)}
+						{lastRunMode === "sandbox" && <span className="text-xs text-gray-500">•</span>}
 						<span className="text-xs text-gray-500">
 							{queryResult.data?.duration?.toFixed(2)}ms
 						</span>

@@ -2,14 +2,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState } from "react";
 import type { ExecuteQueryResult } from "shared/types";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
 import { RunnerHeader } from "@/components/runnr-tab/runner-header";
-import { useExecuteQuery } from "@/hooks/use-execute-query";
+import { Button } from "@/components/ui/button";
 import { useAnalyzeQuery } from "@/hooks/use-analyze-query";
+import { useExecuteQuery } from "@/hooks/use-execute-query";
 import { useSuggestOptimization } from "@/hooks/use-suggest-optimization";
-import { useQueriesStore } from "@/stores/queries.store";
 import { useInsertSqlStore } from "@/stores/insert-sql.store";
+import { useQueriesStore } from "@/stores/queries.store";
 import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 
 const CodeEditor = lazy(() =>
@@ -50,11 +50,8 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 		explanation: string;
 	} | null>(null);
 	const { analyzeQuery, isAnalyzing, analyzeError } = useAnalyzeQuery();
-	const {
-		suggestOptimization,
-		isSuggestingOptimization,
-		suggestOptimizationError,
-	} = useSuggestOptimization();
+	const { suggestOptimization, isSuggestingOptimization, suggestOptimizationError } =
+		useSuggestOptimization();
 	const { setPendingSql } = useInsertSqlStore();
 
 	const getInitialQuery = useCallback(() => {
@@ -219,11 +216,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 			<QueryResultContainer
 				results={queryResult?.data ?? null}
 				isLoading={isExecutingQuery || isExecutingSandbox}
-				error={
-					lastRunMode === "sandbox"
-						? executeQueryErrorSandbox
-						: executeQueryErrorNormal
-				}
+				error={lastRunMode === "sandbox" ? executeQueryErrorSandbox : executeQueryErrorNormal}
 				runMode={lastRunMode}
 				lastExecutedQuery={lastExecutedQuery}
 			/>

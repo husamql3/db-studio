@@ -1,6 +1,6 @@
+import { type AiProvider, MODEL_LIST } from "shared/constants";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { type AiProvider, MODEL_LIST } from "shared/constants";
 
 type AiSettingsState = {
 	includeSchemaInAiContext: boolean;
@@ -24,7 +24,8 @@ export const useAiSettingsStore = create<AiSettingsState>()(
 			useByocProxy: false,
 			byocProxyUrl: "",
 			provider: "gemini",
-			model: MODEL_LIST.find((item) => item.provider === "gemini")?.id ?? "gemini-3-flash-preview",
+			model:
+				MODEL_LIST.find((item) => item.provider === "gemini")?.id ?? "gemini-3-flash-preview",
 			apiKeys: {},
 			setIncludeSchemaInAiContext: (value) => set({ includeSchemaInAiContext: value }),
 			setUseByocProxy: (value) => set({ useByocProxy: value }),

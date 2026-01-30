@@ -2,20 +2,20 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { DEFAULTS } from "shared/constants";
 import {
-	analyzeQuerySchema,
+	type AnalyzeQueryResult,
 	type ApiError,
+	analyzeQuerySchema,
 	databaseSchema,
 	type ExecuteQueryResult,
 	executeQuerySchema,
-	suggestOptimizationSchema,
-	type AnalyzeQueryResult,
 	type SuggestOptimizationResult,
+	suggestOptimizationSchema,
 } from "shared/types";
 import type { ApiErrorType, ApiHandler } from "@/app.types.js";
 import { analyzeQuery, executeQuery, executeQuerySandbox } from "@/dao/query.dao.js";
 import { getDetailedSchema } from "@/dao/table-details-schema.js";
-import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 import { readSseText } from "@/utils/read-sse-text.js";
+import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 
 /** Validate BYOC proxy URL: https only to avoid SSRF */
 function getProxyUrl(proxyUrl?: string): string {
@@ -140,10 +140,7 @@ export const queryRoutes = new Hono()
 			}
 
 			if (!parsed?.suggestedQuery) {
-				return c.json(
-					{ error: "Failed to parse AI response" },
-					500,
-				);
+				return c.json({ error: "Failed to parse AI response" }, 500);
 			}
 
 			return c.json({ data: parsed }, 200);

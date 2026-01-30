@@ -57,16 +57,12 @@ export const QueryResultContainer = ({
 								{isSuggestingFix ? "Suggesting..." : "Suggest fix"}
 							</Button>
 							{suggestFixError && (
-								<span className="text-xs text-destructive">
-									{suggestFixError.message}
-								</span>
+								<span className="text-xs text-destructive">{suggestFixError.message}</span>
 							)}
 						</div>
 						{fixResult && (
 							<div className="rounded-md border border-zinc-800 p-2 space-y-2">
-								<div className="text-xs text-muted-foreground">
-									{fixResult.explanation}
-								</div>
+								<div className="text-xs text-muted-foreground">{fixResult.explanation}</div>
 								<pre className="text-xs whitespace-pre-wrap">{fixResult.suggestedQuery}</pre>
 								<Button
 									type="button"

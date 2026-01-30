@@ -3,8 +3,7 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { CHAT_SUGGESTIONS, DEFAULTS } from "shared/constants";
-import { MODEL_LIST } from "shared/constants";
+import { CHAT_SUGGESTIONS, DEFAULTS, MODEL_LIST } from "shared/constants";
 import type { ExecuteQueryResult } from "shared/types";
 import {
 	Conversation,
@@ -43,8 +42,8 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useRateLimit } from "@/hooks/use-rate-limit";
 import { useExecuteQuery } from "@/hooks/use-execute-query";
+import { useRateLimit } from "@/hooks/use-rate-limit";
 import { getDbType } from "@/lib/api";
 import { useAiPrefillStore } from "@/stores/ai-prefill.store";
 import { useAiSettingsStore } from "@/stores/ai-settings.store";
@@ -128,7 +127,7 @@ export const ChatSidebar = () => {
 						.filter((part) => part.type === "text")
 						.map((part) => part.content ?? "")
 						.join("")
-				: messageAny.content ?? "";
+				: (messageAny.content ?? "");
 			const sqlBlock = extractSqlBlock(textParts);
 			if (sqlBlock && message.id && selectedDatabase) {
 				setChatResults((prev) => ({
@@ -188,13 +187,19 @@ export const ChatSidebar = () => {
 			title="AI Assistant"
 			cta={
 				<div className="flex items-center gap-2">
-					<Select value={model} onValueChange={setModel}>
+					<Select
+						value={model}
+						onValueChange={setModel}
+					>
 						<SelectTrigger className="h-8 w-[210px] text-xs">
 							<SelectValue placeholder="Model" />
 						</SelectTrigger>
 						<SelectContent>
 							{MODEL_LIST.filter((item) => item.provider === provider).map((item) => (
-								<SelectItem key={item.id} value={item.id}>
+								<SelectItem
+									key={item.id}
+									value={item.id}
+								>
 									{item.name}
 								</SelectItem>
 							))}

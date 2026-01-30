@@ -74,7 +74,18 @@ export async function getTableColumns({
 		});
 	}
 
-	return rows.map((r: any) => {
+	type ColumnRow = {
+		columnName: string;
+		dataType: string;
+		isNullable: boolean;
+		columnDefault: string | null;
+		isPrimaryKey: boolean;
+		isForeignKey: boolean;
+		referencedTable: string | null;
+		referencedColumn: string | null;
+		enumValues?: string | string[] | null;
+	};
+	return (rows as ColumnRow[]).map((r) => {
 		// Parse enumValues to always return string[] | null
 		let parsedEnumValues: string[] | null = null;
 		if (r.enumValues) {

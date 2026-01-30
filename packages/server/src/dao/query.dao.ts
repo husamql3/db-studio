@@ -1,5 +1,5 @@
 import { HTTPException } from "hono/http-exception";
-import { DatabaseError } from "pg";
+import { DatabaseError, type QueryResult } from "pg";
 import type {
 	AnalyzeQueryResult,
 	DatabaseSchemaType,
@@ -28,7 +28,7 @@ export const executeQuery = async ({
 	const cleanedQuery = query.trim().replace(/;+$/, "");
 
 	const startTime = performance.now();
-	let result;
+	let result: QueryResult;
 	try {
 		result = await pool.query(cleanedQuery);
 	} catch (error) {
@@ -90,7 +90,7 @@ export const executeQuerySandbox = async ({
 		]);
 
 		const startTime = performance.now();
-		let result;
+		let result: QueryResult;
 		try {
 			result = await client.query(cleanedQuery);
 		} catch (error) {
@@ -163,18 +163,14 @@ export const analyzeQuery = async ({
 			`${SANDBOX_STATEMENT_TIMEOUT_MS}`,
 		]);
 
-		const result = await client.query(
-			`EXPLAIN (ANALYZE, FORMAT JSON) ${cleanedQuery}`,
-		);
+		const result = await client.query(`EXPLAIN (ANALYZE, FORMAT JSON) ${cleanedQuery}`);
 
 		await client.query("ROLLBACK");
 
 		const planJson = result.rows[0]?.["QUERY PLAN"];
 		const planRoot = Array.isArray(planJson) ? planJson[0] : planJson;
 		const executionTimeMs =
-			typeof planRoot?.["Execution Time"] === "number"
-				? planRoot["Execution Time"]
-				: 0;
+			typeof planRoot?.["Execution Time"] === "number" ? planRoot["Execution Time"] : 0;
 
 		return {
 			plan: planJson,

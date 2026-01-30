@@ -1,11 +1,11 @@
-import { LIMIT } from "shared/constants";
 import { env } from "cloudflare:workers";
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
+import { anthropicText, createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { createOpenaiChat, openaiText } from "@tanstack/ai-openai";
-import { createAnthropicChat, anthropicText } from "@tanstack/ai-anthropic";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { LIMIT } from "shared/constants";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { getRedis } from "./redis";
 
@@ -28,8 +28,7 @@ const buildAdapter = ({
 	model?: string;
 	apiKey?: string;
 }) => {
-	const resolvedProvider =
-		provider && provider in DEFAULT_MODELS ? provider : "gemini";
+	const resolvedProvider = provider && provider in DEFAULT_MODELS ? provider : "gemini";
 	const resolvedModel = model ?? DEFAULT_MODELS[resolvedProvider];
 
 	if (resolvedProvider === "openai") {

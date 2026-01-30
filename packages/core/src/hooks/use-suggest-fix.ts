@@ -28,11 +28,9 @@ export const useSuggestFix = () => {
 				model,
 				apiKey: apiKeys[provider] || undefined,
 			};
-			const res = await api.post<BaseResponse<SuggestFixResult>>(
-				"/chat/suggest-fix",
-				body,
-				{ params },
-			);
+			const res = await api.post<BaseResponse<SuggestFixResult>>("/chat/suggest-fix", body, {
+				params,
+			});
 			return res.data.data;
 		},
 	});

@@ -1,13 +1,18 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { DEFAULTS } from "shared/constants";
-import { chatSchema, databaseSchema, suggestFixSchema, type SuggestFixResult } from "shared/types";
+import {
+	chatSchema,
+	databaseSchema,
+	type SuggestFixResult,
+	suggestFixSchema,
+} from "shared/types";
 import { getDetailedSchema } from "@/dao/table-details-schema.js";
+import { readSseText } from "@/utils/read-sse-text.js";
 import {
 	generateSystemPrompt,
 	getMinimalSystemPrompt,
 } from "@/utils/system-prompt-generator.js";
-import { readSseText } from "@/utils/read-sse-text.js";
 
 /** Validate BYOC proxy URL: https only to avoid SSRF */
 function getProxyUrl(proxyUrl?: string): string {
@@ -20,7 +25,6 @@ function getProxyUrl(proxyUrl?: string): string {
 		return DEFAULTS.PROXY_URL;
 	}
 }
-
 
 export const chatRoutes = new Hono()
 	/**
@@ -158,10 +162,7 @@ export const chatRoutes = new Hono()
 			}
 
 			if (!result?.suggestedQuery) {
-				return c.json(
-					{ error: "Failed to parse AI response" },
-					500,
-				);
+				return c.json({ error: "Failed to parse AI response" }, 500);
 			}
 
 			return c.json({ data: result }, 200);

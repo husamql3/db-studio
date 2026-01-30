@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { AI_PROVIDERS, type AiProvider, MODEL_LIST } from "shared/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
 import {
 	Select,
 	SelectContent,
@@ -12,7 +11,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { AI_PROVIDERS, MODEL_LIST, type AiProvider } from "shared/constants";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useAiSettingsStore } from "@/stores/ai-settings.store";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -157,7 +157,10 @@ export const SettingsSheet = () => {
 								</SelectTrigger>
 								<SelectContent>
 									{AI_PROVIDERS.map((item) => (
-										<SelectItem key={item} value={item}>
+										<SelectItem
+											key={item}
+											value={item}
+										>
 											{item.toUpperCase()}
 										</SelectItem>
 									))}
@@ -167,13 +170,19 @@ export const SettingsSheet = () => {
 
 						<div className="space-y-2 rounded-lg border border-zinc-800 p-3">
 							<Label className="text-sm font-medium">Model</Label>
-							<Select value={model} onValueChange={setModel}>
+							<Select
+								value={model}
+								onValueChange={setModel}
+							>
 								<SelectTrigger className="h-8">
 									<SelectValue placeholder="Select model" />
 								</SelectTrigger>
 								<SelectContent>
 									{MODEL_LIST.filter((item) => item.provider === provider).map((item) => (
-										<SelectItem key={item.id} value={item.id}>
+										<SelectItem
+											key={item.id}
+											value={item.id}
+										>
 											{item.name}
 										</SelectItem>
 									))}
