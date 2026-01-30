@@ -20,7 +20,6 @@ export type DeleteRecordParams = DeleteRecordSchemaType & {
 };
 
 export type DeleteResult =
-	| { deletedCount: number }
 	| {
 			deletedCount: number;
 			fkViolation: true;

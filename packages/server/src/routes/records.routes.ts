@@ -100,7 +100,7 @@ export const recordsRoutes = new Hono()
 			if (fkViolation) {
 				return c.json(
 					{
-						data: `Cannot delete records from "${tableName}" due to foreign key constraints, on ${relatedRecords.map(r => r.tableName).join(", ")}`,
+						data: `Cannot delete records from "${tableName}" due to foreign key constraints, on ${relatedRecords.map((r) => r.tableName).join(", ")}`,
 						fkViolation: true,
 						relatedRecords,
 					},
