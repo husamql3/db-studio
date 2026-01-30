@@ -47,11 +47,7 @@ export const ChatSidebar = () => {
 	const [text, setText] = useState("");
 	const { isSheetOpen, closeSheet } = useSheetStore();
 	const { selectedDatabase } = useDatabaseStore();
-	const {
-		includeSchemaInAiContext,
-		useByocProxy,
-		byocProxyUrl,
-	} = useAiSettingsStore();
+	const { includeSchemaInAiContext, useByocProxy, byocProxyUrl } = useAiSettingsStore();
 
 	const chatUrl = useMemo(() => {
 		const dbType = getDbType() ?? "pg";
@@ -181,16 +177,12 @@ export const ChatSidebar = () => {
 									);
 									const textContent = message.parts
 										.filter((part) => part.type === "text")
-										.map((part) =>
-											"content" in part ? part.content : "",
-										)
+										.map((part) => ("content" in part ? part.content : ""))
 										.join("");
 
 									const hasThinking = thinkingParts.length > 0;
 									const sqlBlock =
-										message.role === "assistant"
-											? extractSqlBlock(textContent)
-											: null;
+										message.role === "assistant" ? extractSqlBlock(textContent) : null;
 
 									return (
 										<MessageBranch
@@ -205,11 +197,7 @@ export const ChatSidebar = () => {
 																<ReasoningTrigger />
 																<ReasoningContent>
 																	{thinkingParts
-																		.map((part) =>
-																			"content" in part
-																				? part.content
-																				: "",
-																		)
+																		.map((part) => ("content" in part ? part.content : ""))
 																		.join("\n")}
 																</ReasoningContent>
 															</Reasoning>
@@ -287,9 +275,7 @@ export const ChatSidebar = () => {
 									className="h-8!"
 									status={status}
 									onClick={isLoading ? handleStop : undefined}
-									disabled={
-										(rateLimit?.remaining === 0) || !selectedDatabase
-									}
+									disabled={rateLimit?.remaining === 0 || !selectedDatabase}
 								/>
 							</PromptInputFooter>
 						</PromptInput>

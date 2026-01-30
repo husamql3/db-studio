@@ -16,8 +16,7 @@ export const useAiSettingsStore = create<AiSettingsState>()(
 			includeSchemaInAiContext: true,
 			useByocProxy: false,
 			byocProxyUrl: "",
-			setIncludeSchemaInAiContext: (value) =>
-				set({ includeSchemaInAiContext: value }),
+			setIncludeSchemaInAiContext: (value) => set({ includeSchemaInAiContext: value }),
 			setUseByocProxy: (value) => set({ useByocProxy: value }),
 			setByocProxyUrl: (value) => set({ byocProxyUrl: value }),
 		}),

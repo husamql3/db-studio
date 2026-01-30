@@ -1,18 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { useAiSettingsStore } from "@/stores/ai-settings.store";
 import { useSheetStore } from "@/stores/sheet.store";
-import { cn } from "@/lib/utils";
 
 function isValidByocUrl(value: string): boolean {
 	if (!value.trim()) return true;
@@ -37,9 +32,7 @@ export const SettingsSheet = () => {
 
 	const byocUrlError = useMemo(() => {
 		if (!useByocProxy || !byocProxyUrl.trim()) return null;
-		return isValidByocUrl(byocProxyUrl)
-			? null
-			: "Enter a valid HTTPS URL or leave empty";
+		return isValidByocUrl(byocProxyUrl) ? null : "Enter a valid HTTPS URL or leave empty";
 	}, [useByocProxy, byocProxyUrl]);
 
 	return (
@@ -55,16 +48,12 @@ export const SettingsSheet = () => {
 				showCloseButton
 			>
 				<SheetHeader className="border-b border-zinc-800 p-3">
-					<SheetTitle className="text-lg font-semibold">
-						Settings
-					</SheetTitle>
+					<SheetTitle className="text-lg font-semibold">Settings</SheetTitle>
 				</SheetHeader>
 
 				<div className="overflow-y-auto px-5 py-6 space-y-6">
 					<section className="space-y-4">
-						<h3 className="text-sm font-medium text-foreground">
-							AI & Database Context
-						</h3>
+						<h3 className="text-sm font-medium text-foreground">AI & Database Context</h3>
 
 						<div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-800 p-3">
 							<div className="space-y-0.5">
@@ -75,8 +64,8 @@ export const SettingsSheet = () => {
 									Include database schema in AI context
 								</Label>
 								<p className="text-xs text-muted-foreground">
-									Introspect tables and columns and add them to the AI prompt for
-									context-aware SQL and answers.
+									Introspect tables and columns and add them to the AI prompt for context-aware
+									SQL and answers.
 								</p>
 							</div>
 							<Switch
@@ -106,11 +95,7 @@ export const SettingsSheet = () => {
 						</div>
 
 						{useByocProxy && (
-							<div
-								className={cn(
-									"space-y-2 rounded-lg border border-zinc-800 p-3",
-								)}
-							>
+							<div className={cn("space-y-2 rounded-lg border border-zinc-800 p-3")}>
 								<Label
 									htmlFor="byoc-url"
 									className="text-sm font-medium"
@@ -136,8 +121,8 @@ export const SettingsSheet = () => {
 									</p>
 								) : (
 									<p className="text-xs text-muted-foreground">
-										Must be HTTPS. Same API as default: POST /chat with
-										messages, systemPrompt, conversationId; respond with SSE.
+										Must be HTTPS. Same API as default: POST /chat with messages, systemPrompt,
+										conversationId; respond with SSE.
 									</p>
 								)}
 							</div>
