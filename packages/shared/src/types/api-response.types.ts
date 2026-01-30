@@ -12,5 +12,5 @@ export type BaseResponse<T> = {
  */
 export type ApiError = {
 	error: string;
-	details?: string;
+	details?: unknown;
 };

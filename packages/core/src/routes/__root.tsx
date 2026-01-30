@@ -5,6 +5,7 @@ import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { AddTableForm } from "@/components/add-table/add-table-form";
+import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { useCurrentDatabase } from "@/hooks/use-databases-list";
@@ -53,6 +54,7 @@ export const Route = createRootRoute({
 				<Toaster position="top-right" />
 				{/* Global sheets */}
 				<AddTableForm />
+				<SettingsSheet />
 				{/* Devtools */}
 				<TanStackDevtools
 					config={{

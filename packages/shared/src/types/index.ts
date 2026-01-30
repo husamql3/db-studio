@@ -12,7 +12,9 @@ export * from "./delete-column.types.js"; // done
 export * from "./delete-record.types.js"; // done
 export * from "./execute-query.types.js"; // done
 export * from "./export-table.types.js";
+export * from "./query-optimization.types.js";
 export * from "./rate-limit-response.type.js";
+export * from "./suggest-fix.types.js";
 export * from "./table-data.types.js"; // done
 export * from "./table-info.type.js"; // done
 export * from "./update-recors.types.js"; // done

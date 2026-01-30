@@ -6,7 +6,8 @@ type SheetName =
 	| "add-record"
 	| `add-foreign-key-${number}`
 	| "record-reference"
-	| "ai-assistant";
+	| "ai-assistant"
+	| "settings";
 
 type SheetState = {
 	openSheets: SheetName[];

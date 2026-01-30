@@ -13,35 +13,48 @@ export const CHAT_SUGGESTIONS = [
 	"Help me write a safe UPDATE query",
 ];
 
-// const MODEL_LIST = [
-// 	{
-// 		id: "gpt-4o",
-// 		name: "GPT-4o",
-// 		chef: "OpenAI",
-// 		chefSlug: "openai",
-// 	},
-// 	{
-// 		id: "gpt-4o-mini",
-// 		name: "GPT-4o Mini",
-// 		chef: "OpenAI",
-// 		chefSlug: "openai",
-// 	},
-// 	{
-// 		id: "claude-opus-4-20250514",
-// 		name: "Claude 4 Opus",
-// 		chef: "Anthropic",
-// 		chefSlug: "anthropic",
-// 	},
-// 	{
-// 		id: "claude-sonnet-4-20250514",
-// 		name: "Claude 4 Sonnet",
-// 		chef: "Anthropic",
-// 		chefSlug: "anthropic",
-// 	},
-// 	{
-// 		id: "gemini-2.0-flash-exp",
-// 		name: "Gemini 2.0 Flash",
-// 		chef: "Google",
-// 		chefSlug: "google",
-// 	},
-// ];
+export const AI_PROVIDERS = ["gemini", "openai", "anthropic"] as const;
+
+export type AiProvider = (typeof AI_PROVIDERS)[number];
+
+export const MODEL_LIST = [
+	{
+		id: "gemini-3-flash-preview",
+		name: "Gemini 3 Flash Preview",
+		provider: "gemini",
+	},
+	{
+		id: "gemini-2.0-flash-exp",
+		name: "Gemini 2.0 Flash",
+		provider: "gemini",
+	},
+	{
+		id: "gpt-4o",
+		name: "GPT-4o",
+		provider: "openai",
+	},
+	{
+		id: "gpt-4o-mini",
+		name: "GPT-4o Mini",
+		provider: "openai",
+	},
+	{
+		id: "claude-3-5-sonnet-20241022",
+		name: "Claude 3.5 Sonnet",
+		provider: "anthropic",
+	},
+	{
+		id: "claude-3-opus-20240229",
+		name: "Claude 3 Opus",
+		provider: "anthropic",
+	},
+] as const;
+
+export const MODELS_BY_PROVIDER = MODEL_LIST.reduce(
+	(acc, model) => {
+		acc[model.provider] ??= [];
+		acc[model.provider]?.push(model);
+		return acc;
+	},
+	{} as Record<AiProvider, (typeof MODEL_LIST)[number][]>,
+);

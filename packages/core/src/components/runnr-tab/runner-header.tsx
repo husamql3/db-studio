@@ -1,14 +1,30 @@
-import { AlignLeft, Braces, Command, CornerDownLeft, Heart, Save, Table } from "lucide-react";
+import {
+	AlignLeft,
+	Braces,
+	Command,
+	CornerDownLeft,
+	Heart,
+	Save,
+	Shield,
+	Sparkles,
+	Table,
+	Zap,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAiPrefillStore } from "@/stores/ai-prefill.store";
+import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 import type { QueryResult } from "./runner-tab";
 
 export const RunnerHeader = ({
 	isExecutingQuery,
 	handleButtonClick,
+	handleSandboxRun,
+	handleOptimizeQuery,
+	isOptimizing,
 	handleFormatQuery,
 	handleSaveQuery,
 	handleFavorite,
@@ -16,9 +32,13 @@ export const RunnerHeader = ({
 	queryId,
 	hasUnsavedChanges,
 	queryResult,
+	lastRunMode,
 }: {
 	isExecutingQuery: boolean;
 	handleButtonClick: () => void;
+	handleSandboxRun: () => void;
+	handleOptimizeQuery: () => void;
+	isOptimizing: boolean;
 	handleFormatQuery: () => void;
 	handleSaveQuery: () => void;
 	handleFavorite: () => void;
@@ -26,8 +46,16 @@ export const RunnerHeader = ({
 	queryId: string;
 	hasUnsavedChanges: boolean;
 	queryResult: QueryResult | null;
+	lastRunMode: "normal" | "sandbox";
 }) => {
 	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
+	const { openSheet } = useSheetStore();
+	const { setPrefillMessage } = useAiPrefillStore();
+
+	const handleGenerateWithAi = () => {
+		setPrefillMessage("Generate a SQL query for this database.");
+		openSheet("ai-assistant");
+	};
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
@@ -45,6 +73,42 @@ export const RunnerHeader = ({
 					<CornerDownLeft className="size-3" />
 				</Button>
 
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+							aria-label="Run in sandbox"
+							onClick={handleSandboxRun}
+							disabled={isExecutingQuery}
+						>
+							Sandbox
+							<Shield className="size-3" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>Run in sandbox (no changes saved)</p>
+					</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+							aria-label="Generate with AI"
+							onClick={handleGenerateWithAi}
+						>
+							<Sparkles className="size-3" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>Generate with AI</p>
+					</TooltipContent>
+				</Tooltip>
+
 				<Button
 					type="button"
 					variant="ghost"
@@ -53,6 +117,17 @@ export const RunnerHeader = ({
 					onClick={handleFormatQuery}
 				>
 					Format <AlignLeft className="size-3" />
+				</Button>
+
+				<Button
+					type="button"
+					variant="ghost"
+					className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+					aria-label="Suggest faster query"
+					onClick={handleOptimizeQuery}
+					disabled={isOptimizing || isExecutingQuery}
+				>
+					Optimize <Zap className="size-3" />
 				</Button>
 
 				<Button
@@ -87,6 +162,10 @@ export const RunnerHeader = ({
 			<div className="flex items-center">
 				{queryResult && (
 					<div className="flex items-center gap-1 px-2">
+						{lastRunMode === "sandbox" && (
+							<span className="text-xs text-amber-400">Sandbox</span>
+						)}
+						{lastRunMode === "sandbox" && <span className="text-xs text-gray-500">•</span>}
 						<span className="text-xs text-gray-500">
 							{queryResult.data?.duration?.toFixed(2)}ms
 						</span>

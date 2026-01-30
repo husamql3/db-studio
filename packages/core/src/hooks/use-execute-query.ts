@@ -3,7 +3,9 @@ import type { BaseResponse, ExecuteQueryResult } from "shared/types";
 import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
-export const useExecuteQuery = () => {
+type ExecuteQueryMode = "normal" | "sandbox";
+
+export const useExecuteQuery = (mode: ExecuteQueryMode = "normal") => {
 	const { selectedDatabase } = useDatabaseStore();
 
 	const {
@@ -13,8 +15,9 @@ export const useExecuteQuery = () => {
 	} = useMutation<ExecuteQueryResult, Error, { query: string }>({
 		mutationFn: async ({ query }) => {
 			const params = new URLSearchParams({ db: selectedDatabase ?? "" });
+			const endpoint = mode === "sandbox" ? "/query/sandbox" : "/query";
 			const res = await api.post<BaseResponse<ExecuteQueryResult>>(
-				"/query",
+				endpoint,
 				{ query },
 				{ params },
 			);

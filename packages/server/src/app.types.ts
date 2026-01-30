@@ -9,7 +9,7 @@ import type { TablesRoutes } from "@/routes/tables.routes.js";
 
 export type BaseResponseType<T> = TypedResponse<BaseResponse<T>, 200>;
 
-export type ApiErrorType = TypedResponse<ApiError, 500>;
+export type ApiErrorType = TypedResponse<ApiError, 400 | 500>;
 
 /**
  * ApiHandler is a type that represents a response or error from an API endpoint.

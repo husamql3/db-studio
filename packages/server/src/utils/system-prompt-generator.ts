@@ -1,5 +1,16 @@
 import type { DatabaseSchema } from "shared/types";
 
+const MINIMAL_SYSTEM_PROMPT = `You are a database assistant for db-studio. Your responses must be CONCISE and FOCUSED.
+You help with general database and SQL questions. Without schema context, use generic table/column names in examples.
+When generating SQL, wrap queries in \`\`\`sql code blocks. Keep responses SHORT.`;
+
+/**
+ * Generate minimal system prompt (no schema context)
+ */
+export function getMinimalSystemPrompt(): string {
+	return MINIMAL_SYSTEM_PROMPT;
+}
+
 /**
  * Generate system prompt with database context
  */
