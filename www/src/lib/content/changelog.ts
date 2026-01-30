@@ -20,7 +20,12 @@ export const changelog: ChangelogItem[] = [
 		date: "2026-01-30",
 		title: "",
 		features: [],
-		bugsFixed: [],
+		bugsFixed: [
+			{
+				text: "Fix the bug where the table list was not showing the correct number of tables",
+				username: "Amirosagan",
+			},
+		],
 		improvements: [
 			{
 				text: "Added support for custom .env file paths via -e flag for flexible database configuration",
