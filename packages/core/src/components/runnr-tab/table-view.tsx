@@ -1,10 +1,10 @@
 import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
-import type { ExecuteQueryResponse } from "shared/types";
+import type { ExecuteQueryResult } from "shared/types";
 import { formatCellValue } from "@/utils/format-cell-value";
 
-export const TableView = ({ results }: { results: ExecuteQueryResponse | null }) => {
+export const TableView = ({ results }: { results: ExecuteQueryResult | null }) => {
 	const columns = useMemo(() => {
 		if (!results?.columns) return [];
 

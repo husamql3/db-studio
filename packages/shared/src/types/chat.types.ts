@@ -12,6 +12,9 @@ const chatDataSchema = z.object({
 	db: databaseSchema.shape.db.optional(),
 	includeSchemaInAiContext: z.boolean().optional(),
 	proxyUrl: z.string().optional(),
+	provider: z.string().optional(),
+	model: z.string().optional(),
+	apiKey: z.string().optional(),
 });
 
 /** Accepts flat body or TanStack shape { messages, data: { conversationId, db, ... } } */
@@ -22,6 +25,9 @@ export const chatSchema = z
 		db: databaseSchema.shape.db.optional(),
 		includeSchemaInAiContext: z.boolean().optional(),
 		proxyUrl: z.string().optional(),
+	provider: z.string().optional(),
+	model: z.string().optional(),
+	apiKey: z.string().optional(),
 		data: chatDataSchema.optional(),
 	})
 	.refine(
@@ -34,4 +40,7 @@ export const chatSchema = z
 		db: (v.db ?? v.data?.db) as string,
 		includeSchemaInAiContext: v.includeSchemaInAiContext ?? v.data?.includeSchemaInAiContext,
 		proxyUrl: v.proxyUrl ?? v.data?.proxyUrl,
+	provider: v.provider ?? v.data?.provider,
+	model: v.model ?? v.data?.model,
+	apiKey: v.apiKey ?? v.data?.apiKey,
 	}));

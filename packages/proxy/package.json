@@ -14,12 +14,14 @@
     "secrets:clear": "wrangler secret delete --all"
   },
   "dependencies": {
-    "shared": "workspace:*",
     "@tanstack/ai": "^0.2.2",
+    "@tanstack/ai-anthropic": "^0.2.0",
     "@tanstack/ai-gemini": "^0.3.2",
+    "@tanstack/ai-openai": "^0.3.0",
     "@upstash/redis": "^1.36.1",
     "hono": "^4.11.3",
-    "hono-rate-limiter": "^0.5.3"
+    "hono-rate-limiter": "^0.5.3",
+    "shared": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",

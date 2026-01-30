@@ -2,12 +2,59 @@ import { LIMIT } from "shared/constants";
 import { env } from "cloudflare:workers";
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
 import { createGeminiChat } from "@tanstack/ai-gemini";
+import { createOpenaiChat, openaiText } from "@tanstack/ai-openai";
+import { createAnthropicChat, anthropicText } from "@tanstack/ai-anthropic";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { getRedis } from "./redis";
 
 const app = new Hono();
+
+const DEFAULT_MODELS = {
+	gemini: "gemini-3-flash-preview",
+	openai: "gpt-4o",
+	anthropic: "claude-3-5-sonnet-20241022",
+} as const;
+
+type Provider = keyof typeof DEFAULT_MODELS;
+
+const buildAdapter = ({
+	provider,
+	model,
+	apiKey,
+}: {
+	provider?: Provider;
+	model?: string;
+	apiKey?: string;
+}) => {
+	const resolvedProvider =
+		provider && provider in DEFAULT_MODELS ? provider : "gemini";
+	const resolvedModel = model ?? DEFAULT_MODELS[resolvedProvider];
+
+	if (resolvedProvider === "openai") {
+		const model = resolvedModel as Parameters<typeof createOpenaiChat>[0];
+		if (apiKey) {
+			return createOpenaiChat(model, apiKey);
+		}
+		return openaiText(model);
+	}
+
+	if (resolvedProvider === "anthropic") {
+		const model = resolvedModel as Parameters<typeof createAnthropicChat>[0];
+		if (apiKey) {
+			return createAnthropicChat(model, apiKey);
+		}
+		return anthropicText(model);
+	}
+
+	const geminiModel = resolvedModel as Parameters<typeof createGeminiChat>[0];
+	return createGeminiChat(geminiModel, apiKey ?? env.GEMINI_API_KEY, {
+		temperature: 0.1,
+		topP: 0.9,
+		maxOutputTokens: 1024,
+	});
+};
 
 app.use(
 	"/*",
@@ -32,7 +79,8 @@ app.use("/chat", createProxyLimiter());
  */
 app.post("/chat", async (c) => {
 	try {
-		const { messages, systemPrompt, conversationId } = await c.req.json();
+		const { messages, systemPrompt, conversationId, provider, model, apiKey } =
+			await c.req.json();
 		if (!messages || !Array.isArray(messages)) {
 			return c.json({ error: "Invalid request: messages array required" }, 400);
 		}
@@ -41,18 +89,16 @@ app.post("/chat", async (c) => {
 		console.log("systemPrompt", systemPrompt);
 		console.log("conversationId", conversationId);
 
-		const stream = chat({
-			adapter: createGeminiChat("gemini-3-flash-preview", env.GEMINI_API_KEY, {
-				temperature: 0.1, // Very low - we want deterministic, accurate SQL
-				topP: 0.9, // Very low - we want deterministic, accurate SQL
-				maxOutputTokens: 1024, // Short responses - SQL + brief explanation
-			}),
+		const stream = await chat({
+			adapter: buildAdapter({ provider, model, apiKey }),
 			messages,
 			conversationId,
 			systemPrompts: [systemPrompt],
 		});
 
-		return toServerSentEventsResponse(stream);
+		return toServerSentEventsResponse(
+			stream as Parameters<typeof toServerSentEventsResponse>[0],
+		);
 	} catch (error) {
 		console.error("Proxy error:", error);
 		const errorMessage = error instanceof Error ? error.message : "An error occurred";

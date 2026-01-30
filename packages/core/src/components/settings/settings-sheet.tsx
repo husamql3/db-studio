@@ -5,6 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { AI_PROVIDERS, MODEL_LIST, type AiProvider } from "shared/constants";
 import { cn } from "@/lib/utils";
 import { useAiSettingsStore } from "@/stores/ai-settings.store";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -25,9 +33,15 @@ export const SettingsSheet = () => {
 		includeSchemaInAiContext,
 		useByocProxy,
 		byocProxyUrl,
+		provider,
+		model,
+		apiKeys,
 		setIncludeSchemaInAiContext,
 		setUseByocProxy,
 		setByocProxyUrl,
+		setProvider,
+		setModel,
+		setApiKeyForProvider,
 	} = useAiSettingsStore();
 
 	const byocUrlError = useMemo(() => {
@@ -127,6 +141,59 @@ export const SettingsSheet = () => {
 								)}
 							</div>
 						)}
+					</section>
+
+					<section className="space-y-4">
+						<h3 className="text-sm font-medium text-foreground">AI Provider</h3>
+
+						<div className="space-y-2 rounded-lg border border-zinc-800 p-3">
+							<Label className="text-sm font-medium">Provider</Label>
+							<Select
+								value={provider}
+								onValueChange={(value) => setProvider(value as AiProvider)}
+							>
+								<SelectTrigger className="h-8">
+									<SelectValue placeholder="Select provider" />
+								</SelectTrigger>
+								<SelectContent>
+									{AI_PROVIDERS.map((item) => (
+										<SelectItem key={item} value={item}>
+											{item.toUpperCase()}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2 rounded-lg border border-zinc-800 p-3">
+							<Label className="text-sm font-medium">Model</Label>
+							<Select value={model} onValueChange={setModel}>
+								<SelectTrigger className="h-8">
+									<SelectValue placeholder="Select model" />
+								</SelectTrigger>
+								<SelectContent>
+									{MODEL_LIST.filter((item) => item.provider === provider).map((item) => (
+										<SelectItem key={item.id} value={item.id}>
+											{item.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2 rounded-lg border border-zinc-800 p-3">
+							<Label className="text-sm font-medium">API Key (optional)</Label>
+							<Input
+								type="password"
+								placeholder={`Enter ${provider.toUpperCase()} API key`}
+								value={apiKeys[provider] ?? ""}
+								onChange={(e) => setApiKeyForProvider(provider, e.target.value)}
+								className="h-8"
+							/>
+							<p className="text-xs text-muted-foreground">
+								Leave empty to use the default proxy key. Keys are stored locally.
+							</p>
+						</div>
 					</section>
 				</div>
 			</SheetContent>
