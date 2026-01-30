@@ -35,7 +35,7 @@ export const main = async () => {
 
 	const PORT = port ? parseInt(port, 10) : DEFAULTS.PORT;
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
-	const ENV = env ? await loadEnv(env) : await loadEnv(DEFAULTS.ENV);
+	const ENV = env ? await loadEnv(env) : await loadEnv();
 	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
 
 	// Set DATABASE_URL in process.env before importing createServer

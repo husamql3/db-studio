@@ -8,14 +8,20 @@ export async function getTablesList(
 ): Promise<TableInfoSchemaType[]> {
 	const pool = getDbPool(db);
 	const query = `
-		SELECT 
-			t.table_name as "tableName",
-			COALESCE(s.n_live_tup, 0)::integer as "rowCount"
-		FROM information_schema.tables t
-		LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
-		WHERE t.table_schema = 'public'
-			AND t.table_type = 'BASE TABLE'
-		ORDER BY t.table_name;
+	SELECT 
+    t.table_name as "tableName",
+    CASE 
+        WHEN s.n_live_tup IS NULL OR s.n_live_tup = 0 
+        THEN (SELECT COUNT(*) FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+                AND table_name = t.table_name)
+        ELSE s.n_live_tup 
+    END::integer as "rowCount"
+FROM information_schema.tables t
+LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
+WHERE t.table_schema = 'public'
+  AND t.table_type = 'BASE TABLE'
+ORDER BY t.table_name;
 	`;
 
 	const { rows } = await pool.query(query);

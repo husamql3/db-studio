@@ -97,7 +97,7 @@ function RouteComponent() {
 																			href={`https://github.com/${feature.username}`}
 																			target="_blank"
 																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light group"
+																			className="inline-flex items-center gap-1 text-blue-600 group"
 																		>
 																			<span className="text-xs font-medium">
 																				@{feature.username}
@@ -132,7 +132,7 @@ function RouteComponent() {
 																			href={`https://github.com/${improvement.username}`}
 																			target="_blank"
 																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light group"
+																			className="inline-flex items-center gap-1 text-blue-600 group"
 																		>
 																			<span className="text-xs font-medium">
 																				@{improvement.username}
@@ -167,7 +167,7 @@ function RouteComponent() {
 																			href={`https://github.com/${bug.username}`}
 																			target="_blank"
 																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light"
+																			className="inline-flex items-center gap-1 text-blue-600"
 																		>
 																			<span className="text-xs font-medium">
 																				@{bug.username}
