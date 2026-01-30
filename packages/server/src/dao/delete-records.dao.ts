@@ -38,7 +38,7 @@ async function getForeignKeyReferences(
 	const pool = getDbPool(db);
 	const result = await pool.query(query, [tableName]);
 
-	return result.rows.map(({ row }: { row: ForeignKeyConstraintRow }) => ({
+	return result.rows.map(( row : ForeignKeyConstraintRow ) => ({
 		constraintName: row.constraint_name,
 		referencingTable: row.referencing_table,
 		referencingColumn: row.referencing_column,
@@ -141,7 +141,7 @@ export async function deleteRecords({
 
 		await pool.query("COMMIT");
 
-		return { deletedCount: result.rowCount ?? 0 };
+		return { deletedCount: result.rowCount ?? 0 , fkViolation: undefined, relatedRecords: [] };
 	} catch (error) {
 		await pool.query("ROLLBACK");
 

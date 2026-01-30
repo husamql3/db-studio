@@ -92,11 +92,21 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount } = await deleteRecords({
+			const { deletedCount, fkViolation, relatedRecords } = await deleteRecords({
 				tableName,
 				primaryKeys,
 				db,
 			});
+			if (fkViolation) {
+				return c.json(
+					{
+						data: `Cannot delete records from "${tableName}" due to foreign key constraints, on ${relatedRecords.map(r => r.tableName).join(", ")}`,
+						fkViolation: true,
+						relatedRecords,
+					},
+					200,
+				);
+			}
 			return c.json(
 				{
 					data: `Deleted ${deletedCount} records from "${tableName}"`,
