@@ -16,6 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.2.24",
+		date: "2026-01-30",
+		title: "",
+		features: [],
+		bugsFixed: [],
+		improvements: [
+			{
+				text: "Added support for custom .env file paths via -e flag for flexible database configuration",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Enhanced CLI with new --status flag to verify database connection configuration",
+				username: "Mahmoudgalalz",
+			},
+		],
+	},
+	{
 		version: "1.2.21",
 		date: "2026-01-27",
 		title: "",

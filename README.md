@@ -43,9 +43,9 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 - **Backend**: Hono with Node, zod-validator, zod
 - **Tooling**: Bun, Vite, TypeScript, Biome, Vitest, Wrangler (Cloudflare)
 
-## Run with npx
+## Quick Start with npx
 
-No install required. From your project directory (or any subfolder), run:
+No installation required. Just run:
 
 ```bash
 npx db-studio
@@ -53,29 +53,62 @@ npx db-studio
 
 This runs the latest published version and uses the **current directory** as the project context. db-studio looks for a `.env` file in the current working directory and, if not found, searches parent directories until one is found. It reads `DATABASE_URL` from that file (or use `--var-name <name>` for a different variable). If `DATABASE_URL` is not in the .env file, it is also read from **process.env** (e.g. when set in the shell or in a package.json script). To point to a specific env file, use `--env <path>` (e.g. `npx db-studio --env .env.local`).
 
-### Custom runs in package.json
+### Recommended base script (add to package.json)
 
 You can run db-studio from npm/bun scripts. Useful when you want a dedicated script, a different env file, or to pass the connection via the environment:
 
 ```json
 {
   "scripts": {
-    "db": "db-studio",
-    "db:local": "db-studio --env .env.local",
-    "db:prod": "DATABASE_URL=$PROD_DATABASE_URL db-studio",
-    "db:port": "db-studio -p 4444"
+    "db:studio": "npx db-studio"
   }
 }
 ```
 
-- `db`: uses .env in the project (or parent dirs); or install first with `npm i -D db-studio` / `bun add -d db-studio`.
-- `db:local`: explicit env file (e.g. `.env.local`).
-- `db:prod`: connection from an existing env var (e.g. set in CI or `.env` loaded by your app).
-- `db:port`: custom port (default is 3333).
+Now you can simply run:
 
-With npx, no install needed: `"db": "npx db-studio"` or `"db:local": "npx db-studio --env .env.local"`.
+```Bash
+npm run db:studio
+```
 
-## Getting Started
+### Customize with flags
+
+Modify the run command (or override in your script) using any of these flags:
+
+| Flag                        | Description                                      | Example command / override                                                  |
+|-----------------------------|--------------------------------------------------|-----------------------------------------------------------------------------|
+| `--env <path>`              | Use a specific `.env` file                       | `npx db-studio --env .env.local` <br>or `--env .env.production`             |
+| `--var-name <name>`         | Use a different environment variable name        | `npx db-studio --var-name MY_DB_URL`                                        |
+| `--port <number>`           | Change the server port (default: 3333)           | `npx db-studio --port 4000`                                                 |
+| `--database-url <url>`      | Provide connection string directly (no `.env`)   | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
+| `--status`                  | Only check & show connection status (no UI)      | `npx db-studio --status`                                                    |
+| `--help`                    | Show all available options                       | `npx db-studio --help`                                                      |
+
+#### Examples of combined / overridden usage
+
+```bash
+
+# Local dev with custom env file
+npm run db:studio -- --env .env.local
+
+# Production with custom port
+bun run db:studio -- --env .env.production --port 4444
+
+# Direct connection (great for one-off or CI)
+npx db-studio --database-url "postgresql://user:pass@host:5432/prod"
+
+# Custom variable name + env file
+npm run db:studio -- --env .env.staging --var-name STAGING_DB_URL
+
+# Just verify connection
+npm run db:studio -- --status
+```
+
+> **Tip**: When passing flags through `npm run` or `bun run`, use `--` to separate script args from command flags (as shown above).
+
+For full documentation and more examples: [dbstudio.sh](https://dbstudio.sh)
+
+## Development Setup
 
 **Using the CLI (installed or npx):** Run `db-studio` or `npx db-studio` from a directory that contains your `.env` (or from a subfolder; db-studio will search upward for `.env`). Alternatively use `--env <path>` to specify the env file.
 
@@ -93,6 +126,7 @@ bun run dev
 ```
 
 At your first contribution, you should add your name and email to the `AUTHORS` file
+
 ```bash
 your-name <your-email>
 ```
