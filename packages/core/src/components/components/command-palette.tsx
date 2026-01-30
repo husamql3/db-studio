@@ -683,11 +683,7 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									handleAction(() => {
-										toast.info("Settings - Coming Soon!", {
-											description: "Customize your DB Studio experience",
-										});
-									})
+									handleAction(() => openSheet("settings"), "Opening settings")
 								}
 							>
 								<Settings className="mr-2 h-4 w-4" />

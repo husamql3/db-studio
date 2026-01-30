@@ -1,8 +1,19 @@
-import { AlignLeft, Braces, Command, CornerDownLeft, Heart, Save, Table } from "lucide-react";
+import {
+	AlignLeft,
+	Braces,
+	Command,
+	CornerDownLeft,
+	Heart,
+	Save,
+	Sparkles,
+	Table,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAiPrefillStore } from "@/stores/ai-prefill.store";
+import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 import type { QueryResult } from "./runner-tab";
 
@@ -28,6 +39,13 @@ export const RunnerHeader = ({
 	queryResult: QueryResult | null;
 }) => {
 	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
+	const { openSheet } = useSheetStore();
+	const { setPrefillMessage } = useAiPrefillStore();
+
+	const handleGenerateWithAi = () => {
+		setPrefillMessage("Generate a SQL query for this database.");
+		openSheet("ai-assistant");
+	};
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
@@ -44,6 +62,23 @@ export const RunnerHeader = ({
 					<Command className="size-3" />
 					<CornerDownLeft className="size-3" />
 				</Button>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+							aria-label="Generate with AI"
+							onClick={handleGenerateWithAi}
+						>
+							<Sparkles className="size-3" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>Generate with AI</p>
+					</TooltipContent>
+				</Tooltip>
 
 				<Button
 					type="button"

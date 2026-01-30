@@ -1,6 +1,7 @@
 import * as monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useInsertSqlStore } from "@/stores/insert-sql.store";
 import {
 	BUILTIN_FUNCTIONS,
 	BUILTIN_TYPES,
@@ -33,6 +34,8 @@ export const CodeEditor = ({
 }: CodeEditorProps) => {
 	const monacoEl = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+	const pendingInsertSql = useInsertSqlStore((s) => s.pendingSql);
+	const setPendingSql = useInsertSqlStore((s) => s.setPendingSql);
 
 	useEffect(() => {
 		if (!monacoEl.current) return;
@@ -292,6 +295,18 @@ export const CodeEditor = ({
 		// Set initial query change
 		onQueryChange(editorInstance.getValue());
 
+		// Insert any pending SQL from chat (e.g. user clicked "Insert into editor")
+		const pending = useInsertSqlStore.getState().pendingSql;
+		if (pending) {
+			const sel = editorInstance.getSelection();
+			const model = editorInstance.getModel();
+			const range = sel ?? model?.getFullModelRange();
+			if (range) {
+				editorInstance.executeEdits("insert-sql", [{ range, text: pending }]);
+				useInsertSqlStore.getState().setPendingSql(null);
+			}
+		}
+
 		// Reset unsaved changes state when editor is initialized
 		if (queryId) {
 			const initialValue = editorInstance.getValue();
@@ -318,6 +333,18 @@ export const CodeEditor = ({
 			editorInstance.dispose();
 		};
 	}, [initialQuery, queryId, savedQuery, onQueryChange, onUnsavedChanges, onExecuteQuery]);
+
+	// When pending SQL is set from chat (e.g. "Insert into editor"), insert at cursor
+	useEffect(() => {
+		if (!pendingInsertSql || !editorRef.current) return;
+		const editor = editorRef.current;
+		const sel = editor.getSelection();
+		const model = editor.getModel();
+		const range = sel ?? model?.getFullModelRange();
+		if (!range) return;
+		editor.executeEdits("insert-sql", [{ range, text: pendingInsertSql }]);
+		setPendingSql(null);
+	}, [pendingInsertSql, setPendingSql]);
 
 	return (
 		<div
