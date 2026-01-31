@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AxiosError } from "axios";
-import type { BaseResponse, ColumnInfoSchemaType } from "shared/types";
+import { AxiosError } from "axios";
+import type { BaseResponse, ColumnInfoSchemaType, DeleteRecordResult } from "shared/types";
 import { toast } from "sonner";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { api } from "@/lib/api";
@@ -14,14 +14,6 @@ export interface RelatedRecord {
 	records: Array<Record<string, unknown>>;
 }
 
-interface DeleteResult {
-	success: boolean;
-	message: string;
-	deletedCount?: number;
-	fkViolation?: boolean;
-	relatedRecords?: RelatedRecord[];
-}
-
 export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
 	const { tableCols } = useTableCols({ tableName });
@@ -31,6 +23,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 		mutateAsync: deleteCellsAsync,
 		isPending: isDeletingCells,
 		reset: resetDeleteResult,
+		error: deleteCellsError,
 	} = useMutation({
 		mutationFn: async ({
 			rowData,
@@ -56,37 +49,42 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 			);
 			return result;
 		},
-		onSuccess: async (result) => {
+		onSuccess: async (result: DeleteRecordResult | { deletedCount: number }) => {
+			console.log("result", result);
 			// Only show success toast and clear selection if actually deleted
-			if (result.success) {
-				toast.success(result.message || "Records deleted successfully");
+			toast.success(`Deleted ${result.deletedCount} records from "${tableName}"`);
 
-				await Promise.all([
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
-						exact: false,
-					}),
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
-					}),
-				]);
-			}
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
+					exact: false,
+				}),
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
+				}),
+			]);
 		},
 		onError: (error) => {
 			console.error("Delete error:", error);
-			toast.error("Failed to delete records", {
-				description: error instanceof Error ? error.message : "Unknown error occurred",
-			});
+			if (error instanceof AxiosError && error.status === 409) {
+				toast.error(
+					`Cannot delete records from "${tableName}" due to foreign key constraints, on ${error.response?.data.relatedRecords.map((r: RelatedRecord) => r.tableName).join(", ")}`,
+				);
+			} else {
+				toast.error(error instanceof Error ? error.message : "Unknown error occurred");
+			}
 		},
 	});
 
-	const deleteCells = async (rowData: Record<string, unknown>[]): Promise<DeleteResult> => {
+	const deleteCells = async (
+		rowData: Record<string, unknown>[],
+	): Promise<{ deletedCount: number }> => {
 		return deleteCellsAsync({ rowData, force: false });
 	};
 
 	const forceDeleteCells = async (
 		rowData: Record<string, unknown>[],
-	): Promise<DeleteResult> => {
+	): Promise<{ deletedCount: number }> => {
 		return deleteCellsAsync({ rowData, force: true });
 	};
 
@@ -95,6 +93,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 		forceDeleteCells,
 		isDeletingCells,
 		resetDeleteResult,
+		deleteCellsError,
 	};
 };
 
@@ -104,7 +103,7 @@ const deleteCellsService = async (
 	rowData: Record<string, unknown>[],
 	force: boolean,
 	database?: string,
-): Promise<DeleteResult> => {
+): Promise<DeleteRecordResult | { deletedCount: number }> => {
 	const endpoint = force ? "/records/force" : "/records";
 
 	// Find primary key column
@@ -125,22 +124,23 @@ const deleteCellsService = async (
 	};
 
 	try {
-		const res = await api.delete<BaseResponse<string>>(endpoint, {
+		const res = await api.delete<BaseResponse<DeleteRecordResult>>(endpoint, {
 			data: payload,
 			params: { db: database },
 		});
 		return {
-			success: true,
-			message: res.data.data,
+			deletedCount: res.data.data.deletedCount,
+			fkViolation: res.data.data.fkViolation,
+			relatedRecords: res.data.data.relatedRecords,
 		};
 	} catch (error) {
 		// For FK violations (409), we return the result with relatedRecords instead of throwing
-		const axiosError = error as AxiosError<DeleteResult>;
+		const axiosError = error as AxiosError<{ deletedCount: number }>;
+		console.log("axiosError", axiosError);
 		if (axiosError.response?.status === 409) {
-			const result = axiosError.response.data;
-			if (result.fkViolation) {
-				return result;
-			}
+			return {
+				deletedCount: axiosError.response.data.deletedCount,
+			};
 		}
 		throw error;
 	}

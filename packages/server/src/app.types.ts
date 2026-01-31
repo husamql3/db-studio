@@ -1,4 +1,5 @@
 import type { TypedResponse } from "hono";
+import type { StatusCode } from "hono/utils/http-status";
 import type { ApiError, BaseResponse } from "shared/types";
 import type { DatabaseTypeSchema } from "shared/types/database.types.js";
 import type { ChatRoutes } from "@/routes/chat.routes.js";
@@ -7,14 +8,19 @@ import type { QueryRoutes } from "@/routes/query.routes.js";
 import type { RecordsRoutes } from "@/routes/records.routes.js";
 import type { TablesRoutes } from "@/routes/tables.routes.js";
 
-export type BaseResponseType<T> = TypedResponse<BaseResponse<T>, 200>;
+export type BaseResponseType<T, S extends StatusCode = 200> = TypedResponse<
+	BaseResponse<T>,
+	S
+>;
 
-export type ApiErrorType = TypedResponse<ApiError, 500>;
+export type ApiErrorType<S extends StatusCode = 500> = TypedResponse<ApiError, S>;
 
 /**
  * ApiHandler is a type that represents a response or error from an API endpoint.
  */
-export type ApiHandler<T> = Promise<BaseResponseType<T> | ApiErrorType>;
+export type ApiHandler<T, S extends StatusCode = 200> = Promise<
+	BaseResponseType<T, S> | ApiErrorType<S>
+>;
 
 export type AppType = {
 	Variables: {
