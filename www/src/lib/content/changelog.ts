@@ -1,6 +1,6 @@
 export type ChangelogEntry = {
 	text: string;
-	username?: string;
+	username?: string | string[];
 };
 
 export type ChangelogItem = {
