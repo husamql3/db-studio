@@ -23,17 +23,15 @@ export const DeleteBtn = ({
 
 	const handleDelete = useCallback(async () => {
 		const rowData = selectedRows.map((row) => row.original);
+		let relatedRecords: RelatedRecord[] | undefined;
 
-		const res = await deleteCells(rowData);
-		console.log(res);
-
-		if (res.fkViolation && res.relatedRecords) {
-			setPendingRowData(rowData);
-			setRelatedRecords(res.relatedRecords);
-			setIsOpenFkDialog(true);
-		} else if (res.success) {
-			// Reset row selection after successful deletion
+		try {
+			await deleteCells(rowData);
 			setRowSelection({});
+		} catch (_error) {
+			setPendingRowData(rowData);
+			setRelatedRecords(relatedRecords || []);
+			setIsOpenFkDialog(true);
 		}
 	}, [deleteCells, selectedRows, setRowSelection]);
 
@@ -41,10 +39,10 @@ export const DeleteBtn = ({
 		if (pendingRowData.length === 0) return;
 
 		const res = await forceDeleteCells(pendingRowData);
-		console.log(res);
+		console.log("Force delete response:", res);
 
 		// Only close dialog after successful deletion
-		if (res?.success) {
+		if (res?.deletedCount > 0) {
 			setIsOpenFkDialog(false);
 			setPendingRowData([]);
 			setRelatedRecords([]);
