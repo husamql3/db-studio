@@ -1,6 +1,5 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
-import { AddRecordBtn } from "@/components/table-tab/header/add-record-btn";
-import { BulkInsertBtn } from "@/components/table-tab/header/bulk-insert-btn";
+import { AddRecordMenu } from "@/components/table-tab/header/add-record-menu";
 import { ClearBtn } from "@/components/table-tab/header/clear-btn";
 import { DeleteBtn } from "@/components/table-tab/header/delete-btn";
 import { ExportBtn } from "@/components/table-tab/header/export-btn";
@@ -24,8 +23,7 @@ export const TableHeader = ({
 			<div className="flex items-center ">
 				<RefetchBtn tableName={tableName} />
 				<FilterPopup tableName={tableName} />
-				<AddRecordBtn />
-				<BulkInsertBtn />
+				<AddRecordMenu />
 				<SaveBtn setRowSelection={setRowSelection} />
 				<ClearBtn />
 				<DeleteBtn

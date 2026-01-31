@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 				{/* Parse error */}
 				{parseError && (
 					<Alert
-						variant="destructive"
+						variant="error"
 						title="Parse Error"
 						message={parseError}
 					/>

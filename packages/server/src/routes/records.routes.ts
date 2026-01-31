@@ -2,12 +2,14 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
 	addRecordSchema,
+	bulkInsertRecordsSchema,
 	databaseSchema,
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { addRecord } from "@/dao/add-record.dao.js";
+import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
 
@@ -131,6 +133,28 @@ export const recordsRoutes = new Hono()
 				},
 				200,
 			);
+		},
+	)
+
+	/**
+	 * POST /records/bulk
+	 * Bulk inserts multiple records into a table
+	 * @param {DatabaseSchemaType} query - The database to use
+	 * @param {BulkInsertRecordsParamsType} json - The data for the bulk insert
+	 * @returns {BaseResponseType<BulkInsertResult>} Success and failure counts
+	 */
+	.post(
+		"/bulk",
+		zValidator("query", databaseSchema),
+		zValidator("json", bulkInsertRecordsSchema),
+		async (c): ApiHandler<object> => {
+			const { db } = c.req.valid("query");
+			const { tableName, records } = c.req.valid("json");
+			const result = await bulkInsertRecords(
+				{ tableName, records },
+				db,
+			);
+			return c.json({ data: result }, 200);
 		},
 	);
 
