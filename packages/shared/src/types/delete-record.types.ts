@@ -19,12 +19,11 @@ export type DeleteRecordParams = DeleteRecordSchemaType & {
 	db: DatabaseSchemaType["db"];
 };
 
-export type DeleteResult =
-	| {
-			deletedCount: number;
-			fkViolation: true;
-			relatedRecords: RelatedRecord[];
-	  };
+export type DeleteRecordResult = {
+	deletedCount: number;
+	fkViolation: boolean;
+	relatedRecords: RelatedRecord[];
+};
 
 export type ForeignKeyConstraint = {
 	constraintName: string;

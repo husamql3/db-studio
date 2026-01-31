@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
 	addRecordSchema,
+	type DeleteRecordResult,
 	databaseSchema,
 	deleteRecordSchema,
 	updateRecordsSchema,
@@ -83,13 +84,15 @@ export const recordsRoutes = new Hono()
 	 * Deletes records from a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string>} A success message
+	 * @returns {ApiHandler<string, 409 | 200>} A success message
 	 */
 	.delete(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<string> => {
+		async (c): ApiHandler<DeleteRecordResult, 409 | 200> => {
+			// TODO: refactor this shit, the backend responses should be consistent
+			// TODO: the frontend could be simplified too
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const { deletedCount, fkViolation, relatedRecords } = await deleteRecords({
@@ -100,16 +103,22 @@ export const recordsRoutes = new Hono()
 			if (fkViolation) {
 				return c.json(
 					{
-						data: `Cannot delete records from "${tableName}" due to foreign key constraints, on ${relatedRecords.map((r) => r.tableName).join(", ")}`,
-						fkViolation: true,
-						relatedRecords,
+						data: {
+							deletedCount: 0,
+							fkViolation: true,
+							relatedRecords,
+						},
 					},
-					200,
+					409,
 				);
 			}
 			return c.json(
 				{
-					data: `Deleted ${deletedCount} records from "${tableName}"`,
+					data: {
+						deletedCount,
+						fkViolation: false,
+						relatedRecords: [],
+					},
 				},
 				200,
 			);
@@ -127,20 +136,11 @@ export const recordsRoutes = new Hono()
 		"/force",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<string> => {
+		async (c): ApiHandler<{ deletedCount: number }> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount } = await forceDeleteRecords({
-				tableName,
-				primaryKeys,
-				db,
-			});
-			return c.json(
-				{
-					data: `Deleted ${deletedCount} records from "${tableName}"`,
-				},
-				200,
-			);
+			const deletedCount = await forceDeleteRecords({ tableName, primaryKeys, db });
+			return c.json({ data: deletedCount }, 200);
 		},
 	);
 
