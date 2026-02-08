@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { BulkInsertResult } from "shared/types";
-import { fetcher } from "@/lib/fetcher";
+import type { BaseResponse, BulkInsertResult } from "shared/types";
+import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
@@ -13,12 +13,15 @@ export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
 
 	const { mutateAsync: bulkInsertMutation, isPending: isInserting } =
 		useMutation({
-			mutationFn: (records: Record<string, unknown>[]) =>
-				fetcher.post<BulkInsertResult>(
+			mutationFn: async (records: Record<string, unknown>[]) => {
+				const params = new URLSearchParams({ db: selectedDatabase ?? "" });
+				const res = await api.post<BaseResponse<BulkInsertResult>>(
 					"/records/bulk",
 					{ tableName, records },
-					{ params: { database: selectedDatabase } },
-				),
+					{ params },
+				);
+				return res.data.data;
+			},
 			onSuccess: async () => {
 				await Promise.all([
 					queryClient.invalidateQueries({
