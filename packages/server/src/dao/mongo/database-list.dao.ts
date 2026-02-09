@@ -58,6 +58,8 @@ export async function getMongoConnectionInfo(): Promise<ConnectionInfoSchemaType
 		database: getMongoDbName(),
 		version: serverStatus.version ?? "unknown",
 		active_connections: serverStatus.connections?.current ?? 0,
-		max_connections: serverStatus.connections?.available ?? 0,
+		max_connections:
+			(serverStatus.connections?.current ?? 0) +
+			(serverStatus.connections?.available ?? 0),
 	};
 }
