@@ -66,6 +66,7 @@ export const useCurrentDatabase = () => {
 
 			// init the api baseURL with the dbType from the first request
 			setApiDbType(res.data.data.dbType);
+			setDbType(res.data.data.dbType);
 			if (!selectedDatabase && res.data.data.database) {
 				setSelectedDatabase(res.data.data.database);
 			}
