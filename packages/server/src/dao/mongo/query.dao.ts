@@ -40,6 +40,15 @@ const normalizeIdFilter = (filter: Record<string, unknown>) => {
 				},
 			};
 		}
+		if (Array.isArray(obj.$nin)) {
+			return {
+				...filter,
+				_id: {
+					...obj,
+					$nin: obj.$nin.map((val) => (typeof val === "string" ? toMongoId(val) : val)),
+				},
+			};
+		}
 	}
 	return filter;
 };
@@ -118,16 +127,16 @@ export const executeMongoQuery = async ({
 			const filter = normalizeIdFilter(payload.filter ?? {});
 			if (!payload.update) throw new HTTPException(400, { message: "update is required" });
 			const result = await collection.updateOne(filter, payload.update, payload.options ?? {});
-			rowCount = result.modifiedCount ?? 0;
-			message = "OK";
+			rowCount = result.matchedCount ?? 0;
+			message = `OK (${result.modifiedCount ?? 0} modified)`;
 			break;
 		}
 		case "updateMany": {
 			const filter = normalizeIdFilter(payload.filter ?? {});
 			if (!payload.update) throw new HTTPException(400, { message: "update is required" });
 			const result = await collection.updateMany(filter, payload.update, payload.options ?? {});
-			rowCount = result.modifiedCount ?? 0;
-			message = "OK";
+			rowCount = result.matchedCount ?? 0;
+			message = `OK (${result.modifiedCount ?? 0} modified)`;
 			break;
 		}
 		case "deleteOne": {

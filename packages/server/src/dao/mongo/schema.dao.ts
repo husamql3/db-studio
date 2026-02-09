@@ -21,11 +21,15 @@ export async function getMongoDatabaseSchema(
 		maxTables?: number;
 	} = {},
 ): Promise<DatabaseSchema> {
-	const { includeSampleData = false } = options;
+	const { includeSampleData = false, maxTables } = options;
 	const mongoDb = await getMongoDb(db);
 	const collections = await mongoDb.listCollections().toArray();
+	const limitedCollections =
+		typeof maxTables === "number" && maxTables > 0
+			? collections.slice(0, maxTables)
+			: collections;
 
-	const tablePromises = collections.map(async (collection) => {
+	const tablePromises = limitedCollections.map(async (collection) => {
 		const name = collection.name;
 		const columns = await getMongoTableColumns({ tableName: name, db });
 		const table: Table = {

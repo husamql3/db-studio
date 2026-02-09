@@ -92,7 +92,7 @@ const buildMongoFilters = (filters: FilterType[]): Record<string, unknown> => {
 		const asNumber = Number(trimmed);
 		if (!Number.isNaN(asNumber) && trimmed !== "") return asNumber;
 		if (isValidObjectId(trimmed)) return coerceObjectId(trimmed);
-		return raw;
+		return trimmed;
 	};
 
 	for (const filter of filters) {
@@ -213,21 +213,31 @@ export async function getMongoTableColumns({
 	const mongoDb = await getMongoDb(db);
 	const collection = mongoDb.collection(tableName);
 	const documents = await collection.find({}).limit(SAMPLE_LIMIT).toArray();
+	const totalDocs = documents.length;
 
 	const columnMap = new Map<
 		string,
 		{
 			types: Set<DataTypes>;
 			nullable: boolean;
+			presentCount: number;
 		}
 	>();
 
 	const ensureColumn = (columnName: string, value: unknown) => {
 		const dataType = inferDataType(value);
 		if (!columnMap.has(columnName)) {
-			columnMap.set(columnName, { types: new Set([dataType]), nullable: false });
+			columnMap.set(columnName, {
+				types: new Set([dataType]),
+				nullable: false,
+				presentCount: 1,
+			});
 		} else {
-			columnMap.get(columnName)?.types.add(dataType);
+			const entry = columnMap.get(columnName);
+			if (entry) {
+				entry.types.add(dataType);
+				entry.presentCount += 1;
+			}
 		}
 	};
 
@@ -235,10 +245,15 @@ export async function getMongoTableColumns({
 		for (const [key, value] of Object.entries(doc)) {
 			if (value === null || value === undefined) {
 				if (!columnMap.has(key)) {
-					columnMap.set(key, { types: new Set(["text"]), nullable: true });
+					columnMap.set(key, {
+						types: new Set(["text"]),
+						nullable: true,
+						presentCount: 1,
+					});
 				} else {
 					const entry = columnMap.get(key);
 					if (entry) entry.nullable = true;
+					if (entry) entry.presentCount += 1;
 				}
 				continue;
 			}
@@ -246,8 +261,20 @@ export async function getMongoTableColumns({
 		}
 	}
 
+	if (totalDocs > 0) {
+		for (const entry of columnMap.values()) {
+			if (entry.presentCount < totalDocs) {
+				entry.nullable = true;
+			}
+		}
+	}
+
 	if (!columnMap.has("_id")) {
-		columnMap.set("_id", { types: new Set(["text"]), nullable: false });
+		columnMap.set("_id", {
+			types: new Set(["text"]),
+			nullable: false,
+			presentCount: totalDocs,
+		});
 	}
 
 	return Array.from(columnMap.entries()).map(([columnName, meta]) => {
