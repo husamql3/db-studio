@@ -8,6 +8,8 @@ import type {
 } from "shared/types";
 import { db } from "@/db.js";
 import { getDbPool } from "@/db-manager.js";
+import { getDbType } from "@/db-manager.js";
+import { getMongoDatabaseSchema } from "@/dao/mongo/schema.dao.js";
 import { getTableColumns } from "./table-columns.dao.js";
 
 /**
@@ -125,6 +127,12 @@ async function getDatabaseSchema(
 		maxTables?: number;
 	} = {},
 ): Promise<DatabaseSchema> {
+	if (getDbType() === "mongodb") {
+		return getMongoDatabaseSchema(db, {
+			includeSampleData: options.includeSampleData,
+		});
+	}
+
 	const {
 		includeSampleData = false,
 		includeDescriptions = true,
@@ -166,7 +174,7 @@ async function getDatabaseSchema(
 		const relationships = extractRelationships(tables);
 
 		return {
-			dbType: "PostgreSQL",
+			dbType: "pg",
 			tables,
 			relationships,
 		};

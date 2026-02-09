@@ -10,6 +10,12 @@ import type { ApiHandler } from "@/app.types.js";
 import { addRecord } from "@/dao/add-record.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
+import {
+	addMongoRecord,
+	deleteMongoRecords,
+	forceDeleteMongoRecords,
+	updateMongoRecords,
+} from "@/dao/mongo/records.dao.js";
 
 export const recordsRoutes = new Hono()
 	/**
@@ -31,13 +37,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
-			const { insertedCount } = await addRecord({
-				db,
-				params: {
-					tableName,
-					data,
-				},
-			});
+			const dbType = c.get("dbType");
+			const { insertedCount } =
+				dbType === "mongodb"
+					? await addMongoRecord({ db, params: { tableName, data } })
+					: await addRecord({ db, params: { tableName, data } });
 			return c.json(
 				{
 					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
@@ -61,14 +65,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
-			const { updatedCount } = await updateRecords({
-				params: {
-					tableName,
-					primaryKey,
-					updates,
-				},
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { updatedCount } =
+				dbType === "mongodb"
+					? await updateMongoRecords({ params: { tableName, primaryKey, updates }, db })
+					: await updateRecords({ params: { tableName, primaryKey, updates }, db });
 			return c.json(
 				{
 					data: `Updated ${updatedCount} records in "${tableName}"`,
@@ -92,11 +93,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount } = await deleteRecords({
-				tableName,
-				primaryKeys,
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { deletedCount } =
+				dbType === "mongodb"
+					? await deleteMongoRecords({ tableName, primaryKeys, db })
+					: await deleteRecords({ tableName, primaryKeys, db });
 			return c.json(
 				{
 					data: `Deleted ${deletedCount} records from "${tableName}"`,
@@ -120,11 +121,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount } = await forceDeleteRecords({
-				tableName,
-				primaryKeys,
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { deletedCount } =
+				dbType === "mongodb"
+					? await forceDeleteMongoRecords({ tableName, primaryKeys, db })
+					: await forceDeleteRecords({ tableName, primaryKeys, db });
 			return c.json(
 				{
 					data: `Deleted ${deletedCount} records from "${tableName}"`,

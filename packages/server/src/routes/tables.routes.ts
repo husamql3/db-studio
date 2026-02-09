@@ -19,6 +19,14 @@ import { exportTableData } from "@/dao/export-table.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
+import {
+	createMongoCollection,
+	deleteMongoColumn,
+	exportMongoTableData,
+	getMongoTableColumns,
+	getMongoTableData,
+	getMongoTablesList,
+} from "@/dao/mongo/tables.dao.js";
 import { getExportFile } from "@/utils/get-export-file.js";
 
 export const tablesRoutes = new Hono()
@@ -37,7 +45,9 @@ export const tablesRoutes = new Hono()
 		zValidator("query", databaseSchema),
 		async (c): ApiHandler<TableInfoSchemaType[]> => {
 			const { db } = c.req.valid("query");
-			const tablesList = await getTablesList(db);
+			const dbType = c.get("dbType");
+			const tablesList =
+				dbType === "mongodb" ? await getMongoTablesList(db) : await getTablesList(db);
 			return c.json({ data: tablesList }, 200);
 		},
 	)
@@ -55,7 +65,12 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
-			await createTable({ tableData: body, db });
+			const dbType = c.get("dbType");
+			if (dbType === "mongodb") {
+				await createMongoCollection({ tableName: body.tableName, db });
+			} else {
+				await createTable({ tableData: body, db });
+			}
 			return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
 		},
 	)
@@ -74,12 +89,11 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db, cascade } = c.req.valid("query");
 			const { tableName, columnName } = c.req.valid("param");
-			const { deletedCount } = await deleteColumn({
-				tableName,
-				columnName,
-				cascade,
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { deletedCount } =
+				dbType === "mongodb"
+					? await deleteMongoColumn({ tableName, columnName, db })
+					: await deleteColumn({ tableName, columnName, cascade, db });
 			return c.json(
 				{
 					data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
@@ -103,7 +117,11 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<ColumnInfoSchemaType[]> => {
 			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
-			const columns = await getTableColumns({ tableName, db });
+			const dbType = c.get("dbType");
+			const columns =
+				dbType === "mongodb"
+					? await getMongoTableColumns({ tableName, db })
+					: await getTableColumns({ tableName, db });
 			return c.json({ data: columns }, 200);
 		},
 	)
@@ -123,16 +141,29 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<TableDataResultSchemaType> => {
 			const { tableName } = c.req.valid("param");
 			const { cursor, limit, direction, sort, order, filters, db } = c.req.valid("query");
-			const tableData = await getTableData({
-				tableName,
-				cursor,
-				limit,
-				direction,
-				sort,
-				order,
-				filters,
-				db,
-			});
+			const dbType = c.get("dbType");
+			const tableData =
+				dbType === "mongodb"
+					? await getMongoTableData({
+							tableName,
+							cursor,
+							limit,
+							direction,
+							sort,
+							order,
+							filters,
+							db,
+						})
+					: await getTableData({
+							tableName,
+							cursor,
+							limit,
+							direction,
+							sort,
+							order,
+							filters,
+							db,
+						});
 			return c.json({ data: tableData }, 200);
 		},
 	)
@@ -152,7 +183,11 @@ export const tablesRoutes = new Hono()
 			const { tableName } = c.req.valid("param");
 			const { db, format } = c.req.valid("query");
 
-			const { cols, rows } = await exportTableData({ tableName, db });
+			const dbType = c.get("dbType");
+			const { cols, rows } =
+				dbType === "mongodb"
+					? await exportMongoTableData({ tableName, db })
+					: await exportTableData({ tableName, db });
 			const fileContent = getExportFile({ cols, rows, format, tableName });
 
 			const contentType =

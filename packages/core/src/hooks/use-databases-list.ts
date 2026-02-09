@@ -6,7 +6,7 @@ import type {
 	CurrentDatabaseSchemaType,
 	DatabaseListSchemaType,
 } from "shared/types";
-import { rootApi, setDbType } from "@/lib/api";
+import { rootApi, setDbType as setApiDbType } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -14,6 +14,7 @@ import { CONSTANTS } from "@/utils/constants";
  * Fetch all databases from the server
  */
 export const useDatabasesList = () => {
+	const { setDbType, selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const {
 		data,
 		isLoading: isLoadingDatabases,
@@ -26,6 +27,16 @@ export const useDatabasesList = () => {
 		select: (response) => response.data.data,
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
+
+	useEffect(() => {
+		if (data?.dbType) {
+			setDbType(data.dbType);
+			setApiDbType(data.dbType);
+		}
+		if (!selectedDatabase && data?.databases?.length) {
+			setSelectedDatabase(data.databases[0]?.name ?? null);
+		}
+	}, [data?.dbType, data?.databases, selectedDatabase, setDbType, setSelectedDatabase]);
 
 	return {
 		databases: data?.databases,
@@ -41,7 +52,7 @@ export const useDatabasesList = () => {
  * Fetch current database name
  */
 export const useCurrentDatabase = () => {
-	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, setSelectedDatabase, setDbType } = useDatabaseStore();
 
 	const {
 		data: currentDatabase,
@@ -54,7 +65,10 @@ export const useCurrentDatabase = () => {
 				await rootApi.get<BaseResponse<CurrentDatabaseSchemaType>>("/databases/current");
 
 			// init the api baseURL with the dbType from the first request
-			setDbType(res.data.data.dbType);
+			setApiDbType(res.data.data.dbType);
+			if (!selectedDatabase && res.data.data.database) {
+				setSelectedDatabase(res.data.data.database);
+			}
 			return res.data.data;
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutes
