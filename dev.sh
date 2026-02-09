@@ -3,14 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Load repo root .env so all services use the same DATABASE_URL
-if [[ -f "$ROOT_DIR/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ROOT_DIR/.env"
-  set +a
-fi
-
 run() {
   local name="$1"
   shift

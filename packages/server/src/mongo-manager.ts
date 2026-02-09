@@ -38,8 +38,19 @@ export const getMongoClient = async (): Promise<MongoClient> => {
 	}
 
 	if (!client) {
-		client = new MongoClient(baseConfig.url);
-		await client.connect();
+		const nextClient = new MongoClient(baseConfig.url);
+		try {
+			await nextClient.connect();
+			client = nextClient;
+		} catch (error) {
+			// Ensure we don't cache a broken client
+			try {
+				await nextClient.close();
+			} catch {
+				// ignore close errors
+			}
+			throw error;
+		}
 	}
 
 	return client;

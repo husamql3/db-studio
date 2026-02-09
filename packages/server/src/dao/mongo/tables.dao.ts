@@ -83,6 +83,7 @@ const mapDataTypeLabel = (dataType: DataTypes): ColumnInfoSchemaType["dataTypeLa
 const buildMongoFilters = (filters: FilterType[]): Record<string, unknown> => {
 	if (!filters || filters.length === 0) return {};
 	const andConditions: Record<string, unknown>[] = [];
+	const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const parseValue = (raw: string) => {
 		const trimmed = raw.trim();
 		if (trimmed === "null") return null;
@@ -127,16 +128,34 @@ const buildMongoFilters = (filters: FilterType[]): Record<string, unknown> => {
 				andConditions.push({ [field]: { $ne: value } });
 				break;
 			case "like":
-				andConditions.push({ [field]: { $regex: value, $options: "" } });
+				andConditions.push({
+					[field]: {
+						$regex: escapeRegex(String(value)),
+						$options: "",
+					},
+				});
 				break;
 			case "not like":
-				andConditions.push({ [field]: { $not: { $regex: value, $options: "" } } });
+				andConditions.push({
+					[field]: {
+						$not: { $regex: escapeRegex(String(value)), $options: "" },
+					},
+				});
 				break;
 			case "ilike":
-				andConditions.push({ [field]: { $regex: value, $options: "i" } });
+				andConditions.push({
+					[field]: {
+						$regex: escapeRegex(String(value)),
+						$options: "i",
+					},
+				});
 				break;
 			case "not ilike":
-				andConditions.push({ [field]: { $not: { $regex: value, $options: "i" } } });
+				andConditions.push({
+					[field]: {
+						$not: { $regex: escapeRegex(String(value)), $options: "i" },
+					},
+				});
 				break;
 			default:
 				andConditions.push({ [field]: value });
