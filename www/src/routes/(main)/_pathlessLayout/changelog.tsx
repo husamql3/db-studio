@@ -8,6 +8,31 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/changelog")({
 	component: RouteComponent,
 });
 
+function UsernameBadge({ username }: { username?: string | string[] }) {
+	if (!username) return null;
+
+	const usernames = Array.isArray(username) ? username : [username];
+
+	return (
+		<>
+			{" - "}
+			{usernames.map((user, index) => (
+				<span key={user}>
+					<a
+						href={`https://github.com/${user}`}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="inline-flex items-center gap-1 text-blue-600 group"
+					>
+						<span className="text-xs font-medium">@{user}</span>
+					</a>
+					{index < usernames.length - 1 && ", "}
+				</span>
+			))}
+		</>
+	);
+}
+
 function RouteComponent() {
 	return (
 		<main className="flex-1 mx-auto border-x max-w-2xl w-full">
@@ -90,21 +115,7 @@ function RouteComponent() {
 														>
 															<span className="flex-1">
 																• {feature.text}
-																{feature.username && (
-																	<>
-																		{" - "}
-																		<a
-																			href={`https://github.com/${feature.username}`}
-																			target="_blank"
-																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light group"
-																		>
-																			<span className="text-xs font-medium">
-																				@{feature.username}
-																			</span>
-																		</a>
-																	</>
-																)}
+																<UsernameBadge username={feature.username} />
 															</span>
 														</li>
 													))}
@@ -125,21 +136,7 @@ function RouteComponent() {
 														>
 															<span className="flex-1">
 																• {improvement.text}
-																{improvement.username && (
-																	<>
-																		{" - "}
-																		<a
-																			href={`https://github.com/${improvement.username}`}
-																			target="_blank"
-																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light group"
-																		>
-																			<span className="text-xs font-medium">
-																				@{improvement.username}
-																			</span>
-																		</a>
-																	</>
-																)}
+																<UsernameBadge username={improvement.username} />
 															</span>
 														</li>
 													))}
@@ -160,21 +157,7 @@ function RouteComponent() {
 														>
 															<span className="flex-1">
 																• {bug.text}
-																{bug.username && (
-																	<>
-																		{" - "}
-																		<a
-																			href={`https://github.com/${bug.username}`}
-																			target="_blank"
-																			rel="noopener noreferrer"
-																			className="inline-flex items-center gap-1 text-primary-light"
-																		>
-																			<span className="text-xs font-medium">
-																				@{bug.username}
-																			</span>
-																		</a>
-																	</>
-																)}
+																<UsernameBadge username={bug.username} />
 															</span>
 														</li>
 													))}

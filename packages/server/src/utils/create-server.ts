@@ -75,6 +75,12 @@ export const createServer = () => {
 		.route("/", databasesRoutes)
 
 		/**
+		 * Serve static assets (before dbType validation to avoid conflicts)
+		 */
+		.use("/assets/*", serveStatic({ root: getCoreDistPath() }))
+		.use("/image.png", serveStatic({ root: getCoreDistPath() }))
+
+		/**
 		 * Routes that require dbType validation - under /:dbType/...
 		 */
 		.use("/:dbType/*", zValidator("param", databaseTypeParamSchema, validationHook))
@@ -89,7 +95,7 @@ export const createServer = () => {
 		.route("/:dbType", chatRoutes)
 
 		/**
-		 * Serve the static files (development only)
+		 * Serve all other static files as fallback (for SPA)
 		 */
 		.use("/*", serveStatic({ root: getCoreDistPath() }));
 
