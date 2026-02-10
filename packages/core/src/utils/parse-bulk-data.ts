@@ -19,9 +19,7 @@ export const parseBulkData = (input: string): Record<string, unknown>[] => {
 			throw new Error("Invalid JSON format");
 		} catch (error) {
 			if (error instanceof SyntaxError) {
-				throw new Error(
-					`Invalid JSON format: ${error.message.replace("JSON.", "")}`,
-				);
+				throw new Error(`Invalid JSON format: ${error.message.replace("JSON.", "")}`);
 			}
 			throw error;
 		}
@@ -87,8 +85,7 @@ const detectDelimiter = (headerLine: string): string => {
 	let detectedDelimiter = ",";
 
 	for (const delimiter of delimiters) {
-		const count = (headerLine.match(new RegExp(`\\${delimiter}`, "g")) || [])
-			.length;
+		const count = (headerLine.match(new RegExp(`\\${delimiter}`, "g")) || []).length;
 		if (count > maxCount) {
 			maxCount = count;
 			detectedDelimiter = delimiter;
@@ -148,17 +145,19 @@ const parseValue = (value: string): unknown => {
 	}
 
 	// Try to parse as number
-	if (!isNaN(Number(value)) && value !== "") {
+	if (!Number.isNaN(Number(value)) && value !== "") {
 		const num = Number(value);
 		// Check if it's actually a number and not just a string that looks like one
-		if (String(num) === value || (value.includes(".") && !isNaN(parseFloat(value)))) {
+		if (String(num) === value || (value.includes(".") && !Number.isNaN(parseFloat(value)))) {
 			return num;
 		}
 	}
 
 	// Try to parse as JSON (for arrays/objects)
-	if ((value.startsWith("{") && value.endsWith("}")) || 
-		(value.startsWith("[") && value.endsWith("]"))) {
+	if (
+		(value.startsWith("{") && value.endsWith("}")) ||
+		(value.startsWith("[") && value.endsWith("]"))
+	) {
 		try {
 			return JSON.parse(value);
 		} catch {

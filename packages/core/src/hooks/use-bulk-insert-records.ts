@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { BaseResponse, BulkInsertResult } from "shared/types";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
@@ -11,30 +11,36 @@ export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
 	const { closeSheet } = useSheetStore();
 	const { selectedDatabase } = useDatabaseStore();
 
-	const { mutateAsync: bulkInsertMutation, isPending: isInserting } =
-		useMutation({
-			mutationFn: async (records: Record<string, unknown>[]) => {
-				const params = new URLSearchParams({ db: selectedDatabase ?? "" });
-				const res = await api.post<BaseResponse<BulkInsertResult>>(
-					"/records/bulk",
-					{ tableName, records },
-					{ params },
-				);
-				return res.data.data;
-			},
-			onSuccess: async () => {
-				await Promise.all([
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
-						exact: false,
-					}),
-					queryClient.invalidateQueries({
-						queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
-					}),
-				]);
-				closeSheet("bulk-insert-records");
-			},
-		});
+	const { mutateAsync: bulkInsertMutation, isPending: isInserting } = useMutation({
+		mutationFn: async (records: Record<string, unknown>[]) => {
+			const params = new URLSearchParams({ db: selectedDatabase ?? "" });
+			const res = await api.post<BaseResponse<BulkInsertResult>>(
+				"/records/bulk",
+				{ tableName, records },
+				{ params },
+			);
+			console.log("res", res.data.data);
+			return res.data.data;
+		},
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
+					exact: false,
+				}),
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLES_LIST],
+					exact: false,
+				}),
+				queryClient.invalidateQueries({
+					queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName],
+					exact: false,
+				}),
+			]);
+
+			closeSheet("bulk-insert-records");
+		},
+	});
 
 	const bulkInsertRecords = async (
 		records: Record<string, unknown>[],

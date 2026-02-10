@@ -51,7 +51,8 @@ describe("parseBulkData", () => {
 		});
 
 		it("should handle quoted fields with delimiters", () => {
-			const input = 'name,description\nJohn,"lives in New York, USA"\nJane,"engineer, manager"';
+			const input =
+				'name,description\nJohn,"lives in New York, USA"\nJane,"engineer, manager"';
 			const result = parseBulkData(input);
 			expect(result[0].description).toBe("lives in New York, USA");
 		});

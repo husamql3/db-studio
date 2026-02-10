@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { SheetClose } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useBulkInsertRecords } from "@/hooks/use-bulk-insert-records";
@@ -15,9 +16,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 	});
 
 	const [inputValue, setInputValue] = useState("");
-	const [parsedRecords, setParsedRecords] = useState<Record<string, unknown>[]>(
-		[],
-	);
+	const [parsedRecords, setParsedRecords] = useState<Record<string, unknown>[]>([]);
 	const [parseError, setParseError] = useState<string | null>(null);
 	const [format, setFormat] = useState<"auto" | "csv" | "json">("auto");
 
@@ -34,9 +33,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 			const records = parseBulkData(inputValue);
 			setParsedRecords(records);
 		} catch (error) {
-			setParseError(
-				error instanceof Error ? error.message : "Failed to parse data",
-			);
+			setParseError(error instanceof Error ? error.message : "Failed to parse data");
 		}
 	}, [inputValue]);
 
@@ -87,6 +84,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 				<div className="flex gap-2">
 					<button
 						onClick={() => setFormat("auto")}
+						type="button"
 						className={`px-3 py-1 text-sm rounded-md transition-colors ${
 							format === "auto"
 								? "bg-blue-600 text-white"
@@ -97,6 +95,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 					</button>
 					<button
 						onClick={() => setFormat("csv")}
+						type="button"
 						className={`px-3 py-1 text-sm rounded-md transition-colors ${
 							format === "csv"
 								? "bg-blue-600 text-white"
@@ -107,6 +106,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 					</button>
 					<button
 						onClick={() => setFormat("json")}
+						type="button"
 						className={`px-3 py-1 text-sm rounded-md transition-colors ${
 							format === "json"
 								? "bg-blue-600 text-white"
@@ -123,17 +123,21 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 					title="Bulk Insert"
 					message={
 						format === "json"
-							? "Enter JSON array or single object. Example: [{\"name\": \"John\", \"age\": 30}, {\"name\": \"Jane\", \"age\": 28}]"
+							? 'Enter JSON array or single object. Example: [{"name": "John", "age": 30}, {"name": "Jane", "age": 28}]'
 							: "Enter CSV data with headers. Supports comma, tab, or semicolon delimiters. First row should be column names."
 					}
 				/>
 
 				{/* Input textarea */}
 				<div className="flex-1 flex flex-col">
-					<label className="text-sm font-medium mb-2 text-zinc-300">
+					<Label
+						htmlFor="text-input"
+						className="mb-2 text-sm font-medium text-zinc-300"
+					>
 						Data Input
-					</label>
+					</Label>
 					<Textarea
+						id="text-input"
 						value={inputValue}
 						onChange={(e) => {
 							setInputValue(e.target.value);

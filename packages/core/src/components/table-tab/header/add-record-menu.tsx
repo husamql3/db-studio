@@ -24,10 +24,11 @@ export const AddRecordMenu = () => {
 					Add Record
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-48">
-				<DropdownMenuItem onClick={() => openSheet("add-record")}>
-					Add Record
-				</DropdownMenuItem>
+			<DropdownMenuContent
+				align="start"
+				className="w-48"
+			>
+				<DropdownMenuItem onClick={() => openSheet("add-record")}>Add Record</DropdownMenuItem>
 				<DropdownMenuItem onClick={() => openSheet("bulk-insert-csv")}>
 					Add data from CSV
 				</DropdownMenuItem>

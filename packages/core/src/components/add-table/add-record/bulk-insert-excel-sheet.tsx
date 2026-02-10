@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { SheetClose } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useBulkInsertRecords } from "@/hooks/use-bulk-insert-records";
 import { useSheetStore } from "@/stores/sheet.store";
 import { parseBulkData } from "@/utils/parse-bulk-data";
@@ -46,9 +47,7 @@ export const BulkInsertExcelSheet = ({ tableName }: BulkInsertExcelSheetProps) =
 						const records = parseBulkData(content);
 						setParsedRecords(records);
 					} catch (error) {
-						setParseError(
-							error instanceof Error ? error.message : "Failed to parse file",
-						);
+						setParseError(error instanceof Error ? error.message : "Failed to parse file");
 					}
 				};
 				reader.readAsText(selectedFile);
@@ -121,12 +120,19 @@ export const BulkInsertExcelSheet = ({ tableName }: BulkInsertExcelSheetProps) =
 					</TabsList>
 
 					{/* File Tab */}
-					<TabsContent value="file" className="flex-1 flex flex-col gap-4">
+					<TabsContent
+						value="file"
+						className="flex-1 flex flex-col gap-4"
+					>
 						<div className="flex flex-col gap-2">
-							<label className="text-sm font-medium text-zinc-300">
+							<Label
+								htmlFor="file-input"
+								className="mb-2 text-sm font-medium text-zinc-300"
+							>
 								Select Excel file
-							</label>
+							</Label>
 							<input
+								id="file-input"
 								ref={fileInputRef}
 								type="file"
 								accept=".xlsx,.xls"
@@ -134,21 +140,23 @@ export const BulkInsertExcelSheet = ({ tableName }: BulkInsertExcelSheetProps) =
 								disabled={isInserting}
 								className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer disabled:opacity-50"
 							/>
-							{selectedFile && (
-								<p className="text-xs text-zinc-400">
-									Selected: {selectedFile.name}
-								</p>
-							)}
 						</div>
 					</TabsContent>
 
 					{/* Text Tab */}
-					<TabsContent value="text" className="flex-1 flex flex-col gap-4">
+					<TabsContent
+						value="text"
+						className="flex-1 flex flex-col gap-4"
+					>
 						<div className="flex-1 flex flex-col">
-							<label className="text-sm font-medium mb-2 text-zinc-300">
+							<Label
+								htmlFor="text-input"
+								className="mb-2 text-sm font-medium text-zinc-300"
+							>
 								Data Input
-							</label>
+							</Label>
 							<Textarea
+								id="text-input"
 								value={textValue}
 								onChange={(e) => {
 									setTextValue(e.target.value);
@@ -167,7 +175,11 @@ value4	value5	value6"
 
 				{/* Parse error */}
 				{parseError && (
-					<Alert variant="error" title="Parse Error" message={parseError} />
+					<Alert
+						variant="error"
+						title="Parse Error"
+						message={parseError}
+					/>
 				)}
 
 				{/* Parsed records preview */}
@@ -185,11 +197,7 @@ value4	value5	value6"
 						variant="secondary"
 						size="lg"
 						onClick={handleFormat}
-						disabled={
-							activeTab === "file"
-								? !selectedFile
-								: !textValue.trim() || isInserting
-						}
+						disabled={activeTab === "file" ? !selectedFile : !textValue.trim() || isInserting}
 					>
 						Format
 					</Button>
@@ -199,7 +207,10 @@ value4	value5	value6"
 							onClick={handleCancel}
 							disabled={isInserting}
 						>
-							<Button variant="outline" size="lg">
+							<Button
+								variant="outline"
+								size="lg"
+							>
 								Close
 							</Button>
 						</SheetClose>

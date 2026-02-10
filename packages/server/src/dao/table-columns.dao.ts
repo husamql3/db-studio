@@ -74,7 +74,7 @@ export async function getTableColumns({
 		});
 	}
 
-	return rows.map((r: any) => {
+	return rows.map((r) => {
 		// Parse enumValues to always return string[] | null
 		let parsedEnumValues: string[] | null = null;
 		if (r.enumValues) {

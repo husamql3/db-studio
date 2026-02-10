@@ -1,16 +1,19 @@
+import { HTTPException } from "hono/http-exception";
 import type { BulkInsertRecordsParams, BulkInsertResult } from "shared/types";
 import { getDbPool } from "@/db-manager.js";
 
-export const bulkInsertRecords = async (
-	params: BulkInsertRecordsParams,
-): Promise<BulkInsertResult> => {
-	const { tableName, records, database } = params;
-
+export const bulkInsertRecords = async ({
+	tableName,
+	records,
+	db,
+}: BulkInsertRecordsParams): Promise<BulkInsertResult> => {
 	if (!records || records.length === 0) {
-		throw new Error("At least one record is required");
+		throw new HTTPException(400, {
+			message: "At least one record is required",
+		});
 	}
 
-	const pool = getDbPool(database);
+	const pool = getDbPool(db);
 	const client = await pool.connect();
 
 	try {
@@ -19,7 +22,7 @@ export const bulkInsertRecords = async (
 		const columnNames = columns.map((col) => `"${col}"`).join(", ");
 
 		let successCount = 0;
-		let failureCount = 0;
+		const failureCount = 0;
 		const errors: Array<{ recordIndex: number; error: string }> = [];
 
 		// Execute inserts in a transaction
@@ -29,9 +32,7 @@ export const bulkInsertRecords = async (
 			const record = records[i];
 			const values = columns.map((col) => record[col]);
 
-			const placeholders = columns
-				.map((_, index) => `$${index + 1}`)
-				.join(", ");
+			const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
 
 			const insertSQL = `
 				INSERT INTO "${tableName}" (${columnNames})
@@ -43,10 +44,8 @@ export const bulkInsertRecords = async (
 				await client.query(insertSQL, values);
 				successCount++;
 			} catch (error) {
-				failureCount++;
-				errors.push({
-					recordIndex: i,
-					error: error instanceof Error ? error.message : String(error),
+				throw new HTTPException(500, {
+					message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
 				});
 			}
 		}
@@ -62,8 +61,12 @@ export const bulkInsertRecords = async (
 		};
 	} catch (error) {
 		await client.query("ROLLBACK");
-		console.error("Error bulk inserting records:", error);
-		throw error;
+		if (error instanceof HTTPException) {
+			throw error;
+		}
+		throw new HTTPException(500, {
+			message: `Failed to bulk insert records into "${tableName}"`,
+		});
 	} finally {
 		client.release();
 	}

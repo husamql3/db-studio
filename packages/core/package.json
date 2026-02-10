@@ -7,7 +7,7 @@
     "build": "vite build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
     "start": "vite preview --port 3000 --host",
-    "check": "biome check --write --unsafe --verbose"
+    "check": "biome check --write --unsafe"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

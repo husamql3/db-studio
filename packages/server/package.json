@@ -45,7 +45,7 @@
     "build": "tsup --minify --sourcemap",
     "prepack": "cd ../core && bun run build && cd ../server && bun run build",
     "start": "node dist/index.js",
-    "check": "biome check --write --unsafe --verbose",
+    "check": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

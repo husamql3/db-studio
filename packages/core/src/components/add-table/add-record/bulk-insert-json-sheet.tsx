@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { SheetClose } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useBulkInsertRecords } from "@/hooks/use-bulk-insert-records";
 import { useSheetStore } from "@/stores/sheet.store";
 import { parseBulkData } from "@/utils/parse-bulk-data";
@@ -46,9 +47,7 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 						const records = parseBulkData(content);
 						setParsedRecords(records);
 					} catch (error) {
-						setParseError(
-							error instanceof Error ? error.message : "Failed to parse file",
-						);
+						setParseError(error instanceof Error ? error.message : "Failed to parse file");
 					}
 				};
 				reader.readAsText(selectedFile);
@@ -107,7 +106,9 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 				<Alert
 					variant="info"
 					title="JSON Import"
-					message={'Enter JSON array or single object. Example: [{"name": "John", "age": 30}, {"name": "Jane", "age": 28}]'}
+					message={
+						'Enter JSON array or single object. Example: [{"name": "John", "age": 30}, {"name": "Jane", "age": 28}]'
+					}
 				/>
 
 				{/* Tabs for file and text input */}
@@ -121,12 +122,19 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 					</TabsList>
 
 					{/* File Tab */}
-					<TabsContent value="file" className="flex-1 flex flex-col gap-4">
+					<TabsContent
+						value="file"
+						className="flex-1 flex flex-col gap-4"
+					>
 						<div className="flex flex-col gap-2">
-							<label className="text-sm font-medium text-zinc-300">
+							<Label
+								htmlFor="file-input"
+								className="mb-2 text-sm font-medium text-zinc-300"
+							>
 								Select JSON file
-							</label>
+							</Label>
 							<input
+								id="file-input"
 								ref={fileInputRef}
 								type="file"
 								accept=".json"
@@ -134,30 +142,30 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 								disabled={isInserting}
 								className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer disabled:opacity-50"
 							/>
-							{selectedFile && (
-								<p className="text-xs text-zinc-400">
-									Selected: {selectedFile.name}
-								</p>
-							)}
 						</div>
 					</TabsContent>
 
 					{/* Text Tab */}
-					<TabsContent value="text" className="flex-1 flex flex-col gap-4">
+					<TabsContent
+						value="text"
+						className="flex-1 flex flex-col gap-4"
+					>
 						<div className="flex-1 flex flex-col">
-							<label className="text-sm font-medium mb-2 text-zinc-300">
+							<Label
+								htmlFor="text-input"
+								className="mb-2 text-sm font-medium text-zinc-300"
+							>
 								Data Input
-							</label>
+							</Label>
 							<Textarea
+								id="text-input"
 								value={textValue}
 								onChange={(e) => {
 									setTextValue(e.target.value);
 									setParsedRecords([]);
 									setParseError(null);
 								}}
-								placeholder={
-									'[{"column1": "value1", "column2": "value2"}]'
-								}
+								placeholder={'[{"column1": "value1", "column2": "value2"}]'}
 								className="flex-1 resize-none font-mono text-sm"
 								disabled={isInserting}
 							/>
@@ -167,7 +175,11 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 
 				{/* Parse error */}
 				{parseError && (
-					<Alert variant="error" title="Parse Error" message={parseError} />
+					<Alert
+						variant="error"
+						title="Parse Error"
+						message={parseError}
+					/>
 				)}
 
 				{/* Parsed records preview */}
@@ -185,11 +197,7 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 						variant="secondary"
 						size="lg"
 						onClick={handleFormat}
-						disabled={
-							activeTab === "file"
-								? !selectedFile
-								: !textValue.trim() || isInserting
-						}
+						disabled={activeTab === "file" ? !selectedFile : !textValue.trim() || isInserting}
 					>
 						Format
 					</Button>
@@ -199,7 +207,10 @@ export const BulkInsertJsonSheet = ({ tableName }: BulkInsertJsonSheetProps) => 
 							onClick={handleCancel}
 							disabled={isInserting}
 						>
-							<Button variant="outline" size="lg">
+							<Button
+								variant="outline"
+								size="lg"
+							>
 								Close
 							</Button>
 						</SheetClose>

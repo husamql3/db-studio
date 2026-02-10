@@ -1,9 +1,9 @@
-import { LIMIT } from "shared/constants";
 import { env } from "cloudflare:workers";
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { LIMIT } from "shared/constants";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { getRedis } from "./redis";
 

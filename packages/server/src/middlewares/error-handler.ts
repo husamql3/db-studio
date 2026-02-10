@@ -1,8 +1,8 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
+import type { ApiError } from "shared/types/api-response.types.js";
 import { ZodError } from "zod";
-import type { ApiError } from "@/app.types.js";
 
 /**
  * Centralized error handler for the application
@@ -11,7 +11,12 @@ export function handleError(e: Error | unknown, c: Context) {
 	console.error("handleError:", e);
 
 	if (e instanceof HTTPException) {
-		return e.getResponse();
+		return c.json<ApiError>(
+			{
+				error: e.message ?? "Internal server error",
+			},
+			e.status,
+		);
 	}
 
 	if (e instanceof ZodError) {

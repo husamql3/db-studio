@@ -150,10 +150,8 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<object> => {
 			const { db } = c.req.valid("query");
 			const { tableName, records } = c.req.valid("json");
-			const result = await bulkInsertRecords(
-				{ tableName, records },
-				db,
-			);
+			const result = await bulkInsertRecords({ tableName, records, db });
+			console.log("result", result);
 			return c.json({ data: result }, 200);
 		},
 	);

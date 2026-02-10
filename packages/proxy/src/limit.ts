@@ -1,6 +1,6 @@
-import { LIMIT, ONE_DAY } from "shared/constants";
 import type { Context, MiddlewareHandler } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
+import { LIMIT, ONE_DAY } from "shared/constants";
 import { getRedisStore } from "./redis";
 
 export const keyGenerator = (c: Context) => {
