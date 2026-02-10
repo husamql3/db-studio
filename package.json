@@ -10,6 +10,7 @@
     "dev:server": "turbo run dev --filter=db-studio",
     "dev:proxy": "turbo run dev --filter=proxy",
     "dev:www": "turbo run dev --filter=www",
+    "init-db": "bash ./scripts/init-db.sh",
     "build": "turbo run build",
     "build:core": "turbo run build --filter=core",
     "scan:core": "bunx react-scan@latest http://localhost:3001",
