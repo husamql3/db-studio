@@ -16,7 +16,7 @@ export const META = {
 	SITE_DOCS_LINK: "https://dbstudio.sh/docs",
 	SITE_CHANGELOG_LINK: "https://dbstudio.sh/changelog",
 	SITE_ROADMAP_LINK: "https://dbstudio.sh/roadmap",
-	SITE_IMAGE: "/og-image.png",
+	SITE_IMAGE: "https://dbstudio.sh/og-image.png",
 	SITE_IMAGE_WIDTH: "1200",
 	SITE_IMAGE_HEIGHT: "630",
 	SITE_IMAGE_ALT: "dbstudio.sh – Modern database management studio",
