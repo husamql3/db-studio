@@ -2,12 +2,15 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
 	addRecordSchema,
+	bulkInsertRecordsSchema,
+	type DeleteRecordResult,
 	databaseSchema,
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { addRecord } from "@/dao/add-record.dao.js";
+import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
 
@@ -83,23 +86,41 @@ export const recordsRoutes = new Hono()
 	 * Deletes records from a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string>} A success message
+	 * @returns {ApiHandler<string, 409 | 200>} A success message
 	 */
 	.delete(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<string> => {
+		async (c): ApiHandler<DeleteRecordResult, 409 | 200> => {
+			// TODO: refactor this shit, the backend responses should be consistent
+			// TODO: the frontend could be simplified too
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount } = await deleteRecords({
+			const { deletedCount, fkViolation, relatedRecords } = await deleteRecords({
 				tableName,
 				primaryKeys,
 				db,
 			});
+			if (fkViolation) {
+				return c.json(
+					{
+						data: {
+							deletedCount: 0,
+							fkViolation: true,
+							relatedRecords,
+						},
+					},
+					409,
+				);
+			}
 			return c.json(
 				{
-					data: `Deleted ${deletedCount} records from "${tableName}"`,
+					data: {
+						deletedCount,
+						fkViolation: false,
+						relatedRecords: [],
+					},
 				},
 				200,
 			);
@@ -117,20 +138,31 @@ export const recordsRoutes = new Hono()
 		"/force",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<string> => {
+		async (c): ApiHandler<{ deletedCount: number }> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount } = await forceDeleteRecords({
-				tableName,
-				primaryKeys,
-				db,
-			});
-			return c.json(
-				{
-					data: `Deleted ${deletedCount} records from "${tableName}"`,
-				},
-				200,
-			);
+			const deletedCount = await forceDeleteRecords({ tableName, primaryKeys, db });
+			return c.json({ data: deletedCount }, 200);
+		},
+	)
+
+	/**
+	 * POST /records/bulk
+	 * Bulk inserts multiple records into a table
+	 * @param {DatabaseSchemaType} query - The database to use
+	 * @param {BulkInsertRecordsParamsType} json - The data for the bulk insert
+	 * @returns {BaseResponseType<BulkInsertResult>} Success and failure counts
+	 */
+	.post(
+		"/bulk",
+		zValidator("query", databaseSchema),
+		zValidator("json", bulkInsertRecordsSchema),
+		async (c): ApiHandler<object> => {
+			const { db } = c.req.valid("query");
+			const { tableName, records } = c.req.valid("json");
+			const result = await bulkInsertRecords({ tableName, records, db });
+			console.log("result", result);
+			return c.json({ data: result }, 200);
 		},
 	);
 

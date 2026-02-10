@@ -1,6 +1,6 @@
 export type ChangelogEntry = {
 	text: string;
-	username?: string;
+	username?: string | string[];
 };
 
 export type ChangelogItem = {
@@ -16,14 +16,18 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.2.24",
-		date: "2026-01-30",
+		version: "1.2.25",
+		date: "2026-01-31",
 		title: "",
 		features: [],
 		bugsFixed: [
 			{
 				text: "Fix the bug where the table list was not showing the correct number of tables",
 				username: "Amirosagan",
+			},
+			{
+				text: "Fix the delete record feature to handle foreign key constraints",
+				username: ["Amirosagan", "husamql3"],
 			},
 		],
 		improvements: [

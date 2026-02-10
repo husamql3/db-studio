@@ -2,8 +2,8 @@ import { HTTPException } from "hono/http-exception";
 import type {
 	DatabaseSchemaType,
 	DeleteRecordParams,
+	DeleteRecordResult,
 	DeleteRecordSchemaType,
-	DeleteResult,
 	ForeignKeyConstraint,
 	ForeignKeyConstraintRow,
 	RelatedRecord,
@@ -38,7 +38,7 @@ async function getForeignKeyReferences(
 	const pool = getDbPool(db);
 	const result = await pool.query(query, [tableName]);
 
-	return result.rows.map(({ row }: { row: ForeignKeyConstraintRow }) => ({
+	return result.rows.map((row: ForeignKeyConstraintRow) => ({
 		constraintName: row.constraint_name,
 		referencingTable: row.referencing_table,
 		referencingColumn: row.referencing_column,
@@ -115,7 +115,7 @@ export async function deleteRecords({
 	tableName,
 	primaryKeys,
 	db,
-}: DeleteRecordParams): Promise<DeleteResult> {
+}: DeleteRecordParams): Promise<DeleteRecordResult> {
 	const pool = getDbPool(db);
 
 	const pkColumn = primaryKeys[0]?.columnName;
@@ -134,14 +134,11 @@ export async function deleteRecords({
 		RETURNING *
 	`;
 
-	await pool.query("BEGIN");
-
 	try {
+		await pool.query("BEGIN");
 		const result = await pool.query(query, pkValues);
-
 		await pool.query("COMMIT");
-
-		return { deletedCount: result.rowCount ?? 0 };
+		return { deletedCount: result.rowCount ?? 0, fkViolation: false, relatedRecords: [] };
 	} catch (error) {
 		await pool.query("ROLLBACK");
 
