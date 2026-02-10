@@ -723,6 +723,8 @@ describe("Records Routes", () => {
 		it("should delete a single record and return 200 status", async () => {
 			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 1,
+				fkViolation: false,
+				relatedRecords: [],
 			});
 
 			const body = {
@@ -738,7 +740,11 @@ describe("Records Routes", () => {
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
-			expect(json.data).toBe('Deleted 1 records from "users"');
+			expect(json.data).toEqual({
+				deletedCount: 1,
+				fkViolation: false,
+				relatedRecords: [],
+			});
 			expect(deleteRecordsDao.deleteRecords).toHaveBeenCalledWith({
 				tableName: "users",
 				primaryKeys: [{ columnName: "id", value: 1 }],
@@ -749,6 +755,8 @@ describe("Records Routes", () => {
 		it("should delete multiple records", async () => {
 			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 3,
+				fkViolation: false,
+				relatedRecords: [],
 			});
 
 			const body = {
@@ -768,12 +776,14 @@ describe("Records Routes", () => {
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
-			expect(json.data).toBe('Deleted 3 records from "users"');
+			expect(json.data).toEqual({ deletedCount: 3, fkViolation: false, relatedRecords: [] });
 		});
 
 		it("should handle string primary key values", async () => {
 			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 1,
+				fkViolation: false,
+				relatedRecords: [],
 			});
 
 			const body = {
@@ -793,6 +803,8 @@ describe("Records Routes", () => {
 		it("should handle UUID primary key values", async () => {
 			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 1,
+				fkViolation: false,
+				relatedRecords: [],
 			});
 
 			const body = {
@@ -915,9 +927,20 @@ describe("Records Routes", () => {
 				body: JSON.stringify(body),
 			});
 
-			expect(res.status).toBe(200);
+			expect(res.status).toBe(409);
 			const json = await res.json();
-			expect(json.data).toBe('Deleted 0 records from "users"');
+			expect(json.data).toEqual({
+				deletedCount: 0,
+				fkViolation: true,
+				relatedRecords: [
+					{
+						tableName: "orders",
+						columnName: "user_id",
+						constraintName: "fk_orders_user_id",
+						records: [{ id: 1, user_id: 1, total: 100 }, { id: 2, user_id: 1, total: 200 }],
+					},
+				],
+			});
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
@@ -983,7 +1006,7 @@ describe("Records Routes", () => {
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
-			expect(json.data).toBe('Deleted 5 records from "users"');
+			expect(json.data).toEqual({ deletedCount: 5 });
 			expect(deleteRecordsDao.forceDeleteRecords).toHaveBeenCalledWith({
 				tableName: "users",
 				primaryKeys: [{ columnName: "id", value: 1 }],
@@ -1012,7 +1035,7 @@ describe("Records Routes", () => {
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
-			expect(json.data).toBe('Deleted 15 records from "users"');
+			expect(json.data).toEqual({ deletedCount: 15 });
 		});
 
 		it("should return 400 when tableName is missing", async () => {
@@ -1263,6 +1286,8 @@ describe("Records Routes", () => {
 			});
 			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 1,
+				fkViolation: false,
+				relatedRecords: [],
 			});
 
 			const [res1, res2, res3] = await Promise.all([

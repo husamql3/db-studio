@@ -42,6 +42,12 @@ export const ExportBtn = ({ tableName }: { tableName: string }) => {
 				>
 					Export to Excel
 				</DropdownMenuItem>
+				<DropdownMenuItem
+					onClick={() => exportFile({ tableName, format: "json" })}
+					disabled={isExportingFile}
+				>
+					Export to JSON
+				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

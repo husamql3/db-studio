@@ -2,12 +2,15 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
 	addRecordSchema,
+	bulkInsertRecordsSchema,
+	type DeleteRecordResult,
 	databaseSchema,
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { addRecord } from "@/dao/add-record.dao.js";
+import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
 import {
@@ -84,13 +87,15 @@ export const recordsRoutes = new Hono()
 	 * Deletes records from a table
 	 * @param {DatabaseSchemaType} query - The database to use
 	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string>} A success message
+	 * @returns {ApiHandler<string, 409 | 200>} A success message
 	 */
 	.delete(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<string> => {
+		async (c): ApiHandler<DeleteRecordResult, 409 | 200> => {
+			// TODO: refactor this shit, the backend responses should be consistent
+			// TODO: the frontend could be simplified too
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
@@ -100,7 +105,11 @@ export const recordsRoutes = new Hono()
 					: await deleteRecords({ tableName, primaryKeys, db });
 			return c.json(
 				{
-					data: `Deleted ${deletedCount} records from "${tableName}"`,
+					data: {
+						deletedCount,
+						fkViolation: false,
+						relatedRecords: [],
+					},
 				},
 				200,
 			);
@@ -118,7 +127,7 @@ export const recordsRoutes = new Hono()
 		"/force",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<string> => {
+		async (c): ApiHandler<{ deletedCount: number }> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");

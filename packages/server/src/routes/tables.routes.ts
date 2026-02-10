@@ -189,15 +189,23 @@ export const tablesRoutes = new Hono()
 					? await exportMongoTableData({ tableName, db })
 					: await exportTableData({ tableName, db });
 			const fileContent = getExportFile({ cols, rows, format, tableName });
+			let contentType: string | undefined;
 
-			const contentType =
-				format === "csv"
-					? "text/csv"
-					: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+			switch (format) {
+				case "csv":
+					contentType = "text/csv";
+					break;
+				case "xlsx":
+					contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+					break;
+				case "json":
+					contentType = "application/json";
+					break;
+			}
 
 			return new Response(fileContent, {
 				headers: {
-					"Content-Type": contentType,
+					"Content-Type": contentType ?? "",
 					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
 				},
 			});
