@@ -16,10 +16,15 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.2.25",
+		version: "1.3.25",
 		date: "2026-01-31",
 		title: "",
-		features: [],
+		features: [
+			{
+				text: "Add bulk insert records feature in the table tab (CSV, JSON, Excel)",
+				username: "Youssef-joe",
+			},
+		],
 		bugsFixed: [
 			{
 				text: "Fix the bug where the table list was not showing the correct number of tables",
@@ -27,7 +32,7 @@ export const changelog: ChangelogItem[] = [
 			},
 			{
 				text: "Fix the delete record feature to handle foreign key constraints",
-				username: ["Amirosagan", "husamql3"],
+				username: "Amirosagan",
 			},
 		],
 		improvements: [
