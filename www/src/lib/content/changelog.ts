@@ -16,12 +16,18 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.26",
+		version: "1.3.27",
 		date: "2026-02-15",
 		title: "Add table actions menu",
 		features: [
 			{
 				text: "Add table menu with delete table feature (with support for foreign key constraints) and copy table schema feature, export table data feature (CSV, JSON, Excel)",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Improved database initialization and selection flow",
 				username: "husamql3",
 			},
 		],
