@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Database, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,28 +11,17 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-	useCurrentDatabase,
-	useDatabaseConnectionInfo,
-	useDatabasesList,
-} from "@/hooks/use-databases-list";
+import { useDatabaseConnectionInfo, useDatabasesList } from "@/hooks/use-databases-list";
 import { cn } from "@/lib/utils";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
-	const { currentDatabase, isLoadingCurrentDatabase } = useCurrentDatabase();
 	const { connectionInfo, isLoadingConnectionInfo } = useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const navigate = useNavigate();
 	const [showDetails, setShowDetails] = useState(false);
-
-	useEffect(() => {
-		if (currentDatabase?.database && !selectedDatabase && !isLoadingCurrentDatabase) {
-			setSelectedDatabase(currentDatabase.database);
-		}
-	}, [currentDatabase, selectedDatabase, setSelectedDatabase, isLoadingCurrentDatabase]);
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
