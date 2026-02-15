@@ -10,6 +10,11 @@ import {
 	getDatabaseConnectionInfo,
 	getDatabasesList,
 } from "@/dao/database-list.dao.js";
+import {
+	getMongoConnectionInfo,
+	getMongoCurrentDatabase,
+	getMongoDatabasesList,
+} from "@/dao/mongo/database-list.dao.js";
 import { getDbType } from "@/db-manager.js";
 
 /**
@@ -30,8 +35,9 @@ export const databasesRoutes = new Hono()
 	 * @returns {Object} Object with databases array and dbType
 	 */
 	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
-		const databases = await getDatabasesList();
 		const dbType = getDbType();
+		const databases =
+			dbType === "mongodb" ? await getMongoDatabasesList() : await getDatabasesList();
 		return c.json({ data: { databases, dbType } }, 200);
 	})
 
@@ -41,8 +47,9 @@ export const databasesRoutes = new Hono()
 	 * @returns {Object} Object with current database name and type
 	 */
 	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
-		const current = await getCurrentDatabase();
 		const dbType = getDbType();
+		const current =
+			dbType === "mongodb" ? await getMongoCurrentDatabase() : await getCurrentDatabase();
 		return c.json({ data: { ...current, dbType } }, 200);
 	})
 
@@ -53,7 +60,11 @@ export const databasesRoutes = new Hono()
 	 * @returns {Object} Connection and server info
 	 */
 	.get("/connection", async (c): ApiHandler<ConnectionInfoSchemaType> => {
-		const info = await getDatabaseConnectionInfo();
+		const dbType = getDbType();
+		const info =
+			dbType === "mongodb"
+				? await getMongoConnectionInfo()
+				: await getDatabaseConnectionInfo();
 		return c.json({ data: info }, 200);
 	});
 

@@ -6,7 +6,8 @@ import { QueryResultContainer } from "@/components/runnr-tab/query-result-contai
 import { RunnerHeader } from "@/components/runnr-tab/runner-header";
 import { useExecuteQuery } from "@/hooks/use-execute-query";
 import { useQueriesStore } from "@/stores/queries.store";
-import { PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
+import { useDatabaseStore } from "@/stores/database.store";
+import { MONGO_PLACEHOLDER_QUERY, PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
 
 const CodeEditor = lazy(() =>
 	import("@/components/runnr-tab/cdoe-editor").then((module) => ({
@@ -28,11 +29,13 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 	const [currentQuery, setCurrentQuery] = useState<string>("");
+	const { dbType } = useDatabaseStore();
 
 	const getInitialQuery = useCallback(() => {
-		if (!query) return PGSQL_PLACEHOLDER_QUERY;
-		return query?.query ?? PGSQL_PLACEHOLDER_QUERY;
-	}, [query]);
+		const placeholder = dbType === "mongodb" ? MONGO_PLACEHOLDER_QUERY : PGSQL_PLACEHOLDER_QUERY;
+		if (!query) return placeholder;
+		return query?.query ?? placeholder;
+	}, [query, dbType]);
 
 	// Execute query function
 	const handleExecuteQuery = useCallback(
@@ -107,6 +110,7 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 					initialQuery={getInitialQuery()}
 					queryId={queryId}
 					savedQuery={query?.query ?? ""}
+					language={dbType === "mongodb" ? "json" : "pgsql"}
 					onQueryChange={setCurrentQuery}
 					onUnsavedChanges={setHasUnsavedChanges}
 					onExecuteQuery={handleExecuteQuery}

@@ -29,6 +29,10 @@ class DatabaseManager {
 		if (protocol === "postgres" || protocol === "postgresql") {
 			return "pg";
 		}
+		// mongodb:// or mongodb+srv:// -> mongodb
+		if (protocol === "mongodb" || protocol === "mongodb+srv") {
+			return "mongodb";
+		}
 		// Default to pg for now, can be extended for mysql, sqlite, etc.
 		return "pg";
 	}
