@@ -13,7 +13,7 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
 	);
 }
 
-function _KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
+function KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<kbd
 			data-slot="kbd-group"
@@ -23,4 +23,4 @@ function _KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-export { Kbd };
+export { Kbd, KbdGroup };
