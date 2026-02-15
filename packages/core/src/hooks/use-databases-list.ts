@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useRef } from "react";
 import type {
 	BaseResponse,
 	ConnectionInfoSchemaType,
@@ -38,15 +38,32 @@ export const useDatabasesList = () => {
 };
 
 /**
- * Fetch current database name
+ * Initialize database connection and selected database.
+ * Fetches current database, falls back to first database in list if none.
+ * Shows loading until a database is selected.
  */
-export const useCurrentDatabase = () => {
-	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
+export const useInitializeDatabase = () => {
+	const setSelectedDatabase = useDatabaseStore((state) => state.setSelectedDatabase);
+	const hasInitializedRef = useRef(false);
 
+	// First, fetch the databases list
+	const {
+		data: databasesData,
+		isLoading: isLoadingDatabases,
+		error: databasesError,
+	} = useQuery({
+		queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
+		queryFn: () => rootApi.get<BaseResponse<DatabaseListSchemaType>>("/databases"),
+		select: (response) => response.data.data,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	// Then fetch current database (only after databases list is loaded)
 	const {
 		data: currentDatabase,
 		isLoading: isLoadingCurrentDatabase,
 		error: currentDatabaseError,
+		isSuccess: isCurrentDbSuccess,
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
 		queryFn: async () => {
@@ -57,21 +74,29 @@ export const useCurrentDatabase = () => {
 			setDbType(res.data.data.dbType);
 			return res.data.data;
 		},
-		staleTime: 1000 * 60 * 5, // 5 minutes
+		staleTime: 1000 * 60 * 5,
+		enabled: !!databasesData, // Only run after databases are loaded
 	});
 
-	useEffect(() => {
-		if (currentDatabase) {
-			if (currentDatabase.database && !selectedDatabase && !isLoadingCurrentDatabase) {
-				setSelectedDatabase(currentDatabase.database);
-			}
+	// Initialize selected database once both queries succeed
+	if (!hasInitializedRef.current && isCurrentDbSuccess && databasesData) {
+		hasInitializedRef.current = true;
+		// Use current database if available, otherwise fall back to first database
+		const dbToSelect = currentDatabase?.db || databasesData.databases?.[0]?.name;
+		if (dbToSelect) {
+			setSelectedDatabase(dbToSelect);
 		}
-	}, [currentDatabase, selectedDatabase, isLoadingCurrentDatabase, setSelectedDatabase]);
+	}
+
+	const isLoading = isLoadingDatabases || isLoadingCurrentDatabase;
+	const isInitialized = hasInitializedRef.current;
 
 	return {
 		currentDatabase,
-		isLoadingCurrentDatabase,
-		currentDatabaseError,
+		databases: databasesData?.databases,
+		isLoading,
+		isInitialized,
+		error: databasesError || currentDatabaseError,
 	};
 };
 

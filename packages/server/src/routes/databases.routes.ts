@@ -43,7 +43,7 @@ export const databasesRoutes = new Hono()
 	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
 		const current = await getCurrentDatabase();
 		const dbType = getDbType();
-		return c.json({ data: { ...current, dbType } }, 200);
+		return c.json({ data: { db: current.db, dbType } }, 200);
 	})
 
 	/**

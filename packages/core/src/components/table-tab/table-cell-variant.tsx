@@ -86,8 +86,6 @@ export const TableTextCell = memo(
 		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
 
 		const onCancel = useCallback(() => {
-			console.log("onCancel", editorValue, initialValue);
-
 			// Restore the original value
 			setEditorValue(initialValue ?? "");
 
@@ -301,8 +299,6 @@ export const TableNumberCell = memo(
 		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
 		const onCancel = useCallback(() => {
-			console.log("onCancel", value, initialValue);
-
 			// Restore the original value
 			setValue(initialValue);
 
@@ -822,8 +818,6 @@ export const TableDateCell = memo(
 		);
 
 		const onCancel = useCallback(() => {
-			console.log("onCancel", currentValue, initialValue);
-
 			// Clear any pending updates (reverts to initial value)
 			clearUpdate(rowData, columnName);
 
@@ -971,8 +965,6 @@ export const TableJsonCell = memo(
 		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
 
 		const onCancel = useCallback(() => {
-			console.log("onCancel", editorValue, initialValue);
-
 			// Restore the original value (formatted)
 			setEditorValue(JSON.stringify(initialValue, null, 2) ?? "");
 
