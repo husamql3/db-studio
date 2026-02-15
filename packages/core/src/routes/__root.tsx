@@ -7,7 +7,7 @@ import { NuqsAdapter } from "nuqs/adapters/react";
 import { AddTableForm } from "@/components/add-table/add-table-form";
 import { Toaster } from "@/components/ui/sonner";
 import { Spinner } from "@/components/ui/spinner";
-import { useCurrentDatabase } from "@/hooks/use-databases-list";
+import { useInitializeDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
 
 const darkModeScript = String.raw`
@@ -28,8 +28,11 @@ export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 
-		// Wait for the current database to be loaded before rendering the outlet
-		const { isLoadingCurrentDatabase } = useCurrentDatabase();
+		// Initialize database connection when the component mounts, fetches databases list, current db, and selects first db as fallback
+		const { isLoading, isInitialized } = useInitializeDatabase();
+
+		// Show loading until both queries complete AND database is initialized in store
+		const showLoading = isLoading || !isInitialized;
 
 		return (
 			<>
@@ -39,11 +42,11 @@ export const Route = createRootRoute({
 					fullPageNavigationOnShallowFalseUpdates
 					defaultOptions={{ shallow: true, clearOnDefault: true }}
 				>
-					{isLoadingCurrentDatabase ? (
+					{showLoading ? (
 						<div className="flex items-center justify-center h-screen">
 							<Spinner
-								size="size-5"
-								color="text-primary"
+								size="size-8"
+								color="bg-primary"
 							/>
 						</div>
 					) : (
