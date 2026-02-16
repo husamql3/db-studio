@@ -1,8 +1,8 @@
 import { Link, useParams } from "@tanstack/react-router";
 import type { TableInfoSchemaType } from "shared/types";
+import { SidebarListTablesMenu } from "@/components/sidebar/sidebar-list-tables-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
-import { SidebarListTablesMenu } from "./sidebar-list-tables-menu";
 
 export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaType) => {
 	const params = useParams({ strict: false });
