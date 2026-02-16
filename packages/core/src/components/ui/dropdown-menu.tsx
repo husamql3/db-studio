@@ -200,7 +200,7 @@ function _DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"sp
 	);
 }
 
-function _DropdownMenuSub({
+function DropdownMenuSub({
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
 	return (
@@ -211,7 +211,7 @@ function _DropdownMenuSub({
 	);
 }
 
-function _DropdownMenuSubTrigger({
+function DropdownMenuSubTrigger({
 	className,
 	inset,
 	children,
@@ -235,7 +235,7 @@ function _DropdownMenuSubTrigger({
 	);
 }
 
-function _DropdownMenuSubContent({
+function DropdownMenuSubContent({
 	className,
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
@@ -258,4 +258,7 @@ export {
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubTrigger,
+	DropdownMenuSubContent,
 };

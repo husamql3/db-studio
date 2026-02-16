@@ -6,11 +6,11 @@ reviews:
   profile: "chill"
   high_level_summary: true
   poem: false
-  review_status: false
+  review_status: true
   request_changes_workflow: false
 
   auto_review:
-    enabled: false
+    enabled: true
     drafts: false
 
 chat:

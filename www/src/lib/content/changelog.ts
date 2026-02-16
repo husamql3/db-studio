@@ -16,33 +16,19 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.25",
-		date: "2026-01-31",
-		title: "",
+		version: "1.3.27",
+		date: "2026-02-15",
+		title: "Add table actions menu",
 		features: [
 			{
-				text: "Add bulk insert records feature in the table tab (CSV, JSON, Excel)",
-				username: "Youssef-joe",
+				text: "Add table menu with delete table feature (with support for foreign key constraints) and copy table schema feature, export table data feature (CSV, JSON, Excel)",
+				username: "husamql3",
 			},
 		],
 		bugsFixed: [
 			{
-				text: "Fix the bug where the table list was not showing the correct number of tables",
-				username: "Amirosagan",
-			},
-			{
-				text: "Fix the delete record feature to handle foreign key constraints",
-				username: "Amirosagan",
-			},
-		],
-		improvements: [
-			{
-				text: "Added support for custom .env file paths via -e flag for flexible database configuration",
-				username: "Mahmoudgalalz",
-			},
-			{
-				text: "Enhanced CLI with new --status flag to verify database connection configuration",
-				username: "Mahmoudgalalz",
+				text: "Improved database initialization and selection flow",
+				username: "husamql3",
 			},
 		],
 	},

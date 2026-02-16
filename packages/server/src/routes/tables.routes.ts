@@ -3,21 +3,26 @@ import { Hono } from "hono";
 import {
 	type ColumnInfoSchemaType,
 	createTableSchema,
+	type DeleteTableResult,
 	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
+	deleteTableQuerySchema,
 	exportTableSchema,
 	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
+	type TableSchemaResult,
 	tableDataQuerySchema,
 	tableNameSchema,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { createTable } from "@/dao/create-table.dao.js";
 import { deleteColumn } from "@/dao/delete-column.dao.js";
+import { deleteTable } from "@/dao/delete-table.dao.js";
 import { exportTableData } from "@/dao/export-table.dao.js";
 import { getTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList } from "@/dao/table-list.dao.js";
+import { getTableSchema } from "@/dao/table-schema.dao.js";
 import { getTableData } from "@/dao/tables-data.dao.js";
 import {
 	createMongoCollection,
@@ -76,6 +81,25 @@ export const tablesRoutes = new Hono()
 	)
 
 	/**
+	 * DELETE /tables/:tableName
+	 * Deletes a table from the database
+	 * @param {DeleteTableQuerySchemaType} query - The query parameters (db, cascade)
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @returns {DeleteTableResult} The result with deletedCount, fkViolation flag, and relatedRecords
+	 */
+	.delete(
+		"/:tableName",
+		zValidator("query", deleteTableQuerySchema),
+		zValidator("param", tableNameSchema),
+		async (c): ApiHandler<DeleteTableResult> => {
+			const { db, cascade } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const result = await deleteTable({ tableName, db, cascade });
+			return c.json({ data: result }, 200);
+		},
+	)
+
+	/**
 	 * DELETE /tables/:tableName/columns/:columnName
 	 * Deletes a column from a table
 	 * @param {DatabaseSchemaType} query - The query parameters
@@ -123,6 +147,25 @@ export const tablesRoutes = new Hono()
 					? await getMongoTableColumns({ tableName, db })
 					: await getTableColumns({ tableName, db });
 			return c.json({ data: columns }, 200);
+		},
+	)
+
+	/**
+	 * GET /tables/:tableName/schema
+	 * Returns the CREATE TABLE schema for a table
+	 * @param {DatabaseSchemaType} query - The query parameters
+	 * @param {TableNameSchemaType} param - The URL parameters
+	 * @returns {TableSchemaResult} The CREATE TABLE SQL statement
+	 */
+	.get(
+		"/:tableName/schema",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		async (c): ApiHandler<TableSchemaResult> => {
+			const { db } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const schema = await getTableSchema({ tableName, db });
+			return c.json({ data: { schema } }, 200);
 		},
 	)
 

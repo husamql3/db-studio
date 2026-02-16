@@ -1,9 +1,8 @@
 import { Link, useParams } from "@tanstack/react-router";
 import type { TableInfoSchemaType } from "shared/types";
-// import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-// import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { SidebarListTablesMenu } from "./sidebar-list-tables-menu";
 
 export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaType) => {
 	const params = useParams({ strict: false });
@@ -25,69 +24,8 @@ export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaTy
 			>
 				{isActive && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
 				<span className="flex-1">{tableName}</span>
-				<div className="flex items-center gap-1">
-					{/* 	{isActive && (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon-sm"
-								>
-									<IconDots />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent
-								className="w-56"
-								align="start"
-							>
-								<DropdownMenuGroup>
-									<DropdownMenuItem>
-										<IconCopy className="size-4" />
-										Copy name
-									</DropdownMenuItem>
-									<DropdownMenuItem>
-										<IconCopy className="size-4" />
-										Copy scheme
-									</DropdownMenuItem>
-									<DropdownMenuItem>
-										<IconFileText className="size-4" />
-										Open schema
-									</DropdownMenuItem>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem>
-										<IconEdit className="size-4" />
-										Edit table name
-									</DropdownMenuItem>
-									<DropdownMenu>
-										<DropdownMenuTrigger>
-											<IconDownload className="size-4" />
-											Export data
-										</DropdownMenuTrigger>
-										<DropdownMenuContent>
-											<DropdownMenuItem>
-												<IconDownload className="size-4" />
-												Export as CSV
-											</DropdownMenuItem>
-											<DropdownMenuItem>
-												<IconDownload className="size-4" />
-												Export as JSON
-											</DropdownMenuItem>
-											<DropdownMenuItem>
-												<IconFileExcel className="size-4" />
-												Export as Excel
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-										<DropdownMenuSeparator />
-										<DropdownMenuItem variant="destructive">
-											<IconTrash className="size-4" />
-											Delete table
-										</DropdownMenuItem>
-									</DropdownMenu>
-								</DropdownMenuGroup>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					)}
-*/}
+				<div className="flex items-center gap-1 h-5">
+					{isActive && <SidebarListTablesMenu tableName={tableName} />}
 					<Kbd>{rowCount}</Kbd>
 				</div>
 			</Link>
