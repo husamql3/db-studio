@@ -31,6 +31,12 @@ export const changelog: ChangelogItem[] = [
 				username: "husamql3",
 			},
 		],
+		improvements: [
+			{
+				text: "Improved error message for unsupported database types",
+				username: "husamql3",
+			},
+		],
 	},
 	{
 		version: "1.2.21",
