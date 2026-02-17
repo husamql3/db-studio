@@ -7,29 +7,34 @@ export async function getTablesList(
 	db: DatabaseSchemaType["db"],
 ): Promise<TableInfoSchemaType[]> {
 	const pool = getDbPool(db);
-	const query = `
-	SELECT 
-    t.table_name as "tableName",
-    CASE 
-        WHEN s.n_live_tup IS NULL OR s.n_live_tup = 0 
-        THEN (SELECT COUNT(*) FROM information_schema.tables 
-              WHERE table_schema = 'public' 
-                AND table_name = t.table_name)
-        ELSE s.n_live_tup 
-    END::integer as "rowCount"
-FROM information_schema.tables t
-LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
-WHERE t.table_schema = 'public'
-  AND t.table_type = 'BASE TABLE'
-ORDER BY t.table_name;
+
+	// First, get all table names
+	const tablesQuery = `
+		SELECT table_name as "tableName"
+		FROM information_schema.tables
+		WHERE table_schema = 'public'
+		  AND table_type = 'BASE TABLE'
+		ORDER BY table_name;
 	`;
 
-	const { rows } = await pool.query(query);
-	if (!rows[0]) {
+	const { rows: tables } = await pool.query(tablesQuery);
+	if (!tables[0]) {
 		throw new HTTPException(500, {
 			message: "No tables returned from database",
 		});
 	}
 
-	return rows;
+	// Get accurate row count for each table
+	const result: TableInfoSchemaType[] = await Promise.all(
+		tables.map(async (table: { tableName: string }) => {
+			const countQuery = `SELECT COUNT(*)::integer as count FROM "${table.tableName}"`;
+			const { rows } = await pool.query(countQuery);
+			return {
+				tableName: table.tableName,
+				rowCount: rows[0]?.count ?? 0,
+			};
+		}),
+	);
+
+	return result;
 }

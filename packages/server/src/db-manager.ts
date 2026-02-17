@@ -57,7 +57,7 @@ class DatabaseManager {
 				dbType: this.detectDbType(url),
 			};
 		} catch (error) {
-			throw new Error(`Failed to parse DATABASE_URL: ${error}`);
+			throw new Error(error instanceof Error ? error.message : String(error));
 		}
 	}
 

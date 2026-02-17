@@ -16,7 +16,7 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.27",
+		version: "1.3.29",
 		date: "2026-02-15",
 		title: "Add table actions menu",
 		features: [
@@ -28,6 +28,16 @@ export const changelog: ChangelogItem[] = [
 		bugsFixed: [
 			{
 				text: "Improved database initialization and selection flow",
+				username: "husamql3",
+			},
+			{
+				text: "Fix retriving the row count of the tables",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Improved error message for unsupported database types",
 				username: "husamql3",
 			},
 		],
