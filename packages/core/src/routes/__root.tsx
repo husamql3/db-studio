@@ -24,6 +24,9 @@ const darkModeScript = String.raw`
   } catch (_) {}
 `;
 
+const connectDevtoolsServerBus =
+	import.meta.env.DEV && import.meta.env.VITE_TANSTACK_SERVER_BUS === "true";
+
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
@@ -78,7 +81,7 @@ export const Route = createRootRoute({
 						aiDevtoolsPlugin(),
 					]}
 					eventBusConfig={{
-						connectToServerBus: true,
+						connectToServerBus: connectDevtoolsServerBus,
 					}}
 				/>
 			</>

@@ -36,8 +36,6 @@ export const AddTableForm = () => {
 	});
 
 	const onSubmit = async (data: AddTableFormData) => {
-		console.log("onSubmit", data);
-
 		// Filter out empty/invalid foreign keys (keep only null or fully populated ones)
 		const cleanedData = {
 			...data,
@@ -109,8 +107,6 @@ export const AddTableForm = () => {
 		methods.reset();
 		closeSheet();
 	};
-
-	console.log(methods.getValues());
 
 	return (
 		<SheetSidebar

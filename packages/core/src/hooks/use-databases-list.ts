@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type {
 	BaseResponse,
 	ConnectionInfoSchemaType,
@@ -54,7 +54,7 @@ export const useDatabasesList = () => {
  * Shows loading until a database is selected.
  */
 export const useInitializeDatabase = () => {
-	const setSelectedDatabase = useDatabaseStore((state) => state.setSelectedDatabase);
+	const { selectedDatabase, setSelectedDatabase, setDbType } = useDatabaseStore();
 	const hasInitializedRef = useRef(false);
 
 	// First, fetch the databases list
@@ -74,7 +74,6 @@ export const useInitializeDatabase = () => {
 		data: currentDatabase,
 		isLoading: isLoadingCurrentDatabase,
 		error: currentDatabaseError,
-		isSuccess: isCurrentDbSuccess,
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
 		queryFn: async () => {
@@ -93,15 +92,24 @@ export const useInitializeDatabase = () => {
 		enabled: !!databasesData, // Only run after databases are loaded
 	});
 
-	// Initialize selected database once both queries succeed
-	if (!hasInitializedRef.current && isCurrentDbSuccess && databasesData) {
+	// Initialize once requests settle so UI does not get stuck on the loading screen.
+	// Run in an effect to avoid state updates during render.
+	useEffect(() => {
+		if (hasInitializedRef.current) return;
+		if (isLoadingDatabases || isLoadingCurrentDatabase) return;
+
 		hasInitializedRef.current = true;
-		// Use current database if available, otherwise fall back to first database
-		const dbToSelect = currentDatabase?.db || databasesData.databases?.[0]?.name;
+		const dbToSelect = currentDatabase?.db || databasesData?.databases?.[0]?.name;
 		if (dbToSelect) {
 			setSelectedDatabase(dbToSelect);
 		}
-	}
+	}, [
+		isLoadingDatabases,
+		isLoadingCurrentDatabase,
+		currentDatabase?.db,
+		databasesData?.databases,
+		setSelectedDatabase,
+	]);
 
 	const isLoading = isLoadingDatabases || isLoadingCurrentDatabase;
 	const isInitialized = hasInitializedRef.current;

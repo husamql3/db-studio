@@ -72,7 +72,7 @@ export const tablesRoutes = new Hono()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 			if (dbType === "mongodb") {
-				await createMongoCollection({ tableName: body.tableName, db });
+				await createMongoCollection({ tableName: body.tableName, tableData: body, db });
 			} else {
 				await createTable({ tableData: body, db });
 			}
