@@ -27,7 +27,7 @@ export const changelog: ChangelogItem[] = [
 			{
 				text: "Add bulk insert records feature by CSV, JSON, or Excel files in the table tab",
 				username: "Youssef-joe",
-			}
+			},
 		],
 		bugsFixed: [
 			{
@@ -47,7 +47,7 @@ export const changelog: ChangelogItem[] = [
 			{
 				text: "Added the init-db script to initialize the database for local development",
 				username: "Youssef-joe",
-			}
+			},
 		],
 	},
 	{
