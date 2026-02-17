@@ -2,15 +2,15 @@
 title: Getting Started
 ---
 
-## Installation
+## Quick Start
 
-DB Studio is distributed as an npm package and can be run directly with `npx` or `bunx`, **no installation required**.
+No installation needed! Just run this command:
 
 <CodeBlockTabs defaultValue="npx">
 <CodeBlockTabsList>
     <CodeBlockTabsTrigger value="npx">npx</CodeBlockTabsTrigger>
-    <CodeBlockTabsTrigger value="yarn">Yarn</CodeBlockTabsTrigger>
     <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="yarn">yarn</CodeBlockTabsTrigger>
     <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
   </CodeBlockTabsList>
 
@@ -19,14 +19,14 @@ DB Studio is distributed as an npm package and can be run directly with `npx` or
     npx db-studio
     ```
   </CodeBlockTab>
-  <CodeBlockTab value="yarn">
-    ```bash
-    yarn dlx db-studio
-    ```
-  </CodeBlockTab>
   <CodeBlockTab value="pnpm">
     ```bash
     pnpm dlx db-studio
+    ```
+  </CodeBlockTab>
+  <CodeBlockTab value="yarn">
+    ```bash
+    yarn dlx db-studio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="bun">
@@ -36,61 +36,141 @@ DB Studio is distributed as an npm package and can be run directly with `npx` or
   </CodeBlockTab>
 </CodeBlockTabs>
 
-## Quick Start
 
-The easiest way is to use your existing `.env` file:
+This runs the latest version of DB Studio using your current folder as the project location.
+
+## How It Works
+
+DB Studio looks for your database connection in this order:
+
+1. Checks for a `.env` file in your current folder
+2. If not found, searches parent folders until it finds one
+3. Reads `DATABASE_URL` from that file
+4. If `DATABASE_URL` isn't in the file, checks your system environment variables
+
+### Setting Up Your Database Connection
+
+Create a `.env` file in your project:
 
 ```bash
-# .env (or .env.local, .env.development, etc.)
+# .env
 DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase
 ```
 
-Then simply run:
+Then run:
 
 ```bash
 npx db-studio
 ```
 
-DB Studio will automatically:
+DB Studio will:
+1. Find and read your `.env` file
+2. Start a server on port `3333`
+3. Open your browser to `http://localhost:3333`
 
-1. Load `DATABASE_URL` from `.env`
-2. Start server on port `3333` (or custom port)
-3. Open browser → `http://localhost:3333`
+## Command Options
 
-### Useful CLI Options
+You can customize how DB Studio runs with these options:
+
+| Option | What It Does | Example |
+|--------|--------------|---------|
+| `--env <path>` | Use a specific `.env` file | `npx db-studio --env .env.local` |
+| `--var-name <name>` | Use a different variable name instead of `DATABASE_URL` | `npx db-studio --var-name MY_DB_URL` |
+| `--port <number>` | Change the server port (default is 3333) | `npx db-studio --port 4000` |
+| `--database-url <url>` | Provide connection string directly without `.env` file | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
+| `--status` | Only check if connection works (doesn't open the UI) | `npx db-studio --status` |
+| `--help` | Show all available options | `npx db-studio --help` |
+
+### Real Examples
 
 ```bash
-# Custom port
-npx db-studio --port 4000
-
-# Custom .env file
+# Use a different env file for local development
 npx db-studio --env .env.local
 
-# Direct connection (no .env needed)
-npx db-studio --database-url postgresql://user:pass@localhost:5432/mydb
+# Use production env file with custom port
+npx db-studio --env .env.production --port 4444
 
-# Custom env variable name
-npx db-studio --var-name PROD_DATABASE_URL
+# Connect directly without env file (good for quick tests)
+npx db-studio --database-url "postgresql://user:pass@host:5432/prod"
 
-# Just check connection
+# Use custom variable name with specific env file
+npx db-studio --env .env.staging --var-name STAGING_DB_URL
+
+# Just check if your connection works
 npx db-studio --status
 ```
 
-## Migration Guide
+## Add to Your Project
 
-### From Prisma Studio & Drizzle Studio
+You can add DB Studio to your `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "db:studio": "npx db-studio"
+  }
+}
+```
+
+Then run it with:
+
+```bash
+npm run db:studio
+```
+
+### Passing Options Through npm/bun
+
+When using `npm run` or `bun run`, add `--` before your options:
+
+```bash
+# Local dev with custom env file
+npm run db:studio -- --env .env.local
+
+# Production with custom port
+bun run db:studio -- --env .env.production --port 4444
+
+# Custom variable name
+npm run db:studio -- --var-name STAGING_DB_URL
+```
+
+## Switching from Other Tools
+
+### From Prisma Studio
+
+Replace this:
 
 ```json title="package.json"
 "scripts": {
-  ...
-  // [!code --]
   "studio": "npx prisma studio"
-  // [!code --]
-  "studio": "npx drizzle-kit studio"
-  // [!code ++]
+}
+```
+
+With this:
+
+```json title="package.json"
+"scripts": {
   "studio": "npx db-studio"
 }
 ```
 
-That's it!  
-DB Studio automatically uses the same `DATABASE_URL` from your `.env` file that Drizzle & Prisma uses without any additional configuration, no drizzle.config.ts or prisma.config.ts needed.
+DB Studio uses the same `DATABASE_URL` from your `.env` file. No extra config needed!
+
+### From Drizzle Studio
+
+Replace this:
+
+```json title="package.json"
+"scripts": {
+  "studio": "npx drizzle-kit studio"
+}
+```
+
+With this:
+
+```json title="package.json"
+"scripts": {
+  "studio": "npx db-studio"
+}
+```
+
+Works the same way - just uses your existing `DATABASE_URL`.

@@ -16,7 +16,7 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.27",
+		version: "1.3.30",
 		date: "2026-02-15",
 		title: "Add table actions menu",
 		features: [
@@ -24,11 +24,29 @@ export const changelog: ChangelogItem[] = [
 				text: "Add table menu with delete table feature (with support for foreign key constraints) and copy table schema feature, export table data feature (CSV, JSON, Excel)",
 				username: "husamql3",
 			},
+			{
+				text: "Add bulk insert records feature by CSV, JSON, or Excel files in the table tab",
+				username: "Youssef-joe",
+			},
 		],
 		bugsFixed: [
 			{
 				text: "Improved database initialization and selection flow",
 				username: "husamql3",
+			},
+			{
+				text: "Fix retriving the row count of the tables",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Improved error message for unsupported database types",
+				username: "husamql3",
+			},
+			{
+				text: "Added the init-db script to initialize the database for local development",
+				username: "Youssef-joe",
 			},
 		],
 	},

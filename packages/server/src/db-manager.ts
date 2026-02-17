@@ -29,8 +29,11 @@ class DatabaseManager {
 		if (protocol === "postgres" || protocol === "postgresql") {
 			return "pg";
 		}
-		// Default to pg for now, can be extended for mysql, sqlite, etc.
-		return "pg";
+
+		throw new Error(
+			`Unsupported database type: ${protocol}. Currently only PostgreSQL is supported. ` +
+				`Please use a PostgreSQL connection string (postgres:// or postgresql://).`,
+		);
 	}
 
 	/**
@@ -53,7 +56,7 @@ class DatabaseManager {
 				dbType: this.detectDbType(url),
 			};
 		} catch (error) {
-			throw new Error(`Failed to parse DATABASE_URL: ${error}`);
+			throw new Error(error instanceof Error ? error.message : String(error));
 		}
 	}
 
