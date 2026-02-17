@@ -74,7 +74,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Save favorite queries and view recent query history",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Smart SQL editor with color coding, auto-complete, and formatting",
@@ -88,7 +88,7 @@ export const roadmapItems: RoadmapItem[] = [
 		items: [
 			{
 				title: "Import many rows at once using CSV or JSON files",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Smart dropdowns for related tables with search and easy navigation",
@@ -96,7 +96,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Export and import both data and database structure",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Better JSON editor inside cells with formatting and line numbers",
@@ -144,10 +144,22 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Multi-Database Support",
-		status: "planned",
+		status: "in-progress",
 		items: [
-			{ title: "Add full support for MySQL databases", status: "planned" },
+			{ title: "Add full support for MySQL databases", status: "in-progress" },
 			{ title: "Add full support for SQLite databases", status: "planned" },
+			{
+				title: "Add full support for MongoDB databases",
+				status: "in-progress",
+			},
+			{
+				title: "Add full support for Oracle databases",
+				status: "planned",
+			},
+			{
+				title: "Add full support for SQL Server databases",
+				status: "planned",
+			},
 			{
 				title: "Easy switching between different database connections",
 				status: "completed",
