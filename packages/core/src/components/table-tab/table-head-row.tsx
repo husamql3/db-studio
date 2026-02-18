@@ -39,6 +39,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDeleteColumn } from "@/hooks/use-delete-column";
 import { cn } from "@/lib/utils";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
@@ -114,6 +115,7 @@ export const TableHeadRow = ({
 		if (!columnToDelete || !activeTableName) return;
 
 		await deleteColumn({
+			db: activeTableName,
 			tableName: activeTableName,
 			columnName: columnToDelete,
 			cascade: cascadeDelete,
@@ -152,7 +154,7 @@ export const TableHeadRow = ({
 					return (
 						<th
 							key={header.id}
-							className="h-full flex"
+							className="h-full flex z-100! relative"
 							style={{
 								display: "flex",
 								width: virtualColumn.index === 0 ? "40px" : header.getSize(),
@@ -176,21 +178,38 @@ export const TableHeadRow = ({
 											<DropdownMenuTrigger asChild>
 												<Button
 													variant="outline"
-													className="p-2 border-none w-full h-full bg-transparent! rounded-none justify-between"
+													className="relative border-none w-full h-full bg-transparent! rounded-none justify-between"
 												>
-													{/* TODO: add a tooltip for the icon */}
 													<div className="flex items-center gap-1">
 														{isPrimaryKey && (
-															<Key
-																size={20}
-																className="text-primary"
-															/>
+															<Tooltip>
+																<TooltipTrigger asChild>
+																	<span className="inline-flex">
+																		<Key
+																			size={20}
+																			className="text-primary"
+																		/>
+																	</span>
+																</TooltipTrigger>
+																<TooltipContent className="text-[10px]">
+																	Primary Key
+																</TooltipContent>
+															</Tooltip>
 														)}
 														{isForeignKey && (
-															<Link
-																size={20}
-																className="text-primary"
-															/>
+															<Tooltip>
+																<TooltipTrigger asChild>
+																	<span className="inline-flex">
+																		<Link
+																			size={20}
+																			className="text-primary"
+																		/>
+																	</span>
+																</TooltipTrigger>
+																<TooltipContent className="text-[10px]">
+																	Foreign Key
+																</TooltipContent>
+															</Tooltip>
 														)}
 														{flexRender(header.column.columnDef.header, header.getContext())}
 													</div>
