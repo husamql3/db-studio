@@ -192,7 +192,7 @@ export const TableHeadRow = ({
 																	</span>
 																</TooltipTrigger>
 																<TooltipContent className="text-[10px]">
-																	Primary Key
+																	primary key
 																</TooltipContent>
 															</Tooltip>
 														)}
@@ -207,7 +207,7 @@ export const TableHeadRow = ({
 																	</span>
 																</TooltipTrigger>
 																<TooltipContent className="text-[10px]">
-																	Foreign Key
+																	foreign key
 																</TooltipContent>
 															</Tooltip>
 														)}
