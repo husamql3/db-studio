@@ -16,8 +16,8 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.32",
-		date: "2026-02-18",
+		version: "1.3.33",
+		date: "2026-02-20",
 		title: "Add table actions menu",
 		features: [
 			{
@@ -54,6 +54,10 @@ export const changelog: ChangelogItem[] = [
 			},
 			{
 				text: "Added tooltip for the primary key and foreign key columns in the table tab",
+				username: "husamql3",
+			},
+			{
+				text: "Added preset row count options to the table footer",
 				username: "husamql3",
 			},
 		],
