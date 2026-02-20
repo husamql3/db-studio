@@ -16,8 +16,8 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.30",
-		date: "2026-02-15",
+		version: "1.3.33",
+		date: "2026-02-20",
 		title: "Add table actions menu",
 		features: [
 			{
@@ -47,6 +47,18 @@ export const changelog: ChangelogItem[] = [
 			{
 				text: "Added the init-db script to initialize the database for local development",
 				username: "Youssef-joe",
+			},
+			{
+				text: "Added confirmation dialog for delete record feature in the table tab",
+				username: "husamql3",
+			},
+			{
+				text: "Added tooltip for the primary key and foreign key columns in the table tab",
+				username: "husamql3",
+			},
+			{
+				text: "Added preset row count options to the table footer",
+				username: "husamql3",
 			},
 		],
 	},

@@ -54,7 +54,7 @@ function RouteComponent() {
 									})}
 								</div>
 
-								<div className="order-1 md:order-2 w-fit text-zinc-50 px-2 py-1 rounded-sm text-sm font-medium border border-zinc-800">
+								<div className="order-1 md:order-2 w-fit text-zinc-50 px-2 py-1 rounded-sm text-sm font-medium border border-zinc-800 shadow-2xl shadow-zinc-500">
 									v{item.version}
 								</div>
 							</div>
