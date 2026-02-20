@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type {
 	BaseResponse,
 	ConnectionInfoSchemaType,
 	CurrentDatabaseSchemaType,
 	DatabaseListSchemaType,
 } from "shared/types";
-import { rootApi, setDbType } from "@/lib/api";
+import { rootApi, setDbType as setApiDbType } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -14,6 +14,7 @@ import { CONSTANTS } from "@/utils/constants";
  * Fetch all databases from the server
  */
 export const useDatabasesList = () => {
+	const { setDbType, selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const {
 		data,
 		isLoading: isLoadingDatabases,
@@ -26,6 +27,16 @@ export const useDatabasesList = () => {
 		select: (response) => response.data.data,
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
+
+	useEffect(() => {
+		if (data?.dbType) {
+			setDbType(data.dbType);
+			setApiDbType(data.dbType);
+		}
+		if (!selectedDatabase && data?.databases?.length) {
+			setSelectedDatabase(data.databases[0]?.name ?? null);
+		}
+	}, [data?.dbType, data?.databases, selectedDatabase, setDbType, setSelectedDatabase]);
 
 	return {
 		databases: data?.databases,
@@ -43,7 +54,7 @@ export const useDatabasesList = () => {
  * Shows loading until a database is selected.
  */
 export const useInitializeDatabase = () => {
-	const setSelectedDatabase = useDatabaseStore((state) => state.setSelectedDatabase);
+	const { selectedDatabase, setSelectedDatabase, setDbType } = useDatabaseStore();
 	const hasInitializedRef = useRef(false);
 
 	// First, fetch the databases list
@@ -63,7 +74,6 @@ export const useInitializeDatabase = () => {
 		data: currentDatabase,
 		isLoading: isLoadingCurrentDatabase,
 		error: currentDatabaseError,
-		isSuccess: isCurrentDbSuccess,
 	} = useQuery({
 		queryKey: [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE],
 		queryFn: async () => {
@@ -71,22 +81,35 @@ export const useInitializeDatabase = () => {
 				await rootApi.get<BaseResponse<CurrentDatabaseSchemaType>>("/databases/current");
 
 			// init the api baseURL with the dbType from the first request
+			setApiDbType(res.data.data.dbType);
 			setDbType(res.data.data.dbType);
+			if (!selectedDatabase && res.data.data.database) {
+				setSelectedDatabase(res.data.data.database);
+			}
 			return res.data.data;
 		},
 		staleTime: 1000 * 60 * 5,
 		enabled: !!databasesData, // Only run after databases are loaded
 	});
 
-	// Initialize selected database once both queries succeed
-	if (!hasInitializedRef.current && isCurrentDbSuccess && databasesData) {
+	// Initialize once requests settle so UI does not get stuck on the loading screen.
+	// Run in an effect to avoid state updates during render.
+	useEffect(() => {
+		if (hasInitializedRef.current) return;
+		if (isLoadingDatabases || isLoadingCurrentDatabase) return;
+
 		hasInitializedRef.current = true;
-		// Use current database if available, otherwise fall back to first database
-		const dbToSelect = currentDatabase?.db || databasesData.databases?.[0]?.name;
+		const dbToSelect = currentDatabase?.db || databasesData?.databases?.[0]?.name;
 		if (dbToSelect) {
 			setSelectedDatabase(dbToSelect);
 		}
-	}
+	}, [
+		isLoadingDatabases,
+		isLoadingCurrentDatabase,
+		currentDatabase?.db,
+		databasesData?.databases,
+		setSelectedDatabase,
+	]);
 
 	const isLoading = isLoadingDatabases || isLoadingCurrentDatabase;
 	const isInitialized = hasInitializedRef.current;

@@ -5,6 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
+import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -14,6 +15,7 @@ export const SidebarSearchTables = () => {
 		defaultValue: "",
 	});
 	const { openSheet } = useSheetStore();
+	const { dbType } = useDatabaseStore();
 
 	// todo: fix this shit
 	useHotkeys(
@@ -31,13 +33,15 @@ export const SidebarSearchTables = () => {
 
 	return (
 		<div className="p-3 space-y-2">
-			<Button
-				className="w-full justify-start h-8"
-				onClick={() => openSheet("add-table")}
-			>
-				<Plus className="size-4" />
-				Add Table
-			</Button>
+			{dbType !== "mongodb" && (
+				<Button
+					className="w-full justify-start h-8"
+					onClick={() => openSheet("add-table")}
+				>
+					<Plus className="size-4" />
+					Add Table
+				</Button>
+			)}
 
 			<div className="relative">
 				<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

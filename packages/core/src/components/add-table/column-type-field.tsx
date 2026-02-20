@@ -12,11 +12,19 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useDatabaseStore } from "@/stores/database.store";
 import type { AddTableFormData } from "@/types/add-table.type";
-import { ARRAY_COMPATIBLE_TYPES, PSQL_TYPES, SERIAL_TYPES } from "@/utils/constants/add-table";
+import {
+	ARRAY_COMPATIBLE_TYPES,
+	MONGO_TYPES,
+	PSQL_TYPES,
+	SERIAL_TYPES,
+} from "@/utils/constants/add-table";
 
 export const ColumnTypeField = ({ index }: { index: number }) => {
 	const [typePickerOpen, setTypePickerOpen] = useState(false);
+	const dbType = useDatabaseStore((state) => state.dbType);
+	const typeGroups = dbType === "mongodb" ? MONGO_TYPES : PSQL_TYPES;
 
 	const {
 		control,
@@ -62,7 +70,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 							<CommandInput placeholder="Search type..." />
 							<CommandList>
 								<CommandEmpty>No type found.</CommandEmpty>
-								{Object.entries(PSQL_TYPES).map(([category, types]) => (
+								{Object.entries(typeGroups).map(([category, types]) => (
 									<CommandGroup
 										key={category}
 										heading={category}
@@ -74,13 +82,16 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 												onSelect={() => {
 													field.onChange(type.value);
 
-													// Auto-disable identity when serial types are selected
-													if (SERIAL_TYPES.includes(type.value)) {
+													// PostgreSQL-only constraints
+													if (dbType !== "mongodb" && SERIAL_TYPES.includes(type.value)) {
 														setValue(`fields.${index}.isIdentity`, false);
 													}
 
-													// Auto-disable array when type is not array-compatible
-													if (type.value && !ARRAY_COMPATIBLE_TYPES.includes(type.value)) {
+													if (
+														dbType !== "mongodb" &&
+														type.value &&
+														!ARRAY_COMPATIBLE_TYPES.includes(type.value)
+													) {
 														setValue(`fields.${index}.isArray`, false);
 													}
 

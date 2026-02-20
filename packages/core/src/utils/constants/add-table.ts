@@ -152,6 +152,48 @@ export const PSQL_TYPES = {
 	other: [{ value: "xml", label: "xml", description: "XML data" }],
 };
 
+export const MONGO_TYPES = {
+	numeric: [
+		{ value: "double", label: "double", description: "64-bit floating point number" },
+		{ value: "int", label: "int", description: "32-bit signed integer" },
+		{ value: "long", label: "long", description: "64-bit signed integer" },
+		{ value: "decimal", label: "decimal", description: "128-bit decimal value" },
+	],
+	text: [
+		{ value: "string", label: "string", description: "UTF-8 string" },
+		{ value: "javascript", label: "javascript", description: "JavaScript code" },
+		{
+			value: "javascriptWithScope",
+			label: "javascriptWithScope",
+			description: "JavaScript code with scope",
+		},
+		{ value: "symbol", label: "symbol", description: "Symbol (deprecated)" },
+	],
+	boolean: [{ value: "bool", label: "bool", description: "Boolean true/false" }],
+	datetime: [
+		{ value: "date", label: "date", description: "UTC datetime" },
+		{ value: "timestamp", label: "timestamp", description: "MongoDB timestamp" },
+	],
+	document: [
+		{ value: "object", label: "object", description: "Embedded document" },
+		{ value: "array", label: "array", description: "Array value" },
+		{ value: "objectId", label: "objectId", description: "ObjectId value" },
+	],
+	binary: [
+		{ value: "binData", label: "binData", description: "Binary data" },
+		{ value: "regex", label: "regex", description: "Regular expression" },
+	],
+	legacy: [
+		{ value: "undefined", label: "undefined", description: "Undefined (deprecated)" },
+		{ value: "dbPointer", label: "dbPointer", description: "DB pointer (deprecated)" },
+	],
+	special: [
+		{ value: "null", label: "null", description: "Null value" },
+		{ value: "minKey", label: "minKey", description: "Minimum BSON value" },
+		{ value: "maxKey", label: "maxKey", description: "Maximum BSON value" },
+	],
+};
+
 // export const PSQL_TYPE_LABEL_MAP: Record<string, string> = Object.values(PSQL_TYPES)
 // 	.flat()
 // 	.reduce(

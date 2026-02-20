@@ -36,6 +36,8 @@ export function handleError(e: Error | unknown, c: Context) {
 			e.message.includes("connection refused") ||
 			e.message.includes("timeout expired") ||
 			e.message.includes("Connection terminated") ||
+			e.message.includes("MongoNetworkError") ||
+			e.message.includes("MongoServerSelectionError") ||
 			(e instanceof DatabaseError && e.code?.startsWith("08")); // Connection exception class
 
 		if (isConnectionError) {

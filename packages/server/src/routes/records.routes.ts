@@ -13,6 +13,12 @@ import { addRecord } from "@/dao/add-record.dao.js";
 import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
 import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
 import { updateRecords } from "@/dao/update-records.dao.js";
+import {
+	addMongoRecord,
+	deleteMongoRecords,
+	forceDeleteMongoRecords,
+	updateMongoRecords,
+} from "@/dao/mongo/records.dao.js";
 
 export const recordsRoutes = new Hono()
 	/**
@@ -34,13 +40,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
-			const { insertedCount } = await addRecord({
-				db,
-				params: {
-					tableName,
-					data,
-				},
-			});
+			const dbType = c.get("dbType");
+			const { insertedCount } =
+				dbType === "mongodb"
+					? await addMongoRecord({ db, params: { tableName, data } })
+					: await addRecord({ db, params: { tableName, data } });
 			return c.json(
 				{
 					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
@@ -64,14 +68,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
-			const { updatedCount } = await updateRecords({
-				params: {
-					tableName,
-					primaryKey,
-					updates,
-				},
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { updatedCount } =
+				dbType === "mongodb"
+					? await updateMongoRecords({ params: { tableName, primaryKey, updates }, db })
+					: await updateRecords({ params: { tableName, primaryKey, updates }, db });
 			return c.json(
 				{
 					data: `Updated ${updatedCount} records in "${tableName}"`,
@@ -97,23 +98,11 @@ export const recordsRoutes = new Hono()
 			// TODO: the frontend could be simplified too
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount, fkViolation, relatedRecords } = await deleteRecords({
-				tableName,
-				primaryKeys,
-				db,
-			});
-			if (fkViolation) {
-				return c.json(
-					{
-						data: {
-							deletedCount: 0,
-							fkViolation: true,
-							relatedRecords,
-						},
-					},
-					409,
-				);
-			}
+			const dbType = c.get("dbType");
+			const { deletedCount } =
+				dbType === "mongodb"
+					? await deleteMongoRecords({ tableName, primaryKeys, db })
+					: await deleteRecords({ tableName, primaryKeys, db });
 			return c.json(
 				{
 					data: {
@@ -141,28 +130,17 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<{ deletedCount: number }> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const deletedCount = await forceDeleteRecords({ tableName, primaryKeys, db });
-			return c.json({ data: deletedCount }, 200);
-		},
-	)
-
-	/**
-	 * POST /records/bulk
-	 * Bulk inserts multiple records into a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {BulkInsertRecordsParamsType} json - The data for the bulk insert
-	 * @returns {BaseResponseType<BulkInsertResult>} Success and failure counts
-	 */
-	.post(
-		"/bulk",
-		zValidator("query", databaseSchema),
-		zValidator("json", bulkInsertRecordsSchema),
-		async (c): ApiHandler<object> => {
-			const { db } = c.req.valid("query");
-			const { tableName, records } = c.req.valid("json");
-			const result = await bulkInsertRecords({ tableName, records, db });
-			console.log("result", result);
-			return c.json({ data: result }, 200);
+			const dbType = c.get("dbType");
+			const { deletedCount } =
+				dbType === "mongodb"
+					? await forceDeleteMongoRecords({ tableName, primaryKeys, db })
+					: await forceDeleteRecords({ tableName, primaryKeys, db });
+			return c.json(
+				{
+					data: `Deleted ${deletedCount} records from "${tableName}"`,
+				},
+				200,
+			);
 		},
 	);
 
