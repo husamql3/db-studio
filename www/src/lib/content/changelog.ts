@@ -16,6 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.4",
+		date: "2026-03-02",
+		title: "Support MySQL database",
+		features: [
+			{
+				text: "Added MySQL database support alongside PostgreSQL",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Improved database connection error detection and messaging",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.3.33",
 		date: "2026-02-20",
 		title: "Add table actions menu",

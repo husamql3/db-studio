@@ -11,6 +11,9 @@ export const showHelp = () => {
 	console.log(color.bold("\nUsage:"));
 	console.log("  db-studio [options]\n");
 
+	console.log(color.bold("Supported Databases:"));
+	console.log("  MySQL, PostgreSQL\n");
+
 	console.log(color.bold("Options:"));
 	console.log("  -e, --env <path>         Path to custom .env file");
 	console.log("  -p, --port <port>        Port to run the server on (default: 3333)");
