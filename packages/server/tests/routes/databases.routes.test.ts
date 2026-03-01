@@ -402,10 +402,11 @@ describe("Databases Routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("should return 400 for mysql database type (not supported)", async () => {
+		it("should return 404 for /mysql/databases (no dbType-prefixed databases route)", async () => {
 			const res = await app.request("/mysql/databases");
 
-			expect(res.status).toBe(400);
+			// /mysql/databases is not a registered route (databases route lives at /databases)
+			expect(res.status).toBe(404);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {

@@ -31,12 +31,26 @@ export function handleError(e: Error | unknown, c: Context) {
 	}
 
 	if (e instanceof Error) {
+		// MySQL-specific error codes
+		const mysqlError = e as { code?: string; errno?: number };
+		const isMysqlConnectionError =
+			mysqlError.code === "ECONNREFUSED" ||
+			mysqlError.code === "ENOTFOUND" ||
+			mysqlError.code === "ETIMEDOUT" ||
+			mysqlError.code === "ER_ACCESS_DENIED_ERROR" ||
+			mysqlError.code === "ER_BAD_HOST_ERROR" ||
+			mysqlError.code === "ECONNRESET" ||
+			mysqlError.errno === 1045 || // ER_ACCESS_DENIED_ERROR
+			mysqlError.errno === 2003 || // Can't connect to MySQL server
+			mysqlError.errno === 2002; // Can't connect to local MySQL server
+
 		const isConnectionError =
+			isMysqlConnectionError ||
 			e.message.includes("ECONNREFUSED") ||
 			e.message.includes("connection refused") ||
 			e.message.includes("timeout expired") ||
 			e.message.includes("Connection terminated") ||
-			(e instanceof DatabaseError && e.code?.startsWith("08")); // Connection exception class
+			(e instanceof DatabaseError && e.code?.startsWith("08")); // PostgreSQL connection exception class
 
 		if (isConnectionError) {
 			return c.json<ApiError>(

@@ -22,6 +22,16 @@ export type ApiHandler<T, S extends StatusCode = 200> = Promise<
 	BaseResponseType<T, S> | ApiErrorType<S>
 >;
 
+/**
+ * RouteEnv - minimal env type for individual route files to get typed dbType variable.
+ * Using this instead of AppType avoids circular imports (AppType imports route types).
+ */
+export type RouteEnv = {
+	Variables: {
+		dbType: DatabaseTypeSchema;
+	};
+};
+
 export type AppType = {
 	Variables: {
 		dbType: DatabaseTypeSchema;

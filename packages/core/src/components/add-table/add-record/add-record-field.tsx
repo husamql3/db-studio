@@ -25,6 +25,15 @@ import { CONSTANTS } from "@/utils/constants";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
+const formatLocalTimestamp = (date: Date): string => {
+	const yyyy = date.getFullYear();
+	const mm = pad(date.getMonth() + 1);
+	const dd = pad(date.getDate());
+	const hh = pad(date.getHours());
+	const min = pad(date.getMinutes());
+	return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+};
+
 export const AddRecordField = ({
 	columnName,
 	dataTypeLabel,
@@ -170,156 +179,221 @@ export const AddRecordField = ({
 
 		// Date type
 		if (dataTypeLabel === "date") {
+			const hasDateDefault =
+				columnDefault?.toLowerCase().includes("current_date") ||
+				columnDefault?.toLowerCase().includes("now()") ||
+				columnDefault?.toLowerCase().includes("curdate()");
+
+			if (hasDateDefault) {
+				return (
+					<div className="flex">
+						<DatePicker
+							value={
+								field.value ? new Date(field.value) : field.value === "" ? null : undefined
+							}
+							onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
+							placeholder={columnDefault ?? "Select a date"}
+							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+						/>
+						<TooltipProvider delayDuration={0}>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										aria-label="Set to now"
+										className="inline-flex w-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+										type="button"
+										onClick={() => {
+											const today = new Date().toISOString().split("T")[0];
+											field.onChange(today);
+										}}
+									>
+										<Clock
+											aria-hidden="true"
+											className="size-4"
+											size={16}
+										/>
+									</button>
+								</TooltipTrigger>
+								<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+				);
+			}
+
 			return (
-				<div className="flex">
-					<DatePicker
-						value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-						onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
-						placeholder={columnDefault ?? "Select a date"}
-						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-					/>
-					<TooltipProvider delayDuration={0}>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const today = new Date().toISOString().split("T")[0];
-										field.onChange(today);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-				</div>
+				<DatePicker
+					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
+					onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
+					placeholder={columnDefault ?? "Select a date"}
+				/>
 			);
 		}
 
 		// Timestamp types: allow picking date + time
 		if (dataTypeLabel === "timestamptz") {
+			const hasTimestampDefault =
+				columnDefault?.toLowerCase().includes("current_timestamp") ||
+				columnDefault?.toLowerCase().includes("now()") ||
+				columnDefault?.toLowerCase().includes("localtimestamp");
+
+			if (hasTimestampDefault) {
+				return (
+					<div className="flex">
+						<DatePicker
+							value={
+								field.value ? new Date(field.value) : field.value === "" ? null : undefined
+							}
+							onChange={(date) => field.onChange(date ? date.toISOString() : "")}
+							showTime={true}
+							isFormatted={false}
+							placeholder={columnDefault ?? "Select a date and time"}
+							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+						/>
+						<TooltipProvider delayDuration={0}>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										aria-label="Set to now"
+										className="inline-flex w-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+										type="button"
+										onClick={() => {
+											const today = new Date().toISOString();
+											field.onChange(today);
+										}}
+									>
+										<Clock
+											aria-hidden="true"
+											className="size-4"
+											size={16}
+										/>
+									</button>
+								</TooltipTrigger>
+								<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+				);
+			}
+
 			return (
-				<div className="flex">
-					<DatePicker
-						value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-						onChange={(date) => field.onChange(date ? date.toISOString() : "")}
-						showTime={true}
-						isFormatted={false}
-						placeholder={columnDefault ?? "Select a date and time"}
-						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-					/>
-					<TooltipProvider delayDuration={0}>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const today = new Date().toISOString();
-										field.onChange(today);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-				</div>
+				<DatePicker
+					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
+					onChange={(date) => field.onChange(date ? date.toISOString() : "")}
+					showTime={true}
+					isFormatted={false}
+					placeholder={columnDefault ?? "Select a date and time"}
+				/>
 			);
 		}
 
 		// Timestamp (without timezone): store local value as-is
 		if (dataTypeLabel === "timestamp") {
+			const hasTimestampDefault =
+				columnDefault?.toLowerCase().includes("current_timestamp") ||
+				columnDefault?.toLowerCase().includes("now()") ||
+				columnDefault?.toLowerCase().includes("localtimestamp");
+
+			if (hasTimestampDefault) {
+				return (
+					<div className="flex">
+						<DatePicker
+							value={
+								field.value ? new Date(field.value) : field.value === "" ? null : undefined
+							}
+							onChange={(date) => field.onChange(date ? formatLocalTimestamp(date) : "")}
+							showTime={true}
+							isFormatted={false}
+							placeholder={columnDefault ?? "Select a date and time"}
+							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+						/>
+						<TooltipProvider delayDuration={0}>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										aria-label="Set to now"
+										className="inline-flex w-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+										type="button"
+										onClick={() => {
+											field.onChange(formatLocalTimestamp(new Date()));
+										}}
+									>
+										<Clock
+											aria-hidden="true"
+											className="size-4"
+											size={16}
+										/>
+									</button>
+								</TooltipTrigger>
+								<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+				);
+			}
+
 			return (
-				<div className="flex">
-					<DatePicker
-						value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-						onChange={(date) => field.onChange(date ? date.toISOString() : "")}
-						showTime={true}
-						isFormatted={false}
-						placeholder={columnDefault ?? "Select a date and time"}
-						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-					/>
-					<TooltipProvider delayDuration={0}>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const now = new Date();
-										const yyyy = now.getFullYear();
-										const mm = pad(now.getMonth() + 1).padStart(2, "0");
-										const dd = pad(now.getDate()).padStart(2, "0");
-										const hh = pad(now.getHours()).padStart(2, "0");
-										const min = pad(now.getMinutes()).padStart(2, "0");
-										field.onChange(`${yyyy}-${mm}-${dd}T${hh}:${min}`);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-				</div>
+				<DatePicker
+					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
+					onChange={(date) => field.onChange(date ? formatLocalTimestamp(date) : "")}
+					showTime={true}
+					isFormatted={false}
+					placeholder={columnDefault ?? "Select a date and time"}
+				/>
 			);
 		}
 
 		// UUID type
 		if (dataTypeLabel === "uuid") {
+			const hasUuidDefault =
+				columnDefault?.toLowerCase().includes("uuid") ||
+				columnDefault?.toLowerCase().includes("gen_random_uuid");
+
+			if (hasUuidDefault) {
+				return (
+					<div className="flex">
+						<Input
+							id={columnName}
+							type="text"
+							placeholder={columnDefault ?? ""}
+							pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+							{...safeField}
+						/>
+						<TooltipProvider delayDuration={0}>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										aria-label="Generate UUID"
+										className="inline-flex w-9 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+										type="button"
+										onClick={() => {
+											const generatedUUID = crypto.randomUUID();
+											field.onChange(generatedUUID);
+										}}
+									>
+										<RefreshCw
+											aria-hidden="true"
+											className="size-4"
+											size={16}
+										/>
+									</button>
+								</TooltipTrigger>
+								<TooltipContent className="px-2 py-1 text-xs">Generate UUID</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+				);
+			}
+
 			return (
-				<div className="flex">
-					<Input
-						id={columnName}
-						type="text"
-						placeholder={columnDefault ?? ""}
-						pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-						className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						{...safeField}
-					/>
-					<TooltipProvider delayDuration={0}>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Generate UUID"
-									className="inline-flex w-9 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const generatedUUID = crypto.randomUUID();
-										field.onChange(generatedUUID);
-									}}
-								>
-									<RefreshCw
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Generate UUID</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-				</div>
+				<Input
+					id={columnName}
+					type="text"
+					placeholder={columnDefault ?? ""}
+					pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+					{...safeField}
+				/>
 			);
 		}
 

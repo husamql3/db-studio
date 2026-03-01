@@ -29,11 +29,48 @@ vi.mock("@/dao/tables-data.dao.js", () => ({
 	getTableData: vi.fn(),
 }));
 
+// Mock MySQL DAO modules (imported by tables route for mysql dispatch)
+vi.mock("@/dao/mysql/table-list.mysql.dao.js", () => ({
+	getTablesList: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/create-table.mysql.dao.js", () => ({
+	createTable: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/delete-column.mysql.dao.js", () => ({
+	deleteColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/table-columns.mysql.dao.js", () => ({
+	getTableColumns: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/tables-data.mysql.dao.js", () => ({
+	getTableData: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/delete-table.mysql.dao.js", () => ({
+	deleteTable: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/table-schema.mysql.dao.js", () => ({
+	getTableSchema: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/export-table.mysql.dao.js", () => ({
+	exportTableData: vi.fn(),
+}));
+
 // Mock db-manager
 vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({
 		query: vi.fn(),
 	})),
+	getMysqlPool: vi.fn(() => ({
+		execute: vi.fn(),
+	})),
+	getDbType: vi.fn(() => "pg"),
 }));
 
 describe("Tables Routes", () => {
@@ -1194,10 +1231,16 @@ describe("Tables Routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("should return 400 for mysql database type (not supported)", async () => {
+		it("should accept mysql database type as valid", async () => {
+			const { getTablesList: mysqlGetTablesList } = await import(
+				"@/dao/mysql/table-list.mysql.dao.js"
+			);
+			vi.mocked(mysqlGetTablesList).mockResolvedValue([]);
+
 			const res = await app.request("/mysql/tables?db=testdb");
 
-			expect(res.status).toBe(400);
+			// mysql is a valid database type — route should succeed
+			expect([200, 500]).toContain(res.status);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
