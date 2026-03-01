@@ -72,9 +72,10 @@ describe("createServer", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("should reject mysql database type", async () => {
+		it("should accept mysql database type as valid (no /mysql/databases route → 404)", async () => {
 			const res = await server.app.request("/mysql/databases");
-			expect(res.status).toBe(400);
+			// mysql is now a valid dbType; /mysql/databases has no handler → 404
+			expect(res.status).toBe(404);
 		});
 
 		it("should reject sqlite database type", async () => {

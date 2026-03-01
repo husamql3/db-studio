@@ -8,13 +8,23 @@ import {
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
-import type { ApiHandler } from "@/app.types.js";
-import { addRecord } from "@/dao/add-record.dao.js";
-import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
-import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
-import { updateRecords } from "@/dao/update-records.dao.js";
+import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { addRecord as pgAddRecord } from "@/dao/add-record.dao.js";
+import { bulkInsertRecords as pgBulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
+import {
+	deleteRecords as pgDeleteRecords,
+	forceDeleteRecords as pgForceDeleteRecords,
+} from "@/dao/delete-records.dao.js";
+import { addRecord as mysqlAddRecord } from "@/dao/mysql/add-record.mysql.dao.js";
+import { bulkInsertRecords as mysqlBulkInsertRecords } from "@/dao/mysql/bulk-insert-records.mysql.dao.js";
+import {
+	deleteRecords as mysqlDeleteRecords,
+	forceDeleteRecords as mysqlForceDeleteRecords,
+} from "@/dao/mysql/delete-records.mysql.dao.js";
+import { updateRecords as mysqlUpdateRecords } from "@/dao/mysql/update-records.mysql.dao.js";
+import { updateRecords as pgUpdateRecords } from "@/dao/update-records.dao.js";
 
-export const recordsRoutes = new Hono()
+export const recordsRoutes = new Hono<RouteEnv>()
 	/**
 	 * Base path for the endpoints, /:dbType/records/...
 	 */
@@ -23,9 +33,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * POST /records
 	 * Adds a new record into a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {AddRecordSchemaType} json - The data for the new record
-	 * @returns {BaseResponseType<string>} A success message
 	 */
 	.post(
 		"/",
@@ -34,13 +41,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
-			const { insertedCount } = await addRecord({
-				db,
-				params: {
-					tableName,
-					data,
-				},
-			});
+			const dbType = c.get("dbType");
+			const { insertedCount } =
+				dbType === "mysql"
+					? await mysqlAddRecord({ db, params: { tableName, data } })
+					: await pgAddRecord({ db, params: { tableName, data } });
 			return c.json(
 				{
 					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
@@ -53,9 +58,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * PATCH /records
 	 * Updates one or more cells in a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {UpdateRecordsSchemaType} json - The data for the updates
-	 * @returns {ApiHandler<string>} A success message
 	 */
 	.patch(
 		"/",
@@ -64,14 +66,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
-			const { updatedCount } = await updateRecords({
-				params: {
-					tableName,
-					primaryKey,
-					updates,
-				},
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { updatedCount } =
+				dbType === "mysql"
+					? await mysqlUpdateRecords({ params: { tableName, primaryKey, updates }, db })
+					: await pgUpdateRecords({ params: { tableName, primaryKey, updates }, db });
 			return c.json(
 				{
 					data: `Updated ${updatedCount} records in "${tableName}"`,
@@ -84,24 +83,19 @@ export const recordsRoutes = new Hono()
 	/**
 	 * DELETE /records
 	 * Deletes records from a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string, 409 | 200>} A success message
 	 */
 	.delete(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
 		async (c): ApiHandler<DeleteRecordResult, 409 | 200> => {
-			// TODO: refactor this shit, the backend responses should be consistent
-			// TODO: the frontend could be simplified too
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const { deletedCount, fkViolation, relatedRecords } = await deleteRecords({
-				tableName,
-				primaryKeys,
-				db,
-			});
+			const dbType = c.get("dbType");
+			const { deletedCount, fkViolation, relatedRecords } =
+				dbType === "mysql"
+					? await mysqlDeleteRecords({ tableName, primaryKeys, db })
+					: await pgDeleteRecords({ tableName, primaryKeys, db });
 			if (fkViolation) {
 				return c.json(
 					{
@@ -130,9 +124,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * DELETE /records/force
 	 * Force deletes records and all related FK records
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string>} A success message
 	 */
 	.delete(
 		"/force",
@@ -141,7 +132,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<{ deletedCount: number }> => {
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
-			const deletedCount = await forceDeleteRecords({ tableName, primaryKeys, db });
+			const dbType = c.get("dbType");
+			const deletedCount =
+				dbType === "mysql"
+					? await mysqlForceDeleteRecords({ tableName, primaryKeys, db })
+					: await pgForceDeleteRecords({ tableName, primaryKeys, db });
 			return c.json({ data: deletedCount }, 200);
 		},
 	)
@@ -149,9 +144,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * POST /records/bulk
 	 * Bulk inserts multiple records into a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {BulkInsertRecordsParamsType} json - The data for the bulk insert
-	 * @returns {BaseResponseType<BulkInsertResult>} Success and failure counts
 	 */
 	.post(
 		"/bulk",
@@ -160,7 +152,11 @@ export const recordsRoutes = new Hono()
 		async (c): ApiHandler<object> => {
 			const { db } = c.req.valid("query");
 			const { tableName, records } = c.req.valid("json");
-			const result = await bulkInsertRecords({ tableName, records, db });
+			const dbType = c.get("dbType");
+			const result =
+				dbType === "mysql"
+					? await mysqlBulkInsertRecords({ tableName, records, db })
+					: await pgBulkInsertRecords({ tableName, records, db });
 			console.log("result", result);
 			return c.json({ data: result }, 200);
 		},
