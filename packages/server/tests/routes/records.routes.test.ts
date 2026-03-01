@@ -20,11 +20,33 @@ vi.mock("@/dao/delete-records.dao.js", () => ({
 	forceDeleteRecords: vi.fn(),
 }));
 
+// Mock MySQL DAO modules (imported by records route for mysql dispatch)
+vi.mock("@/dao/mysql/add-record.mysql.dao.js", () => ({
+	addRecord: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/update-records.mysql.dao.js", () => ({
+	updateRecords: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/delete-records.mysql.dao.js", () => ({
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/bulk-insert-records.mysql.dao.js", () => ({
+	bulkInsertRecords: vi.fn(),
+}));
+
 // Mock db-manager
 vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({
 		query: vi.fn(),
 	})),
+	getMysqlPool: vi.fn(() => ({
+		execute: vi.fn(),
+	})),
+	getDbType: vi.fn(() => "pg"),
 }));
 
 describe("Records Routes", () => {
@@ -1142,7 +1164,12 @@ describe("Records Routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("should return 400 for mysql database type on PATCH", async () => {
+		it("should accept mysql database type as valid on PATCH", async () => {
+			const { updateRecords: mysqlUpdateRecords } = await import(
+				"@/dao/mysql/update-records.mysql.dao.js"
+			);
+			vi.mocked(mysqlUpdateRecords).mockResolvedValue({ updatedCount: 1 });
+
 			const body = {
 				tableName: "users",
 				primaryKey: "id",
@@ -1161,7 +1188,8 @@ describe("Records Routes", () => {
 				body: JSON.stringify(body),
 			});
 
-			expect(res.status).toBe(400);
+			// mysql is a valid database type — route should succeed
+			expect(res.status).toBe(200);
 		});
 
 		it("should return 400 for sqlite database type on DELETE", async () => {

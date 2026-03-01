@@ -102,7 +102,7 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
  * Standardized data type labels
  */
 export const StandardizedDataType = {
-	// Numeric types
+	// PostgreSQL numeric types
 	int: "int",
 	bigint: "bigint",
 	smallint: "smallint",
@@ -110,38 +110,57 @@ export const StandardizedDataType = {
 	float: "float",
 	double: "double",
 	money: "money",
+	// MySQL numeric types
+	tinyint: "tinyint",
+	mediumint: "mediumint",
+	bit: "bit",
 	// Boolean
 	boolean: "boolean",
-	// Text types
+	// Text types (shared)
 	text: "text",
 	varchar: "varchar",
 	char: "char",
+	// MySQL text types
+	tinytext: "tinytext",
+	mediumtext: "mediumtext",
+	longtext: "longtext",
 	// JSON types
 	json: "json",
 	jsonb: "jsonb",
 	xml: "xml",
 	// UUID
 	uuid: "uuid",
-	// Date/Time types
+	// Date/Time types (shared)
 	date: "date",
 	time: "time",
 	timestamp: "timestamp",
+	// PostgreSQL date/time
 	timestamptz: "timestamptz",
 	interval: "interval",
-	// Binary
+	// MySQL date/time
+	datetime: "datetime",
+	year: "year",
+	// PostgreSQL binary/network/geometric types
 	bytea: "bytea",
-	// Network types
 	inet: "inet",
 	cidr: "cidr",
 	macaddr: "macaddr",
 	macaddr8: "macaddr8",
-	// Geometric types
 	point: "point",
 	line: "line",
 	polygon: "polygon",
-	// Complex types
+	// MySQL binary types
+	binary: "binary",
+	varbinary: "varbinary",
+	blob: "blob",
+	tinyblob: "tinyblob",
+	mediumblob: "mediumblob",
+	longblob: "longblob",
+	// Complex types (shared)
 	array: "array",
 	enum: "enum",
+	// MySQL set type
+	set: "set",
 } as const;
 
 export type StandardizedDataType =
@@ -328,5 +347,135 @@ export function standardizeDataTypeLabel(
 	}
 
 	// Default: return the original type
+	return StandardizedDataType.text;
+}
+
+/**
+ * Maps MySQL data types to generic DataType enum (used for cell rendering)
+ * @param mysqlDataType - The DATA_TYPE field from information_schema.COLUMNS
+ * @param columnType - The COLUMN_TYPE field (e.g., "tinyint(1)", "enum('a','b')") for finer mapping
+ */
+export function mapMysqlToDataType(mysqlDataType: string, columnType?: string): DataTypes {
+	const normalized = mysqlDataType?.toLowerCase().trim() || "";
+	const fullType = columnType?.toLowerCase().trim() || "";
+
+	// tinyint(1) is MySQL's boolean convention
+	if (normalized === "tinyint" && fullType === "tinyint(1)") {
+		return DataTypes.boolean;
+	}
+
+	// Numeric types
+	if (
+		normalized === "tinyint" ||
+		normalized === "smallint" ||
+		normalized === "mediumint" ||
+		normalized === "int" ||
+		normalized === "integer" ||
+		normalized === "bigint" ||
+		normalized === "decimal" ||
+		normalized === "numeric" ||
+		normalized === "float" ||
+		normalized === "double" ||
+		normalized === "real" ||
+		normalized === "bit"
+	) {
+		return DataTypes.number;
+	}
+
+	// Boolean (explicit)
+	if (normalized === "boolean" || normalized === "bool") {
+		return DataTypes.boolean;
+	}
+
+	// Date/time types
+	if (
+		normalized === "date" ||
+		normalized === "datetime" ||
+		normalized === "timestamp" ||
+		normalized === "time" ||
+		normalized === "year"
+	) {
+		return DataTypes.date;
+	}
+
+	// JSON
+	if (normalized === "json") {
+		return DataTypes.json;
+	}
+
+	// Enum and set (set behaves like enum for display)
+	if (normalized === "enum" || normalized === "set") {
+		return DataTypes.enum;
+	}
+
+	// All text and binary types default to text
+	return DataTypes.text;
+}
+
+/**
+ * Maps MySQL data types to standardized display labels
+ * @param mysqlDataType - The DATA_TYPE field from information_schema.COLUMNS
+ * @param columnType - The COLUMN_TYPE field (e.g., "tinyint(1)") for finer mapping
+ */
+export function standardizeMysqlDataTypeLabel(
+	mysqlDataType: string,
+	columnType?: string,
+): StandardizedDataType {
+	if (!mysqlDataType) {
+		return StandardizedDataType.text;
+	}
+	const normalized = mysqlDataType.toLowerCase().trim();
+	const fullType = columnType?.toLowerCase().trim() || "";
+
+	// tinyint(1) is MySQL's boolean convention
+	if (normalized === "tinyint" && fullType === "tinyint(1)")
+		return StandardizedDataType.boolean;
+
+	// Numeric types
+	if (normalized === "tinyint") return StandardizedDataType.tinyint;
+	if (normalized === "smallint") return StandardizedDataType.smallint;
+	if (normalized === "mediumint") return StandardizedDataType.mediumint;
+	if (normalized === "int" || normalized === "integer") return StandardizedDataType.int;
+	if (normalized === "bigint") return StandardizedDataType.bigint;
+	if (normalized === "decimal" || normalized === "numeric")
+		return StandardizedDataType.numeric;
+	if (normalized === "float" || normalized === "real") return StandardizedDataType.float;
+	if (normalized === "double") return StandardizedDataType.double;
+	if (normalized === "bit") return StandardizedDataType.bit;
+
+	// Boolean
+	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
+
+	// Text types
+	if (normalized === "char") return StandardizedDataType.char;
+	if (normalized === "varchar") return StandardizedDataType.varchar;
+	if (normalized === "tinytext") return StandardizedDataType.tinytext;
+	if (normalized === "text") return StandardizedDataType.text;
+	if (normalized === "mediumtext") return StandardizedDataType.mediumtext;
+	if (normalized === "longtext") return StandardizedDataType.longtext;
+
+	// Binary types
+	if (normalized === "binary") return StandardizedDataType.binary;
+	if (normalized === "varbinary") return StandardizedDataType.varbinary;
+	if (normalized === "tinyblob") return StandardizedDataType.tinyblob;
+	if (normalized === "blob") return StandardizedDataType.blob;
+	if (normalized === "mediumblob") return StandardizedDataType.mediumblob;
+	if (normalized === "longblob") return StandardizedDataType.longblob;
+
+	// JSON
+	if (normalized === "json") return StandardizedDataType.json;
+
+	// Date/time types
+	if (normalized === "date") return StandardizedDataType.date;
+	if (normalized === "time") return StandardizedDataType.time;
+	if (normalized === "datetime") return StandardizedDataType.datetime;
+	if (normalized === "timestamp") return StandardizedDataType.timestamp;
+	if (normalized === "year") return StandardizedDataType.year;
+
+	// Complex types
+	if (normalized === "enum") return StandardizedDataType.enum;
+	if (normalized === "set") return StandardizedDataType.set;
+
+	// Default
 	return StandardizedDataType.text;
 }

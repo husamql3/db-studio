@@ -9,11 +9,20 @@ vi.mock("@/dao/query.dao.js", () => ({
 	executeQuery: vi.fn(),
 }));
 
+// Mock MySQL query DAO (imported by query route for mysql dispatch)
+vi.mock("@/dao/mysql/query.mysql.dao.js", () => ({
+	executeQuery: vi.fn(),
+}));
+
 // Mock db-manager
 vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({
 		query: vi.fn(),
 	})),
+	getMysqlPool: vi.fn(() => ({
+		execute: vi.fn(),
+	})),
+	getDbType: vi.fn(() => "pg"),
 }));
 
 describe("Query Routes", () => {
@@ -615,14 +624,25 @@ describe("Query Routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("should return 400 for mysql database type (not supported)", async () => {
+		it("should accept mysql database type as valid", async () => {
+			const { executeQuery: mysqlExecuteQuery } = await import(
+				"@/dao/mysql/query.mysql.dao.js"
+			);
+			vi.mocked(mysqlExecuteQuery).mockResolvedValue({
+				columns: ["1"],
+				rows: [{ "1": 1 }],
+				rowCount: 1,
+				duration: 1.0,
+			});
+
 			const res = await app.request("/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
 			});
 
-			expect(res.status).toBe(400);
+			// mysql is a valid database type — route should succeed
+			expect(res.status).toBe(200);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {

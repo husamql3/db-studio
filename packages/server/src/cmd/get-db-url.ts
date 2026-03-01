@@ -49,8 +49,8 @@ export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: s
 		const customPath = await text({
 			message: "Enter path to .env file",
 			placeholder: "~/projects/myapp/.env.local or ./special.env",
-			validate(value: string) {
-				if (!value.trim()) return "Path is required";
+			validate(value?: string) {
+				if (!value?.trim()) return "Path is required";
 			},
 		});
 
@@ -82,8 +82,8 @@ export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: s
 	const dbUrl = await text({
 		message: `Paste your ${envVarName}`,
 		placeholder: "postgresql://user:password@localhost:5432/mydb",
-		validate(value: string) {
-			if (!value.trim()) return "Connection string is required!";
+		validate(value?: string) {
+			if (!value?.trim()) return "Connection string is required!";
 			try {
 				new URL(value); // very basic check
 				return undefined;

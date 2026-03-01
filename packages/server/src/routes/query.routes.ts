@@ -1,10 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { databaseSchema, type ExecuteQueryResult, executeQuerySchema } from "shared/types";
-import type { ApiHandler } from "@/app.types.js";
-import { executeQuery } from "@/dao/query.dao.js";
+import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { executeQuery as mysqlExecuteQuery } from "@/dao/mysql/query.mysql.dao.js";
+import { executeQuery as pgExecuteQuery } from "@/dao/query.dao.js";
 
-export const queryRoutes = new Hono()
+export const queryRoutes = new Hono<RouteEnv>()
 	/**
 	 * Base path for the endpoints, /:dbType/query/...
 	 */
@@ -13,9 +14,6 @@ export const queryRoutes = new Hono()
 	/**
 	 * POST /query
 	 * Executes a SQL query on the currently connected database
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {ExecuteQuerySchemaType} json - The query to execute
-	 * @returns {ApiHandler<ExecuteQueryResult>} The result of the query
 	 */
 	.post(
 		"/",
@@ -24,7 +22,11 @@ export const queryRoutes = new Hono()
 		async (c): ApiHandler<ExecuteQueryResult> => {
 			const { query } = c.req.valid("json");
 			const { db } = c.req.valid("query");
-			const data = await executeQuery({ query, db });
+			const dbType = c.get("dbType");
+			const data =
+				dbType === "mysql"
+					? await mysqlExecuteQuery({ query, db })
+					: await pgExecuteQuery({ query, db });
 			return c.json({ data }, 200);
 		},
 	);
