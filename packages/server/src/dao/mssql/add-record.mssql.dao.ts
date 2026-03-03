@@ -36,7 +36,7 @@ export async function addRecord({
 	`;
 
 	const request = pool.request();
-	columns.forEach((col, idx) => {
+	columns.forEach((_col, idx) => {
 		request.input(`param${idx}`, values[idx]);
 	});
 

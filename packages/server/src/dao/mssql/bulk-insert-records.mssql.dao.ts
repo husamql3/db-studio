@@ -42,7 +42,7 @@ export const bulkInsertRecords = async ({
 			});
 
 			const paramNames = columns.map((_, idx) => `@p${i}_${idx}`).join(", ");
-			columns.forEach((col, idx) => {
+			columns.forEach((_col, idx) => {
 				request.input(`p${i}_${idx}`, values[idx]);
 			});
 
