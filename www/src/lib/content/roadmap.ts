@@ -146,7 +146,7 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Multi-Database Support",
 		status: "in-progress",
 		items: [
-			{ title: "Add full support for MySQL databases", status: "in-progress" },
+			{ title: "Add full support for MySQL databases", status: "completed" },
 			{ title: "Add full support for SQLite databases", status: "planned" },
 			{
 				title: "Add full support for MongoDB databases",
@@ -158,7 +158,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add full support for SQL Server databases",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
 				title: "Easy switching between different database connections",
