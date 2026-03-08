@@ -9,20 +9,7 @@ import {
 	updateRecordsSchema,
 } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { addRecord as pgAddRecord } from "@/dao/add-record.dao.js";
-import { bulkInsertRecords as pgBulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
-import {
-	deleteRecords as pgDeleteRecords,
-	forceDeleteRecords as pgForceDeleteRecords,
-} from "@/dao/delete-records.dao.js";
-import { addRecord as mysqlAddRecord } from "@/dao/mysql/add-record.mysql.dao.js";
-import { bulkInsertRecords as mysqlBulkInsertRecords } from "@/dao/mysql/bulk-insert-records.mysql.dao.js";
-import {
-	deleteRecords as mysqlDeleteRecords,
-	forceDeleteRecords as mysqlForceDeleteRecords,
-} from "@/dao/mysql/delete-records.mysql.dao.js";
-import { updateRecords as mysqlUpdateRecords } from "@/dao/mysql/update-records.mysql.dao.js";
-import { updateRecords as pgUpdateRecords } from "@/dao/update-records.dao.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 
 export const recordsRoutes = new Hono<RouteEnv>()
 	/**
@@ -42,10 +29,8 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { insertedCount } =
-				dbType === "mysql"
-					? await mysqlAddRecord({ db, params: { tableName, data } })
-					: await pgAddRecord({ db, params: { tableName, data } });
+			const dao = getDaoFactory(dbType);
+			const { insertedCount } = await dao.addRecord({ db, params: { tableName, data } });
 			return c.json(
 				{
 					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
@@ -67,10 +52,11 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { updatedCount } =
-				dbType === "mysql"
-					? await mysqlUpdateRecords({ params: { tableName, primaryKey, updates }, db })
-					: await pgUpdateRecords({ params: { tableName, primaryKey, updates }, db });
+			const dao = getDaoFactory(dbType);
+			const { updatedCount } = await dao.updateRecords({
+				params: { tableName, primaryKey, updates },
+				db,
+			});
 			return c.json(
 				{
 					data: `Updated ${updatedCount} records in "${tableName}"`,
@@ -92,10 +78,12 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { deletedCount, fkViolation, relatedRecords } =
-				dbType === "mysql"
-					? await mysqlDeleteRecords({ tableName, primaryKeys, db })
-					: await pgDeleteRecords({ tableName, primaryKeys, db });
+			const dao = getDaoFactory(dbType);
+			const { deletedCount, fkViolation, relatedRecords } = await dao.deleteRecords({
+				tableName,
+				primaryKeys,
+				db,
+			});
 			if (fkViolation) {
 				return c.json(
 					{
@@ -133,10 +121,8 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const deletedCount =
-				dbType === "mysql"
-					? await mysqlForceDeleteRecords({ tableName, primaryKeys, db })
-					: await pgForceDeleteRecords({ tableName, primaryKeys, db });
+			const dao = getDaoFactory(dbType);
+			const deletedCount = await dao.forceDeleteRecords({ tableName, primaryKeys, db });
 			return c.json({ data: deletedCount }, 200);
 		},
 	)
@@ -153,10 +139,8 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, records } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const result =
-				dbType === "mysql"
-					? await mysqlBulkInsertRecords({ tableName, records, db })
-					: await pgBulkInsertRecords({ tableName, records, db });
+			const dao = getDaoFactory(dbType);
+			const result = await dao.bulkInsertRecords({ tableName, records, db });
 			console.log("result", result);
 			return c.json({ data: result }, 200);
 		},
