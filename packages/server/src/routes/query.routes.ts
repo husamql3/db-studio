@@ -2,8 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { databaseSchema, type ExecuteQueryResult, executeQuerySchema } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { executeQuery as mysqlExecuteQuery } from "@/dao/mysql/query.mysql.dao.js";
-import { executeQuery as pgExecuteQuery } from "@/dao/query.dao.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 
 export const queryRoutes = new Hono<RouteEnv>()
 	/**
@@ -23,10 +22,8 @@ export const queryRoutes = new Hono<RouteEnv>()
 			const { query } = c.req.valid("json");
 			const { db } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const data =
-				dbType === "mysql"
-					? await mysqlExecuteQuery({ query, db })
-					: await pgExecuteQuery({ query, db });
+			const dao = getDaoFactory(dbType);
+			const data = await dao.executeQuery({ query, db });
 			return c.json({ data }, 200);
 		},
 	);

@@ -5,16 +5,7 @@ import type {
 	DatabaseListSchemaType,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
-import {
-	getCurrentDatabase as pgGetCurrentDatabase,
-	getDatabaseConnectionInfo as pgGetDatabaseConnectionInfo,
-	getDatabasesList as pgGetDatabasesList,
-} from "@/dao/database-list.dao.js";
-import {
-	getCurrentDatabase as mysqlGetCurrentDatabase,
-	getDatabaseConnectionInfo as mysqlGetDatabaseConnectionInfo,
-	getDatabasesList as mysqlGetDatabasesList,
-} from "@/dao/mysql/database-list.mysql.dao.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 import { getDbType } from "@/db-manager.js";
 
 /**
@@ -35,8 +26,8 @@ export const databasesRoutes = new Hono()
 	 */
 	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
 		const dbType = getDbType();
-		const databases =
-			dbType === "mysql" ? await mysqlGetDatabasesList() : await pgGetDatabasesList();
+		const dao = getDaoFactory(dbType);
+		const databases = await dao.getDatabasesList();
 		return c.json({ data: { databases, dbType } }, 200);
 	})
 
@@ -46,8 +37,8 @@ export const databasesRoutes = new Hono()
 	 */
 	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
 		const dbType = getDbType();
-		const current =
-			dbType === "mysql" ? await mysqlGetCurrentDatabase() : await pgGetCurrentDatabase();
+		const dao = getDaoFactory(dbType);
+		const current = await dao.getCurrentDatabase();
 		return c.json({ data: { db: current.db, dbType } }, 200);
 	})
 
@@ -57,10 +48,8 @@ export const databasesRoutes = new Hono()
 	 */
 	.get("/connection", async (c): ApiHandler<ConnectionInfoSchemaType> => {
 		const dbType = getDbType();
-		const info =
-			dbType === "mysql"
-				? await mysqlGetDatabaseConnectionInfo()
-				: await pgGetDatabaseConnectionInfo();
+		const dao = getDaoFactory(dbType);
+		const info = await dao.getDatabaseConnectionInfo();
 		return c.json({ data: info }, 200);
 	});
 
