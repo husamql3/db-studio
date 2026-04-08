@@ -19,8 +19,8 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 function App() {
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
-			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-14">
-				<div className="relative w-full flex flex-col border-t px-3 py-6 md:px-8 md:py-10 gap-6 md:gap-10">
+			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
+				<div className="relative w-full flex flex-col border-y px-3 py-6 md:px-8 md:py-10 gap-6 md:gap-10">
 					{/* X Faded Borders & Shades */}
 					<div
 						aria-hidden="true"
@@ -52,12 +52,11 @@ function App() {
 						</p>
 					</div>
 
-					<div className="flex flex-col mx-auto max-w-xs sm:max-w-lg w-full">
+					<div className="flex flex-col mx-auto max-w-md sm:max-w-lg w-full">
 						<div className="flex flex-col gap-1 text-center md:text-left">
 							<h1 className="font-semibold">Getting Started</h1>
 							<p className="text-xs text-muted-foreground">
-								Run DB Studio directly in your terminal with a single command, no installation
-								required.
+								Launch instantly from your terminal—no installation needed.
 							</p>
 						</div>
 
@@ -153,7 +152,7 @@ function App() {
 					/>
 				</div>
 
-				<div className="relative w-full flex flex-col border-t">
+				<div className="relative w-full flex flex-col border-y">
 					<img
 						src="/studio.png"
 						alt="DB Studio"
@@ -162,6 +161,14 @@ function App() {
 						className="w-full h-full object-contain"
 					/>
 
+					<PlusIcon
+						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
 					<PlusIcon
 						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
 						strokeWidth={1}
@@ -197,7 +204,7 @@ function App() {
 					/>
 				</div>
 
-				<div className="relative w-full flex flex-col border-b">
+				<div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
 						Everything you need to{" "}
 						<span className="text-foreground">manage your database</span>

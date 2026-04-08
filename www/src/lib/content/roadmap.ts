@@ -146,6 +146,7 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Multi-Database Support",
 		status: "in-progress",
 		items: [
+			{ title: "Add full support for PostgreSQL databases", status: "completed" },
 			{ title: "Add full support for MySQL databases", status: "completed" },
 			{ title: "Add full support for SQLite databases", status: "planned" },
 			{
