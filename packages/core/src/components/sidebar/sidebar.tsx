@@ -15,16 +15,16 @@ export const Sidebar = () => {
 		switch (path) {
 			case "":
 			case "table":
+			case "schema":
 				return <SidebarContentTablesList />;
 			case "runner":
 				return <SidebarContentQueriesList />;
 			default:
 				return <SidebarContentTablesList />;
 			// todo
-			// case "/indexes":
-			// case "/logs":
-			// case "/schema":
-			// case "/visualizer":
+			// case "indexes":
+			// case "logs":
+			// case "visualizer":
 		}
 	}, [path]);
 

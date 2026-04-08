@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
 import type { AddTableFormData } from "@/types/add-table.type";
 
-export const ColumnNameField = ({ index }: { index: number }) => {
+export const ColumnNameField = ({
+	index,
+	showForeignKeyButton = true,
+}: {
+	index: number;
+	showForeignKeyButton?: boolean;
+}) => {
 	const { openSheet } = useSheetStore();
 	const {
 		control,
@@ -14,7 +20,9 @@ export const ColumnNameField = ({ index }: { index: number }) => {
 		watch,
 	} = useFormContext<AddTableFormData>();
 
-	const referencedTable = watch(`foreignKeys.${index}.referencedTable`);
+	const referencedTable = showForeignKeyButton
+		? watch(`foreignKeys.${index}.referencedTable`)
+		: undefined;
 
 	const handleGenerateColumnName = () => {
 		// Just open the sheet - don't create empty foreign key entry
@@ -34,26 +42,30 @@ export const ColumnNameField = ({ index }: { index: number }) => {
 						})}
 						placeholder="column_name"
 						className={cn(
-							"-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10",
+							showForeignKeyButton
+								? "-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+								: "flex-1",
 							errors?.fields?.[index]?.columnName
 								? "border-destructive ring-destructive ring-1"
 								: "",
 						)}
 					/>
-					<button
-						aria-label="Generate column name"
-						className={cn(
-							"inline-flex w-7 h-7 items-center justify-center rounded-e-md border  border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-							!referencedTable ? "border-dashed" : "",
-						)}
-						type="button"
-						onClick={handleGenerateColumnName}
-					>
-						<LinkIcon
-							aria-hidden="true"
-							className="size-3"
-						/>
-					</button>
+					{showForeignKeyButton && (
+						<button
+							aria-label="Generate column name"
+							className={cn(
+								"inline-flex w-7 h-7 items-center justify-center rounded-e-md border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+								!referencedTable ? "border-dashed" : "",
+							)}
+							type="button"
+							onClick={handleGenerateColumnName}
+						>
+							<LinkIcon
+								aria-hidden="true"
+								className="size-3"
+							/>
+						</button>
+					)}
 				</div>
 			)}
 		/>

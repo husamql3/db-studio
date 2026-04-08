@@ -9,7 +9,7 @@ export const useDeleteColumn = () => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
 
-	const { mutateAsync: deleteColumnAsync } = useMutation<
+	const { mutateAsync: deleteColumnAsync, isPending: isDeletingColumn } = useMutation<
 		string,
 		Error,
 		DeleteColumnParamsSchemaType
@@ -60,5 +60,6 @@ export const useDeleteColumn = () => {
 
 	return {
 		deleteColumn,
+		isDeletingColumn,
 	};
 };

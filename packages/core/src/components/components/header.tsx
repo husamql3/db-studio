@@ -1,6 +1,6 @@
 import { Github } from "lucide-react";
 import { META } from "shared/constants";
-import { Chat } from "@/components/chat/chat";
+// import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export const Header = () => {
 			</div>
 
 			<div className="flex items-center h-full">
-				<Chat />
+				{/* <Chat /> */}
 				{/* <Tooltip>
 					<TooltipTrigger asChild>
 						<Button
