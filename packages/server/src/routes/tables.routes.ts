@@ -1,6 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
+	addColumnSchema,
+	alterColumnSchema,
 	type ColumnInfoSchemaType,
 	createTableSchema,
 	type DeleteTableResult,
@@ -9,6 +11,7 @@ import {
 	deleteColumnQuerySchema,
 	deleteTableQuerySchema,
 	exportTableSchema,
+	renameColumnSchema,
 	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
 	type TableSchemaResult,
@@ -16,18 +19,24 @@ import {
 	tableNameSchema,
 } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { addColumn as pgAddColumn } from "@/dao/add-column.dao.js";
+import { alterColumn as pgAlterColumn } from "@/dao/alter-column.dao.js";
 import { createTable as pgCreateTable } from "@/dao/create-table.dao.js";
 import { deleteColumn as pgDeleteColumn } from "@/dao/delete-column.dao.js";
 import { deleteTable as pgDeleteTable } from "@/dao/delete-table.dao.js";
 import { exportTableData as pgExportTableData } from "@/dao/export-table.dao.js";
+import { addColumn as mysqlAddColumn } from "@/dao/mysql/add-column.mysql.dao.js";
+import { alterColumn as mysqlAlterColumn } from "@/dao/mysql/alter-column.mysql.dao.js";
 import { createTable as mysqlCreateTable } from "@/dao/mysql/create-table.mysql.dao.js";
 import { deleteColumn as mysqlDeleteColumn } from "@/dao/mysql/delete-column.mysql.dao.js";
 import { deleteTable as mysqlDeleteTable } from "@/dao/mysql/delete-table.mysql.dao.js";
 import { exportTableData as mysqlExportTableData } from "@/dao/mysql/export-table.mysql.dao.js";
+import { renameColumn as mysqlRenameColumn } from "@/dao/mysql/rename-column.mysql.dao.js";
 import { getTableColumns as mysqlGetTableColumns } from "@/dao/mysql/table-columns.mysql.dao.js";
 import { getTablesList as mysqlGetTablesList } from "@/dao/mysql/table-list.mysql.dao.js";
 import { getTableSchema as mysqlGetTableSchema } from "@/dao/mysql/table-schema.mysql.dao.js";
 import { getTableData as mysqlGetTableData } from "@/dao/mysql/tables-data.mysql.dao.js";
+import { renameColumn as pgRenameColumn } from "@/dao/rename-column.dao.js";
 import { getTableColumns as pgGetTableColumns } from "@/dao/table-columns.dao.js";
 import { getTablesList as pgGetTablesList } from "@/dao/table-list.dao.js";
 import { getTableSchema as pgGetTableSchema } from "@/dao/table-schema.dao.js";
@@ -116,6 +125,96 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			return c.json(
 				{
 					data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
+	 * POST /tables/:tableName/columns
+	 * Adds a column to a table
+	 */
+	.post(
+		"/:tableName/columns",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		zValidator("json", addColumnSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			if (dbType === "mysql") {
+				await mysqlAddColumn({ tableName, db, ...body });
+			} else {
+				await pgAddColumn({ tableName, db, ...body });
+			}
+
+			return c.json(
+				{
+					data: `Column "${body.columnName}" added successfully to table "${tableName}"`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
+	 * PATCH /tables/:tableName/columns/:columnName/rename
+	 * Renames a column in a table
+	 */
+	.patch(
+		"/:tableName/columns/:columnName/rename",
+		zValidator("query", databaseSchema),
+		zValidator("param", deleteColumnParamSchema),
+		zValidator("json", renameColumnSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, columnName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			if (dbType === "mysql") {
+				await mysqlRenameColumn({ tableName, columnName, db, ...body });
+			} else {
+				await pgRenameColumn({ tableName, columnName, db, ...body });
+			}
+
+			return c.json(
+				{
+					data: `Column "${columnName}" renamed to "${body.newColumnName}" in table "${tableName}"`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
+	 * PATCH /tables/:tableName/columns/:columnName
+	 * Alters a column in a table
+	 */
+	.patch(
+		"/:tableName/columns/:columnName",
+		zValidator("query", databaseSchema),
+		zValidator("param", deleteColumnParamSchema),
+		zValidator("json", alterColumnSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, columnName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			if (dbType === "mysql") {
+				await mysqlAlterColumn({ tableName, columnName, db, ...body });
+			} else {
+				await pgAlterColumn({ tableName, columnName, db, ...body });
+			}
+
+			return c.json(
+				{
+					data: `Column "${columnName}" updated successfully in table "${tableName}"`,
 				},
 				200,
 			);

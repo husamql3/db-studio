@@ -57,6 +57,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
+				title:
+					"Edit table columns directly from the schema tab, including add, rename, update, and drop actions",
+				status: "completed",
+			},
+			{
 				title: "Indexes section to view, add, edit, or remove indexes",
 				status: "planned",
 			},
@@ -66,7 +71,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Schema section for views, functions, triggers, and extensions",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Safe playground area to test queries without risk",
