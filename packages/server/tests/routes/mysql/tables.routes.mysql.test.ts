@@ -1,14 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
+import type { ColumnInfoSchemaType } from "shared/types";
 
 import { createServer } from "@/utils/create-server.js";
+import * as mysqlAddColumnDao from "@/dao/mysql/add-column.mysql.dao.js";
+import * as mysqlAlterColumnDao from "@/dao/mysql/alter-column.mysql.dao.js";
 import * as mysqlTableListDao from "@/dao/mysql/table-list.mysql.dao.js";
 import * as mysqlCreateTableDao from "@/dao/mysql/create-table.mysql.dao.js";
 import * as mysqlDeleteColumnDao from "@/dao/mysql/delete-column.mysql.dao.js";
+import * as mysqlRenameColumnDao from "@/dao/mysql/rename-column.mysql.dao.js";
 import * as mysqlTableColumnsDao from "@/dao/mysql/table-columns.mysql.dao.js";
 import * as mysqlTablesDataDao from "@/dao/mysql/tables-data.mysql.dao.js";
 
 // Mock MySQL DAO modules
+vi.mock("@/dao/mysql/add-column.mysql.dao.js", () => ({
+	addColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/alter-column.mysql.dao.js", () => ({
+	alterColumn: vi.fn(),
+}));
+
 vi.mock("@/dao/mysql/table-list.mysql.dao.js", () => ({
 	getTablesList: vi.fn(),
 }));
@@ -19,6 +31,10 @@ vi.mock("@/dao/mysql/create-table.mysql.dao.js", () => ({
 
 vi.mock("@/dao/mysql/delete-column.mysql.dao.js", () => ({
 	deleteColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/rename-column.mysql.dao.js", () => ({
+	renameColumn: vi.fn(),
 }));
 
 vi.mock("@/dao/mysql/table-columns.mysql.dao.js", () => ({
@@ -50,8 +66,20 @@ vi.mock("@/dao/create-table.dao.js", () => ({
 	createTable: vi.fn(),
 }));
 
+vi.mock("@/dao/add-column.dao.js", () => ({
+	addColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/alter-column.dao.js", () => ({
+	alterColumn: vi.fn(),
+}));
+
 vi.mock("@/dao/delete-column.dao.js", () => ({
 	deleteColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/rename-column.dao.js", () => ({
+	renameColumn: vi.fn(),
 }));
 
 vi.mock("@/dao/table-columns.dao.js", () => ({
@@ -185,10 +213,7 @@ describe("Tables Routes (MySQL)", () => {
 	// ============================================
 	describe("POST /mysql/tables", () => {
 		it("should create a table and return 200 status", async () => {
-			vi.mocked(mysqlCreateTableDao.createTable).mockResolvedValue({
-				tableName: "new_users",
-				message: "Table created successfully",
-			});
+			vi.mocked(mysqlCreateTableDao.createTable).mockResolvedValue();
 
 			const body = {
 				tableName: "new_users",
@@ -218,10 +243,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should create a table with MySQL-specific AUTO_INCREMENT column", async () => {
-			vi.mocked(mysqlCreateTableDao.createTable).mockResolvedValue({
-				tableName: "products",
-				message: "Table created successfully",
-			});
+			vi.mocked(mysqlCreateTableDao.createTable).mockResolvedValue();
 
 			const body = {
 				tableName: "products",
@@ -243,10 +265,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should create a table with foreign key", async () => {
-			vi.mocked(mysqlCreateTableDao.createTable).mockResolvedValue({
-				tableName: "orders",
-				message: "Table created successfully",
-			});
+			vi.mocked(mysqlCreateTableDao.createTable).mockResolvedValue();
 
 			const body = {
 				tableName: "orders",
@@ -449,11 +468,284 @@ describe("Tables Routes (MySQL)", () => {
 	});
 
 	// ============================================
+	// POST /mysql/tables/:tableName/columns
+	// ============================================
+	describe("POST /mysql/tables/:tableName/columns", () => {
+		const body = {
+			columnName: "email",
+			columnType: "text",
+			defaultValue: "'unknown@example.com'",
+			isPrimaryKey: false,
+			isNullable: false,
+			isUnique: true,
+			isIdentity: false,
+			isArray: false,
+		};
+
+		it("should add a column and return 200", async () => {
+			vi.mocked(mysqlAddColumnDao.addColumn).mockResolvedValue();
+
+			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe('Column "email" added successfully to table "users"');
+			expect(mysqlAddColumnDao.addColumn).toHaveBeenCalledWith({
+				tableName: "users",
+				db: "testdb",
+				...body,
+			});
+		});
+
+		it("should return 400 when database query param is missing", async () => {
+			const res = await app.request("/mysql/tables/users/columns", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when request body is invalid", async () => {
+			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ columnName: "email" }),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 404 when table does not exist", async () => {
+			vi.mocked(mysqlAddColumnDao.addColumn).mockRejectedValue(
+				new HTTPException(404, { message: 'Table "users" does not exist' }),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(404);
+		});
+
+		it("should return 409 when column already exists", async () => {
+			vi.mocked(mysqlAddColumnDao.addColumn).mockRejectedValue(
+				new HTTPException(409, {
+					message: 'Column "email" already exists in table "users"',
+				}),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(409);
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			vi.mocked(mysqlAddColumnDao.addColumn).mockRejectedValue(
+				new Error("connect ECONNREFUSED"),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(503);
+		});
+	});
+
+	// ============================================
+	// PATCH /mysql/tables/:tableName/columns/:columnName/rename
+	// ============================================
+	describe("PATCH /mysql/tables/:tableName/columns/:columnName/rename", () => {
+		it("should rename a column and return 200", async () => {
+			vi.mocked(mysqlRenameColumnDao.renameColumn).mockResolvedValue();
+
+			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe(
+				'Column "email" renamed to "email_address" in table "users"',
+			);
+			expect(mysqlRenameColumnDao.renameColumn).toHaveBeenCalledWith({
+				tableName: "users",
+				columnName: "email",
+				db: "testdb",
+				newColumnName: "email_address",
+			});
+		});
+
+		it("should return 400 when database query param is missing", async () => {
+			const res = await app.request("/mysql/tables/users/columns/email/rename", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when request body is invalid", async () => {
+			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 404 when column does not exist", async () => {
+			vi.mocked(mysqlRenameColumnDao.renameColumn).mockRejectedValue(
+				new HTTPException(404, {
+					message: 'Column "email" does not exist in table "users"',
+				}),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(404);
+		});
+
+		it("should return 409 when the new column name already exists", async () => {
+			vi.mocked(mysqlRenameColumnDao.renameColumn).mockRejectedValue(
+				new HTTPException(409, {
+					message: 'Column "email_address" already exists in table "users"',
+				}),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(409);
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			vi.mocked(mysqlRenameColumnDao.renameColumn).mockRejectedValue(
+				new Error("connect ECONNREFUSED"),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(503);
+		});
+	});
+
+	// ============================================
+	// PATCH /mysql/tables/:tableName/columns/:columnName
+	// ============================================
+	describe("PATCH /mysql/tables/:tableName/columns/:columnName", () => {
+		const body = {
+			columnType: "text",
+			isNullable: true,
+			defaultValue: null,
+		};
+
+		it("should alter a column and return 200", async () => {
+			vi.mocked(mysqlAlterColumnDao.alterColumn).mockResolvedValue();
+
+			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe('Column "email" updated successfully in table "users"');
+			expect(mysqlAlterColumnDao.alterColumn).toHaveBeenCalledWith({
+				tableName: "users",
+				columnName: "email",
+				db: "testdb",
+				...body,
+			});
+		});
+
+		it("should return 400 when database query param is missing", async () => {
+			const res = await app.request("/mysql/tables/users/columns/email", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when request body is invalid", async () => {
+			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ isNullable: true }),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 404 when column does not exist", async () => {
+			vi.mocked(mysqlAlterColumnDao.alterColumn).mockRejectedValue(
+				new HTTPException(404, {
+					message: 'Column "email" does not exist in table "users"',
+				}),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(404);
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			vi.mocked(mysqlAlterColumnDao.alterColumn).mockRejectedValue(
+				new Error("connect ECONNREFUSED"),
+			);
+
+			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(503);
+		});
+	});
+
+	// ============================================
 	// GET /mysql/tables/:tableName/columns
 	// ============================================
 	describe("GET /mysql/tables/:tableName/columns", () => {
 		it("should return list of columns with 200 status", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "id",
 					dataType: "number",
@@ -494,7 +786,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return columns with foreign key information", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "user_id",
 					dataType: "number",
@@ -520,7 +812,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return MySQL ENUM columns with enum values", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "status",
 					dataType: "enum",
@@ -550,7 +842,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return MySQL TINYINT(1) as boolean dataType", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "is_active",
 					dataType: "boolean",
@@ -575,7 +867,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should handle various MySQL data types", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{ columnName: "id", dataType: "number", dataTypeLabel: "bigint", isNullable: false, columnDefault: null, isPrimaryKey: true, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
 				{ columnName: "name", dataType: "text", dataTypeLabel: "varchar", isNullable: true, columnDefault: null, isPrimaryKey: false, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
 				{ columnName: "metadata", dataType: "json", dataTypeLabel: "json", isNullable: true, columnDefault: null, isPrimaryKey: false, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
