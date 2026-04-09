@@ -7,16 +7,22 @@ import {
 	CodeBlockTabsList,
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
+import { ContributorsGrid } from "@/components/contributors";
 import { FeaturesGrid } from "@/components/features";
-import { LogoCloud } from "@/components/partners";
 import { Highlighter } from "@/components/ui/highlighter";
 import { cn } from "@/lib/utils";
+import { getContributors } from "@/utils/get-contributors";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
+	loader: async () => {
+		const contributors = await getContributors();
+		return { contributors };
+	},
 });
 
 function App() {
+	const { contributors } = Route.useLoaderData();
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
@@ -179,7 +185,7 @@ function App() {
 					/>
 				</div>
 
-				<div className="relative w-full flex flex-col border-y">
+				{/* <div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
 						Trusted by <span className="text-foreground">our partners</span>
 					</h2>
@@ -202,7 +208,7 @@ function App() {
 						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
 						strokeWidth={1}
 					/>
-				</div>
+				</div> */}
 
 				<div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
@@ -211,6 +217,31 @@ function App() {
 					</h2>
 
 					<FeaturesGrid />
+
+					<PlusIcon
+						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+				</div>
+
+				<div className="relative w-full flex flex-col border-y">
+					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
+						Shoutout to our <span className="text-foreground">contributors</span>
+					</h2>
+
+					<ContributorsGrid contributors={contributors} />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
