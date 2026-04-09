@@ -1,4 +1,4 @@
-import { Github } from "lucide-react";
+import { Bug, Github } from "lucide-react";
 import { META } from "shared/constants";
 // import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
@@ -41,9 +41,32 @@ export const Header = () => {
 							asChild
 						>
 							<a
+								href={META.SITE_GITHUB_NEW_ISSUE_LINK}
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="Create a new GitHub issue"
+							>
+								<Bug className="size-5" />
+							</a>
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>Report a bug</p>
+					</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+							asChild
+						>
+							<a
 								href={META.SITE_GITHUB_LINK}
 								target="_blank"
 								rel="noopener noreferrer"
+								aria-label="View the db-studio GitHub repository"
 							>
 								<Github className="size-5" />
 							</a>
