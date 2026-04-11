@@ -1,4 +1,6 @@
+export * from "./add-column.types.js";
 export * from "./add-record.types.js"; // done
+export * from "./alter-column.types.js";
 export * from "./api-response.types.js";
 export * from "./bulk-insert-records.type.js";
 export * from "./chat.types.js"; // done
@@ -15,6 +17,7 @@ export * from "./delete-table.types.js"; // done
 export * from "./execute-query.types.js"; // done
 export * from "./export-table.types.js";
 export * from "./rate-limit-response.type.js";
+export * from "./rename-column.types.js";
 export * from "./table-data.types.js"; // done
 export * from "./table-info.type.js"; // done
 export * from "./table-schema.types.js"; // done

@@ -1,4 +1,4 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useLocation, useParams } from "@tanstack/react-router";
 import type { TableInfoSchemaType } from "shared/types";
 import { SidebarListTablesMenu } from "@/components/sidebar/sidebar-list-tables-menu";
 import { Kbd } from "@/components/ui/kbd";
@@ -6,13 +6,16 @@ import { cn } from "@/lib/utils";
 
 export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaType) => {
 	const params = useParams({ strict: false });
+	const { pathname } = useLocation();
 	const table = params.table as string | undefined;
 	const isActive = table === tableName;
+
+	const basePath = pathname.startsWith("/schema") ? "/schema/$table" : "/table/$table";
 
 	return (
 		<li className="relative">
 			<Link
-				to="/table/$table"
+				to={basePath}
 				params={{
 					table: tableName,
 				}}

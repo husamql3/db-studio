@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/husamql3/db-studio/discussions
+    about: Please ask general questions or start discussions here instead of opening an issue.
