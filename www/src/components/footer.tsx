@@ -6,7 +6,7 @@ export const Footer = () => {
 		<footer className="border-t">
 			<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-center relative border-x">
 				<p className="text-xs font-light text-muted-foreground flex items-center gap-1">
-					© 2025 {META.SITE_NAME}. Built by{" "}
+					© 2026 {META.SITE_NAME}. Built by{" "}
 					<a
 						href={META.AUTHOR_GITHUB_LINK}
 						target="_blank"

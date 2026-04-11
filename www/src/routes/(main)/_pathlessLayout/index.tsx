@@ -237,6 +237,41 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
+					<div className="flex flex-col items-center gap-3 px-4 py-8 md:px-8 text-center">
+						<h2 className="font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
+							Open for <span className="text-foreground">sponsorship</span>
+						</h2>
+						<p className="text-xs text-muted-foreground max-w-sm">
+							Help us keep db-studio free and actively maintained. If you or your company find
+							it useful, consider supporting the project.
+						</p>
+						<a
+							href="mailto:contact@ql3.dev"
+							className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 underline underline-offset-4"
+						>
+							contact@ql3.dev
+						</a>
+					</div>
+
+					<PlusIcon
+						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						strokeWidth={1}
+					/>
+				</div>
+
+				<div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
 						Shoutout to our <span className="text-foreground">contributors</span>
 					</h2>
