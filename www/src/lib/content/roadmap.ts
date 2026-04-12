@@ -57,6 +57,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
+				title:
+					"Edit table columns directly from the schema tab, including add, rename, update, and drop actions",
+				status: "completed",
+			},
+			{
 				title: "Indexes section to view, add, edit, or remove indexes",
 				status: "planned",
 			},
@@ -66,7 +71,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Schema section for views, functions, triggers, and extensions",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Safe playground area to test queries without risk",
@@ -74,7 +79,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Save favorite queries and view recent query history",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Smart SQL editor with color coding, auto-complete, and formatting",
@@ -88,7 +93,7 @@ export const roadmapItems: RoadmapItem[] = [
 		items: [
 			{
 				title: "Import many rows at once using CSV or JSON files",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Smart dropdowns for related tables with search and easy navigation",
@@ -96,7 +101,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Export and import both data and database structure",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Better JSON editor inside cells with formatting and line numbers",
@@ -144,10 +149,23 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Multi-Database Support",
-		status: "planned",
+		status: "in-progress",
 		items: [
-			{ title: "Add full support for MySQL databases", status: "planned" },
+			{ title: "Add full support for PostgreSQL databases", status: "completed" },
+			{ title: "Add full support for MySQL databases", status: "completed" },
 			{ title: "Add full support for SQLite databases", status: "planned" },
+			{
+				title: "Add full support for MongoDB databases",
+				status: "in-progress",
+			},
+			{
+				title: "Add full support for Oracle databases",
+				status: "planned",
+			},
+			{
+				title: "Add full support for SQL Server databases",
+				status: "in-progress",
+			},
 			{
 				title: "Easy switching between different database connections",
 				status: "completed",

@@ -118,10 +118,13 @@ For full documentation and more examples: [dbstudio.sh](https://dbstudio.sh)
 # Install dependencies (root and workspaces)
 bun install
 
+# Initialize the database with required tables and schema
+bun run init-db
+
 # Configure your PostgreSQL connection in packages/server/.env (for local dev)
 # DATABASE_URL=postgres://user:password@localhost:5432/database
 
-# Start development servers
+# Start development servers (runs both frontend and backend concurrently)
 bun run dev
 ```
 

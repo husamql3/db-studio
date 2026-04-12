@@ -1,6 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
+	addColumnSchema,
+	alterColumnSchema,
 	type ColumnInfoSchemaType,
 	createTableSchema,
 	type DeleteTableResult,
@@ -9,21 +11,21 @@ import {
 	deleteColumnQuerySchema,
 	deleteTableQuerySchema,
 	exportTableSchema,
+	renameColumnSchema,
 	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
 	type TableSchemaResult,
 	tableDataQuerySchema,
 	tableNameSchema,
 } from "shared/types";
-import type { ApiHandler } from "@/app.types.js";
-import { createTable } from "@/dao/create-table.dao.js";
-import { deleteColumn } from "@/dao/delete-column.dao.js";
-import { deleteTable } from "@/dao/delete-table.dao.js";
-import { exportTableData } from "@/dao/export-table.dao.js";
-import { getTableColumns } from "@/dao/table-columns.dao.js";
-import { getTablesList } from "@/dao/table-list.dao.js";
-import { getTableSchema } from "@/dao/table-schema.dao.js";
-import { getTableData } from "@/dao/tables-data.dao.js";
+import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { addColumn as pgAddColumn } from "@/dao/add-column.dao.js";
+import { alterColumn as pgAlterColumn } from "@/dao/alter-column.dao.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
+import { addColumn as mysqlAddColumn } from "@/dao/mysql/add-column.mysql.dao.js";
+import { alterColumn as mysqlAlterColumn } from "@/dao/mysql/alter-column.mysql.dao.js";
+import { renameColumn as mysqlRenameColumn } from "@/dao/mysql/rename-column.mysql.dao.js";
+import { renameColumn as pgRenameColumn } from "@/dao/rename-column.dao.js";
 import {
 	createMongoCollection,
 	deleteMongoColumn,
@@ -34,7 +36,7 @@ import {
 } from "@/dao/mongo/tables.dao.js";
 import { getExportFile } from "@/utils/get-export-file.js";
 
-export const tablesRoutes = new Hono()
+export const tablesRoutes = new Hono<RouteEnv>()
 	/**
 	 * Base path for the endpoints, /:dbType/tables/...
 	 */
@@ -43,7 +45,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * GET /tables
 	 * Returns list of all tables in the currently connected database
-	 * @returns {Array} List of table info objects
 	 */
 	.get(
 		"/",
@@ -51,8 +52,8 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<TableInfoSchemaType[]> => {
 			const { db } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const tablesList =
-				dbType === "mongodb" ? await getMongoTablesList(db) : await getTablesList(db);
+			const dao = getDaoFactory(dbType);
+			const tablesList = await dao.getTablesList(db);
 			return c.json({ data: tablesList }, 200);
 		},
 	)
@@ -60,8 +61,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * POST /tables
 	 * Creates a new table in the currently connected database
-	 * @param {CreateTableSchemaType} body - The data for the new table
-	 * @returns {string} A success message
 	 */
 	.post(
 		"/",
@@ -71,11 +70,8 @@ export const tablesRoutes = new Hono()
 			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
-			if (dbType === "mongodb") {
-				await createMongoCollection({ tableName: body.tableName, tableData: body, db });
-			} else {
-				await createTable({ tableData: body, db });
-			}
+			const dao = getDaoFactory(dbType);
+			await dao.createTable({ tableData: body, db });
 			return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
 		},
 	)
@@ -83,9 +79,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * DELETE /tables/:tableName
 	 * Deletes a table from the database
-	 * @param {DeleteTableQuerySchemaType} query - The query parameters (db, cascade)
-	 * @param {TableNameSchemaType} param - The URL parameters
-	 * @returns {DeleteTableResult} The result with deletedCount, fkViolation flag, and relatedRecords
 	 */
 	.delete(
 		"/:tableName",
@@ -94,7 +87,9 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<DeleteTableResult> => {
 			const { db, cascade } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
-			const result = await deleteTable({ tableName, db, cascade });
+			const dbType = c.get("dbType");
+			const dao = getDaoFactory(dbType);
+			const result = await dao.deleteTable({ tableName, db, cascade });
 			return c.json({ data: result }, 200);
 		},
 	)
@@ -102,9 +97,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * DELETE /tables/:tableName/columns/:columnName
 	 * Deletes a column from a table
-	 * @param {DatabaseSchemaType} query - The query parameters
-	 * @param {DeleteColumnParamSchemaType} param - The URL parameters
-	 * @returns {DeleteColumnResponseType} The response
 	 */
 	.delete(
 		"/:tableName/columns/:columnName",
@@ -114,10 +106,8 @@ export const tablesRoutes = new Hono()
 			const { db, cascade } = c.req.valid("query");
 			const { tableName, columnName } = c.req.valid("param");
 			const dbType = c.get("dbType");
-			const { deletedCount } =
-				dbType === "mongodb"
-					? await deleteMongoColumn({ tableName, columnName, db })
-					: await deleteColumn({ tableName, columnName, cascade, db });
+			const dao = getDaoFactory(dbType);
+			const { deletedCount } = await dao.deleteColumn({ tableName, columnName, cascade, db });
 			return c.json(
 				{
 					data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
@@ -128,11 +118,98 @@ export const tablesRoutes = new Hono()
 	)
 
 	/**
+	 * POST /tables/:tableName/columns
+	 * Adds a column to a table
+	 */
+	.post(
+		"/:tableName/columns",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		zValidator("json", addColumnSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			if (dbType === "mysql") {
+				await mysqlAddColumn({ tableName, db, ...body });
+			} else {
+				await pgAddColumn({ tableName, db, ...body });
+			}
+
+			return c.json(
+				{
+					data: `Column "${body.columnName}" added successfully to table "${tableName}"`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
+	 * PATCH /tables/:tableName/columns/:columnName/rename
+	 * Renames a column in a table
+	 */
+	.patch(
+		"/:tableName/columns/:columnName/rename",
+		zValidator("query", databaseSchema),
+		zValidator("param", deleteColumnParamSchema),
+		zValidator("json", renameColumnSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, columnName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			if (dbType === "mysql") {
+				await mysqlRenameColumn({ tableName, columnName, db, ...body });
+			} else {
+				await pgRenameColumn({ tableName, columnName, db, ...body });
+			}
+
+			return c.json(
+				{
+					data: `Column "${columnName}" renamed to "${body.newColumnName}" in table "${tableName}"`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
+	 * PATCH /tables/:tableName/columns/:columnName
+	 * Alters a column in a table
+	 */
+	.patch(
+		"/:tableName/columns/:columnName",
+		zValidator("query", databaseSchema),
+		zValidator("param", deleteColumnParamSchema),
+		zValidator("json", alterColumnSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, columnName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			if (dbType === "mysql") {
+				await mysqlAlterColumn({ tableName, columnName, db, ...body });
+			} else {
+				await pgAlterColumn({ tableName, columnName, db, ...body });
+			}
+
+			return c.json(
+				{
+					data: `Column "${columnName}" updated successfully in table "${tableName}"`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
 	 * GET /tables/:tableName/columns
 	 * Returns list of all columns in a table
-	 * @param {DatabaseSchemaType} query - The query parameters
-	 * @param {TableNameSchemaType} param - The URL parameters
-	 * @returns {ColumnInfoSchemaType[]} The response
 	 */
 	.get(
 		"/:tableName/columns",
@@ -142,10 +219,8 @@ export const tablesRoutes = new Hono()
 			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
 			const dbType = c.get("dbType");
-			const columns =
-				dbType === "mongodb"
-					? await getMongoTableColumns({ tableName, db })
-					: await getTableColumns({ tableName, db });
+			const dao = getDaoFactory(dbType);
+			const columns = await dao.getTableColumns({ tableName, db });
 			return c.json({ data: columns }, 200);
 		},
 	)
@@ -153,9 +228,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * GET /tables/:tableName/schema
 	 * Returns the CREATE TABLE schema for a table
-	 * @param {DatabaseSchemaType} query - The query parameters
-	 * @param {TableNameSchemaType} param - The URL parameters
-	 * @returns {TableSchemaResult} The CREATE TABLE SQL statement
 	 */
 	.get(
 		"/:tableName/schema",
@@ -164,7 +236,9 @@ export const tablesRoutes = new Hono()
 		async (c): ApiHandler<TableSchemaResult> => {
 			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
-			const schema = await getTableSchema({ tableName, db });
+			const dbType = c.get("dbType");
+			const dao = getDaoFactory(dbType);
+			const schema = await dao.getTableSchema({ tableName, db });
 			return c.json({ data: { schema } }, 200);
 		},
 	)
@@ -172,10 +246,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * GET /tables/:tableName/data
 	 * Get cursor-paginated data for a table
-	 * @param {TableNameSchemaType} param - The URL parameters
-	 * @param {TableDataQuerySchemaType} query - The query parameters
-	 * @returns {TableDataResultSchemaType} The response
-	 * @throws {HTTPException} If the table does not exist or the query is invalid
 	 */
 	.get(
 		"/:tableName/data",
@@ -185,28 +255,17 @@ export const tablesRoutes = new Hono()
 			const { tableName } = c.req.valid("param");
 			const { cursor, limit, direction, sort, order, filters, db } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const tableData =
-				dbType === "mongodb"
-					? await getMongoTableData({
-							tableName,
-							cursor,
-							limit,
-							direction,
-							sort,
-							order,
-							filters,
-							db,
-						})
-					: await getTableData({
-							tableName,
-							cursor,
-							limit,
-							direction,
-							sort,
-							order,
-							filters,
-							db,
-						});
+			const dao = getDaoFactory(dbType);
+			const tableData = await dao.getTableData({
+				tableName,
+				cursor,
+				limit,
+				direction,
+				sort,
+				order,
+				filters,
+				db,
+			});
 			return c.json({ data: tableData }, 200);
 		},
 	)
@@ -214,9 +273,6 @@ export const tablesRoutes = new Hono()
 	/**
 	 * GET /tables/:tableName/export
 	 * Export table data to CSV or XLSX format
-	 * @param {TableNameSchemaType} param - The URL parameters
-	 * @param {ExportTableSchemaType} query - The query parameters (db, format)
-	 * @returns {BodyInit} The file content as a binary response
 	 */
 	.get(
 		"/:tableName/export",
@@ -225,12 +281,10 @@ export const tablesRoutes = new Hono()
 		async (c) => {
 			const { tableName } = c.req.valid("param");
 			const { db, format } = c.req.valid("query");
-
 			const dbType = c.get("dbType");
-			const { cols, rows } =
-				dbType === "mongodb"
-					? await exportMongoTableData({ tableName, db })
-					: await exportTableData({ tableName, db });
+			const dao = getDaoFactory(dbType);
+
+			const { cols, rows } = await dao.exportTableData({ tableName, db });
 			const fileContent = getExportFile({ cols, rows, format, tableName });
 			let contentType: string | undefined;
 

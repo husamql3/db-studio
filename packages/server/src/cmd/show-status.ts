@@ -30,6 +30,7 @@ export const showStatus = async (env?: string, databaseUrl?: string, varName?: s
 	} else {
 		note(color.red(`✗ ${envVarName} not found`), "Status");
 		console.log(color.yellow("\n  To configure database connection:"));
+		console.log(color.dim("  • Supported databases: MySQL, PostgreSQL"));
 		console.log(color.dim(`  • Add ${envVarName} to your .env file or set it in process.env`));
 		console.log(color.dim("  • Use -d flag: db-studio -d <url>"));
 		console.log(color.dim("  • Use -e flag: db-studio -e <path-to-env>"));

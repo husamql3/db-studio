@@ -1,0 +1,27 @@
+# db-studio
+
+> The modern pgAdmin alternative that works with every database
+
+## Overview
+
+db-studio is a modern database management tool designed to work with multiple database systems. It provides a clean, intuitive interface for managing databases, running queries, and exploring data.
+
+## Key Features
+
+- Multi-database support (PostgreSQL, MySQL, SQLite, and more)
+- Modern, intuitive user interface
+- Cross-platform desktop application
+- Query editor with syntax highlighting
+- Table data browsing and editing
+- Database schema visualization
+
+## Links
+
+- Website: https://dbstudio.sh
+- Documentation: https://dbstudio.sh/docs
+- Roadmap: https://dbstudio.sh/roadmap
+- Changelog: https://dbstudio.sh/changelog
+
+## About
+
+db-studio is built as a modern alternative to traditional database management tools like pgAdmin, offering a streamlined experience that works consistently across different database systems.

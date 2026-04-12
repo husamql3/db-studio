@@ -16,6 +16,7 @@ export const DataTypes = {
 } as const satisfies Record<DataTypes, string>;
 
 const standardizedDataTypes = [
+	// PostgreSQL numeric types
 	"int",
 	"bigint",
 	"smallint",
@@ -23,19 +24,37 @@ const standardizedDataTypes = [
 	"float",
 	"double",
 	"money",
+	// MySQL numeric types
+	"tinyint",
+	"mediumint",
+	"bit",
+	// Boolean
 	"boolean",
+	// Text types (shared)
 	"text",
 	"varchar",
 	"char",
+	// MySQL text types
+	"tinytext",
+	"mediumtext",
+	"longtext",
+	// JSON types
 	"json",
 	"jsonb",
 	"xml",
+	// UUID
 	"uuid",
+	// Date/Time types (shared)
 	"date",
 	"time",
 	"timestamp",
+	// PostgreSQL date/time
 	"timestamptz",
 	"interval",
+	// MySQL date/time
+	"datetime",
+	"year",
+	// PostgreSQL binary/network/geometric types
 	"bytea",
 	"inet",
 	"cidr",
@@ -44,8 +63,18 @@ const standardizedDataTypes = [
 	"point",
 	"line",
 	"polygon",
+	// MySQL binary types
+	"binary",
+	"varbinary",
+	"blob",
+	"tinyblob",
+	"mediumblob",
+	"longblob",
+	// Complex types (shared)
 	"array",
 	"enum",
+	// MySQL set type
+	"set",
 ] as const;
 
 export const standardizedDataTypeSchema = z.enum(standardizedDataTypes);

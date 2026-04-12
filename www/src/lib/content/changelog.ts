@@ -16,13 +16,72 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.3.29",
-		date: "2026-02-15",
+		version: "1.6.2",
+		date: "2026-04-12",
+		title: "Support MSSQL database",
+		features: [
+			{
+				text: "Added Microsoft SQL Server (MSSQL) database support",
+				username: "Amirosagan",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed table cell display to properly handle and render non-primitive object values",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.5.1",
+		date: "2026-04-08",
+		title: "Schema tab column editing",
+		features: [
+			{
+				text: "Added schema tab column management with support for adding, editing, renaming, and dropping columns directly from the table structure view",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Updated the table actions flow so the Edit table menu item opens the schema editor for the selected table",
+				username: "husamql3",
+			},
+			{
+				text: "Added a report a bug button to the header to create a new GitHub issue",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.4.0",
+		date: "2026-03-02",
+		title: "Support MySQL database",
+		features: [
+			{
+				text: "Added MySQL database support alongside PostgreSQL",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Improved database connection error detection and messaging",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.3.33",
+		date: "2026-02-20",
 		title: "Add table actions menu",
 		features: [
 			{
 				text: "Add table menu with delete table feature (with support for foreign key constraints) and copy table schema feature, export table data feature (CSV, JSON, Excel)",
 				username: "husamql3",
+			},
+			{
+				text: "Add bulk insert records feature by CSV, JSON, or Excel files in the table tab",
+				username: "Youssef-joe",
 			},
 		],
 		bugsFixed: [
@@ -38,6 +97,22 @@ export const changelog: ChangelogItem[] = [
 		improvements: [
 			{
 				text: "Improved error message for unsupported database types",
+				username: "husamql3",
+			},
+			{
+				text: "Added the init-db script to initialize the database for local development",
+				username: "Youssef-joe",
+			},
+			{
+				text: "Added confirmation dialog for delete record feature in the table tab",
+				username: "husamql3",
+			},
+			{
+				text: "Added tooltip for the primary key and foreign key columns in the table tab",
+				username: "husamql3",
+			},
+			{
+				text: "Added preset row count options to the table footer",
 				username: "husamql3",
 			},
 		],

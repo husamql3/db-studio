@@ -3,11 +3,13 @@ import { create } from "zustand";
 type SheetName =
 	| "sidebar"
 	| "add-table"
+	| "add-column"
 	| "add-record"
 	| "bulk-insert-records"
 	| "bulk-insert-csv"
 	| "bulk-insert-excel"
 	| "bulk-insert-json"
+	| "edit-column"
 	| `add-foreign-key-${number}`
 	| "record-reference"
 	| "ai-assistant";

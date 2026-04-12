@@ -1,0 +1,118 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an idea for db-studio! Please share enough context that we can understand the problem and evaluate the request.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before Submitting
+      options:
+        - label: I searched existing issues and discussions to avoid creating a duplicate.
+          required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Product Surface
+      description: Where should this feature or improvement apply?
+      options:
+        # - Web App
+        - CLI
+        - Documentation
+        - Project Setup / Developer Experience
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request Type
+      description: What kind of request is this?
+      options:
+        - New feature
+        - Improvement to existing behavior
+        - UI / UX improvement
+        - Performance improvement
+        - Developer experience improvement
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Use Case
+      description: What problem are you trying to solve, or what workflow should be improved?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the behavior, UI, or workflow you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-impact
+    attributes:
+      label: Why This Matters
+      description: Who benefits from this, and how would it improve the experience?
+      placeholder: This would help users by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any workarounds, competing ideas, or alternative approaches?
+
+  - type: dropdown
+    id: database-support-scope
+    attributes:
+      label: Database Support Scope
+      description: Should this apply to a specific database or broadly across the product?
+      options:
+        - All supported databases
+        - PostgreSQL only
+        - MySQL only
+        - SQLite only
+        - SQL Server only
+        - Other / mixed support
+        - Not database-specific
+    validations:
+      required: true
+
+  - type: input
+    id: database-support
+    attributes:
+      label: Database Details
+      description: If relevant, specify the exact databases/vendors this should support.
+      placeholder: e.g. PostgreSQL and MySQL, or MariaDB / CockroachDB
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature for your workflow?
+      options:
+        - Nice to have
+        - Important
+        - Blocking / high impact
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add mockups, examples from other tools, screenshots, or anything else that helps explain the request.

@@ -8,11 +8,8 @@ import {
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
-import type { ApiHandler } from "@/app.types.js";
-import { addRecord } from "@/dao/add-record.dao.js";
-import { bulkInsertRecords } from "@/dao/bulk-insert-records.dao.js";
-import { deleteRecords, forceDeleteRecords } from "@/dao/delete-records.dao.js";
-import { updateRecords } from "@/dao/update-records.dao.js";
+import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 import {
 	addMongoRecord,
 	deleteMongoRecords,
@@ -20,7 +17,7 @@ import {
 	updateMongoRecords,
 } from "@/dao/mongo/records.dao.js";
 
-export const recordsRoutes = new Hono()
+export const recordsRoutes = new Hono<RouteEnv>()
 	/**
 	 * Base path for the endpoints, /:dbType/records/...
 	 */
@@ -29,9 +26,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * POST /records
 	 * Adds a new record into a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {AddRecordSchemaType} json - The data for the new record
-	 * @returns {BaseResponseType<string>} A success message
 	 */
 	.post(
 		"/",
@@ -41,10 +35,8 @@ export const recordsRoutes = new Hono()
 			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { insertedCount } =
-				dbType === "mongodb"
-					? await addMongoRecord({ db, params: { tableName, data } })
-					: await addRecord({ db, params: { tableName, data } });
+			const dao = getDaoFactory(dbType);
+			const { insertedCount } = await dao.addRecord({ db, params: { tableName, data } });
 			return c.json(
 				{
 					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
@@ -57,9 +49,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * PATCH /records
 	 * Updates one or more cells in a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {UpdateRecordsSchemaType} json - The data for the updates
-	 * @returns {ApiHandler<string>} A success message
 	 */
 	.patch(
 		"/",
@@ -69,10 +58,11 @@ export const recordsRoutes = new Hono()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { updatedCount } =
-				dbType === "mongodb"
-					? await updateMongoRecords({ params: { tableName, primaryKey, updates }, db })
-					: await updateRecords({ params: { tableName, primaryKey, updates }, db });
+			const dao = getDaoFactory(dbType);
+			const { updatedCount } = await dao.updateRecords({
+				params: { tableName, primaryKey, updates },
+				db,
+			});
 			return c.json(
 				{
 					data: `Updated ${updatedCount} records in "${tableName}"`,
@@ -85,24 +75,33 @@ export const recordsRoutes = new Hono()
 	/**
 	 * DELETE /records
 	 * Deletes records from a table
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string, 409 | 200>} A success message
 	 */
 	.delete(
 		"/",
 		zValidator("query", databaseSchema),
 		zValidator("json", deleteRecordSchema),
 		async (c): ApiHandler<DeleteRecordResult, 409 | 200> => {
-			// TODO: refactor this shit, the backend responses should be consistent
-			// TODO: the frontend could be simplified too
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { deletedCount } =
-				dbType === "mongodb"
-					? await deleteMongoRecords({ tableName, primaryKeys, db })
-					: await deleteRecords({ tableName, primaryKeys, db });
+			const dao = getDaoFactory(dbType);
+			const { deletedCount, fkViolation, relatedRecords } = await dao.deleteRecords({
+				tableName,
+				primaryKeys,
+				db,
+			});
+			if (fkViolation) {
+				return c.json(
+					{
+						data: {
+							deletedCount: 0,
+							fkViolation: true,
+							relatedRecords,
+						},
+					},
+					409,
+				);
+			}
 			return c.json(
 				{
 					data: {
@@ -119,9 +118,6 @@ export const recordsRoutes = new Hono()
 	/**
 	 * DELETE /records/force
 	 * Force deletes records and all related FK records
-	 * @param {DatabaseSchemaType} query - The database to use
-	 * @param {DeleteRecordSchemaType} json - The data for the deletes
-	 * @returns {ApiHandler<string>} A success message
 	 */
 	.delete(
 		"/force",
@@ -131,16 +127,28 @@ export const recordsRoutes = new Hono()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const { deletedCount } =
-				dbType === "mongodb"
-					? await forceDeleteMongoRecords({ tableName, primaryKeys, db })
-					: await forceDeleteRecords({ tableName, primaryKeys, db });
-			return c.json(
-				{
-					data: `Deleted ${deletedCount} records from "${tableName}"`,
-				},
-				200,
-			);
+			const dao = getDaoFactory(dbType);
+			const deletedCount = await dao.forceDeleteRecords({ tableName, primaryKeys, db });
+			return c.json({ data: deletedCount }, 200);
+		},
+	)
+
+	/**
+	 * POST /records/bulk
+	 * Bulk inserts multiple records into a table
+	 */
+	.post(
+		"/bulk",
+		zValidator("query", databaseSchema),
+		zValidator("json", bulkInsertRecordsSchema),
+		async (c): ApiHandler<object> => {
+			const { db } = c.req.valid("query");
+			const { tableName, records } = c.req.valid("json");
+			const dbType = c.get("dbType");
+			const dao = getDaoFactory(dbType);
+			const result = await dao.bulkInsertRecords({ tableName, records, db });
+			console.log("result", result);
+			return c.json({ data: result }, 200);
 		},
 	);
 

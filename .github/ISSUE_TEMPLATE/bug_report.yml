@@ -1,0 +1,110 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve db-studio! Please fill this out completely.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before Submitting
+      options:
+        - label: I searched existing issues and discussions to avoid creating a duplicate.
+          required: true
+        - label: I can reproduce this on the latest version of db-studio.
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: db-studio Version
+      description: What version of db-studio are you using? (Check Help → About)
+      placeholder: e.g. 0.1.0 or commit hash
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Product Surface
+      description: Where did you hit the bug?
+      options:
+        # - Desktop App
+        - Web App
+        - CLI
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database Type
+      description: Which database are you connected to?
+      options:
+        - PostgreSQL
+        - MySQL
+        - SQLite
+        - SQL Server
+        - Other (please specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: database-other
+    attributes:
+      label: Other Database Type
+      description: If you selected "Other", tell us which database/vendor you are using.
+      placeholder: e.g. MariaDB, CockroachDB, PlanetScale
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Connect to ...
+        2. Open table ...
+        3. Click ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag and drop screenshots or screen recordings here if they help illustrate the issue.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Output
+      description: Paste relevant terminal output, console errors, or stack traces here.
+      render: shell
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser (if Electron/web), Node/Bun version, etc.
+      placeholder: "OS: Windows 11 / macOS 15 / Linux\nBrowser: Chrome 130 (if applicable)\nNode/Bun version: 20.10.0"

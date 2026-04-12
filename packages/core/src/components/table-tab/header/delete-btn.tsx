@@ -1,5 +1,15 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { type RelatedRecord, useDeleteCells } from "@/hooks/use-delete-cell";
 import type { TableRecord } from "@/types/table.type";
@@ -19,16 +29,23 @@ export const DeleteBtn = ({
 	);
 	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
+	const [isOpenConfirmDialog, setIsOpenConfirmDialog] = useState(false);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
-	const handleDelete = useCallback(async () => {
+	const handleDeleteClick = useCallback(() => {
+		setIsOpenConfirmDialog(true);
+	}, []);
+
+	const handleConfirmDelete = useCallback(async () => {
 		const rowData = selectedRows.map((row) => row.original);
 		let relatedRecords: RelatedRecord[] | undefined;
+
+		setIsOpenConfirmDialog(false);
 
 		try {
 			await deleteCells(rowData);
 			setRowSelection({});
-		} catch (_error) {
+		} catch {
 			setPendingRowData(rowData);
 			setRelatedRecords(relatedRecords || []);
 			setIsOpenFkDialog(true);
@@ -80,7 +97,7 @@ export const DeleteBtn = ({
 				type="button"
 				variant="destructive"
 				className="h-8! border-l-0 border-y-0 border-r border-zinc-800 text-white rounded-none"
-				onClick={handleDelete}
+				onClick={handleDeleteClick}
 				aria-label="Delete the selected record"
 				disabled={isDeletingCells}
 			>
@@ -91,6 +108,33 @@ export const DeleteBtn = ({
 					</span>
 				)}
 			</Button>
+
+			<AlertDialog
+				open={isOpenConfirmDialog}
+				onOpenChange={setIsOpenConfirmDialog}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							Delete {selectedRows.length === 1 ? "Record" : "Records"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete{" "}
+							{selectedRows.length === 1 ? "this record" : `${selectedRows.length} records`}{" "}
+							from "{tableName}"? This action cannot be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							variant="destructive"
+							onClick={handleConfirmDelete}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<ForceDeleteDialog
 				isOpenFkDialog={isOpenFkDialog}

@@ -102,7 +102,14 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 							Copy table schema
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem>
+						<DropdownMenuItem
+							onClick={() =>
+								navigate({
+									to: "/schema/$table",
+									params: { table: tableName },
+								})
+							}
+						>
 							<Pencil className="size-4" />
 							Edit table
 						</DropdownMenuItem>

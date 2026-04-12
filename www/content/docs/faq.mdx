@@ -7,95 +7,151 @@ index: 3
 
 <Accordions>
 
-<Accordion id="security" title="Is my database URL safe? Are you storing or tracking it?">
+<Accordion id="security" title="Is my database connection safe? Do you store or track it?">
 
-**Absolutely safe!** DB Studio is completely open source and runs **entirely locally**.
+**Yes, completely safe!** DB Studio runs entirely on your computer and is fully open source.
 
-- No data collection or telemetry
-- No information is sent over the internet
-- The server, frontend, and DB connection all run on your machine
-- Full source code available: [github.com/husamql3/db-studio](https://github.com/husamql3/db-studio)
+- No tracking or data collection
+- Nothing is sent to the internet
+- Everything runs locally on your machine
+- You can review all the code: [github.com/husamql3/db-studio](https://github.com/husamql3/db-studio)
 
-You can (and should!) audit the code yourself.
-
-</Accordion>
-
-<Accordion id="prisma-compat" title="Can I use DB Studio with Prisma projects?">
-
-Yes — perfectly!  
-Just run `npx db-studio` in your Prisma project directory — it will use the existing `DATABASE_URL`.
+Feel free to check the code yourself to be sure.
 
 </Accordion>
 
-<Accordion id="multiple-databases" title="How do I connect to multiple databases?">
+<Accordion id="prisma-compat" title="Can I use DB Studio with Prisma?">
 
-Run multiple instances with different ports/env files:
+Yes! Just run `npx db-studio` in your Prisma project folder. It will automatically use your existing `DATABASE_URL` from `.env`.
+
+</Accordion>
+
+<Accordion id="drizzle-compat" title="Can I use DB Studio with Drizzle?">
+
+Yes! Run `npx db-studio` in your Drizzle project folder. It uses the same `DATABASE_URL` from your `.env` file. No extra setup needed.
+
+</Accordion>
+
+<Accordion id="multiple-databases" title="Can I connect to multiple databases?">
+
+Yes, you have two options:
+
+**Option 1: Multiple databases on the same server**
+
+DB Studio lets you switch between databases on the same host directly in the UI.
+
+**Option 2: Run multiple instances**
+
+Open different terminals with different ports and env files:
 
 ```bash
-# Dev database
-npx db-studio -e .env.dev -p 3333
+# Dev database (terminal 1)
+npx db-studio --env .env.dev --port 3333
 
-# Prod database (different terminal)
-npx db-studio -e .env.prod -p 3334
+# Production database (terminal 2)
+npx db-studio --env .env.prod --port 3334
 ```
 
-Or use direct URLs:
+Or use direct connection strings:
 
 ```bash
-npx db-studio -d postgresql://localhost:5432/devdb -p 3333
+npx db-studio --database-url postgresql://localhost:5432/devdb --port 3333
 ```
 
 </Accordion>
 
-<Accordion id="connection-issues" title="Having connection issues?">
+<Accordion id="connection-issues" title="Connection not working?">
 
-Try:
+First, check if your connection works:
 
 ```bash
 npx db-studio --status
 ```
 
-Common fixes:
+Common problems and fixes:
 
-- Check `.env` exists in current directory
-- Verify URL format: `postgresql://user:pass@host:port/dbname`
-- Database server is running?
-- Firewall/network allows connection?
+- **No .env file found** - Make sure `.env` exists in your current folder or a parent folder
+- **Wrong URL format** - Should be: `postgresql://user:pass@host:port/dbname`
+- **Database not running** - Check if your database server is started
+- **Network blocked** - Check firewall or network settings
 
 </Accordion>
 
-<Accordion id="port-already-in-use" title="Port already in use error?">
+<Accordion id="port-already-in-use" title="Port 3333 is already in use?">
 
-Just choose another port:
+Use a different port:
 
 ```bash
-npx db-studio -p 4000
+npx db-studio --port 4000
 # or
 npx db-studio --port 8080
 ```
 
 </Accordion>
 
-<Accordion id="production-use" title="Can I use DB Studio in production?">
+<Accordion id="env-file-location" title="Where should I put my .env file?">
 
-Technically yes, but **we strongly recommend** using it only for:
+DB Studio looks for `.env` in:
 
-- Development
-- Staging
-- Local debugging
+1. Your current folder
+2. Parent folders (it searches upward)
 
-**Production recommendations**:
+You can also:
+- Specify a file: `npx db-studio --env .env.local`
+- Use a different variable: `npx db-studio --var-name MY_DB_URL`
+- Skip the file entirely: `npx db-studio --database-url "postgresql://..."`
 
-- Never expose the web interface publicly
-- Use SSH tunnels / VPN when connecting to prod
-- Strong credentials & limited permissions
-- Treat it as an admin tool, not a public dashboard
+</Accordion>
+
+<Accordion id="production-use" title="Can I use this in production?">
+
+You can, but we recommend using DB Studio only for:
+
+- Local development
+- Staging environments
+- Debugging
+
+**If you use it with production databases:**
+
+- Never expose the web interface to the public internet
+- Use SSH tunnels or VPN to connect
+- Use strong passwords and limited database permissions
+- Treat it like an admin tool, not a public app
+
+</Accordion>
+
+<Accordion id="ai-assistant" title="How does the AI assistant work?">
+
+The AI assistant helps you ask questions about your data in plain English. It:
+
+- Uses your database schema to understand your tables
+- Gives you helpful answers about your data
+- Limited to 5 messages per day
+
+</Accordion>
+
+<Accordion id="export-import" title="Can I export and import data?">
+
+Yes! You can:
+
+**Export data:**
+- CSV format
+- JSON format
+- Excel files
+
+**Import data:**
+- Upload CSV files
+- Upload JSON files
+- Upload Excel files
+
+Use the table menu to access these features.
 
 </Accordion>
 
 </Accordions>
 
-<Callout title="Still have questions?">
-  Found a bug? Want a feature?  
-  → Open an issue on [GitHub](https://github.com/husamql3/db-studio/issues)
+<Callout title="Need More Help?">
+  Have a question? Found a bug? Want a new feature?
+  
+  Open an issue on [GitHub](https://github.com/husamql3/db-studio/issues)
 </Callout>

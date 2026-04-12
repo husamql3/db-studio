@@ -1,16 +1,32 @@
+# db-studio - The modern pgAdmin alternative that works with every database.
+# https://dbstudio.sh
+
 User-agent: *
 Allow: /
+Allow: /roadmap
+Allow: /docs
+Allow: /changelog
 
-# Explicitly allow major search & AI crawlers
-User-agent: Googlebot
-Allow: /
-User-agent: GPTBot
-Allow: /
-User-agent: ClaudeBot
-Allow: /
+
 User-agent: Google-Extended
 Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
 User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: cohere-ai
 Allow: /
 
 Sitemap: https://dbstudio.sh/sitemap.xml

@@ -60,3 +60,5 @@ export const CONSTANTS = {
 	HOVER_ZONE: 20, // pixels from left edge
 	HOVER_DELAY: 100, // ms delay before opening
 };
+
+export const PRESET_SIZES = [5, 10, 25, 50, 100, 500];

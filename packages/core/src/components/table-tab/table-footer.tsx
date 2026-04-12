@@ -1,18 +1,18 @@
-import { ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { useTableData } from "@/hooks/use-table-data";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import { CONSTANTS } from "@/utils/constants";
+import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
 
 export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const {
@@ -26,8 +26,19 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
 
+	const [inputValue, setInputValue] = useState(limit ?? "50");
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		setInputValue(limit ?? "50");
+	}, [limit]);
+
 	const handleLimitChange = (value: string) => {
-		setLimit(value);
+		const num = parseInt(value, 10);
+		if (Number.isNaN(num) || num < 1) return;
+		const clamped = Math.min(num, 10000).toString();
+		setInputValue(clamped);
+		setLimit(clamped);
 		// Reset cursor when changing page size
 		setCursor(null);
 		setDirection(null);
@@ -61,31 +72,49 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 			}}
 		>
 			<div className="flex items-center gap-2">
-				{/* Results per page */}
 				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
-				<Select
-					value={limit?.toString() || "50"}
-					onValueChange={(value) => {
-						handleLimitChange(value);
-					}}
-				>
-					<SelectTrigger
-						size="sm"
-						className="h-6 text-xs px-2 border-none bg-transparent! shadow-none hover:bg-transparent! gap-2"
-					>
-						<SelectValue placeholder="Select number of results" />
-					</SelectTrigger>
-					<SelectContent className="[&_*[role=option]]:ps-2 [&_*[role=option]]:pe-8 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:end-2 border-zinc-800">
-						{[5, 10, 25, 50].map((size) => (
-							<SelectItem
-								key={size}
-								value={size.toString()}
+				<div className="flex items-center h-6 rounded-sm border border-transparent hover:border-zinc-700 focus-within:border-zinc-600 transition-colors">
+					<input
+						ref={inputRef}
+						type="number"
+						min={1}
+						max={10000}
+						value={inputValue}
+						onChange={(e) => setInputValue(e.target.value)}
+						onBlur={(e) => handleLimitChange(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								inputRef.current?.blur();
+							}
+						}}
+						className="w-10 h-full bg-transparent text-xs text-center text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					/>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button
+								type="button"
+								className="flex items-center h-full px-0.5 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none"
+								aria-label="Choose preset row count"
 							>
-								{size}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+								<ChevronDown className="size-3" />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent
+							align="start"
+							className="min-w-16 border-zinc-800"
+						>
+							{PRESET_SIZES.map((size) => (
+								<DropdownMenuItem
+									key={size}
+									onSelect={() => handleLimitChange(size.toString())}
+									className="text-xs justify-center"
+								>
+									{size}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</div>
 
 			{/* Row count information */}

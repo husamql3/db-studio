@@ -5,11 +5,7 @@ import type {
 	DatabaseListSchemaType,
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
-import {
-	getCurrentDatabase,
-	getDatabaseConnectionInfo,
-	getDatabasesList,
-} from "@/dao/database-list.dao.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 import {
 	getMongoConnectionInfo,
 	getMongoCurrentDatabase,
@@ -21,7 +17,7 @@ import { getDbType } from "@/db-manager.js";
  * /databases routes (at root level, no dbType required)
  * GET /databases - Get list of all databases on the server (name, size, owner, encoding)
  * GET /databases/current - Get the name of the database we are currently connected to
- * GET /databases/connection - Get connection details and server information (PostgreSQL version, host, port, user, current database, connection counts)
+ * GET /databases/connection - Get connection details and server information
  */
 export const databasesRoutes = new Hono()
 	/**
@@ -32,39 +28,33 @@ export const databasesRoutes = new Hono()
 	/**
 	 * GET /databases
 	 * Returns list of all databases on the server (name, size, owner, encoding) and the database type
-	 * @returns {Object} Object with databases array and dbType
 	 */
 	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
 		const dbType = getDbType();
-		const databases =
-			dbType === "mongodb" ? await getMongoDatabasesList() : await getDatabasesList();
+		const dao = getDaoFactory(dbType);
+		const databases = await dao.getDatabasesList();
 		return c.json({ data: { databases, dbType } }, 200);
 	})
 
 	/**
 	 * GET /databases/current
 	 * Returns the name of the database we are currently connected to and the database type
-	 * @returns {Object} Object with current database name and type
 	 */
 	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
 		const dbType = getDbType();
-		const current =
-			dbType === "mongodb" ? await getMongoCurrentDatabase() : await getCurrentDatabase();
-		return c.json({ data: { ...current, dbType } }, 200);
+		const dao = getDaoFactory(dbType);
+		const current = await dao.getCurrentDatabase();
+		return c.json({ data: { db: current.db, dbType } }, 200);
 	})
 
 	/**
 	 * GET /databases/connection
 	 * Returns connection details and server information
-	 * (PostgreSQL version, host, port, user, current database, connection counts)
-	 * @returns {Object} Connection and server info
 	 */
 	.get("/connection", async (c): ApiHandler<ConnectionInfoSchemaType> => {
 		const dbType = getDbType();
-		const info =
-			dbType === "mongodb"
-				? await getMongoConnectionInfo()
-				: await getDatabaseConnectionInfo();
+		const dao = getDaoFactory(dbType);
+		const info = await dao.getDatabaseConnectionInfo();
 		return c.json({ data: info }, 200);
 	});
 
