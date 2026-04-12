@@ -2,7 +2,13 @@ import { Controller, useFormContext } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import type { AddTableFormData } from "@/types/add-table.type";
 
-export const DefaultValueField = ({ index }: { index: number }) => {
+export const DefaultValueField = ({
+	index,
+	isRequired = true,
+}: {
+	index: number;
+	isRequired?: boolean;
+}) => {
 	const {
 		control,
 		register,
@@ -17,9 +23,14 @@ export const DefaultValueField = ({ index }: { index: number }) => {
 				<div className="flex flex-col gap-2">
 					<Input
 						id={`fields.${index}.defaultValue`}
-						{...register(`fields.${index}.defaultValue`, {
-							required: "Default value is required",
-						})}
+						{...register(
+							`fields.${index}.defaultValue`,
+							isRequired
+								? {
+										required: "Default value is required",
+									}
+								: undefined,
+						)}
 						placeholder="NULL"
 						className={
 							errors?.fields?.[index]?.defaultValue

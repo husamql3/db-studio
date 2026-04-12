@@ -23,3 +23,47 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 <br />
 
 <img src="https://dbstudio.sh/og-image.png" alt="DB Studio screenshot" width="1000" />
+
+## Getting Started
+
+Run DB Studio without installing it globally:
+
+```bash
+npx db-studio
+```
+
+DB Studio reads your database connection from `DATABASE_URL` in a `.env` file.
+
+```env
+DATABASE_URL="postgresql://user:password@127.0.0.1:5432/mydb"
+```
+
+You can also pass the connection string directly:
+
+```bash
+npx db-studio --database-url "postgresql://user:password@127.0.0.1:5432/mydb"
+```
+
+## Usage
+
+Add a simple script to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "db:studio": "npx db-studio"
+  }
+}
+```
+
+Then run:
+
+```bash
+npm run db:studio
+```
+
+Helpful options:
+
+- `npx db-studio --env .env.local`
+- `npx db-studio --port 4000`
+- `npx db-studio --status`

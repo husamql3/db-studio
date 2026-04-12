@@ -16,7 +16,28 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.4",
+		version: "1.5.1",
+		date: "2026-04-08",
+		title: "Schema tab column editing",
+		features: [
+			{
+				text: "Added schema tab column management with support for adding, editing, renaming, and dropping columns directly from the table structure view",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Updated the table actions flow so the Edit table menu item opens the schema editor for the selected table",
+				username: "husamql3",
+			},
+			{
+				text: "Added a report a bug button to the header to create a new GitHub issue",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.4.0",
 		date: "2026-03-02",
 		title: "Support MySQL database",
 		features: [

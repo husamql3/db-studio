@@ -57,6 +57,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
+				title:
+					"Edit table columns directly from the schema tab, including add, rename, update, and drop actions",
+				status: "completed",
+			},
+			{
 				title: "Indexes section to view, add, edit, or remove indexes",
 				status: "planned",
 			},
@@ -66,7 +71,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Schema section for views, functions, triggers, and extensions",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Safe playground area to test queries without risk",
@@ -146,7 +151,8 @@ export const roadmapItems: RoadmapItem[] = [
 		title: "Multi-Database Support",
 		status: "in-progress",
 		items: [
-			{ title: "Add full support for MySQL databases", status: "in-progress" },
+			{ title: "Add full support for PostgreSQL databases", status: "completed" },
+			{ title: "Add full support for MySQL databases", status: "completed" },
 			{ title: "Add full support for SQLite databases", status: "planned" },
 			{
 				title: "Add full support for MongoDB databases",
@@ -158,7 +164,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add full support for SQL Server databases",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
 				title: "Easy switching between different database connections",

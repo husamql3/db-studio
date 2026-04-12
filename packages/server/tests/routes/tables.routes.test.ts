@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
+import type { ColumnInfoSchemaType } from "shared/types";
 
 import { createServer } from "@/utils/create-server.js";
+import * as addColumnDao from "@/dao/add-column.dao.js";
+import * as alterColumnDao from "@/dao/alter-column.dao.js";
 import * as tableListDao from "@/dao/table-list.dao.js";
 import * as createTableDao from "@/dao/create-table.dao.js";
 import * as deleteColumnDao from "@/dao/delete-column.dao.js";
+import * as renameColumnDao from "@/dao/rename-column.dao.js";
 import * as tableColumnsDao from "@/dao/table-columns.dao.js";
 import * as tablesDataDao from "@/dao/tables-data.dao.js";
 
@@ -13,12 +17,24 @@ vi.mock("@/dao/table-list.dao.js", () => ({
 	getTablesList: vi.fn(),
 }));
 
+vi.mock("@/dao/add-column.dao.js", () => ({
+	addColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/alter-column.dao.js", () => ({
+	alterColumn: vi.fn(),
+}));
+
 vi.mock("@/dao/create-table.dao.js", () => ({
 	createTable: vi.fn(),
 }));
 
 vi.mock("@/dao/delete-column.dao.js", () => ({
 	deleteColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/rename-column.dao.js", () => ({
+	renameColumn: vi.fn(),
 }));
 
 vi.mock("@/dao/table-columns.dao.js", () => ({
@@ -32,6 +48,14 @@ vi.mock("@/dao/tables-data.dao.js", () => ({
 // Mock MySQL DAO modules (imported by tables route for mysql dispatch)
 vi.mock("@/dao/mysql/table-list.mysql.dao.js", () => ({
 	getTablesList: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/add-column.mysql.dao.js", () => ({
+	addColumn: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/alter-column.mysql.dao.js", () => ({
+	alterColumn: vi.fn(),
 }));
 
 vi.mock("@/dao/mysql/create-table.mysql.dao.js", () => ({
@@ -60,6 +84,10 @@ vi.mock("@/dao/mysql/table-schema.mysql.dao.js", () => ({
 
 vi.mock("@/dao/mysql/export-table.mysql.dao.js", () => ({
 	exportTableData: vi.fn(),
+}));
+
+vi.mock("@/dao/mysql/rename-column.mysql.dao.js", () => ({
+	renameColumn: vi.fn(),
 }));
 
 // Mock db-manager
@@ -679,11 +707,284 @@ describe("Tables Routes", () => {
 	});
 
 	// ============================================
+	// POST /tables/:tableName/columns
+	// ============================================
+	describe("POST /pg/tables/:tableName/columns", () => {
+		const body = {
+			columnName: "email",
+			columnType: "text",
+			defaultValue: "'unknown@example.com'",
+			isPrimaryKey: false,
+			isNullable: false,
+			isUnique: true,
+			isIdentity: false,
+			isArray: false,
+		};
+
+		it("should add a column and return 200", async () => {
+			vi.mocked(addColumnDao.addColumn).mockResolvedValue();
+
+			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe('Column "email" added successfully to table "users"');
+			expect(addColumnDao.addColumn).toHaveBeenCalledWith({
+				tableName: "users",
+				db: "testdb",
+				...body,
+			});
+		});
+
+		it("should return 400 when database query param is missing", async () => {
+			const res = await app.request("/pg/tables/users/columns", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when request body is invalid", async () => {
+			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					columnName: "email",
+				}),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 404 when table does not exist", async () => {
+			vi.mocked(addColumnDao.addColumn).mockRejectedValue(
+				new HTTPException(404, { message: 'Table "users" does not exist' }),
+			);
+
+			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(404);
+		});
+
+		it("should return 409 when column already exists", async () => {
+			vi.mocked(addColumnDao.addColumn).mockRejectedValue(
+				new HTTPException(409, {
+					message: 'Column "email" already exists in table "users"',
+				}),
+			);
+
+			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(409);
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			vi.mocked(addColumnDao.addColumn).mockRejectedValue(new Error("connect ECONNREFUSED"));
+
+			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(503);
+		});
+	});
+
+	// ============================================
+	// PATCH /tables/:tableName/columns/:columnName/rename
+	// ============================================
+	describe("PATCH /pg/tables/:tableName/columns/:columnName/rename", () => {
+		it("should rename a column and return 200", async () => {
+			vi.mocked(renameColumnDao.renameColumn).mockResolvedValue();
+
+			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe(
+				'Column "email" renamed to "email_address" in table "users"',
+			);
+			expect(renameColumnDao.renameColumn).toHaveBeenCalledWith({
+				tableName: "users",
+				columnName: "email",
+				db: "testdb",
+				newColumnName: "email_address",
+			});
+		});
+
+		it("should return 400 when database query param is missing", async () => {
+			const res = await app.request("/pg/tables/users/columns/email/rename", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when request body is invalid", async () => {
+			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 404 when column does not exist", async () => {
+			vi.mocked(renameColumnDao.renameColumn).mockRejectedValue(
+				new HTTPException(404, {
+					message: 'Column "email" does not exist in table "users"',
+				}),
+			);
+
+			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(404);
+		});
+
+		it("should return 409 when the new column name already exists", async () => {
+			vi.mocked(renameColumnDao.renameColumn).mockRejectedValue(
+				new HTTPException(409, {
+					message: 'Column "email_address" already exists in table "users"',
+				}),
+			);
+
+			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(409);
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			vi.mocked(renameColumnDao.renameColumn).mockRejectedValue(
+				new Error("connect ECONNREFUSED"),
+			);
+
+			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newColumnName: "email_address" }),
+			});
+
+			expect(res.status).toBe(503);
+		});
+	});
+
+	// ============================================
+	// PATCH /tables/:tableName/columns/:columnName
+	// ============================================
+	describe("PATCH /pg/tables/:tableName/columns/:columnName", () => {
+		const body = {
+			columnType: "text",
+			isNullable: true,
+			defaultValue: null,
+		};
+
+		it("should alter a column and return 200", async () => {
+			vi.mocked(alterColumnDao.alterColumn).mockResolvedValue();
+
+			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe('Column "email" updated successfully in table "users"');
+			expect(alterColumnDao.alterColumn).toHaveBeenCalledWith({
+				tableName: "users",
+				columnName: "email",
+				db: "testdb",
+				...body,
+			});
+		});
+
+		it("should return 400 when database query param is missing", async () => {
+			const res = await app.request("/pg/tables/users/columns/email", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when request body is invalid", async () => {
+			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ isNullable: true }),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 404 when column does not exist", async () => {
+			vi.mocked(alterColumnDao.alterColumn).mockRejectedValue(
+				new HTTPException(404, {
+					message: 'Column "email" does not exist in table "users"',
+				}),
+			);
+
+			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(404);
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			vi.mocked(alterColumnDao.alterColumn).mockRejectedValue(
+				new Error("connect ECONNREFUSED"),
+			);
+
+			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+			expect(res.status).toBe(503);
+		});
+	});
+
+	// ============================================
 	// GET /tables/:tableName/columns
 	// ============================================
 	describe("GET /pg/tables/:tableName/columns", () => {
 		it("should return list of columns with 200 status", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "id",
 					dataType: "number",
@@ -724,7 +1025,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return columns with foreign key information", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "id",
 					dataType: "number",
@@ -762,7 +1063,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return columns with enum values", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "status",
 					dataType: "enum",
@@ -792,7 +1093,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return columns with default values", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{
 					columnName: "created_at",
 					dataType: "date",
@@ -830,7 +1131,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle various data types", async () => {
-			const mockColumns = [
+			const mockColumns: ColumnInfoSchemaType[] = [
 				{ columnName: "id", dataType: "number", dataTypeLabel: "bigint", isNullable: false, columnDefault: null, isPrimaryKey: true, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
 				{ columnName: "name", dataType: "text", dataTypeLabel: "text", isNullable: true, columnDefault: null, isPrimaryKey: false, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
 				{ columnName: "metadata", dataType: "json", dataTypeLabel: "jsonb", isNullable: true, columnDefault: null, isPrimaryKey: false, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
@@ -1294,9 +1595,9 @@ describe("Tables Routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("should return 404 for POST /tables/:tableName/columns", async () => {
+		it("should return 404 for PUT /tables/:tableName/columns", async () => {
 			const res = await app.request("/pg/tables/users/columns?db=testdb", {
-				method: "POST",
+				method: "PUT",
 			});
 
 			expect(res.status).toBe(404);
