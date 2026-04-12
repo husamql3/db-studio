@@ -19,29 +19,13 @@ import {
 	tableNameSchema,
 } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { getDaoFactory } from "@/dao/dao-factory.js";
 import { addColumn as pgAddColumn } from "@/dao/add-column.dao.js";
 import { alterColumn as pgAlterColumn } from "@/dao/alter-column.dao.js";
-import { createTable as pgCreateTable } from "@/dao/create-table.dao.js";
-import { deleteColumn as pgDeleteColumn } from "@/dao/delete-column.dao.js";
-import { deleteTable as pgDeleteTable } from "@/dao/delete-table.dao.js";
-import { exportTableData as pgExportTableData } from "@/dao/export-table.dao.js";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 import { addColumn as mysqlAddColumn } from "@/dao/mysql/add-column.mysql.dao.js";
 import { alterColumn as mysqlAlterColumn } from "@/dao/mysql/alter-column.mysql.dao.js";
-import { createTable as mysqlCreateTable } from "@/dao/mysql/create-table.mysql.dao.js";
-import { deleteColumn as mysqlDeleteColumn } from "@/dao/mysql/delete-column.mysql.dao.js";
-import { deleteTable as mysqlDeleteTable } from "@/dao/mysql/delete-table.mysql.dao.js";
-import { exportTableData as mysqlExportTableData } from "@/dao/mysql/export-table.mysql.dao.js";
 import { renameColumn as mysqlRenameColumn } from "@/dao/mysql/rename-column.mysql.dao.js";
-import { getTableColumns as mysqlGetTableColumns } from "@/dao/mysql/table-columns.mysql.dao.js";
-import { getTablesList as mysqlGetTablesList } from "@/dao/mysql/table-list.mysql.dao.js";
-import { getTableSchema as mysqlGetTableSchema } from "@/dao/mysql/table-schema.mysql.dao.js";
-import { getTableData as mysqlGetTableData } from "@/dao/mysql/tables-data.mysql.dao.js";
 import { renameColumn as pgRenameColumn } from "@/dao/rename-column.dao.js";
-import { getTableColumns as pgGetTableColumns } from "@/dao/table-columns.dao.js";
-import { getTablesList as pgGetTablesList } from "@/dao/table-list.dao.js";
-import { getTableSchema as pgGetTableSchema } from "@/dao/table-schema.dao.js";
-import { getTableData as pgGetTableData } from "@/dao/tables-data.dao.js";
 import { getExportFile } from "@/utils/get-export-file.js";
 
 export const tablesRoutes = new Hono<RouteEnv>()

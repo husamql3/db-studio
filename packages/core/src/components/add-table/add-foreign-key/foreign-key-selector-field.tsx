@@ -48,10 +48,7 @@ export const ForeignKeySelectorField = ({ index }: { index: number }) => {
 					</div>
 
 					<div className="flex items-center gap-2 flex-1">
-						<ReferencedColField
-							index={index}
-							tableName={watch("tableName")}
-						/>
+						<ReferencedColField index={index} />
 					</div>
 				</div>
 
