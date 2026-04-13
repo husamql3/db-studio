@@ -4,7 +4,7 @@ export const DEFAULTS = {
 	PORT,
 	ENV: ".env",
 	VAR_NAME: "DATABASE_URL",
-	BASE_URL: process.env.BASE_URL ?? `http://localhost:${PORT}`,
+	BASE_URL: process.env.BASE_URL || `http://localhost:${PORT}`,
 	PROXY_URL:
 		process.env.NODE_ENV === "development"
 			? "http://localhost:8787"
