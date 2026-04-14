@@ -6,13 +6,13 @@ import { z } from "zod";
 import { ColumnTypeField } from "@/components/add-table/column-type-field";
 import { DefaultValueField } from "@/components/add-table/default-value-field";
 import { FormActions } from "@/components/add-table/form-actions";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAlterColumn } from "@/hooks/use-alter-column";
 import { useSchemaEditStore } from "@/stores/schema-edit.store";
 import { useSheetStore } from "@/stores/sheet.store";
-import { SheetSidebar } from "../sheet-sidebar";
 
 const editColumnFormSchema = z.object({
 	fields: z.tuple([

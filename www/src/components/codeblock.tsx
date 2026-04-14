@@ -11,8 +11,8 @@ import {
 	useMemo,
 	useRef,
 } from "react";
-import { cn } from "../lib/cn";
-import { mergeRefs } from "../lib/merge-refs";
+import { cn } from "@/lib/utils";
+import { mergeRefs } from "@/lib/merge-refs";
 import { buttonVariants } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 

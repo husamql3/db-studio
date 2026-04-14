@@ -16,6 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.6.2",
+		date: "2026-04-12",
+		title: "Support MSSQL database",
+		features: [
+			{
+				text: "Added Microsoft SQL Server (MSSQL) database support",
+				username: "Amirosagan",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed table cell display to properly handle and render non-primitive object values",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.5.1",
 		date: "2026-04-08",
 		title: "Schema tab column editing",

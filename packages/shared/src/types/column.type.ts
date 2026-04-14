@@ -479,3 +479,108 @@ export function standardizeMysqlDataTypeLabel(
 	// Default
 	return StandardizedDataType.text;
 }
+
+/**
+ * Maps SQL Server data types to generic DataType enum (used for cell rendering)
+ * @param mssqlDataType - The data type from sys.columns or information_schema.columns
+ */
+export function mapMssqlToDataType(mssqlDataType: string): DataTypes {
+	const normalized = mssqlDataType?.toLowerCase().trim() || "";
+
+	// Numeric types
+	if (
+		normalized === "tinyint" ||
+		normalized === "smallint" ||
+		normalized === "int" ||
+		normalized === "bigint" ||
+		normalized === "decimal" ||
+		normalized === "numeric" ||
+		normalized === "float" ||
+		normalized === "real" ||
+		normalized === "money" ||
+		normalized === "smallmoney"
+	) {
+		return DataTypes.number;
+	}
+
+	// Boolean (bit with length 1)
+	if (normalized === "bit") {
+		return DataTypes.boolean;
+	}
+
+	// Date/time types
+	if (
+		normalized === "date" ||
+		normalized === "datetime" ||
+		normalized === "datetime2" ||
+		normalized === "smalldatetime" ||
+		normalized === "time" ||
+		normalized === "datetimeoffset"
+	) {
+		return DataTypes.date;
+	}
+
+	// JSON (SQL Server 2016+)
+	if (normalized === "json") {
+		return DataTypes.json;
+	}
+
+	// All text and binary types default to text
+	return DataTypes.text;
+}
+
+/**
+ * Maps SQL Server data types to standardized display labels
+ * @param mssqlDataType - The data type from sys.columns or information_schema.columns
+ */
+export function standardizeMssqlDataTypeLabel(mssqlDataType: string): StandardizedDataType {
+	if (!mssqlDataType) {
+		return StandardizedDataType.text;
+	}
+	const normalized = mssqlDataType.toLowerCase().trim();
+
+	// Numeric types
+	if (normalized === "tinyint") return StandardizedDataType.tinyint;
+	if (normalized === "smallint") return StandardizedDataType.smallint;
+	if (normalized === "int") return StandardizedDataType.int;
+	if (normalized === "bigint") return StandardizedDataType.bigint;
+	if (normalized === "decimal" || normalized === "numeric")
+		return StandardizedDataType.numeric;
+	if (normalized === "float") return StandardizedDataType.float;
+	if (normalized === "real") return StandardizedDataType.float;
+	if (normalized === "money" || normalized === "smallmoney") return StandardizedDataType.money;
+
+	// Boolean
+	if (normalized === "bit") return StandardizedDataType.boolean;
+
+	// Text types
+	if (normalized === "char") return StandardizedDataType.char;
+	if (normalized === "varchar") return StandardizedDataType.varchar;
+	if (normalized === "text") return StandardizedDataType.text;
+	if (normalized === "nchar") return StandardizedDataType.char;
+	if (normalized === "nvarchar") return StandardizedDataType.varchar;
+	if (normalized === "ntext") return StandardizedDataType.text;
+
+	// Binary types
+	if (normalized === "binary") return StandardizedDataType.binary;
+	if (normalized === "varbinary") return StandardizedDataType.varbinary;
+	if (normalized === "image") return StandardizedDataType.blob;
+
+	// UUID
+	if (normalized === "uniqueidentifier") return StandardizedDataType.uuid;
+
+	// Date/time types
+	if (normalized === "date") return StandardizedDataType.date;
+	if (normalized === "time") return StandardizedDataType.time;
+	if (normalized === "datetime") return StandardizedDataType.datetime;
+	if (normalized === "datetime2") return StandardizedDataType.datetime;
+	if (normalized === "smalldatetime") return StandardizedDataType.datetime;
+	if (normalized === "datetimeoffset") return StandardizedDataType.timestamptz;
+
+	// JSON and XML
+	if (normalized === "json") return StandardizedDataType.json;
+	if (normalized === "xml") return StandardizedDataType.xml;
+
+	// Default
+	return StandardizedDataType.text;
+}

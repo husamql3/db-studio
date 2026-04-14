@@ -11,7 +11,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { mergeRefs } from "../../lib/merge-refs";
+import { mergeRefs } from "@/lib/merge-refs";
 
 type ChangeListener = (v: string) => void;
 const listeners = new Map<string, Set<ChangeListener>>();

@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { FormActions } from "@/components/add-table/form-actions";
 import { FormContent } from "@/components/add-table/form-content";
 import { TableNameField } from "@/components/add-table/table-name-field";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useCreateTable } from "@/hooks/use-create-table";
 import { useSheetStore } from "@/stores/sheet.store";
 import { type AddTableFormData, addTableSchema } from "@/types/add-table.type";
-import { SheetSidebar } from "../sheet-sidebar";
 
 const defaultValues = {
 	tableName: "",

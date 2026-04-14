@@ -14,6 +14,8 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import { TableCellWrapper } from "@/components/table-tab/table-cell-wrapper";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import {
@@ -26,8 +28,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
-import { DatePicker } from "../ui/date-picker";
-import { Input } from "../ui/input";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -50,7 +50,11 @@ export const TableTextCell = memo(
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const initialValue = cell.getValue() as string;
+		const rawValue = cell.getValue();
+		const initialValue =
+			rawValue !== null && rawValue !== undefined && typeof rawValue === "object"
+				? JSON.stringify(rawValue)
+				: (rawValue as string);
 
 		// Separate editor value from display value
 		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");

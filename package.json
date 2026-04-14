@@ -12,6 +12,7 @@
     "dev:www": "turbo run dev --filter=www",
     "init-db:pgsql": "bash ./scripts/init-db-pgsql.sh",
     "init-db:mysql": "bash ./scripts/init-db-mysql.sh",
+    "init-db:mssql": "bash ./scripts/init-db-mssql.sh",
     "build": "turbo run build",
     "build:core": "turbo run build --filter=core",
     "scan:core": "bunx react-scan@latest http://localhost:3001",
