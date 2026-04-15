@@ -56,12 +56,12 @@ Response: "I'll aggregate orders to calculate total revenue per customer.
 
 \`\`\`json
 {
-  \"collection\": \"orders\",
-  \"operation\": \"aggregate\",
-  \"pipeline\": [
-    { \"\$group\": { \"_id\": \"\$customer_id\", \"total\": { \"\$sum\": \"\$total_amount\" } } },
-    { \"\$sort\": { \"total\": -1 } },
-    { \"\$limit\": 5 }
+  "collection": "orders",
+  "operation": "aggregate",
+  "pipeline": [
+    { "$group": { "_id": "$customer_id", "total": { "$sum": "$total_amount" } } },
+    { "$sort": { "total": -1 } },
+    { "$limit": 5 }
   ]
 }
 \`\`\`

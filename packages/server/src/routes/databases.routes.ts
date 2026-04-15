@@ -6,11 +6,6 @@ import type {
 } from "shared/types";
 import type { ApiHandler } from "@/app.types.js";
 import { getDaoFactory } from "@/dao/dao-factory.js";
-import {
-	getMongoConnectionInfo,
-	getMongoCurrentDatabase,
-	getMongoDatabasesList,
-} from "@/dao/mongo/database-list.dao.js";
 import { getDbType } from "@/db-manager.js";
 
 /**

@@ -5,9 +5,12 @@ import { toast } from "sonner";
 import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
 import { RunnerHeader } from "@/components/runnr-tab/runner-header";
 import { useExecuteQuery } from "@/hooks/use-execute-query";
-import { useQueriesStore } from "@/stores/queries.store";
 import { useDatabaseStore } from "@/stores/database.store";
-import { MONGO_PLACEHOLDER_QUERY, PGSQL_PLACEHOLDER_QUERY } from "@/utils/constants/placeholders";
+import { useQueriesStore } from "@/stores/queries.store";
+import {
+	MONGO_PLACEHOLDER_QUERY,
+	PGSQL_PLACEHOLDER_QUERY,
+} from "@/utils/constants/placeholders";
 
 const CodeEditor = lazy(() =>
 	import("@/components/runnr-tab/cdoe-editor").then((module) => ({
@@ -32,7 +35,8 @@ export const RunnerTab = ({ queryId }: { queryId?: string }) => {
 	const { dbType } = useDatabaseStore();
 
 	const getInitialQuery = useCallback(() => {
-		const placeholder = dbType === "mongodb" ? MONGO_PLACEHOLDER_QUERY : PGSQL_PLACEHOLDER_QUERY;
+		const placeholder =
+			dbType === "mongodb" ? MONGO_PLACEHOLDER_QUERY : PGSQL_PLACEHOLDER_QUERY;
 		if (!query) return placeholder;
 		return query?.query ?? placeholder;
 	}, [query, dbType]);

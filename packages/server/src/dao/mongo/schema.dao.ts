@@ -39,7 +39,9 @@ export async function getMongoDatabaseSchema(
 
 		if (includeSampleData) {
 			const rows = await mongoDb.collection(name).find({}).limit(3).toArray();
-			const normalized = rows.map((row) => normalizeMongoDocument(row) as Record<string, unknown>);
+			const normalized = rows.map(
+				(row) => normalizeMongoDocument(row) as Record<string, unknown>,
+			);
 			table.sampleData = normalized.map((row) =>
 				Object.fromEntries(Object.entries(row).map(([key, value]) => [key, String(value)])),
 			);

@@ -30,7 +30,6 @@ import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 
-
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
 	table: Table<TableRecord>;

@@ -83,9 +83,10 @@ describe("createServer", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("should reject mongodb database type", async () => {
+		it("should accept mongodb database type as valid (no /mongodb/databases route → 404)", async () => {
 			const res = await server.app.request("/mongodb/databases");
-			expect(res.status).toBe(400);
+			// mongodb is now a valid dbType; /mongodb/databases has no handler → 404
+			expect(res.status).toBe(404);
 		});
 
 		it("should reject numeric database type", async () => {

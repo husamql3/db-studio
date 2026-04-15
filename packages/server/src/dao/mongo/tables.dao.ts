@@ -2,15 +2,15 @@ import { HTTPException } from "hono/http-exception";
 import type {
 	ColumnInfoSchemaType,
 	CreateTableSchemaType,
-	DataTypes,
 	DatabaseSchemaType,
-	TableDataResultSchemaType,
-	TableInfoSchemaType,
-	TableDataQuerySchemaType,
+	DataTypes,
 	FilterType,
 	SortType,
+	TableDataQuerySchemaType,
+	TableDataResultSchemaType,
+	TableInfoSchemaType,
 } from "shared/types";
-import { getMongoDb, coerceObjectId, isValidObjectId } from "@/mongo-manager.js";
+import { coerceObjectId, getMongoDb, isValidObjectId } from "@/mongo-manager.js";
 
 const MONGO_BSON_TYPES = new Set([
 	"double",
@@ -108,10 +108,10 @@ const mapDataTypeLabel = (dataType: DataTypes): ColumnInfoSchemaType["dataTypeLa
 			return "numeric";
 		case "boolean":
 			return "boolean";
-	case "json":
-		return "json";
-	case "date":
-		return "date";
+		case "json":
+			return "json";
+		case "date":
+			return "date";
 		case "array":
 			return "array";
 		case "enum":
@@ -366,12 +366,7 @@ export async function getMongoTableData({
 
 	const [total, rows] = await Promise.all([
 		collection.countDocuments(filterObject),
-		collection
-			.find(filterObject)
-			.sort(sortObject)
-			.skip(skip)
-			.limit(safeLimit)
-			.toArray(),
+		collection.find(filterObject).sort(sortObject).skip(skip).limit(safeLimit).toArray(),
 	]);
 
 	const normalizedRows = rows.map((row) => normalizeValue(row) as Record<string, unknown>);
@@ -476,9 +471,7 @@ export async function exportMongoTableData({
 	const collection = mongoDb.collection(tableName);
 	const rows = await collection.find({}).limit(10000).toArray();
 	const normalized = rows.map((row) => normalizeValue(row) as Record<string, unknown>);
-	const cols = Array.from(
-		new Set(normalized.flatMap((row) => Object.keys(row))),
-	);
+	const cols = Array.from(new Set(normalized.flatMap((row) => Object.keys(row))));
 	return { cols, rows: normalized };
 }
 

@@ -1,5 +1,9 @@
 import { HTTPException } from "hono/http-exception";
-import type { ConnectionInfoSchemaType, DatabaseInfoSchemaType, DatabaseSchemaType } from "shared/types";
+import type {
+	ConnectionInfoSchemaType,
+	DatabaseInfoSchemaType,
+	DatabaseSchemaType,
+} from "shared/types";
 import { getMongoClient, getMongoDbName } from "@/mongo-manager.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
@@ -43,8 +47,10 @@ export async function getMongoConnectionInfo(): Promise<ConnectionInfoSchemaType
 	const client = await getMongoClient();
 	const admin = client.db().admin();
 	const urlDefaults = parseDatabaseUrl();
-	let serverStatus: { version?: string; connections?: { current?: number; available?: number } } =
-		{};
+	let serverStatus: {
+		version?: string;
+		connections?: { current?: number; available?: number };
+	} = {};
 	try {
 		serverStatus = await admin.serverStatus();
 	} catch (error) {
@@ -59,7 +65,6 @@ export async function getMongoConnectionInfo(): Promise<ConnectionInfoSchemaType
 		version: serverStatus.version ?? "unknown",
 		active_connections: serverStatus.connections?.current ?? 0,
 		max_connections:
-			(serverStatus.connections?.current ?? 0) +
-			(serverStatus.connections?.available ?? 0),
+			(serverStatus.connections?.current ?? 0) + (serverStatus.connections?.available ?? 0),
 	};
 }

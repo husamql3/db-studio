@@ -10,12 +10,6 @@ import {
 } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
 import { getDaoFactory } from "@/dao/dao-factory.js";
-import {
-	addMongoRecord,
-	deleteMongoRecords,
-	forceDeleteMongoRecords,
-	updateMongoRecords,
-} from "@/dao/mongo/records.dao.js";
 
 export const recordsRoutes = new Hono<RouteEnv>()
 	/**

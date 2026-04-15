@@ -7,11 +7,7 @@ import type {
 	UpdateRecordsSchemaType,
 } from "shared/types";
 import { getMongoDb } from "@/mongo-manager.js";
-import {
-	canCoerceObjectId,
-	normalizeMongoDocument,
-	toMongoId,
-} from "./tables.dao.js";
+import { canCoerceObjectId, normalizeMongoDocument, toMongoId } from "./tables.dao.js";
 
 export async function addMongoRecord({
 	db,
@@ -68,10 +64,7 @@ export async function updateMongoRecords({
 		const queryValue =
 			pkField === "_id" && canCoerceObjectId(pkValue) ? toMongoId(pkValue) : pkValue;
 
-		const result = await collection.updateOne(
-			{ [pkField]: queryValue },
-			{ $set: updateSet },
-		);
+		const result = await collection.updateOne({ [pkField]: queryValue }, { $set: updateSet });
 
 		if (result.matchedCount === 0) {
 			throw new HTTPException(404, {

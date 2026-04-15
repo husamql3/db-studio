@@ -69,7 +69,7 @@ export const executeMongoQuery = async ({
 	let payload: MongoQueryPayload;
 	try {
 		payload = JSON.parse(query) as MongoQueryPayload;
-	} catch (error) {
+	} catch (_error) {
 		throw new HTTPException(400, {
 			message: "Mongo query must be valid JSON",
 		});
@@ -117,7 +117,8 @@ export const executeMongoQuery = async ({
 		}
 		case "insertMany": {
 			const docs = payload.document as Record<string, unknown>[] | undefined;
-			if (!Array.isArray(docs)) throw new HTTPException(400, { message: "document array is required" });
+			if (!Array.isArray(docs))
+				throw new HTTPException(400, { message: "document array is required" });
 			const result = await collection.insertMany(docs);
 			rowCount = result.insertedCount ?? 0;
 			message = "OK";
@@ -134,7 +135,11 @@ export const executeMongoQuery = async ({
 		case "updateMany": {
 			const filter = normalizeIdFilter(payload.filter ?? {});
 			if (!payload.update) throw new HTTPException(400, { message: "update is required" });
-			const result = await collection.updateMany(filter, payload.update, payload.options ?? {});
+			const result = await collection.updateMany(
+				filter,
+				payload.update,
+				payload.options ?? {},
+			);
 			rowCount = result.matchedCount ?? 0;
 			message = `OK (${result.modifiedCount ?? 0} modified)`;
 			break;
@@ -166,7 +171,9 @@ export const executeMongoQuery = async ({
 
 	const duration = performance.now() - startTime;
 
-	const normalizedRows = rows.map((row) => normalizeMongoDocument(row) as Record<string, unknown>);
+	const normalizedRows = rows.map(
+		(row) => normalizeMongoDocument(row) as Record<string, unknown>,
+	);
 
 	const columns = normalizedRows[0] ? Object.keys(normalizedRows[0]) : [];
 	return {

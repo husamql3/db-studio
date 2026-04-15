@@ -6,10 +6,9 @@ import type {
 	Relationship,
 	Table,
 } from "shared/types";
-import { db } from "@/db.js";
-import { getDbPool } from "@/db-manager.js";
-import { getDbType } from "@/db-manager.js";
 import { getMongoDatabaseSchema } from "@/dao/mongo/schema.dao.js";
+import { db } from "@/db.js";
+import { getDbPool, getDbType } from "@/db-manager.js";
 import { getTableColumns } from "./table-columns.dao.js";
 
 /**

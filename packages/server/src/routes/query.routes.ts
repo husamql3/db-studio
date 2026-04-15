@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { databaseSchema, type ExecuteQueryResult, executeQuerySchema } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
 import { getDaoFactory } from "@/dao/dao-factory.js";
-import { executeMongoQuery } from "@/dao/mongo/query.dao.js";
 
 export const queryRoutes = new Hono<RouteEnv>()
 	/**

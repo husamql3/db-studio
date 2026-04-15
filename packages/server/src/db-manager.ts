@@ -39,16 +39,13 @@ class DatabaseManager {
 		if (protocol === "mssql" || protocol === "sqlserver") {
 			return "mssql";
 		}
-
-		throw new Error(
-			`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), and SQL Server (mssql://).`,
-		);
-			// mongodb:// or mongodb+srv:// -> mongodb
 		if (protocol === "mongodb" || protocol === "mongodb+srv") {
 			return "mongodb";
 		}
-		// Default to pg for now, can be extended for mysql, sqlite, etc.
-		return "pg";
+
+		throw new Error(
+			`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://).`,
+		);
 	}
 
 	/**
