@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { DatabaseSchemaType, TableNameSchemaType } from "shared/types";
-import { getMongoDb } from "@/mongo-manager.js";
+import { getMongoDb } from "@/db-manager.js";
 
 const SAMPLE_LIMIT = 200;
 

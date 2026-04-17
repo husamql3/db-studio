@@ -1,3 +1,4 @@
+import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
@@ -6,12 +7,13 @@ import { Pool, type PoolConfig } from "pg";
 import type { DatabaseTypeSchema } from "shared/types";
 
 /**
- * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, and SQL Server
+ * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB
  */
 class DatabaseManager {
 	private pgPools: Map<string, Pool> = new Map();
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
+	private mongoClient: MongoClient | null = null;
 	private baseConfig: {
 		url: string;
 		host: string;
@@ -30,22 +32,24 @@ class DatabaseManager {
 	 */
 	private detectDbType(url: URL): DatabaseTypeSchema {
 		const protocol = url.protocol.replace(":", "");
-		if (protocol === "postgres" || protocol === "postgresql") {
-			return "pg";
+		switch (protocol) {
+			case "postgres":
+			case "postgresql":
+				return "pg";
+			case "mysql":
+			case "mysql2":
+				return "mysql";
+			case "mssql":
+			case "sqlserver":
+				return "mssql";
+			case "mongodb":
+			case "mongodb+srv":
+				return "mongodb";
+			default:
+				throw new Error(
+					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://).`,
+				);
 		}
-		if (protocol === "mysql" || protocol === "mysql2") {
-			return "mysql";
-		}
-		if (protocol === "mssql" || protocol === "sqlserver") {
-			return "mssql";
-		}
-		if (protocol === "mongodb" || protocol === "mongodb+srv") {
-			return "mongodb";
-		}
-
-		throw new Error(
-			`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://).`,
-		);
 	}
 
 	/**
@@ -287,6 +291,49 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Get or create a MongoDB client
+	 */
+	async getMongoClient(): Promise<MongoClient> {
+		if (!this.mongoClient) {
+			if (!this.baseConfig) {
+				throw new Error("Base configuration not initialized");
+			}
+			const nextClient = new MongoClient(this.baseConfig.url);
+			try {
+				await nextClient.connect();
+				this.mongoClient = nextClient;
+			} catch (error) {
+				try {
+					await nextClient.close();
+				} catch {
+					// ignore close errors
+				}
+				throw error;
+			}
+		}
+		return this.mongoClient;
+	}
+
+	/**
+	 * Get the MongoDB database name from the connection URL
+	 */
+	getMongoDbName(): string {
+		if (!this.baseConfig) {
+			throw new Error("Base configuration not initialized");
+		}
+		const path = new URL(this.baseConfig.url).pathname?.replace(/^\//, "");
+		return path || "admin";
+	}
+
+	/**
+	 * Get a MongoDB database instance
+	 */
+	async getMongoDb(dbName?: string) {
+		const mongoClient = await this.getMongoClient();
+		return mongoClient.db(dbName ?? this.getMongoDbName());
+	}
+
+	/**
 	 * Close all database pools
 	 */
 	async closeAll(): Promise<void> {
@@ -312,6 +359,10 @@ class DatabaseManager {
 		this.pgPools.clear();
 		this.mysqlPools.clear();
 		this.mssqlPools.clear();
+		if (this.mongoClient) {
+			await this.mongoClient.close();
+			this.mongoClient = null;
+		}
 	}
 
 	/**
@@ -390,4 +441,36 @@ const _closeAllDbPools = async (): Promise<void> => {
  */
 const _getActivePools = (): string[] => {
 	return databaseManager.getActivePools();
+};
+
+/**
+ * Get or create the MongoDB client
+ */
+export const getMongoClient = (): Promise<MongoClient> => {
+	return databaseManager.getMongoClient();
+};
+
+/**
+ * Get the MongoDB database name from the connection URL
+ */
+export const getMongoDbName = (): string => {
+	return databaseManager.getMongoDbName();
+};
+
+/**
+ * Get a MongoDB database instance
+ */
+export const getMongoDb = (dbName?: string) => {
+	return databaseManager.getMongoDb(dbName);
+};
+
+export const isValidObjectId = (value: unknown): value is string => {
+	return typeof value === "string" && ObjectId.isValid(value);
+};
+
+export const coerceObjectId = (value: unknown): unknown => {
+	if (typeof value === "string" && ObjectId.isValid(value)) {
+		return new ObjectId(value);
+	}
+	return value;
 };

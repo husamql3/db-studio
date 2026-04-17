@@ -21,6 +21,8 @@ vi.mock("@/db-manager.js", () => ({
 		query: vi.fn(),
 	})),
 	getDbType: vi.fn(() => "pg"),
+	isValidObjectId: vi.fn(),
+	coerceObjectId: vi.fn(),
 }));
 
 import { createServer } from "@/utils/create-server.js";

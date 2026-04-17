@@ -10,7 +10,7 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 } from "shared/types";
-import { coerceObjectId, getMongoDb, isValidObjectId } from "@/mongo-manager.js";
+import { coerceObjectId, getMongoDb, isValidObjectId } from "@/db-manager.js";
 
 const MONGO_BSON_TYPES = new Set([
 	"double",

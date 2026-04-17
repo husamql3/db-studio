@@ -6,7 +6,7 @@ import type {
 	DeleteResult,
 	UpdateRecordsSchemaType,
 } from "shared/types";
-import { getMongoDb } from "@/mongo-manager.js";
+import { getMongoDb } from "@/db-manager.js";
 import { canCoerceObjectId, normalizeMongoDocument, toMongoId } from "./tables.dao.js";
 
 export async function addMongoRecord({

@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { BulkInsertRecordsParams, BulkInsertResult } from "shared/types";
-import { getMongoDb } from "@/mongo-manager.js";
+import { getMongoDb } from "@/db-manager.js";
 import { normalizeMongoDocument } from "./tables.dao.js";
 
 export const bulkInsertRecords = async ({

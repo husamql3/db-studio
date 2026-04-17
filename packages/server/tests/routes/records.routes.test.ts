@@ -47,6 +47,8 @@ vi.mock("@/db-manager.js", () => ({
 		execute: vi.fn(),
 	})),
 	getDbType: vi.fn(() => "pg"),
+	isValidObjectId: vi.fn(),
+	coerceObjectId: vi.fn(),
 }));
 
 describe("Records Routes", () => {

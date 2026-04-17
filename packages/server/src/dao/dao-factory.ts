@@ -141,7 +141,7 @@ const daoRegistry = {
 		deleteRecords: deleteMongoRecords,
 		forceDeleteRecords: forceDeleteMongoRecords,
 		deleteTable: async ({ db, tableName }: { db: string; tableName: string }) => {
-			const { getMongoDb } = await import("@/mongo-manager.js");
+			const { getMongoDb } = await import("@/db-manager.js");
 			const mongoDb = await getMongoDb(db);
 			await mongoDb.collection(tableName).drop();
 		},

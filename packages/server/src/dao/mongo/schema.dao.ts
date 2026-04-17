@@ -1,5 +1,5 @@
 import type { Column, DatabaseSchema, DatabaseSchemaType, Table } from "shared/types";
-import { getMongoDb } from "@/mongo-manager.js";
+import { getMongoDb } from "@/db-manager.js";
 import { getMongoTableColumns, normalizeMongoDocument } from "./tables.dao.js";
 
 const convertColumn = (col: {
