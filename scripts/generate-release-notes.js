@@ -14,7 +14,7 @@ if (!entry) {
 	process.exit(1);
 }
 
-const lines: string[] = [];
+const lines = [];
 
 if (entry.features?.length) {
 	lines.push("## Features");

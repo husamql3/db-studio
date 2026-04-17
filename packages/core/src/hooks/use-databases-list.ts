@@ -83,8 +83,8 @@ export const useInitializeDatabase = () => {
 			// init the api baseURL with the dbType from the first request
 			setApiDbType(res.data.data.dbType);
 			setDbType(res.data.data.dbType);
-			if (!selectedDatabase && res.data.data.database) {
-				setSelectedDatabase(res.data.data.database);
+			if (!selectedDatabase && res.data.data.db) {
+				setSelectedDatabase(res.data.data.db);
 			}
 			return res.data.data;
 		},

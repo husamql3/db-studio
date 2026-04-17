@@ -1,10 +1,11 @@
+import type { DatabaseTypeSchema } from "shared/types";
 import { create } from "zustand";
 
 interface DatabaseStore {
 	selectedDatabase: string | null;
 	setSelectedDatabase: (database: string | null) => void;
-	dbType: "pg" | "mongodb" | null;
-	setDbType: (dbType: "pg" | "mongodb" | null) => void;
+	dbType: DatabaseTypeSchema | null;
+	setDbType: (dbType: DatabaseTypeSchema | null) => void;
 }
 
 export const useDatabaseStore = create<DatabaseStore>()((set) => ({
