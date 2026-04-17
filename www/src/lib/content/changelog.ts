@@ -18,11 +18,15 @@ export const changelog: ChangelogItem[] = [
 	{
 		version: "1.6.5",
 		date: "2026-04-12",
-		title: "Support MSSQL database",
+		title: "Support MSSQL and MongoDB databases",
 		features: [
 			{
 				text: "Added Microsoft SQL Server (MSSQL) database support",
 				username: "Amirosagan",
+			},
+			{
+				text: "Added MongoDB database support",
+				username: "Youssef-joe",
 			},
 		],
 		improvements: [

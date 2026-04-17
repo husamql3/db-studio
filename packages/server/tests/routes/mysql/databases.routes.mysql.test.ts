@@ -23,6 +23,8 @@ vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({ query: vi.fn() })),
 	getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
 	getDbType: vi.fn(() => "mysql"),
+	isValidObjectId: vi.fn(),
+	coerceObjectId: vi.fn(),
 }));
 
 describe("Databases Routes (MySQL)", () => {

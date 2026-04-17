@@ -28,6 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
+import { formatCellValue } from "@/utils/format-cell-value";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -50,11 +51,8 @@ export const TableTextCell = memo(
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const rawValue = cell.getValue();
-		const initialValue =
-			rawValue !== null && rawValue !== undefined && typeof rawValue === "object"
-				? JSON.stringify(rawValue)
-				: (rawValue as string);
+		const rawInitialValue = cell.getValue();
+		const initialValue = formatCellValue(rawInitialValue);
 
 		// Separate editor value from display value
 		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
@@ -70,7 +68,7 @@ export const TableTextCell = memo(
 		// Get the current display value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName);
 		const displayValue = pendingUpdate
-			? (pendingUpdate.newValue as string)
+			? formatCellValue(pendingUpdate.newValue)
 			: (initialValue ?? "");
 
 		const onSave = useCallback(() => {
@@ -82,12 +80,12 @@ export const TableTextCell = memo(
 			});
 
 			// Update the store with the final value
-			setUpdate(rowData, columnName, editorValue, initialValue);
+			setUpdate(rowData, columnName, editorValue, rawInitialValue);
 
 			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
 			setOpen(false);
-		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
+		}, [meta, editorValue, rawInitialValue, initialValue, columnName, rowData, setUpdate]);
 
 		const onCancel = useCallback(() => {
 			// Restore the original value

@@ -40,6 +40,8 @@ vi.mock("@/db-manager.js", () => ({
 	getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
 	getMssqlPool: vi.fn(async () => ({ request: vi.fn() })),
 	getDbType: vi.fn(() => "mssql"),
+	isValidObjectId: vi.fn(),
+	coerceObjectId: vi.fn(),
 }));
 
 describe("Tables Routes (MSSQL)", () => {

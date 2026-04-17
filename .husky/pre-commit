@@ -1,3 +1,4 @@
+export PATH="/Users/mac/.bun/bin:$PATH"
 bun run check
 bun run test
 bun run build

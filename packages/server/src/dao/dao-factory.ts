@@ -9,6 +9,29 @@ import * as pgDeleteColumn from "./delete-column.dao.js";
 import * as pgDeleteRecords from "./delete-records.dao.js";
 import * as pgDeleteTable from "./delete-table.dao.js";
 import * as pgExportTable from "./export-table.dao.js";
+import { bulkInsertRecords as mongoBulkInsertRecords } from "./mongo/bulk-insert-records.mongo.dao.js";
+// MongoDB DAOs
+import {
+	getMongoConnectionInfo,
+	getMongoCurrentDatabase,
+	getMongoDatabasesList,
+} from "./mongo/database-list.dao.js";
+import { executeMongoQuery } from "./mongo/query.dao.js";
+import {
+	addMongoRecord,
+	deleteMongoRecords,
+	forceDeleteMongoRecords,
+	updateMongoRecords,
+} from "./mongo/records.dao.js";
+import { getTableSchema as mongoGetTableSchema } from "./mongo/table-schema.mongo.dao.js";
+import {
+	createMongoCollection,
+	deleteMongoColumn,
+	exportMongoTableData,
+	getMongoTableColumns,
+	getMongoTableData,
+	getMongoTablesList,
+} from "./mongo/tables.dao.js";
 // MSSQL DAOs
 import * as mssqlAddRecord from "./mssql/add-record.mssql.dao.js";
 import * as mssqlBulkInsertRecords from "./mssql/bulk-insert-records.mssql.dao.js";
@@ -95,6 +118,47 @@ const daoRegistry = {
 		getTableData: mysqlTablesData.getTableData,
 		updateRecords: mysqlUpdateRecords.updateRecords,
 	},
+	mongodb: {
+		addRecord: ({ db, params }: Parameters<typeof pgAddRecord.addRecord>[0]) =>
+			addMongoRecord({ db, params }),
+		bulkInsertRecords: mongoBulkInsertRecords,
+		createTable: ({
+			db,
+			tableData,
+		}: {
+			db: string;
+			tableData: Parameters<typeof pgCreateTable.createTable>[0]["tableData"];
+		}) => createMongoCollection({ tableName: tableData?.tableName ?? "", tableData, db }),
+		getDatabasesList: getMongoDatabasesList,
+		getCurrentDatabase: getMongoCurrentDatabase,
+		getDatabaseConnectionInfo: getMongoConnectionInfo,
+		deleteColumn: ({
+			db,
+			tableName,
+			columnName,
+		}: Parameters<typeof pgDeleteColumn.deleteColumn>[0]) =>
+			deleteMongoColumn({ tableName, columnName, db }),
+		deleteRecords: deleteMongoRecords,
+		forceDeleteRecords: forceDeleteMongoRecords,
+		deleteTable: async ({ db, tableName }: { db: string; tableName: string }) => {
+			const { getMongoDb } = await import("@/db-manager.js");
+			const mongoDb = await getMongoDb(db);
+			await mongoDb.collection(tableName).drop();
+		},
+		exportTableData: ({
+			db,
+			tableName,
+		}: Parameters<typeof pgExportTable.exportTableData>[0]) =>
+			exportMongoTableData({ tableName, db }),
+		executeQuery: ({ query, db }: Parameters<typeof pgQuery.executeQuery>[0]) =>
+			executeMongoQuery({ query, db }),
+		getTableColumns: getMongoTableColumns,
+		getTablesList: ({ db }: { db: string }) => getMongoTablesList(db),
+		getTableSchema: mongoGetTableSchema,
+		getTableData: getMongoTableData,
+		updateRecords: ({ db, params }: Parameters<typeof pgUpdateRecords.updateRecords>[0]) =>
+			updateMongoRecords({ db, params }),
+	},
 	mssql: {
 		addRecord: mssqlAddRecord.addRecord,
 		bulkInsertRecords: mssqlBulkInsertRecords.bulkInsertRecords,
@@ -124,6 +188,9 @@ export type DaoMethods = typeof daoRegistry.pg;
  * @returns DAO methods for the specified database type
  */
 export function getDaoFactory(dbType: DatabaseTypeSchema): DaoMethods {
+	if (dbType === "mongodb") {
+		return daoRegistry.mongodb as unknown as DaoMethods;
+	}
 	return daoRegistry[dbType];
 }
 
