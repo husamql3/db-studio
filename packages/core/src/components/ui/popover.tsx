@@ -82,4 +82,12 @@ function _PopoverDescription({ className, ...props }: React.ComponentProps<"p">)
 	);
 }
 
-export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger };
+export {
+	Popover,
+	PopoverAnchor,
+	PopoverContent,
+	_PopoverDescription as PopoverDescription,
+	_PopoverHeader as PopoverHeader,
+	_PopoverTitle as PopoverTitle,
+	PopoverTrigger,
+};

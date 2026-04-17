@@ -91,3 +91,5 @@ export const ConversationScrollButton = ({
 		)
 	);
 };
+
+export { _ConversationEmptyState as ConversationEmptyState };

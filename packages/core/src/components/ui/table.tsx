@@ -96,4 +96,13 @@ function _TableCaption({ className, ...props }: React.ComponentProps<"caption">)
 	);
 }
 
-export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell };
+export {
+	Table,
+	TableBody,
+	_TableCaption as TableCaption,
+	TableCell,
+	_TableFooter as TableFooter,
+	TableHead,
+	TableHeader,
+	TableRow,
+};

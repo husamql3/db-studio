@@ -196,5 +196,7 @@ export {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
+	_AlertDialogMedia as AlertDialogMedia,
+	_AlertDialogTrigger as AlertDialogTrigger,
 	AlertDialogTitle,
 };

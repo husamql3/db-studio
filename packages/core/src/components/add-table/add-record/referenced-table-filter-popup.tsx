@@ -1,7 +1,7 @@
 import { Filter, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
-import type { Filter as FilterType } from "shared/types";
+import type { FilterType as FilterSchemaType } from "shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -17,9 +17,9 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { CONSTANTS } from "@/utils/constants";
 
 export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string }) => {
-	const [filters, setFilters] = useQueryState<FilterType[]>(
+	const [filters, setFilters] = useQueryState<FilterSchemaType[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as FilterType[])
+		parseAsJson((value) => value as FilterSchemaType[])
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
@@ -28,7 +28,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 	const { tableCols } = useTableCols({ tableName });
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [localFilters, setLocalFilters] = useState<FilterType[]>([]);
+	const [localFilters, setLocalFilters] = useState<FilterSchemaType[]>([]);
 
 	const handleAddFilter = () => {
 		const firstColumn = tableCols?.[0]?.columnName ?? "";

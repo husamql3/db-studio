@@ -192,7 +192,7 @@ function App() {
 
 				<div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Works with your <span className="text-foreground">database</span>
+						Works with your <span className="text-foreground">stack</span>
 					</h2>
 
 					<InfiniteSlider

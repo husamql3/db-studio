@@ -41,4 +41,4 @@ function _Toggle({
 	);
 }
 
-export { toggleVariants };
+export { _Toggle as Toggle, toggleVariants };

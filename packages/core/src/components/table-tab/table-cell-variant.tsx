@@ -806,7 +806,7 @@ export const TableDateCell = memo(
 			: initialValue;
 
 		const onDateChange = useCallback(
-			(date: Date | undefined) => {
+			(date: Date | null | undefined) => {
 				console.log("onDateChange", date, columnName, initialValue);
 
 				// Convert Date to ISO string for storage (or null if undefined)

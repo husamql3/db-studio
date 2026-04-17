@@ -111,4 +111,11 @@ function _PaginationEllipsis({ className, ...props }: React.ComponentProps<"span
 	);
 }
 
-export { Pagination, PaginationContent, PaginationItem };
+export {
+	Pagination,
+	PaginationContent,
+	_PaginationEllipsis as PaginationEllipsis,
+	PaginationItem,
+	_PaginationNext as PaginationNext,
+	_PaginationPrevious as PaginationPrevious,
+};

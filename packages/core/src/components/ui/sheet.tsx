@@ -153,6 +153,7 @@ export {
 	SheetTrigger,
 	SheetClose,
 	SheetContent,
+	_SheetFooter as SheetFooter,
 	SheetHeader,
 	SheetTitle,
 	SheetDescription,
