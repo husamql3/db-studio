@@ -9,7 +9,12 @@ import {
 } from "@/components/codeblock";
 import { ContributorsGrid } from "@/components/contributors";
 import { FeaturesGrid } from "@/components/features";
+import { InfiniteSlider } from "@/components/infinite-slider";
 import { Highlighter } from "@/components/ui/highlighter";
+import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
+import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
+import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
+import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { cn } from "@/lib/utils";
 import { getContributors } from "@/utils/get-contributors";
 
@@ -185,12 +190,33 @@ function App() {
 					/>
 				</div>
 
-				{/* <div className="relative w-full flex flex-col border-y">
+				<div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Trusted by <span className="text-foreground">our partners</span>
+						Works with your <span className="text-foreground">database</span>
 					</h2>
 
-					<LogoCloud />
+					<InfiniteSlider
+						gap={64}
+						speed={60}
+						speedOnHover={30}
+						className="py-8 border-t"
+					>
+						<div className="flex items-center justify-center h-10 px-2">
+							<PostgresqlWordmarkDark className="h-10 w-auto" />
+						</div>
+
+						<div className="flex items-center justify-center h-10 px-2">
+							<MysqlWordmarkDark className="h-10 w-auto" />
+						</div>
+
+						<div className="flex items-center justify-center h-10 px-2">
+							<MongodbWordmarkDark className="h-10 w-auto" />
+						</div>
+
+						<div className="flex items-center justify-center h-10 px-2">
+							<SqlServer className="h-10 w-auto" />
+						</div>
+					</InfiniteSlider>
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
@@ -208,7 +234,7 @@ function App() {
 						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
 						strokeWidth={1}
 					/>
-				</div> */}
+				</div>
 
 				<div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
@@ -237,10 +263,11 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<div className="flex flex-col items-center gap-3 px-4 py-8 md:px-8 text-center">
-						<h2 className="font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-							Open for <span className="text-foreground">sponsorship</span>
-						</h2>
+					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
+						Open for <span className="text-foreground">sponsorship</span>
+					</h2>
+
+					<div className="flex flex-col items-center gap-3 px-4 py-8 md:px-8 text-center border-t">
 						<p className="text-xs text-muted-foreground max-w-sm">
 							Help us keep db-studio free and actively maintained. If you or your company find
 							it useful, consider supporting the project.

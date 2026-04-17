@@ -16,16 +16,30 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.6.2",
+		version: "1.7.0",
 		date: "2026-04-12",
-		title: "Support MSSQL database",
+		title: "Support MSSQL and MongoDB databases",
 		features: [
 			{
 				text: "Added Microsoft SQL Server (MSSQL) database support",
 				username: "Amirosagan",
 			},
+			{
+				text: "Added MongoDB database support",
+				username: "Youssef-joe",
+			},
+		],
+		improvements: [
+			{
+				text: "Improved API base URL detection to dynamically adapt to runtime environment, with fallback support for default configurations",
+				username: "xaaksw",
+			},
 		],
 		bugsFixed: [
+			{
+				text: "Enhanced GitHub Actions workflows with concurrency controls to prevent overlapping automated pull request creation jobs",
+				username: "xaaksw",
+			},
 			{
 				text: "Fixed table cell display to properly handle and render non-primitive object values",
 				username: "husamql3",

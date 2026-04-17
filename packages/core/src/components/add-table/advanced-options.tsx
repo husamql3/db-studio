@@ -10,6 +10,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { useDatabaseStore } from "@/stores/database.store";
 import type { AddTableFormData } from "@/types/add-table.type";
 import {
 	ADD_TABLE_OPTIONS,
@@ -25,6 +26,7 @@ export const AdvancedOptions = ({
 	isDisabled: boolean;
 }) => {
 	const { control } = useFormContext<AddTableFormData>();
+	const dbType = useDatabaseStore((state) => state.dbType);
 
 	// Watch the fields needed for conditional logic
 	const columnType = useWatch({
@@ -60,6 +62,17 @@ export const AdvancedOptions = ({
 
 	const shouldShowOption = useCallback(
 		(optionName: string) => {
+			if (dbType === "mongodb") {
+				switch (optionName) {
+					case "isIdentity":
+						return false;
+					case "isArray":
+						return Boolean(columnType) && columnType !== "array";
+					default:
+						return true;
+				}
+			}
+
 			switch (optionName) {
 				case "isNullable":
 					return !isPrimaryKey;
@@ -71,7 +84,7 @@ export const AdvancedOptions = ({
 					return true;
 			}
 		},
-		[isPrimaryKey, columnType],
+		[dbType, isPrimaryKey, columnType],
 	);
 
 	const checkedCount = useMemo(() => {

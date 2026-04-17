@@ -40,10 +40,10 @@ const setupInterceptors = (instance: ReturnType<typeof axios.create>) => {
 			const startTime =
 				(
 					error.config as
-						| (InternalAxiosRequestConfig & {
-								metadata?: { startTime: number };
-						  })
-						| undefined
+					| (InternalAxiosRequestConfig & {
+						metadata?: { startTime: number };
+					})
+					| undefined
 				)?.metadata?.startTime ?? 0;
 			const duration = Math.round(performance.now() - startTime);
 			logger.error(error, duration);
@@ -66,12 +66,21 @@ const setupInterceptors = (instance: ReturnType<typeof axios.create>) => {
 };
 
 /**
+ * Get the base URL for API requests
+ * Uses the browser's current origin by default, falls back to default if unavailable
+ */
+const getBaseUrl = (): string => {
+	if (import.meta.env.DEV) return "/api";
+	return globalThis.location?.origin ?? DEFAULTS.BASE_URL;
+};
+
+/**
  * Root API for /databases routes (no dbType prefix)
  * Used for fetching the dbType from the backend
  */
 export const rootApi = setupInterceptors(
 	axios.create({
-		baseURL: DEFAULTS.BASE_URL,
+		baseURL: getBaseUrl(),
 	}),
 );
 
@@ -81,7 +90,7 @@ export const rootApi = setupInterceptors(
  */
 export const api = setupInterceptors(
 	axios.create({
-		baseURL: DEFAULTS.BASE_URL,
+		baseURL: getBaseUrl(),
 	}),
 );
 
@@ -98,7 +107,7 @@ export const setDbType = (type: DatabaseTypeSchema): void => {
 	if (dbType === type) return;
 
 	dbType = type;
-	api.defaults.baseURL = `${DEFAULTS.BASE_URL}/${dbType}`;
+	api.defaults.baseURL = `${getBaseUrl()}/${dbType}`;
 };
 
 /**

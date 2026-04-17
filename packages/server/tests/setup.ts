@@ -7,4 +7,12 @@ process.env.NODE_ENV = "test";
 // Global test utilities
 vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(),
+	getMysqlPool: vi.fn(),
+	getMssqlPool: vi.fn(),
+	getDbType: vi.fn(),
+	getMongoClient: vi.fn(),
+	getMongoDbName: vi.fn(),
+	getMongoDb: vi.fn(),
+	isValidObjectId: vi.fn(),
+	coerceObjectId: vi.fn(),
 }));

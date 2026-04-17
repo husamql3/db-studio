@@ -67,7 +67,8 @@ export default defineConfig(({ mode }) => {
       '@tanstack/react-query',
       '@tanstack/react-router',
       '@tanstack/ai-react',
-      'lucide-react'
+      'lucide-react',
+      'dayjs'
     ],
     // Exclude heavy deps from pre-bundling if not needed immediately
     exclude: [

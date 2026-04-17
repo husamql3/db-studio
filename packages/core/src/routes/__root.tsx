@@ -12,9 +12,8 @@ import { useTheme } from "@/hooks/use-theme";
 
 const darkModeScript = String.raw`
   try {
-    if (localStorage.theme === 'dark' || ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#09090b')
-    }
+    document.documentElement.classList.add('dark')
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#09090b')
   } catch (_) {}
 
   try {
@@ -23,6 +22,9 @@ const darkModeScript = String.raw`
     }
   } catch (_) {}
 `;
+
+const connectDevtoolsServerBus =
+	import.meta.env.DEV && import.meta.env.VITE_TANSTACK_SERVER_BUS === "true";
 
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
@@ -78,7 +80,7 @@ export const Route = createRootRoute({
 						aiDevtoolsPlugin(),
 					]}
 					eventBusConfig={{
-						connectToServerBus: true,
+						connectToServerBus: connectDevtoolsServerBus,
 					}}
 				/>
 			</>
