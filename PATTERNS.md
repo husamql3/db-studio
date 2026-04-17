@@ -299,6 +299,34 @@ describe("Feature", () => {
 - Test both happy path and error cases
 - Run a single file: `bunx vitest run src/path/to/file.test.ts`
 
+## Mutation Toast Feedback
+
+Wrap mutation calls with `toast.promise` for consistent loading/success/error feedback.
+
+**Pattern**:
+```ts
+const addColumn = async (
+    data: AddColumnSchemaType,
+    options?: {
+        onSuccess?: () => void;
+        onError?: (error: MutationError) => void;
+    },
+) =>
+    toast.promise(fn(data, options), {
+        loading: "Adding column...",
+        success: (message) => message || "Column added successfully",
+        error: (error: MutationError) =>
+            (typeof error.details === "string" && error.details) ||
+            error.message ||
+            "Failed to add column",
+    });
+```
+
+**Rules**:
+- Always use `toast.promise` — never call `toast.success` / `toast.error` manually around mutations
+- `success` callback receives the mutation return value; prefer server message with a fallback string
+- `error` callback: check `error.details` (string) first, then `error.message`, then a static fallback
+
 ## Code Style (Biome)
 
 - **Indentation**: tabs

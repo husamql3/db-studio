@@ -314,6 +314,34 @@ import type { TableInfoSchemaType } from "shared/types";
 import { getDaoFactory } from "@/dao/dao-factory.js";  // .js extension required (ESM)
 ```
 
+### Mutation Toast Feedback
+
+Wrap mutation calls with `toast.promise` for consistent loading/success/error feedback.
+
+**Pattern**:
+```ts
+const addColumn = async (
+    data: AddColumnSchemaType,
+    options?: {
+        onSuccess?: () => void;
+        onError?: (error: MutationError) => void;
+    },
+) =>
+    toast.promise(addColumnMutation(data, options), {
+        loading: "Adding column...",
+        success: (message) => message || "Column added successfully",
+        error: (error: MutationError) =>
+            (typeof error.details === "string" && error.details) ||
+            error.message ||
+            "Failed to add column",
+    });
+```
+
+**Rules**:
+- Always use `toast.promise` — never call `toast.success` / `toast.error` manually around mutations
+- `success` callback receives the mutation return value; prefer server message with a fallback string
+- `error` callback: check `error.details` (string) first, then `error.message`, then a static fallback
+
 ### Client API (`lib/api.ts`)
 
 Two Axios instances with logging interceptors:
