@@ -40,10 +40,10 @@ const setupInterceptors = (instance: ReturnType<typeof axios.create>) => {
 			const startTime =
 				(
 					error.config as
-					| (InternalAxiosRequestConfig & {
-						metadata?: { startTime: number };
-					})
-					| undefined
+						| (InternalAxiosRequestConfig & {
+								metadata?: { startTime: number };
+						  })
+						| undefined
 				)?.metadata?.startTime ?? 0;
 			const duration = Math.round(performance.now() - startTime);
 			logger.error(error, duration);
