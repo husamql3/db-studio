@@ -116,7 +116,7 @@
     },
     "packages/server": {
       "name": "db-studio",
-      "version": "1.6.5",
+      "version": "1.7.0",
       "bin": {
         "db-studio": "./dist/index.js",
       },
@@ -185,6 +185,7 @@
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-icons": "^5.5.0",
+        "react-use-measure": "^2.1.7",
         "rough-notation": "^0.5.1",
         "shared": "workspace:*",
         "tailwind-merge": "^3.4.0",

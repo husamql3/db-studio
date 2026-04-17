@@ -16,7 +16,7 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.6.5",
+		version: "1.7.0",
 		date: "2026-04-12",
 		title: "Support MSSQL and MongoDB databases",
 		features: [
