@@ -40,10 +40,10 @@ const setupInterceptors = (instance: ReturnType<typeof axios.create>) => {
 			const startTime =
 				(
 					error.config as
-						| (InternalAxiosRequestConfig & {
-								metadata?: { startTime: number };
-						  })
-						| undefined
+					| (InternalAxiosRequestConfig & {
+						metadata?: { startTime: number };
+					})
+					| undefined
 				)?.metadata?.startTime ?? 0;
 			const duration = Math.round(performance.now() - startTime);
 			logger.error(error, duration);
@@ -70,6 +70,7 @@ const setupInterceptors = (instance: ReturnType<typeof axios.create>) => {
  * Uses the browser's current origin by default, falls back to default if unavailable
  */
 const getBaseUrl = (): string => {
+	if (import.meta.env.DEV) return "/api";
 	return globalThis.location?.origin ?? DEFAULTS.BASE_URL;
 };
 
