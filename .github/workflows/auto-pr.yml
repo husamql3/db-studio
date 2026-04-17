@@ -14,6 +14,9 @@ on:
 jobs:
   create-pr-dev-to-stage:
     runs-on: ubuntu-latest
+    concurrency:
+      group: auto-pr-dev-to-stage
+      cancel-in-progress: false
     if: |
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -110,6 +113,9 @@ jobs:
 
   create-pr-stage-to-main:
     runs-on: ubuntu-latest
+    concurrency:
+      group: auto-pr-stage-to-main
+      cancel-in-progress: false
     if: |
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'stage') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/stage')
