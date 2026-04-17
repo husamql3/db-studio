@@ -50,7 +50,6 @@ import {
 	CommandInput,
 	CommandItem,
 	CommandList,
-	CommandSeparator,
 } from "@/components/ui/command";
 import {
 	DropdownMenu,
@@ -1339,14 +1338,35 @@ const _PromptInputCommandItem = ({ className, ...props }: PromptInputCommandItem
 	/>
 );
 
-type PromptInputCommandSeparatorProps = ComponentProps<typeof CommandSeparator>;
-
-const _PromptInputCommandSeparator = ({
-	className,
-	...props
-}: PromptInputCommandSeparatorProps) => (
-	<CommandSeparator
-		className={cn(className)}
-		{...props}
-	/>
-);
+export {
+	_usePromptInputController as usePromptInputController,
+	_useProviderAttachments as useProviderAttachments,
+	_PromptInputProvider as PromptInputProvider,
+	_PromptInputAttachment as PromptInputAttachment,
+	_PromptInputAttachments as PromptInputAttachments,
+	_PromptInputActionAddAttachments as PromptInputActionAddAttachments,
+	_PromptInputHeader as PromptInputHeader,
+	_PromptInputTools as PromptInputTools,
+	_PromptInputActionMenu as PromptInputActionMenu,
+	_PromptInputActionMenuTrigger as PromptInputActionMenuTrigger,
+	_PromptInputActionMenuContent as PromptInputActionMenuContent,
+	_PromptInputActionMenuItem as PromptInputActionMenuItem,
+	_PromptInputSpeechButton as PromptInputSpeechButton,
+	_PromptInputSelect as PromptInputSelect,
+	_PromptInputSelectTrigger as PromptInputSelectTrigger,
+	_PromptInputSelectContent as PromptInputSelectContent,
+	_PromptInputSelectItem as PromptInputSelectItem,
+	_PromptInputSelectValue as PromptInputSelectValue,
+	_PromptInputHoverCardTrigger as PromptInputHoverCardTrigger,
+	_PromptInputTabsList as PromptInputTabsList,
+	_PromptInputTab as PromptInputTab,
+	_PromptInputTabLabel as PromptInputTabLabel,
+	_PromptInputTabBody as PromptInputTabBody,
+	_PromptInputTabItem as PromptInputTabItem,
+	_PromptInputCommand as PromptInputCommand,
+	_PromptInputCommandInput as PromptInputCommandInput,
+	_PromptInputCommandList as PromptInputCommandList,
+	_PromptInputCommandEmpty as PromptInputCommandEmpty,
+	_PromptInputCommandGroup as PromptInputCommandGroup,
+	_PromptInputCommandItem as PromptInputCommandItem,
+};

@@ -30,7 +30,7 @@ type NavigationDirection =
 
 declare module "@tanstack/react-table" {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	interface ColumnMeta<_TData extends RowData, _TValue> {
+	interface ColumnMeta<TData extends RowData, TValue> {
 		label?: string;
 		variant?: CellVariant; // Generic type for cell rendering (text/boolean/number/enum/json/date)
 		dataTypeLabel?: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
@@ -42,7 +42,7 @@ declare module "@tanstack/react-table" {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	interface TableMeta<_TData extends RowData> {
+	interface TableMeta<TData extends RowData> {
 		focusedCell?: CellPosition | null;
 		editingCell?: CellPosition | null;
 		isScrolling?: boolean;
