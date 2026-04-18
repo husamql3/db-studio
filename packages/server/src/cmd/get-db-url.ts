@@ -23,7 +23,6 @@ export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: s
 	const s = spinner();
 	s.start("Looking for database connection...");
 
-	console.log(envVarName);
 	if (!env) {
 		note(color.red(`No .env file found and ${envVarName} not set in process.env`));
 	} else {
