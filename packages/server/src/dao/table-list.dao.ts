@@ -32,8 +32,7 @@ export async function getTablesList(
 		tables.map(async (table: { schemaName: string; tableName: string }) => {
 			const safeSchemaName = quoteIdentifier(table.schemaName);
 			const safeTableName = quoteIdentifier(table.tableName);
-			const countQuery =
-				`SELECT COUNT(*)::integer as count FROM "${safeSchemaName}"."${safeTableName}"`;
+			const countQuery = `SELECT COUNT(*)::integer as count FROM "${safeSchemaName}"."${safeTableName}"`;
 			const { rows } = await pool.query(countQuery);
 			return {
 				schemaName: table.schemaName,

@@ -37,20 +37,13 @@ export const SidebarListTables = () => {
 	const showSchemaDropdown = dbType === "pg" && schemas.length > 1;
 
 	const filteredTables = tablesList?.filter((table) => {
-		const matchesSchema =
-			selectedSchema === "all" || table.schemaName === selectedSchema;
-		const matchesSearch = table.tableName
-			.toLowerCase()
-			.includes(searchTerm.toLowerCase());
+		const matchesSchema = selectedSchema === "all" || table.schemaName === selectedSchema;
+		const matchesSearch = table.tableName.toLowerCase().includes(searchTerm.toLowerCase());
 		return matchesSchema && matchesSearch;
 	});
 
 	useEffect(() => {
-		if (
-			!showSchemaDropdown ||
-			selectedSchema === "all" ||
-			schemas.includes(selectedSchema)
-		) {
+		if (!showSchemaDropdown || selectedSchema === "all" || schemas.includes(selectedSchema)) {
 			return;
 		}
 
@@ -103,7 +96,9 @@ export const SidebarListTables = () => {
 				<ul>
 					{filteredTables?.map((table) => (
 						<SidebarListTablesItem
-							key={table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName}
+							key={
+								table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
+							}
 							schemaName={table.schemaName}
 							tableName={table.tableName}
 							rowCount={table.rowCount}
