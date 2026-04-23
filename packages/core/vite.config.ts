@@ -103,12 +103,13 @@ export default defineConfig(({ mode }) => {
     },
   },
   server: {
-    port: 3333,
+    port: 3001,
     host: true,
     proxy: {
       "/api": {
         target: "http://localhost:3333",
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },

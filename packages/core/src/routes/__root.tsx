@@ -31,10 +31,10 @@ export const Route = createRootRoute({
 		useTheme();
 
 		// Initialize database connection when the component mounts, fetches databases list, current db, and selects first db as fallback
-		const { isLoading, isInitialized } = useInitializeDatabase();
+		const { isLoading, isInitialized, error } = useInitializeDatabase();
 
 		// Show loading until both queries complete AND database is initialized in store
-		const showLoading = isLoading || !isInitialized;
+		const showLoading = (isLoading || !isInitialized) && !error;
 
 		return (
 			<>
@@ -50,6 +50,13 @@ export const Route = createRootRoute({
 								size="size-8"
 								color="bg-primary"
 							/>
+						</div>
+					) : error ? (
+						<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
+							<p className="text-destructive font-medium">Failed to connect to the database</p>
+							<p className="text-muted-foreground text-sm max-w-sm">
+								{(error as { message?: string })?.message ?? "An unexpected error occurred"}
+							</p>
 						</div>
 					) : (
 						<Outlet />

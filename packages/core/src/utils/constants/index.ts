@@ -14,6 +14,7 @@ export const CONSTANTS = {
 	SIDEBAR_SEARCH: "search",
 
 	ACTIVE_TABLE: "table", // query state key for active table
+	ACTIVE_SCHEMA: "schema", // query state key for selected schema
 	ACTIVE_TAB: "t", // query state key for active tab
 	COLUMN_NAME: "columnName", // query state key for column name
 
