@@ -16,7 +16,7 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.7.2",
+		version: "1.7.3",
 		date: "2026-04-23",
 		title: "Table sidebar now displays schema names for better organization",
 		features: [
