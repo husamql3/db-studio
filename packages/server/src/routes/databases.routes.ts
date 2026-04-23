@@ -28,11 +28,6 @@ export const databasesRoutes = new Hono()
 		const dbType = getDbType();
 		const dao = getDaoFactory(dbType);
 		const databases = await dao.getDatabasesList();
-		console.log({
-			databases,
-			dbType,
-			dao
-		})
 		return c.json({ data: { databases, dbType } }, 200);
 	})
 
