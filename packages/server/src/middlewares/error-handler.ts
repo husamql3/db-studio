@@ -80,6 +80,11 @@ export const validationHook = (
 ): Response | undefined => {
 	if (!result.success) {
 		const issue = result.error?.issues[0];
+		console.log({
+			issue,
+			result,
+			c,
+		})
 		return c.json<ApiError>(
 			{
 				error: "Validation error",
