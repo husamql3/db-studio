@@ -69,7 +69,7 @@ jobs:
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
         run: |
-          bun scripts/generate-release-notes.ts ${{ steps.get_version.outputs.version }} > release-notes.md
+          bun scripts/generate-release-notes.js ${{ steps.get_version.outputs.version }} > release-notes.md
           cat release-notes.md
 
       - name: Create GitHub release
