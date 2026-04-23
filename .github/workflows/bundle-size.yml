@@ -38,20 +38,35 @@ jobs:
 
             const run = (cmd) => execSync(cmd, { encoding: 'utf8' }).trim()
 
-            const totalSize = run('du -sh packages/server/dist | cut -f1')
-            const fileLines = run(
+            const serverTotal = run('du -sh packages/server/dist | cut -f1')
+            const serverFiles = run(
               'find packages/server/dist -type f | sort | xargs du -sh 2>/dev/null'
+            )
+
+            const coreTotal = run('du -sh packages/core/dist | cut -f1')
+            const coreFiles = run(
+              'find packages/core/dist -type f | sort | xargs du -sh 2>/dev/null'
             )
 
             const body = [
               '## Bundle Size',
               '',
-              `**\`packages/server/dist\`** — \`${totalSize}\``,
+              `**\`packages/server/dist\`** — \`${serverTotal}\``,
               '',
               '<details><summary>File breakdown</summary>',
               '',
               '```',
-              fileLines,
+              serverFiles,
+              '```',
+              '',
+              '</details>',
+              '',
+              `**\`packages/core/dist\`** — \`${coreTotal}\``,
+              '',
+              '<details><summary>File breakdown</summary>',
+              '',
+              '```',
+              coreFiles,
               '```',
               '',
               '</details>',
