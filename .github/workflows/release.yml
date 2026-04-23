@@ -19,6 +19,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -80,10 +83,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
+          gh release view "v$VERSION" >/dev/null 2>&1 && exit 0
+
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes-file release-notes.md \
-            --verify-tag || \
-          gh release create "v$VERSION" \
-            --title "v$VERSION" \
-            --notes-file release-notes.md
+            --target "$GITHUB_SHA"
