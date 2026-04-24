@@ -17,7 +17,7 @@ export const logger = {
 	request(config: InternalAxiosRequestConfig & { metadata?: { startTime: number } }) {
 		const method = config.method?.toUpperCase() ?? "GET";
 
-		console.groupCollapsed(`%c[${this.getTimestamp()}] %c${method} %c${config.url}`);
+		console.groupCollapsed(`[${this.getTimestamp()}] ${method} ${config.url}`);
 
 		if (config.params && Object.keys(config.params).length > 0) {
 			console.log("Params:", config.params);
@@ -49,14 +49,14 @@ export const logger = {
 		const status = error.response?.status ?? "ERR";
 
 		console.groupCollapsed(
-			`%c[${this.getTimestamp()}] %c${method} %c${error.config?.url} %c${status} %c(${duration}ms)`,
+			`[${this.getTimestamp()}] ${method} ${error.config?.url} ${status} (${duration}ms)`,
 			method,
 			error.config?.url,
 			status,
 			duration,
 		);
 
-		console.log("%cError:", error.response?.data ?? error.message);
+		console.log("Error:", error.response?.data ?? error.message);
 		console.groupEnd();
 	},
 };

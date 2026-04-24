@@ -46,7 +46,7 @@ export const FkDrawerContent = ({
 			);
 			return res.data.data;
 		},
-		enabled: !!referencedTable && !!selectedDatabase,
+		enabled: !!referencedTable && !!selectedDatabase && fkValue !== "",
 	});
 
 	const columns = useMemo<ColumnDef<TableRecord>[]>(
