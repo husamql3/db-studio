@@ -73,6 +73,7 @@ export const createServer = () => {
 		 * Database routes - available at root level (no dbType required)
 		 */
 		.route("/", databasesRoutes)
+		.route("/", chatRoutes)
 
 		/**
 		 * Serve static assets (before dbType validation to avoid conflicts)
@@ -92,7 +93,6 @@ export const createServer = () => {
 		.route("/:dbType", tablesRoutes)
 		.route("/:dbType", recordsRoutes)
 		.route("/:dbType", queryRoutes)
-		.route("/:dbType", chatRoutes)
 
 		/**
 		 * Serve all other static files as fallback (for SPA)

@@ -16,7 +16,8 @@ export const chatRoutes = new Hono()
 	 * Proxies to the Cloudflare Worker which has the Gemini API key
 	 */
 	.post("/", zValidator("json", chatSchema), async (c) => {
-		const { messages, conversationId, db } = c.req.valid("json");
+		const { messages, data } = c.req.valid("json");
+		const { db, conversationId } = data;
 		console.log("POST /chat messages", messages);
 
 		// Get the database schema and generate system prompt
