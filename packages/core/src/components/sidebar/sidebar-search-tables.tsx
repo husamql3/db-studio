@@ -32,7 +32,7 @@ export const SidebarSearchTables = () => {
 	);
 
 	return (
-		<div className="p-3 space-y-2">
+		<div className="px-3 space-y-2">
 			{dbType !== "mongodb" && (
 				<Button
 					className="w-full justify-start h-8"

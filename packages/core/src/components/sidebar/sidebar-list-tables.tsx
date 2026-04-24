@@ -1,13 +1,6 @@
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -68,30 +61,6 @@ export const SidebarListTables = () => {
 
 	return (
 		<div className="flex-1 overflow-y-auto pb-3">
-			{showSchemaDropdown && (
-				<div className="px-3 pb-2">
-					<Select
-						value={selectedSchema}
-						onValueChange={setSelectedSchema}
-					>
-						<SelectTrigger className="w-full justify-between">
-							<SelectValue placeholder="Select schema" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">All schemas</SelectItem>
-							{schemas.map((schema) => (
-								<SelectItem
-									key={schema}
-									value={schema}
-								>
-									{schema}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-			)}
-
 			{filteredTables && filteredTables.length > 0 ? (
 				<ul>
 					{filteredTables?.map((table) => (

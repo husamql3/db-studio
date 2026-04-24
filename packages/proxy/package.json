@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "devx": "wrangler dev",
     "build": "wrangler build",
     "start": "bun run build && wrangler dev --remote",
     "deploy": "wrangler deploy --minify",
@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "shared": "workspace:*",
-    "@tanstack/ai": "^0.2.2",
-    "@tanstack/ai-gemini": "^0.3.2",
+    "@tanstack/ai": "^0.10.2",
+    "@tanstack/ai-gemini": "^0.8.7",
     "@upstash/redis": "^1.36.1",
     "hono": "^4.11.3",
     "hono-rate-limiter": "^0.5.3"

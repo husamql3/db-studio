@@ -16,6 +16,35 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.7.6",
+		date: "2026-04-25",
+		title:
+			"Foreign key columns now support an interactive drawer to browse related table data",
+		features: [
+			{
+				text: "New drawer component for improved data visualization",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.7.5",
+		date: "2026-04-24",
+		title: "Revive chat sidebar and align with local dev",
+		features: [
+			{
+				text: "Revived chat sidebar and is now scoped to the selected database",
+				username: "amrable",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fix custom server port configuration not working",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.7.4",
 		date: "2026-04-23",
 		title: "Table sidebar now displays schema names for better organization",

@@ -107,7 +107,7 @@ export default defineConfig(({ mode }) => {
     host: true,
     proxy: {
       "/api": {
-        target: "http://localhost:3333",
+        target: `http://localhost:${process.env.SERVER_PORT ?? 3333}`,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },

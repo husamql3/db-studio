@@ -1,4 +1,3 @@
-import { HTTPException } from "hono/http-exception";
 import type { TableInfoSchemaType } from "shared/types";
 import type { DatabaseSchemaType } from "shared/types/database.types.js";
 import { getDbPool } from "@/db-manager.js";
@@ -22,9 +21,7 @@ export async function getTablesList(
 
 	const { rows: tables } = await pool.query(tablesQuery);
 	if (!tables[0]) {
-		throw new HTTPException(500, {
-			message: "No tables returned from database",
-		});
+		return [];
 	}
 
 	// Get accurate row count for each table

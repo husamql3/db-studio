@@ -1,7 +1,7 @@
 {
   "name": "db-studio",
   "type": "module",
-  "version": "1.7.4",
+  "version": "1.7.6",
   "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
   "keywords": [
     "database client",
@@ -67,14 +67,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
-    "@types/node": "^20.11.17",
+    "@types/node": "^25.6.0",
     "@types/pg": "^8.16.0",
-    "@types/mssql": "^9.1.9",
+    "@types/mssql": "^12.3.0",
     "@vitest/coverage-v8": "^4.0.17",
     "shared": "workspace:*",
     "tsup": "^8.5.1",
     "tsx": "^4.7.1",
-    "typescript": "^5.8.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.0.17"
   }
 }

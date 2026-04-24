@@ -83,13 +83,13 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Smart SQL editor with color coding, auto-complete, and formatting",
-				status: "planned",
+				status: "completed",
 			},
 		],
 	},
 	{
 		title: "Data Management Improvements",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Import many rows at once using CSV or JSON files",
@@ -139,11 +139,15 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Ask questions about your data in normal English and get instant answers",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Spot errors in failed queries and suggest quick fixes",
 				status: "planned",
+			},
+			{
+				title: "AI chat sidebar scoped to the selected database",
+				status: "completed",
 			},
 		],
 	},
@@ -156,7 +160,7 @@ export const roadmapItems: RoadmapItem[] = [
 			{ title: "Add full support for SQLite databases", status: "planned" },
 			{
 				title: "Add full support for MongoDB databases",
-				status: "in-progress",
+				status: "completed",
 			},
 			{
 				title: "Add full support for Oracle databases",
@@ -164,7 +168,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add full support for SQL Server databases",
-				status: "in-progress",
+				status: "completed",
 			},
 			{
 				title: "Easy switching between different database connections",

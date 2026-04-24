@@ -12,9 +12,12 @@ import {
 	useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { FkDrawerContent } from "@/components/table-tab/fk-drawer-content";
 import { TableCellWrapper } from "@/components/table-tab/table-cell-wrapper";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -1149,3 +1152,221 @@ export const TableJsonCell = memo(
 );
 
 TableJsonCell.displayName = "TableJsonCell";
+
+export const TableForeignKeyCell = memo(
+	({
+		cell,
+		table,
+		rowIndex,
+		columnId,
+		isEditing,
+		isFocused,
+		isSelected,
+	}: CellVariantProps<TableRecord>) => {
+		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
+		const rawInitialValue = cell.getValue();
+		const initialValue = formatCellValue(rawInitialValue);
+
+		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
+		const [open, setOpen] = useState(false);
+		const [drawerOpen, setDrawerOpen] = useState(false);
+		const textareaRef = useRef<HTMLTextAreaElement>(null);
+		const containerRef = useRef<HTMLDivElement>(null);
+		const meta = table.options.meta;
+		const referencedTable = cell.column.columnDef.meta?.referencedTable;
+
+		const rowData = cell.row.original as Record<string, unknown>;
+		const columnName = columnId;
+
+		const pendingUpdate = getUpdate(rowData, columnName);
+		const displayValue = pendingUpdate
+			? formatCellValue(pendingUpdate.newValue)
+			: (initialValue ?? "");
+
+		const onSave = useCallback(() => {
+			setUpdate(rowData, columnName, editorValue, rawInitialValue);
+			meta?.onCellEditingStop?.();
+			setOpen(false);
+		}, [meta, editorValue, rawInitialValue, columnName, rowData, setUpdate]);
+
+		const onCancel = useCallback(() => {
+			setEditorValue(initialValue ?? "");
+			clearUpdate(rowData, columnName);
+			meta?.onCellEditingStop?.();
+			setOpen(false);
+		}, [meta, initialValue, columnName, rowData, clearUpdate]);
+
+		const onChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
+			setEditorValue(event.target.value);
+		}, []);
+
+		const onOpenChange = useCallback(
+			(isOpen: boolean) => {
+				setOpen(isOpen);
+				if (!isOpen) {
+					if (editorValue !== initialValue) {
+						setUpdate(rowData, columnName, editorValue, initialValue);
+					}
+					meta?.onCellEditingStop?.();
+				}
+			},
+			[meta, editorValue, initialValue, columnName, rowData, setUpdate],
+		);
+
+		const onOpenAutoFocus: NonNullable<
+			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
+		> = useCallback((event) => {
+			event.preventDefault();
+			if (textareaRef.current) {
+				textareaRef.current.focus();
+				const length = textareaRef.current.value.length;
+				textareaRef.current.setSelectionRange(length, length);
+			}
+		}, []);
+
+		const onWrapperKeyDown = useCallback(
+			(event: KeyboardEvent<HTMLDivElement>) => {
+				if (isEditing && !open) {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						meta?.onCellEditingStop?.();
+					} else if (event.key === "Tab") {
+						event.preventDefault();
+						meta?.onCellEditingStop?.({
+							direction: event.shiftKey ? "left" : "right",
+						});
+					}
+				}
+			},
+			[isEditing, open, meta],
+		);
+
+		const onTextareaKeyDown = useCallback(
+			(event: KeyboardEvent<HTMLTextAreaElement>) => {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					onCancel();
+				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+					event.preventDefault();
+					onSave();
+				}
+				event.stopPropagation();
+			},
+			[onCancel, onSave],
+		);
+
+		const onTextareaBlur = useCallback(() => {
+			if (editorValue !== initialValue) {
+				setUpdate(rowData, columnName, editorValue, initialValue);
+			}
+			meta?.onCellEditingStop?.();
+			setOpen(false);
+		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
+
+		useEffect(() => {
+			if (isEditing && !open) {
+				setEditorValue(displayValue);
+				setOpen(true);
+			} else if (!isEditing && open) {
+				setOpen(false);
+			}
+		}, [isEditing, open, displayValue]);
+
+		useEffect(() => {
+			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
+				containerRef.current.focus();
+			}
+		}, [isFocused, isEditing, meta?.isScrolling]);
+
+		return (
+			<>
+				<Popover
+					open={open}
+					onOpenChange={onOpenChange}
+				>
+					<PopoverAnchor asChild>
+						<TableCellWrapper
+							ref={containerRef}
+							cell={cell}
+							table={table}
+							rowIndex={rowIndex}
+							columnId={columnId}
+							isEditing={isEditing}
+							isFocused={isFocused}
+							isSelected={isSelected}
+							onKeyDown={onWrapperKeyDown}
+						>
+							<span className="flex items-center gap-1.5 size-full overflow-hidden">
+								{referencedTable && (
+									<Badge
+										variant="outline"
+										className="shrink-0 cursor-pointer hover:bg-muted"
+										onClick={(e) => {
+											e.stopPropagation();
+											setDrawerOpen(true);
+										}}
+									>
+										{referencedTable}
+									</Badge>
+								)}
+								<span className="truncate text-muted-foreground">{displayValue}</span>
+							</span>
+						</TableCellWrapper>
+					</PopoverAnchor>
+					<PopoverContent
+						data-grid-cell-editor=""
+						align="start"
+						side="bottom"
+						sideOffset={0}
+						className="w-[400px] rounded-none p-0 gap-0"
+						onOpenAutoFocus={onOpenAutoFocus}
+					>
+						<Textarea
+							ref={textareaRef}
+							value={editorValue}
+							onChange={onChange}
+							onKeyDown={onTextareaKeyDown}
+							onBlur={onTextareaBlur}
+							className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+							placeholder="Enter value..."
+						/>
+						<div className="flex flex-col border-t">
+							<Button
+								variant="ghost"
+								size="sm"
+								className="rounded-none justify-start text-xs py-4 px-2"
+							>
+								<Kbd className="text-xs font-normal">⌘↵</Kbd>
+								<span className="ml-1 text-xs">Save Changes</span>
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="rounded-none justify-start text-xs py-4 px-2"
+							>
+								<Kbd className="text-xs font-normal">esc</Kbd>
+								<span className="ml-1 text-xs">Cancel Changes</span>
+							</Button>
+						</div>
+					</PopoverContent>
+				</Popover>
+				<Drawer
+					open={drawerOpen}
+					onOpenChange={setDrawerOpen}
+				>
+					<DrawerContent className="h-[70vh]">
+						{referencedTable && (
+							<FkDrawerContent
+								referencedTable={referencedTable}
+								referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
+								fkValue={displayValue}
+							/>
+						)}
+					</DrawerContent>
+				</Drawer>
+			</>
+		);
+	},
+);
+
+TableForeignKeyCell.displayName = "TableForeignKeyCell";
