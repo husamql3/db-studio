@@ -14,7 +14,10 @@ function RouteComponent() {
 	const { table } = Route.useParams();
 
 	return (
-		<main className="flex-1 flex flex-col overflow-hidden">
+		<main
+			key={table}
+			className="flex-1 flex flex-col overflow-hidden"
+		>
 			<TableTab tableName={table} />
 
 			<AddRecordForm tableName={table} />
