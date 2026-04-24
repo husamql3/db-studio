@@ -4,6 +4,7 @@ import {
 	TableBooleanCell,
 	TableDateCell,
 	TableEnumCell,
+	TableForeignKeyCell,
 	TableJsonCell,
 	TableNumberCell,
 	TableTextCell,
@@ -31,6 +32,22 @@ export const TableCell = ({
 	const isSelected = meta?.getIsCellSelected?.(rowIndex, columnId) ?? false;
 
 	const cellVariant = cell.column.columnDef.meta?.variant as CellVariant | undefined;
+	const isForeignKey = cell.column.columnDef.meta?.isForeignKey;
+	const referencedTable = cell.column.columnDef.meta?.referencedTable;
+
+	if (isForeignKey && referencedTable) {
+		return (
+			<TableForeignKeyCell
+				cell={cell}
+				table={table}
+				rowIndex={rowIndex}
+				columnId={columnId}
+				isEditing={isEditing}
+				isFocused={isFocused}
+				isSelected={isSelected}
+			/>
+		);
+	}
 
 	switch (cellVariant) {
 		case "text":

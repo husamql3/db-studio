@@ -67,6 +67,7 @@
     "ui": "shadcn-ui/ui",
     "use-stick-to-bottom": "^1.1.1",
     "use-sync-external-store": "^1.4.0",
+    "vaul": "^1.1.2",
     "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
