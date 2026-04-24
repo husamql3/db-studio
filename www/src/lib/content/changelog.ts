@@ -16,7 +16,7 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "1.7.6",
+		version: "1.7.7",
 		date: "2026-04-25",
 		title:
 			"Foreign key columns now support an interactive drawer to browse related table data",
