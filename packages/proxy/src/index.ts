@@ -7,7 +7,7 @@ import { LIMIT } from "shared/constants";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { getRedis } from "./redis";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 app.use(
 	"/*",
@@ -65,6 +65,10 @@ app.post("/chat", async (c) => {
  */
 app.get("/chat/limit", async (c) => {
 	try {
+		if (!c.env.UPSTASH_REDIS_REST_URL || !c.env.UPSTASH_REDIS_REST_TOKEN) {
+			return c.json({ limit: LIMIT, used: 0, remaining: LIMIT });
+		}
+
 		const key = keyGenerator(c);
 		const usageKey = `rate:proxy:${key}`;
 

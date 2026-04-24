@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "knip": "^5.82.1"
+    "knip": "^6.4.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

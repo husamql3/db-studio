@@ -84,16 +84,16 @@ const PathlessLayoutRunnerQueryIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof PathlessLayoutIndexRoute
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
-  '/': typeof PathlessLayoutIndexRoute
   '/runner/$queryId': typeof PathlessLayoutRunnerQueryIdRoute
   '/schema/$table': typeof PathlessLayoutSchemaTableRoute
   '/table/$table': typeof PathlessLayoutTableTableRoute
-  '/runner': typeof PathlessLayoutRunnerIndexRoute
-  '/schema': typeof PathlessLayoutSchemaIndexRoute
-  '/table': typeof PathlessLayoutTableIndexRoute
+  '/runner/': typeof PathlessLayoutRunnerIndexRoute
+  '/schema/': typeof PathlessLayoutSchemaIndexRoute
+  '/table/': typeof PathlessLayoutTableIndexRoute
 }
 export interface FileRoutesByTo {
   '/indexes': typeof PathlessLayoutIndexesRoute
@@ -124,16 +124,16 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/indexes'
     | '/logs'
     | '/visualizer'
-    | '/'
     | '/runner/$queryId'
     | '/schema/$table'
     | '/table/$table'
-    | '/runner'
-    | '/schema'
-    | '/table'
+    | '/runner/'
+    | '/schema/'
+    | '/table/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/indexes'
@@ -170,7 +170,7 @@ declare module '@tanstack/react-router' {
     '/_pathlessLayout': {
       id: '/_pathlessLayout'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof PathlessLayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -205,21 +205,21 @@ declare module '@tanstack/react-router' {
     '/_pathlessLayout/table/': {
       id: '/_pathlessLayout/table/'
       path: '/table'
-      fullPath: '/table'
+      fullPath: '/table/'
       preLoaderRoute: typeof PathlessLayoutTableIndexRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
     '/_pathlessLayout/schema/': {
       id: '/_pathlessLayout/schema/'
       path: '/schema'
-      fullPath: '/schema'
+      fullPath: '/schema/'
       preLoaderRoute: typeof PathlessLayoutSchemaIndexRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
     '/_pathlessLayout/runner/': {
       id: '/_pathlessLayout/runner/'
       path: '/runner'
-      fullPath: '/runner'
+      fullPath: '/runner/'
       preLoaderRoute: typeof PathlessLayoutRunnerIndexRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
