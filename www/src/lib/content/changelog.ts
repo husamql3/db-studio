@@ -16,6 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.7.4",
+		date: "2026-04-23",
+		title: "Table sidebar now displays schema names for better organization",
+		features: [
+			{
+				text: "Added schema dropdown to the table sidebar for better organization",
+				username: "Amirosagan",
+			},
+		],
+		improvements: [
+			{
+				text: "Display database connection errors in frontend root route",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.7.0",
 		date: "2026-04-12",
 		title: "Support MSSQL and MongoDB databases",

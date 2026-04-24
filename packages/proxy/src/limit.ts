@@ -15,6 +15,11 @@ export const keyGenerator = (c: Context) => {
 
 export const createProxyLimiter = (): MiddlewareHandler => {
 	return async (c, next) => {
+		if (!c.env.UPSTASH_REDIS_REST_URL || !c.env.UPSTASH_REDIS_REST_TOKEN) {
+			console.warn("[proxy] Upstash Redis not configured — skipping rate limiter");
+			return next();
+		}
+
 		const store = getRedisStore(c);
 		const limiter = rateLimiter({
 			windowMs: ONE_DAY,

@@ -19,21 +19,24 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Release DB Studio
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.19
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
@@ -69,7 +72,7 @@ jobs:
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
         run: |
-          bun scripts/generate-release-notes.ts ${{ steps.get_version.outputs.version }} > release-notes.md
+          bun scripts/generate-release-notes.js ${{ steps.get_version.outputs.version }} > release-notes.md
           cat release-notes.md
 
       - name: Create GitHub release
@@ -80,10 +83,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
+          gh release view "v$VERSION" >/dev/null 2>&1 && exit 0
+
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes-file release-notes.md \
-            --verify-tag || \
-          gh release create "v$VERSION" \
-            --title "v$VERSION" \
-            --notes-file release-notes.md
+            --target "$GITHUB_SHA"
