@@ -1,4 +1,5 @@
-import { Bug, Github } from "lucide-react";
+import { Bug } from "lucide-react";
+import { LuGithub } from "react-icons/lu";
 import { META } from "shared/constants";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
@@ -52,7 +53,7 @@ export const Header = () => {
 								rel="noopener noreferrer"
 								aria-label="View the db-studio GitHub repository"
 							>
-								<Github className="size-5" />
+								<LuGithub className="size-5" />
 							</a>
 						</Button>
 					</TooltipTrigger>

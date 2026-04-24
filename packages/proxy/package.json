@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "devx": "wrangler dev",
     "build": "wrangler build",
     "start": "bun run build && wrangler dev --remote",
     "deploy": "wrangler deploy --minify",
