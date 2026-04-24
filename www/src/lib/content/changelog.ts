@@ -30,7 +30,7 @@ export const changelog: ChangelogItem[] = [
 				text: "Fix custom server port configuration not working",
 				username: "husamql3",
 			},
-		]
+		],
 	},
 	{
 		version: "1.7.4",
