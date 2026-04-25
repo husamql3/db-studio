@@ -34,8 +34,9 @@ export const TableCell = ({
 	const cellVariant = cell.column.columnDef.meta?.variant as CellVariant | undefined;
 	const isForeignKey = cell.column.columnDef.meta?.isForeignKey;
 	const referencedTable = cell.column.columnDef.meta?.referencedTable;
+	const rowData = cell.row.original;
 
-	if (isForeignKey && referencedTable) {
+	if (isForeignKey && referencedTable && rowData) {
 		return (
 			<TableForeignKeyCell
 				cell={cell}
