@@ -59,6 +59,7 @@ const ChatSidebarContent = ({
 }: ChatSidebarContentProps) => {
 	const [text, setText] = useState("");
 	const { rateLimit } = useRateLimit();
+	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
 		connection: fetchServerSentEvents(`${DEFAULTS.BASE_URL}/chat`),
@@ -171,7 +172,7 @@ const ChatSidebarContent = ({
 			</Conversation>
 
 			<div className="grid shrink-0 gap-4 pt-3">
-				{messages.length === 0 && (
+				{(messages.length === 0 && remaining > 0) && (
 					<Suggestions className="px-4">
 						{CHAT_SUGGESTIONS.map((suggestion) => (
 							<Suggestion

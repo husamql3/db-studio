@@ -18,6 +18,7 @@ export function generateSystemPrompt(schema: DatabaseSchema): string {
 3. Use exact collection/field names from the schema
 4. If query is unclear, ask ONE specific clarifying question
 5. No preamble, no apologies, get straight to the answer
+6. IMPORTANT: When the user asks about collections, fields, or any schema information, answer DIRECTLY from the "Database Context" above — do NOT generate a query to retrieve schema info you already have
 
 **Database Context:**
 ${formatSchemaForPrompt(schema)}
@@ -82,6 +83,7 @@ This will return the top 5 customers by revenue."`;
 4. Generate valid ${dbTypeLabel} syntax
 5. If query is unclear, ask ONE specific clarifying question
 6. No preamble, no apologies, get straight to the answer
+7. IMPORTANT: When the user asks about tables, columns, relationships, or any schema information, answer DIRECTLY from the "Database Context" above — do NOT generate a SQL query to retrieve schema info you already have
 
 **Database Context:**
 ${formatSchemaForPrompt(schema)}
