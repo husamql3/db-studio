@@ -22,8 +22,11 @@ import type { ApiHandler, RouteEnv } from "@/app.types.js";
 import { addColumn as pgAddColumn } from "@/dao/add-column.dao.js";
 import { alterColumn as pgAlterColumn } from "@/dao/alter-column.dao.js";
 import { getDaoFactory } from "@/dao/dao-factory.js";
-import { addMongoField } from "@/dao/mongo/add-column.mongo.dao.js";
-import { mongoAlterColumn, mongoRenameColumn } from "@/dao/mongo/alter-column.mongo.dao.js";
+import { addColumn as mongoAddColumn } from "@/dao/mongo/add-column.mongo.dao.js";
+import {
+	alterColumn as mongoAlterColumn,
+	renameColumn as mongoRenameColumn,
+} from "@/dao/mongo/alter-column.mongo.dao.js";
 import { addColumn as mysqlAddColumn } from "@/dao/mysql/add-column.mysql.dao.js";
 import { alterColumn as mysqlAlterColumn } from "@/dao/mysql/alter-column.mysql.dao.js";
 import { renameColumn as mysqlRenameColumn } from "@/dao/mysql/rename-column.mysql.dao.js";
@@ -129,7 +132,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			if (dbType === "mysql") {
 				await mysqlAddColumn({ tableName, db, ...body });
 			} else if (dbType === "mongodb") {
-				await addMongoField({ tableName, db, ...body });
+				await mongoAddColumn({ tableName, db, ...body });
 			} else {
 				await pgAddColumn({ tableName, db, ...body });
 			}

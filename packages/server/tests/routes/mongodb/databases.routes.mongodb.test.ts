@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mongoDatabaseListDao from "@/dao/mongo/database-list.dao.js";
+import * as mongoDatabaseListDao from "@/dao/mongo/database-list.mongo.dao.js";
 
-vi.mock("@/dao/mongo/database-list.dao.js", () => ({
+vi.mock("@/dao/mongo/database-list.mongo.dao.js", () => ({
+	getDatabasesList: vi.fn(),
 	getMongoDatabasesList: vi.fn(),
+	getCurrentDatabase: vi.fn(),
 	getMongoCurrentDatabase: vi.fn(),
+	getDatabaseConnectionInfo: vi.fn(),
 	getMongoConnectionInfo: vi.fn(),
 }));
 
@@ -65,7 +68,7 @@ describe("Databases Routes (MongoDB)", () => {
 				{ name: "analytics", size: "512.0 MB", owner: "n/a", encoding: "n/a" },
 			];
 
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockResolvedValue(mockDatabases);
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockResolvedValue(mockDatabases);
 
 			const res = await app.request("/databases");
 
@@ -73,11 +76,11 @@ describe("Databases Routes (MongoDB)", () => {
 			const json = await res.json();
 			expect(json.data.databases).toEqual(mockDatabases);
 			expect(json.data.dbType).toBe("mongodb");
-			expect(mongoDatabaseListDao.getMongoDatabasesList).toHaveBeenCalledTimes(1);
+			expect(mongoDatabaseListDao.getDatabasesList).toHaveBeenCalledTimes(1);
 		});
 
 		it("returns empty array when no databases exist", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockResolvedValue([]);
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 
@@ -88,7 +91,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns single database", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockResolvedValue([
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockResolvedValue([
 				{ name: "onlydb", size: "1.0 KB", owner: "n/a", encoding: "n/a" },
 			]);
 
@@ -108,7 +111,7 @@ describe("Databases Routes (MongoDB)", () => {
 				encoding: "n/a",
 			}));
 
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockResolvedValue(mockDatabases);
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockResolvedValue(mockDatabases);
 
 			const res = await app.request("/databases");
 
@@ -118,7 +121,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 500 when DAO throws HTTPException", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockRejectedValue(
 				new HTTPException(500, { message: "No databases returned from MongoDB" }),
 			);
 
@@ -128,7 +131,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 when MongoDB connection is refused", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
@@ -140,7 +143,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on MongoDB connection timeout", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockRejectedValue(
 				new Error("timeout expired"),
 			);
 
@@ -150,7 +153,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 500 on generic error", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockRejectedValue(
 				new Error("Unexpected MongoDB error"),
 			);
 
@@ -167,7 +170,7 @@ describe("Databases Routes (MongoDB)", () => {
 	// ============================================
 	describe("GET /databases/current", () => {
 		it("returns current MongoDB database with 200 status", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoCurrentDatabase).mockResolvedValue({
+			vi.mocked(mongoDatabaseListDao.getCurrentDatabase).mockResolvedValue({
 				db: "myapp",
 			});
 
@@ -177,11 +180,11 @@ describe("Databases Routes (MongoDB)", () => {
 			const json = await res.json();
 			expect(json.data.db).toBe("myapp");
 			expect(json.data.dbType).toBe("mongodb");
-			expect(mongoDatabaseListDao.getMongoCurrentDatabase).toHaveBeenCalledTimes(1);
+			expect(mongoDatabaseListDao.getCurrentDatabase).toHaveBeenCalledTimes(1);
 		});
 
 		it("returns dbType as mongodb", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoCurrentDatabase).mockResolvedValue({
+			vi.mocked(mongoDatabaseListDao.getCurrentDatabase).mockResolvedValue({
 				db: "production",
 			});
 
@@ -192,7 +195,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("handles db name with underscores and hyphens", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoCurrentDatabase).mockResolvedValue({
+			vi.mocked(mongoDatabaseListDao.getCurrentDatabase).mockResolvedValue({
 				db: "my-production_db",
 			});
 
@@ -204,7 +207,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 500 when DAO throws HTTPException", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoCurrentDatabase).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getCurrentDatabase).mockRejectedValue(
 				new HTTPException(500, { message: "Failed to get current db" }),
 			);
 
@@ -214,7 +217,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection error", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoCurrentDatabase).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getCurrentDatabase).mockRejectedValue(
 				new Error("connection refused"),
 			);
 
@@ -239,14 +242,14 @@ describe("Databases Routes (MongoDB)", () => {
 				max_connections: 812,
 			};
 
-			vi.mocked(mongoDatabaseListDao.getMongoConnectionInfo).mockResolvedValue(mockInfo);
+			vi.mocked(mongoDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(mockInfo);
 
 			const res = await app.request("/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockInfo);
-			expect(mongoDatabaseListDao.getMongoConnectionInfo).toHaveBeenCalledTimes(1);
+			expect(mongoDatabaseListDao.getDatabaseConnectionInfo).toHaveBeenCalledTimes(1);
 		});
 
 		it("handles serverStatus unavailable gracefully", async () => {
@@ -260,7 +263,7 @@ describe("Databases Routes (MongoDB)", () => {
 				max_connections: 0,
 			};
 
-			vi.mocked(mongoDatabaseListDao.getMongoConnectionInfo).mockResolvedValue(mockInfo);
+			vi.mocked(mongoDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(mockInfo);
 
 			const res = await app.request("/databases/connection");
 
@@ -281,7 +284,7 @@ describe("Databases Routes (MongoDB)", () => {
 				max_connections: 800,
 			};
 
-			vi.mocked(mongoDatabaseListDao.getMongoConnectionInfo).mockResolvedValue(mockInfo);
+			vi.mocked(mongoDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(mockInfo);
 
 			const res = await app.request("/databases/connection");
 
@@ -291,7 +294,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 500 when connection info fails", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoConnectionInfo).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getDatabaseConnectionInfo).mockRejectedValue(
 				new HTTPException(500, { message: "Failed to get connection info" }),
 			);
 
@@ -301,7 +304,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection timeout", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoConnectionInfo).mockRejectedValue(
+			vi.mocked(mongoDatabaseListDao.getDatabaseConnectionInfo).mockRejectedValue(
 				new Error("timeout expired"),
 			);
 
@@ -316,7 +319,7 @@ describe("Databases Routes (MongoDB)", () => {
 	// ============================================
 	describe("Response headers", () => {
 		it("includes CORS headers", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockResolvedValue([]);
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 
@@ -324,7 +327,7 @@ describe("Databases Routes (MongoDB)", () => {
 		});
 
 		it("returns JSON content type", async () => {
-			vi.mocked(mongoDatabaseListDao.getMongoDatabasesList).mockResolvedValue([]);
+			vi.mocked(mongoDatabaseListDao.getDatabasesList).mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 

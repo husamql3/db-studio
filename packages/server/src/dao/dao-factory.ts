@@ -9,29 +9,21 @@ import * as pgDeleteColumn from "./delete-column.dao.js";
 import * as pgDeleteRecords from "./delete-records.dao.js";
 import * as pgDeleteTable from "./delete-table.dao.js";
 import * as pgExportTable from "./export-table.dao.js";
-import { bulkInsertRecords as mongoBulkInsertRecords } from "./mongo/bulk-insert-records.mongo.dao.js";
 // MongoDB DAOs
-import {
-	getMongoConnectionInfo,
-	getMongoCurrentDatabase,
-	getMongoDatabasesList,
-} from "./mongo/database-list.dao.js";
-import { executeMongoQuery } from "./mongo/query.dao.js";
-import {
-	addMongoRecord,
-	deleteMongoRecords,
-	forceDeleteMongoRecords,
-	updateMongoRecords,
-} from "./mongo/records.dao.js";
-import { getTableSchema as mongoGetTableSchema } from "./mongo/table-schema.mongo.dao.js";
-import {
-	createMongoCollection,
-	deleteMongoColumn,
-	exportMongoTableData,
-	getMongoTableColumns,
-	getMongoTableData,
-	getMongoTablesList,
-} from "./mongo/tables.dao.js";
+import * as mongoAddRecord from "./mongo/add-record.mongo.dao.js";
+import * as mongoBulkInsertRecords from "./mongo/bulk-insert-records.mongo.dao.js";
+import * as mongoCreateTable from "./mongo/create-table.mongo.dao.js";
+import * as mongoDatabaseList from "./mongo/database-list.mongo.dao.js";
+import * as mongoDeleteColumn from "./mongo/delete-column.mongo.dao.js";
+import * as mongoDeleteRecords from "./mongo/delete-records.mongo.dao.js";
+import * as mongoDeleteTable from "./mongo/delete-table.mongo.dao.js";
+import * as mongoExportTable from "./mongo/export-table.mongo.dao.js";
+import * as mongoQuery from "./mongo/query.mongo.dao.js";
+import * as mongoTableColumns from "./mongo/table-columns.mongo.dao.js";
+import * as mongoTableList from "./mongo/table-list.mongo.dao.js";
+import * as mongoTableSchema from "./mongo/table-schema.mongo.dao.js";
+import * as mongoTablesData from "./mongo/tables-data.mongo.dao.js";
+import * as mongoUpdateRecords from "./mongo/update-records.mongo.dao.js";
 // MSSQL DAOs
 import * as mssqlAddRecord from "./mssql/add-record.mssql.dao.js";
 import * as mssqlBulkInsertRecords from "./mssql/bulk-insert-records.mssql.dao.js";
@@ -119,45 +111,23 @@ const daoRegistry = {
 		updateRecords: mysqlUpdateRecords.updateRecords,
 	},
 	mongodb: {
-		addRecord: ({ db, params }: Parameters<typeof pgAddRecord.addRecord>[0]) =>
-			addMongoRecord({ db, params }),
-		bulkInsertRecords: mongoBulkInsertRecords,
-		createTable: ({
-			db,
-			tableData,
-		}: {
-			db: string;
-			tableData: Parameters<typeof pgCreateTable.createTable>[0]["tableData"];
-		}) => createMongoCollection({ tableName: tableData?.tableName ?? "", tableData, db }),
-		getDatabasesList: getMongoDatabasesList,
-		getCurrentDatabase: getMongoCurrentDatabase,
-		getDatabaseConnectionInfo: getMongoConnectionInfo,
-		deleteColumn: ({
-			db,
-			tableName,
-			columnName,
-		}: Parameters<typeof pgDeleteColumn.deleteColumn>[0]) =>
-			deleteMongoColumn({ tableName, columnName, db }),
-		deleteRecords: deleteMongoRecords,
-		forceDeleteRecords: forceDeleteMongoRecords,
-		deleteTable: async ({ db, tableName }: { db: string; tableName: string }) => {
-			const { getMongoDb } = await import("@/db-manager.js");
-			const mongoDb = await getMongoDb(db);
-			await mongoDb.collection(tableName).drop();
-		},
-		exportTableData: ({
-			db,
-			tableName,
-		}: Parameters<typeof pgExportTable.exportTableData>[0]) =>
-			exportMongoTableData({ tableName, db }),
-		executeQuery: ({ query, db }: Parameters<typeof pgQuery.executeQuery>[0]) =>
-			executeMongoQuery({ query, db }),
-		getTableColumns: getMongoTableColumns,
-		getTablesList: ({ db }: { db: string }) => getMongoTablesList(db),
-		getTableSchema: mongoGetTableSchema,
-		getTableData: getMongoTableData,
-		updateRecords: ({ db, params }: Parameters<typeof pgUpdateRecords.updateRecords>[0]) =>
-			updateMongoRecords({ db, params }),
+		addRecord: mongoAddRecord.addRecord,
+		bulkInsertRecords: mongoBulkInsertRecords.bulkInsertRecords,
+		createTable: mongoCreateTable.createTable,
+		getDatabasesList: mongoDatabaseList.getDatabasesList,
+		getCurrentDatabase: mongoDatabaseList.getCurrentDatabase,
+		getDatabaseConnectionInfo: mongoDatabaseList.getDatabaseConnectionInfo,
+		deleteColumn: mongoDeleteColumn.deleteColumn,
+		deleteRecords: mongoDeleteRecords.deleteRecords,
+		forceDeleteRecords: mongoDeleteRecords.forceDeleteRecords,
+		deleteTable: mongoDeleteTable.deleteTable,
+		exportTableData: mongoExportTable.exportTableData,
+		executeQuery: mongoQuery.executeQuery,
+		getTableColumns: mongoTableColumns.getTableColumns,
+		getTablesList: mongoTableList.getTablesList,
+		getTableSchema: mongoTableSchema.getTableSchema,
+		getTableData: mongoTablesData.getTableData,
+		updateRecords: mongoUpdateRecords.updateRecords,
 	},
 	mssql: {
 		addRecord: mssqlAddRecord.addRecord,

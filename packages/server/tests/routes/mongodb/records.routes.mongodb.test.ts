@@ -2,15 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mongoRecordsDao from "@/dao/mongo/records.dao.js";
+import * as mongoAddRecordDao from "@/dao/mongo/add-record.mongo.dao.js";
 import * as mongoBulkInsertDao from "@/dao/mongo/bulk-insert-records.mongo.dao.js";
+import * as mongoDeleteRecordsDao from "@/dao/mongo/delete-records.mongo.dao.js";
+import * as mongoUpdateRecordsDao from "@/dao/mongo/update-records.mongo.dao.js";
 
 // Mock MongoDB DAO modules
-vi.mock("@/dao/mongo/records.dao.js", () => ({
-	addMongoRecord: vi.fn(),
-	updateMongoRecords: vi.fn(),
-	deleteMongoRecords: vi.fn(),
-	forceDeleteMongoRecords: vi.fn(),
+vi.mock("@/dao/mongo/add-record.mongo.dao.js", () => ({ addRecord: vi.fn() }));
+vi.mock("@/dao/mongo/update-records.mongo.dao.js", () => ({ updateRecords: vi.fn() }));
+vi.mock("@/dao/mongo/delete-records.mongo.dao.js", () => ({
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
 }));
 
 vi.mock("@/dao/mongo/bulk-insert-records.mongo.dao.js", () => ({
@@ -65,7 +67,7 @@ describe("Records Routes (MongoDB)", () => {
 	// ============================================
 	describe("POST /mongodb/records", () => {
 		it("inserts a document and returns 200", async () => {
-			vi.mocked(mongoRecordsDao.addMongoRecord).mockResolvedValue({ insertedCount: 1 });
+			vi.mocked(mongoAddRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "users",
@@ -81,14 +83,14 @@ describe("Records Routes (MongoDB)", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toBe('Record inserted into "users" with 1 rows inserted');
-			expect(mongoRecordsDao.addMongoRecord).toHaveBeenCalledWith({
+			expect(mongoAddRecordDao.addRecord).toHaveBeenCalledWith({
 				db: "testdb",
 				params: { tableName: "users", data: body.data },
 			});
 		});
 
 		it("handles document with nested object", async () => {
-			vi.mocked(mongoRecordsDao.addMongoRecord).mockResolvedValue({ insertedCount: 1 });
+			vi.mocked(mongoAddRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "orders",
@@ -109,7 +111,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("handles document with explicit _id provided", async () => {
-			vi.mocked(mongoRecordsDao.addMongoRecord).mockResolvedValue({ insertedCount: 1 });
+			vi.mocked(mongoAddRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "configs",
@@ -146,7 +148,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 500 when insert fails", async () => {
-			vi.mocked(mongoRecordsDao.addMongoRecord).mockRejectedValue(
+			vi.mocked(mongoAddRecordDao.addRecord).mockRejectedValue(
 				new HTTPException(500, { message: 'Failed to insert record into "users"' }),
 			);
 
@@ -160,7 +162,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoRecordsDao.addMongoRecord).mockRejectedValue(
+			vi.mocked(mongoAddRecordDao.addRecord).mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
@@ -179,7 +181,7 @@ describe("Records Routes (MongoDB)", () => {
 	// ============================================
 	describe("PATCH /mongodb/records", () => {
 		it("updates documents and returns 200 with updatedCount", async () => {
-			vi.mocked(mongoRecordsDao.updateMongoRecords).mockResolvedValue({ updatedCount: 2 });
+			vi.mocked(mongoUpdateRecordsDao.updateRecords).mockResolvedValue({ updatedCount: 2 });
 
 			const body = {
 				tableName: "users",
@@ -207,7 +209,7 @@ describe("Records Routes (MongoDB)", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toBe('Updated 2 records in "users"');
-			expect(mongoRecordsDao.updateMongoRecords).toHaveBeenCalledWith({
+			expect(mongoUpdateRecordsDao.updateRecords).toHaveBeenCalledWith({
 				db: "testdb",
 				params: {
 					tableName: "users",
@@ -218,7 +220,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 0 updated records for no-op update", async () => {
-			vi.mocked(mongoRecordsDao.updateMongoRecords).mockResolvedValue({ updatedCount: 0 });
+			vi.mocked(mongoUpdateRecordsDao.updateRecords).mockResolvedValue({ updatedCount: 0 });
 
 			const res = await app.request("/mongodb/records?db=testdb", {
 				method: "PATCH",
@@ -242,7 +244,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 404 when document not found", async () => {
-			vi.mocked(mongoRecordsDao.updateMongoRecords).mockRejectedValue(
+			vi.mocked(mongoUpdateRecordsDao.updateRecords).mockRejectedValue(
 				new HTTPException(404, {
 					message: 'Record with _id = 507f1f77bcf86cd799439011 not found in "users"',
 				}),
@@ -268,7 +270,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when primary key is missing in row data", async () => {
-			vi.mocked(mongoRecordsDao.updateMongoRecords).mockRejectedValue(
+			vi.mocked(mongoUpdateRecordsDao.updateRecords).mockRejectedValue(
 				new HTTPException(400, { message: 'Primary key "_id" not found in row data.' }),
 			);
 
@@ -291,7 +293,7 @@ describe("Records Routes (MongoDB)", () => {
 	// ============================================
 	describe("DELETE /mongodb/records", () => {
 		it("deletes documents and returns 200", async () => {
-			vi.mocked(mongoRecordsDao.deleteMongoRecords).mockResolvedValue({
+			vi.mocked(mongoDeleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 2,
 				fkViolation: false,
 				relatedRecords: [],
@@ -318,7 +320,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("deletes a single document", async () => {
-			vi.mocked(mongoRecordsDao.deleteMongoRecords).mockResolvedValue({
+			vi.mocked(mongoDeleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 1,
 				fkViolation: false,
 				relatedRecords: [],
@@ -341,7 +343,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 0 deleted when no documents matched", async () => {
-			vi.mocked(mongoRecordsDao.deleteMongoRecords).mockResolvedValue({
+			vi.mocked(mongoDeleteRecordsDao.deleteRecords).mockResolvedValue({
 				deletedCount: 0,
 				fkViolation: false,
 				relatedRecords: [],
@@ -372,7 +374,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoRecordsDao.deleteMongoRecords).mockRejectedValue(
+			vi.mocked(mongoDeleteRecordsDao.deleteRecords).mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -394,7 +396,7 @@ describe("Records Routes (MongoDB)", () => {
 	// ============================================
 	describe("DELETE /mongodb/records/force", () => {
 		it("force deletes documents and returns 200", async () => {
-			vi.mocked(mongoRecordsDao.forceDeleteMongoRecords).mockResolvedValue({
+			vi.mocked(mongoDeleteRecordsDao.forceDeleteRecords).mockResolvedValue({
 				deletedCount: 3,
 			});
 
@@ -419,7 +421,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoRecordsDao.forceDeleteMongoRecords).mockRejectedValue(
+			vi.mocked(mongoDeleteRecordsDao.forceDeleteRecords).mockRejectedValue(
 				new Error("connection refused"),
 			);
 

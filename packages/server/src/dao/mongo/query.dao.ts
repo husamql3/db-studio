@@ -1,7 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import type { DatabaseSchemaType, ExecuteQueryParams, ExecuteQueryResult } from "shared/types";
 import { getMongoDb } from "@/db-manager.js";
-import { buildMongoSortForQuery, normalizeMongoDocument, toMongoId } from "./tables.dao.js";
+import { buildMongoSort, normalizeMongoDocument, toMongoId } from "./mongo.utils.js";
 
 type MongoQueryPayload = {
 	collection: string;
@@ -93,7 +93,7 @@ export const executeMongoQuery = async ({
 		case "find": {
 			const filter = normalizeIdFilter(payload.filter ?? {});
 			const cursor = collection.find(filter, payload.options ?? {});
-			const sort = payload.sort ?? buildMongoSortForQuery("", undefined);
+			const sort = payload.sort ?? buildMongoSort("", undefined);
 			cursor.sort(sort);
 			if (payload.skip) cursor.skip(payload.skip);
 			if (payload.limit) cursor.limit(payload.limit);
