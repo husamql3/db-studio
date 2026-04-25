@@ -1296,22 +1296,22 @@ export const TableForeignKeyCell = memo(
 							isSelected={isSelected}
 							onKeyDown={onWrapperKeyDown}
 						>
-							{displayValue != "" && (
-							<span className="flex items-center gap-1.5 size-full overflow-hidden">
-								{referencedTable && (
-									<Badge
-										variant="outline"
-										className="shrink-0 cursor-pointer hover:bg-muted"
-										onClick={(e) => {
-											e.stopPropagation();
-											setDrawerOpen(true);
-										}}
-									>
-										{referencedTable}
-									</Badge>
-								)}
-								<span className="truncate text-muted-foreground">{displayValue}</span>
-							</span>
+							{displayValue !== "" && (
+								<span className="flex items-center gap-1.5 size-full overflow-hidden">
+									{referencedTable && (
+										<Badge
+											variant="outline"
+											className="shrink-0 cursor-pointer hover:bg-muted"
+											onClick={(e) => {
+												e.stopPropagation();
+												setDrawerOpen(true);
+											}}
+										>
+											{referencedTable}
+										</Badge>
+									)}
+									<span className="truncate text-muted-foreground">{displayValue}</span>
+								</span>
 							)}
 						</TableCellWrapper>
 					</PopoverAnchor>
