@@ -25,6 +25,9 @@
     "database studio"
   ],
   "author": "Hüsam 🥑 <devhsmq@gmail.com>",
+  "contributors": [
+    "Amr Fahmy <amrfahmy57@gmail.com>"
+  ],
   "homepage": "https://dbstudio.sh",
   "repository": {
     "type": "git",
