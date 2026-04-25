@@ -38,12 +38,12 @@ const SidebarSchemaDropdown = () => {
 	if (!showSchemaDropdown) return null;
 
 	return (
-		<div className="px-3 pb-2 pt-3">
+		<div className="px-3 pt-3">
 			<Select
 				value={selectedSchema}
 				onValueChange={setSelectedSchema}
 			>
-				<SelectTrigger className="w-full justify-between">
+				<SelectTrigger className="w-full justify-between h-8">
 					<SelectValue placeholder="Select schema" />
 				</SelectTrigger>
 				<SelectContent>
