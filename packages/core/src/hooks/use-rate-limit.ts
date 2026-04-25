@@ -15,9 +15,9 @@ export const useRateLimit = () => {
 		queryFn: async () => {
 			if (DEFAULTS.IS_DEV) return UNLIMITED;
 			try {
-			const response = await fetch(`${DEFAULTS.PROXY_URL}/chat/limit`);
+				const response = await fetch(`${DEFAULTS.PROXY_URL}/chat/limit`);
 				if (!response.ok) return UNLIMITED;
-			return await response.json();
+				return await response.json();
 			} catch {
 				return UNLIMITED;
 			}
