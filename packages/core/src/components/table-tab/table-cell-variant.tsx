@@ -1296,6 +1296,7 @@ export const TableForeignKeyCell = memo(
 							isSelected={isSelected}
 							onKeyDown={onWrapperKeyDown}
 						>
+							{displayValue != "" && (
 							<span className="flex items-center gap-1.5 size-full overflow-hidden">
 								{referencedTable && (
 									<Badge
@@ -1311,6 +1312,7 @@ export const TableForeignKeyCell = memo(
 								)}
 								<span className="truncate text-muted-foreground">{displayValue}</span>
 							</span>
+							)}
 						</TableCellWrapper>
 					</PopoverAnchor>
 					<PopoverContent
