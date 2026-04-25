@@ -13,6 +13,7 @@ export const DEFAULTS = {
 	ENV: ".env",
 	VAR_NAME: "DATABASE_URL",
 	BASE_URL: "http://localhost:3333",
+	IS_DEV: nodeEnv === "development",
 	PROXY_URL:
 		nodeEnv === "development"
 			? "http://localhost:8787"

@@ -12,6 +12,22 @@ export const chatRoutes = new Hono()
 	.basePath("/chat")
 
 	/**
+	 * GET /chat/limit - Proxy rate limit check to Cloudflare Worker
+	 */
+	.get("/limit", async (c) => {
+		const proxyResponse = await fetch(`${DEFAULTS.PROXY_URL}/chat/limit`, {
+			headers: {
+				"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
+				"x-real-ip": c.req.header("x-real-ip") ?? "",
+				"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
+				"x-api-key": c.req.header("x-api-key") ?? "",
+			},
+		});
+		const data = await proxyResponse.json();
+		return c.json(data, proxyResponse.status as 200 | 500);
+	})
+
+	/**
 	 * POST /chat - Handle AI chat requests with streaming
 	 * Proxies to the Cloudflare Worker which has the Gemini API key
 	 */
@@ -30,11 +46,16 @@ export const chatRoutes = new Hono()
 			systemPrompt,
 		};
 
-		// Forward request to the proxy with the system prompt
+		// Forward request to the proxy with the system prompt.
+		// Pass through IP headers so the proxy rate-limiter keys on the real user IP.
 		const proxyResponse = await fetch(`${DEFAULTS.PROXY_URL}/chat`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
+				"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
+				"x-real-ip": c.req.header("x-real-ip") ?? "",
+				"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
+				"x-api-key": c.req.header("x-api-key") ?? "",
 			},
 			body: JSON.stringify(payload),
 		});
