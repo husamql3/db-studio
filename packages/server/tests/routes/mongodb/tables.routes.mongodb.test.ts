@@ -3,32 +3,35 @@ import { HTTPException } from "hono/http-exception";
 import type { ColumnInfoSchemaType } from "shared/types";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mongoTablesDao from "@/dao/mongo/tables.dao.js";
+import * as mongoCreateTableDao from "@/dao/mongo/create-table.mongo.dao.js";
+import * as mongoDeleteColumnDao from "@/dao/mongo/delete-column.mongo.dao.js";
+import * as mongoDeleteTableDao from "@/dao/mongo/delete-table.mongo.dao.js";
+import * as mongoExportTableDao from "@/dao/mongo/export-table.mongo.dao.js";
 import * as mongoAddColumnDao from "@/dao/mongo/add-column.mongo.dao.js";
 import * as mongoAlterColumnDao from "@/dao/mongo/alter-column.mongo.dao.js";
+import * as mongoTableColumnsDao from "@/dao/mongo/table-columns.mongo.dao.js";
+import * as mongoTableListDao from "@/dao/mongo/table-list.mongo.dao.js";
 import * as mongoTableSchemaDao from "@/dao/mongo/table-schema.mongo.dao.js";
+import * as mongoTablesDataDao from "@/dao/mongo/tables-data.mongo.dao.js";
 
 // Mock MongoDB DAO modules
-vi.mock("@/dao/mongo/tables.dao.js", () => ({
-	getMongoTablesList: vi.fn(),
-	getMongoTableColumns: vi.fn(),
-	getMongoTableData: vi.fn(),
-	createMongoCollection: vi.fn(),
-	deleteMongoColumn: vi.fn(),
-	exportMongoTableData: vi.fn(),
-	normalizeMongoDocument: vi.fn((v) => v),
-	buildMongoFiltersForQuery: vi.fn(),
-	buildMongoSortForQuery: vi.fn(),
-	toMongoId: vi.fn((v) => v),
-	canCoerceObjectId: vi.fn(() => false),
-}));
+vi.mock("@/dao/mongo/table-list.mongo.dao.js", () => ({ getTablesList: vi.fn() }));
+vi.mock("@/dao/mongo/table-columns.mongo.dao.js", () => ({ getTableColumns: vi.fn() }));
+vi.mock("@/dao/mongo/tables-data.mongo.dao.js", () => ({ getTableData: vi.fn() }));
+vi.mock("@/dao/mongo/create-table.mongo.dao.js", () => ({ createTable: vi.fn() }));
+vi.mock("@/dao/mongo/delete-column.mongo.dao.js", () => ({ deleteColumn: vi.fn() }));
+vi.mock("@/dao/mongo/delete-table.mongo.dao.js", () => ({ deleteTable: vi.fn() }));
+vi.mock("@/dao/mongo/export-table.mongo.dao.js", () => ({ exportTableData: vi.fn() }));
 
 vi.mock("@/dao/mongo/add-column.mongo.dao.js", () => ({
+	addColumn: vi.fn(),
 	addMongoField: vi.fn(),
 }));
 
 vi.mock("@/dao/mongo/alter-column.mongo.dao.js", () => ({
+	alterColumn: vi.fn(),
 	mongoAlterColumn: vi.fn(),
+	renameColumn: vi.fn(),
 	mongoRenameColumn: vi.fn(),
 }));
 
@@ -106,18 +109,18 @@ describe("Tables Routes (MongoDB)", () => {
 				{ tableName: "products", rowCount: 320 },
 			];
 
-			vi.mocked(mongoTablesDao.getMongoTablesList).mockResolvedValue(mockTables);
+			vi.mocked(mongoTableListDao.getTablesList).mockResolvedValue(mockTables);
 
 			const res = await app.request("/mongodb/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockTables);
-			expect(mongoTablesDao.getMongoTablesList).toHaveBeenCalledTimes(1);
+			expect(mongoTableListDao.getTablesList).toHaveBeenCalledTimes(1);
 		});
 
 		it("returns empty array when no collections exist", async () => {
-			vi.mocked(mongoTablesDao.getMongoTablesList).mockResolvedValue([]);
+			vi.mocked(mongoTableListDao.getTablesList).mockResolvedValue([]);
 
 			const res = await app.request("/mongodb/tables?db=emptydb");
 
@@ -133,7 +136,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 500 when DAO throws", async () => {
-			vi.mocked(mongoTablesDao.getMongoTablesList).mockRejectedValue(
+			vi.mocked(mongoTableListDao.getTablesList).mockRejectedValue(
 				new HTTPException(500, { message: "MongoDB error" }),
 			);
 
@@ -143,7 +146,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoTablesDao.getMongoTablesList).mockRejectedValue(
+			vi.mocked(mongoTableListDao.getTablesList).mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
@@ -158,7 +161,7 @@ describe("Tables Routes (MongoDB)", () => {
 	// ============================================
 	describe("POST /mongodb/tables", () => {
 		it("creates a collection with a field definition and returns 200", async () => {
-			vi.mocked(mongoTablesDao.createMongoCollection).mockResolvedValue(undefined);
+			vi.mocked(mongoCreateTableDao.createTable).mockResolvedValue(undefined);
 
 			const res = await app.request("/mongodb/tables?db=testdb", {
 				method: "POST",
@@ -177,7 +180,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("creates a collection with fields and JSON Schema validator", async () => {
-			vi.mocked(mongoTablesDao.createMongoCollection).mockResolvedValue(undefined);
+			vi.mocked(mongoCreateTableDao.createTable).mockResolvedValue(undefined);
 
 			const res = await app.request("/mongodb/tables?db=testdb", {
 				method: "POST",
@@ -207,7 +210,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when collection already exists", async () => {
-			vi.mocked(mongoTablesDao.createMongoCollection).mockRejectedValue(
+			vi.mocked(mongoCreateTableDao.createTable).mockRejectedValue(
 				new HTTPException(400, { message: 'Collection "users" already exists' }),
 			);
 
@@ -292,21 +295,21 @@ describe("Tables Routes (MongoDB)", () => {
 				},
 			];
 
-			vi.mocked(mongoTablesDao.getMongoTableColumns).mockResolvedValue(mockColumns);
+			vi.mocked(mongoTableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
 
 			const res = await app.request("/mongodb/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockColumns);
-			expect(mongoTablesDao.getMongoTableColumns).toHaveBeenCalledWith({
+			expect(mongoTableColumnsDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "users",
 				db: "testdb",
 			});
 		});
 
 		it("returns empty columns for empty collection", async () => {
-			vi.mocked(mongoTablesDao.getMongoTableColumns).mockResolvedValue([]);
+			vi.mocked(mongoTableColumnsDao.getTableColumns).mockResolvedValue([]);
 
 			const res = await app.request("/mongodb/tables/empty_coll/columns?db=testdb");
 
@@ -316,7 +319,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoTablesDao.getMongoTableColumns).mockRejectedValue(
+			vi.mocked(mongoTableColumnsDao.getTableColumns).mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -346,14 +349,14 @@ describe("Tables Routes (MongoDB)", () => {
 				},
 			};
 
-			vi.mocked(mongoTablesDao.getMongoTableData).mockResolvedValue(mockData);
+			vi.mocked(mongoTablesDataDao.getTableData).mockResolvedValue(mockData);
 
 			const res = await app.request("/mongodb/tables/users/data?db=testdb&limit=50");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockData);
-			expect(mongoTablesDao.getMongoTableData).toHaveBeenCalledWith(
+			expect(mongoTablesDataDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({ tableName: "users", db: "testdb" }),
 			);
 		});
@@ -371,20 +374,20 @@ describe("Tables Routes (MongoDB)", () => {
 				},
 			};
 
-			vi.mocked(mongoTablesDao.getMongoTableData).mockResolvedValue(mockData);
+			vi.mocked(mongoTablesDataDao.getTableData).mockResolvedValue(mockData);
 
 			const res = await app.request(
 				"/mongodb/tables/orders/data?db=testdb&limit=10&cursor=eyJvZmZzZXQiOjEwfQ",
 			);
 
 			expect(res.status).toBe(200);
-			expect(mongoTablesDao.getMongoTableData).toHaveBeenCalledWith(
+			expect(mongoTablesDataDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({ limit: 10, cursor: "eyJvZmZzZXQiOjEwfQ" }),
 			);
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoTablesDao.getMongoTableData).mockRejectedValue(
+			vi.mocked(mongoTablesDataDao.getTableData).mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -444,7 +447,7 @@ describe("Tables Routes (MongoDB)", () => {
 	// ============================================
 	describe("GET /mongodb/tables/:tableName/export", () => {
 		it("exports collection data as CSV", async () => {
-			vi.mocked(mongoTablesDao.exportMongoTableData).mockResolvedValue({
+			vi.mocked(mongoExportTableDao.exportTableData).mockResolvedValue({
 				cols: ["_id", "name", "email"],
 				rows: [{ _id: "1", name: "Alice", email: "alice@example.com" }],
 			});
@@ -459,7 +462,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("exports collection data as JSON", async () => {
-			vi.mocked(mongoTablesDao.exportMongoTableData).mockResolvedValue({
+			vi.mocked(mongoExportTableDao.exportTableData).mockResolvedValue({
 				cols: ["_id", "name"],
 				rows: [{ _id: "1", name: "Alice" }],
 			});
@@ -478,7 +481,7 @@ describe("Tables Routes (MongoDB)", () => {
 	// ============================================
 	describe("DELETE /mongodb/tables/:tableName/columns/:columnName", () => {
 		it("deletes a field from all documents and returns 200", async () => {
-			vi.mocked(mongoTablesDao.deleteMongoColumn).mockResolvedValue({ deletedCount: 42 });
+			vi.mocked(mongoDeleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 42 });
 
 			const res = await app.request("/mongodb/tables/users/columns/age?db=testdb", {
 				method: "DELETE",
@@ -488,11 +491,11 @@ describe("Tables Routes (MongoDB)", () => {
 			const json = await res.json();
 			expect(json.data).toContain("age");
 			expect(json.data).toContain("users");
-			expect(mongoTablesDao.deleteMongoColumn).toHaveBeenCalledWith({
+			expect(mongoDeleteColumnDao.deleteColumn).toHaveBeenCalledWith({
 				tableName: "users",
 				columnName: "age",
 				db: "testdb",
-				cascade: undefined,
+				cascade: false,
 			});
 		});
 
@@ -505,7 +508,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoTablesDao.deleteMongoColumn).mockRejectedValue(
+			vi.mocked(mongoDeleteColumnDao.deleteColumn).mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -522,7 +525,7 @@ describe("Tables Routes (MongoDB)", () => {
 	// ============================================
 	describe("POST /mongodb/tables/:tableName/columns", () => {
 		it("adds a field to all documents and returns 200", async () => {
-			vi.mocked(mongoAddColumnDao.addMongoField).mockResolvedValue(undefined);
+			vi.mocked(mongoAddColumnDao.addColumn).mockResolvedValue(undefined);
 
 			const res = await app.request("/mongodb/tables/users/columns?db=testdb", {
 				method: "POST",
@@ -538,13 +541,13 @@ describe("Tables Routes (MongoDB)", () => {
 			const json = await res.json();
 			expect(json.data).toContain("score");
 			expect(json.data).toContain("users");
-			expect(mongoAddColumnDao.addMongoField).toHaveBeenCalledWith(
+			expect(mongoAddColumnDao.addColumn).toHaveBeenCalledWith(
 				expect.objectContaining({ tableName: "users", db: "testdb", columnName: "score" }),
 			);
 		});
 
 		it("returns 409 when field already exists", async () => {
-			vi.mocked(mongoAddColumnDao.addMongoField).mockRejectedValue(
+			vi.mocked(mongoAddColumnDao.addColumn).mockRejectedValue(
 				new HTTPException(409, {
 					message: 'Field "score" already exists in collection "users"',
 				}),
@@ -564,7 +567,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 404 when collection does not exist", async () => {
-			vi.mocked(mongoAddColumnDao.addMongoField).mockRejectedValue(
+			vi.mocked(mongoAddColumnDao.addColumn).mockRejectedValue(
 				new HTTPException(404, { message: 'Collection "ghost" does not exist' }),
 			);
 
@@ -587,7 +590,7 @@ describe("Tables Routes (MongoDB)", () => {
 	// ============================================
 	describe("PATCH /mongodb/tables/:tableName/columns/:columnName/rename", () => {
 		it("renames a field across all documents and returns 200", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoRenameColumn).mockResolvedValue(undefined);
+			vi.mocked(mongoAlterColumnDao.renameColumn).mockResolvedValue(undefined);
 
 			const res = await app.request(
 				"/mongodb/tables/users/columns/username/rename?db=testdb",
@@ -602,7 +605,7 @@ describe("Tables Routes (MongoDB)", () => {
 			const json = await res.json();
 			expect(json.data).toContain("username");
 			expect(json.data).toContain("handle");
-			expect(mongoAlterColumnDao.mongoRenameColumn).toHaveBeenCalledWith(
+			expect(mongoAlterColumnDao.renameColumn).toHaveBeenCalledWith(
 				expect.objectContaining({
 					tableName: "users",
 					columnName: "username",
@@ -613,7 +616,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when trying to rename _id field", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoRenameColumn).mockRejectedValue(
+			vi.mocked(mongoAlterColumnDao.renameColumn).mockRejectedValue(
 				new HTTPException(400, { message: 'Cannot rename the "_id" field' }),
 			);
 
@@ -627,7 +630,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 404 when field does not exist", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoRenameColumn).mockRejectedValue(
+			vi.mocked(mongoAlterColumnDao.renameColumn).mockRejectedValue(
 				new HTTPException(404, {
 					message: 'Field "ghost" does not exist in collection "users"',
 				}),
@@ -646,7 +649,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 409 when target field already exists", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoRenameColumn).mockRejectedValue(
+			vi.mocked(mongoAlterColumnDao.renameColumn).mockRejectedValue(
 				new HTTPException(409, {
 					message: 'Field "email" already exists in collection "users"',
 				}),
@@ -670,7 +673,7 @@ describe("Tables Routes (MongoDB)", () => {
 	// ============================================
 	describe("PATCH /mongodb/tables/:tableName/columns/:columnName", () => {
 		it("updates the field validator and returns 200", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoAlterColumn).mockResolvedValue(undefined);
+			vi.mocked(mongoAlterColumnDao.alterColumn).mockResolvedValue(undefined);
 
 			const res = await app.request("/mongodb/tables/users/columns/age?db=testdb", {
 				method: "PATCH",
@@ -681,7 +684,7 @@ describe("Tables Routes (MongoDB)", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toContain("age");
-			expect(mongoAlterColumnDao.mongoAlterColumn).toHaveBeenCalledWith(
+			expect(mongoAlterColumnDao.alterColumn).toHaveBeenCalledWith(
 				expect.objectContaining({
 					tableName: "users",
 					columnName: "age",
@@ -693,7 +696,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when trying to alter _id field", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoAlterColumn).mockRejectedValue(
+			vi.mocked(mongoAlterColumnDao.alterColumn).mockRejectedValue(
 				new HTTPException(400, { message: 'Cannot alter the "_id" field' }),
 			);
 
@@ -707,7 +710,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 404 when collection does not exist", async () => {
-			vi.mocked(mongoAlterColumnDao.mongoAlterColumn).mockRejectedValue(
+			vi.mocked(mongoAlterColumnDao.alterColumn).mockRejectedValue(
 				new HTTPException(404, { message: 'Collection "ghost" does not exist' }),
 			);
 

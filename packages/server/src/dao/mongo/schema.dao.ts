@@ -1,6 +1,7 @@
 import type { Column, DatabaseSchema, DatabaseSchemaType, Table } from "shared/types";
 import { getMongoDb } from "@/db-manager.js";
-import { getMongoTableColumns, normalizeMongoDocument } from "./tables.dao.js";
+import { normalizeMongoDocument } from "./mongo.utils.js";
+import { getTableColumns } from "./table-columns.mongo.dao.js";
 
 const convertColumn = (col: {
 	columnName: string;
@@ -31,7 +32,7 @@ export async function getMongoDatabaseSchema(
 
 	const tablePromises = limitedCollections.map(async (collection) => {
 		const name = collection.name;
-		const columns = await getMongoTableColumns({ tableName: name, db });
+		const columns = await getTableColumns({ tableName: name, db });
 		const table: Table = {
 			name,
 			columns: columns.map(convertColumn),

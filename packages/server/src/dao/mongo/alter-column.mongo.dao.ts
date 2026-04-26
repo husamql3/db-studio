@@ -5,7 +5,7 @@ import { getMongoDb } from "@/db-manager.js";
 /**
  * Renames a field across all documents in a collection using $rename.
  */
-export async function mongoRenameColumn({
+export async function renameColumn({
 	tableName,
 	columnName,
 	newColumnName,
@@ -54,7 +54,7 @@ export async function mongoRenameColumn({
  * MongoDB is schemaless so this updates the collection's JSON Schema validator
  * and optionally converts existing field values to the new type.
  */
-export async function mongoAlterColumn({
+export async function alterColumn({
 	tableName,
 	columnName,
 	columnType,
@@ -110,3 +110,5 @@ export async function mongoAlterColumn({
 		validationAction: "warn",
 	});
 }
+
+export { alterColumn as mongoAlterColumn, renameColumn as mongoRenameColumn };
