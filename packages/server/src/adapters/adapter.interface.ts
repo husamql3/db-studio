@@ -5,11 +5,12 @@ import type {
 	BulkInsertRecordsParams,
 	BulkInsertResult,
 	CellValue,
+	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
-	DataTypes,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
+	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -23,7 +24,6 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-	ColumnInfoSchemaType,
 } from "shared/types";
 
 export interface GetTableDataParams {
@@ -57,10 +57,7 @@ export interface IDbAdapter {
 
 	deleteTable(params: DeleteTableParams): Promise<DeleteTableResult>;
 
-	getTableSchema(params: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<string>;
+	getTableSchema(params: { tableName: string; db: DatabaseSchemaType["db"] }): Promise<string>;
 
 	// --- Columns ---
 
