@@ -16,6 +16,18 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.7.10",
+		date: "2026-04-26",
+		title:
+			"Reorganized MongoDB database access layer into modular components for improved maintainability and clarity of database operations",
+		improvements: [
+			{
+				text: "Reorganized MongoDB database access layer into modular components for improved maintainability and clarity of database operations",
+				username: "Youssef-joe",
+			},
+		],
+	},
+	{
 		version: "1.7.9",
 		date: "2026-04-25",
 		title:
