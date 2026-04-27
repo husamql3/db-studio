@@ -1,4 +1,5 @@
 import type { DatabaseTypeSchema } from "shared/types/database.types.js";
+import { adapterRegistry } from "@/adapters/adapter.registry.js";
 
 // PostgreSQL DAOs
 import * as pgAddRecord from "./add-record.dao.js";
@@ -158,6 +159,12 @@ export type DaoMethods = typeof daoRegistry.pg;
  * @returns DAO methods for the specified database type
  */
 export function getDaoFactory(dbType: DatabaseTypeSchema): DaoMethods {
+	// Prefer a registered IDbAdapter when one exists (new path — populated in Phases 4–7).
+	// Falls back to the legacy daoRegistry so existing behaviour is unchanged until
+	// each adapter is implemented and registered.
+	if (adapterRegistry.has(dbType)) {
+		return adapterRegistry.get(dbType) as unknown as DaoMethods;
+	}
 	if (dbType === "mongodb") {
 		return daoRegistry.mongodb as unknown as DaoMethods;
 	}
