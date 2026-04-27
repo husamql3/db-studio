@@ -6,7 +6,7 @@ import { getMongoDb } from "@/db-manager.js";
  * Adds a field to all documents in a MongoDB collection.
  * Sets a typed default value and updates the collection's JSON Schema validator.
  */
-export async function addMongoField({
+export async function addColumn({
 	tableName,
 	columnName,
 	columnType,
@@ -69,6 +69,8 @@ export async function addMongoField({
 		validationAction: "warn",
 	});
 }
+
+export { addColumn as addMongoField };
 
 const resolveDefault = (
 	defaultValue: string | null | undefined,
