@@ -7,7 +7,6 @@ import type {
 	Table,
 } from "shared/types";
 import { getMongoDatabaseSchema } from "@/dao/mongo/schema.dao.js";
-import { db } from "@/db.js";
 import { getDbPool, getDbType } from "@/db-manager.js";
 import { getTableColumns } from "./table-columns.dao.js";
 
@@ -30,16 +29,15 @@ async function getTableNames(db: DatabaseSchemaType["db"]): Promise<string[]> {
 /**
  * Get table comment/description if available
  */
-async function getTableDescription(tableName: string): Promise<string | undefined> {
-	const client = await db.connect();
+async function getTableDescription(tableName: string, database: string): Promise<string | undefined> {
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 	try {
 		const res = await client.query(
-			`
-      SELECT obj_description(oid) as description
-      FROM pg_class
-      WHERE relname = $1
-        AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
-    `,
+			`SELECT obj_description(oid) as description
+			 FROM pg_class
+			 WHERE relname = $1
+			   AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')`,
 			[tableName],
 		);
 		return res.rows[0]?.description || undefined;
@@ -51,11 +49,10 @@ async function getTableDescription(tableName: string): Promise<string | undefine
 /**
  * Get sample data from a table (first 3 rows)
  */
-async function getSampleData(tableName: string): Promise<Record<string, unknown>[]> {
-	const client = await db.connect();
+async function getSampleData(tableName: string, database: string): Promise<Record<string, unknown>[]> {
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 	try {
-		// Sanitize table name to prevent SQL injection
-		// In production, validate tableName against known tables list
 		const res = await client.query(`SELECT * FROM "${tableName}" LIMIT 3`);
 		return res.rows;
 	} catch (error) {
@@ -145,8 +142,8 @@ async function getDatabaseSchema(
 		const tablePromises = tableNames.map(async (tableName) => {
 			const [columns, description, sampleData] = await Promise.all([
 				getTableColumns({ tableName, db }),
-				includeDescriptions ? getTableDescription(tableName) : Promise.resolve(undefined),
-				includeSampleData ? getSampleData(tableName) : Promise.resolve([]),
+				includeDescriptions ? getTableDescription(tableName, db) : Promise.resolve(undefined),
+				includeSampleData ? getSampleData(tableName, db) : Promise.resolve([]),
 			]);
 
 			const table: Table = {
