@@ -1,6 +1,6 @@
 import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
-import { cn } from "@/lib/utils";
+import { CellCopyButton } from "@/components/table-tab/cell-copy-button";
 
 interface DataGridBodyRowProps<TRow> {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
@@ -40,10 +40,11 @@ export const DataGridBodyRow = <TRow,>({
 				return (
 					<td
 						key={cell.id}
-						className={cn("flex border-r border-zinc-800 h-8 items-center px-3 truncate")}
+						className="group relative flex border-r border-zinc-800 h-8 items-center px-3 truncate"
 						style={{ width: cell.column.getSize() }}
 					>
 						{flexRender(cell.column.columnDef.cell, cell.getContext())}
+						<CellCopyButton value={cell.getValue()} />
 					</td>
 				);
 			})}

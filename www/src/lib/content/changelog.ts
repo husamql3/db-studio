@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.7.11",
+		date: "2026-04-28",
+		title: "Add hover copy button for table cells to copy the cell value",
+		features: [
+			{
+				text: "Add hover copy button for table cells",
+				username: "MohmedAref31",
+			},
+		],
+	},
+	{
 		version: "1.7.10",
 		date: "2026-04-26",
 		title:

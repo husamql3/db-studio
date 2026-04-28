@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
+import { useState } from "react";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -7,7 +8,6 @@ import {
 	CodeBlockTabsList,
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
-import { ContributorsGrid } from "@/components/contributors";
 import { FeaturesGrid } from "@/components/features";
 import { InfiniteSlider } from "@/components/infinite-slider";
 import { Highlighter } from "@/components/ui/highlighter";
@@ -16,18 +16,38 @@ import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { cn } from "@/lib/utils";
-import { getContributors } from "@/utils/get-contributors";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
-	loader: async () => {
-		const contributors = await getContributors();
-		return { contributors };
-	},
 });
 
+const EMAIL = "dbstudio@ql3.dev";
+
+function EmailCopyButton() {
+	const [copied, setCopied] = useState(false);
+
+	const copy = () => {
+		navigator.clipboard.writeText(EMAIL);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	return (
+		<button
+			type="button"
+			onClick={copy}
+			className="mt-1 group flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer"
+			aria-label="Copy email"
+		>
+			<span className="text-xs underline underline-offset-4">{EMAIL}</span>
+			<span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+				{copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
+			</span>
+		</button>
+	);
+}
+
 function App() {
-	const { contributors } = Route.useLoaderData();
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
@@ -50,7 +70,21 @@ function App() {
 						<div className="absolute inset-y-0 right-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:right-12" />
 					</div>
 
-					<div className="w-full max-w-xl mx-auto">
+					<div className="w-full max-w-xl mx-auto flex flex-col items-center gap-5">
+						<a
+							href="https://www.producthunt.com/products/dbstudio-sh/launches/dbstudio-sh?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-dbstudio-sh"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="transition-opacity hover:opacity-80"
+						>
+							<img
+								alt="dbstudio.sh - A modern pgAdmin alternative that works with every database | Product Hunt"
+								width={180}
+								height={30}
+								src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1056391&theme=dark&t=1777404966342"
+							/>
+						</a>
+
 						<p className="text-center md:text-xl font-bold">
 							A modern (pgAdmin alternative but good)
 							<Highlighter
@@ -272,12 +306,7 @@ function App() {
 							Help us keep db-studio free and actively maintained. If you or your company find
 							it useful, consider supporting the project.
 						</p>
-						<a
-							href="mailto:contact@ql3.dev"
-							className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 underline underline-offset-4"
-						>
-							contact@ql3.dev
-						</a>
+						<EmailCopyButton />
 					</div>
 
 					<PlusIcon
@@ -298,7 +327,7 @@ function App() {
 					/>
 				</div>
 
-				<div className="relative w-full flex flex-col border-y">
+				{/* <div className="relative w-full flex flex-col border-y">
 					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
 						Shoutout to our <span className="text-foreground">contributors</span>
 					</h2>
@@ -321,7 +350,7 @@ function App() {
 						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
 						strokeWidth={1}
 					/>
-				</div>
+				</div> */}
 			</div>
 		</main>
 	);
