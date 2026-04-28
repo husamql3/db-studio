@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "shared": "workspace:*",
-    "@tanstack/ai": "^0.10.2",
-    "@tanstack/ai-gemini": "^0.8.7",
+    "@tanstack/ai": "^0.14.0",
+    "@tanstack/ai-gemini": "^0.10.0",
     "@upstash/redis": "^1.36.1",
     "hono": "^4.11.3",
     "hono-rate-limiter": "^0.5.3"
