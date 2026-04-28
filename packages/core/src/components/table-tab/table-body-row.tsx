@@ -1,6 +1,6 @@
 import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
-import { cn } from "@/lib/utils";
+import { CellCopyButton } from "@/components/table-tab/cell-copy-button";
 import type { TableRecord } from "@/types/table.type";
 
 interface TableBodyRowProps {
@@ -41,13 +41,14 @@ export const TableBodyRow = ({
 				return (
 					<td
 						key={cell.id}
-						className={cn("flex border-r border-zinc-800 h-8")}
+						className="group relative flex border-r border-zinc-800 h-8"
 						style={{
 							width: vc.index === 0 ? "40px" : cell.column.getSize(),
 							// height: "33px",
 						}}
 					>
 						{flexRender(cell.column.columnDef.cell, cell.getContext())}
+						<CellCopyButton value={cell.getValue()} />
 					</td>
 				);
 			})}
