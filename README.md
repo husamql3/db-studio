@@ -34,6 +34,10 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 
 <br>
 
+<a href="https://www.producthunt.com/products/dbstudio-sh/launches/dbstudio-sh?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-dbstudio-sh" target="_blank" rel="noopener noreferrer"><img alt="dbstudio.sh - A modern pgAdmin alternative that works with every database | Product Hunt" width="180" height="40" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1056391&amp;theme=light&amp;t=1777406433935"></a>
+
+<br>
+
 <img src="assets/screenshot.png" alt="DB Studio screenshot" width="1000" />
 </div>
 

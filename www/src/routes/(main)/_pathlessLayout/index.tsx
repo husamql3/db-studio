@@ -71,20 +71,6 @@ function App() {
 					</div>
 
 					<div className="w-full max-w-xl mx-auto flex flex-col items-center gap-5">
-						<a
-							href="https://www.producthunt.com/products/dbstudio-sh/launches/dbstudio-sh?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-dbstudio-sh"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="transition-opacity hover:opacity-80"
-						>
-							<img
-								alt="dbstudio.sh - A modern pgAdmin alternative that works with every database | Product Hunt"
-								width={180}
-								height={30}
-								src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1056391&theme=dark&t=1777404966342"
-							/>
-						</a>
-
 						<p className="text-center md:text-xl font-bold">
 							A modern (pgAdmin alternative but good)
 							<Highlighter
