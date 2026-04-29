@@ -22,7 +22,8 @@ function ProductHuntBanner() {
 		<div className="w-full bg-[#4B70FF] text-white text-sm flex items-center justify-center gap-3 px-4 py-2.5 relative">
 			<RocketIcon className="h-4 w-4 shrink-0" />
 			<span>
-				We&apos;re live on Product Hunt! If you&apos;re enjoying db-studio, support us with an upvote.
+				We&apos;re live on Product Hunt! If you&apos;re enjoying db-studio, support us with an
+				upvote.
 			</span>
 			<a
 				href="https://www.producthunt.com/products/dbstudio-sh/launches/dbstudio-sh"
