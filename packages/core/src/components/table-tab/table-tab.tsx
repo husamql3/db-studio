@@ -14,6 +14,7 @@ import { TableSelector } from "@/components/table-tab/table-selector";
 import { Spinner } from "@/components/ui/spinner";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
+import { cn } from "@/lib/utils";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 // todo: change the color of the scrollbar
@@ -214,7 +215,7 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 	}
 
 	return (
-		<div className="flex-1 w-full flex flex-col overflow-hidden">
+		<div className={cn("flex-1 w-full flex flex-col overflow-hidden pb-9")}>
 			<TableHeader
 				selectedRows={selectedRows}
 				setRowSelection={setRowSelection}
