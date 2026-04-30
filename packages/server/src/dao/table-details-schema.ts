@@ -6,40 +6,25 @@ import type {
 	Relationship,
 	Table,
 } from "shared/types";
+import { getDaoFactory } from "@/dao/dao-factory.js";
 import { getMongoDatabaseSchema } from "@/dao/mongo/schema.dao.js";
-import { db } from "@/db.js";
 import { getDbPool, getDbType } from "@/db-manager.js";
-import { getTableColumns } from "./table-columns.dao.js";
 
 /**
- * Get all table names from the database
+ * Fetch the pg_class description for a table — PostgreSQL only.
  */
-async function getTableNames(db: DatabaseSchemaType["db"]): Promise<string[]> {
-	const pool = getDbPool(db);
-	const query = `
-		SELECT table_name
-		FROM information_schema.tables
-		WHERE table_schema = 'public'
-			AND table_type = 'BASE TABLE'
-		ORDER BY table_name;
-	`;
-	const { rows } = await pool.query(query);
-	return rows.map((r) => r.table_name);
-}
-
-/**
- * Get table comment/description if available
- */
-async function getTableDescription(tableName: string): Promise<string | undefined> {
-	const client = await db.connect();
+async function getTableDescription(
+	tableName: string,
+	database: string,
+): Promise<string | undefined> {
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 	try {
 		const res = await client.query(
-			`
-      SELECT obj_description(oid) as description
-      FROM pg_class
-      WHERE relname = $1
-        AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
-    `,
+			`SELECT obj_description(oid) as description
+			 FROM pg_class
+			 WHERE relname = $1
+			   AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')`,
 			[tableName],
 		);
 		return res.rows[0]?.description || undefined;
@@ -49,13 +34,15 @@ async function getTableDescription(tableName: string): Promise<string | undefine
 }
 
 /**
- * Get sample data from a table (first 3 rows)
+ * Fetch the first 3 rows of a table as sample data — PostgreSQL only.
  */
-async function getSampleData(tableName: string): Promise<Record<string, unknown>[]> {
-	const client = await db.connect();
+async function getSampleData(
+	tableName: string,
+	database: string,
+): Promise<Record<string, unknown>[]> {
+	const pool = getDbPool(database);
+	const client = await pool.connect();
 	try {
-		// Sanitize table name to prevent SQL injection
-		// In production, validate tableName against known tables list
 		const res = await client.query(`SELECT * FROM "${tableName}" LIMIT 3`);
 		return res.rows;
 	} catch (error) {
@@ -66,9 +53,6 @@ async function getSampleData(tableName: string): Promise<Record<string, unknown>
 	}
 }
 
-/**
- * Convert ColumnInfo to the schema Column format
- */
 function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	const column: Column = {
 		name: col.columnName,
@@ -92,9 +76,6 @@ function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	return column;
 }
 
-/**
- * Extract all relationships from table columns
- */
 function extractRelationships(tables: Table[]): Relationship[] {
 	const relationships: Relationship[] = [];
 
@@ -115,9 +96,6 @@ function extractRelationships(tables: Table[]): Relationship[] {
 	return relationships;
 }
 
-/**
- * Get complete database schema with all tables, columns, and relationships
- */
 async function getDatabaseSchema(
 	db: DatabaseSchemaType["db"],
 	options: {
@@ -126,27 +104,31 @@ async function getDatabaseSchema(
 		maxTables?: number;
 	} = {},
 ): Promise<DatabaseSchema> {
-	if (getDbType() === "mongodb") {
+	const dbType = getDbType();
+
+	if (dbType === "mongodb") {
 		return getMongoDatabaseSchema(db, {
 			includeSampleData: options.includeSampleData,
 		});
 	}
 
-	const {
-		includeSampleData = false,
-		includeDescriptions = true,
-		// maxTables = 50, // Prevent overwhelming the context
-	} = options;
+	const { includeSampleData = false, includeDescriptions = true } = options;
+
+	const dao = getDaoFactory(dbType);
 
 	try {
-		const tableNames = await getTableNames(db);
+		const tablesList = await dao.getTablesList(db);
+		const tableNames = tablesList.map((t) => t.tableName);
 
-		// Fetch schema info for each table in parallel
 		const tablePromises = tableNames.map(async (tableName) => {
 			const [columns, description, sampleData] = await Promise.all([
-				getTableColumns({ tableName, db }),
-				includeDescriptions ? getTableDescription(tableName) : Promise.resolve(undefined),
-				includeSampleData ? getSampleData(tableName) : Promise.resolve([]),
+				dao.getTableColumns({ tableName, db }),
+				includeDescriptions && dbType === "pg"
+					? getTableDescription(tableName, db)
+					: Promise.resolve(undefined),
+				includeSampleData && dbType === "pg"
+					? getSampleData(tableName, db)
+					: Promise.resolve([]),
 			]);
 
 			const table: Table = {
@@ -168,15 +150,9 @@ async function getDatabaseSchema(
 		});
 
 		const tables = await Promise.all(tablePromises);
-
-		// Extract relationships from foreign keys
 		const relationships = extractRelationships(tables);
 
-		return {
-			dbType: "pg",
-			tables,
-			relationships,
-		};
+		return { dbType, tables, relationships };
 	} catch (error) {
 		console.error("Error fetching database schema:", error);
 		throw new Error(
@@ -185,15 +161,11 @@ async function getDatabaseSchema(
 	}
 }
 
-/**
- * Get detailed schema with sample data (for initial conversation context)
- */
 export async function getDetailedSchema(
 	db: DatabaseSchemaType["db"],
 ): Promise<DatabaseSchema> {
 	return getDatabaseSchema(db, {
 		includeSampleData: true,
 		includeDescriptions: true,
-		// maxTables: 30, // todo: DELETE THIS AFTER TESTING
 	});
 }

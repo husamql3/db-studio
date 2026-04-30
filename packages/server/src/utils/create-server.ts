@@ -7,6 +7,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { type DatabaseTypeSchema, databaseTypeParamSchema } from "shared/types";
+import { registerAdapters } from "@/adapters/register.js";
 import type { AppType } from "@/app.types.js";
 import { handleError, validationHook } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
@@ -28,6 +29,8 @@ const getCoreDistPath = () => {
 };
 
 export const createServer = () => {
+	registerAdapters();
+
 	const app = new Hono<AppType>({ strict: false })
 		/**
 		 * Enable CORS

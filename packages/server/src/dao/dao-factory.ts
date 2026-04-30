@@ -1,7 +1,10 @@
 import type { DatabaseTypeSchema } from "shared/types/database.types.js";
+import { adapterRegistry } from "@/adapters/adapter.registry.js";
 
 // PostgreSQL DAOs
+import * as pgAddColumn from "./add-column.dao.js";
 import * as pgAddRecord from "./add-record.dao.js";
+import * as pgAlterColumn from "./alter-column.dao.js";
 import * as pgBulkInsertRecords from "./bulk-insert-records.dao.js";
 import * as pgCreateTable from "./create-table.dao.js";
 import * as pgDatabaseList from "./database-list.dao.js";
@@ -10,7 +13,9 @@ import * as pgDeleteRecords from "./delete-records.dao.js";
 import * as pgDeleteTable from "./delete-table.dao.js";
 import * as pgExportTable from "./export-table.dao.js";
 // MongoDB DAOs
+import * as mongoAddColumn from "./mongo/add-column.mongo.dao.js";
 import * as mongoAddRecord from "./mongo/add-record.mongo.dao.js";
+import * as mongoAlterColumn from "./mongo/alter-column.mongo.dao.js";
 import * as mongoBulkInsertRecords from "./mongo/bulk-insert-records.mongo.dao.js";
 import * as mongoCreateTable from "./mongo/create-table.mongo.dao.js";
 import * as mongoDatabaseList from "./mongo/database-list.mongo.dao.js";
@@ -25,7 +30,9 @@ import * as mongoTableSchema from "./mongo/table-schema.mongo.dao.js";
 import * as mongoTablesData from "./mongo/tables-data.mongo.dao.js";
 import * as mongoUpdateRecords from "./mongo/update-records.mongo.dao.js";
 // MSSQL DAOs
+import * as mssqlAddColumn from "./mssql/add-column.mssql.dao.js";
 import * as mssqlAddRecord from "./mssql/add-record.mssql.dao.js";
+import * as mssqlAlterColumn from "./mssql/alter-column.mssql.dao.js";
 import * as mssqlBulkInsertRecords from "./mssql/bulk-insert-records.mssql.dao.js";
 import * as mssqlCreateTable from "./mssql/create-table.mssql.dao.js";
 import * as mssqlDatabaseList from "./mssql/database-list.mssql.dao.js";
@@ -34,13 +41,16 @@ import * as mssqlDeleteRecords from "./mssql/delete-records.mssql.dao.js";
 import * as mssqlDeleteTable from "./mssql/delete-table.mssql.dao.js";
 import * as mssqlExportTable from "./mssql/export-table.mssql.dao.js";
 import * as mssqlQuery from "./mssql/query.mssql.dao.js";
+import * as mssqlRenameColumn from "./mssql/rename-column.mssql.dao.js";
 import * as mssqlTableColumns from "./mssql/table-columns.mssql.dao.js";
 import * as mssqlTableList from "./mssql/table-list.mssql.dao.js";
 import * as mssqlTableSchema from "./mssql/table-schema.mssql.dao.js";
 import * as mssqlTablesData from "./mssql/tables-data.mssql.dao.js";
 import * as mssqlUpdateRecords from "./mssql/update-records.mssql.dao.js";
 // MySQL DAOs
+import * as mysqlAddColumn from "./mysql/add-column.mysql.dao.js";
 import * as mysqlAddRecord from "./mysql/add-record.mysql.dao.js";
+import * as mysqlAlterColumn from "./mysql/alter-column.mysql.dao.js";
 import * as mysqlBulkInsertRecords from "./mysql/bulk-insert-records.mysql.dao.js";
 import * as mysqlCreateTable from "./mysql/create-table.mysql.dao.js";
 import * as mysqlDatabaseList from "./mysql/database-list.mysql.dao.js";
@@ -49,12 +59,14 @@ import * as mysqlDeleteRecords from "./mysql/delete-records.mysql.dao.js";
 import * as mysqlDeleteTable from "./mysql/delete-table.mysql.dao.js";
 import * as mysqlExportTable from "./mysql/export-table.mysql.dao.js";
 import * as mysqlQuery from "./mysql/query.mysql.dao.js";
+import * as mysqlRenameColumn from "./mysql/rename-column.mysql.dao.js";
 import * as mysqlTableColumns from "./mysql/table-columns.mysql.dao.js";
 import * as mysqlTableList from "./mysql/table-list.mysql.dao.js";
 import * as mysqlTableSchema from "./mysql/table-schema.mysql.dao.js";
 import * as mysqlTablesData from "./mysql/tables-data.mysql.dao.js";
 import * as mysqlUpdateRecords from "./mysql/update-records.mysql.dao.js";
 import * as pgQuery from "./query.dao.js";
+import * as pgRenameColumn from "./rename-column.dao.js";
 import * as pgTableColumns from "./table-columns.dao.js";
 import * as pgTableList from "./table-list.dao.js";
 import * as pgTableSchema from "./table-schema.dao.js";
@@ -73,7 +85,9 @@ import * as pgUpdateRecords from "./update-records.dao.js";
 
 const daoRegistry = {
 	pg: {
+		addColumn: pgAddColumn.addColumn,
 		addRecord: pgAddRecord.addRecord,
+		alterColumn: pgAlterColumn.alterColumn,
 		bulkInsertRecords: pgBulkInsertRecords.bulkInsertRecords,
 		createTable: pgCreateTable.createTable,
 		getDatabasesList: pgDatabaseList.getDatabasesList,
@@ -89,10 +103,13 @@ const daoRegistry = {
 		getTablesList: pgTableList.getTablesList,
 		getTableSchema: pgTableSchema.getTableSchema,
 		getTableData: pgTablesData.getTableData,
+		renameColumn: pgRenameColumn.renameColumn,
 		updateRecords: pgUpdateRecords.updateRecords,
 	},
 	mysql: {
+		addColumn: mysqlAddColumn.addColumn,
 		addRecord: mysqlAddRecord.addRecord,
+		alterColumn: mysqlAlterColumn.alterColumn,
 		bulkInsertRecords: mysqlBulkInsertRecords.bulkInsertRecords,
 		createTable: mysqlCreateTable.createTable,
 		getDatabasesList: mysqlDatabaseList.getDatabasesList,
@@ -108,10 +125,13 @@ const daoRegistry = {
 		getTablesList: mysqlTableList.getTablesList,
 		getTableSchema: mysqlTableSchema.getTableSchema,
 		getTableData: mysqlTablesData.getTableData,
+		renameColumn: mysqlRenameColumn.renameColumn,
 		updateRecords: mysqlUpdateRecords.updateRecords,
 	},
 	mongodb: {
+		addColumn: mongoAddColumn.addColumn,
 		addRecord: mongoAddRecord.addRecord,
+		alterColumn: mongoAlterColumn.alterColumn,
 		bulkInsertRecords: mongoBulkInsertRecords.bulkInsertRecords,
 		createTable: mongoCreateTable.createTable,
 		getDatabasesList: mongoDatabaseList.getDatabasesList,
@@ -127,10 +147,13 @@ const daoRegistry = {
 		getTablesList: mongoTableList.getTablesList,
 		getTableSchema: mongoTableSchema.getTableSchema,
 		getTableData: mongoTablesData.getTableData,
+		renameColumn: mongoAlterColumn.renameColumn,
 		updateRecords: mongoUpdateRecords.updateRecords,
 	},
 	mssql: {
+		addColumn: mssqlAddColumn.addColumn,
 		addRecord: mssqlAddRecord.addRecord,
+		alterColumn: mssqlAlterColumn.alterColumn,
 		bulkInsertRecords: mssqlBulkInsertRecords.bulkInsertRecords,
 		createTable: mssqlCreateTable.createTable,
 		getDatabasesList: mssqlDatabaseList.getDatabasesList,
@@ -146,6 +169,7 @@ const daoRegistry = {
 		getTablesList: mssqlTableList.getTablesList,
 		getTableSchema: mssqlTableSchema.getTableSchema,
 		getTableData: mssqlTablesData.getTableData,
+		renameColumn: mssqlRenameColumn.renameColumn,
 		updateRecords: mssqlUpdateRecords.updateRecords,
 	},
 } as const;
@@ -158,10 +182,14 @@ export type DaoMethods = typeof daoRegistry.pg;
  * @returns DAO methods for the specified database type
  */
 export function getDaoFactory(dbType: DatabaseTypeSchema): DaoMethods {
-	if (dbType === "mongodb") {
-		return daoRegistry.mongodb as unknown as DaoMethods;
+	// Prefer a registered IDbAdapter when one exists (new path — populated in Phases 4–7).
+	// Falls back to the legacy daoRegistry so existing behaviour is unchanged until
+	// each adapter is implemented and registered.
+	if (adapterRegistry.has(dbType)) {
+		return adapterRegistry.get(dbType) as unknown as DaoMethods;
 	}
-	return daoRegistry[dbType];
+
+	return daoRegistry[dbType] as unknown as DaoMethods;
 }
 
 /**

@@ -19,18 +19,7 @@ import {
 	tableNameSchema,
 } from "shared/types";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { addColumn as pgAddColumn } from "@/dao/add-column.dao.js";
-import { alterColumn as pgAlterColumn } from "@/dao/alter-column.dao.js";
 import { getDaoFactory } from "@/dao/dao-factory.js";
-import { addColumn as mongoAddColumn } from "@/dao/mongo/add-column.mongo.dao.js";
-import {
-	alterColumn as mongoAlterColumn,
-	renameColumn as mongoRenameColumn,
-} from "@/dao/mongo/alter-column.mongo.dao.js";
-import { addColumn as mysqlAddColumn } from "@/dao/mysql/add-column.mysql.dao.js";
-import { alterColumn as mysqlAlterColumn } from "@/dao/mysql/alter-column.mysql.dao.js";
-import { renameColumn as mysqlRenameColumn } from "@/dao/mysql/rename-column.mysql.dao.js";
-import { renameColumn as pgRenameColumn } from "@/dao/rename-column.dao.js";
 import { getExportFile } from "@/utils/get-export-file.js";
 
 export const tablesRoutes = new Hono<RouteEnv>()
@@ -129,13 +118,8 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 
-			if (dbType === "mysql") {
-				await mysqlAddColumn({ tableName, db, ...body });
-			} else if (dbType === "mongodb") {
-				await mongoAddColumn({ tableName, db, ...body });
-			} else {
-				await pgAddColumn({ tableName, db, ...body });
-			}
+			const dao = getDaoFactory(dbType);
+			await dao.addColumn({ tableName, db, ...body });
 
 			return c.json(
 				{
@@ -161,13 +145,8 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 
-			if (dbType === "mysql") {
-				await mysqlRenameColumn({ tableName, columnName, db, ...body });
-			} else if (dbType === "mongodb") {
-				await mongoRenameColumn({ tableName, columnName, db, ...body });
-			} else {
-				await pgRenameColumn({ tableName, columnName, db, ...body });
-			}
+			const dao = getDaoFactory(dbType);
+			await dao.renameColumn({ tableName, columnName, db, ...body });
 
 			return c.json(
 				{
@@ -193,13 +172,8 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 
-			if (dbType === "mysql") {
-				await mysqlAlterColumn({ tableName, columnName, db, ...body });
-			} else if (dbType === "mongodb") {
-				await mongoAlterColumn({ tableName, columnName, db, ...body });
-			} else {
-				await pgAlterColumn({ tableName, columnName, db, ...body });
-			}
+			const dao = getDaoFactory(dbType);
+			await dao.alterColumn({ tableName, columnName, db, ...body });
 
 			return c.json(
 				{
