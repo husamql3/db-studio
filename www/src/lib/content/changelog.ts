@@ -16,6 +16,18 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.7.12",
+		date: "2026-04-30",
+		title:
+			"Improved spacing in the table tab layout with enhanced bottom padding for better visual definition and separation",
+		features: [
+			{
+				text: "Improved spacing in the table tab layout with enhanced bottom padding for better visual definition and separation",
+				username: "MohmedAref31",
+			},
+		],
+	},
+	{
 		version: "1.7.11",
 		date: "2026-04-28",
 		title: "Add hover copy button for table cells to copy the cell value",
