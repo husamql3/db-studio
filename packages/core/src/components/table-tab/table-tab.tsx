@@ -215,7 +215,7 @@ export const TableTab = ({ tableName }: { tableName: string }) => {
 	}
 
 	return (
-		<div className={cn("flex-1 w-full flex flex-col overflow-hidden pb-4")}>
+		<div className={cn("flex-1 w-full flex flex-col overflow-hidden pb-9")}>
 			<TableHeader
 				selectedRows={selectedRows}
 				setRowSelection={setRowSelection}
