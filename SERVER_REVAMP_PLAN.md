@@ -73,7 +73,7 @@
 
 > Extract all shared logic into `BaseAdapter` so individual adapters contain only DB-specific code.
 
-- [ ] Create `src/adapters/base.adapter.ts`
+- [x] Create `src/adapters/base.adapter.ts`
   - **Error wrapping** — `protected wrapError(e: unknown): HTTPException`
     - Move all connection-error detection from `middlewares/error-handler.ts` into this method
     - MySQL codes: `ECONNREFUSED`, `ER_ACCESS_DENIED_ERROR`, errno `1045`
@@ -83,30 +83,33 @@
     - Each adapter can `override wrapError()` to add DB-specific codes
 
   - **Template Method: `getTableData()`**
-    - Shared steps: validate params → call `buildTableDataQuery()` (abstract) → `runQuery()` → `normalizeRows()` (abstract) → `buildNextCursor()` (abstract)
-    - Cursor encode/decode helpers (`base64` encode/decode) as protected methods
+    - Shared steps: validate params → call `buildTableDataQuery()` (abstract) → `runQuery()` → `normalizeRows()` (abstract) → `buildCursors()` (abstract)
+    - Cursor encode/decode helpers (`base64url` encode/decode) as protected methods
 
   - **Template Method: `exportTableData()`**
-    - Shared steps: fetch rows via `getTableData()` → pass to `get-export-file.ts` utility
+    - Fetches all rows via `runQuery()` using `quoteIdentifier()` (abstract) for DB-specific quoting
     - Adapters do not need to re-implement export logic
 
-  - **Result normalization helper** — `protected normalizeRow(row, columns): NormalizedRow`
-    - Applies `mapToUniversalType()` to each cell value
+  - **Result normalization helper** — `protected normalizeRow(row): NormalizedRow`
+    - Casts each cell value; used inside `normalizeRows()` implementations
     - Shared by all SQL adapters; MongoDB overrides for document shape
 
   - **Pagination helpers**
-    - `protected encodeCursor(row, sortKey): string`
-    - `protected decodeCursor(cursor: string): CursorPayload`
+    - `protected encodeCursor(data: CursorData): string`
+    - `protected decodeCursor(cursor: string): CursorData | null`
 
-- [ ] Define abstract method signatures every adapter must implement
+- [x] Define abstract method signatures every adapter must implement
   ```
-  abstract runQuery<T>(db, sql, values): Promise<T>
-  abstract buildTableDataQuery(params): QueryBundle
-  abstract normalizeRows(rows): NormalizedRow[]
-  abstract buildNextCursor(rows): string | null
-  abstract mapToUniversalType(nativeType): CellVariant
+  protected abstract runQuery<T>(db, sql, values): Promise<T>
+  protected abstract buildTableDataQuery(params): QueryBundle
+  protected abstract normalizeRows(rows): NormalizedRow[]
+  protected abstract buildCursors(params, rows, hasMore): { nextCursor, prevCursor }
+  protected abstract quoteIdentifier(name): string
+  abstract mapToUniversalType(nativeType): DataTypes
   abstract mapFromUniversalType(universalType): string
   ```
+  (Note: `buildCursors` replaces `buildNextCursor` from plan — returns both next/prev cursors.
+   `quoteIdentifier` added to support the `exportTableData` template method.)
 
 ---
 
@@ -114,12 +117,12 @@
 
 > Migrate the 17 PG DAO files into one `PgAdapter` class. This is the reference implementation.
 
-- [ ] Create `src/adapters/pg/pg.query-builder.ts`
+- [x] Create `src/adapters/pg/pg.query-builder.ts`
   - Move `buildWhereClause()`, `buildSortClause()`, `buildCursorWhereClause()` from `utils/build-clauses.ts`
   - Keep `ILIKE`, `$1`/`$2` placeholders, tuple cursor comparison
   - Export as `pgQueryBuilder` object implementing `IQueryBuilder`
 
-- [ ] Create `src/adapters/pg/pg.adapter.ts` — `PgAdapter extends BaseAdapter`
+- [x] Create `src/adapters/pg/pg.adapter.ts` — `PgAdapter extends BaseAdapter`
   - **Connection**: internal `Map<string, Pool>` using `db-manager.ts` `getDbPool()`; callers never touch the pool
   - **`runQuery()`**: `pool.query(sql, values)` → returns `rows`
   - **`buildTableDataQuery()`**: move logic from `dao/tables-data.dao.ts`
@@ -127,9 +130,9 @@
   - **`mapFromUniversalType()`**: reverse mapping for column creation
   - Implement all 18 `IDbAdapter` methods by inlining the corresponding `dao/*.dao.ts` logic
 
-- [ ] Register `PgAdapter` in the boot call (Phase 1)
-- [ ] Delete the 17 migrated `src/dao/*.dao.ts` files (PG base files)
-- [ ] Run tests — `bunx vitest run` — confirm PG behaviour unchanged
+- [x] Register `PgAdapter` in the boot call (Phase 1)
+- [x] Delete the 17 migrated `src/dao/*.dao.ts` files (PG base files)
+- [x] Run tests — `bunx vitest run` — confirm PG behaviour unchanged (787/787 passing)
 
 ---
 

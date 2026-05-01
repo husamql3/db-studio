@@ -1,17 +1,6 @@
 import type { DatabaseTypeSchema } from "shared/types/database.types.js";
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
 
-// PostgreSQL DAOs
-import * as pgAddColumn from "./add-column.dao.js";
-import * as pgAddRecord from "./add-record.dao.js";
-import * as pgAlterColumn from "./alter-column.dao.js";
-import * as pgBulkInsertRecords from "./bulk-insert-records.dao.js";
-import * as pgCreateTable from "./create-table.dao.js";
-import * as pgDatabaseList from "./database-list.dao.js";
-import * as pgDeleteColumn from "./delete-column.dao.js";
-import * as pgDeleteRecords from "./delete-records.dao.js";
-import * as pgDeleteTable from "./delete-table.dao.js";
-import * as pgExportTable from "./export-table.dao.js";
 // MongoDB DAOs
 import * as mongoAddColumn from "./mongo/add-column.mongo.dao.js";
 import * as mongoAddRecord from "./mongo/add-record.mongo.dao.js";
@@ -65,13 +54,6 @@ import * as mysqlTableList from "./mysql/table-list.mysql.dao.js";
 import * as mysqlTableSchema from "./mysql/table-schema.mysql.dao.js";
 import * as mysqlTablesData from "./mysql/tables-data.mysql.dao.js";
 import * as mysqlUpdateRecords from "./mysql/update-records.mysql.dao.js";
-import * as pgQuery from "./query.dao.js";
-import * as pgRenameColumn from "./rename-column.dao.js";
-import * as pgTableColumns from "./table-columns.dao.js";
-import * as pgTableList from "./table-list.dao.js";
-import * as pgTableSchema from "./table-schema.dao.js";
-import * as pgTablesData from "./tables-data.dao.js";
-import * as pgUpdateRecords from "./update-records.dao.js";
 
 /**
  * DAO Factory - Automatically routes to the correct database implementation
@@ -82,30 +64,7 @@ import * as pgUpdateRecords from "./update-records.dao.js";
  * const tables = await dao.getTablesList(db);
  * ```
  */
-
 const daoRegistry = {
-	pg: {
-		addColumn: pgAddColumn.addColumn,
-		addRecord: pgAddRecord.addRecord,
-		alterColumn: pgAlterColumn.alterColumn,
-		bulkInsertRecords: pgBulkInsertRecords.bulkInsertRecords,
-		createTable: pgCreateTable.createTable,
-		getDatabasesList: pgDatabaseList.getDatabasesList,
-		getCurrentDatabase: pgDatabaseList.getCurrentDatabase,
-		getDatabaseConnectionInfo: pgDatabaseList.getDatabaseConnectionInfo,
-		deleteColumn: pgDeleteColumn.deleteColumn,
-		deleteRecords: pgDeleteRecords.deleteRecords,
-		forceDeleteRecords: pgDeleteRecords.forceDeleteRecords,
-		deleteTable: pgDeleteTable.deleteTable,
-		exportTableData: pgExportTable.exportTableData,
-		executeQuery: pgQuery.executeQuery,
-		getTableColumns: pgTableColumns.getTableColumns,
-		getTablesList: pgTableList.getTablesList,
-		getTableSchema: pgTableSchema.getTableSchema,
-		getTableData: pgTablesData.getTableData,
-		renameColumn: pgRenameColumn.renameColumn,
-		updateRecords: pgUpdateRecords.updateRecords,
-	},
 	mysql: {
 		addColumn: mysqlAddColumn.addColumn,
 		addRecord: mysqlAddRecord.addRecord,
@@ -174,22 +133,21 @@ const daoRegistry = {
 	},
 } as const;
 
-export type DaoMethods = typeof daoRegistry.pg;
+export type DaoMethods = typeof daoRegistry.mysql;
 
 /**
  * Get the DAO implementation for the specified database type
- * @param dbType - The database type (pg, mysql, mssql)
+ * @param dbType - The database type (pg, mysql, mssql, mongodb)
  * @returns DAO methods for the specified database type
  */
 export function getDaoFactory(dbType: DatabaseTypeSchema): DaoMethods {
-	// Prefer a registered IDbAdapter when one exists (new path — populated in Phases 4–7).
-	// Falls back to the legacy daoRegistry so existing behaviour is unchanged until
-	// each adapter is implemented and registered.
+	// Prefer a registered IDbAdapter when one exists (PG and future adapters).
+	// Falls back to the legacy daoRegistry for mysql, mssql, mongodb until their adapters are built.
 	if (adapterRegistry.has(dbType)) {
-		return adapterRegistry.get(dbType) as unknown as DaoMethods;
+		return adapterRegistry.get(dbType);
 	}
 
-	return daoRegistry[dbType] as unknown as DaoMethods;
+	return daoRegistry[dbType as keyof typeof daoRegistry] as unknown as DaoMethods;
 }
 
 /**
