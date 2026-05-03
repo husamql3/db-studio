@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.8.0",
+		date: "2026-05-03",
+		title: "Refactored database operation layer with new adapter-based architecture for better multi-database support",
+		features: [
+			{
+				text: "Refactored database operation layer with new adapter-based architecture for better multi-database support",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.7.12",
 		date: "2026-04-30",
 		title:
