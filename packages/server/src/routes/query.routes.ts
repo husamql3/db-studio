@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { databaseSchema, type ExecuteQueryResult, executeQuerySchema } from "shared/types";
+import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { getDaoFactory } from "@/dao/dao-factory.js";
 
 export const queryRoutes = new Hono<RouteEnv>()
 	/**
@@ -22,7 +22,7 @@ export const queryRoutes = new Hono<RouteEnv>()
 			const { query } = c.req.valid("json");
 			const { db } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const data = await dao.executeQuery({ query, db });
 			return c.json({ data }, 200);
 		},

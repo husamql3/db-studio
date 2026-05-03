@@ -2,40 +2,38 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as addRecordDao from "@/dao/add-record.dao.js";
-import * as updateRecordsDao from "@/dao/update-records.dao.js";
-import * as deleteRecordsDao from "@/dao/delete-records.dao.js";
 
-// Mock the DAO modules
-vi.mock("@/dao/add-record.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
+	getDatabasesList: vi.fn(),
+	getCurrentDatabase: vi.fn(),
+	getDatabaseConnectionInfo: vi.fn(),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
 	addRecord: vi.fn(),
-}));
-
-vi.mock("@/dao/update-records.dao.js", () => ({
 	updateRecords: vi.fn(),
-}));
-
-vi.mock("@/dao/delete-records.dao.js", () => ({
 	deleteRecords: vi.fn(),
 	forceDeleteRecords: vi.fn(),
-}));
-
-// Mock MySQL DAO modules (imported by records route for mysql dispatch)
-vi.mock("@/dao/mysql/add-record.mysql.dao.js", () => ({
-	addRecord: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/update-records.mysql.dao.js", () => ({
-	updateRecords: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/delete-records.mysql.dao.js", () => ({
-	deleteRecords: vi.fn(),
-	forceDeleteRecords: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/bulk-insert-records.mysql.dao.js", () => ({
 	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
+	executeQuery: vi.fn(),
+}));
+
+vi.mock("@/adapters/adapter.registry.js", () => ({
+	getAdapter: vi.fn(() => mockDao),
+	adapterRegistry: {
+		register: vi.fn(),
+		get: vi.fn(() => mockDao),
+		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
+		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
+	},
 }));
 
 // Mock db-manager
@@ -69,7 +67,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("POST /pg/records", () => {
 		it("should add a record and return 200 status", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "users",
@@ -90,7 +88,7 @@ describe("Records Routes", () => {
 			expect(json.data).toBe(
 				'Record inserted into "users" with 1 rows inserted',
 			);
-			expect(addRecordDao.addRecord).toHaveBeenCalledWith({
+			expect(mockDao.addRecord).toHaveBeenCalledWith({
 				db: "testdb",
 				params: {
 					tableName: "users",
@@ -103,7 +101,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should add a record with multiple fields", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "products",
@@ -128,7 +126,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle record with null values", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "users",
@@ -149,7 +147,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle record with JSON/object data", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "settings",
@@ -213,7 +211,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
-			vi.mocked(addRecordDao.addRecord).mockRejectedValue(
+			mockDao.addRecord.mockRejectedValue(
 				new HTTPException(500, {
 					message: 'Failed to insert record into "users"',
 				}),
@@ -234,7 +232,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(addRecordDao.addRecord).mockRejectedValue(
+			mockDao.addRecord.mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:5432"),
 			);
 
@@ -255,7 +253,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle table with special characters in name", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "user_profiles",
@@ -277,7 +275,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("PATCH /pg/records", () => {
 		it("should update a single cell and return 200 status", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -302,14 +300,14 @@ describe("Records Routes", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toBe('Updated 1 records in "users"');
-			expect(updateRecordsDao.updateRecords).toHaveBeenCalledWith({
+			expect(mockDao.updateRecords).toHaveBeenCalledWith({
 				params: body,
 				db: "testdb",
 			});
 		});
 
 		it("should update multiple cells in the same row", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -340,7 +338,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should update multiple rows", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 3,
 			});
 
@@ -378,7 +376,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should use default primary key when not specified", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -400,7 +398,7 @@ describe("Records Routes", () => {
 			});
 
 			expect(res.status).toBe(200);
-			expect(updateRecordsDao.updateRecords).toHaveBeenCalledWith({
+			expect(mockDao.updateRecords).toHaveBeenCalledWith({
 				params: expect.objectContaining({
 					primaryKey: "id",
 				}),
@@ -409,7 +407,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle custom primary key", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -435,7 +433,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle JSON/object values", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -461,7 +459,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle array values", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -487,7 +485,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle null values", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -629,7 +627,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 404 when record not found", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockRejectedValue(
+			mockDao.updateRecords.mockRejectedValue(
 				new HTTPException(404, {
 					message: 'Record with id = 999 not found in table "users"',
 				}),
@@ -657,7 +655,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 400 when primary key not found in rowData", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockRejectedValue(
+			mockDao.updateRecords.mockRejectedValue(
 				new HTTPException(400, {
 					message:
 						'Primary key "id" not found in row data. Please ensure the row has a "id" column.',
@@ -686,7 +684,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 500 when DAO throws generic error", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockRejectedValue(
+			mockDao.updateRecords.mockRejectedValue(
 				new HTTPException(500, {
 					message: 'Failed to update records in "users"',
 				}),
@@ -714,7 +712,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockRejectedValue(
+			mockDao.updateRecords.mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -745,7 +743,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("DELETE /pg/records", () => {
 		it("should delete a single record and return 200 status", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 1,
 				fkViolation: false,
 				relatedRecords: [],
@@ -769,7 +767,7 @@ describe("Records Routes", () => {
 				fkViolation: false,
 				relatedRecords: [],
 			});
-			expect(deleteRecordsDao.deleteRecords).toHaveBeenCalledWith({
+			expect(mockDao.deleteRecords).toHaveBeenCalledWith({
 				tableName: "users",
 				primaryKeys: [{ columnName: "id", value: 1 }],
 				db: "testdb",
@@ -777,7 +775,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should delete multiple records", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 3,
 				fkViolation: false,
 				relatedRecords: [],
@@ -804,7 +802,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle string primary key values", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 1,
 				fkViolation: false,
 				relatedRecords: [],
@@ -825,7 +823,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle UUID primary key values", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 1,
 				fkViolation: false,
 				relatedRecords: [],
@@ -924,7 +922,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle FK violation and return related records info", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 0,
 				fkViolation: true,
 				relatedRecords: [
@@ -968,7 +966,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockRejectedValue(
+			mockDao.deleteRecords.mockRejectedValue(
 				new HTTPException(500, {
 					message: 'Failed to delete records from "users"',
 				}),
@@ -989,7 +987,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(deleteRecordsDao.deleteRecords).mockRejectedValue(
+			mockDao.deleteRecords.mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -1013,7 +1011,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("DELETE /pg/records/force", () => {
 		it("should force delete a record and return 200 status", async () => {
-			vi.mocked(deleteRecordsDao.forceDeleteRecords).mockResolvedValue({
+			mockDao.forceDeleteRecords.mockResolvedValue({
 				deletedCount: 5,
 			});
 
@@ -1031,7 +1029,7 @@ describe("Records Routes", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual({ deletedCount: 5 });
-			expect(deleteRecordsDao.forceDeleteRecords).toHaveBeenCalledWith({
+			expect(mockDao.forceDeleteRecords).toHaveBeenCalledWith({
 				tableName: "users",
 				primaryKeys: [{ columnName: "id", value: 1 }],
 				db: "testdb",
@@ -1039,7 +1037,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should force delete multiple records with cascading deletes", async () => {
-			vi.mocked(deleteRecordsDao.forceDeleteRecords).mockResolvedValue({
+			mockDao.forceDeleteRecords.mockResolvedValue({
 				deletedCount: 15,
 			});
 
@@ -1107,7 +1105,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
-			vi.mocked(deleteRecordsDao.forceDeleteRecords).mockRejectedValue(
+			mockDao.forceDeleteRecords.mockRejectedValue(
 				new HTTPException(500, {
 					message: 'Failed to force delete records from "users"',
 				}),
@@ -1128,7 +1126,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(deleteRecordsDao.forceDeleteRecords).mockRejectedValue(
+			mockDao.forceDeleteRecords.mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -1167,10 +1165,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should accept mysql database type as valid on PATCH", async () => {
-			const { updateRecords: mysqlUpdateRecords } = await import(
-				"@/dao/mysql/update-records.mysql.dao.js"
-			);
-			vi.mocked(mysqlUpdateRecords).mockResolvedValue({ updatedCount: 1 });
+			mockDao.updateRecords.mockResolvedValue({ updatedCount: 1 });
 
 			const body = {
 				tableName: "users",
@@ -1252,7 +1247,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("Response headers", () => {
 		it("should include CORS headers on POST", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const res = await app.request("/pg/records?db=testdb", {
 				method: "POST",
@@ -1267,7 +1262,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should return JSON content type", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const res = await app.request("/pg/records?db=testdb", {
 				method: "POST",
@@ -1287,7 +1282,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("Concurrent requests handling", () => {
 		it("should handle multiple concurrent POST requests", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const requests = Array.from({ length: 10 }, (_, i) =>
 				app.request("/pg/records?db=testdb", {
@@ -1306,15 +1301,15 @@ describe("Records Routes", () => {
 				expect(res.status).toBe(200);
 			}
 
-			expect(addRecordDao.addRecord).toHaveBeenCalledTimes(10);
+			expect(mockDao.addRecord).toHaveBeenCalledTimes(10);
 		});
 
 		it("should handle concurrent requests to different record endpoints", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
-			vi.mocked(deleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 1,
 				fkViolation: false,
 				relatedRecords: [],
@@ -1365,7 +1360,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("Edge cases", () => {
 		it("should handle empty object as data for POST", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "users",
@@ -1383,7 +1378,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle very long string values", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const longString = "a".repeat(10000);
 			const body = {
@@ -1401,7 +1396,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle special characters in values", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "users",
@@ -1422,7 +1417,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle numeric values of different types", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "metrics",
@@ -1445,7 +1440,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle boolean values", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "settings",
@@ -1465,7 +1460,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle nested JSON objects", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "configs",
@@ -1492,7 +1487,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should handle URL encoded table names in path", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "user_profiles",
@@ -1514,7 +1509,7 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("Data integrity tests", () => {
 		it("should preserve data types when adding records", async () => {
-			vi.mocked(addRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const body = {
 				tableName: "mixed_types",
@@ -1536,7 +1531,7 @@ describe("Records Routes", () => {
 			});
 
 			expect(res.status).toBe(200);
-			expect(addRecordDao.addRecord).toHaveBeenCalledWith({
+			expect(mockDao.addRecord).toHaveBeenCalledWith({
 				db: "testdb",
 				params: {
 					tableName: "mixed_types",
@@ -1554,7 +1549,7 @@ describe("Records Routes", () => {
 		});
 
 		it("should preserve data types when updating records", async () => {
-			vi.mocked(updateRecordsDao.updateRecords).mockResolvedValue({
+			mockDao.updateRecords.mockResolvedValue({
 				updatedCount: 1,
 			});
 
@@ -1577,7 +1572,7 @@ describe("Records Routes", () => {
 			});
 
 			expect(res.status).toBe(200);
-			expect(updateRecordsDao.updateRecords).toHaveBeenCalledWith({
+			expect(mockDao.updateRecords).toHaveBeenCalledWith({
 				params: expect.objectContaining({
 					updates: [
 						expect.objectContaining({

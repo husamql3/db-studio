@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hono } from "hono";
 
-// Mock all route dependencies
-vi.mock("@/dao/database-list.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
 	getDatabasesList: vi.fn().mockResolvedValue([]),
 	getCurrentDatabase: vi.fn().mockResolvedValue({ database: "test" }),
 	getDatabaseConnectionInfo: vi.fn().mockResolvedValue({
@@ -14,6 +13,33 @@ vi.mock("@/dao/database-list.dao.js", () => ({
 		active_connections: 1,
 		max_connections: 100,
 	}),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
+	addRecord: vi.fn(),
+	updateRecords: vi.fn(),
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
+	executeQuery: vi.fn(),
+}));
+
+vi.mock("@/adapters/adapter.registry.js", () => ({
+	getAdapter: vi.fn(() => mockDao),
+	adapterRegistry: {
+		register: vi.fn(),
+		get: vi.fn(() => mockDao),
+		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
+		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
+	},
 }));
 
 vi.mock("@/db-manager.js", () => ({

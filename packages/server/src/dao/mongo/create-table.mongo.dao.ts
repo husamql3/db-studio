@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { CreateTableSchemaType, DatabaseSchemaType } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 
 const MONGO_BSON_TYPES = new Set([
 	"double",

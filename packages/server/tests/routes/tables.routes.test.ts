@@ -3,91 +3,38 @@ import { HTTPException } from "hono/http-exception";
 import type { ColumnInfoSchemaType } from "shared/types";
 
 import { createServer } from "@/utils/create-server.js";
-import * as addColumnDao from "@/dao/add-column.dao.js";
-import * as alterColumnDao from "@/dao/alter-column.dao.js";
-import * as tableListDao from "@/dao/table-list.dao.js";
-import * as createTableDao from "@/dao/create-table.dao.js";
-import * as deleteColumnDao from "@/dao/delete-column.dao.js";
-import * as renameColumnDao from "@/dao/rename-column.dao.js";
-import * as tableColumnsDao from "@/dao/table-columns.dao.js";
-import * as tablesDataDao from "@/dao/tables-data.dao.js";
 
-// Mock the DAO modules
-vi.mock("@/dao/table-list.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
+	getDatabasesList: vi.fn(),
+	getCurrentDatabase: vi.fn(),
+	getDatabaseConnectionInfo: vi.fn(),
 	getTablesList: vi.fn(),
-}));
-
-vi.mock("@/dao/add-column.dao.js", () => ({
-	addColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/alter-column.dao.js", () => ({
-	alterColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/create-table.dao.js", () => ({
 	createTable: vi.fn(),
-}));
-
-vi.mock("@/dao/delete-column.dao.js", () => ({
-	deleteColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/rename-column.dao.js", () => ({
-	renameColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/table-columns.dao.js", () => ({
-	getTableColumns: vi.fn(),
-}));
-
-vi.mock("@/dao/tables-data.dao.js", () => ({
-	getTableData: vi.fn(),
-}));
-
-// Mock MySQL DAO modules (imported by tables route for mysql dispatch)
-vi.mock("@/dao/mysql/table-list.mysql.dao.js", () => ({
-	getTablesList: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/add-column.mysql.dao.js", () => ({
-	addColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/alter-column.mysql.dao.js", () => ({
-	alterColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/create-table.mysql.dao.js", () => ({
-	createTable: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/delete-column.mysql.dao.js", () => ({
-	deleteColumn: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/table-columns.mysql.dao.js", () => ({
-	getTableColumns: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/tables-data.mysql.dao.js", () => ({
-	getTableData: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/delete-table.mysql.dao.js", () => ({
 	deleteTable: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/table-schema.mysql.dao.js", () => ({
 	getTableSchema: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/export-table.mysql.dao.js", () => ({
-	exportTableData: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/rename-column.mysql.dao.js", () => ({
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
 	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
+	addRecord: vi.fn(),
+	updateRecords: vi.fn(),
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
+	executeQuery: vi.fn(),
+}));
+
+vi.mock("@/adapters/adapter.registry.js", () => ({
+	getAdapter: vi.fn(() => mockDao),
+	adapterRegistry: {
+		register: vi.fn(),
+		get: vi.fn(() => mockDao),
+		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
+		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
+	},
 }));
 
 // Mock db-manager
@@ -127,20 +74,20 @@ describe("Tables Routes", () => {
 				{ tableName: "products", rowCount: 250 },
 			];
 
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
+			mockDao.getTablesList.mockResolvedValue(mockTables);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockTables);
-			expect(tableListDao.getTablesList).toHaveBeenCalledWith("testdb");
+			expect(mockDao.getTablesList).toHaveBeenCalledWith("testdb");
 		});
 
 		it("should handle single table response", async () => {
 			const mockTables = [{ tableName: "only_table", rowCount: 10 }];
 
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
+			mockDao.getTablesList.mockResolvedValue(mockTables);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -156,7 +103,7 @@ describe("Tables Routes", () => {
 				rowCount: i * 100,
 			}));
 
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
+			mockDao.getTablesList.mockResolvedValue(mockTables);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -172,7 +119,7 @@ describe("Tables Routes", () => {
 				{ tableName: "product_categories", rowCount: 30 },
 			];
 
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
+			mockDao.getTablesList.mockResolvedValue(mockTables);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -187,7 +134,7 @@ describe("Tables Routes", () => {
 				{ tableName: "another_empty", rowCount: 0 },
 			];
 
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
+			mockDao.getTablesList.mockResolvedValue(mockTables);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -202,7 +149,7 @@ describe("Tables Routes", () => {
 				{ tableName: "big_table", rowCount: 500000000 },
 			];
 
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue(mockTables);
+			mockDao.getTablesList.mockResolvedValue(mockTables);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -218,7 +165,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
-			vi.mocked(tableListDao.getTablesList).mockRejectedValue(
+			mockDao.getTablesList.mockRejectedValue(
 				new HTTPException(500, { message: "No tables returned from database" })
 			);
 
@@ -229,7 +176,7 @@ describe("Tables Routes", () => {
 
 		it("should return 503 when database connection fails", async () => {
 			const connectionError = new Error("connect ECONNREFUSED 127.0.0.1:5432");
-			vi.mocked(tableListDao.getTablesList).mockRejectedValue(connectionError);
+			mockDao.getTablesList.mockRejectedValue(connectionError);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -240,7 +187,7 @@ describe("Tables Routes", () => {
 
 		it("should return 503 on connection timeout", async () => {
 			const timeoutError = new Error("timeout expired");
-			vi.mocked(tableListDao.getTablesList).mockRejectedValue(timeoutError);
+			mockDao.getTablesList.mockRejectedValue(timeoutError);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -253,7 +200,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("POST /pg/tables", () => {
 		it("should create a table with basic fields and return 200", async () => {
-			vi.mocked(createTableDao.createTable).mockResolvedValue(undefined);
+			mockDao.createTable.mockResolvedValue(undefined);
 
 			const body = {
 				tableName: "new_table",
@@ -281,14 +228,14 @@ describe("Tables Routes", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toBe("Table new_table created successfully");
-			expect(createTableDao.createTable).toHaveBeenCalledWith({
+			expect(mockDao.createTable).toHaveBeenCalledWith({
 				tableData: expect.objectContaining({ tableName: "new_table" }),
 				db: "testdb",
 			});
 		});
 
 		it("should create a table with all field options", async () => {
-			vi.mocked(createTableDao.createTable).mockResolvedValue(undefined);
+			mockDao.createTable.mockResolvedValue(undefined);
 
 			const body = {
 				tableName: "complex_table",
@@ -333,7 +280,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should create a table with foreign keys", async () => {
-			vi.mocked(createTableDao.createTable).mockResolvedValue(undefined);
+			mockDao.createTable.mockResolvedValue(undefined);
 
 			const body = {
 				tableName: "orders",
@@ -368,7 +315,7 @@ describe("Tables Routes", () => {
 			});
 
 			expect(res.status).toBe(200);
-			expect(createTableDao.createTable).toHaveBeenCalledWith({
+			expect(mockDao.createTable).toHaveBeenCalledWith({
 				tableData: expect.objectContaining({
 					foreignKeys: expect.arrayContaining([
 						expect.objectContaining({
@@ -382,7 +329,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should create a table with multiple foreign keys", async () => {
-			vi.mocked(createTableDao.createTable).mockResolvedValue(undefined);
+			mockDao.createTable.mockResolvedValue(undefined);
 
 			const body = {
 				tableName: "order_items",
@@ -534,7 +481,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 500 when DAO throws database error", async () => {
-			vi.mocked(createTableDao.createTable).mockRejectedValue(
+			mockDao.createTable.mockRejectedValue(
 				new Error("relation already exists")
 			);
 
@@ -553,7 +500,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(createTableDao.createTable).mockRejectedValue(
+			mockDao.createTable.mockRejectedValue(
 				new Error("connect ECONNREFUSED")
 			);
 
@@ -577,7 +524,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("DELETE /pg/tables/:tableName/columns/:columnName", () => {
 		it("should delete a column and return 200", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
+			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
 				method: "DELETE",
@@ -588,7 +535,7 @@ describe("Tables Routes", () => {
 			expect(json.data).toBe(
 				'Column "email" deleted successfully from table "users" with 0 rows deleted'
 			);
-			expect(deleteColumnDao.deleteColumn).toHaveBeenCalledWith({
+			expect(mockDao.deleteColumn).toHaveBeenCalledWith({
 				tableName: "users",
 				columnName: "email",
 				cascade: false,
@@ -597,7 +544,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should delete a column with cascade option", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
+			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
 				"/pg/tables/orders/columns/user_id?db=testdb&cascade=true",
@@ -605,7 +552,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(deleteColumnDao.deleteColumn).toHaveBeenCalledWith({
+			expect(mockDao.deleteColumn).toHaveBeenCalledWith({
 				tableName: "orders",
 				columnName: "user_id",
 				cascade: true,
@@ -614,7 +561,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle cascade=false explicitly", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
+			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
 				"/pg/tables/products/columns/name?db=testdb&cascade=false",
@@ -622,7 +569,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(deleteColumnDao.deleteColumn).toHaveBeenCalledWith({
+			expect(mockDao.deleteColumn).toHaveBeenCalledWith({
 				tableName: "products",
 				columnName: "name",
 				cascade: false,
@@ -631,7 +578,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle column names with underscores", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockResolvedValue({ deletedCount: 0 });
+			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
 				"/pg/tables/users/columns/created_at?db=testdb",
@@ -654,7 +601,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 when table does not exist", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockRejectedValue(
+			mockDao.deleteColumn.mockRejectedValue(
 				new HTTPException(404, { message: 'Table "nonexistent" does not exist' })
 			);
 
@@ -667,7 +614,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 when column does not exist", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockRejectedValue(
+			mockDao.deleteColumn.mockRejectedValue(
 				new HTTPException(404, {
 					message: 'Column "nonexistent" does not exist in table "users"',
 				})
@@ -682,7 +629,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 500 when column has dependencies and cascade is false", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockRejectedValue(
+			mockDao.deleteColumn.mockRejectedValue(
 				new Error("cannot drop column because other objects depend on it")
 			);
 
@@ -695,7 +642,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(deleteColumnDao.deleteColumn).mockRejectedValue(
+			mockDao.deleteColumn.mockRejectedValue(
 				new Error("connect ECONNREFUSED")
 			);
 
@@ -724,7 +671,7 @@ describe("Tables Routes", () => {
 		};
 
 		it("should add a column and return 200", async () => {
-			vi.mocked(addColumnDao.addColumn).mockResolvedValue();
+			mockDao.addColumn.mockResolvedValue();
 
 			const res = await app.request("/pg/tables/users/columns?db=testdb", {
 				method: "POST",
@@ -735,7 +682,7 @@ describe("Tables Routes", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toBe('Column "email" added successfully to table "users"');
-			expect(addColumnDao.addColumn).toHaveBeenCalledWith({
+			expect(mockDao.addColumn).toHaveBeenCalledWith({
 				tableName: "users",
 				db: "testdb",
 				...body,
@@ -765,7 +712,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 when table does not exist", async () => {
-			vi.mocked(addColumnDao.addColumn).mockRejectedValue(
+			mockDao.addColumn.mockRejectedValue(
 				new HTTPException(404, { message: 'Table "users" does not exist' }),
 			);
 
@@ -779,7 +726,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 409 when column already exists", async () => {
-			vi.mocked(addColumnDao.addColumn).mockRejectedValue(
+			mockDao.addColumn.mockRejectedValue(
 				new HTTPException(409, {
 					message: 'Column "email" already exists in table "users"',
 				}),
@@ -795,7 +742,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(addColumnDao.addColumn).mockRejectedValue(new Error("connect ECONNREFUSED"));
+			mockDao.addColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
 			const res = await app.request("/pg/tables/users/columns?db=testdb", {
 				method: "POST",
@@ -812,7 +759,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("PATCH /pg/tables/:tableName/columns/:columnName/rename", () => {
 		it("should rename a column and return 200", async () => {
-			vi.mocked(renameColumnDao.renameColumn).mockResolvedValue();
+			mockDao.renameColumn.mockResolvedValue();
 
 			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
@@ -825,7 +772,7 @@ describe("Tables Routes", () => {
 			expect(json.data).toBe(
 				'Column "email" renamed to "email_address" in table "users"',
 			);
-			expect(renameColumnDao.renameColumn).toHaveBeenCalledWith({
+			expect(mockDao.renameColumn).toHaveBeenCalledWith({
 				tableName: "users",
 				columnName: "email",
 				db: "testdb",
@@ -854,7 +801,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 when column does not exist", async () => {
-			vi.mocked(renameColumnDao.renameColumn).mockRejectedValue(
+			mockDao.renameColumn.mockRejectedValue(
 				new HTTPException(404, {
 					message: 'Column "email" does not exist in table "users"',
 				}),
@@ -870,7 +817,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 409 when the new column name already exists", async () => {
-			vi.mocked(renameColumnDao.renameColumn).mockRejectedValue(
+			mockDao.renameColumn.mockRejectedValue(
 				new HTTPException(409, {
 					message: 'Column "email_address" already exists in table "users"',
 				}),
@@ -886,7 +833,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(renameColumnDao.renameColumn).mockRejectedValue(
+			mockDao.renameColumn.mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -911,7 +858,7 @@ describe("Tables Routes", () => {
 		};
 
 		it("should alter a column and return 200", async () => {
-			vi.mocked(alterColumnDao.alterColumn).mockResolvedValue();
+			mockDao.alterColumn.mockResolvedValue();
 
 			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
@@ -922,7 +869,7 @@ describe("Tables Routes", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toBe('Column "email" updated successfully in table "users"');
-			expect(alterColumnDao.alterColumn).toHaveBeenCalledWith({
+			expect(mockDao.alterColumn).toHaveBeenCalledWith({
 				tableName: "users",
 				columnName: "email",
 				db: "testdb",
@@ -951,7 +898,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 when column does not exist", async () => {
-			vi.mocked(alterColumnDao.alterColumn).mockRejectedValue(
+			mockDao.alterColumn.mockRejectedValue(
 				new HTTPException(404, {
 					message: 'Column "email" does not exist in table "users"',
 				}),
@@ -967,7 +914,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(alterColumnDao.alterColumn).mockRejectedValue(
+			mockDao.alterColumn.mockRejectedValue(
 				new Error("connect ECONNREFUSED"),
 			);
 
@@ -1013,14 +960,14 @@ describe("Tables Routes", () => {
 				},
 			];
 
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
+			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
 			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockColumns);
-			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
+			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "users",
 				db: "testdb",
 			});
@@ -1054,7 +1001,7 @@ describe("Tables Routes", () => {
 				},
 			];
 
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
+			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
 			const res = await app.request("/pg/tables/orders/columns?db=testdb");
 
@@ -1080,7 +1027,7 @@ describe("Tables Routes", () => {
 				},
 			];
 
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
+			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
 			const res = await app.request("/pg/tables/tasks/columns?db=testdb");
 
@@ -1122,7 +1069,7 @@ describe("Tables Routes", () => {
 				},
 			];
 
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
+			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
 			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
@@ -1142,7 +1089,7 @@ describe("Tables Routes", () => {
 				{ columnName: "is_verified", dataType: "boolean", dataTypeLabel: "boolean", isNullable: false, columnDefault: "false", isPrimaryKey: false, isForeignKey: false, referencedTable: null, referencedColumn: null, enumValues: null },
 			];
 
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue(mockColumns);
+			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
 			const res = await app.request("/pg/tables/users/columns?db=testdb");
 
@@ -1158,7 +1105,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 when table does not exist", async () => {
-			vi.mocked(tableColumnsDao.getTableColumns).mockRejectedValue(
+			mockDao.getTableColumns.mockRejectedValue(
 				new HTTPException(404, { message: 'Table "nonexistent" does not exist' })
 			);
 
@@ -1170,7 +1117,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(tableColumnsDao.getTableColumns).mockRejectedValue(
+			mockDao.getTableColumns.mockRejectedValue(
 				new Error("connect ECONNREFUSED")
 			);
 
@@ -1200,14 +1147,14 @@ describe("Tables Routes", () => {
 		};
 
 		it("should return table data with default pagination", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request("/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockDataResponse);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith({
+			expect(mockDao.getTableData).toHaveBeenCalledWith({
 				tableName: "users",
 				cursor: undefined,
 				limit: 50,
@@ -1220,7 +1167,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle custom limit parameter", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				...mockDataResponse,
 				meta: { ...mockDataResponse.meta, limit: 25 },
 			});
@@ -1230,14 +1177,14 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({ limit: 25 })
 			);
 		});
 
 		it("should handle cursor-based pagination forward", async () => {
 			const cursor = "eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0";
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				...mockDataResponse,
 				meta: {
 					...mockDataResponse.meta,
@@ -1251,7 +1198,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					cursor,
 					direction: "asc",
@@ -1261,7 +1208,7 @@ describe("Tables Routes", () => {
 
 		it("should handle cursor-based pagination backward", async () => {
 			const cursor = "eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0";
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				...mockDataResponse,
 				meta: {
 					...mockDataResponse.meta,
@@ -1275,7 +1222,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					cursor,
 					direction: "desc",
@@ -1284,14 +1231,14 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle single column sort", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
 				"/pg/tables/users/data?db=testdb&sort=name&order=asc"
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					sort: "name",
 					order: "asc",
@@ -1300,7 +1247,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle multi-column sort as JSON array", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const sortArray = JSON.stringify([
 				{ columnName: "name", direction: "asc" },
@@ -1312,7 +1259,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					sort: [
 						{ columnName: "name", direction: "asc" },
@@ -1323,14 +1270,14 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle order=desc", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
 				"/pg/tables/users/data?db=testdb&sort=id&order=desc"
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					sort: "id",
 					order: "desc",
@@ -1339,7 +1286,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle single filter", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				...mockDataResponse,
 				data: [{ id: 1, name: "John", email: "john@example.com" }],
 				meta: { ...mockDataResponse.meta, total: 1 },
@@ -1354,7 +1301,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					filters: [{ columnName: "name", operator: "=", value: "John" }],
 				})
@@ -1362,7 +1309,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle multiple filters", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const filters = JSON.stringify([
 				{ columnName: "status", operator: "=", value: "active" },
@@ -1375,7 +1322,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					filters: [
 						{ columnName: "status", operator: "=", value: "active" },
@@ -1387,7 +1334,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle combined sort and filters", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const filters = JSON.stringify([
 				{ columnName: "status", operator: "=", value: "active" },
@@ -1398,7 +1345,7 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({
 					sort: "name",
 					order: "asc",
@@ -1408,7 +1355,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return empty data array when table is empty", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				data: [],
 				meta: {
 					limit: 50,
@@ -1429,7 +1376,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle large datasets with proper pagination meta", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				data: Array.from({ length: 50 }, (_, i) => ({
 					id: i + 1,
 					name: `User ${i + 1}`,
@@ -1476,7 +1423,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle invalid JSON in filters gracefully", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
 				"/pg/tables/users/data?db=testdb&filters=invalid-json"
@@ -1484,13 +1431,13 @@ describe("Tables Routes", () => {
 
 			expect(res.status).toBe(200);
 			// Invalid JSON should be parsed as empty array
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({ filters: [] })
 			);
 		});
 
 		it("should handle invalid JSON in sort gracefully", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue(mockDataResponse);
+			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
 				"/pg/tables/users/data?db=testdb&sort=invalid-json"
@@ -1498,13 +1445,13 @@ describe("Tables Routes", () => {
 
 			expect(res.status).toBe(200);
 			// Invalid JSON should be kept as string
-			expect(tablesDataDao.getTableData).toHaveBeenCalledWith(
+			expect(mockDao.getTableData).toHaveBeenCalledWith(
 				expect.objectContaining({ sort: "invalid-json" })
 			);
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockRejectedValue(
+			mockDao.getTableData.mockRejectedValue(
 				new Error("connect ECONNREFUSED")
 			);
 
@@ -1514,7 +1461,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 500 when DAO throws generic error", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockRejectedValue(
+			mockDao.getTableData.mockRejectedValue(
 				new Error("Unexpected error")
 			);
 
@@ -1535,10 +1482,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should accept mysql database type as valid", async () => {
-			const { getTablesList: mysqlGetTablesList } = await import(
-				"@/dao/mysql/table-list.mysql.dao.js"
-			);
-			vi.mocked(mysqlGetTablesList).mockResolvedValue([]);
+			mockDao.getTablesList.mockResolvedValue([]);
 
 			const res = await app.request("/mysql/tables?db=testdb");
 
@@ -1559,7 +1503,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should accept valid pg database type", async () => {
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue([]);
+			mockDao.getTablesList.mockResolvedValue([]);
 
 			const res = await app.request("/pg/tables?db=testdb");
 
@@ -1619,7 +1563,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("Response headers", () => {
 		it("should include CORS headers", async () => {
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue([
+			mockDao.getTablesList.mockResolvedValue([
 				{ tableName: "test", rowCount: 0 },
 			]);
 
@@ -1629,7 +1573,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return JSON content type", async () => {
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue([
+			mockDao.getTablesList.mockResolvedValue([
 				{ tableName: "test", rowCount: 0 },
 			]);
 
@@ -1644,7 +1588,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("Concurrent requests handling", () => {
 		it("should handle multiple concurrent requests to /tables", async () => {
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue([
+			mockDao.getTablesList.mockResolvedValue([
 				{ tableName: "testdb", rowCount: 100 },
 			]);
 
@@ -1658,15 +1602,15 @@ describe("Tables Routes", () => {
 				expect(res.status).toBe(200);
 			}
 
-			expect(tableListDao.getTablesList).toHaveBeenCalledTimes(10);
+			expect(mockDao.getTablesList).toHaveBeenCalledTimes(10);
 		});
 
 		it("should handle concurrent requests to different table endpoints", async () => {
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue([
+			mockDao.getTablesList.mockResolvedValue([
 				{ tableName: "test", rowCount: 0 },
 			]);
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableColumns.mockResolvedValue([]);
+			mockDao.getTableData.mockResolvedValue({
 				data: [],
 				meta: {
 					limit: 50,
@@ -1695,20 +1639,20 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("Edge cases", () => {
 		it("should handle table names with special characters", async () => {
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
+			mockDao.getTableColumns.mockResolvedValue([]);
 
 			const res = await app.request(
 				"/pg/tables/user_profiles/columns?db=testdb"
 			);
 
-			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
+			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "user_profiles",
 				db: "testdb",
 			});
 		});
 
 		it("should handle query parameters gracefully", async () => {
-			vi.mocked(tableListDao.getTablesList).mockResolvedValue([
+			mockDao.getTablesList.mockResolvedValue([
 				{ tableName: "test", rowCount: 0 },
 			]);
 
@@ -1735,26 +1679,26 @@ describe("Tables Routes", () => {
 
 		it("should handle very long table names", async () => {
 			const longTableName = "a".repeat(63); // PostgreSQL max identifier length
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
+			mockDao.getTableColumns.mockResolvedValue([]);
 
 			const res = await app.request(
 				`/pg/tables/${longTableName}/columns?db=testdb`
 			);
 
-			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
+			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: longTableName,
 				db: "testdb",
 			});
 		});
 
 		it("should handle URL encoded table names", async () => {
-			vi.mocked(tableColumnsDao.getTableColumns).mockResolvedValue([]);
+			mockDao.getTableColumns.mockResolvedValue([]);
 
 			const res = await app.request(
 				"/pg/tables/user%5Fprofiles/columns?db=testdb"
 			);
 
-			expect(tableColumnsDao.getTableColumns).toHaveBeenCalledWith({
+			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
 				tableName: "user_profiles",
 				db: "testdb",
 			});
@@ -1766,7 +1710,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("Data integrity tests", () => {
 		it("should preserve data types in response", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				data: [
 					{
 						id: 1,
@@ -1803,7 +1747,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should handle null values in data", async () => {
-			vi.mocked(tablesDataDao.getTableData).mockResolvedValue({
+			mockDao.getTableData.mockResolvedValue({
 				data: [
 					{
 						id: 1,

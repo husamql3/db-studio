@@ -333,4 +333,4 @@ const addColumn = async (
 - **Line width**: 95 characters
 - **Imports**: `import type` for type-only imports
 - **ESM**: `.js` extensions required in server imports
-- Run `bun run check` to auto-fix formatting and lint issues
+- Run `bun run format` to auto-fix formatting and lint issues

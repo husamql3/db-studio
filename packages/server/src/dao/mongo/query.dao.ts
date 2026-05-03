@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { DatabaseSchemaType, ExecuteQueryParams, ExecuteQueryResult } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 import { buildMongoSort, normalizeMongoDocument, toMongoId } from "./mongo.utils.js";
 
 type MongoQueryPayload = {

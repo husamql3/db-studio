@@ -4,7 +4,7 @@ import type {
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 } from "shared/types";
-import { getMongoClient, getMongoDbName } from "@/db-manager.js";
+import { getMongoClient, getMongoDbName } from "@/adapters/connections.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
 const formatBytes = (bytes: number): string => {

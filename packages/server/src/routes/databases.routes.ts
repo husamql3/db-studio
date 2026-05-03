@@ -4,8 +4,8 @@ import type {
 	CurrentDatabaseSchemaType,
 	DatabaseListSchemaType,
 } from "shared/types";
+import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler } from "@/app.types.js";
-import { getDaoFactory } from "@/dao/dao-factory.js";
 import { getDbType } from "@/db-manager.js";
 
 /**
@@ -26,7 +26,7 @@ export const databasesRoutes = new Hono()
 	 */
 	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
 		const dbType = getDbType();
-		const dao = getDaoFactory(dbType);
+		const dao = getAdapter(dbType);
 		const databases = await dao.getDatabasesList();
 		return c.json({ data: { databases, dbType } }, 200);
 	})
@@ -37,7 +37,7 @@ export const databasesRoutes = new Hono()
 	 */
 	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
 		const dbType = getDbType();
-		const dao = getDaoFactory(dbType);
+		const dao = getAdapter(dbType);
 		const current = await dao.getCurrentDatabase();
 		return c.json({ data: { db: current.db, dbType } }, 200);
 	})
@@ -48,7 +48,7 @@ export const databasesRoutes = new Hono()
 	 */
 	.get("/connection", async (c): ApiHandler<ConnectionInfoSchemaType> => {
 		const dbType = getDbType();
-		const dao = getDaoFactory(dbType);
+		const dao = getAdapter(dbType);
 		const info = await dao.getDatabaseConnectionInfo();
 		return c.json({ data: info }, 200);
 	});

@@ -2,16 +2,38 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as queryDao from "@/dao/query.dao.js";
 
-// Mock the DAO module
-vi.mock("@/dao/query.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
+	getDatabasesList: vi.fn(),
+	getCurrentDatabase: vi.fn(),
+	getDatabaseConnectionInfo: vi.fn(),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
+	addRecord: vi.fn(),
+	updateRecords: vi.fn(),
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
 	executeQuery: vi.fn(),
 }));
 
-// Mock MySQL query DAO (imported by query route for mysql dispatch)
-vi.mock("@/dao/mysql/query.mysql.dao.js", () => ({
-	executeQuery: vi.fn(),
+vi.mock("@/adapters/adapter.registry.js", () => ({
+	getAdapter: vi.fn(() => mockDao),
+	adapterRegistry: {
+		register: vi.fn(),
+		get: vi.fn(() => mockDao),
+		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
+		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
+	},
 }));
 
 // Mock db-manager
@@ -55,7 +77,7 @@ describe("Query Routes", () => {
 				duration: 15.5,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -66,7 +88,7 @@ describe("Query Routes", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockResult);
-			expect(queryDao.executeQuery).toHaveBeenCalledWith({
+			expect(mockDao.executeQuery).toHaveBeenCalledWith({
 				query: "SELECT * FROM users",
 				db: "testdb",
 			});
@@ -80,7 +102,7 @@ describe("Query Routes", () => {
 				duration: 8.2,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -104,7 +126,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -128,7 +150,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -152,7 +174,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -180,7 +202,7 @@ describe("Query Routes", () => {
 				duration: 150.7,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -220,7 +242,7 @@ describe("Query Routes", () => {
 				duration: 5.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -246,7 +268,7 @@ describe("Query Routes", () => {
 				duration: 3.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -271,7 +293,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -296,7 +318,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -318,7 +340,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -344,7 +366,7 @@ describe("Query Routes", () => {
 				duration: 20.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -369,7 +391,7 @@ describe("Query Routes", () => {
 				duration: 30.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -393,7 +415,7 @@ describe("Query Routes", () => {
 				duration: 42.5,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -460,7 +482,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 when query is empty string", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(400, { message: "Query is required" })
 			);
 
@@ -474,7 +496,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 when query is only whitespace", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(400, { message: "Query is required" })
 			);
 
@@ -491,7 +513,7 @@ describe("Query Routes", () => {
 		// Database errors
 		// ============================================
 		it("should return 500 when SQL syntax error occurs", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error('syntax error at or near "SELEC"')
 			);
 
@@ -505,7 +527,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 500 when table does not exist", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error('relation "nonexistent_table" does not exist')
 			);
 
@@ -519,7 +541,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 500 when column does not exist", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error('column "nonexistent_column" does not exist')
 			);
 
@@ -535,7 +557,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 500 when constraint violation occurs", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error("duplicate key value violates unique constraint")
 			);
 
@@ -552,7 +574,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 500 when foreign key violation occurs", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error("violates foreign key constraint")
 			);
 
@@ -568,7 +590,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 503 when database connection fails", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:5432")
 			);
 
@@ -584,7 +606,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 503 on connection timeout", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error("timeout expired")
 			);
 
@@ -598,7 +620,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 500 when HTTPException is thrown", async () => {
-			vi.mocked(queryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(500, { message: "Internal server error" })
 			);
 
@@ -627,10 +649,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should accept mysql database type as valid", async () => {
-			const { executeQuery: mysqlExecuteQuery } = await import(
-				"@/dao/mysql/query.mysql.dao.js"
-			);
-			vi.mocked(mysqlExecuteQuery).mockResolvedValue({
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["1"],
 				rows: [{ "1": 1 }],
 				rowCount: 1,
@@ -702,7 +721,7 @@ describe("Query Routes", () => {
 	// ============================================
 	describe("Response headers", () => {
 		it("should include CORS headers", async () => {
-			vi.mocked(queryDao.executeQuery).mockResolvedValue({
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["id"],
 				rows: [{ id: 1 }],
 				rowCount: 1,
@@ -719,7 +738,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return JSON content type", async () => {
-			vi.mocked(queryDao.executeQuery).mockResolvedValue({
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["id"],
 				rows: [{ id: 1 }],
 				rowCount: 1,
@@ -741,7 +760,7 @@ describe("Query Routes", () => {
 	// ============================================
 	describe("Concurrent requests handling", () => {
 		it("should handle multiple concurrent query requests", async () => {
-			vi.mocked(queryDao.executeQuery).mockResolvedValue({
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["id"],
 				rows: [{ id: 1 }],
 				rowCount: 1,
@@ -762,11 +781,11 @@ describe("Query Routes", () => {
 				expect(res.status).toBe(200);
 			}
 
-			expect(queryDao.executeQuery).toHaveBeenCalledTimes(10);
+			expect(mockDao.executeQuery).toHaveBeenCalledTimes(10);
 		});
 
 		it("should handle concurrent requests with different queries", async () => {
-			vi.mocked(queryDao.executeQuery).mockImplementation(async ({ query }) => {
+			mockDao.executeQuery.mockImplementation(async ({ query }) => {
 				if (query.includes("users")) {
 					return {
 						columns: ["id", "name"],
@@ -819,7 +838,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -842,7 +861,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -872,7 +891,7 @@ describe("Query Routes", () => {
 				message: "OK",
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -891,7 +910,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -912,7 +931,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -931,7 +950,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -950,7 +969,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
@@ -971,7 +990,7 @@ describe("Query Routes", () => {
 				duration: 2.0,
 			};
 
-			vi.mocked(queryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const res = await app.request("/pg/query?db=testdb", {
 				method: "POST",
