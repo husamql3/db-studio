@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { DatabaseSchemaType, UpdateRecordsSchemaType } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 import { canCoerceObjectId, toMongoId } from "./mongo.utils.js";
 
 export async function updateRecords({

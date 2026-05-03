@@ -1,5 +1,5 @@
 import type { ColumnInfoSchemaType, DatabaseSchemaType, DataTypes } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 import { inferDataType, mapDataTypeLabel } from "./mongo.utils.js";
 
 const SAMPLE_LIMIT = 200;

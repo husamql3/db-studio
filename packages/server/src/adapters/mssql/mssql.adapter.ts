@@ -31,7 +31,7 @@ import type {
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getMssqlPool } from "@/db-manager.js";
+import { getMssqlPool } from "@/adapters/connections.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMssqlColumnDefinition,

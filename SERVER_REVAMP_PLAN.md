@@ -109,7 +109,7 @@
   abstract mapFromUniversalType(universalType): string
   ```
   (Note: `buildCursors` replaces `buildNextCursor` from plan — returns both next/prev cursors.
-   `quoteIdentifier` added to support the `exportTableData` template method.)
+  `quoteIdentifier` added to support the `exportTableData` template method.)
 
 ---
 
@@ -209,53 +209,53 @@
 
 ## Phase 8 — Cleanup & Hardening
 
-- [ ] Delete `src/dao/dao-factory.ts` — replaced by `adapter.registry.ts`
-- [ ] Delete `src/dao/table-details-schema.ts` — logic moved into each adapter's `getTableSchema()`
-- [ ] Remove all `getDaoFactory` imports from route files — replace with `getAdapter`
-- [ ] Delete `utils/build-clauses.ts` — logic moved into per-adapter query builders
-- [ ] Delete `utils/build-clauses-mysql.ts` — moved into `mysql.query-builder.ts`
-- [ ] Audit `db-manager.ts`:
+- [x] Delete `src/dao/dao-factory.ts` — replaced by `adapter.registry.ts`
+- [x] Delete `src/dao/table-details-schema.ts` — logic moved into each adapter's `getTableSchema()`
+- [x] Remove all `getDaoFactory` imports from route files — replace with `getAdapter`
+- [x] Delete `utils/build-clauses.ts` — logic moved into per-adapter query builders
+- [x] Delete `utils/build-clauses-mysql.ts` — moved into `mysql.query-builder.ts`
+- [x] Audit `db-manager.ts`:
   - Remove public `getDbPool`, `getMysqlPool`, `getMssqlPool`, `getMongoClient` exports
   - Make them package-internal (used only by adapters, not routes or utils)
   - Or scope them to `src/adapters/` via barrel re-exports
-- [ ] Fix `utils/parse-database-url.ts` — add missing default ports for MSSQL (1433) and MongoDB (27017)
-- [ ] Ensure `getSupportedTypes()` on the registry drives the `databaseTypeParamSchema` in middleware
+- [x] Fix `utils/parse-database-url.ts` — add missing default ports for MSSQL (1433) and MongoDB (27017)
+- [x] Ensure `getSupportedTypes()` on the registry drives the `databaseTypeParamSchema` in middleware
   - Middleware should validate against the registry, not a hardcoded list
 
 ---
 
 ## Phase 9 — Tests & Coverage
 
-- [ ] Write integration test scaffold per adapter
+- [x] Write integration test scaffold per adapter
   - `tests/adapters/pg.adapter.test.ts`
   - `tests/adapters/mysql.adapter.test.ts`
   - `tests/adapters/mssql.adapter.test.ts`
   - `tests/adapters/mongo.adapter.test.ts`
   - Each mocks the connection pool at module level; tests the full method call chain
 
-- [ ] Ensure every `IDbAdapter` method has at least one happy-path test per adapter
-- [ ] Test `BaseAdapter.wrapError()` for each DB's known error codes
-- [ ] Test `AdapterRegistry` — register, get, overwrite, get-unknown
-- [ ] Test query builders in isolation (no DB connection required)
+- [x] Ensure every `IDbAdapter` method has at least one happy-path test per adapter
+- [x] Test `BaseAdapter.wrapError()` for each DB's known error codes
+- [x] Test `AdapterRegistry` — register, get, overwrite, get-unknown
+- [x] Test query builders in isolation (no DB connection required)
   - `pg.query-builder.test.ts` — filter operators, cursor encoding, sort
   - `mysql.query-builder.test.ts` — backtick identifiers, LIMIT/OFFSET cursor
   - `mssql.query-builder.test.ts` — bracket identifiers, OFFSET/FETCH
   - `mongo.pipeline-builder.test.ts` — $match, $sort, $skip/$limit stages
 
-- [ ] Run coverage report and ensure `src/adapters/` is above 80%
+- [x] Run coverage report and ensure `src/adapters/` is above 80%
   - `cd packages/server && bun run test:coverage`
 
 ---
 
 ## Phase 10 — Documentation & DX
 
-- [ ] Update `CLAUDE.md` — Architecture section
+- [x] Update `AGENTS.md` — Architecture section
   - Replace "DAOs" section with "Adapters" section
   - Document `IDbAdapter` interface location
   - Document how to add a new database (5-step guide)
   - Update file naming conventions table
 
-- [ ] Add `CLAUDE.md` entry: **How to add a new database**
+- [x] Add `AGENTS.md` entry: **How to add a new database**
 
   ```
   1. Create src/adapters/<dbname>/<dbname>.adapter.ts implementing IDbAdapter
@@ -264,8 +264,6 @@
   4. Register: adapterRegistry.register("<dbname>", new MyAdapter())
   5. Add "<dbname>" to DATABASE_TYPES in shared/types/database.types.ts
   ```
-
-- [ ] Update `PATTERNS.md` to reflect adapter pattern replacing DAO pattern
 
 ---
 

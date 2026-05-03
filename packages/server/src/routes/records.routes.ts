@@ -8,8 +8,8 @@ import {
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "shared/types";
+import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { getDaoFactory } from "@/dao/dao-factory.js";
 
 export const recordsRoutes = new Hono<RouteEnv>()
 	/**
@@ -29,7 +29,7 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, data } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const { insertedCount } = await dao.addRecord({ db, params: { tableName, data } });
 			return c.json(
 				{
@@ -52,7 +52,7 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKey, updates } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const { updatedCount } = await dao.updateRecords({
 				params: { tableName, primaryKey, updates },
 				db,
@@ -78,7 +78,7 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const { deletedCount, fkViolation, relatedRecords } = await dao.deleteRecords({
 				tableName,
 				primaryKeys,
@@ -121,7 +121,7 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, primaryKeys } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const deletedCount = await dao.forceDeleteRecords({ tableName, primaryKeys, db });
 			return c.json({ data: deletedCount }, 200);
 		},
@@ -139,7 +139,7 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName, records } = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const result = await dao.bulkInsertRecords({ tableName, records, db });
 			console.log("result", result);
 			return c.json({ data: result }, 200);

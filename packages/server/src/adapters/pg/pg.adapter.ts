@@ -32,7 +32,7 @@ import type {
 import { mapPostgresToDataType, standardizeDataTypeLabel } from "shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getDbPool } from "@/db-manager.js";
+import { getDbPool } from "@/adapters/connections.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildCursorWhereClause,

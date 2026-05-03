@@ -24,13 +24,8 @@ import type {
 } from "shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import {
-	coerceObjectId,
-	getMongoClient,
-	getMongoDb,
-	getMongoDbName,
-	isValidObjectId,
-} from "@/db-manager.js";
+import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
+import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMatchStage,

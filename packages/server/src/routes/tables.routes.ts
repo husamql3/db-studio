@@ -18,8 +18,8 @@ import {
 	tableDataQuerySchema,
 	tableNameSchema,
 } from "shared/types";
+import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
-import { getDaoFactory } from "@/dao/dao-factory.js";
 import { getExportFile } from "@/utils/get-export-file.js";
 
 export const tablesRoutes = new Hono<RouteEnv>()
@@ -38,7 +38,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 		async (c): ApiHandler<TableInfoSchemaType[]> => {
 			const { db } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const tablesList = await dao.getTablesList(db);
 			return c.json({ data: tablesList }, 200);
 		},
@@ -56,7 +56,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			await dao.createTable({ tableData: body, db });
 			return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
 		},
@@ -74,7 +74,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { db, cascade } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const result = await dao.deleteTable({ tableName, db, cascade });
 			return c.json({ data: result }, 200);
 		},
@@ -92,7 +92,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { db, cascade } = c.req.valid("query");
 			const { tableName, columnName } = c.req.valid("param");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const { deletedCount } = await dao.deleteColumn({ tableName, columnName, cascade, db });
 			return c.json(
 				{
@@ -118,7 +118,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			await dao.addColumn({ tableName, db, ...body });
 
 			return c.json(
@@ -145,7 +145,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			await dao.renameColumn({ tableName, columnName, db, ...body });
 
 			return c.json(
@@ -172,7 +172,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const body = c.req.valid("json");
 			const dbType = c.get("dbType");
 
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			await dao.alterColumn({ tableName, columnName, db, ...body });
 
 			return c.json(
@@ -196,7 +196,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const columns = await dao.getTableColumns({ tableName, db });
 			return c.json({ data: columns }, 200);
 		},
@@ -214,7 +214,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { db } = c.req.valid("query");
 			const { tableName } = c.req.valid("param");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const schema = await dao.getTableSchema({ tableName, db });
 			return c.json({ data: { schema } }, 200);
 		},
@@ -232,7 +232,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { tableName } = c.req.valid("param");
 			const { cursor, limit, direction, sort, order, filters, db } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 			const tableData = await dao.getTableData({
 				tableName,
 				cursor,
@@ -259,7 +259,7 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const { tableName } = c.req.valid("param");
 			const { db, format } = c.req.valid("query");
 			const dbType = c.get("dbType");
-			const dao = getDaoFactory(dbType);
+			const dao = getAdapter(dbType);
 
 			const { cols, rows } = await dao.exportTableData({ tableName, db });
 			const fileContent = getExportFile({ cols, rows, format, tableName });

@@ -4,12 +4,15 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-import { type DatabaseTypeSchema, databaseTypeParamSchema } from "shared/types";
+import type { DatabaseTypeSchema } from "shared/types";
+import { z } from "zod";
+import { adapterRegistry } from "@/adapters/adapter.registry.js";
 import { registerAdapters } from "@/adapters/register.js";
 import type { AppType } from "@/app.types.js";
-import { handleError, validationHook } from "@/middlewares/error-handler.js";
+import { handleError } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
@@ -27,6 +30,18 @@ const getCoreDistPath = () => {
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
 	return path.resolve(__dirname, "./core-dist");
 };
+
+const databaseTypeParamSchema = z.object({
+	dbType: z.string().refine(
+		(type): type is DatabaseTypeSchema =>
+			adapterRegistry.getSupportedTypes().includes(type as DatabaseTypeSchema),
+		() => ({
+			message: `Invalid database type. Supported types: ${adapterRegistry
+				.getSupportedTypes()
+				.join(", ")}`,
+		}),
+	),
+});
 
 export const createServer = () => {
 	registerAdapters();
@@ -87,12 +102,22 @@ export const createServer = () => {
 		/**
 		 * Routes that require dbType validation - under /:dbType/...
 		 */
-		.use("/:dbType/*", zValidator("param", databaseTypeParamSchema, validationHook))
-		.use("/:dbType/*", async (c, next) => {
-			const dbType = c.req.param("dbType") as DatabaseTypeSchema;
-			c.set("dbType", dbType);
-			await next();
-		})
+		.use(
+			"/:dbType/*",
+			zValidator("param", databaseTypeParamSchema, (result, c) => {
+				if (!result.success) {
+					const rawType = c.req.param("dbType");
+					throw new HTTPException(400, {
+						message: `Invalid database type: "${rawType}". Supported types: ${adapterRegistry.getSupportedTypes().join(", ")}`,
+					});
+				}
+			}),
+			async (c, next) => {
+				const { dbType } = c.req.valid("param");
+				c.set("dbType", dbType);
+				await next();
+			},
+		)
 		.route("/:dbType", tablesRoutes)
 		.route("/:dbType", recordsRoutes)
 		.route("/:dbType", queryRoutes)

@@ -3,7 +3,7 @@ import type {
 	TableDataQuerySchemaType,
 	TableDataResultSchemaType,
 } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 import { buildMongoFilters, buildMongoSort, normalizeMongoDocument } from "./mongo.utils.js";
 
 const encodeCursor = (offset: number): string =>

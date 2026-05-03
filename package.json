@@ -23,7 +23,7 @@
     "deploy:www": "turbo run deploy --filter=www",
     "deploy:www:preview": "turbo run deploy:preview --filter=www",
     "deploy:proxy": "turbo run deploy --filter=proxy",
-    "check": "turbo run check",
+    "format": "turbo run format",
     "check:meta": "bun run --cwd www check-meta",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

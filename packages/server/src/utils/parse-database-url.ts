@@ -11,7 +11,14 @@ export function parseDatabaseUrl(): { host: string; port: number } {
 	try {
 		const url = new URL(databaseUrl);
 		const protocol = url.protocol.replace(":", "");
-		const defaultPort = protocol === "mongodb" || protocol === "mongodb+srv" ? 27017 : 5432;
+		const defaultPort =
+			protocol === "mongodb" || protocol === "mongodb+srv"
+				? 27017
+				: protocol === "mssql" || protocol === "sqlserver"
+					? 1433
+					: protocol === "mysql" || protocol === "mysql2"
+						? 3306
+						: 5432;
 		return {
 			host: url.hostname || "localhost",
 			port: Number.parseInt(url.port, 10) || defaultPort,

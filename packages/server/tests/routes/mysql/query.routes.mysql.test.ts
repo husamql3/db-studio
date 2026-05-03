@@ -26,9 +26,14 @@ const mockDao = vi.hoisted(() => ({
 	executeQuery: vi.fn(),
 }));
 
-vi.mock("@/dao/dao-factory.js", () => ({
-	getDaoFactory: vi.fn(() => mockDao),
-	executeDaoMethod: vi.fn(),
+vi.mock("@/adapters/adapter.registry.js", () => ({
+	getAdapter: vi.fn(() => mockDao),
+	adapterRegistry: {
+		register: vi.fn(),
+		get: vi.fn(() => mockDao),
+		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
+		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
+	},
 }));
 
 vi.mock("@/db-manager.js", () => ({

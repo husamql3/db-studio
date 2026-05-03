@@ -2,8 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { DEFAULTS } from "shared/constants";
 import { chatSchema } from "shared/types";
-import { getDetailedSchema } from "@/dao/table-details-schema.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
+import { getDetailedSchema } from "@/utils/table-details-schema.js";
 
 export const chatRoutes = new Hono()
 	/**

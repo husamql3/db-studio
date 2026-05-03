@@ -19,8 +19,8 @@ export class AdapterRegistry {
 		return adapter;
 	}
 
-	has(type: DatabaseTypeSchema): boolean {
-		return this.adapters.has(type);
+	has(type: string): type is DatabaseTypeSchema {
+		return this.adapters.has(type as DatabaseTypeSchema);
 	}
 
 	getSupportedTypes(): DatabaseTypeSchema[] {
