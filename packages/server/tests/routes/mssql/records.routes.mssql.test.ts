@@ -2,43 +2,38 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mssqlAddRecordDao from "@/dao/mssql/add-record.mssql.dao.js";
-import * as mssqlUpdateRecordsDao from "@/dao/mssql/update-records.mssql.dao.js";
-import * as mssqlDeleteRecordsDao from "@/dao/mssql/delete-records.mssql.dao.js";
-import * as mssqlBulkInsertDao from "@/dao/mssql/bulk-insert-records.mssql.dao.js";
 
-vi.mock("@/dao/mssql/add-record.mssql.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
+	getDatabasesList: vi.fn(),
+	getCurrentDatabase: vi.fn(),
+	getDatabaseConnectionInfo: vi.fn(),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
 	addRecord: vi.fn(),
-}));
-
-vi.mock("@/dao/mssql/update-records.mssql.dao.js", () => ({
 	updateRecords: vi.fn(),
-}));
-
-vi.mock("@/dao/mssql/delete-records.mssql.dao.js", () => ({
 	deleteRecords: vi.fn(),
 	forceDeleteRecords: vi.fn(),
-}));
-
-vi.mock("@/dao/mssql/bulk-insert-records.mssql.dao.js", () => ({
 	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
+	executeQuery: vi.fn(),
 }));
 
-vi.mock("@/dao/add-record.dao.js", () => ({ addRecord: vi.fn() }));
-vi.mock("@/dao/update-records.dao.js", () => ({ updateRecords: vi.fn() }));
-vi.mock("@/dao/delete-records.dao.js", () => ({
-	deleteRecords: vi.fn(),
-	forceDeleteRecords: vi.fn(),
-}));
-vi.mock("@/dao/bulk-insert-records.dao.js", () => ({ bulkInsertRecords: vi.fn() }));
-vi.mock("@/dao/mysql/add-record.mysql.dao.js", () => ({ addRecord: vi.fn() }));
-vi.mock("@/dao/mysql/update-records.mysql.dao.js", () => ({ updateRecords: vi.fn() }));
-vi.mock("@/dao/mysql/delete-records.mysql.dao.js", () => ({
-	deleteRecords: vi.fn(),
-	forceDeleteRecords: vi.fn(),
-}));
-vi.mock("@/dao/mysql/bulk-insert-records.mysql.dao.js", () => ({
-	bulkInsertRecords: vi.fn(),
+vi.mock("@/adapters/adapter.registry.js", () => ({
+	getAdapter: vi.fn(() => mockDao),
+	adapterRegistry: {
+		register: vi.fn(),
+		get: vi.fn(() => mockDao),
+		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
+		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
+	},
 }));
 
 vi.mock("@/db-manager.js", () => ({
@@ -65,7 +60,7 @@ describe("Records Routes (MSSQL)", () => {
 
 	describe("POST /mssql/records", () => {
 		it("adds a record and returns success message", async () => {
-			vi.mocked(mssqlAddRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const res = await app.request("/mssql/records?db=testdb", {
 				method: "POST",
@@ -92,8 +87,8 @@ describe("Records Routes (MSSQL)", () => {
 		});
 
 		it("returns 503 when connection fails", async () => {
-			vi.mocked(mssqlAddRecordDao.addRecord).mockRejectedValue(
-				new Error("connect ECONNREFUSED 127.0.0.1:1433")
+			mockDao.addRecord.mockRejectedValue(
+				new Error("connect ECONNREFUSED 127.0.0.1:1433"),
 			);
 
 			const res = await app.request("/mssql/records?db=testdb", {
@@ -108,7 +103,7 @@ describe("Records Routes (MSSQL)", () => {
 
 	describe("PATCH /mssql/records", () => {
 		it("updates records with default primary key", async () => {
-			vi.mocked(mssqlUpdateRecordsDao.updateRecords).mockResolvedValue({ updatedCount: 2 });
+			mockDao.updateRecords.mockResolvedValue({ updatedCount: 2 });
 
 			const res = await app.request("/mssql/records?db=testdb", {
 				method: "PATCH",
@@ -120,15 +115,15 @@ describe("Records Routes (MSSQL)", () => {
 			});
 
 			expect(res.status).toBe(200);
-			expect(mssqlUpdateRecordsDao.updateRecords).toHaveBeenCalledWith({
+			expect(mockDao.updateRecords).toHaveBeenCalledWith({
 				params: expect.objectContaining({ primaryKey: "id" }),
 				db: "testdb",
 			});
 		});
 
 		it("returns 404 when record is not found", async () => {
-			vi.mocked(mssqlUpdateRecordsDao.updateRecords).mockRejectedValue(
-				new HTTPException(404, { message: "Record not found" })
+			mockDao.updateRecords.mockRejectedValue(
+				new HTTPException(404, { message: "Record not found" }),
 			);
 
 			const res = await app.request("/mssql/records?db=testdb", {
@@ -147,7 +142,7 @@ describe("Records Routes (MSSQL)", () => {
 
 	describe("DELETE /mssql/records", () => {
 		it("deletes records", async () => {
-			vi.mocked(mssqlDeleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 1,
 				fkViolation: false,
 				relatedRecords: [],
@@ -168,7 +163,7 @@ describe("Records Routes (MSSQL)", () => {
 		});
 
 		it("returns 409 on FK violation", async () => {
-			vi.mocked(mssqlDeleteRecordsDao.deleteRecords).mockResolvedValue({
+			mockDao.deleteRecords.mockResolvedValue({
 				deletedCount: 0,
 				fkViolation: true,
 				relatedRecords: [
@@ -196,9 +191,7 @@ describe("Records Routes (MSSQL)", () => {
 
 	describe("DELETE /mssql/records/force", () => {
 		it("force deletes records", async () => {
-			vi.mocked(mssqlDeleteRecordsDao.forceDeleteRecords).mockResolvedValue({
-				deletedCount: 4,
-			});
+			mockDao.forceDeleteRecords.mockResolvedValue({ deletedCount: 4 });
 
 			const res = await app.request("/mssql/records/force?db=testdb", {
 				method: "DELETE",
@@ -217,7 +210,7 @@ describe("Records Routes (MSSQL)", () => {
 
 	describe("POST /mssql/records/bulk", () => {
 		it("bulk inserts records", async () => {
-			vi.mocked(mssqlBulkInsertDao.bulkInsertRecords).mockResolvedValue({
+			mockDao.bulkInsertRecords.mockResolvedValue({
 				success: true,
 				message: "Bulk insert completed",
 				successCount: 2,
@@ -256,7 +249,7 @@ describe("Records Routes (MSSQL)", () => {
 		});
 
 		it("handles concurrent insert requests", async () => {
-			vi.mocked(mssqlAddRecordDao.addRecord).mockResolvedValue({ insertedCount: 1 });
+			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const responses = await Promise.all(
 				Array.from({ length: 6 }, (_, i) =>
@@ -267,14 +260,14 @@ describe("Records Routes (MSSQL)", () => {
 							tableName: "users",
 							data: { name: `User ${i}` },
 						}),
-					})
-				)
+					}),
+				),
 			);
 
 			for (const res of responses) {
 				expect(res.status).toBe(200);
 			}
-			expect(mssqlAddRecordDao.addRecord).toHaveBeenCalledTimes(6);
+			expect(mockDao.addRecord).toHaveBeenCalledTimes(6);
 		});
 	});
 });

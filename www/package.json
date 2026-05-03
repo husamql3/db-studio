@@ -11,7 +11,7 @@
     "cf-typegen": "wrangler types",
     "cf-secrets": "wrangler secret bulk .env",
     "check-meta": "bunx check-site-meta",
-    "check": "biome check --write --unsafe"
+    "format": "biome check --write --unsafe"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

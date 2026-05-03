@@ -62,11 +62,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Indexes section to view, add, edit, or remove indexes",
+				title: "Indexes section to view, add, edit, remove, and understand indexes",
 				status: "planned",
 			},
 			{
-				title: "Interactive diagram showing table relationships (ER diagram)",
+				title: "Interactive ER diagram with relationship navigation and join query generation",
 				status: "planned",
 			},
 			{
@@ -74,12 +74,20 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Safe playground area to test queries without risk",
+				title: "Safe query mode with transaction preview, commit, and rollback",
+				status: "planned",
+			},
+			{
+				title: "Explain plan viewer for understanding query performance",
 				status: "planned",
 			},
 			{
 				title: "Save favorite queries and view recent query history",
 				status: "completed",
+			},
+			{
+				title: "Query workspace with saved files, snippets, variables, and database context",
+				status: "planned",
 			},
 			{
 				title: "Smart SQL editor with color coding, auto-complete, and formatting",
@@ -108,6 +116,19 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
+				title: "Bulk edit rows, clone records, and preview pending changes before saving",
+				status: "planned",
+			},
+			{
+				title:
+					"Advanced import/export pipelines with column mapping, type inference, invalid-row preview, and reusable presets",
+				status: "planned",
+			},
+			{
+				title: "Compare table data or query results and highlight differences",
+				status: "planned",
+			},
+			{
 				title: "Customize the grid: hide/reorder columns and add color rules",
 				status: "planned",
 			},
@@ -130,7 +151,8 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Suggest faster ways to write queries and show how much quicker they’ll run",
+				title:
+					"Suggest faster ways to write queries, explain plans, and show how much quicker they’ll run",
 				status: "planned",
 			},
 			{
@@ -146,6 +168,10 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
+				title: "Generate migration drafts from schema changes with human review",
+				status: "planned",
+			},
+			{
 				title: "AI chat sidebar scoped to the selected database",
 				status: "completed",
 			},
@@ -157,18 +183,34 @@ export const roadmapItems: RoadmapItem[] = [
 		items: [
 			{ title: "Add full support for PostgreSQL databases", status: "completed" },
 			{ title: "Add full support for MySQL databases", status: "completed" },
-			{ title: "Add full support for SQLite databases", status: "planned" },
+			{
+				title: "Add full support for SQL Server databases",
+				status: "completed",
+			},
 			{
 				title: "Add full support for MongoDB databases",
 				status: "completed",
+			},
+			{ title: "Add full support for SQLite databases", status: "planned" },
+			{
+				title: "Add full support for MariaDB databases",
+				status: "planned",
 			},
 			{
 				title: "Add full support for Oracle databases",
 				status: "planned",
 			},
 			{
-				title: "Add full support for SQL Server databases",
-				status: "completed",
+				title: "Add support for Redis and Valkey key-value databases",
+				status: "planned",
+			},
+			{
+				title: "Add support for DuckDB and ClickHouse analytics databases",
+				status: "planned",
+			},
+			{
+				title: "Add support for Elasticsearch and OpenSearch databases",
+				status: "planned",
 			},
 			{
 				title: "Easy switching between different database connections",
@@ -187,6 +229,49 @@ export const roadmapItems: RoadmapItem[] = [
 		],
 	},
 	{
+		title: "Database Operations",
+		status: "planned",
+		items: [
+			{
+				title:
+					"Deep object explorer for views, functions, triggers, constraints, sequences, users, roles, and permissions",
+				status: "planned",
+			},
+			{
+				title: "Saved connection manager with SSH tunnels, SSL/TLS, env vars, and templates",
+				status: "planned",
+			},
+			{
+				title: "Connection health checks with clear diagnostics and reconnect actions",
+				status: "planned",
+			},
+			{
+				title: "Schema drift detection between environments",
+				status: "planned",
+			},
+		],
+	},
+	{
+		title: "NoSQL Tools",
+		status: "planned",
+		items: [
+			{
+				title:
+					"Redis and Valkey key browser with TTL, memory usage, and data structure viewers",
+				status: "planned",
+			},
+			{
+				title: "MongoDB collection schema inference, aggregation builder, and document diff",
+				status: "planned",
+			},
+			{
+				title:
+					"Elasticsearch and OpenSearch index explorer, mappings viewer, and query builder",
+				status: "planned",
+			},
+		],
+	},
+	{
 		title: "Advanced Tools",
 		status: "planned",
 		items: [
@@ -195,7 +280,7 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Compare database structures and create update scripts",
+				title: "Compare database structures and generate migration scripts",
 				status: "planned",
 			},
 			{
@@ -203,7 +288,7 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Secure connections using SSH tunnels and SSL/TLS encryption",
+				title: "Review schema changes before applying them to production databases",
 				status: "planned",
 			},
 		],

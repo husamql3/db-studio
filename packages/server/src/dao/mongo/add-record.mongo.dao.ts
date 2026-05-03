@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { AddRecordSchemaType, DatabaseSchemaType } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 import { normalizeMongoDocument } from "./mongo.utils.js";
 
 export async function addRecord({

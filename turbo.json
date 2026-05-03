@@ -70,7 +70,7 @@
       "cache": false,
       "persistent": true
     },
-    "check": {
+    "format": {
       "outputs": [],
       "cache": true
     },

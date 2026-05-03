@@ -10,7 +10,7 @@ on:
       - main
 
 jobs:
-  check:
+  format:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -28,7 +28,7 @@ jobs:
         run: bun run build
 
       - name: Run Biome checks
-        run: bun run check
+        run: bun run format
 
   typecheck:
     runs-on: ubuntu-latest

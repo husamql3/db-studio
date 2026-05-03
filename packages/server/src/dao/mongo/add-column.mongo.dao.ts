@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { AddColumnParamsSchemaType } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 
 /**
  * Adds a field to all documents in a MongoDB collection.

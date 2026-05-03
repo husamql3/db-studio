@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import type { AlterColumnParamsSchemaType, RenameColumnParamsSchemaType } from "shared/types";
-import { getMongoDb } from "@/db-manager.js";
+import { getMongoDb } from "@/adapters/connections.js";
 
 /**
  * Renames a field across all documents in a collection using $rename.
