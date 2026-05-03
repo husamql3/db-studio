@@ -2,23 +2,35 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mysqlDatabaseListDao from "@/dao/mysql/database-list.mysql.dao.js";
 
-// Mock the MySQL DAO module
-vi.mock("@/dao/mysql/database-list.mysql.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
 	getDatabasesList: vi.fn(),
 	getCurrentDatabase: vi.fn(),
 	getDatabaseConnectionInfo: vi.fn(),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
+	addRecord: vi.fn(),
+	updateRecords: vi.fn(),
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
+	executeQuery: vi.fn(),
 }));
 
-// Mock PG DAO (imported by databases route but not called for mysql)
-vi.mock("@/dao/database-list.dao.js", () => ({
-	getDatabasesList: vi.fn(),
-	getCurrentDatabase: vi.fn(),
-	getDatabaseConnectionInfo: vi.fn(),
+vi.mock("@/dao/dao-factory.js", () => ({
+	getDaoFactory: vi.fn(() => mockDao),
+	executeDaoMethod: vi.fn(),
 }));
 
-// Mock db-manager — return "mysql" so the route dispatches to MySQL DAOs
 vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({ query: vi.fn() })),
 	getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
@@ -51,7 +63,7 @@ describe("Databases Routes (MySQL)", () => {
 				{ name: "production", size: "2 GB" },
 			];
 
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue(mockDatabases);
+			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
 			const res = await app.request("/databases");
 
@@ -59,11 +71,11 @@ describe("Databases Routes (MySQL)", () => {
 			const json = await res.json();
 			expect(json.data.databases).toEqual(mockDatabases);
 			expect(json.data.dbType).toBe("mysql");
-			expect(mysqlDatabaseListDao.getDatabasesList).toHaveBeenCalledTimes(1);
+			expect(mockDao.getDatabasesList).toHaveBeenCalledTimes(1);
 		});
 
 		it("should return empty array when no databases exist", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue([]);
+			mockDao.getDatabasesList.mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 
@@ -76,7 +88,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should handle single database response", async () => {
 			const mockDatabases = [{ name: "only_db", size: "1 MB" }];
 
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue(mockDatabases);
+			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
 			const res = await app.request("/databases");
 
@@ -92,7 +104,7 @@ describe("Databases Routes (MySQL)", () => {
 				size: `${i * 100} MB`,
 			}));
 
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue(mockDatabases);
+			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
 			const res = await app.request("/databases");
 
@@ -102,7 +114,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should include dbType as mysql in response", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue([]);
+			mockDao.getDatabasesList.mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 
@@ -112,7 +124,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockRejectedValue(
+			mockDao.getDatabasesList.mockRejectedValue(
 				new HTTPException(500, { message: "Failed to list databases" })
 			);
 
@@ -122,7 +134,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 503 when MySQL connection fails", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockRejectedValue(
+			mockDao.getDatabasesList.mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:3306")
 			);
 
@@ -134,7 +146,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 503 on connection timeout", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockRejectedValue(
+			mockDao.getDatabasesList.mockRejectedValue(
 				new Error("timeout expired")
 			);
 
@@ -144,7 +156,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 500 on generic database error", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockRejectedValue(
+			mockDao.getDatabasesList.mockRejectedValue(
 				new Error("Unexpected database error")
 			);
 
@@ -163,7 +175,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should return current MySQL database with 200 status", async () => {
 			const mockCurrent = { db: "mydb" };
 
-			vi.mocked(mysqlDatabaseListDao.getCurrentDatabase).mockResolvedValue(mockCurrent);
+			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
 			const res = await app.request("/databases/current");
 
@@ -171,13 +183,13 @@ describe("Databases Routes (MySQL)", () => {
 			const json = await res.json();
 			expect(json.data.db).toBe("mydb");
 			expect(json.data.dbType).toBe("mysql");
-			expect(mysqlDatabaseListDao.getCurrentDatabase).toHaveBeenCalledTimes(1);
+			expect(mockDao.getCurrentDatabase).toHaveBeenCalledTimes(1);
 		});
 
 		it("should handle database with underscore in name", async () => {
 			const mockCurrent = { db: "my_production_db" };
 
-			vi.mocked(mysqlDatabaseListDao.getCurrentDatabase).mockResolvedValue(mockCurrent);
+			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
 			const res = await app.request("/databases/current");
 
@@ -187,7 +199,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should include dbType as mysql in current response", async () => {
-			vi.mocked(mysqlDatabaseListDao.getCurrentDatabase).mockResolvedValue({ db: "testdb" });
+			mockDao.getCurrentDatabase.mockResolvedValue({ db: "testdb" });
 
 			const res = await app.request("/databases/current");
 
@@ -197,7 +209,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 500 when DAO throws HTTPException", async () => {
-			vi.mocked(mysqlDatabaseListDao.getCurrentDatabase).mockRejectedValue(
+			mockDao.getCurrentDatabase.mockRejectedValue(
 				new HTTPException(500, { message: "No current database returned" })
 			);
 
@@ -207,7 +219,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 503 on connection error", async () => {
-			vi.mocked(mysqlDatabaseListDao.getCurrentDatabase).mockRejectedValue(
+			mockDao.getCurrentDatabase.mockRejectedValue(
 				new Error("connection refused")
 			);
 
@@ -232,16 +244,14 @@ describe("Databases Routes (MySQL)", () => {
 				max_connections: 151,
 			};
 
-			vi.mocked(mysqlDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(
-				mockConnectionInfo
-			);
+			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
 			const res = await app.request("/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockConnectionInfo);
-			expect(mysqlDatabaseListDao.getDatabaseConnectionInfo).toHaveBeenCalledTimes(1);
+			expect(mockDao.getDatabaseConnectionInfo).toHaveBeenCalledTimes(1);
 		});
 
 		it("should handle different MySQL versions", async () => {
@@ -258,9 +268,7 @@ describe("Databases Routes (MySQL)", () => {
 					max_connections: 151,
 				};
 
-				vi.mocked(mysqlDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(
-					mockConnectionInfo
-				);
+				mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
 				const res = await app.request("/databases/connection");
 
@@ -281,9 +289,7 @@ describe("Databases Routes (MySQL)", () => {
 				max_connections: 151,
 			};
 
-			vi.mocked(mysqlDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(
-				mockConnectionInfo
-			);
+			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
 			const res = await app.request("/databases/connection");
 
@@ -304,9 +310,7 @@ describe("Databases Routes (MySQL)", () => {
 				max_connections: 151,
 			};
 
-			vi.mocked(mysqlDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue(
-				mockConnectionInfo
-			);
+			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
 			const res = await app.request("/databases/connection");
 
@@ -316,7 +320,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 500 when connection info query fails", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabaseConnectionInfo).mockRejectedValue(
+			mockDao.getDatabaseConnectionInfo.mockRejectedValue(
 				new HTTPException(500, { message: "Failed to get connection info" })
 			);
 
@@ -326,7 +330,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return 503 on database connection failure", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabaseConnectionInfo).mockRejectedValue(
+			mockDao.getDatabaseConnectionInfo.mockRejectedValue(
 				new Error("connect ECONNREFUSED")
 			);
 
@@ -341,7 +345,7 @@ describe("Databases Routes (MySQL)", () => {
 	// ============================================
 	describe("Response headers", () => {
 		it("should include CORS headers", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue([]);
+			mockDao.getDatabasesList.mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 
@@ -349,7 +353,7 @@ describe("Databases Routes (MySQL)", () => {
 		});
 
 		it("should return JSON content type", async () => {
-			vi.mocked(mysqlDatabaseListDao.getDatabasesList).mockResolvedValue([]);
+			mockDao.getDatabasesList.mockResolvedValue([]);
 
 			const res = await app.request("/databases");
 

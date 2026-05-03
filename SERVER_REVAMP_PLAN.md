@@ -138,13 +138,13 @@
 
 ## Phase 5 — MySQL Adapter
 
-- [ ] Create `src/adapters/mysql/mysql.query-builder.ts`
+- [x] Create `src/adapters/mysql/mysql.query-builder.ts`
   - Move `buildMysqlColumnDefinition()` from `dao/mysql/mysql-column.utils.ts`
   - Add `buildWhereClause()` with backtick identifiers and `?` placeholders
   - Add `buildCursorClause()` using `LIMIT`/`OFFSET` (MySQL lacks tuple cursor comparison)
   - Add `buildSortClause()` with backtick column names
 
-- [ ] Create `src/adapters/mysql/mysql.adapter.ts` — `MySqlAdapter extends BaseAdapter`
+- [x] Create `src/adapters/mysql/mysql.adapter.ts` — `MySqlAdapter extends BaseAdapter`
   - **Connection**: internal `Map<string, MysqlPool>` using `getMysqlPool()`
   - **`runQuery()`**: `pool.execute(sql, values as any)` → returns `rows[0]`
   - **`buildTableDataQuery()`**: implement paginated data fetch (currently missing entirely)
@@ -153,9 +153,9 @@
   - **`mapToUniversalType()`**: move `mapMysqlToDataType` from `utils/column.type.ts`
   - Implement all 18 methods by inlining `dao/mysql/*.mysql.dao.ts` logic
 
-- [ ] Register `MySqlAdapter` in the boot call
-- [ ] Delete the migrated `src/dao/mysql/` files
-- [ ] Write tests for `MySqlAdapter.getTableData()` (it was missing — write it fresh)
+- [x] Register `MySqlAdapter` in the boot call
+- [x] Delete the migrated `src/dao/mysql/` files
+- [x] Write tests for `MySqlAdapter.getTableData()` (it was missing — write it fresh)
 
 ---
 

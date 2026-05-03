@@ -2,24 +2,33 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mssqlDatabaseListDao from "@/dao/mssql/database-list.mssql.dao.js";
 
-vi.mock("@/dao/mssql/database-list.mssql.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
 	getDatabasesList: vi.fn(),
 	getCurrentDatabase: vi.fn(),
 	getDatabaseConnectionInfo: vi.fn(),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
+	addRecord: vi.fn(),
+	updateRecords: vi.fn(),
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
+	executeQuery: vi.fn(),
 }));
 
-vi.mock("@/dao/database-list.dao.js", () => ({
-	getDatabasesList: vi.fn(),
-	getCurrentDatabase: vi.fn(),
-	getDatabaseConnectionInfo: vi.fn(),
-}));
-
-vi.mock("@/dao/mysql/database-list.mysql.dao.js", () => ({
-	getDatabasesList: vi.fn(),
-	getCurrentDatabase: vi.fn(),
-	getDatabaseConnectionInfo: vi.fn(),
+vi.mock("@/dao/dao-factory.js", () => ({
+	getDaoFactory: vi.fn(() => mockDao),
+	executeDaoMethod: vi.fn(),
 }));
 
 vi.mock("@/db-manager.js", () => ({
@@ -46,7 +55,7 @@ describe("Databases Routes (MSSQL)", () => {
 
 	describe("GET /databases", () => {
 		it("returns MSSQL database list", async () => {
-			vi.mocked(mssqlDatabaseListDao.getDatabasesList).mockResolvedValue([
+			mockDao.getDatabasesList.mockResolvedValue([
 				{ name: "master", size: "512 MB" },
 				{ name: "appdb", size: "256 MB" },
 			]);
@@ -57,12 +66,12 @@ describe("Databases Routes (MSSQL)", () => {
 			expect(res.status).toBe(200);
 			expect(json.data.dbType).toBe("mssql");
 			expect(json.data.databases).toHaveLength(2);
-			expect(mssqlDatabaseListDao.getDatabasesList).toHaveBeenCalledTimes(1);
+			expect(mockDao.getDatabasesList).toHaveBeenCalledTimes(1);
 		});
 
 		it("returns 503 when SQL Server connection fails", async () => {
-			vi.mocked(mssqlDatabaseListDao.getDatabasesList).mockRejectedValue(
-				new Error("connect ECONNREFUSED 127.0.0.1:1433")
+			mockDao.getDatabasesList.mockRejectedValue(
+				new Error("connect ECONNREFUSED 127.0.0.1:1433"),
 			);
 
 			const res = await app.request("/databases");
@@ -70,8 +79,8 @@ describe("Databases Routes (MSSQL)", () => {
 		});
 
 		it("returns 500 on generic database error", async () => {
-			vi.mocked(mssqlDatabaseListDao.getDatabasesList).mockRejectedValue(
-				new Error("Unexpected SQL Server error")
+			mockDao.getDatabasesList.mockRejectedValue(
+				new Error("Unexpected SQL Server error"),
 			);
 
 			const res = await app.request("/databases");
@@ -81,9 +90,7 @@ describe("Databases Routes (MSSQL)", () => {
 
 	describe("GET /databases/current", () => {
 		it("returns current database and dbType", async () => {
-			vi.mocked(mssqlDatabaseListDao.getCurrentDatabase).mockResolvedValue({
-				db: "appdb",
-			});
+			mockDao.getCurrentDatabase.mockResolvedValue({ db: "appdb" });
 
 			const res = await app.request("/databases/current");
 			const json = await res.json();
@@ -93,8 +100,8 @@ describe("Databases Routes (MSSQL)", () => {
 		});
 
 		it("returns 500 when DAO throws HTTPException", async () => {
-			vi.mocked(mssqlDatabaseListDao.getCurrentDatabase).mockRejectedValue(
-				new HTTPException(500, { message: "No current database returned" })
+			mockDao.getCurrentDatabase.mockRejectedValue(
+				new HTTPException(500, { message: "No current database returned" }),
 			);
 
 			const res = await app.request("/databases/current");
@@ -104,7 +111,7 @@ describe("Databases Routes (MSSQL)", () => {
 
 	describe("GET /databases/connection", () => {
 		it("returns SQL Server connection info", async () => {
-			vi.mocked(mssqlDatabaseListDao.getDatabaseConnectionInfo).mockResolvedValue({
+			mockDao.getDatabaseConnectionInfo.mockResolvedValue({
 				version: "Microsoft SQL Server 2022",
 				database: "appdb",
 				user: "sa",
@@ -123,9 +130,7 @@ describe("Databases Routes (MSSQL)", () => {
 		});
 
 		it("returns 503 on connection timeout", async () => {
-			vi.mocked(mssqlDatabaseListDao.getDatabaseConnectionInfo).mockRejectedValue(
-				new Error("timeout expired")
-			);
+			mockDao.getDatabaseConnectionInfo.mockRejectedValue(new Error("timeout expired"));
 
 			const res = await app.request("/databases/connection");
 			expect(res.status).toBe(503);
@@ -134,7 +139,7 @@ describe("Databases Routes (MSSQL)", () => {
 
 	describe("Response headers", () => {
 		it("includes CORS and JSON headers", async () => {
-			vi.mocked(mssqlDatabaseListDao.getDatabasesList).mockResolvedValue([]);
+			mockDao.getDatabasesList.mockResolvedValue([]);
 			const res = await app.request("/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");

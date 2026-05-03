@@ -1,4 +1,6 @@
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
+import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
+import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
 
 /**
@@ -6,7 +8,7 @@ import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
  */
 export function registerAdapters(): void {
 	adapterRegistry.register("pg", new PgAdapter());
-	// adapterRegistry.register("mysql", new MySqlAdapter());
-	// adapterRegistry.register("mssql", new MsSqlAdapter());
+	adapterRegistry.register("mysql", new MySqlAdapter());
+	adapterRegistry.register("mssql", new MsSqlAdapter());
 	// adapterRegistry.register("mongodb", new MongoAdapter());
 }
