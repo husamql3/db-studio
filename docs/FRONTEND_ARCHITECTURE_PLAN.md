@@ -48,6 +48,10 @@ feature boundaries exist.
 - [ ] Keep current hooks but make them call API functions and query-key factories
 - [ ] Replace mutable Axios `dbType` module state with an `ApiClient` instance
 - [ ] Split `TableTab` into container, grid, empty state, and error state components
+- [ ] Split record presentation by database model:
+  - SQL databases render records as table/grid-first views
+  - NoSQL databases render records as JSON document-first views
+  - MongoDB table mode remains an optional preview for top-level scalar fields
 - [ ] Move TanStack Table model setup into `useTableModel`
 - [ ] Standardize mutation feedback with `toast.promise`
 - [ ] Remove debug `console.log` calls from feature components and stores
@@ -188,6 +192,12 @@ Rules:
 - Global Zustand is limited to app-wide state: selected database, preferences, overlay
   registry.
 - Feature draft state stays feature-local.
+- Data presentation follows the database model:
+  - SQL databases use table/grid-first record views.
+  - NoSQL databases use JSON document-first record views.
+  - MongoDB collections may offer a derived table preview for top-level scalar fields, but
+    nested objects, arrays, mixed schemas, inserts, and edits should use a JSON document
+    viewer/editor.
 
 ## 3. Package Structure
 
@@ -433,6 +443,10 @@ Goal: introduce boundaries without changing runtime behavior.
   - `TableGrid`
   - `TableEmptyState`
   - `TableErrorState`
+- Split record presentation by database model:
+  - SQL records render through `TableGrid`.
+  - NoSQL records render through a JSON document viewer/editor.
+  - MongoDB table mode is an optional preview, not the primary editing surface.
 - Move table model setup into `useTableModel`.
 - Replace mutable Axios `dbType` module state with an `ApiClient` instance.
 - Standardize mutation feedback with `toast.promise`.
