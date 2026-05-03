@@ -2,17 +2,34 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
 
 import { createServer } from "@/utils/create-server.js";
-import * as mongoQueryDao from "@/dao/mongo/query.mongo.dao.js";
 
-// Mock MongoDB query DAO
-vi.mock("@/dao/mongo/query.mongo.dao.js", () => ({
+const mockDao = vi.hoisted(() => ({
+	getDatabasesList: vi.fn(),
+	getCurrentDatabase: vi.fn(),
+	getDatabaseConnectionInfo: vi.fn(),
+	getTablesList: vi.fn(),
+	createTable: vi.fn(),
+	deleteTable: vi.fn(),
+	getTableSchema: vi.fn(),
+	getTableColumns: vi.fn(),
+	addColumn: vi.fn(),
+	deleteColumn: vi.fn(),
+	alterColumn: vi.fn(),
+	renameColumn: vi.fn(),
+	getTableData: vi.fn(),
+	addRecord: vi.fn(),
+	updateRecords: vi.fn(),
+	deleteRecords: vi.fn(),
+	forceDeleteRecords: vi.fn(),
+	bulkInsertRecords: vi.fn(),
+	exportTableData: vi.fn(),
 	executeQuery: vi.fn(),
-	executeMongoQuery: vi.fn(),
 }));
 
-// Stub PG/MySQL DAO modules
-vi.mock("@/dao/query.dao.js", () => ({ executeQuery: vi.fn() }));
-vi.mock("@/dao/mysql/query.mysql.dao.js", () => ({ executeQuery: vi.fn() }));
+vi.mock("@/dao/dao-factory.js", () => ({
+	getDaoFactory: vi.fn(() => mockDao),
+	executeDaoMethod: vi.fn(),
+}));
 
 vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(),
@@ -39,9 +56,6 @@ describe("Query Routes (MongoDB)", () => {
 		vi.restoreAllMocks();
 	});
 
-	// ============================================
-	// POST /mongodb/query - execute Mongo query
-	// ============================================
 	describe("POST /mongodb/query", () => {
 		it("executes a find query and returns results with 200", async () => {
 			const mockResult = {
@@ -53,8 +67,7 @@ describe("Query Routes (MongoDB)", () => {
 				rowCount: 2,
 				duration: 8.4,
 			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			mockDao.executeQuery.mockResolvedValue(mockResult);
 
 			const query = JSON.stringify({
 				collection: "users",
@@ -72,14 +85,11 @@ describe("Query Routes (MongoDB)", () => {
 			expect(res.status).toBe(200);
 			const json = await res.json();
 			expect(json.data).toEqual(mockResult);
-			expect(mongoQueryDao.executeQuery).toHaveBeenCalledWith({
-				query,
-				db: "testdb",
-			});
+			expect(mockDao.executeQuery).toHaveBeenCalledWith({ query, db: "testdb" });
 		});
 
 		it("executes an aggregate pipeline query", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["_id", "count"],
 				rows: [
 					{ _id: "NYC", count: 342 },
@@ -87,9 +97,7 @@ describe("Query Routes (MongoDB)", () => {
 				],
 				rowCount: 2,
 				duration: 15.2,
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "orders",
@@ -112,15 +120,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes an insertOne operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: [],
 				rows: [],
 				rowCount: 1,
 				duration: 5.1,
 				message: "OK",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "users",
@@ -141,15 +147,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes an insertMany operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: [],
 				rows: [],
 				rowCount: 3,
 				duration: 6.3,
 				message: "OK",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "products",
@@ -173,15 +177,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes an updateOne operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: [],
 				rows: [],
 				rowCount: 1,
 				duration: 4.8,
 				message: "OK (1 modified)",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "users",
@@ -202,15 +204,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes an updateMany operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: [],
 				rows: [],
 				rowCount: 5,
 				duration: 9.2,
 				message: "OK (5 modified)",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "users",
@@ -231,15 +231,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes a deleteOne operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: [],
 				rows: [],
 				rowCount: 1,
 				duration: 3.5,
 				message: "OK",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "users",
@@ -257,15 +255,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes a deleteMany operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: [],
 				rows: [],
 				rowCount: 10,
 				duration: 7.1,
 				message: "OK",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "sessions",
@@ -285,15 +281,13 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("executes a count operation", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["count"],
 				rows: [{ count: 1542 }],
 				rowCount: 1542,
 				duration: 2.1,
 				message: "OK",
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const query = JSON.stringify({
 				collection: "users",
@@ -313,7 +307,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 for empty query string", async () => {
-			vi.mocked(mongoQueryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(400, { message: "Query is required" }),
 			);
 
@@ -327,7 +321,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 for invalid JSON query payload", async () => {
-			vi.mocked(mongoQueryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(400, { message: "Mongo query must be valid JSON" }),
 			);
 
@@ -341,7 +335,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when collection or operation is missing", async () => {
-			vi.mocked(mongoQueryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(400, {
 					message: "Mongo query must include collection and operation",
 				}),
@@ -357,7 +351,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 for unsupported operation", async () => {
-			vi.mocked(mongoQueryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new HTTPException(400, { message: "Unsupported Mongo operation" }),
 			);
 
@@ -395,7 +389,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection failure", async () => {
-			vi.mocked(mongoQueryDao.executeQuery).mockRejectedValue(
+			mockDao.executeQuery.mockRejectedValue(
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
@@ -411,9 +405,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 503 on connection timeout", async () => {
-			vi.mocked(mongoQueryDao.executeQuery).mockRejectedValue(
-				new Error("timeout expired"),
-			);
+			mockDao.executeQuery.mockRejectedValue(new Error("timeout expired"));
 
 			const res = await app.request("/mongodb/query?db=testdb", {
 				method: "POST",
@@ -427,14 +419,12 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("includes duration in response", async () => {
-			const mockResult = {
+			mockDao.executeQuery.mockResolvedValue({
 				columns: ["_id"],
 				rows: [{ _id: "507f1f77bcf86cd799439011" }],
 				rowCount: 1,
 				duration: 12.7,
-			};
-
-			vi.mocked(mongoQueryDao.executeQuery).mockResolvedValue(mockResult);
+			});
 
 			const res = await app.request("/mongodb/query?db=testdb", {
 				method: "POST",

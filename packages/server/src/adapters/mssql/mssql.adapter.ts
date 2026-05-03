@@ -128,61 +128,65 @@ export class MsSqlAdapter extends BaseAdapter {
 	// =========================================================
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		const {
-			tableName,
-			db,
-			limit = 50,
-			sort = [],
-			order = "asc",
-			cursor,
-			filters = [],
-		} = params;
-		const pool = await getMssqlPool(db);
+		try {
+			const {
+				tableName,
+				db,
+				limit = 50,
+				sort = [],
+				order = "asc",
+				cursor,
+				filters = [],
+			} = params;
+			const pool = await getMssqlPool(db);
 
-		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-		const {
-			clause: filterWhere,
-			values: filterValues,
-			nextIdx,
-		} = buildWhereClause(filters, 0);
-		const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
+			const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
+			const {
+				clause: filterWhere,
+				values: filterValues,
+				nextIdx,
+			} = buildWhereClause(filters, 0);
+			const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
 
-		const countRequest = pool.request();
-		filterValues.forEach((val, idx) => {
-			countRequest.input(`p${idx}`, val);
-		});
-		const countResult = await countRequest.query(
-			`SELECT COUNT(*) as total FROM [${tableName}] ${filterWhere}`,
-		);
-		const total = Number(countResult.recordset[0]?.total ?? 0);
+			const countRequest = pool.request();
+			filterValues.forEach((val, idx) => {
+				countRequest.input(`p${idx}`, val);
+			});
+			const countResult = await countRequest.query(
+				`SELECT COUNT(*) as total FROM [${tableName}] ${filterWhere}`,
+			);
+			const total = Number(countResult.recordset[0]?.total ?? 0);
 
-		const dataRequest = pool.request();
-		filterValues.forEach((val, idx) => {
-			dataRequest.input(`p${idx}`, val);
-		});
-		dataRequest.input(`p${nextIdx}`, currentOffset);
-		dataRequest.input(`p${nextIdx + 1}`, limit + 1);
+			const dataRequest = pool.request();
+			filterValues.forEach((val, idx) => {
+				dataRequest.input(`p${idx}`, val);
+			});
+			dataRequest.input(`p${nextIdx}`, currentOffset);
+			dataRequest.input(`p${nextIdx + 1}`, limit + 1);
 
-		const dataResult = await dataRequest.query(
-			`SELECT * FROM [${tableName}] ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
-		);
+			const dataResult = await dataRequest.query(
+				`SELECT * FROM [${tableName}] ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
+			);
 
-		let rows = dataResult.recordset as Record<string, unknown>[];
-		const hasMore = rows.length > limit;
-		if (hasMore) rows = rows.slice(0, limit);
+			let rows = dataResult.recordset as Record<string, unknown>[];
+			const hasMore = rows.length > limit;
+			if (hasMore) rows = rows.slice(0, limit);
 
-		return {
-			data: rows,
-			meta: {
-				limit,
-				total,
-				hasNextPage: hasMore,
-				hasPreviousPage: currentOffset > 0,
-				nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
-				prevCursor:
-					currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
-			},
-		};
+			return {
+				data: rows,
+				meta: {
+					limit,
+					total,
+					hasNextPage: hasMore,
+					hasPreviousPage: currentOffset > 0,
+					nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
+					prevCursor:
+						currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
+				},
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	// =========================================================

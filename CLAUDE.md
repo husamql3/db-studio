@@ -37,7 +37,7 @@ cd packages/server
 bun run test                         # all tests
 bun run test:watch                   # watch mode
 bun run test:coverage                # with coverage
-bunx vitest run src/path/to/file.test.ts  # single file
+bunx vitest run tests/path/to/file.test.ts  # single file
 ```
 
 > **Dev ports**: Frontend (Vite) → `http://localhost:3001`, API → `http://localhost:3333`. Port 3333 also serves the static frontend build, but use 3001 during development.
@@ -59,13 +59,12 @@ This is a **Bun + Turbo monorepo** with these packages:
 - **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
 - **Hono app**: `src/app.ts` (or wired via `src/db-manager.ts`)
 - **DB abstraction**: `src/db-manager.ts` — singleton `DatabaseManager` class; exposes `getDbPool()` (PG), `getMysqlPool()` (MySQL), `getMssqlPool()` (SQL Server, async), `getMongoClient()` / `getMongoDb()` (MongoDB). DB type is auto-detected from the URL protocol.
-- **DAOs**: `src/dao/*.dao.ts` (PG), `src/dao/mysql/`, `src/dao/mssql/`, `src/dao/mongo/`
-- **DAO factory**: `src/dao/dao-factory.ts` — `getDaoFactory(dbType)` returns the correct DAO implementation; routes call this instead of dispatching manually.
+- **Adapters**: `src/adapters/` — Strategy + Template Method architecture; PG, MySQL, and MSSQL are fully migrated. MongoDB still uses legacy DAOs (`src/dao/mongo/`).
+- **DAO factory**: `src/dao/dao-factory.ts` — `getDaoFactory(dbType)` is a facade: it delegates to `adapterRegistry` for pg/mysql/mssql and falls through to legacy DAOs for mongodb.
 - **Routes**: `src/routes/` — each route file uses `new Hono<RouteEnv>()` (not `AppType`) to avoid circular imports and to access `c.get("dbType")`
 - **Middleware**: `src/middlewares/` — sets `c.set("dbType", ...)` based on the connection URL
-- **Type mapping**: `src/utils/column.type.ts` — `mapPostgresToDataType` / `mapMysqlToDataType` → `CellVariant`
 
-**Multi-database routing pattern**: middleware detects DB type from `DATABASE_URL` protocol and sets `c.get("dbType")`. Routes call `getDaoFactory(dbType)` to get the right DAO implementation.
+**Multi-database routing pattern**: middleware detects DB type from `DATABASE_URL` protocol and sets `c.get("dbType")`. Routes call `getDaoFactory(dbType)` — which returns the registered adapter for pg/mysql/mssql, or falls back to legacy MongoDB DAOs.
 
 ### Frontend (`packages/core`)
 
@@ -98,10 +97,10 @@ Three export paths:
 
 - **Commit format**: `<type>(<scope>): <message>` (e.g., `feat(back): add mysql row insert`)
 - **Branch format**: `<type>/<issue-number>/<description>` (e.g., `feat/123/support-mysql`)
-- **PG specifics**: `$1/$2` placeholders, FK violation code `23503`
-- **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast when passing `unknown[]` arrays
-- **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package
-- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections
+- **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`
+- **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
+- **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
+- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; still uses legacy DAOs in `src/dao/mongo/`
 
 ## Patterns
 
@@ -113,10 +112,9 @@ Three export paths:
 | Component | `[feature]-[description].tsx` | `sidebar-list-tables-item.tsx` |
 | Store | `[entity].store.ts` | `database.store.ts`, `queries.store.ts` |
 | Server route | `[resource].routes.ts` | `tables.routes.ts`, `records.routes.ts` |
-| Base DAO (PG) | `[action]-[resource].dao.ts` | `add-column.dao.ts` |
-| MySQL DAO | `[action]-[resource].mysql.dao.ts` | `add-column.mysql.dao.ts` |
-| MongoDB DAO | `[action]-[resource].mongo.dao.ts` | `add-column.mongo.dao.ts` |
-| MSSQL DAO | `[action]-[resource].mssql.dao.ts` | `add-column.mssql.dao.ts` |
+| DB adapter | `[db].adapter.ts` | `pg.adapter.ts`, `mysql.adapter.ts` |
+| Query builder | `[db].query-builder.ts` | `pg.query-builder.ts`, `mssql.query-builder.ts` |
+| MongoDB DAO (legacy) | `[action]-[resource].mongo.dao.ts` | `add-column.mongo.dao.ts` |
 | Shared type | `[feature].types.ts` | `column-info.types.ts` |
 | Core type | `[feature].type.ts` | `table.type.ts` |
 | Test | `[file-name].test.ts` | `parse-bulk-data.test.ts` |
@@ -265,39 +263,63 @@ export type TablesRoutes = typeof tablesRoutes.routes;
 - DB dispatch via `getDaoFactory(c.get("dbType"))` — never switch/if-else on dbType in routes
 - Return type annotation `ApiHandler<T>` on every handler
 
-### DAO Pattern
+### Adapter Pattern
 
-**Factory** (`dao-factory.ts`) maps `dbType` → implementation:
+**Architecture**: Strategy + Template Method. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`) extending `BaseAdapter`, registered at boot.
+
+**Key files**:
+- `src/adapters/adapter.interface.ts` — `IDbAdapter` interface (18 method signatures)
+- `src/adapters/base.adapter.ts` — `BaseAdapter`: implements `getTableData()` and `exportTableData()` as template methods; provides `wrapError()`, `encodeCursor()`, `decodeCursor()`
+- `src/adapters/adapter.registry.ts` — `AdapterRegistry` singleton; `get()` throws `HTTPException(400)` for unregistered types
+- `src/adapters/register.ts` — `registerAdapters()` called at boot before routes mount
+- `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
+- `src/adapters/[db]/[db].query-builder.ts` — SQL construction helpers (WHERE, ORDER BY, cursor clauses)
+
+**Request flow**:
+```
+Request → middleware sets dbType → route calls getDaoFactory(dbType)
+  → adapterRegistry.get(dbType) returns the adapter
+  → route calls adapter.someMethod(params)
+```
+
+**`getDaoFactory()` is a facade**: for pg/mysql/mssql it delegates to `adapterRegistry`; for mongodb it falls through to legacy DAOs in `src/dao/mongo/` (pending migration).
+
+**Implementing a method** (all adapters follow this structure):
 ```ts
-const daoRegistry = {
-  pg:      { addRecord: pgAddRecord.addRecord, createTable: pgCreateTable.createTable, ... },
-  mysql:   { addRecord: mysqlAddRecord.addRecord, ... },
-  mongodb: { addRecord: ({ db, params }) => addMongoRecord({ db, params }), ... },
-  mssql:   { ... },
-} as const;
+export class PgAdapter extends BaseAdapter {
+  // Abstract method implementations required by BaseAdapter
+  protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
+    const pool = getDbPool(db);
+    const result = await pool.query(sql, values);
+    return result.rows as T;
+  }
 
-export function getDaoFactory(dbType: DatabaseTypeSchema): DaoMethods {
-  return daoRegistry[dbType];
+  protected quoteIdentifier(name: string): string { return `"${name}"`; }
+  mapToUniversalType(nativeType: string): DataTypes { ... }
+  mapFromUniversalType(universalType: string): string { ... }
+
+  // IDbAdapter method — validate, build SQL, execute
+  async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
+    const pool = getDbPool(params.db);
+    // 1. Assert table/column existence → throw HTTPException on failure
+    // 2. Build SQL using query-builder helpers
+    // 3. Execute
+  }
 }
 ```
 
-**DAO function structure**:
-```ts
-// PostgreSQL (default)
-export async function addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-  const pool = getDbPool(params.db);
-  // 1. Validate (check existence) → throw HTTPException on failure
-  // 2. Build SQL
-  // 3. Execute
-}
+**Template method `getTableData()`**: implemented once in `BaseAdapter`; calls `buildTableDataQuery()` → `runQuery()` → `normalizeRows()` → `buildCursors()`. Adapters only override if their DB requires a fundamentally different approach (e.g. `MsSqlAdapter` overrides because `mssql` requests need per-value `.input()` calls).
 
-// MySQL variant — same signature, different pool + syntax
-export async function addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-  const pool = getMysqlPool(params.db);
-  const [rows] = await pool.execute<RowDataPacket[]>(`SELECT ...`, [params.tableName]);
-  await pool.execute<ResultSetHeader>(`ALTER TABLE \`${params.tableName}\` ...`);
-}
-```
+**Overriding template methods**: any override that bypasses `BaseAdapter.getTableData()` MUST wrap its body in `try/catch` and call `throw this.wrapError(e)` — otherwise connection errors won't be surfaced as 503.
+
+**Error handling**: `BaseAdapter.wrapError(e)` maps connection errors (ECONNREFUSED, ETIMEDOUT, Login failed, etc.) to `HTTPException(503)` and all others to `HTTPException(500)`. It is called automatically by the template methods; manual calls are only needed in overrides.
+
+**Adding a new database** (5 steps):
+1. Create `src/adapters/<db>/<db>.query-builder.ts` — WHERE/sort/cursor SQL helpers
+2. Create `src/adapters/<db>/<db>.adapter.ts` — `class MyAdapter extends BaseAdapter` implementing all abstract methods and `IDbAdapter` methods
+3. Add connection pool support in `src/db-manager.ts`
+4. Register: `adapterRegistry.register("<db>", new MyAdapter())` in `src/adapters/register.ts`
+5. Add `"<db>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`
 
 ### Import Aliases
 
@@ -311,7 +333,8 @@ import { useDatabaseStore } from "@/stores/database.store";
 import type { TableInfoSchemaType } from "shared/types";
 
 // server internal  →  @/ maps to ./src/
-import { getDaoFactory } from "@/dao/dao-factory.js";  // .js extension required (ESM)
+import { getDaoFactory } from "@/dao/dao-factory.js";       // .js extension required (ESM)
+import { PgAdapter } from "@/adapters/pg/pg.adapter.js";    // adapters follow the same rule
 ```
 
 ### Mutation Toast Feedback
@@ -358,33 +381,49 @@ export const setDbType = (type: DatabaseTypeSchema): void => {
 
 Location: `packages/server/tests/[area]/[feature].test.ts`
 
-**Structure**:
+**Route tests** mock `dao-factory.js` so all DB types share the same mock object:
 ```ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const mockQuery = vi.fn();
-vi.mock("@/db-manager.js", () => ({
-  getDbPool: vi.fn(() => ({ query: mockQuery })),
+const mockDao = vi.hoisted(() => ({
+  getTablesList: vi.fn(),
+  addRecord: vi.fn(),
+  executeQuery: vi.fn(),
+  // ... all 18+ IDbAdapter methods
 }));
 
-describe("Feature", () => {
-  beforeEach(() => vi.clearAllMocks());
+vi.mock("@/dao/dao-factory.js", () => ({
+  getDaoFactory: vi.fn(() => mockDao),
+  executeDaoMethod: vi.fn(),
+}));
 
-  it("should do X", async () => {
-    mockQuery.mockResolvedValue({ rows: [...] });
-    const result = await myDao();
-    expect(result).toEqual([...]);
-  });
+vi.mock("@/db-manager.js", () => ({
+  getDbPool: vi.fn(() => ({ query: vi.fn() })),
+  getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
+  getMssqlPool: vi.fn(),
+  // ...
+}));
 
-  it("should throw on Y", async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-    await expect(myDao()).rejects.toThrow("some message");
+describe("Tables Routes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    app = createServer().app;
   });
 });
 ```
 
+**Adapter tests** mock `db-manager.js` directly and instantiate the adapter:
+```ts
+const mockPool = vi.hoisted(() => vi.fn());
+vi.mock("@/db-manager.js", () => ({ getMssqlPool: mockPool, ... }));
+
+import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
+
+const adapter = new MsSqlAdapter();
+mockPool.mockResolvedValue({ request: vi.fn().mockReturnValue({...}) });
+```
+
 **Rules**:
-- Mock database connections at the module level with `vi.mock`
+- Route tests always mock `@/dao/dao-factory.js` — never individual DAO or adapter files
+- Use `vi.hoisted()` for mock objects referenced inside `vi.mock()` factory functions
 - Reset mocks in `beforeEach` (not `afterEach`)
-- Test both happy path and error cases
-- Run a single file: `bunx vitest run src/path/to/file.test.ts`
+- Test both happy path and error cases (connection errors → 503, generic errors → 500)
+- Run a single file: `bunx vitest run tests/path/to/file.test.ts` (from `packages/server`)

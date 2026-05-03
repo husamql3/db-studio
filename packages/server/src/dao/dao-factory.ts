@@ -61,8 +61,6 @@ export type DaoMethods = typeof daoRegistry.mongodb;
  * @returns DAO methods for the specified database type
  */
 export function getDaoFactory(dbType: DatabaseTypeSchema): DaoMethods {
-	// Prefer a registered IDbAdapter when one exists (PG and future adapters).
-	// Falls back to the legacy daoRegistry for mysql, mssql, mongodb until their adapters are built.
 	if (adapterRegistry.has(dbType)) {
 		return adapterRegistry.get(dbType);
 	}
