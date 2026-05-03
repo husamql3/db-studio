@@ -18,7 +18,8 @@ export const changelog: ChangelogItem[] = [
 	{
 		version: "1.8.0",
 		date: "2026-05-03",
-		title: "Refactored database operation layer with new adapter-based architecture for better multi-database support",
+		title:
+			"Refactored database operation layer with new adapter-based architecture for better multi-database support",
 		features: [
 			{
 				text: "Refactored database operation layer with new adapter-based architecture for better multi-database support",
