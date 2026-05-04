@@ -36,7 +36,7 @@
     "@tanstack/ai": "^0.14.0",
     "@tanstack/ai-react": "^0.8.0",
     "@tanstack/react-query": "^5.90.12",
-    "@tanstack/react-router": "^1.168.25",
+    "@tanstack/react-router": "^1.169.1",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.13",
     "@uiw/react-json-view": "^2.0.0-alpha.40",
