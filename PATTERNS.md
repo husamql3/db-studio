@@ -13,14 +13,14 @@
 | MongoDB DAO | `[action]-[resource].mongo.dao.ts` | `add-column.mongo.dao.ts` |
 | MSSQL DAO | `[action]-[resource].mssql.dao.ts` | `add-column.mssql.dao.ts` |
 | Shared type | `[feature].types.ts` | `column-info.types.ts` |
-| Core type | `[feature].type.ts` | `table.type.ts` |
+| Web type | `[feature].type.ts` | `table.type.ts` |
 | Test | `[file-name].test.ts` | `parse-bulk-data.test.ts` |
 
 ## Directory Structure
 
 ```
 packages/
-├── core/src/
+├── web/src/
 │   ├── components/
 │   │   ├── [feature]/          # Feature-grouped components (sidebar/, table-tab/, ...)
 │   │   └── ui/                 # Reusable Radix-based primitives
@@ -76,7 +76,7 @@ export * from "./database.types.js";
 export * from "./column-info.types.js";
 ```
 
-**TanStack Table module augmentation** (in `packages/core`):
+**TanStack Table module augmentation** (in `packages/web`):
 ```ts
 declare module "@tanstack/react-table" {
   interface ColumnMeta<_TData extends RowData, _TValue> {
@@ -89,7 +89,7 @@ declare module "@tanstack/react-table" {
 
 ## React Hooks
 
-Location: `packages/core/src/hooks/use-[feature].ts`
+Location: `packages/web/src/hooks/use-[feature].ts`
 
 **Pattern** — return a named object (not a tuple):
 ```ts
@@ -134,7 +134,7 @@ export const MyComponent = ({ id, label }: SomeSchemaType) => { ... };
 
 ## Zustand Stores
 
-Location: `packages/core/src/stores/[entity].store.ts`
+Location: `packages/web/src/stores/[entity].store.ts`
 
 **Pattern**:
 ```ts
@@ -242,7 +242,7 @@ export async function addColumn(params: AddColumnParamsSchemaType): Promise<void
 Configured in each package's `tsconfig.json`:
 
 ```ts
-// packages/core  →  @/ maps to ./src/
+// packages/web  →  @/ maps to ./src/
 import { useDatabaseStore } from "@/stores/database.store";
 
 // cross-package  →  shared/ maps to ../shared/src/

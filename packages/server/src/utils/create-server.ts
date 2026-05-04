@@ -20,15 +20,15 @@ import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
 
 /**
- * Get the path to the core distribution directory.
+ * Get the path to the web app distribution directory.
  */
-const getCoreDistPath = () => {
+const getWebDistPath = () => {
 	if (process.env.NODE_ENV === "development") {
-		return path.resolve(process.cwd(), "../core/dist");
+		return path.resolve(process.cwd(), "../web/dist");
 	}
 
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	return path.resolve(__dirname, "./core-dist");
+	return path.resolve(__dirname, "./web-dist");
 };
 
 const databaseTypeParamSchema = z.object({
@@ -68,7 +68,7 @@ export const createServer = () => {
 		.use(
 			"/favicon.ico",
 			serveStatic({
-				path: path.resolve(getCoreDistPath(), "favicon.ico"),
+				path: path.resolve(getWebDistPath(), "favicon.ico"),
 			}),
 		)
 
@@ -96,8 +96,8 @@ export const createServer = () => {
 		/**
 		 * Serve static assets (before dbType validation to avoid conflicts)
 		 */
-		.use("/assets/*", serveStatic({ root: getCoreDistPath() }))
-		.use("/image.png", serveStatic({ root: getCoreDistPath() }))
+		.use("/assets/*", serveStatic({ root: getWebDistPath() }))
+		.use("/image.png", serveStatic({ root: getWebDistPath() }))
 
 		/**
 		 * Routes that require dbType validation - under /:dbType/...
@@ -125,7 +125,7 @@ export const createServer = () => {
 		/**
 		 * Serve all other static files as fallback (for SPA)
 		 */
-		.use("/*", serveStatic({ root: getCoreDistPath() }));
+		.use("/*", serveStatic({ root: getWebDistPath() }));
 
 	return { app };
 };

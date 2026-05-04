@@ -49,7 +49,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 | Package | Role |
 |---------|------|
 | `packages/server` | Hono API server + CLI (`npx db-studio`) |
-| `packages/core` | React 19 frontend (Vite, TanStack Router/Query/Table) |
+| `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
 | `www` | Marketing/docs site (TanStack Start + Fumadocs, deploys to Cloudflare) |
@@ -67,7 +67,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 **Multi-database routing pattern**: requests under `/:dbType/*` are validated against the adapter registry, then routes call `getAdapter(c.get("dbType"))`. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
 
-### Frontend (`packages/core`)
+### Frontend (`packages/web`)
 
 - TanStack Router with file-based routing in `src/routes/`
 - TanStack Query for server state; Zustand for client state (`src/stores/`)
@@ -145,7 +145,7 @@ export * from "./database.types.js";
 export * from "./column-info.types.js";
 ```
 
-**TanStack Table module augmentation** (in `packages/core`):
+**TanStack Table module augmentation** (in `packages/web`):
 ```ts
 declare module "@tanstack/react-table" {
   interface ColumnMeta<_TData extends RowData, _TValue> {
@@ -158,7 +158,7 @@ declare module "@tanstack/react-table" {
 
 ### React Hooks
 
-Location: `packages/core/src/hooks/use-[feature].ts`
+Location: `packages/web/src/hooks/use-[feature].ts`
 
 **Pattern** — return a named object (not a tuple):
 ```ts
@@ -203,7 +203,7 @@ export const MyComponent = ({ id, label }: SomeSchemaType) => { ... };
 
 ### Zustand Stores
 
-Location: `packages/core/src/stores/[entity].store.ts`
+Location: `packages/web/src/stores/[entity].store.ts`
 
 **Pattern**:
 ```ts
@@ -328,7 +328,7 @@ export class PgAdapter extends BaseAdapter {
 Configured in each package's `tsconfig.json`:
 
 ```ts
-// packages/core  →  @/ maps to ./src/
+// packages/web  →  @/ maps to ./src/
 import { useDatabaseStore } from "@/stores/database.store";
 
 // cross-package  →  shared/ maps to ../shared/src/

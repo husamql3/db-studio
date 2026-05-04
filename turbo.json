@@ -7,33 +7,35 @@
         "^build"
       ],
       "outputs": [
-        "packages/core/dist/**",
-        "packages/server/dist/**",
-        "packages/proxy/dist/**",
-        "www/dist/**"
+        "dist/**",
+        ".vercel/**"
       ],
       "env": [
         "NODE_ENV"
       ]
     },
-    "build:core": {
+    "shared#build": {
+      "outputs": [],
+      "cache": true
+    },
+    "build:web": {
       "outputs": [
-        "packages/core/dist/**"
+        "dist/**"
       ],
       "cache": true
     },
     "build:server": {
       "dependsOn": [
-        "build:core"
+        "build:web"
       ],
       "outputs": [
-        "packages/server/dist/**"
+        "dist/**"
       ],
       "cache": true
     },
     "build:proxy": {
       "outputs": [
-        "packages/proxy/dist/**"
+        "dist/**"
       ],
       "cache": true
     },
@@ -42,8 +44,8 @@
         "^build"
       ],
       "outputs": [
-        "www/dist/**",
-        "www/.vercel/**"
+        "dist/**",
+        ".vercel/**"
       ],
       "cache": true
     },
@@ -51,13 +53,13 @@
       "cache": false,
       "persistent": true
     },
-    "dev:core": {
+    "dev:web": {
       "cache": false,
       "persistent": true
     },
     "dev:server": {
       "dependsOn": [
-        "build:core"
+        "build:web"
       ],
       "cache": false,
       "persistent": true

@@ -30,15 +30,15 @@ export default defineConfig({
 		options.drop = ["console"];
 	},
 	onSuccess: async () => {
-		// Copy core/dist assets to dist/core-dist
-		const coreDistPath = resolve(process.cwd(), "../core/dist");
-		const outputCoreDistPath = resolve(process.cwd(), "dist/core-dist");
+		// Copy web/dist assets to dist/web-dist
+		const webDistPath = resolve(process.cwd(), "../web/dist");
+		const outputWebDistPath = resolve(process.cwd(), "dist/web-dist");
 
-		if (existsSync(coreDistPath)) {
-			cpSync(coreDistPath, outputCoreDistPath, { recursive: true });
-			console.log("✓ Copied core/dist to dist/core-dist");
+		if (existsSync(webDistPath)) {
+			cpSync(webDistPath, outputWebDistPath, { recursive: true });
+			console.log("✓ Copied web/dist to dist/web-dist");
 		} else {
-			console.warn("⚠ core/dist not found. Make sure to build core first.");
+			console.warn("⚠ web/dist not found. Make sure to build the web app first.");
 		}
 	},
 });

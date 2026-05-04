@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - "packages/server/src/**"
-      - "packages/core/src/**"
+      - "packages/web/src/**"
       - "packages/shared/src/**"
 
 jobs:
@@ -43,9 +43,9 @@ jobs:
               'find packages/server/dist -type f | sort | xargs du -sh 2>/dev/null'
             )
 
-            const coreTotal = run('du -sh packages/core/dist | cut -f1')
-            const coreFiles = run(
-              'find packages/core/dist -type f | sort | xargs du -sh 2>/dev/null'
+            const webTotal = run('du -sh packages/web/dist | cut -f1')
+            const webFiles = run(
+              'find packages/web/dist -type f | sort | xargs du -sh 2>/dev/null'
             )
 
             const body = [
@@ -61,12 +61,12 @@ jobs:
               '',
               '</details>',
               '',
-              `**\`packages/core/dist\`** — \`${coreTotal}\``,
+              `**\`packages/web/dist\`** — \`${webTotal}\``,
               '',
               '<details><summary>File breakdown</summary>',
               '',
               '```',
-              coreFiles,
+              webFiles,
               '```',
               '',
               '</details>',

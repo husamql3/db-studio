@@ -44,9 +44,9 @@
 	},
 	"files": {
 		"includes": [
-			"packages/core/src/**",
-			"!packages/core/src/index.css",
-			"!packages/core/src/routeTree.gen.ts",
+			"packages/web/src/**",
+			"!packages/web/src/index.css",
+			"!packages/web/src/routeTree.gen.ts",
 			"packages/server/src/**",
 			"packages/proxy/src/**",
 			"packages/shared/src/**",

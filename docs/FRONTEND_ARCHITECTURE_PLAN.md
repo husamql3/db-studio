@@ -1,14 +1,14 @@
 # Frontend Architecture Improvement Plan
 
-Scope: current frontend package (`packages/core`), targeted to become `packages/web`.
+Scope: current frontend package (`packages/web`), renamed from `packages/core`.
 
 This plan assumes the frontend will evolve from a single Vite React package into a
 scalable monorepo architecture with shared UI, internal feature modules, and a future desktop
 application.
 
-The first packaging cleanup is to rename the current `core` package to `web`. The package
-is the web app, not shared core logic, so `web` is clearer once `ui`, `desktop`, and
-feature boundaries exist.
+The first packaging cleanup renamed the previous `core` package to `web`. The package is
+the web app, not shared core logic, so `web` is clearer once `ui`, `desktop`, and feature
+boundaries exist.
 
 ---
 
@@ -25,37 +25,37 @@ feature boundaries exist.
 
 ### Phase 0 — Rename Core Package to Web
 
-- [ ] Rename `packages/core` to `packages/web`
+- [x] Rename `packages/core` to `packages/web`
   - Keep source structure intact during the rename
   - Update workspace package references and package name to `web` or `@db-studio/web`
   - Update root scripts, Turbo pipeline inputs, Vite config references, and docs
   - Update dev-server wording from "core" to "web app"
 
-- [ ] Update import aliases and generated metadata after the rename
+- [x] Update import aliases and generated metadata after the rename
   - Preserve `@/` as the web package's local `src` alias
   - Keep `shared` / `shared/types` imports unchanged
   - Update `components.json`, TypeScript project references, and package paths
 
-- [ ] Run verification after the rename
+- [x] Run verification after the rename
   - `bun run typecheck`
   - `bun run build`
   - `bun run format`
 
 ### Phase 1 — Safe Refactors
 
-- [ ] Create `src/shared/api` and move endpoint functions there
-- [ ] Add query-key factories for databases, tables, schema, records, and query runner
-- [ ] Keep current hooks but make them call API functions and query-key factories
-- [ ] Replace mutable Axios `dbType` module state with an `ApiClient` instance
-- [ ] Split `TableTab` into container, grid, empty state, and error state components
-- [ ] Split record presentation by database model:
+- [x] Create `src/shared/api` and copy endpoint functions there
+- [x] Add query-key factories for databases, tables, schema, records, and query runner
+- [x] Keep current hooks but make them call API functions and query-key factories
+- [x] Replace mutable Axios `dbType` module state with an `ApiClient` instance
+- [x] Split `TableTab` into container, grid, empty state, and error state components
+- [x] Split record presentation by database model:
   - SQL databases render records as table/grid-first views
   - NoSQL databases render records as JSON document-first views
   - MongoDB table mode remains an optional preview for top-level scalar fields
-- [ ] Move TanStack Table model setup into `useTableModel`
-- [ ] Standardize mutation feedback with `toast.promise`
-- [ ] Remove debug `console.log` calls from feature components and stores
-- [ ] Replace unstable pending cell edit keys with a scoped edit key
+- [x] Move TanStack Table model setup into `useTableModel`
+- [x] Standardize mutation feedback with `toast.promise`
+- [x] Remove debug `console.log` calls from feature components and stores
+- [x] Replace unstable pending cell edit keys with a scoped edit key
 
 ### Phase 2 — Extract UI Package
 
@@ -101,13 +101,25 @@ feature boundaries exist.
 - [ ] Run `bun run build`
 - [ ] Run `bun run format`
 
+### Phase 6 — Cleanup & Hardening
+
+- [ ] Delete the legacy `src/lib/api.ts` compatibility facade once all imports use `src/shared/api`
+- [ ] Collapse copied endpoint logic into the shared API modules and remove duplicate request construction
+- [ ] Audit query invalidation keys and replace ad hoc cache-key arrays with query-key factories
+- [ ] Add tests around `ApiClient`, query-key factories, and table-model behavior
+- [ ] Add an explicit MongoDB table-preview toggle after the document-first view settles
+- [ ] Remove transitional comments and any duplicate wrapper components introduced during Phase 1
+- [ ] Run `bun run typecheck`
+- [ ] Run `bun run build`
+- [ ] Run `bun run format`
+
 ---
 
 ## 1. Current Issues
 
 The current frontend stack is solid: Vite, React 19, TanStack Router, TanStack Query,
 TanStack Table, Zustand, Tailwind v4, and shadcn-style primitives. The architectural
-issue is that `packages/core` currently owns too many responsibilities at once:
+issue is that `packages/web` currently owns too many responsibilities at once:
 
 - app shell and routing
 - feature screens
@@ -118,7 +130,7 @@ issue is that `packages/core` currently owns too many responsibilities at once:
 - global and feature state
 - workflow orchestration
 
-Concrete issues found in `packages/core`:
+Concrete issues found in `packages/web`:
 
 - `src/components` is organized by broad UI areas, not stable feature boundaries:
   `table-tab`, `schema-tab`, `add-table`, `runnr-tab`, `sidebar`, `chat`, `data-grid`,
@@ -433,9 +445,10 @@ and format.
 
 ### Phase 1: Safe Refactors
 
-Goal: introduce boundaries without changing runtime behavior.
+Goal: introduce boundaries while keeping runtime behavior stable. Endpoint logic is copied
+first and cleaned up later in Phase 6.
 
-- Create `src/shared/api` and move endpoint functions there.
+- Create `src/shared/api` and copy endpoint functions there.
 - Add query-key factories for tables, schema, records, databases, and query runner.
 - Keep current hooks but make them call API functions and key factories.
 - Split `TableTab` into:
