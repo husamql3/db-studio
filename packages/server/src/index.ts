@@ -1,7 +1,7 @@
 import { intro, outro } from "@clack/prompts";
+import { DEFAULTS } from "@db-studio/shared/constants";
 import { serve } from "@hono/node-server";
 import color from "picocolors";
-import { DEFAULTS } from "shared/constants";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";

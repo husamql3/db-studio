@@ -1,5 +1,5 @@
+import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { useMutation } from "@tanstack/react-query";
-import type { ExecuteQueryResult } from "shared/types";
 import { executeQuery as executeQueryRequest } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 

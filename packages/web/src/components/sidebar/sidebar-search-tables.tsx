@@ -1,10 +1,10 @@
+import { Button } from "@db-studio/ui/button";
+import { Input } from "@db-studio/ui/input";
+import { Kbd } from "@db-studio/ui/kbd";
 import { Plus, Search } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";

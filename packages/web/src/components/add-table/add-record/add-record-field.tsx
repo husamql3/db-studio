@@ -1,24 +1,24 @@
-import { Clock, Link, RefreshCw } from "lucide-react";
-import { useQueryState } from "nuqs";
-import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
-import type { ColumnInfoSchemaType } from "shared/types";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
+import { DatePicker } from "@db-studio/ui/date-picker";
+import { Input } from "@db-studio/ui/input";
+import { Label } from "@db-studio/ui/label";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+} from "@db-studio/ui/select";
+import { Textarea } from "@db-studio/ui/textarea";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@db-studio/ui/tooltip";
+import { Clock, Link, RefreshCw } from "lucide-react";
+import { useQueryState } from "nuqs";
+import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import type { AddRecordFormData } from "@/hooks/use-create-record";
 import { useSheetStore } from "@/stores/sheet.store";
 import { CONSTANTS } from "@/utils/constants";

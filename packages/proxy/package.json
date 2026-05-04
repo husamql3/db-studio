@@ -1,5 +1,5 @@
 {
-  "name": "proxy",
+  "name": "@db-studio/proxy",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "secrets:clear": "wrangler secret delete --all"
   },
   "dependencies": {
-    "shared": "workspace:*",
+    "@db-studio/shared": "workspace:*",
     "@tanstack/ai": "^0.14.0",
     "@tanstack/ai-gemini": "^0.10.0",
     "@upstash/redis": "^1.36.1",

@@ -1,7 +1,7 @@
 "use client";
 
+import { cn } from "@db-studio/ui/utils";
 import { type CSSProperties, type ElementType, memo, useMemo } from "react";
-import { cn } from "@/lib/utils";
 
 type TextShimmerProps = {
 	children: string;

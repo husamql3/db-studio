@@ -1,5 +1,3 @@
-import { HTTPException } from "hono/http-exception";
-import type { ConnectionPool as MssqlPool } from "mssql";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -27,8 +25,10 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-} from "shared/types";
-import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "shared/types";
+} from "@db-studio/shared/types";
+import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
+import { HTTPException } from "hono/http-exception";
+import type { ConnectionPool as MssqlPool } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMssqlPool } from "@/adapters/connections.js";

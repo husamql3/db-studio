@@ -27,13 +27,13 @@ boundaries exist.
 
 - [x] Rename `packages/core` to `packages/web`
   - Keep source structure intact during the rename
-  - Update workspace package references and package name to `web` or `@db-studio/web`
+  - Update workspace package references and package name to `@db-studio/web`
   - Update root scripts, Turbo pipeline inputs, Vite config references, and docs
   - Update dev-server wording from "core" to "web app"
 
 - [x] Update import aliases and generated metadata after the rename
   - Preserve `@/` as the web package's local `src` alias
-  - Keep `shared` / `shared/types` imports unchanged
+  - Keep `@db-studio/shared` / `@db-studio/shared/types` imports consistent
   - Update `components.json`, TypeScript project references, and package paths
 
 - [x] Run verification after the rename
@@ -59,15 +59,15 @@ boundaries exist.
 
 ### Phase 2 — Extract UI Package
 
-- [ ] Create `packages/ui`
-- [ ] Move primitive components from the web package's `src/components/ui`
-- [ ] Move `cn` and shared token CSS into `packages/ui`
-- [ ] Update app imports to `@db-studio/ui`
-- [ ] Update `components.json` aliases
-- [ ] Keep the web app importing UI CSS during the transition
-- [ ] Add Storybook for isolated component states
-- [ ] Add stories for dense controls, sheets/dialogs, table controls, spinner, and empty/error states
-- [ ] Move generic `DataGrid` after primitives are stable
+- [x] Create `packages/ui`
+- [x] Move primitive components from the web package's `src/components/ui`
+- [x] Move `cn` and shared token CSS into `packages/ui`
+- [x] Update app imports to `@db-studio/ui`
+- [x] Update `components.json` aliases
+- [x] Keep the web app importing UI CSS during the transition
+- [x] Add Storybook for isolated component states
+- [x] Add stories for dense controls, sheets/dialogs, table controls, spinner, and empty/error states
+- [x] Move generic `DataGrid` after primitives are stable
 
 ### Phase 3 — Introduce Internal Feature Modules
 
@@ -433,7 +433,7 @@ sidecar, or a hybrid.
 Goal: make package ownership explicit before extracting more frontend architecture.
 
 - Rename `packages/core` to `packages/web`.
-- Rename the package to `web` or `@db-studio/web`.
+- Rename the package to `@db-studio/web`.
 - Update workspace references, root scripts, Turbo config, TypeScript references, Vite
   config, docs, and generated metadata.
 - Keep runtime code unchanged during this phase.

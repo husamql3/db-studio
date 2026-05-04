@@ -1,7 +1,4 @@
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import { useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	Command,
 	CommandEmpty,
@@ -9,11 +6,14 @@ import {
 	CommandInput,
 	CommandItem,
 	CommandList,
-} from "@/components/ui/command";
-import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+} from "@db-studio/ui/command";
+import { Label } from "@db-studio/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@db-studio/ui/popover";
+import { cn } from "@db-studio/ui/utils";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
+import { Controller, useFormContext } from "react-hook-form";
 import { useTablesList } from "@/hooks/use-tables-list";
-import { cn } from "@/lib/utils";
 import type { AddTableFormData, ForeignKeyData } from "@/types/add-table.type";
 
 export const ReferencedTableField = ({ index }: { index: number }) => {

@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@db-studio/ui/utils";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
-import { cn } from "@/lib/utils";
 
 type MessageRole = "system" | "user" | "assistant" | "data";
 

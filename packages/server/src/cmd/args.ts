@@ -1,5 +1,5 @@
+import type { Args } from "@db-studio/shared/types";
 import { program } from "commander";
-import type { Args } from "shared/types";
 
 /**
  * Get the arguments from the command line

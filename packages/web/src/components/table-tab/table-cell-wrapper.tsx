@@ -1,6 +1,6 @@
+import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
 import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
-import { cn } from "@/lib/utils";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
 

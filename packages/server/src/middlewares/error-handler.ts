@@ -1,7 +1,7 @@
+import type { ApiError } from "@db-studio/shared/types/api-response.types.js";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
-import type { ApiError } from "shared/types/api-response.types.js";
 import { ZodError } from "zod";
 
 /**

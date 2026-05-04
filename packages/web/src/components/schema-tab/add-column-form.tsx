@@ -1,6 +1,7 @@
+import { addColumnSchema } from "@db-studio/shared/types";
+import { Label } from "@db-studio/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
-import { addColumnSchema } from "shared/types";
 import { z } from "zod";
 import { AdvancedOptions } from "@/components/add-table/advanced-options";
 import { ColumnNameField } from "@/components/add-table/column-name-field";
@@ -9,7 +10,6 @@ import { DefaultValueField } from "@/components/add-table/default-value-field";
 import { FormActions } from "@/components/add-table/form-actions";
 import { PrimaryField } from "@/components/add-table/primary-field";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { Label } from "@/components/ui/label";
 import { useAddColumn } from "@/hooks/use-add-column";
 import { useSheetStore } from "@/stores/sheet.store";
 

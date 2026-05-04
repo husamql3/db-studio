@@ -1,9 +1,11 @@
 "use client";
 
+import { CHAT_SUGGESTIONS, DEFAULTS } from "@db-studio/shared/constants";
+import { Button } from "@db-studio/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { CHAT_SUGGESTIONS, DEFAULTS } from "shared/constants";
 import {
 	Conversation,
 	ConversationContent,
@@ -32,8 +34,6 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";

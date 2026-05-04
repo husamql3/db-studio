@@ -1,10 +1,10 @@
+import { DEFAULTS } from "@db-studio/shared/constants";
+import type { ApiError, DatabaseTypeSchema } from "@db-studio/shared/types";
 import axios, {
 	type AxiosError,
 	type AxiosInstance,
 	type InternalAxiosRequestConfig,
 } from "axios";
-import { DEFAULTS } from "shared/constants";
-import type { ApiError, DatabaseTypeSchema } from "shared/types";
 import { logger } from "@/lib/logger";
 
 const setupInterceptors = (instance: AxiosInstance) => {

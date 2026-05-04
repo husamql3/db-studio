@@ -1,4 +1,8 @@
-import type { BaseResponse, BulkInsertResult, DeleteRecordResult } from "shared/types";
+import type {
+	BaseResponse,
+	BulkInsertResult,
+	DeleteRecordResult,
+} from "@db-studio/shared/types";
 import { api } from "./client";
 
 export type AddRecordFormData = Record<string, string>;

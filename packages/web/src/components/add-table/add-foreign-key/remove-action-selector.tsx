@@ -1,12 +1,12 @@
-import { Controller, useFormContext } from "react-hook-form";
-import { Label } from "@/components/ui/label";
+import { Label } from "@db-studio/ui/label";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
+} from "@db-studio/ui/select";
+import { Controller, useFormContext } from "react-hook-form";
 import type { AddTableFormData } from "@/types/add-table.type";
 import { FOREIGN_KEY_ACTION_OPTIONS } from "@/utils/constants/add-table";
 

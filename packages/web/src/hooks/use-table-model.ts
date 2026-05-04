@@ -1,3 +1,4 @@
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import {
 	type ColumnDef,
 	getCoreRowModel,
@@ -6,7 +7,6 @@ import {
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnInfoSchemaType } from "shared/types";
 import { TableCell } from "@/components/table-tab/table-cell";
 import { TableSelector } from "@/components/table-tab/table-selector";
 import type { TableRecord } from "@/types/table.type";

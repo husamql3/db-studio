@@ -1,4 +1,4 @@
-import type { BaseResponse, ExecuteQueryResult } from "shared/types";
+import type { BaseResponse, ExecuteQueryResult } from "@db-studio/shared/types";
 import { api } from "./client";
 
 export const executeQuery = ({ query, db }: { query: string; db?: string | null }) =>

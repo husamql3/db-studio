@@ -1,6 +1,6 @@
+import type { ColumnInfoSchemaType, DeleteRecordResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
-import type { ColumnInfoSchemaType, DeleteRecordResult } from "shared/types";
 import { toast } from "sonner";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { deleteRecords } from "@/shared/api";

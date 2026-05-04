@@ -1,5 +1,5 @@
+import { Checkbox } from "@db-studio/ui/checkbox";
 import { Controller, useFormContext } from "react-hook-form";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { AddTableFormData } from "@/types/add-table.type";
 
 export const PrimaryField = ({ index }: { index: number }) => {

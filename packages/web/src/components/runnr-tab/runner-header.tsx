@@ -1,8 +1,8 @@
+import { Button } from "@db-studio/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { AlignLeft, Braces, Command, CornerDownLeft, Heart, Save, Table } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CONSTANTS } from "@/utils/constants";
 import type { QueryResult } from "./runner-tab";
 

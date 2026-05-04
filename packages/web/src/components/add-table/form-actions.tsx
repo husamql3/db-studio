@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 
 export const FormActions = ({
 	onCancel,

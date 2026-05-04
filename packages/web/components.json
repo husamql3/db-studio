@@ -13,13 +13,13 @@
   "iconLibrary": "tabler",
   "menuColor": "default",
   "menuAccent": "bold",
-  "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
-  },
+	"aliases": {
+		"components": "@/components",
+		"utils": "@db-studio/ui/utils",
+		"ui": "@db-studio/ui",
+		"lib": "@/lib",
+		"hooks": "@/hooks"
+	},
   "registries": {
     "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json",
     "@ai-elements": "https://registry.ai-sdk.dev/{name}.json"

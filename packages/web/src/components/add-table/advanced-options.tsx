@@ -1,15 +1,15 @@
-import { Settings } from "lucide-react";
-import { useCallback, useMemo } from "react";
-import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@db-studio/ui/badge";
+import { Button } from "@db-studio/ui/button";
+import { Checkbox } from "@db-studio/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+} from "@db-studio/ui/dropdown-menu";
+import { Label } from "@db-studio/ui/label";
+import { Settings } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { AddTableFormData } from "@/types/add-table.type";
 import {

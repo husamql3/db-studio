@@ -1,5 +1,5 @@
 {
-  "name": "www",
+  "name": "@db-studio/www",
   "private": true,
   "type": "module",
   "scripts": {
@@ -37,7 +37,7 @@
     "react-icons": "^5.5.0",
     "react-use-measure": "^2.1.7",
     "rough-notation": "^0.5.1",
-    "shared": "workspace:*",
+    "@db-studio/shared": "workspace:*",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.0.6",
     "three": "^0.184.0",

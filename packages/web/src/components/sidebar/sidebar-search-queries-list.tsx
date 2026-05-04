@@ -1,10 +1,10 @@
+import { Button } from "@db-studio/ui/button";
+import { Input } from "@db-studio/ui/input";
+import { Kbd } from "@db-studio/ui/kbd";
 import { useNavigate } from "@tanstack/react-router";
 import { FolderPlus, Plus, Search } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
 import { useQueriesStore } from "@/stores/queries.store";
 import { CONSTANTS } from "@/utils/constants";
 

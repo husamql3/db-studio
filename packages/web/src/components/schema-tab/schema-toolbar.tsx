@@ -1,5 +1,5 @@
+import { Button } from "@db-studio/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useSheetStore } from "@/stores/sheet.store";
 
 export const SchemaToolbar = ({

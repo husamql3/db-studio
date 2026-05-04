@@ -1,3 +1,4 @@
+import { Button } from "@db-studio/ui/button";
 import { XIcon } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { AddForeignKeyForm } from "@/components/add-table/add-foreign-key/add-foreign-key-form";
@@ -6,7 +7,6 @@ import { ColumnNameField } from "@/components/add-table/column-name-field";
 import { ColumnTypeField } from "@/components/add-table/column-type-field";
 import { DefaultValueField } from "@/components/add-table/default-value-field";
 import { PrimaryField } from "@/components/add-table/primary-field";
-import { Button } from "@/components/ui/button";
 import type { AddTableFormData } from "@/types/add-table.type";
 
 export const FieldRow = ({

@@ -1,6 +1,6 @@
+import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState } from "react";
-import type { ExecuteQueryResult } from "shared/types";
 import { toast } from "sonner";
 import { QueryResultContainer } from "@/components/runnr-tab/query-result-container";
 import { RunnerHeader } from "@/components/runnr-tab/runner-header";

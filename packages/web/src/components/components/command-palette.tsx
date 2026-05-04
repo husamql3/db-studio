@@ -1,6 +1,15 @@
 "use client";
 
 import {
+	CommandDialog,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+	CommandSeparator,
+} from "@db-studio/ui/command";
+import {
 	ArrowUpDown,
 	Brain,
 	ChevronLeft,
@@ -36,15 +45,6 @@ import { useQueryState } from "nuqs";
 import { type KeyboardEvent, useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
-import {
-	CommandDialog,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-	CommandSeparator,
-} from "@/components/ui/command";
 import { useTableNavigation } from "@/hooks/use-table-navigation";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";

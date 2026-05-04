@@ -1,5 +1,5 @@
+import type { RateLimitResponse } from "@db-studio/shared/types";
 import { useQuery } from "@tanstack/react-query";
-import type { RateLimitResponse } from "shared/types";
 import { getRateLimit } from "@/shared/api";
 import { chatKeys } from "@/shared/query/keys";
 

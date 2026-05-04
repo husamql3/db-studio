@@ -1,4 +1,19 @@
 "use client";
+import { Badge } from "@db-studio/ui/badge";
+import { Button } from "@db-studio/ui/button";
+import { DatePicker } from "@db-studio/ui/date-picker";
+import { Drawer, DrawerContent } from "@db-studio/ui/drawer";
+import { Input } from "@db-studio/ui/input";
+import { Kbd } from "@db-studio/ui/kbd";
+import { Popover, PopoverAnchor, PopoverContent } from "@db-studio/ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@db-studio/ui/select";
+import { Textarea } from "@db-studio/ui/textarea";
 import type { Cell, Table } from "@tanstack/react-table";
 import {
 	type ChangeEvent,
@@ -14,21 +29,6 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import { FkDrawerContent } from "@/components/table-tab/fk-drawer-content";
 import { TableCellWrapper } from "@/components/table-tab/table-cell-wrapper";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";

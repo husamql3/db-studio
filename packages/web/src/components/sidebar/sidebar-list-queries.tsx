@@ -1,8 +1,8 @@
+import { Separator } from "@db-studio/ui/separator";
 import { useQueryState } from "nuqs";
 import { useState } from "react";
 import { FolderToggleButton } from "@/components/sidebar/folder-toggle-button";
 import { SidebarListQueryItem } from "@/components/sidebar/sidebar-list-query-item";
-import { Separator } from "@/components/ui/separator";
 import { useQueriesStore } from "@/stores/queries.store";
 import { CONSTANTS } from "@/utils/constants";
 

@@ -10,11 +10,12 @@
   ],
   "compilerOptions": {
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": [
         "./src/*"
       ],
-      "shared/*": [
+      "@db-studio/shared/*": [
         "../shared/src/*"
       ]
     }

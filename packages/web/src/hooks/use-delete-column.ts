@@ -1,5 +1,5 @@
+import type { DeleteColumnParamsSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DeleteColumnParamsSchemaType } from "shared/types";
 import { toast } from "sonner";
 import { deleteColumn as deleteColumnRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";

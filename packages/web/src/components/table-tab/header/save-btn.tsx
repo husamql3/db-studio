@@ -1,6 +1,6 @@
+import { Button } from "@db-studio/ui/button";
 import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table";
 import { useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { useUpdateCell } from "@/hooks/use-update-cell";
 import { useUpdateCellStore } from "@/stores/update-cell.store";
 

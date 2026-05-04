@@ -1,4 +1,4 @@
-import type { ColumnInfoSchemaType } from "shared/types";
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { create } from "zustand";
 
 type SchemaEditState = {

@@ -1,7 +1,7 @@
+import { Input } from "@db-studio/ui/input";
+import { cn } from "@db-studio/ui/utils";
 import { LinkIcon } from "lucide-react";
 import { Controller, useFormContext } from "react-hook-form";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
 import type { AddTableFormData } from "@/types/add-table.type";
 

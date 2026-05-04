@@ -1,6 +1,6 @@
+import { Button } from "@db-studio/ui/button";
+import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { TABS } from "@/utils/constants";
 
 export const Tabs = () => {

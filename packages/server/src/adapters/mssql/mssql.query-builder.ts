@@ -1,4 +1,4 @@
-import type { FilterType, SortDirection, SortType } from "shared/types";
+import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
 export function buildWhereClause(
 	filters: FilterType[],

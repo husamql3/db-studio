@@ -1,12 +1,5 @@
-import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
-import { useQueryState } from "nuqs";
-import { useEffect, useMemo } from "react";
-import { useFormContext } from "react-hook-form";
-import { ReferencedTableFilterPopup } from "@/components/add-table/add-record/referenced-table-filter-popup";
-import { ReferencedTableSortPopup } from "@/components/add-table/add-record/referenced-table-sort-popup";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@db-studio/ui/button";
+import { Spinner } from "@db-studio/ui/spinner";
 import {
 	Table,
 	TableBody,
@@ -14,7 +7,14 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@/components/ui/table";
+} from "@db-studio/ui/table";
+import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
+import { useQueryState } from "nuqs";
+import { useEffect, useMemo } from "react";
+import { useFormContext } from "react-hook-form";
+import { ReferencedTableFilterPopup } from "@/components/add-table/add-record/referenced-table-filter-popup";
+import { ReferencedTableSortPopup } from "@/components/add-table/add-record/referenced-table-sort-popup";
 import type { AddRecordFormData } from "@/hooks/use-create-record";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";

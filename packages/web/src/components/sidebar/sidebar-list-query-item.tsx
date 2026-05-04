@@ -1,15 +1,11 @@
-import { useNavigate, useParams } from "@tanstack/react-router";
-import { Copy, Folder, FolderPlus, Pencil, Star, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuSeparator,
 	ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@db-studio/ui/context-menu";
 import {
 	Dialog,
 	DialogContent,
@@ -17,16 +13,20 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+} from "@db-studio/ui/dialog";
+import { Input } from "@db-studio/ui/input";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+} from "@db-studio/ui/select";
+import { cn } from "@db-studio/ui/utils";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { Copy, Folder, FolderPlus, Pencil, Star, Trash2 } from "lucide-react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { useQueriesStore } from "@/stores/queries.store";
 
 export const SidebarListQueryItem = ({

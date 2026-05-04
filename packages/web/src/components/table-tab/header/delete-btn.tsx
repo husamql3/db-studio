@@ -1,5 +1,3 @@
-import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
-import { useCallback, useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -9,8 +7,10 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+} from "@db-studio/ui/alert-dialog";
+import { Button } from "@db-studio/ui/button";
+import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
+import { useCallback, useState } from "react";
 import { type RelatedRecord, useDeleteCells } from "@/hooks/use-delete-cell";
 import type { TableRecord } from "@/types/table.type";
 import { ForceDeleteDialog } from "./force-delete-dialog";

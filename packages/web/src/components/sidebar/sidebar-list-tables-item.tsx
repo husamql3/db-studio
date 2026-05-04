@@ -1,8 +1,8 @@
+import type { TableInfoSchemaType } from "@db-studio/shared/types";
+import { Kbd } from "@db-studio/ui/kbd";
+import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
-import type { TableInfoSchemaType } from "shared/types";
 import { SidebarListTablesMenu } from "@/components/sidebar/sidebar-list-tables-menu";
-import { Kbd } from "@/components/ui/kbd";
-import { cn } from "@/lib/utils";
 
 export const SidebarListTablesItem = ({
 	tableName,

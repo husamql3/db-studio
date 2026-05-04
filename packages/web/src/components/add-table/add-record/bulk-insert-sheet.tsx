@@ -1,10 +1,10 @@
+import { Alert } from "@db-studio/ui/alert";
+import { Button } from "@db-studio/ui/button";
+import { Label } from "@db-studio/ui/label";
+import { SheetClose } from "@db-studio/ui/sheet";
+import { Textarea } from "@db-studio/ui/textarea";
 import { useCallback, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { SheetClose } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { useBulkInsertRecords } from "@/hooks/use-bulk-insert-records";
 import { useSheetStore } from "@/stores/sheet.store";
 import { parseBulkData } from "@/utils/parse-bulk-data";

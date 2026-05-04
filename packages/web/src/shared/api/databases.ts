@@ -3,7 +3,7 @@ import type {
 	ConnectionInfoSchemaType,
 	CurrentDatabaseSchemaType,
 	DatabaseListSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
 import { rootApi } from "./client";
 
 export const getDatabases = () =>

@@ -1,6 +1,6 @@
+import { Sheet, SheetContent, SheetTrigger } from "@db-studio/ui/sheet";
+import { cn } from "@db-studio/ui/utils";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 

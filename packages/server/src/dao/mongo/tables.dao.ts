@@ -11,7 +11,7 @@ export { getTableColumns as getMongoTableColumns } from "./table-columns.mongo.d
 export { getTablesList as getMongoTablesList } from "./table-list.mongo.dao.js";
 export { getTableData as getMongoTableData } from "./tables-data.mongo.dao.js";
 
-import type { CreateTableSchemaType, DatabaseSchemaType } from "shared/types";
+import type { CreateTableSchemaType, DatabaseSchemaType } from "@db-studio/shared/types";
 import { createTable } from "./create-table.mongo.dao.js";
 
 export async function createMongoCollection({

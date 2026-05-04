@@ -1,6 +1,6 @@
+import { cn } from "@db-studio/ui/utils";
 import { Check, Copy } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 import { formatCellValue } from "@/utils/format-cell-value";
 
 export const CellCopyButton = ({

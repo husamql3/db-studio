@@ -1,12 +1,12 @@
-import type { ReactNode } from "react";
 import {
 	Sheet,
 	SheetContent,
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-} from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+} from "@db-studio/ui/sheet";
+import { cn } from "@db-studio/ui/utils";
+import type { ReactNode } from "react";
 
 export const SheetSidebar = ({
 	title,

@@ -127,7 +127,7 @@ export const MyComponent = ({ id, label }: SomeSchemaType) => { ... };
 
 **Imports order** (enforced by Biome):
 1. External packages
-2. `shared/types`
+2. `@db-studio/shared/types`
 3. Local `@/` aliases
 
 **className composition**: always via `cn()` utility.
@@ -246,7 +246,7 @@ Configured in each package's `tsconfig.json`:
 import { useDatabaseStore } from "@/stores/database.store";
 
 // cross-package  →  shared/ maps to ../shared/src/
-import type { TableInfoSchemaType } from "shared/types";
+import type { TableInfoSchemaType } from "@db-studio/shared/types";
 
 // server internal  →  @/ maps to ./src/
 import { getDaoFactory } from "@/dao/dao-factory.js";  // .js extension required (ESM)

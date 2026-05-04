@@ -1,4 +1,9 @@
-import type { Column, DatabaseSchema, DatabaseSchemaType, Table } from "shared/types";
+import type {
+	Column,
+	DatabaseSchema,
+	DatabaseSchemaType,
+	Table,
+} from "@db-studio/shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 import { normalizeMongoDocument } from "./mongo.utils.js";
 import { getTableColumns } from "./table-columns.mongo.dao.js";

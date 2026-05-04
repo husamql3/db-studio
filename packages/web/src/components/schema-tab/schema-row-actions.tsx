@@ -1,8 +1,6 @@
-import { EllipsisVertical, Pencil, Trash2, Type } from "lucide-react";
-import { useState } from "react";
-import type { ColumnInfoSchemaType } from "shared/types";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
+import { Button } from "@db-studio/ui/button";
+import { Checkbox } from "@db-studio/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -10,7 +8,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@/components/ui/dialog";
+} from "@db-studio/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,9 +16,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@db-studio/ui/dropdown-menu";
+import { Input } from "@db-studio/ui/input";
+import { Label } from "@db-studio/ui/label";
+import { EllipsisVertical, Pencil, Trash2, Type } from "lucide-react";
+import { useState } from "react";
 import { useDeleteColumn } from "@/hooks/use-delete-column";
 import { useRenameColumn } from "@/hooks/use-rename-column";
 import { useSchemaEditStore } from "@/stores/schema-edit.store";

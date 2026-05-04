@@ -1,7 +1,4 @@
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import { useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	Command,
 	CommandEmpty,
@@ -9,9 +6,12 @@ import {
 	CommandInput,
 	CommandItem,
 	CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+} from "@db-studio/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@db-studio/ui/popover";
+import { cn } from "@db-studio/ui/utils";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
+import { Controller, useFormContext } from "react-hook-form";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { AddTableFormData } from "@/types/add-table.type";
 import {

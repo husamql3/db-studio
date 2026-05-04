@@ -1,7 +1,7 @@
+import type { ApiError, BaseResponse } from "@db-studio/shared/types";
+import type { DatabaseTypeSchema } from "@db-studio/shared/types/database.types.js";
 import type { TypedResponse } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
-import type { ApiError, BaseResponse } from "shared/types";
-import type { DatabaseTypeSchema } from "shared/types/database.types.js";
 import type { ChatRoutes } from "@/routes/chat.routes.js";
 import type { DatabasesRoutes } from "@/routes/databases.routes.js";
 import type { QueryRoutes } from "@/routes/query.routes.js";

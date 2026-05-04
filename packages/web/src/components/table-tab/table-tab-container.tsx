@@ -41,7 +41,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 		);
 	}
 
-	const hasNoData = !tableData || !tableData.data || tableData.data.length === 0;
+	const hasNoData = !tableData?.data || tableData.data.length === 0;
 
 	if (hasNoData) {
 		return (

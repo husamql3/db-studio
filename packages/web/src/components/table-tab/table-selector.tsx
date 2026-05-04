@@ -1,5 +1,5 @@
+import { Checkbox } from "@db-studio/ui/checkbox";
 import type { ColumnDef, Row, Table } from "@tanstack/react-table";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { TableRecord } from "@/types/table.type";
 
 export const TableSelector = (): ColumnDef<TableRecord, unknown> => ({

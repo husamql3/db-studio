@@ -1,5 +1,5 @@
-import type { TableInfoSchemaType } from "shared/types";
-import type { DatabaseSchemaType } from "shared/types/database.types.js";
+import type { TableInfoSchemaType } from "@db-studio/shared/types";
+import type { DatabaseSchemaType } from "@db-studio/shared/types/database.types.js";
 import { getMongoDb } from "@/adapters/connections.js";
 
 export async function getTablesList(

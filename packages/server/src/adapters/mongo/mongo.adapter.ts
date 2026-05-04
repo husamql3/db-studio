@@ -1,4 +1,3 @@
-import { HTTPException } from "hono/http-exception";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -21,7 +20,8 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
+import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
@@ -1018,7 +1018,7 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
 		try {
-			if (!query || !query.trim()) {
+			if (!query?.trim()) {
 				throw new HTTPException(400, { message: "Query is required" });
 			}
 

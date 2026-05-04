@@ -14,11 +14,15 @@
         "NODE_ENV"
       ]
     },
-    "shared#build": {
-      "outputs": [],
-      "cache": true
-    },
-    "build:web": {
+		"@db-studio/shared#build": {
+			"outputs": [],
+			"cache": true
+		},
+		"@db-studio/ui#build": {
+			"outputs": [],
+			"cache": true
+		},
+		"build:web": {
       "outputs": [
         "dist/**"
       ],

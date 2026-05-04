@@ -24,7 +24,7 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
 
 export interface GetTableDataParams {
 	tableName: string;

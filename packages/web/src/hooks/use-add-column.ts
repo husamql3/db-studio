@@ -1,5 +1,5 @@
+import type { AddColumnSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AddColumnSchemaType } from "shared/types";
 import { toast } from "sonner";
 import { addColumn as addColumnRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";

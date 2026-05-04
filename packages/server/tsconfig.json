@@ -15,11 +15,12 @@
 		"jsxImportSource": "hono/jsx",
 		"outDir": "./dist",
 		"baseUrl": ".",
+		"ignoreDeprecations": "6.0",
 		"paths": {
 			"@/*": [
 				"./src/*"
 			],
-			"shared/*": [
+			"@db-studio/shared/*": [
 				"../shared/src/*"
 			]
 		}

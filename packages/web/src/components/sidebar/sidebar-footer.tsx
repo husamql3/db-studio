@@ -1,18 +1,18 @@
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, Database, RefreshCw } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+} from "@db-studio/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
+import { cn } from "@db-studio/ui/utils";
+import { useNavigate } from "@tanstack/react-router";
+import { ChevronDown, Database, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { useDatabaseConnectionInfo, useDatabasesList } from "@/hooks/use-databases-list";
-import { cn } from "@/lib/utils";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {

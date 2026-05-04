@@ -1,18 +1,18 @@
-import { Filter, X } from "lucide-react";
-import { parseAsJson, useQueryState } from "nuqs";
-import { useState } from "react";
-import type { FilterType as FilterSchemaType } from "shared/types";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { FilterType as FilterSchemaType } from "@db-studio/shared/types";
+import { Button } from "@db-studio/ui/button";
+import { Input } from "@db-studio/ui/input";
+import { Kbd } from "@db-studio/ui/kbd";
+import { Popover, PopoverContent, PopoverTrigger } from "@db-studio/ui/popover";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
+} from "@db-studio/ui/select";
+import { Filter, X } from "lucide-react";
+import { parseAsJson, useQueryState } from "nuqs";
+import { useState } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { CONSTANTS } from "@/utils/constants";
 

@@ -1,5 +1,5 @@
+import { cn } from "@db-studio/ui/utils";
 import * as Slot from "@radix-ui/react-slot";
-import { cn } from "@/lib/utils";
 
 type Variant = {
 	variant: "shine";

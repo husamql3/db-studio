@@ -1,5 +1,5 @@
+import type { BulkInsertResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { BulkInsertResult } from "shared/types";
 import { toast } from "sonner";
 import { bulkInsertRecords as bulkInsertRecordsRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";

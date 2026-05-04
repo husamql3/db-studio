@@ -1,4 +1,27 @@
 import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@db-studio/ui/alert-dialog";
+import { Button } from "@db-studio/ui/button";
+import { Checkbox } from "@db-studio/ui/checkbox";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@db-studio/ui/dropdown-menu";
+import { Label } from "@db-studio/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
+import { cn } from "@db-studio/ui/utils";
+import {
 	flexRender,
 	type HeaderGroup,
 	type SortDirection,
@@ -18,30 +41,7 @@ import {
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
 import { TableColumnResizer } from "@/components/table-tab/table-col-resizer";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDeleteColumn } from "@/hooks/use-delete-column";
-import { cn } from "@/lib/utils";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";

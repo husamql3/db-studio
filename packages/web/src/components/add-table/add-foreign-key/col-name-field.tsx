@@ -1,11 +1,11 @@
-import { Controller, useFormContext } from "react-hook-form";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
+} from "@db-studio/ui/select";
+import { Controller, useFormContext } from "react-hook-form";
 import type { AddTableFormData } from "@/types/add-table.type";
 
 // todo: add data types

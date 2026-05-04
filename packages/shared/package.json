@@ -1,5 +1,5 @@
 {
-  "name": "shared",
+  "name": "@db-studio/shared",
   "module": "index.ts",
   "type": "module",
   "exports": {

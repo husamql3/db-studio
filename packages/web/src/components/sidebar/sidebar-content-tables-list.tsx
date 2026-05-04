@@ -1,15 +1,15 @@
-import { useQueryState } from "nuqs";
-import { useMemo } from "react";
-import { SidebarListTables } from "@/components/sidebar/sidebar-list-tables";
-import { SidebarSearchTables } from "@/components/sidebar/sidebar-search-tables";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@db-studio/ui/scroll-area";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
+} from "@db-studio/ui/select";
+import { useQueryState } from "nuqs";
+import { useMemo } from "react";
+import { SidebarListTables } from "@/components/sidebar/sidebar-list-tables";
+import { SidebarSearchTables } from "@/components/sidebar/sidebar-search-tables";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";

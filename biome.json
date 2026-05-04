@@ -44,6 +44,11 @@
 	},
 	"files": {
 		"includes": [
+			"packages/ui/src/**",
+			"!packages/ui/src/**/*.css",
+			"packages/ui/.storybook/**",
+			"packages/ui/package.json",
+			"packages/ui/tsconfig.json",
 			"packages/web/src/**",
 			"!packages/web/src/index.css",
 			"!packages/web/src/routeTree.gen.ts",

@@ -262,7 +262,7 @@
   2. Create src/adapters/<dbname>/<dbname>.query-builder.ts
   3. Add connection handling in db-manager.ts
   4. Register: adapterRegistry.register("<dbname>", new MyAdapter())
-  5. Add "<dbname>" to DATABASE_TYPES in shared/types/database.types.ts
+  5. Add "<dbname>" to DATABASE_TYPES in @db-studio/shared/types/database.types.ts
   ```
 
 ---

@@ -2,7 +2,7 @@ import type {
 	DatabaseSchemaType,
 	TableDataQuerySchemaType,
 	TableDataResultSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 import { buildMongoFilters, buildMongoSort, normalizeMongoDocument } from "./mongo.utils.js";
 

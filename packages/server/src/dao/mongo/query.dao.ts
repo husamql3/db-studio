@@ -1,5 +1,9 @@
+import type {
+	DatabaseSchemaType,
+	ExecuteQueryParams,
+	ExecuteQueryResult,
+} from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
-import type { DatabaseSchemaType, ExecuteQueryParams, ExecuteQueryResult } from "shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 import { buildMongoSort, normalizeMongoDocument, toMongoId } from "./mongo.utils.js";
 
@@ -60,7 +64,7 @@ export const executeMongoQuery = async ({
 	query: ExecuteQueryParams["query"];
 	db: DatabaseSchemaType["db"];
 }): Promise<ExecuteQueryResult> => {
-	if (!query || !query.trim()) {
+	if (!query?.trim()) {
 		throw new HTTPException(400, {
 			message: "Query is required",
 		});

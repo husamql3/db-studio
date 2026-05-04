@@ -1,5 +1,5 @@
+import type { DeleteTableResult, RelatedRecord } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DeleteTableResult, RelatedRecord } from "shared/types";
 import { toast } from "sonner";
 import { deleteTable as deleteTableRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";

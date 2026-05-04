@@ -11,7 +11,7 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	TableSchemaResult,
-} from "shared/types";
+} from "@db-studio/shared/types";
 import { api } from "./client";
 
 export type TableDataParams = {

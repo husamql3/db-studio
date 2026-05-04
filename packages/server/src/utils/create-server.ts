@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -7,7 +8,6 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-import type { DatabaseTypeSchema } from "shared/types";
 import { z } from "zod";
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
 import { registerAdapters } from "@/adapters/register.js";

@@ -1,5 +1,5 @@
+import type { RenameColumnSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { RenameColumnSchemaType } from "shared/types";
 import { toast } from "sonner";
 import { renameColumn as renameColumnRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";

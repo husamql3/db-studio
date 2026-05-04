@@ -1,6 +1,6 @@
+import { Button } from "@db-studio/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 

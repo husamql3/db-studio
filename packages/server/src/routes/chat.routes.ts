@@ -1,7 +1,7 @@
+import { DEFAULTS } from "@db-studio/shared/constants";
+import { chatSchema } from "@db-studio/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { DEFAULTS } from "shared/constants";
-import { chatSchema } from "shared/types";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 import { getDetailedSchema } from "@/utils/table-details-schema.js";
 

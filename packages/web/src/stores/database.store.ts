@@ -1,4 +1,4 @@
-import type { DatabaseTypeSchema } from "shared/types";
+import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { create } from "zustand";
 
 interface DatabaseStore {

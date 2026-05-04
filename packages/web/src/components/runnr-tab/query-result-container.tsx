@@ -1,10 +1,10 @@
+import type { ExecuteQueryResult } from "@db-studio/shared/types";
+import { Spinner } from "@db-studio/ui/spinner";
 import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { useQueryState } from "nuqs";
 import { useMemo } from "react";
-import type { ExecuteQueryResult } from "shared/types";
 import { TableView } from "@/components/runnr-tab/table-view";
-import { Spinner } from "@/components/ui/spinner";
 import { CONSTANTS } from "@/utils/constants";
 
 export const QueryResultContainer = ({

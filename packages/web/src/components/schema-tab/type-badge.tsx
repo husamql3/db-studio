@@ -1,6 +1,6 @@
-import type { ColumnInfoSchemaType } from "shared/types";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
+import { Badge } from "@db-studio/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 
 export const TypeBadge = ({ col }: { col: ColumnInfoSchemaType }) => {
 	if (col.dataTypeLabel === "enum" && col.enumValues && col.enumValues.length > 0) {

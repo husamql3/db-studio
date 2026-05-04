@@ -1,10 +1,10 @@
+import { HEADER_LINKS, META } from "@db-studio/shared/constants";
 import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
 import { IoMenuOutline } from "react-icons/io5";
-import { HEADER_LINKS, META } from "shared/constants";
 import { Button } from "@/components/ui/btn";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 

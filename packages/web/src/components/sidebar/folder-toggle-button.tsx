@@ -1,6 +1,3 @@
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -10,14 +7,14 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+} from "@db-studio/ui/alert-dialog";
+import { Button } from "@db-studio/ui/button";
 import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@db-studio/ui/context-menu";
 import {
 	Dialog,
 	DialogContent,
@@ -25,10 +22,13 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
-import { cn } from "@/lib/utils";
+} from "@db-studio/ui/dialog";
+import { Input } from "@db-studio/ui/input";
+import { Kbd } from "@db-studio/ui/kbd";
+import { cn } from "@db-studio/ui/utils";
+import { useNavigate } from "@tanstack/react-router";
+import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useState } from "react";
 import { useQueriesStore } from "@/stores/queries.store";
 
 export const FolderToggleButton = ({

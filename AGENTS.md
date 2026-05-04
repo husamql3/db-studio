@@ -78,7 +78,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 ### Shared (`packages/shared`)
 
 Three export paths:
-- `shared` / `shared/types` → `src/types/index.ts`
+- `@db-studio/shared` / `@db-studio/shared/types` → `src/types/index.ts`
 - `shared/constants` → `src/constants/index.ts`
 
 ### Key types
@@ -90,7 +90,7 @@ Three export paths:
 ## Tooling
 
 - **Linter/Formatter**: Biome (tabs, 95-char width). Run `bun run format` to auto-fix.
-- **Tests**: Vitest (server package only). Path aliases `@` → `./src` and `shared` → `../shared/src` are configured in `vitest.config.ts`.
+- **Tests**: Vitest (server package only). Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in `vitest.config.ts`.
 - **Pre-commit hook**: runs `bun run format && bun run test && bun run build` via Husky.
 - **CI**: GitHub Actions on push to `stage` — build → biome format → tests.
 
@@ -196,7 +196,7 @@ export const MyComponent = ({ id, label }: SomeSchemaType) => { ... };
 
 **Imports order** (enforced by Biome):
 1. External packages
-2. `shared/types`
+2. `@db-studio/shared/types`
 3. Local `@/` aliases
 
 **className composition**: always via `cn()` utility.
@@ -332,7 +332,7 @@ Configured in each package's `tsconfig.json`:
 import { useDatabaseStore } from "@/stores/database.store";
 
 // cross-package  →  shared/ maps to ../shared/src/
-import type { TableInfoSchemaType } from "shared/types";
+import type { TableInfoSchemaType } from "@db-studio/shared/types";
 
 // server internal  →  @/ maps to ./src/
 import { getAdapter } from "@/adapters/adapter.registry.js"; // .js extension required (ESM)

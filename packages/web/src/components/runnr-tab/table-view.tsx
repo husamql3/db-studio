@@ -1,7 +1,7 @@
+import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
-import type { ExecuteQueryResult } from "shared/types";
 import { formatCellValue } from "@/utils/format-cell-value";
 
 export const TableView = ({ results }: { results: ExecuteQueryResult | null }) => {

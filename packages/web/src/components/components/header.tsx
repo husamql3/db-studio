@@ -1,11 +1,11 @@
+import { META } from "@db-studio/shared/constants";
+import { Button } from "@db-studio/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { Bug } from "lucide-react";
 import { LuGithub } from "react-icons/lu";
-import { META } from "shared/constants";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Header = () => {
 	return (

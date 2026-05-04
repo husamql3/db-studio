@@ -1,15 +1,15 @@
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
-import { useQueryState } from "nuqs";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
+} from "@db-studio/ui/dropdown-menu";
+import { Label } from "@db-studio/ui/label";
+import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pagination";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
+import { useQueryState } from "nuqs";
+import { useEffect, useRef, useState } from "react";
 import { useTableData } from "@/hooks/use-table-data";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";

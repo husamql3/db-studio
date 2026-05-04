@@ -1,6 +1,10 @@
+import {
+	databaseSchema,
+	type ExecuteQueryResult,
+	executeQuerySchema,
+} from "@db-studio/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { databaseSchema, type ExecuteQueryResult, executeQuerySchema } from "shared/types";
 import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
 

@@ -1,5 +1,5 @@
+import type { BulkInsertRecordsParams, BulkInsertResult } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
-import type { BulkInsertRecordsParams, BulkInsertResult } from "shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 import { normalizeMongoDocument } from "./mongo.utils.js";
 

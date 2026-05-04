@@ -1,13 +1,18 @@
+import type {
+	BaseResponse,
+	FilterType,
+	TableDataResultSchemaType,
+} from "@db-studio/shared/types";
+import { Button } from "@db-studio/ui/button";
+import { DataGrid } from "@db-studio/ui/data-grid";
+import { DrawerHeader, DrawerTitle } from "@db-studio/ui/drawer";
+import { Spinner } from "@db-studio/ui/spinner";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
-import type { BaseResponse, FilterType, TableDataResultSchemaType } from "shared/types";
-import { DataGrid } from "@/components/data-grid/data-grid";
-import { Button } from "@/components/ui/button";
-import { DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { Spinner } from "@/components/ui/spinner";
+import { CellCopyButton } from "@/components/table-tab/cell-copy-button";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -102,6 +107,7 @@ export const FkDrawerContent = ({
 					<DataGrid
 						columns={columns}
 						data={tableData?.data ?? []}
+						renderCellAccessory={(value) => <CellCopyButton value={value} />}
 					/>
 				)}
 			</div>

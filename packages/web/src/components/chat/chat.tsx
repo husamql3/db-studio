@@ -1,11 +1,11 @@
 "use client";
 
+import { Button } from "@db-studio/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
+import { cn } from "@db-studio/ui/utils";
 import { Sparkles } from "lucide-react";
 import { lazy, Suspense } from "react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRateLimit } from "@/hooks/use-rate-limit";
-import { cn } from "@/lib/utils";
 import { useSheetStore } from "@/stores/sheet.store";
 
 const ChatSidebar = lazy(() =>

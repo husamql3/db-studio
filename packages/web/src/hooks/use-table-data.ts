@@ -1,6 +1,6 @@
+import type { FilterType, SortType } from "@db-studio/shared/types";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
-import type { FilterType, SortType } from "shared/types";
 import { getTableData } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";

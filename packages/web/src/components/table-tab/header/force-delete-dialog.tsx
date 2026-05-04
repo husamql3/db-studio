@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -6,7 +6,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@/components/ui/dialog";
+} from "@db-studio/ui/dialog";
 import type { RelatedRecord } from "@/hooks/use-delete-cell";
 
 export const ForceDeleteDialog = ({

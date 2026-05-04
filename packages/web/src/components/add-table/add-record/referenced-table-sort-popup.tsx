@@ -1,19 +1,19 @@
-import { ArrowUpDown, X } from "lucide-react";
-import { parseAsJson, useQueryState } from "nuqs";
-import { useState } from "react";
-import type { SortType as Sort, SortDirection } from "shared/types";
-import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
-import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { SortType as Sort, SortDirection } from "@db-studio/shared/types";
+import { Button } from "@db-studio/ui/button";
+import { Kbd } from "@db-studio/ui/kbd";
+import { Label } from "@db-studio/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@db-studio/ui/popover";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+} from "@db-studio/ui/select";
+import { Switch } from "@db-studio/ui/switch";
+import { ArrowUpDown, X } from "lucide-react";
+import { parseAsJson, useQueryState } from "nuqs";
+import { useState } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { CONSTANTS } from "@/utils/constants";
 

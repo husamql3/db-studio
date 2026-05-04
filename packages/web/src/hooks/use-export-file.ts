@@ -1,5 +1,5 @@
+import type { FormatType } from "@db-studio/shared/types";
 import { useMutation } from "@tanstack/react-query";
-import type { FormatType } from "shared/types";
 import { toast } from "sonner";
 import { exportTable } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -16,12 +16,17 @@ export const useExportFile = () => {
 		mutationFn: async ({ tableName, format }: ExportFileParams) => {
 			const response = await exportTable({ tableName, format, db: selectedDatabase });
 
-			const contentDisposition = response.headers["content-disposition"];
+			const contentDispositionHeader = response.headers["content-disposition"];
+			const contentDisposition =
+				typeof contentDispositionHeader === "string" ? contentDispositionHeader : undefined;
 			const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
 			const filename = filenameMatch?.[1] || `${tableName}_export.${format}`;
+			const contentTypeHeader = response.headers["content-type"];
+			const contentType =
+				typeof contentTypeHeader === "string" ? contentTypeHeader : "application/octet-stream";
 
 			const blob = new Blob([response.data], {
-				type: response.headers["content-type"],
+				type: contentType,
 			});
 			const url = window.URL.createObjectURL(blob);
 			const link = document.createElement("a");

@@ -5,7 +5,7 @@ import type {
 	DatabaseSchemaType,
 	Relationship,
 	Table,
-} from "shared/types";
+} from "@db-studio/shared/types";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { getAdapter } from "@/adapters/adapter.registry.js";
 import { getDbType } from "@/db-manager.js";

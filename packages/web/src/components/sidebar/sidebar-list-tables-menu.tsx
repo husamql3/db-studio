@@ -1,16 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
-import {
-	ClipboardCopy,
-	Download,
-	EllipsisVertical,
-	FileCode,
-	Pencil,
-	Trash2,
-} from "lucide-react";
-import { useState } from "react";
-import type { RelatedRecord } from "shared/types";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import type { RelatedRecord } from "@db-studio/shared/types";
+import { Button } from "@db-studio/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -18,7 +7,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@/components/ui/dialog";
+} from "@db-studio/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -29,7 +18,18 @@ import {
 	DropdownMenuSubContent,
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@db-studio/ui/dropdown-menu";
+import { useNavigate } from "@tanstack/react-router";
+import {
+	ClipboardCopy,
+	Download,
+	EllipsisVertical,
+	FileCode,
+	Pencil,
+	Trash2,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 import { useDeleteTable } from "@/hooks/use-delete-table";
 import { useExportFile } from "@/hooks/use-export-file";

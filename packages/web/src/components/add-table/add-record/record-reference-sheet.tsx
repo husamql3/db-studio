@@ -1,5 +1,5 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { parseAsJson, useQueryState } from "nuqs";
-import type { FilterType } from "shared/types";
 import { ReferencedTable } from "@/components/add-table/add-record/referenced-table";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useSheetStore } from "@/stores/sheet.store";

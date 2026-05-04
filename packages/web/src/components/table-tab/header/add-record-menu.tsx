@@ -1,11 +1,11 @@
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@db-studio/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@db-studio/ui/dropdown-menu";
+import { Plus } from "lucide-react";
 import { useSheetStore } from "@/stores/sheet.store";
 
 export const AddRecordMenu = () => {

@@ -1,9 +1,9 @@
 "use client";
 
+import { Button } from "@db-studio/ui/button";
+import { ScrollArea, ScrollBar } from "@db-studio/ui/scroll-area";
+import { cn } from "@db-studio/ui/utils";
 import type { ComponentProps } from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
 
 type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 

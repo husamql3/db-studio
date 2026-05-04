@@ -1,5 +1,5 @@
+import { Button } from "@db-studio/ui/button";
 import { Pin, PinOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
 export const SidebarHeader = () => {

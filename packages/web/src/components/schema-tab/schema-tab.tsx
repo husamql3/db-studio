@@ -1,16 +1,17 @@
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
+import { Badge } from "@db-studio/ui/badge";
+import { DataGrid } from "@db-studio/ui/data-grid";
+import { Spinner } from "@db-studio/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Link as LinkIcon } from "lucide-react";
 import { useMemo } from "react";
-import type { ColumnInfoSchemaType } from "shared/types";
-import { DataGrid } from "@/components/data-grid/data-grid";
 import { AddColumnForm } from "@/components/schema-tab/add-column-form";
 import { EditColumnForm } from "@/components/schema-tab/edit-column-form";
 import { SchemaRowActions } from "@/components/schema-tab/schema-row-actions";
 import { SchemaToolbar } from "@/components/schema-tab/schema-toolbar";
 import { TypeBadge } from "@/components/schema-tab/type-badge";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CellCopyButton } from "@/components/table-tab/cell-copy-button";
 import { useTableCols } from "@/hooks/use-table-cols";
 
 export const SchemaTab = ({ tableName }: { tableName: string }) => {
@@ -182,6 +183,7 @@ export const SchemaTab = ({ tableName }: { tableName: string }) => {
 			<DataGrid
 				columns={columns}
 				data={tableCols ?? []}
+				renderCellAccessory={(value) => <CellCopyButton value={value} />}
 			/>
 			<AddColumnForm tableName={tableName} />
 			<EditColumnForm tableName={tableName} />

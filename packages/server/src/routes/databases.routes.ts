@@ -1,9 +1,9 @@
-import { Hono } from "hono";
 import type {
 	ConnectionInfoSchemaType,
 	CurrentDatabaseSchemaType,
 	DatabaseListSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
+import { Hono } from "hono";
 import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler } from "@/app.types.js";
 import { getDbType } from "@/db-manager.js";

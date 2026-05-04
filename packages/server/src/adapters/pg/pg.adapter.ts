@@ -1,4 +1,3 @@
-import { HTTPException } from "hono/http-exception";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -28,8 +27,9 @@ import type {
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-} from "shared/types";
-import { mapPostgresToDataType, standardizeDataTypeLabel } from "shared/types";
+} from "@db-studio/shared/types";
+import { mapPostgresToDataType, standardizeDataTypeLabel } from "@db-studio/shared/types";
+import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getDbPool } from "@/adapters/connections.js";
@@ -395,7 +395,7 @@ export class PgAdapter extends BaseAdapter {
 				message: "No connection information returned from database",
 			});
 
-		const { connectionInfoSchema } = await import("shared/types");
+		const { connectionInfoSchema } = await import("@db-studio/shared/types");
 		const result = connectionInfoSchema.parse(rows[0]);
 		const urlDefaults = parseDatabaseUrl();
 
