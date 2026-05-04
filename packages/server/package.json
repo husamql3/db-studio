@@ -41,14 +41,20 @@
     "dist"
   ],
   "scripts": {
-    "dev": "NODE_ENV=development tsx watch src/index.ts",
+    "dev": "portless run",
+    "dev:app": "NODE_ENV=development tsx watch src/index.ts",
     "build": "tsup --minify --sourcemap",
     "prepack": "cd ../web && bun run build && cd ../server && bun run build",
-    "start": "node dist/index.js",
+    "start": "portless dbstuio bun run start:app",
+    "start:app": "node dist/index.js",
     "format": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
+  },
+  "portless": {
+    "name": "api.dbstuio",
+    "script": "dev:app"
   },
   "dependencies": {
     "@clack/prompts": "^1.0.1",

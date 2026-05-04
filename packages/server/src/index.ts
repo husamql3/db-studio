@@ -32,7 +32,7 @@ export const main = async () => {
 
 	intro(color.inverse(" db-studio "));
 
-	const PORT = port ? parseInt(port, 10) : DEFAULTS.PORT;
+	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
 	const ENV = env ? await loadEnv(env) : await loadEnv();
 	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);

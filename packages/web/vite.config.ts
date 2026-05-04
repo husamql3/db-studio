@@ -18,6 +18,7 @@ const devtoolsPackages = [
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
+  const port = Number.parseInt(process.env.PORT ?? '3001', 10);
   
   return {
   build: {
@@ -103,12 +104,13 @@ export default defineConfig(({ mode }) => {
     },
   },
   server: {
-    port: 3001,
+    port,
     host: true,
     proxy: {
       "/api": {
-        target: `http://localhost:${process.env.SERVER_PORT ?? 3333}`,
+        target: process.env.VITE_API_PROXY_TARGET ?? 'https://api.dbstuio.localhost',
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },

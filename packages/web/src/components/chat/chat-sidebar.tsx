@@ -1,6 +1,6 @@
 "use client";
 
-import { CHAT_SUGGESTIONS, DEFAULTS } from "@db-studio/shared/constants";
+import { CHAT_SUGGESTIONS } from "@db-studio/shared/constants";
 import { Button } from "@db-studio/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
@@ -35,6 +35,7 @@ import {
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useRateLimit } from "@/hooks/use-rate-limit";
+import { getBaseUrl } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useSheetStore } from "@/stores/sheet.store";
 
@@ -62,7 +63,7 @@ const ChatSidebarContent = ({
 	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
-		connection: fetchServerSentEvents(`${DEFAULTS.BASE_URL}/chat`),
+		connection: fetchServerSentEvents(`${getBaseUrl()}/chat`),
 		body: { db },
 		onError: (error) => console.error("Error:", error.message),
 		onFinish: () => {

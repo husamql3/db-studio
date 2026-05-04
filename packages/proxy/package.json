@@ -3,15 +3,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "portless run",
+    "dev:app": "wrangler dev --port=${PORT:-8787}",
     "build": "wrangler build",
-    "start": "bun run build && wrangler dev --remote",
+    "start": "portless proxy.dbstuio bun run start:app",
+    "start:app": "bun run build && wrangler dev --remote --port=${PORT:-8787}",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "format": "biome check --write --unsafe",
     "secrets:add": "wrangler secret bulk .env",
     "secrets:list": "wrangler secret list",
     "secrets:clear": "wrangler secret delete --all"
+  },
+  "portless": {
+    "name": "proxy.dbstuio",
+    "script": "dev:app"
   },
   "dependencies": {
     "@db-studio/shared": "workspace:*",

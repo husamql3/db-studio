@@ -3,11 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3001",
+    "dev": "portless run",
+    "dev:app": "vite --port=${PORT:-3001}",
     "build": "vite build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
-    "start": "vite preview --port 3000 --host",
+    "start": "portless web.dbstuio bun run start:app",
+    "start:app": "vite preview --host --port=${PORT:-3000}",
     "format": "biome check --write --unsafe"
+  },
+  "portless": {
+    "name": "web.dbstuio",
+    "script": "dev:app"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

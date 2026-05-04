@@ -8,7 +8,7 @@ This file provides guidance to coding agents when working with code in this repo
 # Install dependencies
 bun install
 
-# Development (starts both frontend :3001 and API :3333)
+# Development (starts services through Portless)
 bun run dev
 
 # Build all packages
@@ -40,7 +40,7 @@ bun run test:coverage                # with coverage
 bunx vitest run tests/path/to/file.test.ts  # single file
 ```
 
-> **Dev ports**: Frontend (Vite) → `http://localhost:3001`, API → `http://localhost:3333`. Port 3333 also serves the static frontend build, but use 3001 during development.
+> **Dev URLs**: Frontend (Vite) → `https://web.dbstuio.localhost`, API → `https://api.dbstuio.localhost`, proxy → `https://proxy.dbstuio.localhost`, docs → `https://www.dbstuio.localhost`. Production-style local serving uses `https://dbstuio.localhost` via the server package `start` script.
 
 ## Architecture
 
@@ -72,7 +72,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - TanStack Router with file-based routing in `src/routes/`
 - TanStack Query for server state; Zustand for client state (`src/stores/`)
 - shadcn/ui components; Monaco editor for JSON/query editing
-- API calls proxied from Vite dev server (`/api` → `:3333`)
+- API calls use the Portless API host in development and same-origin requests in production.
 - Cell rendering: `CellVariant` = `"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`
 
 ### Shared (`packages/shared`)

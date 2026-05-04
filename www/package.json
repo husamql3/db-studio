@@ -3,15 +3,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "portless run",
+    "dev:app": "vite dev --host 127.0.0.1 --port=${PORT:-3000}",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "portless www.dbstuio bun run preview:app",
+    "preview:app": "vite preview --host --port=${PORT:-3000}",
     "deploy": "bun run build && wrangler deploy",
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",
     "cf-secrets": "wrangler secret bulk .env",
     "check-meta": "bunx check-site-meta",
     "format": "biome check --write --unsafe"
+  },
+  "portless": {
+    "name": "www.dbstuio",
+    "script": "dev:app"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

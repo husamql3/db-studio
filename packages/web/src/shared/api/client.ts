@@ -63,7 +63,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 };
 
 export const getBaseUrl = (): string => {
-	if (import.meta.env.DEV) return "/api";
+	if (import.meta.env.DEV) return import.meta.env.VITE_API_URL ?? DEFAULTS.BASE_URL;
 	return globalThis.location?.origin ?? DEFAULTS.BASE_URL;
 };
 
