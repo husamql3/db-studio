@@ -1,12 +1,12 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
+// import { SettingsBtn } from "./settings-menu";
+import type { TableRecord } from "@/types/table.type";
 import { AddRecordMenu } from "./add-record-menu";
 import { ClearBtn } from "./clear-btn";
 import { DeleteBtn } from "./delete-btn";
 import { FilterPopup } from "./filter-popup";
 import { RefetchBtn } from "./refetch-btn";
 import { SaveBtn } from "./save-btn";
-// import { SettingsBtn } from "./settings-menu";
-import type { TableRecord } from "@/types/table.type";
 
 export const TableHeader = ({
 	selectedRows,

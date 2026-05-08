@@ -12,8 +12,8 @@ import { cn } from "@db-studio/ui/utils";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
-import { useDatabaseStore } from "@/stores/database.store";
 import type { AddTableFormData } from "@/features/table-builder/types";
+import { useDatabaseStore } from "@/stores/database.store";
 import {
 	ARRAY_COMPATIBLE_TYPES,
 	MONGO_TYPES,

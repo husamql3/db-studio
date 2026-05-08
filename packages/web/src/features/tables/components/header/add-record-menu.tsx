@@ -28,7 +28,9 @@ export const AddRecordMenu = () => {
 				align="start"
 				className="w-48"
 			>
-				<DropdownMenuItem onClick={() => openOverlay("records.add-record")}>Add Record</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => openOverlay("records.add-record")}>
+					Add Record
+				</DropdownMenuItem>
 				<DropdownMenuItem onClick={() => openOverlay("records.bulk-insert-csv")}>
 					Add data from CSV
 				</DropdownMenuItem>

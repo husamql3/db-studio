@@ -1,14 +1,14 @@
 import { useMemo } from "react";
+import { useTableCols } from "@/features/schema";
+import { useDatabaseStore } from "@/stores/database.store";
+import type { TableRecord } from "@/types/table.type";
+import { useTableData } from "../hooks/use-table-data";
+import { useTableModel } from "../hooks/use-table-model";
 import { TableDocumentView } from "./table-document-view";
 import { TableEmptyState } from "./table-empty-state";
 import { TableErrorState } from "./table-error-state";
 import { TableGrid } from "./table-grid";
 import { TableLoadingState } from "./table-loading-state";
-import { useTableCols } from "@/features/schema";
-import { useTableData } from "../hooks/use-table-data";
-import { useTableModel } from "../hooks/use-table-model";
-import { useDatabaseStore } from "@/stores/database.store";
-import type { TableRecord } from "@/types/table.type";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const { dbType } = useDatabaseStore();

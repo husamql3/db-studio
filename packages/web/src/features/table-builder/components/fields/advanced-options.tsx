@@ -10,8 +10,8 @@ import { Label } from "@db-studio/ui/label";
 import { Settings } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { useDatabaseStore } from "@/stores/database.store";
 import type { AddTableFormData } from "@/features/table-builder/types";
+import { useDatabaseStore } from "@/stores/database.store";
 import {
 	ADD_TABLE_OPTIONS,
 	ARRAY_COMPATIBLE_TYPES,

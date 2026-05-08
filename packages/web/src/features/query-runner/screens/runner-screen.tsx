@@ -2,15 +2,15 @@ import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { QueryResultContainer } from "../components/query-result-container";
-import { RunnerHeader } from "../components/runner-header";
-import { useExecuteQuery } from "../hooks/use-execute-query";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useQueriesStore } from "@/stores/queries.store";
 import {
 	MONGO_PLACEHOLDER_QUERY,
 	PGSQL_PLACEHOLDER_QUERY,
 } from "@/utils/constants/placeholders";
+import { QueryResultContainer } from "../components/query-result-container";
+import { RunnerHeader } from "../components/runner-header";
+import { useExecuteQuery } from "../hooks/use-execute-query";
 
 const CodeEditor = lazy(() =>
 	import("../components/code-editor").then((module) => ({

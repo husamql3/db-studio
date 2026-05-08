@@ -6,13 +6,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Link as LinkIcon } from "lucide-react";
 import { useMemo } from "react";
+import { CellCopyButton } from "@/features/tables/components/cell-copy-button";
 import { AddColumnForm } from "../components/add-column-form";
 import { EditColumnForm } from "../components/edit-column-form";
 import { SchemaRowActions } from "../components/schema-row-actions";
 import { SchemaToolbar } from "../components/schema-toolbar";
 import { TypeBadge } from "../components/type-badge";
 import { useTableCols } from "../hooks/use-table-cols";
-import { CellCopyButton } from "@/features/tables/components/cell-copy-button";
 
 export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 	const {

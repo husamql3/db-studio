@@ -3,8 +3,8 @@ import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { AlignLeft, Braces, Command, CornerDownLeft, Heart, Save, Table } from "lucide-react";
 import { useQueryState } from "nuqs";
-import type { QueryResult } from "../screens/runner-screen";
 import { CONSTANTS } from "@/utils/constants";
+import type { QueryResult } from "../screens/runner-screen";
 
 export const RunnerHeader = ({
 	isExecutingQuery,

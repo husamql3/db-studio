@@ -7,10 +7,10 @@ import {
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { TableCell } from "../components/table-cell";
-import { TableSelector } from "../components/table-selector";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
+import { TableCell } from "../components/table-cell";
+import { TableSelector } from "../components/table-selector";
 
 export const useTableModel = ({
 	tableName,

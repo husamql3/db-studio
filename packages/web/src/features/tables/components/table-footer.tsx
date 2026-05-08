@@ -10,9 +10,9 @@ import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pag
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useEffect, useRef, useState } from "react";
-import { useTableData } from "../hooks/use-table-data";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
+import { useTableData } from "../hooks/use-table-data";
 
 export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const {

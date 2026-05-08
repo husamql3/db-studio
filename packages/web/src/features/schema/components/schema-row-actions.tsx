@@ -21,10 +21,10 @@ import { Input } from "@db-studio/ui/input";
 import { Label } from "@db-studio/ui/label";
 import { EllipsisVertical, Pencil, Trash2, Type } from "lucide-react";
 import { useState } from "react";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { useDeleteColumn } from "../hooks/use-delete-column";
 import { useRenameColumn } from "../hooks/use-rename-column";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
-import { useOverlayStore } from "@/stores/overlay.store";
 
 export const SchemaRowActions = ({
 	col,

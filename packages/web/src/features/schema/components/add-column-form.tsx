@@ -3,15 +3,15 @@ import { Label } from "@db-studio/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 import { z } from "zod";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { AdvancedOptions } from "@/features/table-builder/components/fields/advanced-options";
 import { ColumnNameField } from "@/features/table-builder/components/fields/column-name-field";
 import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
 import { DefaultValueField } from "@/features/table-builder/components/fields/default-value-field";
 import { FormActions } from "@/features/table-builder/components/fields/form-actions";
 import { PrimaryField } from "@/features/table-builder/components/fields/primary-field";
-import { SheetSidebar } from "@/components/sheet-sidebar";
-import { useAddColumn } from "../hooks/use-add-column";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { useAddColumn } from "../hooks/use-add-column";
 
 const addColumnFormSchema = z.object({
 	fields: z.tuple([

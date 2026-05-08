@@ -1,8 +1,8 @@
 import { Button } from "@db-studio/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@db-studio/ui/sheet";
 import { useFieldArray, useFormContext } from "react-hook-form";
-import { useOverlayStore } from "@/stores/overlay.store";
 import type { AddTableFormData } from "@/features/table-builder/types";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { ForeignKeySelectorField } from "./foreign-key-selector-field";
 import { ReferencedTableField } from "./referenced-table-field";
 

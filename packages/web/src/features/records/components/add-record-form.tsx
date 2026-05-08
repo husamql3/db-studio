@@ -2,12 +2,12 @@ import { Alert } from "@db-studio/ui/alert";
 import { Button } from "@db-studio/ui/button";
 import { SheetClose } from "@db-studio/ui/sheet";
 import { FormProvider, useForm } from "react-hook-form";
+import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/features/schema";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
 import { AddRecordField } from "./add-record-field";
 import { RecordReferenceSheet } from "./record-reference-sheet";
-import { SheetSidebar } from "@/components/sheet-sidebar";
-import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
 
 export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();

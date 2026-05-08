@@ -1,7 +1,7 @@
 import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
-import { CellCopyButton } from "./cell-copy-button";
 import type { TableRecord } from "@/types/table.type";
+import { CellCopyButton } from "./cell-copy-button";
 
 interface TableBodyRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;

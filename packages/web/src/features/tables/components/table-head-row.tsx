@@ -40,11 +40,11 @@ import {
 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
-import { TableColumnResizer } from "./table-col-resizer";
 import { useDeleteColumn } from "@/features/schema";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
+import { TableColumnResizer } from "./table-col-resizer";
 
 interface TableHeadRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;

@@ -2,8 +2,8 @@ import { Alert } from "@db-studio/ui/alert";
 import { Button } from "@db-studio/ui/button";
 import { Label } from "@db-studio/ui/label";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { FieldRow } from "./field-row";
 import type { AddTableFormData } from "@/features/table-builder/types";
+import { FieldRow } from "./field-row";
 
 export const FormContent = () => {
 	const { control } = useFormContext<AddTableFormData>();

@@ -1,8 +1,8 @@
 import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
 import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
-import { useUpdateCellStore } from "../stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
+import { useUpdateCellStore } from "../stores/update-cell.store";
 
 interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
 	cell: Cell<TData, unknown>;

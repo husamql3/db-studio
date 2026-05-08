@@ -4,8 +4,8 @@ import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { useQueryState } from "nuqs";
 import { useMemo } from "react";
-import { TableView } from "./table-view";
 import { CONSTANTS } from "@/utils/constants";
+import { TableView } from "./table-view";
 
 export const QueryResultContainer = ({
 	results,

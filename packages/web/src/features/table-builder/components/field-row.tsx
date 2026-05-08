@@ -1,13 +1,13 @@
 import { Button } from "@db-studio/ui/button";
 import { XIcon } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
+import type { AddTableFormData } from "@/features/table-builder/types";
 import { AddForeignKeyForm } from "./add-foreign-key/add-foreign-key-form";
 import { AdvancedOptions } from "./fields/advanced-options";
 import { ColumnNameField } from "./fields/column-name-field";
 import { ColumnTypeField } from "./fields/column-type-field";
 import { DefaultValueField } from "./fields/default-value-field";
 import { PrimaryField } from "./fields/primary-field";
-import type { AddTableFormData } from "@/features/table-builder/types";
 
 export const FieldRow = ({
 	index,

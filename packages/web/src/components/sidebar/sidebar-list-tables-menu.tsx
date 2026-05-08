@@ -30,8 +30,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 import { useDeleteTable, useExportFile } from "@/features/tables";
+import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 
 export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 	const navigate = useNavigate();

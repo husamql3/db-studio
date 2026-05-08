@@ -12,11 +12,11 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
-import { CellCopyButton } from "./cell-copy-button";
 import { useTableCols } from "@/features/schema";
 import { api } from "@/lib/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { TableRecord } from "@/types/table.type";
+import { CellCopyButton } from "./cell-copy-button";
 
 export const FkDrawerContent = ({
 	referencedTable,

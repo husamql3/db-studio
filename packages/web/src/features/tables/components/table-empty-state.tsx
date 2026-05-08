@@ -1,6 +1,6 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
-import { TableHeader } from "./header/table-header";
 import type { TableRecord } from "@/types/table.type";
+import { TableHeader } from "./header/table-header";
 
 export const TableEmptyState = ({
 	tableName,

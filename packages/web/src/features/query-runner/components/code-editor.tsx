@@ -175,8 +175,7 @@ export const CodeEditor = ({
 								label: fn,
 								kind: monaco.languages.CompletionItemKind.Function,
 								insertText: fn.includes("(*)") ? fn : fn.replace("()", "($0)"),
-								insertTextRules:
-									monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+								insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 								range,
 							})),
 							...DATA_TYPES.map((type) => ({
@@ -193,8 +192,7 @@ export const CodeEditor = ({
 									"FROM ${2:table}",
 									"WHERE ${3:condition};",
 								].join("\n"),
-								insertTextRules:
-									monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+								insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 								documentation: "SELECT statement template",
 								range,
 							},
@@ -208,8 +206,7 @@ export const CodeEditor = ({
 									"    created_at TIMESTAMP DEFAULT NOW()",
 									");",
 								].join("\n"),
-								insertTextRules:
-									monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+								insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 								documentation: "CREATE TABLE template",
 								range,
 							},
@@ -221,8 +218,7 @@ export const CodeEditor = ({
 									"VALUES (${3:values})",
 									"RETURNING *;",
 								].join("\n"),
-								insertTextRules:
-									monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+								insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 								documentation: "INSERT statement template",
 								range,
 							},

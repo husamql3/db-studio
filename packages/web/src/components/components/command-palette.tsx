@@ -46,8 +46,8 @@ import { type KeyboardEvent, useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { useTableNavigation, useTablesList } from "@/features/tables";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 
 type Mode = "all" | "tables";
@@ -335,7 +335,9 @@ export function CommandPalette() {
 
 						{/* Database Actions */}
 						<CommandGroup heading="Database Actions">
-							<CommandItem onSelect={() => handleAction(() => openOverlay("table-builder.create-table"))}>
+							<CommandItem
+								onSelect={() => handleAction(() => openOverlay("table-builder.create-table"))}
+							>
 								<Plus className="mr-2 h-4 w-4" />
 								<div className="flex flex-col">
 									<span>Create New Table</span>

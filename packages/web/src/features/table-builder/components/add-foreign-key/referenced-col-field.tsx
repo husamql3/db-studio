@@ -32,7 +32,9 @@ export const ReferencedColField = ({
 			render={({ field }) => (
 				<Select
 					value={field.value?.referencedColumn}
-					onValueChange={(value) => field.onChange({ ...field.value, referencedColumn: value })}
+					onValueChange={(value) =>
+						field.onChange({ ...field.value, referencedColumn: value })
+					}
 					disabled={isLoadingTableCols}
 				>
 					<SelectTrigger

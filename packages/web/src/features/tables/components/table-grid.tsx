@@ -1,9 +1,9 @@
 import { cn } from "@db-studio/ui/utils";
 import type { OnChangeFn, Row, RowSelectionState, Table } from "@tanstack/react-table";
+import type { TableRecord } from "@/types/table.type";
 import { TableHeader } from "./header/table-header";
 import { TableContainer } from "./table-container";
 import { TableFooter } from "./table-footer";
-import type { TableRecord } from "@/types/table.type";
 
 export const TableGrid = ({
 	table,

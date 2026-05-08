@@ -2,8 +2,8 @@ import { Input } from "@db-studio/ui/input";
 import { cn } from "@db-studio/ui/utils";
 import { LinkIcon } from "lucide-react";
 import { Controller, useFormContext } from "react-hook-form";
-import { useOverlayStore } from "@/stores/overlay.store";
 import type { AddTableFormData } from "@/features/table-builder/types";
+import { useOverlayStore } from "@/stores/overlay.store";
 
 export const ColumnNameField = ({
 	index,

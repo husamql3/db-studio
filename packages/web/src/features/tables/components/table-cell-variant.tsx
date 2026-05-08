@@ -27,11 +27,11 @@ import {
 	useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { FkDrawerContent } from "./fk-drawer-content";
-import { TableCellWrapper } from "./table-cell-wrapper";
-import { useUpdateCellStore } from "../stores/update-cell.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
+import { useUpdateCellStore } from "../stores/update-cell.store";
+import { FkDrawerContent } from "./fk-drawer-content";
+import { TableCellWrapper } from "./table-cell-wrapper";
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
