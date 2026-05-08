@@ -42,7 +42,7 @@
     "@tanstack/ai": "^0.14.0",
     "@tanstack/ai-react": "^0.8.0",
     "@tanstack/react-query": "^5.90.12",
-    "@tanstack/react-router": "^1.168.25",
+    "@tanstack/react-router": "^1.169.1",
     "@tanstack/react-table": "^8.21.3",
 		"@tanstack/react-virtual": "^3.13.13",
 		"@uiw/react-json-view": "^2.0.0-alpha.40",
@@ -92,7 +92,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.8"
+    "vite": "^8.0.10"
   },
   "peerDependencies": {
     "typescript": "^5"
