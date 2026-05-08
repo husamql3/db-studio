@@ -10,7 +10,7 @@ import { useQueryState } from "nuqs";
 import { useMemo } from "react";
 import { SidebarListTables } from "@/components/sidebar/sidebar-list-tables";
 import { SidebarSearchTables } from "@/components/sidebar/sidebar-search-tables";
-import { useTablesList } from "@/hooks/use-tables-list";
+import { useTablesList } from "@/features/tables";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 

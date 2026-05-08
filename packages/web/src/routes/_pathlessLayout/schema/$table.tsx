@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SchemaTab } from "@/components/schema-tab/schema-tab";
+import { SchemaScreen } from "@/features/schema";
 
 export const Route = createFileRoute("/_pathlessLayout/schema/$table")({
 	component: RouteComponent,
@@ -10,7 +10,7 @@ function RouteComponent() {
 
 	return (
 		<main className="flex-1 flex flex-col overflow-hidden">
-			<SchemaTab tableName={table} />
+			<SchemaScreen tableName={table} />
 		</main>
 	);
 }

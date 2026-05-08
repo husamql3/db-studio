@@ -6,7 +6,7 @@ import { cn } from "@db-studio/ui/utils";
 import { Sparkles } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useRateLimit } from "@/hooks/use-rate-limit";
-import { useSheetStore } from "@/stores/sheet.store";
+import { useOverlayStore } from "@/stores/overlay.store";
 
 const ChatSidebar = lazy(() =>
 	import("@/components/chat/chat-sidebar").then((module) => ({
@@ -15,7 +15,7 @@ const ChatSidebar = lazy(() =>
 );
 
 export const Chat = () => {
-	const { isSheetOpen, openSheet } = useSheetStore();
+	const { isOverlayOpen, openOverlay } = useOverlayStore();
 	const { rateLimit, isLoadingRateLimit } = useRateLimit();
 	const { remaining = 0, limit = 0 } = rateLimit ?? { remaining: 0, limit: 0 };
 
@@ -34,7 +34,7 @@ export const Chat = () => {
 					<Button
 						variant="ghost"
 						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12 relative"
-						onClick={() => openSheet("ai-assistant")}
+						onClick={() => openOverlay("chat.assistant")}
 					>
 						<Sparkles className="size-5" />
 						<span
@@ -60,7 +60,7 @@ export const Chat = () => {
 				</TooltipContent>
 			</Tooltip>
 
-			{isSheetOpen("ai-assistant") && (
+			{isOverlayOpen("chat.assistant") && (
 				<Suspense fallback={null}>
 					<ChatSidebar />
 				</Suspense>

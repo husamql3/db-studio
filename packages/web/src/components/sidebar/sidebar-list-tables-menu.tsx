@@ -31,8 +31,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
-import { useDeleteTable } from "@/hooks/use-delete-table";
-import { useExportFile } from "@/hooks/use-export-file";
+import { useDeleteTable, useExportFile } from "@/features/tables";
 
 export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 	const navigate = useNavigate();

@@ -2,7 +2,7 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
-import { useTablesList } from "@/hooks/use-tables-list";
+import { useTablesList } from "@/features/tables";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 

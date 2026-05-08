@@ -45,10 +45,9 @@ import { useQueryState } from "nuqs";
 import { type KeyboardEvent, useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
-import { useTableNavigation } from "@/hooks/use-table-navigation";
-import { useTablesList } from "@/hooks/use-tables-list";
+import { useTableNavigation, useTablesList } from "@/features/tables";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import { useSheetStore } from "@/stores/sheet.store";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 
 type Mode = "all" | "tables";
@@ -56,7 +55,7 @@ type Mode = "all" | "tables";
 export function CommandPalette() {
 	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const { navigateToTable } = useTableNavigation();
-	const { openSheet } = useSheetStore();
+	const { openOverlay } = useOverlayStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
 	const { tablesList, isLoadingTablesList } = useTablesList();
 
@@ -336,7 +335,7 @@ export function CommandPalette() {
 
 						{/* Database Actions */}
 						<CommandGroup heading="Database Actions">
-							<CommandItem onSelect={() => handleAction(() => openSheet("add-table"))}>
+							<CommandItem onSelect={() => handleAction(() => openOverlay("table-builder.create-table"))}>
 								<Plus className="mr-2 h-4 w-4" />
 								<div className="flex flex-col">
 									<span>Create New Table</span>
@@ -347,7 +346,7 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									handleAction(() => openSheet("add-record"), "Opening add row form")
+									handleAction(() => openOverlay("records.add-record"), "Opening add row form")
 								}
 								disabled={!activeTable}
 							>

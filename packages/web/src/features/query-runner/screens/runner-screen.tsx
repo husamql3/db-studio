@@ -1,0 +1,129 @@
+import type { ExecuteQueryResult } from "@db-studio/shared/types";
+import { useNavigate } from "@tanstack/react-router";
+import { lazy, Suspense, useCallback, useState } from "react";
+import { toast } from "sonner";
+import { QueryResultContainer } from "../components/query-result-container";
+import { RunnerHeader } from "../components/runner-header";
+import { useExecuteQuery } from "../hooks/use-execute-query";
+import { useDatabaseStore } from "@/stores/database.store";
+import { useQueriesStore } from "@/stores/queries.store";
+import {
+	MONGO_PLACEHOLDER_QUERY,
+	PGSQL_PLACEHOLDER_QUERY,
+} from "@/utils/constants/placeholders";
+
+const CodeEditor = lazy(() =>
+	import("../components/code-editor").then((module) => ({
+		default: module.CodeEditor,
+	})),
+);
+
+export type QueryResult = {
+	data: ExecuteQueryResult;
+	queryId: string;
+};
+
+export const RunnerScreen = ({ queryId }: { queryId?: string }) => {
+	const navigate = useNavigate();
+	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
+	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
+	const query = queryId ? getQuery(queryId) : null;
+	const isFavorite = query?.isFavorite ?? false;
+	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
+	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+	const [currentQuery, setCurrentQuery] = useState<string>("");
+	const { dbType } = useDatabaseStore();
+
+	const getInitialQuery = useCallback(() => {
+		const placeholder =
+			dbType === "mongodb" ? MONGO_PLACEHOLDER_QUERY : PGSQL_PLACEHOLDER_QUERY;
+		if (!query) return placeholder;
+		return query?.query ?? placeholder;
+	}, [query, dbType]);
+
+	const handleExecuteQuery = useCallback(
+		async (query: string) => {
+			if (!query.trim()) {
+				toast.error("Query is empty!");
+				return;
+			}
+
+			executeQuery({ query }).then((result) => {
+				setQueryResult({ data: result, queryId: queryId ?? "" });
+			});
+		},
+		[executeQuery, queryId],
+	);
+
+	const handleButtonClick = useCallback(() => {
+		if (!currentQuery.trim()) {
+			toast.error("Query is empty!");
+			return;
+		}
+
+		handleExecuteQuery(currentQuery);
+	}, [handleExecuteQuery, currentQuery]);
+
+	const handleFavorite = useCallback(() => {
+		if (!queryId) return;
+		toggleFavorite(queryId);
+		toast.success(isFavorite ? "Query unfavorited" : "Query favorited");
+	}, [toggleFavorite, queryId, isFavorite]);
+
+	const handleFormatQuery = useCallback(() => {
+		// passed to Monaco component
+	}, []);
+
+	const handleSaveQuery = useCallback(() => {
+		if (!currentQuery) return;
+
+		if (!queryId) {
+			const newQueryId = addQuery();
+			updateQuery(newQueryId, { query: currentQuery });
+			navigate({
+				to: "/runner/$queryId",
+				params: { queryId: newQueryId },
+			});
+		} else {
+			updateQuery(queryId, { query: currentQuery });
+		}
+		setHasUnsavedChanges(false);
+		toast.success("Query saved");
+	}, [currentQuery, queryId, updateQuery, addQuery, navigate]);
+
+	return (
+		<div className="flex-1 relative w-full flex flex-col">
+			<RunnerHeader
+				isExecutingQuery={isExecutingQuery}
+				handleButtonClick={handleButtonClick}
+				handleFormatQuery={handleFormatQuery}
+				handleSaveQuery={handleSaveQuery}
+				handleFavorite={handleFavorite}
+				isFavorite={isFavorite}
+				queryId={queryId ?? ""}
+				hasUnsavedChanges={hasUnsavedChanges}
+				queryResult={queryResult ?? null}
+			/>
+
+			<Suspense fallback={<div className="flex-1 bg-[#1E1E1E] size-full" />}>
+				<CodeEditor
+					initialQuery={getInitialQuery()}
+					queryId={queryId}
+					savedQuery={query?.query ?? ""}
+					language={dbType === "mongodb" ? "json" : "pgsql"}
+					onQueryChange={setCurrentQuery}
+					onUnsavedChanges={setHasUnsavedChanges}
+					onExecuteQuery={handleExecuteQuery}
+					onFormatQuery={handleFormatQuery}
+					onSaveQuery={handleSaveQuery}
+				/>
+			</Suspense>
+
+			<QueryResultContainer
+				results={queryResult?.data ?? null}
+				isLoading={isExecutingQuery}
+				error={executeQueryError}
+			/>
+		</div>
+	);
+};

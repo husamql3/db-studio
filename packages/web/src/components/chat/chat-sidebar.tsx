@@ -37,7 +37,7 @@ import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { getBaseUrl } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
-import { useSheetStore } from "@/stores/sheet.store";
+import { useOverlayStore } from "@/stores/overlay.store";
 
 interface ChatController {
 	clear: () => void;
@@ -217,7 +217,7 @@ const ChatSidebarContent = ({
 
 export const ChatSidebar = () => {
 	const { rateLimit, refetchRateLimit } = useRateLimit();
-	const { isSheetOpen, closeSheet } = useSheetStore();
+	const { isOverlayOpen, closeOverlay } = useOverlayStore();
 	const { selectedDatabase } = useDatabaseStore();
 	const [controller, setController] = useState<ChatController | null>(null);
 	const controllerSetterRef = useRef((next: ChatController) => setController(next));
@@ -255,12 +255,12 @@ export const ChatSidebar = () => {
 				</div>
 			}
 			closeButton={false}
-			open={isSheetOpen("ai-assistant")}
+			open={isOverlayOpen("chat.assistant")}
 			size="max-w-2xl!"
 			contentClassName="p-0 flex flex-col h-[calc(100vh-4rem)] flex-1"
 			onOpenChange={(open) => {
 				if (!open) {
-					closeSheet("ai-assistant");
+					closeOverlay("chat.assistant");
 				}
 			}}
 		>

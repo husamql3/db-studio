@@ -6,7 +6,7 @@ import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useDatabaseStore } from "@/stores/database.store";
-import { useSheetStore } from "@/stores/sheet.store";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarSearchTables = () => {
@@ -14,7 +14,7 @@ export const SidebarSearchTables = () => {
 	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
-	const { openSheet } = useSheetStore();
+	const { openOverlay } = useOverlayStore();
 	const { dbType } = useDatabaseStore();
 
 	// todo: fix this shit
@@ -36,7 +36,7 @@ export const SidebarSearchTables = () => {
 			{dbType !== "mongodb" && (
 				<Button
 					className="w-full justify-start h-8"
-					onClick={() => openSheet("add-table")}
+					onClick={() => openOverlay("table-builder.create-table")}
 				>
 					<Plus className="size-4" />
 					Add Table
