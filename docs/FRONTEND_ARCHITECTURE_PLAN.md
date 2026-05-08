@@ -72,15 +72,15 @@ boundaries exist.
 ### Phase 3 — Introduce Internal Feature Modules
 
 - [ ] Create `src/features/database`
-- [ ] Create `src/features/query-runner`
-- [ ] Create `src/features/schema`
-- [ ] Create `src/features/table-builder`
-- [ ] Create `src/features/tables`
-- [ ] Create `src/features/records`
+- [x] Create `src/features/query-runner`
+- [x] Create `src/features/schema`
+- [x] Create `src/features/table-builder`
+- [x] Create `src/features/tables`
+- [x] Create `src/features/records`
 - [ ] Create `src/features/chat`
-- [ ] Move routes to render feature entry points only
-- [ ] Replace global `sheet.store.ts` with an overlay registry
-- [ ] Keep feature draft state feature-local
+- [x] Move routes to render feature entry points only
+- [x] Replace global `sheet.store.ts` with an overlay registry
+- [x] Keep feature draft state feature-local
 - [ ] Enforce internal dependency rules before extracting more packages
 
 ### Phase 4 — Add Desktop Package
