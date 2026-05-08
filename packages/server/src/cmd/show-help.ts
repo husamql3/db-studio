@@ -1,6 +1,6 @@
 import { intro, outro } from "@clack/prompts";
+import { META } from "@db-studio/shared/constants/meta.js";
 import color from "picocolors";
-import { META } from "shared/constants/meta.js";
 
 /**
  * Display help information

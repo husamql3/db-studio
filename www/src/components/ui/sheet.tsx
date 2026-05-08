@@ -142,4 +142,4 @@ function _SheetDescription({
 	);
 }
 
-export { Sheet, SheetTrigger, SheetContent, SheetHeader };
+export { Sheet, SheetContent, SheetHeader, SheetTrigger };

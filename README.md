@@ -128,7 +128,7 @@ bun run init-db
 # Configure your PostgreSQL connection in packages/server/.env (for local dev)
 # DATABASE_URL=postgres://user:password@localhost:5432/database
 
-# Start development servers (runs both frontend and backend concurrently)
+# Start development services through Portless
 bun run dev
 ```
 
@@ -138,10 +138,23 @@ At your first contribution, you should add your name and email to the `AUTHORS` 
 your-name <your-email>
 ```
 
-The app runs at `http://localhost:3001` with the API server on port `3333`.
+Development services run through [Portless](https://portless.sh/) with stable local HTTPS URLs instead of fixed port numbers:
+
+| Service | URL |
+|---------|-----|
+| Web app | `https://web.dbstuio.localhost` |
+| API server | `https://api.dbstuio.localhost` |
+| AI proxy | `https://proxy.dbstuio.localhost` |
+| Docs/marketing site | `https://www.dbstuio.localhost` |
+
+On first run, Portless may ask to trust its local certificate authority. You can also run:
+
+```bash
+bunx portless trust
+```
 
 > [!NOTE]
-> It'll automatically opens the app in 3333, this have the client but static so it wont reflect any changes, the port 3001 runs with `vite`
+> Production-style local serving runs through `https://dbstuio.localhost` via the server package `start` script.
 
 ## Roadmap
 

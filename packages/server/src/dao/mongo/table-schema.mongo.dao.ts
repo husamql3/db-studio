@@ -1,5 +1,5 @@
+import type { DatabaseSchemaType, TableNameSchemaType } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
-import type { DatabaseSchemaType, TableNameSchemaType } from "shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 
 const SAMPLE_LIMIT = 200;

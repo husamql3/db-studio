@@ -1,5 +1,5 @@
+import { META } from "@db-studio/shared/constants";
 import { PlusIcon } from "lucide-react";
-import { META } from "shared/constants";
 
 export const Footer = () => {
 	return (

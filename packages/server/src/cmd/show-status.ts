@@ -1,6 +1,6 @@
 import { intro, note, outro } from "@clack/prompts";
+import { DEFAULTS } from "@db-studio/shared/constants";
 import color from "picocolors";
-import { DEFAULTS } from "shared/constants";
 import { loadEnv } from "@/cmd/load-env.js";
 
 /**

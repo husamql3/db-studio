@@ -14,7 +14,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
     "paths": {
-      "shared/*": [
+      "@db-studio/shared/*": [
         "../shared/src/*"
       ]
     }

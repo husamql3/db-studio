@@ -1,17 +1,23 @@
 {
-  "name": "www",
+  "name": "@db-studio/www",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "portless run",
+    "dev:app": "vite dev --host 127.0.0.1 --port=${PORT:-3000}",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "portless www.dbstuio bun run preview:app",
+    "preview:app": "vite preview --host --port=${PORT:-3000}",
     "deploy": "bun run build && wrangler deploy",
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",
     "cf-secrets": "wrangler secret bulk .env",
     "check-meta": "bunx check-site-meta",
     "format": "biome check --write --unsafe"
+  },
+  "portless": {
+    "name": "www.dbstuio",
+    "script": "dev:app"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -37,7 +43,7 @@
     "react-icons": "^5.5.0",
     "react-use-measure": "^2.1.7",
     "rough-notation": "^0.5.1",
-    "shared": "workspace:*",
+    "@db-studio/shared": "workspace:*",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.0.6",
     "three": "^0.184.0",

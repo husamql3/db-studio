@@ -1,7 +1,7 @@
 import { intro, outro } from "@clack/prompts";
+import { DEFAULTS } from "@db-studio/shared/constants";
 import { serve } from "@hono/node-server";
 import color from "picocolors";
-import { DEFAULTS } from "shared/constants";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
@@ -32,7 +32,7 @@ export const main = async () => {
 
 	intro(color.inverse(" db-studio "));
 
-	const PORT = port ? parseInt(port, 10) : DEFAULTS.PORT;
+	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
 	const ENV = env ? await loadEnv(env) : await loadEnv();
 	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);

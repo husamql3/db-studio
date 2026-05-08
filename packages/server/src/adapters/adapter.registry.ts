@@ -1,5 +1,5 @@
+import type { DatabaseTypeSchema } from "@db-studio/shared/types/database.types.js";
 import { HTTPException } from "hono/http-exception";
-import type { DatabaseTypeSchema } from "shared/types/database.types.js";
 import type { IDbAdapter } from "./adapter.interface.js";
 
 export class AdapterRegistry {

@@ -1,5 +1,3 @@
-import { HTTPException } from "hono/http-exception";
-import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -29,8 +27,10 @@ import type {
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-} from "shared/types";
-import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "shared/types";
+} from "@db-studio/shared/types";
+import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
+import { HTTPException } from "hono/http-exception";
+import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMysqlPool } from "@/adapters/connections.js";

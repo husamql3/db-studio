@@ -1,10 +1,10 @@
+import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
 import { Pool, type PoolConfig } from "pg";
-import type { DatabaseTypeSchema } from "shared/types";
 
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB

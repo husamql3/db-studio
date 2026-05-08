@@ -1,4 +1,4 @@
-import type { DatabaseSchemaType } from "shared/types";
+import type { DatabaseSchemaType } from "@db-studio/shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 
 export async function deleteColumn({

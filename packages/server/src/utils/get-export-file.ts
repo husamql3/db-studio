@@ -1,4 +1,4 @@
-import type { CellValue, FormatType } from "shared/types";
+import type { CellValue, FormatType } from "@db-studio/shared/types";
 import { utils, write } from "xlsx";
 
 interface ExportFileOptions {
