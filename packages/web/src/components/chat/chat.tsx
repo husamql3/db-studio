@@ -4,15 +4,9 @@ import { Button } from "@db-studio/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import { Sparkles } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { useOverlayStore } from "@/stores/overlay.store";
-
-const ChatSidebar = lazy(() =>
-	import("@/components/chat/chat-sidebar").then((module) => ({
-		default: module.ChatSidebar,
-	})),
-);
 
 export const Chat = () => {
 	const { isOverlayOpen, openOverlay } = useOverlayStore();
@@ -60,11 +54,7 @@ export const Chat = () => {
 				</TooltipContent>
 			</Tooltip>
 
-			{isOverlayOpen("chat.assistant") && (
-				<Suspense fallback={null}>
-					<ChatSidebar />
-				</Suspense>
-			)}
+			<ChatSidebar />
 		</>
 	);
 };
