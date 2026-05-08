@@ -94,12 +94,12 @@ boundaries exist.
 
 ### Phase 5 — Hardening & Documentation
 
-- [ ] Update `AGENTS.md` / `CLAUDE.md` frontend architecture references from `core` to `web`
-- [ ] Document package ownership and dependency direction
-- [ ] Add architecture notes for feature modules and shared API/query layers
-- [ ] Run `bun run typecheck`
-- [ ] Run `bun run build`
-- [ ] Run `bun run format`
+- [x] Update `AGENTS.md` / `CLAUDE.md` frontend architecture references from `core` to `web`
+- [x] Document package ownership and dependency direction
+- [x] Add architecture notes for feature modules and shared API/query layers
+- [x] Run `bun run typecheck`
+- [x] Run `bun run build`
+- [x] Run `bun run format`
 
 ### Phase 6 — Cleanup & Hardening
 

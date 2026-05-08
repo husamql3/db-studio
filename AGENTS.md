@@ -71,9 +71,53 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 - TanStack Router with file-based routing in `src/routes/`
 - TanStack Query for server state; Zustand for client state (`src/stores/`)
-- shadcn/ui components; Monaco editor for JSON/query editing
-- API calls use the Portless API host in development and same-origin requests in production.
+- shadcn/ui primitives live in `packages/ui`; Monaco editor for JSON/query editing
+- API calls go through `src/shared/api/` — pure transport wrappers over Axios
 - Cell rendering: `CellVariant` = `"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`
+
+**Feature-first structure** — domain logic lives in `src/features/`, not flat `src/hooks/` or `src/components/`:
+
+```txt
+src/
+  features/
+    query-runner/   — SQL editor, query execution, result display
+    schema/         — column list, add/edit column forms
+    table-builder/  — create table form, foreign key builder
+    tables/         — table grid, cell editing, pagination, exports
+    records/        — add record form, bulk insert sheets, FK reference picker
+  shared/
+    api/            — endpoint functions (pure transport wrappers)
+    query/          — query-key factories
+  stores/           — app-wide Zustand: database, overlay registry, preferences
+  hooks/            — cross-cutting hooks (databases list, rate limit, theme)
+  routes/           — file-based routes; each renders a feature screen only
+  components/       — shell components (sidebar, chat, command palette)
+```
+
+Each feature folder follows this shape:
+
+```txt
+features/[name]/
+  components/   — feature-specific React components
+  hooks/        — query + mutation hooks scoped to this feature
+  stores/       — feature-local Zustand state (if any)
+  screens/      — entry-point component rendered by the matching route
+  index.ts      — public barrel; only export what routes or other features need
+```
+
+**Package dependency direction**:
+
+```
+web → ui
+web → shared
+ui  → shared (type imports only, if unavoidable)
+server → shared
+proxy  → shared
+```
+
+Features within `packages/web` follow the same rule internally — a feature may import
+from `src/shared/`, `src/stores/`, and sibling feature `index.ts` barrels, but never
+from a sibling feature's internal files.
 
 ### Shared (`packages/shared`)
 
@@ -158,7 +202,11 @@ declare module "@tanstack/react-table" {
 
 ### React Hooks
 
-Location: `packages/web/src/hooks/use-[feature].ts`
+**Feature hooks** (query, mutation, derived state scoped to one feature):
+Location: `packages/web/src/features/[feature]/hooks/use-[name].ts`
+
+**Cross-cutting hooks** (app-wide concerns: databases list, rate limit, theme):
+Location: `packages/web/src/hooks/use-[name].ts`
 
 **Pattern** — return a named object (not a tuple):
 ```ts
@@ -232,6 +280,43 @@ Rules:
 - Updates always produce new objects (immutable pattern via `set`)
 - Use `get()` for reading state inside derived/computed functions
 - No selectors — consumers destructure from the hook directly
+
+### Overlay Registry (`src/stores/overlay.store.ts`)
+
+All sheets, drawers, and modal overlays are controlled through a single typed registry.
+Never create a new ad-hoc `isOpen` boolean in a store or component for a named overlay.
+
+```ts
+type OverlayId =
+  | "table-builder.create-table"
+  | `table-builder.add-foreign-key-${number}`
+  | "schema.add-column"
+  | "schema.edit-column"
+  | "records.add-record"
+  | "records.bulk-insert"
+  | "records.bulk-insert-csv"
+  | "records.bulk-insert-excel"
+  | "records.bulk-insert-json"
+  | "records.record-reference"
+  | "chat.assistant";
+```
+
+**Usage**:
+```ts
+const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
+
+// open
+openOverlay("records.add-record");
+
+// close
+closeOverlay("records.add-record");
+
+// check
+isOverlayOpen("records.add-record");
+```
+
+To add a new overlay: add its ID to the `OverlayId` union in `overlay.store.ts`, then
+render the overlay component wherever it belongs (route screen or app shell).
 
 ### Server Routes (Hono)
 
@@ -367,9 +452,22 @@ const addColumn = async (
 - `success` callback receives the mutation return value; prefer server message with a fallback string
 - `error` callback: check `error.details` (string) first, then `error.message`, then a static fallback
 
-### Client API (`lib/api.ts`)
+### Client API (`src/shared/api/`)
 
-Two Axios instances with logging interceptors:
+Canonical API layer — pure transport wrappers, no React or Zustand:
+
+```txt
+src/shared/api/
+  client.ts      — two Axios instances (rootApi + api) and setDbType()
+  databases.ts   — database list endpoints
+  tables.ts      — table data, schema, export endpoints
+  records.ts     — record CRUD endpoints
+  query.ts       — SQL query execution endpoint
+  chat.ts        — AI assistant endpoint
+  index.ts       — barrel re-export
+```
+
+Two Axios instances in `client.ts`:
 - `rootApi` — unscoped base URL, used for `/databases` etc.
 - `api` — scoped to `/{dbType}`, base URL updated via `setDbType()`
 
@@ -378,6 +476,8 @@ export const setDbType = (type: DatabaseTypeSchema): void => {
   api.defaults.baseURL = `${getBaseUrl()}/${type}`;
 };
 ```
+
+`src/lib/api.ts` is a legacy compatibility facade — do not add new code there.
 
 ### Tests
 
