@@ -18,8 +18,7 @@ export const changelog: ChangelogItem[] = [
 	{
 		version: "1.9.1",
 		date: "2026-05-09",
-		title:
-			"Integrated PostHog analytics and Sentry error tracking",
+		title: "Integrated PostHog analytics and Sentry error tracking",
 		features: [
 			{
 				text: "Integrated PostHog analytics and Sentry error tracking for enhanced monitoring and error visibility",
