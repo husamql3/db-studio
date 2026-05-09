@@ -6,10 +6,13 @@ import { cn } from "@db-studio/ui/utils";
 import { Sparkles } from "lucide-react";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { useRateLimit } from "@/hooks/use-rate-limit";
+import { posthogAnalytics } from "@/lib/posthog";
+import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const Chat = () => {
 	const { openOverlay } = useOverlayStore();
+	const { dbType } = useDatabaseStore();
 	const { rateLimit, isLoadingRateLimit } = useRateLimit();
 	const { remaining = 0, limit = 0 } = rateLimit ?? { remaining: 0, limit: 0 };
 
@@ -28,7 +31,10 @@ export const Chat = () => {
 					<Button
 						variant="ghost"
 						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12 relative"
-						onClick={() => openOverlay("chat.assistant")}
+						onClick={() => {
+							openOverlay("chat.assistant");
+							if (dbType) posthogAnalytics.capture("chat_opened", { db_type: dbType });
+						}}
 					>
 						<Sparkles className="size-5" />
 						<span

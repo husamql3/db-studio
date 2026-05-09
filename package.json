@@ -14,6 +14,7 @@
     "init-db:mysql": "bash ./scripts/init-db-mysql.sh",
     "init-db:mssql": "bash ./scripts/init-db-mssql.sh",
     "init-db:mongo": "bash ./scripts/init-db-mongo.sh",
+    "init-db:sqlite": "bash ./scripts/init-db-sqlite.sh",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=@db-studio/web",
     "scan:web": "bunx react-scan@latest https://web.dbstuio.localhost",

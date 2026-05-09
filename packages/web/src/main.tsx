@@ -4,8 +4,13 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 
 import "./index.css";
-import { getQueryClient } from "@/lib/query-client.ts";
+import { initPosthog } from "@/lib/posthog";
+import { getQueryClient } from "@/lib/query-client";
+import { initSentry } from "@/lib/sentry";
 import { routeTree } from "./routeTree.gen";
+
+initSentry();
+initPosthog();
 
 // Create a new router instance
 const router = createRouter({

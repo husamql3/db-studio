@@ -14,6 +14,7 @@ import { Highlighter } from "@/components/ui/highlighter";
 import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
 import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
+import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { cn } from "@/lib/utils";
 
@@ -235,6 +236,10 @@ function App() {
 
 						<div className="flex items-center justify-center h-10 px-2">
 							<SqlServer className="h-10 w-auto" />
+						</div>
+
+						<div className="flex items-center justify-center h-10 px-2">
+							<SQLite className="h-10 w-auto" />
 						</div>
 					</InfiniteSlider>
 

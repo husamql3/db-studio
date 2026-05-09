@@ -66,6 +66,7 @@ export const BulkInsertCsvSheet = ({ tableName }: { tableName: string }) => {
 
 		try {
 			await bulkInsertRecords(parsedRecords, {
+				format: "csv",
 				onSuccess: () => {
 					setTextValue("");
 					setSelectedFile(null);

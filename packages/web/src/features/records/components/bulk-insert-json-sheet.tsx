@@ -66,6 +66,7 @@ export const BulkInsertJsonSheet = ({ tableName }: { tableName: string }) => {
 
 		try {
 			await bulkInsertRecords(parsedRecords, {
+				format: "json",
 				onSuccess: () => {
 					setTextValue("");
 					setSelectedFile(null);

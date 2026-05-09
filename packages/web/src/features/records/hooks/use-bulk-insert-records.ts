@@ -1,13 +1,14 @@
 import type { BulkInsertResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { posthogAnalytics } from "@/lib/posthog";
 import { bulkInsertRecords as bulkInsertRecordsRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
-	const { selectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const { mutateAsync: bulkInsertMutation, isPending: isInserting } = useMutation({
 		mutationFn: async (records: Record<string, unknown>[]) => {
@@ -41,6 +42,7 @@ export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
 		options?: {
 			onSuccess?: (result: BulkInsertResult) => void;
 			onError?: (error: Error & { detail?: string }) => void;
+			format?: "csv" | "json" | "excel";
 		},
 	) => {
 		if (!records || records.length === 0) {
@@ -51,6 +53,9 @@ export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
 			loading: `Inserting ${records.length} record${records.length !== 1 ? "s" : ""}...`,
 			success: (result) => {
 				options?.onSuccess?.(result);
+				if (dbType && options?.format) {
+					posthogAnalytics.capture("bulk_insert", { db_type: dbType, format: options.format });
+				}
 				if (result.failureCount > 0) {
 					return `${result.successCount} records inserted, ${result.failureCount} failed`;
 				}

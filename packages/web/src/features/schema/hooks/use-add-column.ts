@@ -1,6 +1,7 @@
 import type { AddColumnSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { posthogAnalytics } from "@/lib/posthog";
 import { addColumn as addColumnRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -18,7 +19,7 @@ const normalizeAddColumnPayload = (data: AddColumnSchemaType): AddColumnSchemaTy
 export const useAddColumn = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
 	const { closeOverlay } = useOverlayStore();
-	const { selectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const { mutateAsync: addColumnMutation, isPending: isAddingColumn } = useMutation<
 		string,
@@ -45,6 +46,7 @@ export const useAddColumn = ({ tableName }: { tableName: string }) => {
 				}),
 			]);
 			closeOverlay("schema.add-column");
+			if (dbType) posthogAnalytics.capture("column_added", { db_type: dbType });
 		},
 	});
 

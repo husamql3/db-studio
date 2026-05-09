@@ -66,6 +66,7 @@ export const BulkInsertExcelSheet = ({ tableName }: { tableName: string }) => {
 
 		try {
 			await bulkInsertRecords(parsedRecords, {
+				format: "excel",
 				onSuccess: () => {
 					setTextValue("");
 					setSelectedFile(null);

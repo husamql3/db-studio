@@ -51,11 +51,14 @@ export default defineConfig(({ mode }) => {
           if (id.includes('react-dom')) {
             return 'react-dom';
           }
+          // Monitoring & analytics
+          if (id.includes('@sentry') || id.includes('posthog')) {
+            return 'monitoring';
+          }
         },
       },
     },
-    // Generate source maps only for error tracking (smaller than full maps)
-    sourcemap: false,
+    sourcemap: 'hidden',
     // Increase chunk size warning limit (monaco is large but lazy-loaded)
     chunkSizeWarningLimit: 1000,
   },

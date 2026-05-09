@@ -31,3 +31,4 @@ dist-ssr
 
 .turbo
 .env
+db/

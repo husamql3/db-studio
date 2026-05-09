@@ -6,6 +6,7 @@ import axios, {
 	type InternalAxiosRequestConfig,
 } from "axios";
 import { logger } from "@/lib/logger";
+import { Sentry } from "@/lib/sentry";
 
 const setupInterceptors = (instance: AxiosInstance) => {
 	instance.interceptors.request.use(
@@ -18,6 +19,11 @@ const setupInterceptors = (instance: AxiosInstance) => {
 				startTime: performance.now(),
 			};
 			logger.request(config);
+			Sentry.addBreadcrumb({
+				category: "http",
+				data: { url: config.url, method: config.method?.toUpperCase() },
+				level: "info",
+			});
 			return config;
 		},
 		(error) => Promise.reject(error),
@@ -54,6 +60,13 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const apiError = new Error(message);
 			(apiError as Error & { status: number; details?: unknown }).status = status;
 			(apiError as Error & { status: number; details?: unknown }).details = details;
+
+			if (status >= 500) {
+				Sentry.captureException(apiError, {
+					tags: { status: String(status) },
+					extra: { url: error.config?.url, method: error.config?.method },
+				});
+			}
 
 			return Promise.reject(apiError);
 		},
