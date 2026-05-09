@@ -9,7 +9,7 @@ import { useRateLimit } from "@/hooks/use-rate-limit";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const Chat = () => {
-	const { isOverlayOpen, openOverlay } = useOverlayStore();
+	const { openOverlay } = useOverlayStore();
 	const { rateLimit, isLoadingRateLimit } = useRateLimit();
 	const { remaining = 0, limit = 0 } = rateLimit ?? { remaining: 0, limit: 0 };
 
