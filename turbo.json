@@ -14,15 +14,15 @@
         "NODE_ENV"
       ]
     },
-		"@db-studio/shared#build": {
-			"outputs": [],
-			"cache": true
-		},
-		"@db-studio/ui#build": {
-			"outputs": [],
-			"cache": true
-		},
-		"build:web": {
+    "@db-studio/shared#build": {
+      "outputs": [],
+      "cache": true
+    },
+    "@db-studio/ui#build": {
+      "outputs": [],
+      "cache": true
+    },
+    "build:web": {
       "outputs": [
         "dist/**"
       ],
@@ -123,6 +123,13 @@
     },
     "clean": {
       "cache": false
+    },
+    "start": {
+      "dependsOn": [
+        "build"
+      ],
+      "cache": false,
+      "outputs": []
     }
   },
   "globalDependencies": [

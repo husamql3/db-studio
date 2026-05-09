@@ -1,5 +1,5 @@
 {
-  "name": "@db-studio/server",
+  "name": "dbstudio",
   "type": "module",
   "version": "1.9.1",
   "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
@@ -35,7 +35,7 @@
   },
   "license": "BSL-1.1",
   "bin": {
-    "db-studio": "./dist/index.js"
+    "dbstudio": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -45,8 +45,7 @@
     "dev:app": "NODE_ENV=development tsx watch src/index.ts",
     "build": "tsup --minify --sourcemap",
     "prepack": "cd ../web && bun run build && cd ../server && bun run build",
-    "start": "portless dbstuio bun run start:app",
-    "start:app": "node dist/index.js",
+    "start": "sh -c 'APP_PORT=${PORT:-3333}; portless proxy start >/dev/null && portless alias db-studio \"$APP_PORT\" --force >/dev/null && HOST=127.0.0.1 PORT=\"$APP_PORT\" DB_STUDIO_SERVER_URL=https://db-studio.localhost node dist/index.js'",
     "format": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest",

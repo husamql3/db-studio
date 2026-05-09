@@ -22,13 +22,13 @@ Feel free to check the code yourself to be sure.
 
 <Accordion id="prisma-compat" title="Can I use DB Studio with Prisma?">
 
-Yes! Just run `npx db-studio` in your Prisma project folder. It will automatically use your existing `DATABASE_URL` from `.env`.
+Yes! Just run `npx dbstudio` in your Prisma project folder. It will automatically use your existing `DATABASE_URL` from `.env`.
 
 </Accordion>
 
 <Accordion id="drizzle-compat" title="Can I use DB Studio with Drizzle?">
 
-Yes! Run `npx db-studio` in your Drizzle project folder. It uses the same `DATABASE_URL` from your `.env` file. No extra setup needed.
+Yes! Run `npx dbstudio` in your Drizzle project folder. It uses the same `DATABASE_URL` from your `.env` file. No extra setup needed.
 
 </Accordion>
 
@@ -46,16 +46,16 @@ Open different terminals with different ports and env files:
 
 ```bash
 # Dev database (terminal 1)
-npx db-studio --env .env.dev --port 3333
+npx dbstudio --env .env.dev --port 3333
 
 # Production database (terminal 2)
-npx db-studio --env .env.prod --port 3334
+npx dbstudio --env .env.prod --port 3334
 ```
 
 Or use direct connection strings:
 
 ```bash
-npx db-studio --database-url postgresql://localhost:5432/devdb --port 3333
+npx dbstudio --database-url postgresql://localhost:5432/devdb --port 3333
 ```
 
 </Accordion>
@@ -65,7 +65,7 @@ npx db-studio --database-url postgresql://localhost:5432/devdb --port 3333
 First, check if your connection works:
 
 ```bash
-npx db-studio --status
+npx dbstudio --status
 ```
 
 Common problems and fixes:
@@ -82,9 +82,9 @@ Common problems and fixes:
 Use a different port:
 
 ```bash
-npx db-studio --port 4000
+npx dbstudio --port 4000
 # or
-npx db-studio --port 8080
+npx dbstudio --port 8080
 ```
 
 </Accordion>
@@ -97,9 +97,9 @@ DB Studio looks for `.env` in:
 2. Parent folders (it searches upward)
 
 You can also:
-- Specify a file: `npx db-studio --env .env.local`
-- Use a different variable: `npx db-studio --var-name MY_DB_URL`
-- Skip the file entirely: `npx db-studio --database-url "postgresql://..."`
+- Specify a file: `npx dbstudio --env .env.local`
+- Use a different variable: `npx dbstudio --var-name MY_DB_URL`
+- Skip the file entirely: `npx dbstudio --database-url "postgresql://..."`
 
 </Accordion>
 

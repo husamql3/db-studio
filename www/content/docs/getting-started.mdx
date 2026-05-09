@@ -16,22 +16,22 @@ No installation needed! Just run this command:
 
   <CodeBlockTab value="npx">
     ```bash
-    npx db-studio
+    npx dbstudio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="pnpm">
     ```bash
-    pnpm dlx db-studio
+    pnpm dlx dbstudio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="yarn">
     ```bash
-    yarn dlx db-studio
+    yarn dlx dbstudio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="bun">
     ```bash
-    bunx db-studio
+    bunx dbstudio
     ```
   </CodeBlockTab>
 </CodeBlockTabs>
@@ -60,7 +60,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase
 Then run:
 
 ```bash
-npx db-studio
+npx dbstudio
 ```
 
 DB Studio will:
@@ -74,30 +74,30 @@ You can customize how DB Studio runs with these options:
 
 | Option | What It Does | Example |
 |--------|--------------|---------|
-| `--env <path>` | Use a specific `.env` file | `npx db-studio --env .env.local` |
-| `--var-name <name>` | Use a different variable name instead of `DATABASE_URL` | `npx db-studio --var-name MY_DB_URL` |
-| `--port <number>` | Change the server port (default is 3333) | `npx db-studio --port 4000` |
-| `--database-url <url>` | Provide connection string directly without `.env` file | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
-| `--status` | Only check if connection works (doesn't open the UI) | `npx db-studio --status` |
-| `--help` | Show all available options | `npx db-studio --help` |
+| `--env <path>` | Use a specific `.env` file | `npx dbstudio --env .env.local` |
+| `--var-name <name>` | Use a different variable name instead of `DATABASE_URL` | `npx dbstudio --var-name MY_DB_URL` |
+| `--port <number>` | Change the server port (default is 3333) | `npx dbstudio --port 4000` |
+| `--database-url <url>` | Provide connection string directly without `.env` file | `npx dbstudio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
+| `--status` | Only check if connection works (doesn't open the UI) | `npx dbstudio --status` |
+| `--help` | Show all available options | `npx dbstudio --help` |
 
 ### Real Examples
 
 ```bash
 # Use a different env file for local development
-npx db-studio --env .env.local
+npx dbstudio --env .env.local
 
 # Use production env file with custom port
-npx db-studio --env .env.production --port 4444
+npx dbstudio --env .env.production --port 4444
 
 # Connect directly without env file (good for quick tests)
-npx db-studio --database-url "postgresql://user:pass@host:5432/prod"
+npx dbstudio --database-url "postgresql://user:pass@host:5432/prod"
 
 # Use custom variable name with specific env file
-npx db-studio --env .env.staging --var-name STAGING_DB_URL
+npx dbstudio --env .env.staging --var-name STAGING_DB_URL
 
 # Just check if your connection works
-npx db-studio --status
+npx dbstudio --status
 ```
 
 ## Add to Your Project
@@ -107,7 +107,7 @@ You can add DB Studio to your `package.json` scripts:
 ```json
 {
   "scripts": {
-    "db:studio": "npx db-studio"
+    "db:studio": "npx dbstudio"
   }
 }
 ```
@@ -149,7 +149,7 @@ With this:
 
 ```json title="package.json"
 "scripts": {
-  "studio": "npx db-studio"
+  "studio": "npx dbstudio"
 }
 ```
 
@@ -169,7 +169,7 @@ With this:
 
 ```json title="package.json"
 "scripts": {
-  "studio": "npx db-studio"
+  "studio": "npx dbstudio"
 }
 ```
 

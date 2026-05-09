@@ -40,7 +40,7 @@ bun run test:coverage                # with coverage
 bunx vitest run tests/path/to/file.test.ts  # single file
 ```
 
-> **Dev URLs**: Frontend (Vite) → `https://web.dbstuio.localhost`, API → `https://api.dbstuio.localhost`, proxy → `https://proxy.dbstuio.localhost`, docs → `https://www.dbstuio.localhost`. Production-style local serving uses `https://dbstuio.localhost` via the server package `start` script.
+> **Dev URLs**: Frontend (Vite) → `https://web.dbstuio.localhost`, API → `https://api.dbstuio.localhost`, proxy → `https://proxy.dbstuio.localhost`, docs → `https://www.dbstuio.localhost`. Production-style local serving uses `https://db-studio.localhost` via the server package `start` script.
 
 ## Architecture
 
@@ -48,7 +48,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 | Package | Role |
 |---------|------|
-| `packages/server` | Hono API server + CLI (`npx db-studio`) |
+| `packages/server` | Hono API server + CLI (`npx dbstudio`) |
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
