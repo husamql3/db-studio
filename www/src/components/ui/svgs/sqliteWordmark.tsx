@@ -1,12 +1,31 @@
 import type { SVGProps } from "react";
 
 const SQLite = (props: SVGProps<SVGSVGElement>) => (
-	<svg {...props} preserveAspectRatio="xMidYMid" viewBox="0 0 512 228">
+	<svg
+		{...props}
+		preserveAspectRatio="xMidYMid"
+		viewBox="0 0 512 228"
+	>
 		<defs>
-			<linearGradient x1="57.7%" y1="2%" x2="57.7%" y2="94.4%" id="sqlite__a">
-				<stop stopColor="#97D9F6" offset="0%" />
-				<stop stopColor="#0F80CC" offset="92%" />
-				<stop stopColor="#0F80CC" offset="100%" />
+			<linearGradient
+				x1="57.7%"
+				y1="2%"
+				x2="57.7%"
+				y2="94.4%"
+				id="sqlite__a"
+			>
+				<stop
+					stopColor="#97D9F6"
+					offset="0%"
+				/>
+				<stop
+					stopColor="#0F80CC"
+					offset="92%"
+				/>
+				<stop
+					stopColor="#0F80CC"
+					offset="100%"
+				/>
 			</linearGradient>
 		</defs>
 		<path

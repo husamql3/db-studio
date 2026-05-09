@@ -14,8 +14,8 @@ import { Highlighter } from "@/components/ui/highlighter";
 import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
 import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
-import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
+import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
