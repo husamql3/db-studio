@@ -528,7 +528,8 @@ export class SqliteAdapter extends BaseAdapter {
 			const row = sqliteDb
 				.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`)
 				.get(tableName) as { sql: string } | undefined;
-			if (!row) throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!row)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			void db;
 			return row.sql;
 		} catch (e) {
