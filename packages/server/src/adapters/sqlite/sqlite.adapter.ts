@@ -268,6 +268,7 @@ export class SqliteAdapter extends BaseAdapter {
 			}
 
 			const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
+			const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
 			let effectiveSortClause = sortClause;
 
 			if (direction === "desc") {
@@ -276,11 +277,17 @@ export class SqliteAdapter extends BaseAdapter {
 						.replace(/\bASC\b/gi, "TEMP_DESC")
 						.replace(/\bDESC\b/gi, "ASC")
 						.replace(/TEMP_DESC/g, "DESC");
+					if (pkTieBreakerCols.length) {
+						const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
+						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${tbDir}`).join(", ")}`;
+					}
 				} else {
 					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 				}
 			} else if (!sortClause) {
 				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			} else if (pkTieBreakerCols.length) {
+				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			}
 
 			const countRow = sqliteDb
@@ -350,46 +357,59 @@ export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		const sqliteDb = getSqliteDb();
-		const rows = sqliteDb.prepare("PRAGMA database_list").all() as Array<{
-			seq: number;
-			name: string;
-			file: string;
-		}>;
+		try {
+			const sqliteDb = getSqliteDb();
+			const rows = sqliteDb.prepare("PRAGMA database_list").all() as Array<{
+				seq: number;
+				name: string;
+				file: string;
+			}>;
 
-		if (!rows.length)
-			throw new HTTPException(500, { message: "No databases returned from SQLite" });
+			if (!rows.length)
+				throw new HTTPException(500, { message: "No databases returned from SQLite" });
 
-		return rows.map((row) => ({
-			name: row.name,
-			size: this.getFileSize(row.file),
-			owner: "",
-			encoding: "UTF-8",
-		}));
+			return rows.map((row) => ({
+				name: row.name,
+				size: this.getFileSize(row.file),
+				owner: "",
+				encoding: "UTF-8",
+			}));
+		} catch (e) {
+			if (e instanceof HTTPException) throw e;
+			throw this.wrapError(e);
+		}
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const sqliteDb = getSqliteDb();
-		const rows = sqliteDb.prepare("PRAGMA database_list").all() as Array<{ name: string }>;
-		const main = rows.find((r) => r.name === "main");
-		return { db: main?.name ?? "main" };
+		try {
+			const sqliteDb = getSqliteDb();
+			const rows = sqliteDb.prepare("PRAGMA database_list").all() as Array<{ name: string }>;
+			const main = rows.find((r) => r.name === "main");
+			return { db: main?.name ?? "main" };
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const sqliteDb = getSqliteDb();
-		const versionRow = sqliteDb.prepare("SELECT sqlite_version() as version").get() as {
-			version: string;
-		};
+		try {
+			const sqliteDb = getSqliteDb();
+			const versionRow = sqliteDb.prepare("SELECT sqlite_version() as version").get() as {
+				version: string;
+			};
 
-		return {
-			host: null,
-			port: null,
-			user: "",
-			database: "main",
-			version: `SQLite ${versionRow.version}`,
-			active_connections: 1,
-			max_connections: 1,
-		};
+			return {
+				host: null,
+				port: null,
+				user: "",
+				database: "main",
+				version: `SQLite ${versionRow.version}`,
+				active_connections: 1,
+				max_connections: 1,
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	// =========================================================
@@ -397,19 +417,23 @@ export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const sqliteDb = getSqliteDb();
-		const tables = sqliteDb
-			.prepare(
-				`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
-			)
-			.all() as Array<{ name: string }>;
+		try {
+			const sqliteDb = getSqliteDb();
+			const tables = sqliteDb
+				.prepare(
+					`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+				)
+				.all() as Array<{ name: string }>;
 
-		return tables.map((t) => {
-			const countRow = sqliteDb.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`).get() as {
-				count: number;
-			};
-			return { tableName: t.name, rowCount: countRow?.count ?? 0 };
-		});
+			return tables.map((t) => {
+				const countRow = sqliteDb
+					.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`)
+					.get() as { count: number };
+				return { tableName: t.name, rowCount: countRow?.count ?? 0 };
+			});
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	async createTable({
@@ -499,13 +523,18 @@ export class SqliteAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const sqliteDb = getSqliteDb();
-		const row = sqliteDb
-			.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName) as { sql: string } | undefined;
-		if (!row) throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		void db;
-		return row.sql;
+		try {
+			const sqliteDb = getSqliteDb();
+			const row = sqliteDb
+				.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`)
+				.get(tableName) as { sql: string } | undefined;
+			if (!row) throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			void db;
+			return row.sql;
+		} catch (e) {
+			if (e instanceof HTTPException) throw e;
+			throw this.wrapError(e);
+		}
 	}
 
 	// =========================================================
@@ -519,41 +548,46 @@ export class SqliteAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const sqliteDb = getSqliteDb();
+		try {
+			const sqliteDb = getSqliteDb();
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			const tableRow = sqliteDb
+				.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+				.get(tableName);
+			if (!tableRow)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const columns = sqliteDb
-			.prepare(`PRAGMA table_info("${tableName}")`)
-			.all() as TableInfoRow[];
-		const fks = sqliteDb.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as FkRow[];
+			const columns = sqliteDb
+				.prepare(`PRAGMA table_info("${tableName}")`)
+				.all() as TableInfoRow[];
+			const fks = sqliteDb.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as FkRow[];
 
-		const fkMap = new Map<string, FkRow>();
-		for (const fk of fks) {
-			fkMap.set(fk.from, fk);
+			const fkMap = new Map<string, FkRow>();
+			for (const fk of fks) {
+				fkMap.set(fk.from, fk);
+			}
+
+			void db;
+			return columns.map((col) => {
+				const fk = fkMap.get(col.name);
+				const nativeType = col.type.toLowerCase();
+				return {
+					columnName: col.name,
+					dataType: mapSqliteToDataType(nativeType),
+					dataTypeLabel: standardizeSqliteDataTypeLabel(nativeType),
+					isNullable: col.notnull === 0 && col.pk === 0,
+					columnDefault: col.dflt_value,
+					isPrimaryKey: col.pk > 0,
+					isForeignKey: fkMap.has(col.name),
+					referencedTable: fk?.table ?? null,
+					referencedColumn: fk?.to ?? null,
+					enumValues: null,
+				};
+			});
+		} catch (e) {
+			if (e instanceof HTTPException) throw e;
+			throw this.wrapError(e);
 		}
-
-		void db;
-		return columns.map((col) => {
-			const fk = fkMap.get(col.name);
-			const nativeType = col.type.toLowerCase();
-			return {
-				columnName: col.name,
-				dataType: mapSqliteToDataType(nativeType),
-				dataTypeLabel: standardizeSqliteDataTypeLabel(nativeType),
-				isNullable: col.notnull === 0 && col.pk === 0,
-				columnDefault: col.dflt_value,
-				isPrimaryKey: col.pk > 0,
-				isForeignKey: fkMap.has(col.name),
-				referencedTable: fk?.table ?? null,
-				referencedColumn: fk?.to ?? null,
-				enumValues: null,
-			};
-		});
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
@@ -677,6 +711,15 @@ export class SqliteAdapter extends BaseAdapter {
 		const colNames = colInfo.map((c) => `"${c.name}"`).join(", ");
 		const tempName = `${tableName}_alter_${Date.now()}`;
 
+		const existingIndexes = sqliteDb
+			.prepare(
+				`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`,
+			)
+			.all(tableName) as Array<{ sql: string }>;
+		const existingTriggers = sqliteDb
+			.prepare(`SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?`)
+			.all(tableName) as Array<{ sql: string }>;
+
 		sqliteDb.pragma("foreign_keys = OFF");
 		const doAlter = sqliteDb.transaction(() => {
 			sqliteDb
@@ -693,6 +736,12 @@ export class SqliteAdapter extends BaseAdapter {
 
 		try {
 			doAlter();
+			for (const { sql } of existingIndexes) {
+				sqliteDb.prepare(sql).run();
+			}
+			for (const { sql } of existingTriggers) {
+				sqliteDb.prepare(sql).run();
+			}
 		} catch (e) {
 			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);
@@ -755,7 +804,9 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
-		const values = Object.values(data);
+		const values = Object.values(data).map((v) =>
+			v !== null && typeof v === "object" ? JSON.stringify(v) : v,
+		);
 		const colNames = columns.map((c) => `"${c}"`).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
 
@@ -933,7 +984,10 @@ export class SqliteAdapter extends BaseAdapter {
 		const doInsert = sqliteDb.transaction((recs: typeof records) => {
 			let count = 0;
 			for (const record of recs) {
-				const values = columns.map((col) => record[col]);
+				const values = columns.map((col) => {
+					const v = record[col];
+					return v !== null && typeof v === "object" ? JSON.stringify(v) : v;
+				});
 				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 				stmt.run(...(values as any[]));
 				count++;
