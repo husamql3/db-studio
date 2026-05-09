@@ -1,8 +1,11 @@
 import { useQueryState } from "nuqs";
 import { useCallback } from "react";
+import { posthogAnalytics } from "@/lib/posthog";
+import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
 export function useTableNavigation() {
+	const { dbType } = useDatabaseStore();
 	const [, setActiveTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const [, setActiveTab] = useQueryState(CONSTANTS.ACTIVE_TAB);
 	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
@@ -35,6 +38,8 @@ export function useTableNavigation() {
 		(tableName: string) => {
 			setActiveTab("table");
 			setActiveTable(tableName);
+			if (dbType)
+				posthogAnalytics.capture("table_viewed", { db_type: dbType, table_name: tableName });
 			setOrder(null);
 			setSort(null);
 			setFilters(null);

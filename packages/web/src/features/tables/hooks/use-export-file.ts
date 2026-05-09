@@ -1,6 +1,7 @@
 import type { FormatType } from "@db-studio/shared/types";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { posthogAnalytics } from "@/lib/posthog";
 import { exportTable } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -10,7 +11,7 @@ type ExportFileParams = {
 };
 
 export const useExportFile = () => {
-	const { selectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const { mutateAsync: exportFileMutation, isPending: isExportingFile } = useMutation({
 		mutationFn: async ({ tableName, format }: ExportFileParams) => {
@@ -36,6 +37,8 @@ export const useExportFile = () => {
 			link.click();
 			document.body.removeChild(link);
 			window.URL.revokeObjectURL(url);
+
+			if (dbType) posthogAnalytics.capture("record_exported", { db_type: dbType, format });
 		},
 	});
 

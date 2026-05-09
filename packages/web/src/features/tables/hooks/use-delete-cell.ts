@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 import { toast } from "sonner";
 import { useTableCols } from "@/features/schema";
+import { posthogAnalytics } from "@/lib/posthog";
 import { deleteRecords } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -17,7 +18,7 @@ export interface RelatedRecord {
 export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
 	const { tableCols } = useTableCols({ tableName });
-	const { selectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const {
 		mutateAsync: deleteCellsAsync,
@@ -59,7 +60,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 					queryKey: tableKeys.lists(),
 				}),
 			]);
-
+			if (dbType) posthogAnalytics.capture("record_deleted", { db_type: dbType });
 			return result;
 		},
 	});

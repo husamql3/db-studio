@@ -1,6 +1,7 @@
 import type { CreateTableSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { posthogAnalytics } from "@/lib/posthog";
 import { createTable as createTableRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -9,7 +10,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 export const useCreateTable = () => {
 	const { closeOverlay } = useOverlayStore();
 	const queryClient = useQueryClient();
-	const { selectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
 		mutationFn: async (data: CreateTableSchemaType) => {
@@ -22,6 +23,7 @@ export const useCreateTable = () => {
 				queryClient.invalidateQueries({ queryKey: tableKeys.columns() }),
 			]);
 			closeOverlay("table-builder.create-table");
+			if (dbType) posthogAnalytics.capture("table_created", { db_type: dbType });
 		},
 	});
 

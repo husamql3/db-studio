@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { posthogAnalytics } from "@/lib/posthog";
 import { createRecord as createRecordRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -12,7 +13,7 @@ export interface AddRecordFormData {
 export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 	const queryClient = useQueryClient();
 	const { closeOverlay } = useOverlayStore();
-	const { selectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
 		mutationFn: async (data: AddRecordFormData) => {
@@ -34,6 +35,7 @@ export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 				}),
 			]);
 			closeOverlay("records.add-record");
+			if (dbType) posthogAnalytics.capture("record_created", { db_type: dbType });
 		},
 	});
 

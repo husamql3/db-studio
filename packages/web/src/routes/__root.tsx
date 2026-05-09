@@ -6,9 +6,12 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
+import { useEffect } from "react";
 import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
+import { posthogAnalytics } from "@/lib/posthog";
+import { useDatabaseStore } from "@/stores/database.store";
 
 const darkModeScript = String.raw`
   try {
@@ -30,8 +33,18 @@ export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 
+		const { dbType } = useDatabaseStore();
 		// Initialize database connection when the component mounts, fetches databases list, current db, and selects first db as fallback
 		const { isLoading, isInitialized, error } = useInitializeDatabase();
+
+		useEffect(() => {
+			if (error && dbType) {
+				posthogAnalytics.capture("connection_error", {
+					db_type: dbType,
+					status: (error as { status?: number })?.status ?? 0,
+				});
+			}
+		}, [error, dbType]);
 
 		// Show loading until both queries complete AND database is initialized in store
 		const showLoading = (isLoading || !isInitialized) && !error;
