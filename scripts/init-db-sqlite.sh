@@ -1,22 +1,57 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 DB_PATH="${DB_PATH:-${ROOT_DIR}/db/dbstudio.sqlite}"
-DATABASE_URL="sqlite://${DB_PATH}"
+case "${DB_PATH}" in
+  /*) ;;
+  *) DB_PATH="${ROOT_DIR}/${DB_PATH}" ;;
+esac
 
-if ! command -v sqlite3 >/dev/null 2>&1; then
-  echo "[init-db] sqlite3 is not installed or not in PATH"
-  echo "[init-db] Install it with: brew install sqlite (macOS) or apt-get install sqlite3 (Debian/Ubuntu)"
+DB_DIR="$(dirname "${DB_PATH}")"
+DB_FILE="$(basename "${DB_PATH}")"
+DB_CONTAINER_DIR="${DB_CONTAINER_DIR:-/db}"
+DB_CONTAINER_PATH="${DB_CONTAINER_PATH:-${DB_CONTAINER_DIR}/${DB_FILE}}"
+DB_IMAGE="${DB_IMAGE:-keinos/sqlite3:latest}"
+DB_URL_TARGET="${DB_URL_TARGET:-host}"
+
+case "${DB_URL_TARGET}" in
+  host)
+    DB_URL_PATH="${DB_PATH}"
+    ;;
+  docker)
+    DB_URL_PATH="${DB_CONTAINER_PATH}"
+    ;;
+  *)
+    echo "[init-db] unsupported DB_URL_TARGET=${DB_URL_TARGET}; expected host or docker"
+    exit 1
+    ;;
+esac
+
+DATABASE_URL="${DATABASE_URL:-sqlite://${DB_URL_PATH}}"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "[init-db] docker is not installed or not in PATH"
   exit 1
 fi
 
-mkdir -p "$(dirname "${DB_PATH}")"
+mkdir -p "${DB_DIR}"
 
-echo "[init-db] creating SQLite database at ${DB_PATH}..."
+DOCKER_USER_ARGS=()
+if command -v id >/dev/null 2>&1; then
+  DOCKER_USER_ARGS=(--user "$(id -u):$(id -g)")
+fi
 
-sqlite3 "${DB_PATH}" <<'SQL'
+echo "[init-db] creating SQLite database at ${DB_PATH} with ${DB_IMAGE}..."
+
+docker run --rm -i \
+  "${DOCKER_USER_ARGS[@]}" \
+  -v "${DB_DIR}:${DB_CONTAINER_DIR}" \
+  -w "${DB_CONTAINER_DIR}" \
+  "${DB_IMAGE}" \
+  sqlite3 "${DB_CONTAINER_PATH}" <<'SQL'
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
