@@ -9,6 +9,8 @@ export const getMysqlPool: typeof dbManager.getMysqlPool = (database) =>
 export const getMssqlPool: typeof dbManager.getMssqlPool = (database) =>
 	dbManager.getMssqlPool(database);
 
+export const getSqliteDb: typeof dbManager.getSqliteDb = () => dbManager.getSqliteDb();
+
 export const getMongoClient: typeof dbManager.getMongoClient = () =>
 	dbManager.getMongoClient();
 

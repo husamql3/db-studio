@@ -3,6 +3,7 @@ import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
+import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 
 /**
  * Registers all DB adapters with the registry before routes are mounted.
@@ -12,4 +13,5 @@ export function registerAdapters(): void {
 	adapterRegistry.register("mysql", new MySqlAdapter());
 	adapterRegistry.register("mssql", new MsSqlAdapter());
 	adapterRegistry.register("mongodb", new MongoAdapter());
+	adapterRegistry.register("sqlite", new SqliteAdapter());
 }
