@@ -13,5 +13,3 @@ export const initSentry = (): void => {
 };
 
 export { Sentry };
-
-// https://ff38250cf9212a720bc571f6fd24f8bc@o4509725125181440.ingest.de.sentry.io/4511231608225872
