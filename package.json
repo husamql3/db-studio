@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=@db-studio/web",
-    "dev:server": "turbo run dev --filter=dbstudio",
+    "dev:server": "turbo run dev --filter=db-studio",
     "dev:proxy": "turbo run dev --filter=@db-studio/proxy",
     "dev:www": "turbo run dev --filter=@db-studio/www",
     "start": "turbo run start",

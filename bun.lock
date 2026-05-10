@@ -33,10 +33,10 @@
       },
     },
     "packages/server": {
-      "name": "dbstudio",
+      "name": "db-studio",
       "version": "1.9.1",
       "bin": {
-        "dbstudio": "./dist/index.js",
+        "db-studio": "./dist/index.js",
       },
       "dependencies": {
         "@clack/prompts": "^1.0.1",

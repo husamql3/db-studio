@@ -1,5 +1,5 @@
 {
-  "name": "dbstudio",
+  "name": "db-studio",
   "type": "module",
   "version": "1.9.1",
   "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
@@ -35,7 +35,7 @@
   },
   "license": "BSL-1.1",
   "bin": {
-    "dbstudio": "./dist/index.js"
+    "db-studio": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -52,7 +52,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "portless": {
-    "name": "api.dbstuio",
+    "name": "api.db-studio",
     "script": "dev:app"
   },
   "dependencies": {

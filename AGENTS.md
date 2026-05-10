@@ -48,7 +48,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 | Package | Role |
 |---------|------|
-| `packages/server` | Hono API server + CLI (`npx dbstudio`) |
+| `packages/server` | Hono API server + CLI (`npx db-studio`) |
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |

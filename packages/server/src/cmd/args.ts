@@ -6,7 +6,7 @@ import { program } from "commander";
  */
 export const args = () => {
 	program
-		.name("dbstudio")
+		.name("db-studio")
 		.option("-e, --env <path>", "Path to custom .env file")
 		.option("-p, --port <port>", "Port to run the server on")
 		.option("-d, --database-url <url>", "Database URL to use")
