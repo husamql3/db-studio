@@ -628,14 +628,23 @@ export function standardizeSqliteDataTypeLabel(sqliteType: string): Standardized
 	const normalized = sqliteType?.toLowerCase().trim() || "";
 
 	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
-	if (normalized === "bigint") return StandardizedDataType.bigint;
-	if (normalized === "smallint") return StandardizedDataType.smallint;
-	if (normalized === "tinyint") return StandardizedDataType.tinyint;
-	if (normalized === "mediumint") return StandardizedDataType.mediumint;
+	if (normalized === "bigint" || normalized.startsWith("bigint("))
+		return StandardizedDataType.bigint;
+	if (normalized === "smallint" || normalized.startsWith("smallint("))
+		return StandardizedDataType.smallint;
+	if (normalized === "tinyint" || normalized.startsWith("tinyint("))
+		return StandardizedDataType.tinyint;
+	if (normalized === "mediumint" || normalized.startsWith("mediumint("))
+		return StandardizedDataType.mediumint;
 	if (normalized.includes("int")) return StandardizedDataType.int;
 
-	if (normalized === "real" || normalized === "float") return StandardizedDataType.float;
-	if (normalized === "double" || normalized === "double precision")
+	if (normalized === "real" || normalized === "float" || normalized.startsWith("float("))
+		return StandardizedDataType.float;
+	if (
+		normalized === "double" ||
+		normalized === "double precision" ||
+		normalized.startsWith("double(")
+	)
 		return StandardizedDataType.double;
 
 	if (
