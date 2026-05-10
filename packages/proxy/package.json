@@ -1,11 +1,13 @@
 {
-  "name": "proxy",
+  "name": "@db-studio/proxy",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "portless run",
+    "dev:app": "wrangler dev --port=${PORT:-8787}",
     "build": "wrangler build",
-    "start": "bun run build && wrangler dev --remote",
+    "start": "portless proxy.dbstuio bun run start:app",
+    "start:app": "bun run build && wrangler dev --remote --port=${PORT:-8787}",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "format": "biome check --write --unsafe",
@@ -13,8 +15,12 @@
     "secrets:list": "wrangler secret list",
     "secrets:clear": "wrangler secret delete --all"
   },
+  "portless": {
+    "name": "proxy.dbstuio",
+    "script": "dev:app"
+  },
   "dependencies": {
-    "shared": "workspace:*",
+    "@db-studio/shared": "workspace:*",
     "@tanstack/ai": "^0.14.0",
     "@tanstack/ai-gemini": "^0.10.0",
     "@upstash/redis": "^1.36.1",

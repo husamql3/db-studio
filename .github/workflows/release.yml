@@ -46,7 +46,7 @@ jobs:
 
       - name: Build
         run: |
-          bun run build:core --force
+          bun run build:web --force
           bun run build:server --force
 
       - name: Publish to npm

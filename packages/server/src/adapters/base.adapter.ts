@@ -1,5 +1,3 @@
-import { HTTPException } from "hono/http-exception";
-import { DatabaseError } from "pg";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -24,7 +22,9 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
+import { HTTPException } from "hono/http-exception";
+import { DatabaseError } from "pg";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
 
 /** Bundles a paginated data query together with its companion COUNT query. */

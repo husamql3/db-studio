@@ -21,10 +21,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["./src/*"],
       "fumadocs-mdx:collections/*": [".source/*"],
-      "shared/*": ["../packages/shared/src/*"]
+      "@db-studio/shared/*": ["../packages/shared/src/*"]
     }
   }
 }

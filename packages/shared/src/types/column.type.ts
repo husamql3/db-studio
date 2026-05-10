@@ -584,3 +584,94 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 	// Default
 	return StandardizedDataType.text;
 }
+
+/**
+ * Maps SQLite type affinity strings to generic DataTypes (used for cell rendering).
+ * SQLite has flexible typing — column types are user-declared strings, so we use affinity rules.
+ */
+export function mapSqliteToDataType(sqliteType: string): DataTypes {
+	const normalized = sqliteType?.toLowerCase().trim() || "";
+
+	if (normalized === "boolean" || normalized === "bool") return DataTypes.boolean;
+	if (normalized === "json") return DataTypes.json;
+
+	if (
+		normalized === "date" ||
+		normalized === "datetime" ||
+		normalized === "timestamp" ||
+		normalized === "time"
+	) {
+		return DataTypes.date;
+	}
+
+	// SQLite integer affinity: any type name containing "INT"
+	if (
+		normalized.includes("int") ||
+		normalized === "real" ||
+		normalized.includes("floa") ||
+		normalized.includes("doub") ||
+		normalized === "numeric" ||
+		normalized.startsWith("numeric(") ||
+		normalized === "decimal" ||
+		normalized.startsWith("decimal(")
+	) {
+		return DataTypes.number;
+	}
+
+	return DataTypes.text;
+}
+
+/**
+ * Maps SQLite type strings to the standardized display labels used in ColumnInfoSchemaType.
+ */
+export function standardizeSqliteDataTypeLabel(sqliteType: string): StandardizedDataType {
+	const normalized = sqliteType?.toLowerCase().trim() || "";
+
+	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
+	if (normalized === "bigint" || normalized.startsWith("bigint("))
+		return StandardizedDataType.bigint;
+	if (normalized === "smallint" || normalized.startsWith("smallint("))
+		return StandardizedDataType.smallint;
+	if (normalized === "tinyint" || normalized.startsWith("tinyint("))
+		return StandardizedDataType.tinyint;
+	if (normalized === "mediumint" || normalized.startsWith("mediumint("))
+		return StandardizedDataType.mediumint;
+	if (normalized.includes("int")) return StandardizedDataType.int;
+
+	if (normalized === "real" || normalized === "float" || normalized.startsWith("float("))
+		return StandardizedDataType.float;
+	if (
+		normalized === "double" ||
+		normalized === "double precision" ||
+		normalized.startsWith("double(")
+	)
+		return StandardizedDataType.double;
+
+	if (
+		normalized === "numeric" ||
+		normalized.startsWith("numeric(") ||
+		normalized === "decimal" ||
+		normalized.startsWith("decimal(")
+	) {
+		return StandardizedDataType.numeric;
+	}
+
+	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
+
+	if (normalized === "text" || normalized === "clob") return StandardizedDataType.text;
+	if (normalized === "varchar" || normalized.startsWith("varchar("))
+		return StandardizedDataType.varchar;
+	if (normalized === "char" || normalized.startsWith("char("))
+		return StandardizedDataType.char;
+
+	if (normalized === "json") return StandardizedDataType.json;
+
+	if (normalized === "date") return StandardizedDataType.date;
+	if (normalized === "time") return StandardizedDataType.time;
+	if (normalized === "datetime") return StandardizedDataType.datetime;
+	if (normalized === "timestamp") return StandardizedDataType.timestamp;
+
+	if (normalized === "blob") return StandardizedDataType.blob;
+
+	return StandardizedDataType.text;
+}

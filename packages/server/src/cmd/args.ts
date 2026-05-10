@@ -1,12 +1,12 @@
+import type { Args } from "@db-studio/shared/types";
 import { program } from "commander";
-import type { Args } from "shared/types";
 
 /**
  * Get the arguments from the command line
  */
 export const args = () => {
 	program
-		.name("db-studio")
+		.name("dbstudio")
 		.option("-e, --env <path>", "Path to custom .env file")
 		.option("-p, --port <port>", "Port to run the server on")
 		.option("-d, --database-url <url>", "Database URL to use")

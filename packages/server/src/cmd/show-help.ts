@@ -1,6 +1,6 @@
 import { intro, outro } from "@clack/prompts";
+import { META } from "@db-studio/shared/constants/meta.js";
 import color from "picocolors";
-import { META } from "shared/constants/meta.js";
 
 /**
  * Display help information
@@ -9,7 +9,7 @@ export const showHelp = () => {
 	intro(color.inverse(" db-studio "));
 
 	console.log(color.bold("\nUsage:"));
-	console.log("  db-studio [options]\n");
+	console.log("  dbstudio [options]\n");
 
 	console.log(color.bold("Supported Databases:"));
 	console.log("  MySQL, PostgreSQL\n");
@@ -26,13 +26,13 @@ export const showHelp = () => {
 	console.log("  -v, --version            Show version number\n");
 
 	console.log(color.bold("Examples:"));
-	console.log("  db-studio");
-	console.log("  db-studio -e .env.local");
-	console.log("  db-studio -p 4000");
-	console.log("  db-studio -d postgresql://user:pass@localhost:5432/mydb");
-	console.log("  db-studio -n MY_DATABASE_URL");
-	console.log("  db-studio -e .env.production -n PROD_DB_URL");
-	console.log("  db-studio --status\n");
+	console.log("  dbstudio");
+	console.log("  dbstudio -e .env.local");
+	console.log("  dbstudio -p 4000");
+	console.log("  dbstudio -d postgresql://user:pass@localhost:5432/mydb");
+	console.log("  dbstudio -n MY_DATABASE_URL");
+	console.log("  dbstudio -e .env.production -n PROD_DB_URL");
+	console.log("  dbstudio --status\n");
 
 	outro(color.green(`For more information, visit: ${META.SITE_DOCS_LINK}`));
 };

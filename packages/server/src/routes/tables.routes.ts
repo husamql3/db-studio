@@ -1,5 +1,3 @@
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
 import {
 	addColumnSchema,
 	alterColumnSchema,
@@ -17,7 +15,9 @@ import {
 	type TableSchemaResult,
 	tableDataQuerySchema,
 	tableNameSchema,
-} from "shared/types";
+} from "@db-studio/shared/types";
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
 import { getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
 import { getExportFile } from "@/utils/get-export-file.js";

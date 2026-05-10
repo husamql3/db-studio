@@ -1,10 +1,11 @@
+import type { DatabaseTypeSchema } from "@db-studio/shared/types";
+import Database from "better-sqlite3";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
 import { Pool, type PoolConfig } from "pg";
-import type { DatabaseTypeSchema } from "shared/types";
 
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB
@@ -14,6 +15,7 @@ class DatabaseManager {
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
+	private sqliteDb: Database.Database | null = null;
 	private baseConfig: {
 		url: string;
 		host: string;
@@ -45,9 +47,11 @@ class DatabaseManager {
 			case "mongodb":
 			case "mongodb+srv":
 				return "mongodb";
+			case "sqlite":
+				return "sqlite";
 			default:
 				throw new Error(
-					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://).`,
+					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://).`,
 				);
 		}
 	}
@@ -59,6 +63,19 @@ class DatabaseManager {
 		const databaseUrl = process.env.DATABASE_URL;
 		if (!databaseUrl) {
 			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
+		}
+
+		// SQLite URLs use a file path that doesn't parse well as a standard URL
+		if (databaseUrl.startsWith("sqlite://")) {
+			this.baseConfig = {
+				url: databaseUrl,
+				host: "localhost",
+				port: 0,
+				user: "",
+				password: "",
+				dbType: "sqlite",
+			};
+			return;
 		}
 
 		try {
@@ -100,6 +117,11 @@ class DatabaseManager {
 			throw new Error("Base configuration not initialized");
 		}
 
+		// SQLite is a single-file database; the URL is already the full connection string
+		if (this.baseConfig.dbType === "sqlite") {
+			return this.baseConfig.url;
+		}
+
 		if (!database) {
 			const url = new URL(this.baseConfig.url);
 			database = url.pathname.slice(1);
@@ -113,6 +135,37 @@ class DatabaseManager {
 			throw new Error(
 				`Failed to build connection string for database "${database}": ${error instanceof Error ? error.message : String(error)}`,
 			);
+		}
+	}
+
+	/**
+	 * Get or create the SQLite database connection
+	 */
+	getSqliteDb(): Database.Database {
+		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
+			throw new Error("DATABASE_URL is not a sqlite:// connection");
+		}
+
+		if (!this.sqliteDb) {
+			// Strip "sqlite://" prefix to get the file path (e.g. sqlite:///path/db.sqlite → /path/db.sqlite)
+			const filePath = this.baseConfig.url.replace(/^sqlite:\/\//, "");
+			const db = new Database(filePath);
+			db.pragma("journal_mode = WAL");
+			db.pragma("foreign_keys = ON");
+			this.sqliteDb = db;
+			console.log(`Opened SQLite database: ${filePath}`);
+		}
+
+		return this.sqliteDb;
+	}
+
+	/**
+	 * Close the SQLite database connection
+	 */
+	closeSqliteDb(): void {
+		if (this.sqliteDb) {
+			this.sqliteDb.close();
+			this.sqliteDb = null;
 		}
 	}
 
@@ -277,6 +330,10 @@ class DatabaseManager {
 	 * Close a specific database pool by connection string (both types)
 	 */
 	async closePool(connectionString: string): Promise<void> {
+		if (this.baseConfig?.dbType === "sqlite" && connectionString === this.baseConfig.url) {
+			this.closeSqliteDb();
+			return;
+		}
 		await this.closePgPool(connectionString);
 		await this.closeMysqlPool(connectionString);
 		await this.closeMssqlPool(connectionString);
@@ -286,6 +343,10 @@ class DatabaseManager {
 	 * Close a specific database pool by database name
 	 */
 	async closePoolByDatabase(database: string): Promise<void> {
+		if (this.baseConfig?.dbType === "sqlite") {
+			this.closeSqliteDb();
+			return;
+		}
 		const connectionString = this.buildConnectionString(database);
 		await this.closePool(connectionString);
 	}
@@ -363,6 +424,7 @@ class DatabaseManager {
 			await this.mongoClient.close();
 			this.mongoClient = null;
 		}
+		this.closeSqliteDb();
 	}
 
 	/**
@@ -441,6 +503,13 @@ const _closeAllDbPools = async (): Promise<void> => {
  */
 const _getActivePools = (): string[] => {
 	return databaseManager.getActivePools();
+};
+
+/**
+ * Get the SQLite database connection (single file, opened once)
+ */
+export const getSqliteDb = (): Database.Database => {
+	return databaseManager.getSqliteDb();
 };
 
 /**

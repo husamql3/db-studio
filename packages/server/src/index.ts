@@ -1,7 +1,7 @@
 import { intro, outro } from "@clack/prompts";
+import { DEFAULTS } from "@db-studio/shared/constants";
 import { serve } from "@hono/node-server";
 import color from "picocolors";
-import { DEFAULTS } from "shared/constants";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
@@ -32,7 +32,8 @@ export const main = async () => {
 
 	intro(color.inverse(" db-studio "));
 
-	const PORT = port ? parseInt(port, 10) : DEFAULTS.PORT;
+	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
+	const HOST = process.env.HOST;
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
 	const ENV = env ? await loadEnv(env) : await loadEnv();
 	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
@@ -46,10 +47,14 @@ export const main = async () => {
 	const { app } = createServer();
 	serve({
 		fetch: app.fetch,
+		hostname: HOST,
 		port: PORT,
 	});
 
-	outro(color.green(`Server running at ${color.cyan(`http://localhost:${PORT}`)}`));
+	const serverUrl =
+		process.env.DB_STUDIO_SERVER_URL ?? process.env.PORTLESS_URL ?? `http://localhost:${PORT}`;
+
+	outro(color.green(`Server running at ${color.cyan(serverUrl)}`));
 };
 
 main().catch((err) => {

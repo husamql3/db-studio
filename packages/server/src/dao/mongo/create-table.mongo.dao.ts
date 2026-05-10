@@ -1,5 +1,5 @@
+import type { CreateTableSchemaType, DatabaseSchemaType } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
-import type { CreateTableSchemaType, DatabaseSchemaType } from "shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 
 const MONGO_BSON_TYPES = new Set([

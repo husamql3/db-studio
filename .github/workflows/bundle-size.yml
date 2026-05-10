@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - "packages/server/src/**"
-      - "packages/core/src/**"
+      - "packages/web/src/**"
       - "packages/shared/src/**"
 
 jobs:
@@ -19,13 +19,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.19
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --ignore-scripts
 
       - name: Build
         run: bun run build
@@ -43,9 +48,9 @@ jobs:
               'find packages/server/dist -type f | sort | xargs du -sh 2>/dev/null'
             )
 
-            const coreTotal = run('du -sh packages/core/dist | cut -f1')
-            const coreFiles = run(
-              'find packages/core/dist -type f | sort | xargs du -sh 2>/dev/null'
+            const webTotal = run('du -sh packages/web/dist | cut -f1')
+            const webFiles = run(
+              'find packages/web/dist -type f | sort | xargs du -sh 2>/dev/null'
             )
 
             const body = [
@@ -61,12 +66,12 @@ jobs:
               '',
               '</details>',
               '',
-              `**\`packages/core/dist\`** — \`${coreTotal}\``,
+              `**\`packages/web/dist\`** — \`${webTotal}\``,
               '',
               '<details><summary>File breakdown</summary>',
               '',
               '```',
-              coreFiles,
+              webFiles,
               '```',
               '',
               '</details>',

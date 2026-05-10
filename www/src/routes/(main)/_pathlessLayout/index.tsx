@@ -14,6 +14,7 @@ import { Highlighter } from "@/components/ui/highlighter";
 import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
 import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
+import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { cn } from "@/lib/utils";
 
@@ -128,7 +129,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>npx db-studio</code>
+										<code>npx dbstudio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -138,7 +139,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>yarn dlx db-studio</code>
+										<code>yarn dlx dbstudio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -148,7 +149,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>pnpm dlx db-studio</code>
+										<code>pnpm dlx dbstudio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -158,7 +159,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>bunx db-studio</code>
+										<code>bunx dbstudio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -235,6 +236,10 @@ function App() {
 
 						<div className="flex items-center justify-center h-10 px-2">
 							<SqlServer className="h-10 w-auto" />
+						</div>
+
+						<div className="flex items-center justify-center h-10 px-2">
+							<SQLite className="h-10 w-auto" />
 						</div>
 					</InfiniteSlider>
 

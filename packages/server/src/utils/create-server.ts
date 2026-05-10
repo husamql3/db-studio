@@ -1,5 +1,7 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -7,7 +9,6 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-import type { DatabaseTypeSchema } from "shared/types";
 import { z } from "zod";
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
 import { registerAdapters } from "@/adapters/register.js";
@@ -20,15 +21,25 @@ import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
 
 /**
- * Get the path to the core distribution directory.
+ * Get the path to the web app distribution directory.
  */
-const getCoreDistPath = () => {
+const getWebDistPath = () => {
 	if (process.env.NODE_ENV === "development") {
-		return path.resolve(process.cwd(), "../core/dist");
+		return path.resolve(process.cwd(), "../web/dist");
 	}
 
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	return path.resolve(__dirname, "./core-dist");
+	const bundledWebDistPath = path.resolve(__dirname, "./web-dist");
+	const localWebDistPath = path.resolve(process.cwd(), "../web/dist");
+
+	const bundledIndexPath = path.resolve(bundledWebDistPath, "index.html");
+	const localIndexPath = path.resolve(localWebDistPath, "index.html");
+
+	if (!existsSync(bundledIndexPath) && existsSync(localIndexPath)) {
+		return localWebDistPath;
+	}
+
+	return bundledWebDistPath;
 };
 
 const databaseTypeParamSchema = z.object({
@@ -68,7 +79,7 @@ export const createServer = () => {
 		.use(
 			"/favicon.ico",
 			serveStatic({
-				path: path.resolve(getCoreDistPath(), "favicon.ico"),
+				path: path.resolve(getWebDistPath(), "favicon.ico"),
 			}),
 		)
 
@@ -96,8 +107,8 @@ export const createServer = () => {
 		/**
 		 * Serve static assets (before dbType validation to avoid conflicts)
 		 */
-		.use("/assets/*", serveStatic({ root: getCoreDistPath() }))
-		.use("/image.png", serveStatic({ root: getCoreDistPath() }))
+		.use("/assets/*", serveStatic({ root: getWebDistPath() }))
+		.use("/image.png", serveStatic({ root: getWebDistPath() }))
 
 		/**
 		 * Routes that require dbType validation - under /:dbType/...
@@ -120,12 +131,12 @@ export const createServer = () => {
 		)
 		.route("/:dbType", tablesRoutes)
 		.route("/:dbType", recordsRoutes)
-		.route("/:dbType", queryRoutes)
+		.route("/:dbType", queryRoutes);
 
-		/**
-		 * Serve all other static files as fallback (for SPA)
-		 */
-		.use("/*", serveStatic({ root: getCoreDistPath() }));
+	if (process.env.NODE_ENV !== "test") {
+		app.use("/*", serveStatic({ root: getWebDistPath() }));
+		app.get("/*", serveStatic({ path: path.resolve(getWebDistPath(), "index.html") }));
+	}
 
 	return { app };
 };

@@ -1,5 +1,8 @@
+import type {
+	AlterColumnParamsSchemaType,
+	RenameColumnParamsSchemaType,
+} from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
-import type { AlterColumnParamsSchemaType, RenameColumnParamsSchemaType } from "shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 
 /**

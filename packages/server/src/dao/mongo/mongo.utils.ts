@@ -1,4 +1,9 @@
-import type { DataTypes, FilterType, SortType, TableDataQuerySchemaType } from "shared/types";
+import type {
+	DataTypes,
+	FilterType,
+	SortType,
+	TableDataQuerySchemaType,
+} from "@db-studio/shared/types";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
 
 const normalizeValue = (value: unknown): unknown => {

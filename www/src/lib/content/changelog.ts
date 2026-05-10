@@ -16,6 +16,29 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.9.1",
+		date: "2026-05-09",
+		title: "Integrated PostHog analytics and Sentry error tracking",
+		features: [
+			{
+				text: "Integrated PostHog analytics and Sentry error tracking for enhanced monitoring and error visibility",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.9.0",
+		date: "2026-05-03",
+		title:
+			"Turn the current frontend package into a feature-first web app with extractable UI primitives, stable data/client boundaries, and a future desktop host path",
+		features: [
+			{
+				text: "Turn the current frontend package into a feature-first web app with extractable UI primitives, stable data/client boundaries, and a future desktop host path",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.8.0",
 		date: "2026-05-03",
 		title:

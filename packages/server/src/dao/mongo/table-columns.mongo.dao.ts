@@ -1,4 +1,8 @@
-import type { ColumnInfoSchemaType, DatabaseSchemaType, DataTypes } from "shared/types";
+import type {
+	ColumnInfoSchemaType,
+	DatabaseSchemaType,
+	DataTypes,
+} from "@db-studio/shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 import { inferDataType, mapDataTypeLabel } from "./mongo.utils.js";
 

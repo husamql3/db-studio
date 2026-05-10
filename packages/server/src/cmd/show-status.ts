@@ -1,6 +1,6 @@
 import { intro, note, outro } from "@clack/prompts";
+import { DEFAULTS } from "@db-studio/shared/constants";
 import color from "picocolors";
-import { DEFAULTS } from "shared/constants";
 import { loadEnv } from "@/cmd/load-env.js";
 
 /**
@@ -32,9 +32,9 @@ export const showStatus = async (env?: string, databaseUrl?: string, varName?: s
 		console.log(color.yellow("\n  To configure database connection:"));
 		console.log(color.dim("  • Supported databases: MySQL, PostgreSQL"));
 		console.log(color.dim(`  • Add ${envVarName} to your .env file or set it in process.env`));
-		console.log(color.dim("  • Use -d flag: db-studio -d <url>"));
-		console.log(color.dim("  • Use -e flag: db-studio -e <path-to-env>"));
-		console.log(color.dim("  • Use -n flag: db-studio -n <var-name>\n"));
+		console.log(color.dim("  • Use -d flag: dbstudio -d <url>"));
+		console.log(color.dim("  • Use -e flag: dbstudio -e <path-to-env>"));
+		console.log(color.dim("  • Use -n flag: dbstudio -n <var-name>\n"));
 
 		outro(color.yellow("⚠ No database connection configured"));
 	}

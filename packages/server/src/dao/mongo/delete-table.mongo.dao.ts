@@ -1,5 +1,5 @@
+import type { DeleteTableParams, DeleteTableResult } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
-import type { DeleteTableParams, DeleteTableResult } from "shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 
 export async function deleteTable({

@@ -18,11 +18,11 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
   <a href="https://github.com/husamql3/db-studio/stargazers">
     <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/husamql3/db-studio">
   </a>
-  <a href="https://www.npmjs.com/package/db-studio">
-    <img src="https://img.shields.io/npm/v/db-studio?style=flat-rounded" />
+  <a href="https://www.npmjs.com/package/dbstudio">
+    <img src="https://img.shields.io/npm/v/dbstudio?style=flat-rounded" />
   </a>
-  <a href="https://www.npmjs.com/package/db-studio">
-    <img src="https://img.shields.io/npm/dm/db-studio?style=flat-rounded" />
+  <a href="https://www.npmjs.com/package/dbstudio">
+    <img src="https://img.shields.io/npm/dm/dbstudio?style=flat-rounded" />
   </a>
   <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/husamql3/pstrack">
@@ -52,10 +52,10 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 No installation required. Just run:
 
 ```bash
-npx db-studio
+npx dbstudio
 ```
 
-This runs the latest published version and uses the **current directory** as the project context. db-studio looks for a `.env` file in the current working directory and, if not found, searches parent directories until one is found. It reads `DATABASE_URL` from that file (or use `--var-name <name>` for a different variable). If `DATABASE_URL` is not in the .env file, it is also read from **process.env** (e.g. when set in the shell or in a package.json script). To point to a specific env file, use `--env <path>` (e.g. `npx db-studio --env .env.local`).
+This runs the latest published version and uses the **current directory** as the project context. DB Studio looks for a `.env` file in the current working directory and, if not found, searches parent directories until one is found. It reads `DATABASE_URL` from that file (or use `--var-name <name>` for a different variable). If `DATABASE_URL` is not in the .env file, it is also read from **process.env** (e.g. when set in the shell or in a package.json script). To point to a specific env file, use `--env <path>` (e.g. `npx dbstudio --env .env.local`).
 
 ### Recommended base script (add to package.json)
 
@@ -64,7 +64,7 @@ You can run db-studio from npm/bun scripts. Useful when you want a dedicated scr
 ```json
 {
   "scripts": {
-    "db:studio": "npx db-studio"
+    "db:studio": "npx dbstudio"
   }
 }
 ```
@@ -81,12 +81,12 @@ Modify the run command (or override in your script) using any of these flags:
 
 | Flag                        | Description                                      | Example command / override                                                  |
 |-----------------------------|--------------------------------------------------|-----------------------------------------------------------------------------|
-| `--env <path>`              | Use a specific `.env` file                       | `npx db-studio --env .env.local` <br>or `--env .env.production`             |
-| `--var-name <name>`         | Use a different environment variable name        | `npx db-studio --var-name MY_DB_URL`                                        |
-| `--port <number>`           | Change the server port (default: 3333)           | `npx db-studio --port 4000`                                                 |
-| `--database-url <url>`      | Provide connection string directly (no `.env`)   | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
-| `--status`                  | Only check & show connection status (no UI)      | `npx db-studio --status`                                                    |
-| `--help`                    | Show all available options                       | `npx db-studio --help`                                                      |
+| `--env <path>`              | Use a specific `.env` file                       | `npx dbstudio --env .env.local` <br>or `--env .env.production`             |
+| `--var-name <name>`         | Use a different environment variable name        | `npx dbstudio --var-name MY_DB_URL`                                        |
+| `--port <number>`           | Change the server port (default: 3333)           | `npx dbstudio --port 4000`                                                 |
+| `--database-url <url>`      | Provide connection string directly (no `.env`)   | `npx dbstudio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
+| `--status`                  | Only check & show connection status (no UI)      | `npx dbstudio --status`                                                    |
+| `--help`                    | Show all available options                       | `npx dbstudio --help`                                                      |
 
 #### Examples of combined / overridden usage
 
@@ -99,7 +99,7 @@ npm run db:studio -- --env .env.local
 bun run db:studio -- --env .env.production --port 4444
 
 # Direct connection (great for one-off or CI)
-npx db-studio --database-url "postgresql://user:pass@host:5432/prod"
+npx dbstudio --database-url "postgresql://user:pass@host:5432/prod"
 
 # Custom variable name + env file
 npm run db:studio -- --env .env.staging --var-name STAGING_DB_URL
@@ -114,7 +114,7 @@ For full documentation and more examples: [dbstudio.sh](https://dbstudio.sh)
 
 ## Development Setup
 
-**Using the CLI (installed or npx):** Run `db-studio` or `npx db-studio` from a directory that contains your `.env` (or from a subfolder; db-studio will search upward for `.env`). Alternatively use `--env <path>` to specify the env file.
+**Using the CLI (installed or npx):** Run `dbstudio` or `npx dbstudio` from a directory that contains your `.env` (or from a subfolder; DB Studio will search upward for `.env`). Alternatively use `--env <path>` to specify the env file.
 
 **Developing from source:**
 
@@ -128,7 +128,7 @@ bun run init-db
 # Configure your PostgreSQL connection in packages/server/.env (for local dev)
 # DATABASE_URL=postgres://user:password@localhost:5432/database
 
-# Start development servers (runs both frontend and backend concurrently)
+# Start development services through Portless
 bun run dev
 ```
 
@@ -138,10 +138,23 @@ At your first contribution, you should add your name and email to the `AUTHORS` 
 your-name <your-email>
 ```
 
-The app runs at `http://localhost:3001` with the API server on port `3333`.
+Development services run through [Portless](https://portless.sh/) with stable local HTTPS URLs instead of fixed port numbers:
+
+| Service | URL |
+|---------|-----|
+| Web app | `https://web.dbstuio.localhost` |
+| API server | `https://api.dbstuio.localhost` |
+| AI proxy | `https://proxy.dbstuio.localhost` |
+| Docs/marketing site | `https://www.dbstuio.localhost` |
+
+On first run, Portless may ask to trust its local certificate authority. You can also run:
+
+```bash
+bunx portless trust
+```
 
 > [!NOTE]
-> It'll automatically opens the app in 3333, this have the client but static so it wont reflect any changes, the port 3001 runs with `vite`
+> Production-style local serving runs through `https://db-studio.localhost` via the server package `start` script.
 
 ## Roadmap
 

@@ -1,0 +1,66 @@
+"use client";
+
+import { Button } from "@db-studio/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
+import { cn } from "@db-studio/ui/utils";
+import { Sparkles } from "lucide-react";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { useRateLimit } from "@/hooks/use-rate-limit";
+import { posthogAnalytics } from "@/lib/posthog";
+import { useDatabaseStore } from "@/stores/database.store";
+import { useOverlayStore } from "@/stores/overlay.store";
+
+export const Chat = () => {
+	const { openOverlay } = useOverlayStore();
+	const { dbType } = useDatabaseStore();
+	const { rateLimit, isLoadingRateLimit } = useRateLimit();
+	const { remaining = 0, limit = 0 } = rateLimit ?? { remaining: 0, limit: 0 };
+
+	const getIndicatorColor = (remaining: number) => {
+		if (remaining === 0) return "bg-red-500";
+		if (remaining <= 5) return "bg-yellow-500";
+		return "bg-emerald-500";
+	};
+
+	const indicatorColor = getIndicatorColor(remaining);
+
+	return (
+		<>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12 relative"
+						onClick={() => {
+							openOverlay("chat.assistant");
+							if (dbType) posthogAnalytics.capture("chat_opened", { db_type: dbType });
+						}}
+					>
+						<Sparkles className="size-5" />
+						<span
+							className={cn(
+								"absolute top-2 right-2 h-2 w-2 rounded-full ring-2 ring-background",
+								indicatorColor,
+							)}
+						/>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent
+					side="bottom"
+					className="text-xs"
+				>
+					{!isLoadingRateLimit &&
+						(remaining > 0 ? (
+							<p>
+								{remaining}/{limit} messages remaining
+							</p>
+						) : (
+							<p>AI Assistant</p>
+						))}
+				</TooltipContent>
+			</Tooltip>
+
+			<ChatSidebar />
+		</>
+	);
+};

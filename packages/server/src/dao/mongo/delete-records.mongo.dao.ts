@@ -1,4 +1,4 @@
-import type { DeleteRecordParams, DeleteResult } from "shared/types";
+import type { DeleteRecordParams, DeleteResult } from "@db-studio/shared/types";
 import { getMongoDb } from "@/adapters/connections.js";
 import { canCoerceObjectId, toMongoId } from "./mongo.utils.js";
 

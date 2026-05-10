@@ -1,9 +1,9 @@
-import { HTTPException } from "hono/http-exception";
 import type {
 	ConnectionInfoSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-} from "shared/types";
+} from "@db-studio/shared/types";
+import { HTTPException } from "hono/http-exception";
 import { getMongoClient, getMongoDbName } from "@/adapters/connections.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 

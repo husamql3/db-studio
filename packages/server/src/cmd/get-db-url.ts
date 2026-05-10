@@ -81,11 +81,14 @@ export const getDatabaseUrl = async (env?: DotenvParseOutput | null, varName?: s
 
 	const dbUrl = await text({
 		message: `Paste your ${envVarName}`,
-		placeholder: "postgresql://user:password@localhost:5432/mydb",
+		placeholder:
+			"postgresql://user:password@localhost:5432/mydb or sqlite:///path/to/db.sqlite",
 		validate(value?: string) {
 			if (!value?.trim()) return "Connection string is required!";
+			// SQLite URLs are valid but may not parse with the standard URL constructor
+			if (value.trim().startsWith("sqlite://")) return undefined;
 			try {
-				new URL(value); // very basic check
+				new URL(value);
 				return undefined;
 			} catch {
 				return "Must be a valid URL format";

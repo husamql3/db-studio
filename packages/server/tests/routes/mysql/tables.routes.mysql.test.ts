@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HTTPException } from "hono/http-exception";
-import type { ColumnInfoSchemaType } from "shared/types";
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 
 import { createServer } from "@/utils/create-server.js";
 
