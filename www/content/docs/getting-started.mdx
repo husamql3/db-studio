@@ -85,19 +85,19 @@ You can customize how DB Studio runs with these options:
 
 ```bash
 # Use a different env file for local development
-npx dbstudio --env .env.local
+npx db-studio --env .env.local
 
 # Use production env file with custom port
-npx dbstudio --env .env.production --port 4444
+npx db-studio --env .env.production --port 4444
 
 # Connect directly without env file (good for quick tests)
-npx dbstudio --database-url "postgresql://user:pass@host:5432/prod"
+npx db-studio --database-url "postgresql://user:pass@host:5432/prod"
 
 # Use custom variable name with specific env file
-npx dbstudio --env .env.staging --var-name STAGING_DB_URL
+npx db-studio --env .env.staging --var-name STAGING_DB_URL
 
 # Just check if your connection works
-npx dbstudio --status
+npx db-studio --status
 ```
 
 ## Add to Your Project
@@ -107,7 +107,7 @@ You can add DB Studio to your `package.json` scripts:
 ```json
 {
   "scripts": {
-    "db:studio": "npx dbstudio"
+    "db:studio": "npx db-studio"
   }
 }
 ```
@@ -149,7 +149,7 @@ With this:
 
 ```json title="package.json"
 "scripts": {
-  "studio": "npx dbstudio"
+  "db:studio": "npx db-studio"
 }
 ```
 
