@@ -16,22 +16,22 @@ No installation needed! Just run this command:
 
   <CodeBlockTab value="npx">
     ```bash
-    npx dbstudio
+    npx db-studio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="pnpm">
     ```bash
-    pnpm dlx dbstudio
+    pnpm dlx db-studio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="yarn">
     ```bash
-    yarn dlx dbstudio
+    yarn dlx db-studio
     ```
   </CodeBlockTab>
   <CodeBlockTab value="bun">
     ```bash
-    bunx dbstudio
+    bunx db-studio
     ```
   </CodeBlockTab>
 </CodeBlockTabs>
@@ -60,7 +60,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase
 Then run:
 
 ```bash
-npx dbstudio
+npx db-studio
 ```
 
 DB Studio will:
@@ -161,7 +161,7 @@ Replace this:
 
 ```json title="package.json"
 "scripts": {
-  "studio": "npx drizzle-kit studio"
+  "db:studio": "npx drizzle-kit studio"
 }
 ```
 
@@ -169,7 +169,7 @@ With this:
 
 ```json title="package.json"
 "scripts": {
-  "studio": "npx dbstudio"
+  "db:studio": "npx db-studio"
 }
 ```
 
