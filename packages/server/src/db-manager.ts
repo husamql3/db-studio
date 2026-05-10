@@ -330,6 +330,10 @@ class DatabaseManager {
 	 * Close a specific database pool by connection string (both types)
 	 */
 	async closePool(connectionString: string): Promise<void> {
+		if (this.baseConfig?.dbType === "sqlite" && connectionString === this.baseConfig.url) {
+			this.closeSqliteDb();
+			return;
+		}
 		await this.closePgPool(connectionString);
 		await this.closeMysqlPool(connectionString);
 		await this.closeMssqlPool(connectionString);
@@ -339,6 +343,10 @@ class DatabaseManager {
 	 * Close a specific database pool by database name
 	 */
 	async closePoolByDatabase(database: string): Promise<void> {
+		if (this.baseConfig?.dbType === "sqlite") {
+			this.closeSqliteDb();
+			return;
+		}
 		const connectionString = this.buildConnectionString(database);
 		await this.closePool(connectionString);
 	}
