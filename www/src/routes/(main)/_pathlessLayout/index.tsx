@@ -129,7 +129,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>npx dbstudio</code>
+										<code>npx db-studio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -139,7 +139,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>yarn dlx dbstudio</code>
+										<code>yarn dlx db-studio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -149,7 +149,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>pnpm dlx dbstudio</code>
+										<code>pnpm dlx db-studio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
@@ -159,7 +159,7 @@ function App() {
 									lang="bash"
 								>
 									<pre>
-										<code>bunx dbstudio</code>
+										<code>bunx db-studio</code>
 									</pre>
 								</CodeBlock>
 							</CodeBlockTab>
