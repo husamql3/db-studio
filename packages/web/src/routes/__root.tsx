@@ -51,7 +51,10 @@ export const Route = createRootRoute({
 
 		return (
 			<>
-				<script src={`data:text/javascript;base64,${btoa(darkModeScript)}`} />
+				<script
+					defer
+					src={`data:text/javascript;base64,${btoa(darkModeScript)}`}
+				/>
 
 				<NuqsAdapter
 					fullPageNavigationOnShallowFalseUpdates

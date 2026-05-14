@@ -32,7 +32,10 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 	const handleAddFilter = () => {
 		const firstColumn = tableCols?.[0]?.columnName ?? "";
-		setLocalFilters([...localFilters, { columnName: firstColumn, operator: "=", value: "" }]);
+		setLocalFilters((prev) => [
+			...prev,
+			{ columnName: firstColumn, operator: "=", value: "" },
+		]);
 	};
 
 	const handleRemoveFilter = (index: number) => {
@@ -129,7 +132,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 					{localFilters.length > 0 ? (
 						localFilters.map((filter, index) => (
 							<div
-								key={index}
+								key={`${filter.columnName}-${index}`}
 								className="flex-1 flex h-9 gap-2"
 							>
 								<Select

@@ -33,7 +33,7 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 
 	const handleAddSort = () => {
 		const firstColumn = tableCols?.[0]?.columnName ?? "";
-		setLocalSort([...localSort, { columnName: firstColumn, direction: "asc" }]);
+		setLocalSort((prev) => [...prev, { columnName: firstColumn, direction: "asc" }]);
 	};
 
 	const handleRemoveSort = (index: number) => {
@@ -117,7 +117,7 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 					{localSort.length > 0 ? (
 						localSort.map((sort, index) => (
 							<div
-								key={index}
+								key={`${sort.columnName}-${index}`}
 								className="flex-1 flex h-9 gap-2 items-center"
 							>
 								<Select

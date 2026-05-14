@@ -9,7 +9,7 @@ import { Label } from "@db-studio/ui/label";
 import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pagination";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
 import { useTableData } from "../hooks/use-table-data";
@@ -26,18 +26,13 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
 
-	const [inputValue, setInputValue] = useState(limit ?? "50");
+	const limitValue = limit ?? "50";
 	const inputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		setInputValue(limit ?? "50");
-	}, [limit]);
 
 	const handleLimitChange = (value: string) => {
 		const num = parseInt(value, 10);
 		if (Number.isNaN(num) || num < 1) return;
 		const clamped = Math.min(num, 10000).toString();
-		setInputValue(clamped);
 		setLimit(clamped);
 		// Reset cursor when changing page size
 		setCursor(null);
@@ -66,7 +61,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 
 	return (
 		<footer
-			className="fixed bottom-0 left-0 right-0 h-9 border-t border-zinc-800 flex items-center justify-between bg-black px-2 text-white"
+			className="fixed bottom-0 left-0 right-0 h-9 border-t border-zinc-800 flex items-center justify-between bg-zinc-950 px-2 text-white"
 			style={{
 				marginLeft: isPinned ? `${width}px` : "0",
 			}}
@@ -75,12 +70,12 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
 				<div className="flex items-center h-6 rounded-sm border border-transparent hover:border-zinc-700 focus-within:border-zinc-600 transition-colors">
 					<input
+						key={limitValue}
 						ref={inputRef}
 						type="number"
 						min={1}
 						max={10000}
-						value={inputValue}
-						onChange={(e) => setInputValue(e.target.value)}
+						defaultValue={limitValue}
 						onBlur={(e) => handleLimitChange(e.target.value)}
 						onKeyDown={(e) => {
 							if (e.key === "Enter") {
@@ -133,7 +128,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 				<Button
 					size="sm"
 					variant="ghost"
-					className="h-6 w-6 disabled:opacity-30"
+					className="size-6 disabled:opacity-30"
 					onClick={handleFirstPage}
 					disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 					aria-label="Go to first page"
@@ -146,7 +141,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 							<Button
 								size="icon-sm"
 								variant="ghost"
-								className="h-6 w-6 disabled:opacity-30"
+								className="size-6 disabled:opacity-30"
 								onClick={handlePrevPage}
 								disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 								aria-label="Go to previous page"
@@ -158,7 +153,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 							<Button
 								size="icon-sm"
 								variant="ghost"
-								className="h-6 w-6 disabled:opacity-30"
+								className="size-6 disabled:opacity-30"
 								onClick={handleNextPage}
 								disabled={!tableData?.meta?.hasNextPage || totalRows === 0}
 								aria-label="Go to next page"

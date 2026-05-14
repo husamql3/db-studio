@@ -54,16 +54,18 @@ export const ReferencedColField = ({
 								No columns found
 							</SelectItem>
 						) : (
-							tableCols
-								?.filter((column) => column.columnName?.trim())
-								.map((column) => (
-									<SelectItem
-										key={column.columnName}
-										value={column.columnName}
-									>
-										{column.columnName}
-									</SelectItem>
-								))
+							tableCols?.flatMap((column) =>
+								column.columnName?.trim()
+									? [
+											<SelectItem
+												key={column.columnName}
+												value={column.columnName}
+											>
+												{column.columnName}
+											</SelectItem>,
+										]
+									: [],
+							)
 						)}
 					</SelectContent>
 				</Select>

@@ -35,6 +35,7 @@ export function DatePicker({
 	showTime = false,
 }: DatePickerProps) {
 	const [open, setOpen] = useState(false);
+	const [today] = useState<Date>(() => new Date());
 
 	const hours = value ? value.getHours() : 0;
 	const minutes = value ? value.getMinutes() : 0;
@@ -122,7 +123,7 @@ export function DatePicker({
 					)}
 					disabled={disabled}
 				>
-					{icon && <CalendarIcon className="mr-2 h-4 w-4" />}
+					{icon && <CalendarIcon className="mr-2 size-4" />}
 					{displayValue}
 				</Button>
 			</PopoverTrigger>
@@ -205,7 +206,7 @@ export function DatePicker({
 								return <div className="flex w-full items-center gap-2">{props.children}</div>;
 							},
 						}}
-						defaultMonth={value || new Date()}
+						defaultMonth={value || today}
 						hideNavigation
 						mode="single"
 						onSelect={handleSelect}

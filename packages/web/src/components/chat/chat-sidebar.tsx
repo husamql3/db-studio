@@ -120,10 +120,10 @@ const ChatSidebarContent = ({
 						<>
 							{messages.map((message) => {
 								const thinkingParts = message.parts.filter((part) => part.type === "thinking");
-								const textContent = message.parts
-									.filter((part) => part.type === "text")
-									.map((part) => part.content)
-									.join("");
+								const textContent = message.parts.reduce<string>(
+									(acc, part) => (part.type === "text" ? acc + (part.content ?? "") : acc),
+									"",
+								);
 
 								const hasThinking = thinkingParts.length > 0;
 
@@ -248,7 +248,7 @@ export const ChatSidebar = () => {
 							onClick={controller.clear}
 							disabled={controller.isLoading}
 						>
-							<Plus className="h-4 w-4 mr-1" />
+							<Plus className="size-4 mr-1" />
 							New Chat
 						</Button>
 					)}

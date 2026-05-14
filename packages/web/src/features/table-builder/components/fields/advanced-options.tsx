@@ -82,9 +82,9 @@ export const AdvancedOptions = ({
 						variant="ghost"
 						size="icon"
 						disabled={isDisabled}
-						className="h-9 w-9 relative"
+						className="size-9 relative"
 					>
-						<Settings className="h-4 w-4" />
+						<Settings className="size-4" />
 						{checkedCount > 0 && (
 							<Badge className="absolute -top-2 leading-0! left-full -translate-x-1/2 size-5 flex items-center justify-center text-xs">
 								{checkedCount > 99 ? "99+" : checkedCount}

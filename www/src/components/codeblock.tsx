@@ -53,6 +53,8 @@ export interface CodeBlockProps extends ComponentProps<"figure"> {
 	Actions?: (props: { className?: string; children?: ReactNode }) => ReactNode;
 }
 
+const DEFAULT_VIEWPORT_PROPS: HTMLAttributes<HTMLElement> = {};
+
 const TabsContext = createContext<{
 	containerRef: RefObject<HTMLDivElement | null>;
 	nested: boolean;
@@ -75,7 +77,7 @@ export function CodeBlock({
 	allowCopy = true,
 	keepBackground = false,
 	icon,
-	viewportProps = {},
+	viewportProps = DEFAULT_VIEWPORT_PROPS,
 	children,
 	Actions = (props) => (
 		<div

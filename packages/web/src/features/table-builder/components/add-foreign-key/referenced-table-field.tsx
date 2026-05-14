@@ -57,6 +57,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 						<PopoverTrigger asChild>
 							<Button
 								aria-expanded={open}
+								aria-controls="referencedTable-listbox"
 								className="w-full justify-between border-input bg-background px-3 font-normal outline-none outline-offset-0 hover:bg-background focus-visible:outline-[3px]"
 								id="referencedTable"
 								role="combobox"
@@ -79,6 +80,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 							</Button>
 						</PopoverTrigger>
 						<PopoverContent
+							id="referencedTable-listbox"
 							align="start"
 							className="w-full min-w-(--radix-popper-anchor-width) border-input p-0"
 						>

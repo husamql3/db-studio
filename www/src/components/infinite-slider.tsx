@@ -1,6 +1,13 @@
 "use client";
-import { type AnimationPlaybackControls, animate, motion, useMotionValue } from "motion/react";
-import { useEffect, useState } from "react";
+import {
+	type AnimationPlaybackControls,
+	animate,
+	domAnimation,
+	LazyMotion,
+	m,
+	useMotionValue,
+} from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import useMeasure from "react-use-measure";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +30,7 @@ export function InfiniteSlider({
 	reverse = false,
 	className,
 }: InfiniteSliderProps) {
-	const [currentSpeed, setCurrentSpeed] = useState(speed);
+	const currentSpeedRef = useRef(speed);
 	const [ref, { width, height }] = useMeasure();
 	const translation = useMotionValue(0);
 	const [isTransitioning, setIsTransitioning] = useState(false);
@@ -37,11 +44,11 @@ export function InfiniteSlider({
 		const to = reverse ? 0 : -contentSize / 2;
 
 		const distanceToTravel = Math.abs(to - from);
-		const duration = distanceToTravel / currentSpeed;
+		const duration = distanceToTravel / currentSpeedRef.current;
 
 		if (isTransitioning) {
 			const remainingDistance = Math.abs(translation.get() - to);
-			const transitionDuration = remainingDistance / currentSpeed;
+			const transitionDuration = remainingDistance / currentSpeedRef.current;
 
 			controls = animate(translation, [translation.get(), to], {
 				ease: "linear",
@@ -65,46 +72,38 @@ export function InfiniteSlider({
 		}
 
 		return controls?.stop;
-	}, [
-		key,
-		translation,
-		currentSpeed,
-		width,
-		height,
-		gap,
-		isTransitioning,
-		direction,
-		reverse,
-	]);
+	}, [key, translation, width, height, gap, isTransitioning, direction, reverse]);
 
 	const hoverProps = speedOnHover
 		? {
 				onHoverStart: () => {
+					currentSpeedRef.current = speedOnHover;
 					setIsTransitioning(true);
-					setCurrentSpeed(speedOnHover);
 				},
 				onHoverEnd: () => {
+					currentSpeedRef.current = speed;
 					setIsTransitioning(true);
-					setCurrentSpeed(speed);
 				},
 			}
 		: {};
 
 	return (
-		<div className={cn("overflow-hidden", className)}>
-			<motion.div
-				className="flex w-max"
-				style={{
-					...(direction === "horizontal" ? { x: translation } : { y: translation }),
-					gap: `${gap}px`,
-					flexDirection: direction === "horizontal" ? "row" : "column",
-				}}
-				ref={ref}
-				{...hoverProps}
-			>
-				{children}
-				{children}
-			</motion.div>
-		</div>
+		<LazyMotion features={domAnimation}>
+			<div className={cn("overflow-hidden", className)}>
+				<m.div
+					className="flex w-max"
+					style={{
+						...(direction === "horizontal" ? { x: translation } : { y: translation }),
+						gap: `${gap}px`,
+						flexDirection: direction === "horizontal" ? "row" : "column",
+					}}
+					ref={ref}
+					{...hoverProps}
+				>
+					{children}
+					{children}
+				</m.div>
+			</div>
+		</LazyMotion>
 	);
 }

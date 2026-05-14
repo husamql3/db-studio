@@ -20,9 +20,10 @@ export const SidebarListTables = () => {
 		() =>
 			Array.from(
 				new Set(
-					tablesList
-						.map((table) => table.schemaName)
-						.filter((schema): schema is string => Boolean(schema)),
+					tablesList.reduce<string[]>((acc, table) => {
+						if (table.schemaName) acc.push(table.schemaName);
+						return acc;
+					}, []),
 				),
 			).sort(),
 		[tablesList],

@@ -13,15 +13,15 @@ import { cn } from "@/lib/utils";
 const getTaskIcon = (status: RoadmapItemStatus) => {
 	switch (status) {
 		case "completed":
-			return <CheckIcon className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))} />;
+			return <CheckIcon className={cn("size-4 mt-0.5 shrink-0", getTaskIconClass(status))} />;
 		case "in-progress":
 			return (
 				<Loader2Icon
-					className={cn("h-4 w-4 mt-0.5 shrink-0 animate-spin", getTaskIconClass(status))}
+					className={cn("size-4 mt-0.5 shrink-0 animate-spin", getTaskIconClass(status))}
 				/>
 			);
 		case "planned":
-			return <PlusIcon className={cn("h-4 w-4 mt-0.5 shrink-0", getTaskIconClass(status))} />;
+			return <PlusIcon className={cn("size-4 mt-0.5 shrink-0", getTaskIconClass(status))} />;
 	}
 };
 
@@ -49,18 +49,18 @@ function RouteComponent() {
 					/>
 
 					<div className="w-full max-w-xl mx-auto text-center">
-						<h1 className="text-2xl md:text-3xl font-bold mb-2">Product Roadmap</h1>
+						<h1 className="text-2xl md:text-3xl font-semibold mb-2">Product Roadmap</h1>
 						<p className="text-sm">
 							Follow our journey as we build the future of database management
 						</p>
 					</div>
 
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div>
@@ -71,15 +71,15 @@ function RouteComponent() {
 						{/* Vertical Timeline Line */}
 						<div className="absolute left-[11.5px] top-0 bottom-0 w-px bg-border" />
 
-						{roadmapItems.map((item: RoadmapItem, index: number) => (
+						{roadmapItems.map((item: RoadmapItem) => (
 							<div
-								key={index}
+								key={item.title}
 								className="relative pl-10 pb-10 last:pb-0"
 							>
 								{/* Plus Icon as Timeline Bullet */}
 								<div className="absolute left-0 top-0 bg-background">
 									<PlusIcon
-										className="h-6 w-6"
+										className="size-6"
 										strokeWidth={1}
 									/>
 								</div>

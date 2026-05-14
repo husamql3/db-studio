@@ -65,6 +65,7 @@ import {
 	type PropsWithChildren,
 	type ReactNode,
 	type RefObject,
+	use,
 	useCallback,
 	useContext,
 	useEffect,
@@ -102,28 +103,8 @@ type PromptInputControllerProps = {
 const PromptInputController = createContext<PromptInputControllerProps | null>(null);
 const ProviderAttachmentsContext = createContext<AttachmentsContext | null>(null);
 
-const _usePromptInputController = () => {
-	const ctx = useContext(PromptInputController);
-	if (!ctx) {
-		throw new Error(
-			"Wrap your component inside <PromptInputProvider> to use usePromptInputController().",
-		);
-	}
-	return ctx;
-};
-
 // Optional variants (do NOT throw). Useful for dual-mode components.
 const useOptionalPromptInputController = () => useContext(PromptInputController);
-
-const _useProviderAttachments = () => {
-	const ctx = useContext(ProviderAttachmentsContext);
-	if (!ctx) {
-		throw new Error(
-			"Wrap your component inside <PromptInputProvider> to use useProviderAttachments().",
-		);
-	}
-	return ctx;
-};
 
 const useOptionalProviderAttachments = () => useContext(ProviderAttachmentsContext);
 
@@ -258,7 +239,7 @@ const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
 const usePromptInputAttachments = () => {
 	// Dual-mode: prefer provider if present, otherwise use local
 	const provider = useOptionalProviderAttachments();
-	const local = useContext(LocalAttachmentsContext);
+	const local = use(LocalAttachmentsContext);
 	const context = provider ?? local;
 	if (!context) {
 		throw new Error(
@@ -1370,8 +1351,6 @@ const PromptInputInternalCommandItem = ({
 );
 
 export {
-	_usePromptInputController as usePromptInputController,
-	_useProviderAttachments as useProviderAttachments,
 	PromptInputInternalActionAddAttachments as PromptInputActionAddAttachments,
 	PromptInputInternalActionMenu as PromptInputActionMenu,
 	PromptInputInternalActionMenuContent as PromptInputActionMenuContent,

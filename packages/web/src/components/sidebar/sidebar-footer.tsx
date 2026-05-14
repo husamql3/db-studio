@@ -40,7 +40,7 @@ export function SidebarFooter() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<Database className="h-4 w-4 text-muted-foreground" />
+							<Database className="size-4 text-muted-foreground" />
 							<span className="text-sm font-medium">Database</span>
 						</div>
 						<Tooltip>
@@ -48,13 +48,13 @@ export function SidebarFooter() {
 								<Button
 									variant="ghost"
 									size="icon"
-									className="h-6 w-6 hover:bg-accent"
+									className="size-6 hover:bg-accent"
 									onClick={handleRefresh}
 									disabled={isLoadingDatabases || isRefetchingDatabases}
 								>
 									<RefreshCw
 										className={cn(
-											"h-3.5 w-3.5",
+											"size-3.5",
 											(isLoadingDatabases || isRefetchingDatabases) && "animate-spin",
 										)}
 									/>
@@ -98,9 +98,9 @@ export function SidebarFooter() {
 					>
 						<div className="flex items-center gap-2">
 							<div className="flex items-center justify-center">
-								<div className="relative flex h-2 w-2">
+								<div className="relative flex size-2">
 									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-									<span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+									<span className="relative inline-flex rounded-full size-2 bg-green-500" />
 								</div>
 							</div>
 
@@ -116,7 +116,7 @@ export function SidebarFooter() {
 
 					{/* Connection Details */}
 					{showDetails && connectionInfo && (
-						<div className="space-y-1.5 px-2 py-2 rounded-md bg-muted/30">
+						<div className="space-y-1.5 p-2 rounded-md bg-muted/30">
 							<div className="flex justify-between items-center">
 								<span className="text-xs text-muted-foreground">Host</span>
 								<span className="text-xs font-mono text-foreground">

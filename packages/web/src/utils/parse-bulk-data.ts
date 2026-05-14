@@ -76,6 +76,13 @@ const parseCSV = (input: string): Record<string, unknown>[] => {
 	return records;
 };
 
+/** Pre-compiled delimiter regexes for CSV detection */
+const DELIMITER_REGEXES: Record<string, RegExp> = {
+	",": /,/g,
+	"\t": /\t/g,
+	";": /;/g,
+};
+
 /**
  * Detect CSV delimiter (comma, tab, or semicolon)
  */
@@ -85,7 +92,7 @@ const detectDelimiter = (headerLine: string): string => {
 	let detectedDelimiter = ",";
 
 	for (const delimiter of delimiters) {
-		const count = (headerLine.match(new RegExp(`\\${delimiter}`, "g")) || []).length;
+		const count = (headerLine.match(DELIMITER_REGEXES[delimiter]) || []).length;
 		if (count > maxCount) {
 			maxCount = count;
 			detectedDelimiter = delimiter;

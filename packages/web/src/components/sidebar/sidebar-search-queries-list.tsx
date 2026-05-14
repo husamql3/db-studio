@@ -55,7 +55,7 @@ export const SidebarSearchQueriesList = () => {
 			</div>
 
 			<div className="relative">
-				<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+				<Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 				<Input
 					ref={inputRef}
 					placeholder="Search queries"

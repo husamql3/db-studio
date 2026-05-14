@@ -45,7 +45,7 @@ export const FieldRow = ({
 						onClick={onRemove}
 						disabled={!canRemove}
 					>
-						<XIcon className="h-4 w-4" />
+						<XIcon className="size-4" />
 					</Button>
 				</div>
 

@@ -33,13 +33,21 @@ export const FormContent = () => {
 		}
 	};
 
-	const primaryFields = fields
-		.map((field, index) => ({ field, index }))
-		.filter(({ index }) => watchedFields?.[index]?.isPrimaryKey);
+	const primaryFields = fields.reduce<{ field: (typeof fields)[number]; index: number }[]>(
+		(acc, field, index) => {
+			if (watchedFields?.[index]?.isPrimaryKey) acc.push({ field, index });
+			return acc;
+		},
+		[],
+	);
 
-	const nonPrimaryFields = fields
-		.map((field, index) => ({ field, index }))
-		.filter(({ index }) => !watchedFields?.[index]?.isPrimaryKey);
+	const nonPrimaryFields = fields.reduce<{ field: (typeof fields)[number]; index: number }[]>(
+		(acc, field, index) => {
+			if (!watchedFields?.[index]?.isPrimaryKey) acc.push({ field, index });
+			return acc;
+		},
+		[],
+	);
 
 	return (
 		<div className="space-y-2">
