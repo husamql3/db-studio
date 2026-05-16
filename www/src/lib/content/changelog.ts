@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.9.3",
+		date: "2026-05-16",
+		title: "Fix the database connection error",
+		features: [
+			{
+				text: "Fix the database connection error",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.9.1",
 		date: "2026-05-09",
 		title: "Integrated PostHog analytics and Sentry error tracking",
