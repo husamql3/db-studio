@@ -41,6 +41,7 @@ import {
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
 import { useDeleteColumn } from "@/features/schema";
+import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
@@ -62,6 +63,7 @@ export const TableHeadRow = ({
 	table,
 }: TableHeadRowProps) => {
 	const { table: activeTableName } = Route.useParams();
+	const isSchemaless = useIsSchemaless();
 
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
@@ -234,34 +236,38 @@ export const TableHeadRow = ({
 												className="w-44"
 												align="start"
 											>
-												<DropdownMenuGroup>
-													{/* Sort ascending button */}
-													<DropdownMenuItem
-														onClick={() => createSortHandler(header.column.id)("asc")}
-													>
-														<ArrowUp />
-														Sort ascending
-													</DropdownMenuItem>
+												{!isSchemaless && (
+													<>
+														<DropdownMenuGroup>
+															{/* Sort ascending button */}
+															<DropdownMenuItem
+																onClick={() => createSortHandler(header.column.id)("asc")}
+															>
+																<ArrowUp />
+																Sort ascending
+															</DropdownMenuItem>
 
-													{/* Sort descending button */}
-													<DropdownMenuItem
-														onClick={() => createSortHandler(header.column.id)("desc")}
-													>
-														<ArrowDown />
-														Sort descending
-													</DropdownMenuItem>
+															{/* Sort descending button */}
+															<DropdownMenuItem
+																onClick={() => createSortHandler(header.column.id)("desc")}
+															>
+																<ArrowDown />
+																Sort descending
+															</DropdownMenuItem>
 
-													{/* Remove sort button */}
-													{header.column.getIsSorted() && (
-														<DropdownMenuItem
-															onClick={() => createSortHandler(header.column.id)(null)}
-														>
-															<X />
-															Remove sort
-														</DropdownMenuItem>
-													)}
-												</DropdownMenuGroup>
-												<DropdownMenuSeparator />
+															{/* Remove sort button */}
+															{header.column.getIsSorted() && (
+																<DropdownMenuItem
+																	onClick={() => createSortHandler(header.column.id)(null)}
+																>
+																	<X />
+																	Remove sort
+																</DropdownMenuItem>
+															)}
+														</DropdownMenuGroup>
+														<DropdownMenuSeparator />
+													</>
+												)}
 												{/* TODO: #84 Add edit column button */}
 												{/* <DropdownMenuItem
 													onClick={() =>
@@ -276,6 +282,7 @@ export const TableHeadRow = ({
 												{/* Delete column button */}
 												<DropdownMenuItem
 													variant="destructive"
+													disabled={isSchemaless}
 													onClick={() => handleDeleteClick(header.column.id)}
 												>
 													<Trash2 />

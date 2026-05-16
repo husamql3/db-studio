@@ -111,7 +111,7 @@ export default defineConfig(({ mode }) => {
     host: true,
     proxy: {
       "/api": {
-        target: process.env.VITE_API_PROXY_TARGET ?? 'https://api.dbstuio.localhost',
+        target: process.env.VITE_API_PROXY_TARGET ?? 'https://api.dbstudio.localhost',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ""),

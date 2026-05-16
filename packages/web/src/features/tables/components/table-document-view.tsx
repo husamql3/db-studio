@@ -1,6 +1,6 @@
 import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
-import { TableFooter } from "./table-footer";
+import { TableFooter } from "@/features/tables/components/table-footer";
 
 export const TableDocumentView = ({
 	tableName,
@@ -13,18 +13,22 @@ export const TableDocumentView = ({
 		<div className="flex-1 overflow-auto bg-[#1E1E1E] p-3">
 			<JsonView
 				value={rows}
-				objectSortKeys={true}
-				displayObjectSize={false}
+				keyName={tableName}
+				objectSortKeys={false}
+				displayObjectSize={true}
 				displayDataTypes={false}
 				indentWidth={14}
 				collapsed={1}
 				shortenTextAfterLength={120}
 				highlightUpdates={false}
 				style={vscodeTheme}
-				enableClipboard={false}
+				enableClipboard={true}
 				className="size-full"
 			/>
 		</div>
-		<TableFooter tableName={tableName} />
+		<TableFooter
+			tableName={tableName}
+			variant="document"
+		/>
 	</div>
 );

@@ -53,6 +53,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 		);
 	}
 
+	// if (dbType === "mongodb" || dbType === "redis") {
 	if (dbType === "mongodb") {
 		return (
 			<TableDocumentView

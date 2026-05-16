@@ -43,15 +43,17 @@ const getWebDistPath = () => {
 };
 
 const databaseTypeParamSchema = z.object({
-	dbType: z.string().refine(
-		(type): type is DatabaseTypeSchema =>
-			adapterRegistry.getSupportedTypes().includes(type as DatabaseTypeSchema),
-		() => ({
-			message: `Invalid database type. Supported types: ${adapterRegistry
-				.getSupportedTypes()
-				.join(", ")}`,
-		}),
-	),
+	dbType: z
+		.string()
+		.refine(
+			(type): type is DatabaseTypeSchema =>
+				adapterRegistry.getSupportedTypes().includes(type as DatabaseTypeSchema),
+			{
+				message: `Invalid database type. Supported types: ${adapterRegistry
+					.getSupportedTypes()
+					.join(", ")}`,
+			},
+		),
 });
 
 export const createServer = () => {

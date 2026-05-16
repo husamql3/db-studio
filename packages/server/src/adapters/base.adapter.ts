@@ -112,6 +112,13 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.includes("MongoNetworkError") ||
 				e.message.includes("MongoServerSelectionError") ||
 				e.message.includes("Login failed") ||
+				e.message.startsWith("NOAUTH") || // Redis: auth required
+				e.message.startsWith("WRONGPASS") || // Redis: invalid credentials
+				e.message.startsWith("LOADING") || // Redis: dataset loading
+				e.message.startsWith("BUSY") || // Redis: server busy
+				e.message.startsWith("READONLY") || // Redis: read-only replica
+				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
+				e.message.includes("Redis cluster mode is not supported") ||
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {

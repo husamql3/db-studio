@@ -15,11 +15,11 @@ export const DEFAULTS = {
 	PORT: 3333,
 	ENV: ".env",
 	VAR_NAME: "DATABASE_URL",
-	BASE_URL: "https://api.dbstuio.localhost",
+	BASE_URL: "https://api.dbstudio.localhost",
 	IS_DEV: nodeEnv === "development",
 	PROXY_URL:
 		env?.DB_STUDIO_PROXY_URL ??
 		(nodeEnv === "development"
-			? "https://proxy.dbstuio.localhost"
+			? "https://proxy.dbstudio.localhost"
 			: "https://db-studio-proxy.husamql3.workers.dev"),
 };

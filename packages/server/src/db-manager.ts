@@ -1,5 +1,6 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import Database from "better-sqlite3";
+import { Redis, type RedisOptions } from "ioredis";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import mssql from "mssql";
@@ -16,6 +17,8 @@ class DatabaseManager {
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
 	private sqliteDb: Database.Database | null = null;
+	private redisClients: Map<number, Redis> = new Map();
+	private redisClusterChecked = false;
 	private baseConfig: {
 		url: string;
 		host: string;
@@ -24,9 +27,15 @@ class DatabaseManager {
 		password: string;
 		dbType: DatabaseTypeSchema;
 	} | null = null;
+	private initError: Error | null = null;
 
 	constructor() {
-		this.initializeBaseConfig();
+		try {
+			this.initializeBaseConfig();
+		} catch (e) {
+			this.initError = e instanceof Error ? e : new Error(String(e));
+			console.error(`❌ Database configuration error: ${this.initError.message}`);
+		}
 	}
 
 	/**
@@ -49,6 +58,9 @@ class DatabaseManager {
 				return "mongodb";
 			case "sqlite":
 				return "sqlite";
+			// case "redis":
+			// case "rediss":
+			// 	return "redis";
 			default:
 				throw new Error(
 					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://).`,
@@ -80,19 +92,24 @@ class DatabaseManager {
 
 		try {
 			const url = new URL(databaseUrl);
+			const detectedType = this.detectDbType(url);
+			const defaultPort =
+				detectedType === "mysql"
+					? 3306
+					: detectedType === "mssql"
+						? 1433
+						: detectedType === "mongodb"
+							? 27017
+							: detectedType === "redis"
+								? 6379
+								: 5432;
 			this.baseConfig = {
 				url: databaseUrl,
 				host: url.hostname,
-				port:
-					Number.parseInt(url.port, 10) ||
-					(this.detectDbType(url) === "mysql"
-						? 3306
-						: this.detectDbType(url) === "mssql"
-							? 1433
-							: 5432),
+				port: Number.parseInt(url.port, 10) || defaultPort,
 				user: url.username,
 				password: url.password,
-				dbType: this.detectDbType(url),
+				dbType: detectedType,
 			};
 		} catch (error) {
 			throw new Error(error instanceof Error ? error.message : String(error));
@@ -103,6 +120,7 @@ class DatabaseManager {
 	 * Get the detected database type
 	 */
 	getDbType(): DatabaseTypeSchema {
+		if (this.initError) throw this.initError;
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
@@ -113,6 +131,7 @@ class DatabaseManager {
 	 * Build a connection string for the specified database
 	 */
 	buildConnectionString(database?: string): string {
+		if (this.initError) throw this.initError;
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
@@ -395,6 +414,76 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Get or create a Redis client for the specified logical DB index (0-15 by default)
+	 */
+	async getRedisClient(dbIndex?: number): Promise<Redis> {
+		if (!this.baseConfig) {
+			throw new Error("Base configuration not initialized");
+		}
+		if (this.baseConfig.dbType !== "redis") {
+			throw new Error("DATABASE_URL is not a redis:// connection");
+		}
+
+		const index = dbIndex ?? this.getRedisDefaultDb();
+
+		const existing = this.redisClients.get(index);
+		if (existing) return existing;
+
+		const url = new URL(this.baseConfig.url);
+		const options: RedisOptions = {
+			host: this.baseConfig.host,
+			port: this.baseConfig.port,
+			db: index,
+			lazyConnect: true,
+			maxRetriesPerRequest: 1,
+			enableReadyCheck: true,
+			connectTimeout: 2000,
+		};
+		if (this.baseConfig.user) options.username = decodeURIComponent(this.baseConfig.user);
+		if (this.baseConfig.password)
+			options.password = decodeURIComponent(this.baseConfig.password);
+		if (url.protocol === "rediss:") options.tls = {};
+
+		const client = new Redis(options);
+		try {
+			await client.connect();
+			if (!this.redisClusterChecked) {
+				const info = await client.info("server");
+				if (/^redis_mode:cluster\b/m.test(info)) {
+					await client.quit().catch(() => {});
+					throw new Error(
+						"Redis cluster mode is not supported. Use a single-node redis:// connection.",
+					);
+				}
+				this.redisClusterChecked = true;
+			}
+		} catch (error) {
+			await client.quit().catch(() => {});
+			throw error;
+		}
+
+		this.redisClients.set(index, client);
+		console.log(`Created Redis client for db=${index}`);
+		return client;
+	}
+
+	/**
+	 * Get the default Redis logical DB from the URL (e.g. redis://host/3 → 3)
+	 */
+	getRedisDefaultDb(): number {
+		if (!this.baseConfig) return 0;
+		try {
+			const url = new URL(this.baseConfig.url);
+			const path = url.pathname.replace(/^\//, "");
+			if (!path) return 0;
+			const parsed = Number.parseInt(path, 10);
+			return Number.isFinite(parsed) ? parsed : 0;
+		} catch {
+			return 0;
+		}
+	}
+
+	/**
 	 * Close all database pools
 	 */
 	async closeAll(): Promise<void> {
@@ -425,6 +514,15 @@ class DatabaseManager {
 			this.mongoClient = null;
 		}
 		this.closeSqliteDb();
+		const redisClosePromises = Array.from(this.redisClients.entries()).map(
+			async ([index, client]) => {
+				await client.quit().catch(() => {});
+				console.log(`Closed Redis client for db=${index}`);
+			},
+		);
+		await Promise.all(redisClosePromises);
+		this.redisClients.clear();
+		this.redisClusterChecked = false;
 	}
 
 	/**
@@ -531,6 +629,20 @@ export const getMongoDbName = (): string => {
  */
 export const getMongoDb = (dbName?: string) => {
 	return databaseManager.getMongoDb(dbName);
+};
+
+/**
+ * Get or create a Redis client for the specified logical DB index
+ */
+export const getRedisClient = (dbIndex?: number): Promise<Redis> => {
+	return databaseManager.getRedisClient(dbIndex);
+};
+
+/**
+ * Get the default Redis logical DB index from the connection URL
+ */
+export const getRedisDefaultDb = (): number => {
+	return databaseManager.getRedisDefaultDb();
 };
 
 export const isValidObjectId = (value: unknown): value is string => {

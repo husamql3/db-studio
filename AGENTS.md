@@ -28,6 +28,8 @@ bun run init-db:pgsql   # PostgreSQL
 bun run init-db:mysql   # MySQL
 bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
+bun run init-db:sqlite  # SQLite
+bun run init-db:redis   # Redis
 ```
 
 ### Running a single test (server package)
@@ -40,7 +42,7 @@ bun run test:coverage                # with coverage
 bunx vitest run tests/path/to/file.test.ts  # single file
 ```
 
-> **Dev URLs**: Frontend (Vite) → `https://web.dbstuio.localhost`, API → `https://api.dbstuio.localhost`, proxy → `https://proxy.dbstuio.localhost`, docs → `https://www.dbstuio.localhost`. Production-style local serving uses `https://db-studio.localhost` via the server package `start` script.
+> **Dev URLs**: Frontend (Vite) → `https://web.dbstudio.localhost`, API → `https://api.dbstudio.localhost`, proxy → `https://proxy.dbstudio.localhost`, docs → `https://www.dbstudio.localhost`. Production-style local serving uses `https://db-studio.localhost` via the server package `start` script.
 
 ## Architecture
 
@@ -59,7 +61,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
 - **Hono app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, validates `/:dbType`, and serves the frontend build.
 - **DB connections**: `src/db-manager.ts` owns connection creation and URL parsing; adapters import connection helpers through `src/adapters/connections.ts`.
-- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, and MongoDB all route through registered adapters.
+- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis all route through registered adapters.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
 - **Adapter registry**: `src/adapters/adapter.registry.ts` exports `adapterRegistry` and `getAdapter(dbType)`. `src/adapters/register.ts` registers each adapter before routes mount.
 - **Routes**: `src/routes/` — each route file uses `new Hono<RouteEnv>()` (not `AppType`) to avoid circular imports and to access `c.get("dbType")`
@@ -127,7 +129,7 @@ Three export paths:
 
 ### Key types
 
-- `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb"]` in `database.types.ts`
+- `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"]` in `database.types.ts`
 - `RouteEnv` — Hono env type that provides `c.get("dbType")`
 - `CellVariant` / `DataTypes` — used for table cell rendering
 
@@ -146,6 +148,7 @@ Three export paths:
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
 - **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. Legacy Mongo DAO files remain only for standalone compatibility tests.
+- **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
 
 ## Patterns
 
@@ -178,7 +181,7 @@ export const databaseSchema = z.object({
 });
 export type DatabaseSchemaType = z.infer<typeof databaseSchema>;
 
-export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb"] as const;
+export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"] as const;
 export const databaseTypeSchema = z.enum(DATABASE_TYPES);
 export type DatabaseTypeSchema = z.infer<typeof databaseTypeSchema>;
 ```
