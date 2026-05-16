@@ -20,7 +20,7 @@ function ProductHuntBanner() {
 
 	return (
 		<div className="w-full bg-[#4B70FF] text-white text-sm flex items-center justify-center gap-3 px-4 py-2.5 relative">
-			<RocketIcon className="h-4 w-4 shrink-0" />
+			<RocketIcon className="size-4 shrink-0" />
 			<span>
 				We&apos;re live on Product Hunt! If you&apos;re enjoying db-studio, support us with an
 				upvote.
@@ -39,7 +39,7 @@ function ProductHuntBanner() {
 				className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors"
 				aria-label="Dismiss banner"
 			>
-				<XIcon className="h-3.5 w-3.5" />
+				<XIcon className="size-3.5" />
 			</button>
 		</div>
 	);

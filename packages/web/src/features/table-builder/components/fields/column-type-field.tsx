@@ -46,6 +46,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 							id={`columnType-${index}`}
 							role="combobox"
 							aria-expanded={typePickerOpen}
+							aria-controls={`columnType-${index}-listbox`}
 							variant="outline"
 							className={cn(
 								"w-full justify-between border-input bg-background px-3 font-normal hover:bg-background",
@@ -63,6 +64,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent
+						id={`columnType-${index}-listbox`}
 						align="start"
 						className="w-full min-w-[--radix-popper-anchor-width] border-input p-0"
 					>

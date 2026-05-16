@@ -2,7 +2,7 @@
 
 import { cn } from "@db-studio/ui/utils";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, memo, useContext, useEffect, useState } from "react";
+import { createContext, memo, use, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 
 type MessageRole = "system" | "user" | "assistant" | "data";
@@ -50,7 +50,7 @@ type MessageBranchContextType = {
 const MessageBranchContext = createContext<MessageBranchContextType | null>(null);
 
 const useMessageBranch = () => {
-	const context = useContext(MessageBranchContext);
+	const context = use(MessageBranchContext);
 
 	if (!context) {
 		throw new Error("MessageBranch components must be used within MessageBranch");

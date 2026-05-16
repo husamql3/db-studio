@@ -115,11 +115,11 @@ export const Header = ({ stars }: { stars: string | null }) => {
 				</div>
 
 				<PlusIcon
-					className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+					className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 					strokeWidth={1}
 				/>
 				<PlusIcon
-					className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+					className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 					strokeWidth={1}
 				/>
 			</div>

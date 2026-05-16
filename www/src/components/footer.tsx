@@ -24,11 +24,11 @@ export const Footer = () => {
 				</p>
 
 				<PlusIcon
-					className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+					className="-top-[12.5px] -left-[12.5px] absolute size-6"
 					strokeWidth={1}
 				/>
 				<PlusIcon
-					className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+					className="-right-[12.5px] -top-[12.5px] absolute size-6"
 					strokeWidth={1}
 				/>
 			</div>

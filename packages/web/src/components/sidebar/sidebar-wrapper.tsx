@@ -17,6 +17,13 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	const hoverTimeoutRef = useRef<number | null>(null);
 	const sheetContentRef = useRef<HTMLDivElement>(null);
 
+	// Handler refs — updated every render so the stable listeners always call the latest handler
+	const handleMouseMoveRef = useRef((_e: MouseEvent) => {});
+	const handleMouseUpRef = useRef(() => {});
+	const handleEdgeHoverRef = useRef((_e: MouseEvent) => {});
+	const handleMouseEnterRef = useRef(() => {});
+	const handleMouseLeaveRef = useRef(() => {});
+
 	// Optimized resize handler using RAF
 	const handleMouseMove = useCallback(
 		(e: MouseEvent) => {
@@ -33,8 +40,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 
 	const handleMouseUp = useCallback(() => {
 		isResizingRef.current = false;
-		document.body.style.cursor = "";
-		document.body.style.userSelect = "";
+		Object.assign(document.body.style, { cursor: "", userSelect: "" });
 
 		// Remove overlay
 		const overlay = document.getElementById("resize-overlay");
@@ -48,8 +54,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 			startXRef.current = e.clientX;
 			startWidthRef.current = width;
 
-			document.body.style.cursor = "col-resize";
-			document.body.style.userSelect = "none";
+			Object.assign(document.body.style, { cursor: "col-resize", userSelect: "none" });
 
 			// Add overlay to prevent interference with iframe or other elements
 			const overlay = document.createElement("div");
@@ -99,6 +104,13 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		[isPinned, isOpen, setSidebarOpen],
 	);
 
+	// Keep handler refs current every render so stable listeners always use the latest handler
+	handleMouseMoveRef.current = handleMouseMove;
+	handleMouseUpRef.current = handleMouseUp;
+	handleEdgeHoverRef.current = handleEdgeHover;
+	handleMouseEnterRef.current = handleMouseEnter;
+	handleMouseLeaveRef.current = handleMouseLeave;
+
 	const handleOpenChange = (open: boolean) => {
 		if (!isPinned) {
 			setSidebarOpen(open);
@@ -106,35 +118,42 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	};
 
 	useEffect(() => {
-		document.addEventListener("mousemove", handleMouseMove);
-		document.addEventListener("mouseup", handleMouseUp);
-		document.addEventListener("mousemove", handleEdgeHover);
+		const onMouseMove = (e: MouseEvent) => handleMouseMoveRef.current(e);
+		const onMouseUp = () => handleMouseUpRef.current();
+		const onEdgeHover = (e: MouseEvent) => handleEdgeHoverRef.current(e);
+
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
+		document.addEventListener("mousemove", onEdgeHover);
 
 		return () => {
-			document.removeEventListener("mousemove", handleMouseMove);
-			document.removeEventListener("mouseup", handleMouseUp);
-			document.removeEventListener("mousemove", handleEdgeHover);
+			document.removeEventListener("mousemove", onMouseMove);
+			document.removeEventListener("mouseup", onMouseUp);
+			document.removeEventListener("mousemove", onEdgeHover);
 
 			// Clear timeout on cleanup
 			if (hoverTimeoutRef.current) {
 				clearTimeout(hoverTimeoutRef.current);
 			}
 		};
-	}, [handleMouseMove, handleMouseUp, handleEdgeHover]);
+	}, []); // empty deps — listeners are stable, handlers updated via refs
 
 	// Attach mouse enter/leave handlers to the Sheet content
 	useEffect(() => {
 		const element = sheetContentRef.current;
 		if (!element) return;
 
-		element.addEventListener("mouseenter", handleMouseEnter);
-		element.addEventListener("mouseleave", handleMouseLeave);
+		const onMouseEnter = () => handleMouseEnterRef.current();
+		const onMouseLeave = () => handleMouseLeaveRef.current();
+
+		element.addEventListener("mouseenter", onMouseEnter);
+		element.addEventListener("mouseleave", onMouseLeave);
 
 		return () => {
-			element.removeEventListener("mouseenter", handleMouseEnter);
-			element.removeEventListener("mouseleave", handleMouseLeave);
+			element.removeEventListener("mouseenter", onMouseEnter);
+			element.removeEventListener("mouseleave", onMouseLeave);
 		};
-	}, [handleMouseEnter, handleMouseLeave]);
+	}, []); // empty deps — listeners are stable, handlers updated via refs
 
 	return (
 		<Sheet

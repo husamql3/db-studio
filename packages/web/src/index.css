@@ -6,6 +6,11 @@
 @source "../../ui/src/**/*.{ts,tsx}";
 @source "../node_modules/streamdown/dist/*.js";
 
+* {
+	scrollbar-width: thin;
+	scrollbar-color: gray transparent;
+}
+
 @layer utilities {
 	/* Shine animation for LoadingText */
 	@keyframes shine {

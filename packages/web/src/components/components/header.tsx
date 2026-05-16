@@ -9,7 +9,7 @@ import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 
 export const Header = () => {
 	return (
-		<div className="border-b border-zinc-800 w-full flex items-center justify-between bg-black h-12">
+		<div className="border-b border-zinc-800 w-full flex items-center justify-between bg-zinc-950 h-12">
 			<div className="flex items-center h-full">
 				<SidebarToggleButton />
 				<Tabs />

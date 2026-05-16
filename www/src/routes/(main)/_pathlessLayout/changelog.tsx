@@ -40,13 +40,16 @@ function RouteComponent() {
 				<div className="relative">
 					<div className="absolute left-[123px] top-0 bottom-0 w-px bg-border hidden md:block" />
 
-					{changelog.map((item: ChangelogItem, index: number) => (
+					{changelog.map((item: ChangelogItem) => (
 						<div
-							key={index}
+							key={item.version}
 							className="relative md:grid md:grid-cols-[100px_1fr] md:gap-6 pb-10 last:pb-0"
 						>
 							<div className="flex flex-row md:flex-col gap-2 mb-3 md:mb-0 md:sticky md:top-4 md:self-start md:text-right">
-								<div className="text-[10px] text-muted-foreground order-2 md:order-1 flex items-center">
+								<div
+									suppressHydrationWarning
+									className="text-[10px] text-muted-foreground order-2 md:order-1 flex items-center"
+								>
 									{new Date(item.date).toLocaleDateString("en-US", {
 										month: "short",
 										day: "numeric",
@@ -63,7 +66,7 @@ function RouteComponent() {
 								{/* Plus Icon on timeline - hidden on mobile */}
 								<div className="absolute -left-3 top-0 bg-background hidden md:block">
 									<PlusIcon
-										className="h-6 w-6"
+										className="size-6"
 										strokeWidth={1}
 									/>
 								</div>

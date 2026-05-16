@@ -153,9 +153,9 @@ export function CommandPalette() {
 						onClick={switchToAllMode}
 						className="flex items-center gap-1.5 h-8! rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20 shrink-0"
 					>
-						<Table2 className="h-3.5 w-3.5" />
+						<Table2 className="size-3.5" />
 						<span>Tables</span>
-						<ChevronLeft className="h-3 w-3 opacity-60" />
+						<ChevronLeft className="size-3 opacity-60" />
 					</button>
 				)}
 				<CommandInput
@@ -186,7 +186,7 @@ export function CommandPalette() {
 									value={table.tableName}
 									onSelect={() => handleNavigateToTable(table.tableName)}
 								>
-									<Database className="mr-2 h-4 w-4 text-primary" />
+									<Database className="mr-2 size-4 text-primary" />
 									<div className="flex flex-1 items-center justify-between">
 										<span className="font-medium">{table.tableName}</span>
 										<span className="text-xs text-muted-foreground">
@@ -208,7 +208,7 @@ export function CommandPalette() {
 								onSelect={switchToTablesMode}
 								className="group"
 							>
-								<Table2 className="mr-2 h-4 w-4 text-primary" />
+								<Table2 className="mr-2 size-4 text-primary" />
 								<div className="flex flex-1 items-center justify-between">
 									<div className="flex flex-col">
 										<span>Search Tables</span>
@@ -236,7 +236,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Sparkles className="mr-2 h-4 w-4" />
+								<Sparkles className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Generate SQL with AI</span>
 									<span className="text-xs text-muted-foreground">
@@ -253,7 +253,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Wand2 className="mr-2 h-4 w-4" />
+								<Wand2 className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>AI Table Designer</span>
 									<span className="text-xs text-muted-foreground">
@@ -270,7 +270,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Brain className="mr-2 h-4 w-4" />
+								<Brain className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Explain Schema</span>
 									<span className="text-xs text-muted-foreground">
@@ -287,7 +287,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Zap className="mr-2 h-4 w-4" />
+								<Zap className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Optimize Query</span>
 									<span className="text-xs text-muted-foreground">
@@ -304,7 +304,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<MessageSquare className="mr-2 h-4 w-4" />
+								<MessageSquare className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Chat with AI Assistant</span>
 									<span className="text-xs text-muted-foreground">
@@ -321,7 +321,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Lightbulb className="mr-2 h-4 w-4" />
+								<Lightbulb className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Get Schema Suggestions</span>
 									<span className="text-xs text-muted-foreground">
@@ -338,7 +338,7 @@ export function CommandPalette() {
 							<CommandItem
 								onSelect={() => handleAction(() => openOverlay("table-builder.create-table"))}
 							>
-								<Plus className="mr-2 h-4 w-4" />
+								<Plus className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Create New Table</span>
 									<span className="text-xs text-muted-foreground">
@@ -352,7 +352,7 @@ export function CommandPalette() {
 								}
 								disabled={!activeTable}
 							>
-								<Plus className="mr-2 h-4 w-4" />
+								<Plus className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Add New Row</span>
 									<span className="text-xs text-muted-foreground">
@@ -367,7 +367,7 @@ export function CommandPalette() {
 									}, "Refreshing database...")
 								}
 							>
-								<RotateCw className="mr-2 h-4 w-4" />
+								<RotateCw className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Refresh Database</span>
 									<span className="text-xs text-muted-foreground">
@@ -384,7 +384,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Download className="mr-2 h-4 w-4" />
+								<Download className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Export Data</span>
 									<span className="text-xs text-muted-foreground">
@@ -401,7 +401,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Upload className="mr-2 h-4 w-4" />
+								<Upload className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Import Data</span>
 									<span className="text-xs text-muted-foreground">
@@ -418,7 +418,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Copy className="mr-2 h-4 w-4" />
+								<Copy className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Backup Database</span>
 									<span className="text-xs text-muted-foreground">
@@ -441,7 +441,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Search className="mr-2 h-4 w-4" />
+								<Search className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Search Records</span>
 									<span className="text-xs text-muted-foreground">
@@ -459,7 +459,7 @@ export function CommandPalette() {
 								}
 								disabled={!activeTable}
 							>
-								<Filter className="mr-2 h-4 w-4" />
+								<Filter className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Filter Data</span>
 									<span className="text-xs text-muted-foreground">
@@ -477,7 +477,7 @@ export function CommandPalette() {
 								}
 								disabled={!activeTable}
 							>
-								<ArrowUpDown className="mr-2 h-4 w-4" />
+								<ArrowUpDown className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Sort Data</span>
 									<span className="text-xs text-muted-foreground">
@@ -495,7 +495,7 @@ export function CommandPalette() {
 								}
 								disabled={!activeTable}
 							>
-								<Edit className="mr-2 h-4 w-4" />
+								<Edit className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Bulk Edit</span>
 									<span className="text-xs text-muted-foreground">
@@ -512,7 +512,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Trash2 className="mr-2 h-4 w-4" />
+								<Trash2 className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Bulk Delete</span>
 									<span className="text-xs text-muted-foreground">
@@ -535,7 +535,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Code className="mr-2 h-4 w-4" />
+								<Code className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>SQL Editor</span>
 									<span className="text-xs text-muted-foreground">
@@ -552,7 +552,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<FileText className="mr-2 h-4 w-4" />
+								<FileText className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Query History</span>
 									<span className="text-xs text-muted-foreground">
@@ -569,7 +569,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<GitBranch className="mr-2 h-4 w-4" />
+								<GitBranch className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>View Schema Diagram</span>
 									<span className="text-xs text-muted-foreground">
@@ -587,7 +587,7 @@ export function CommandPalette() {
 								}
 								disabled={!activeTable}
 							>
-								<PlayCircle className="mr-2 h-4 w-4" />
+								<PlayCircle className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Generate Table SQL</span>
 									<span className="text-xs text-muted-foreground">
@@ -610,7 +610,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Lock className="mr-2 h-4 w-4" />
+								<Lock className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Manage Permissions</span>
 									<span className="text-xs text-muted-foreground">
@@ -627,7 +627,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Users className="mr-2 h-4 w-4" />
+								<Users className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>User Management</span>
 									<span className="text-xs text-muted-foreground">
@@ -644,7 +644,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Eye className="mr-2 h-4 w-4" />
+								<Eye className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Audit Log</span>
 									<span className="text-xs text-muted-foreground">
@@ -659,7 +659,7 @@ export function CommandPalette() {
 						{/* View & Settings */}
 						<CommandGroup heading="View & Settings">
 							<CommandItem onSelect={() => handleAction(toggleSidebarOpen, "Sidebar toggled")}>
-								<Sidebar className="mr-2 h-4 w-4" />
+								<Sidebar className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>{sidebar.isOpen ? "Hide" : "Show"} Sidebar</span>
 									<span className="text-xs text-muted-foreground">
@@ -671,9 +671,9 @@ export function CommandPalette() {
 								onSelect={() => handleAction(toggleSidebarPinned, "Sidebar pin toggled")}
 							>
 								{sidebar.isPinned ? (
-									<PinOff className="mr-2 h-4 w-4" />
+									<PinOff className="mr-2 size-4" />
 								) : (
-									<Pin className="mr-2 h-4 w-4" />
+									<Pin className="mr-2 size-4" />
 								)}
 								<div className="flex flex-col">
 									<span>{sidebar.isPinned ? "Unpin" : "Pin"} Sidebar</span>
@@ -691,7 +691,7 @@ export function CommandPalette() {
 									})
 								}
 							>
-								<Settings className="mr-2 h-4 w-4" />
+								<Settings className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Settings & Preferences</span>
 									<span className="text-xs text-muted-foreground">
@@ -711,7 +711,7 @@ export function CommandPalette() {
 											key={table.tableName}
 											onSelect={() => handleNavigateToTable(table.tableName)}
 										>
-											<Database className="mr-2 h-4 w-4" />
+											<Database className="mr-2 size-4" />
 											<div className="flex flex-col">
 												<span>{table.tableName}</span>
 												<span className="text-xs text-muted-foreground">

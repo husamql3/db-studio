@@ -60,7 +60,7 @@ function FeatureCard({ feature, className }: { feature: Feature; className?: str
 				className,
 			)}
 		>
-			<div className="flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-secondary/60 dark:bg-secondary/30 text-foreground/70 group-hover:text-foreground transition-colors duration-200">
+			<div className="flex items-center justify-center size-9 rounded-lg border border-border bg-secondary/60 dark:bg-secondary/30 text-foreground/70 group-hover:text-foreground transition-colors duration-200">
 				<Icon
 					className="size-4"
 					strokeWidth={1.5}

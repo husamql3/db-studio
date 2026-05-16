@@ -126,7 +126,7 @@ export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 							control={methods.control}
 							name="fields.0.isNullable"
 							render={({ field }) => (
-								<div className="flex items-center gap-3 rounded-lg border border-zinc-800 px-3 py-3">
+								<div className="flex items-center gap-3 rounded-lg border border-zinc-800 p-3">
 									<Checkbox
 										id="edit-column-nullable"
 										checked={Boolean(field.value)}

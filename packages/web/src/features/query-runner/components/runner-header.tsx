@@ -30,7 +30,7 @@ export const RunnerHeader = ({
 	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
 
 	return (
-		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-black sticky top-0 left-0 right-0 z-0">
+		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-zinc-950 sticky top-0 left-0 right-0 z-0">
 			<div className="flex items-center">
 				<Button
 					type="button"
@@ -87,11 +87,11 @@ export const RunnerHeader = ({
 			<div className="flex items-center">
 				{queryResult && (
 					<div className="flex items-center gap-1 px-2">
-						<span className="text-xs text-gray-500">
+						<span className="text-xs text-zinc-500">
 							{queryResult.data?.duration?.toFixed(2)}ms
 						</span>
-						<span className="text-xs text-gray-500">•</span>
-						<span className="text-xs text-gray-500">
+						<span className="text-xs text-zinc-500">•</span>
+						<span className="text-xs text-zinc-500">
 							{queryResult.data?.rowCount ?? 0} rows
 						</span>
 					</div>

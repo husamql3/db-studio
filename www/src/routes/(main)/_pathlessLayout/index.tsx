@@ -42,7 +42,7 @@ function EmailCopyButton() {
 		>
 			<span className="text-xs underline underline-offset-4">{EMAIL}</span>
 			<span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-				{copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
+				{copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
 			</span>
 		</button>
 	);
@@ -88,7 +88,7 @@ function App() {
 						<div className="flex flex-col gap-1 text-center md:text-left">
 							<h1 className="font-semibold">Getting Started</h1>
 							<p className="text-xs text-muted-foreground">
-								Launch instantly from your terminal—no installation needed.
+								Launch instantly from your terminal, no installation needed.
 							</p>
 						</div>
 
@@ -167,19 +167,19 @@ function App() {
 					</div>
 
 					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div>
@@ -194,19 +194,19 @@ function App() {
 					/>
 
 					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div>
@@ -244,19 +244,19 @@ function App() {
 					</InfiniteSlider>
 
 					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div>
@@ -270,19 +270,19 @@ function App() {
 					<FeaturesGrid />
 
 					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div>
@@ -301,19 +301,19 @@ function App() {
 					</div>
 
 					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div>
@@ -326,19 +326,19 @@ function App() {
 					<ContributorsGrid contributors={contributors} />
 
 					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute h-6 w-6"
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute h-6 w-6"
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
 						strokeWidth={1}
 					/>
 				</div> */}
