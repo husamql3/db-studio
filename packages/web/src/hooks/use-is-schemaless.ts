@@ -10,5 +10,5 @@ import { useDatabaseStore } from "@/stores/database.store";
  */
 export const useIsSchemaless = (): boolean => {
 	const { dbType } = useDatabaseStore();
-	return dbType === "redis";
+	return dbType === "mongodb"; // || dbType === "redis";
 };

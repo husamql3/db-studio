@@ -33,7 +33,8 @@ export const SidebarSearchTables = () => {
 
 	return (
 		<div className="px-3 pb-3 pt-2 space-y-2">
-			{dbType !== "mongodb" && dbType !== "redis" && (
+			{/* {dbType !== "mongodb" && dbType !== "redis" && ( */}
+			{dbType !== "mongodb" && (
 				<Button
 					className="w-full justify-start h-8"
 					onClick={() => openOverlay("table-builder.create-table")}
