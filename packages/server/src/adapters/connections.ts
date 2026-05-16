@@ -19,3 +19,9 @@ export const getMongoDbName: typeof dbManager.getMongoDbName = () =>
 
 export const getMongoDb: typeof dbManager.getMongoDb = (dbName) =>
 	dbManager.getMongoDb(dbName);
+
+export const getRedisClient: typeof dbManager.getRedisClient = (dbIndex) =>
+	dbManager.getRedisClient(dbIndex);
+
+export const getRedisDefaultDb: typeof dbManager.getRedisDefaultDb = () =>
+	dbManager.getRedisDefaultDb();

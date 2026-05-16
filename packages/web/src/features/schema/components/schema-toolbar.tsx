@@ -1,5 +1,6 @@
 import { Button } from "@db-studio/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
+import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const SchemaToolbar = ({
@@ -12,6 +13,7 @@ export const SchemaToolbar = ({
 	isRefetching?: boolean;
 }) => {
 	const { openOverlay } = useOverlayStore();
+	const isSchemaless = useIsSchemaless();
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center bg-zinc-950 sticky top-0 left-0 right-0 z-0">
@@ -26,15 +28,17 @@ export const SchemaToolbar = ({
 				<RefreshCw className="size-4" />
 			</Button>
 
-			<Button
-				type="button"
-				variant="default"
-				className="h-8! border-l border-y-0 border-r-0 border-zinc-800 rounded-none flex items-center gap-2"
-				onClick={() => openOverlay("schema.add-column")}
-			>
-				<Plus className="size-4" />
-				Add Column
-			</Button>
+			{!isSchemaless && (
+				<Button
+					type="button"
+					variant="default"
+					className="h-8! border-l border-y-0 border-r-0 border-zinc-800 rounded-none flex items-center gap-2"
+					onClick={() => openOverlay("schema.add-column")}
+				>
+					<Plus className="size-4" />
+					Add Column
+				</Button>
+			)}
 		</header>
 	);
 };
