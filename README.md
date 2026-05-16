@@ -142,10 +142,10 @@ Development services run through [Portless](https://portless.sh/) with stable lo
 
 | Service | URL |
 |---------|-----|
-| Web app | `https://web.dbstuio.localhost` |
-| API server | `https://api.dbstuio.localhost` |
-| AI proxy | `https://proxy.dbstuio.localhost` |
-| Docs/marketing site | `https://www.dbstuio.localhost` |
+| Web app | `https://web.dbstudio.localhost` |
+| API server | `https://api.dbstudio.localhost` |
+| AI proxy | `https://proxy.dbstudio.localhost` |
+| Docs/marketing site | `https://www.dbstudio.localhost` |
 
 On first run, Portless may ask to trust its local certificate authority. You can also run:
 

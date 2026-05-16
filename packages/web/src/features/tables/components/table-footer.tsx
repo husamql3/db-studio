@@ -14,7 +14,13 @@ import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store
 import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
 import { useTableData } from "../hooks/use-table-data";
 
-export const TableFooter = ({ tableName }: { tableName: string }) => {
+export const TableFooter = ({
+	tableName,
+	variant = "row",
+}: {
+	tableName: string;
+	variant?: "row" | "document";
+}) => {
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
@@ -25,6 +31,8 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
+	const itemLabel = variant === "document" ? "documents" : "rows";
+	const perPageLabel = variant === "document" ? "Documents per page" : "Rows per page";
 
 	const limitValue = limit ?? "50";
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +75,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 			}}
 		>
 			<div className="flex items-center gap-2">
-				<Label className="text-xs text-zinc-400 whitespace-nowrap">Rows per page</Label>
+				<Label className="text-xs text-zinc-400 whitespace-nowrap">{perPageLabel}</Label>
 				<div className="flex items-center h-6 rounded-sm border border-transparent hover:border-zinc-700 focus-within:border-zinc-600 transition-colors">
 					<input
 						key={limitValue}
@@ -119,7 +127,7 @@ export const TableFooter = ({ tableName }: { tableName: string }) => {
 					aria-live="polite"
 				>
 					Showing <span className="text-zinc-200">{dataLength}</span> of{" "}
-					<span className="text-zinc-200">{totalRows}</span> rows
+					<span className="text-zinc-200">{totalRows}</span> {itemLabel}
 				</p>
 			</div>
 

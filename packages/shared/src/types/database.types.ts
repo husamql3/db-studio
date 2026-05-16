@@ -6,7 +6,14 @@ export const databaseSchema = z.object({
 
 export type DatabaseSchemaType = z.infer<typeof databaseSchema>;
 
-export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite"] as const;
+export const DATABASE_TYPES = [
+	"pg",
+	"mysql",
+	"mssql",
+	"mongodb",
+	"sqlite",
+	// "redis"
+] as const;
 
 export const databaseTypeSchema = z.enum(DATABASE_TYPES, {
 	message: "Invalid database type",
