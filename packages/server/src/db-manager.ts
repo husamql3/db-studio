@@ -27,9 +27,15 @@ class DatabaseManager {
 		password: string;
 		dbType: DatabaseTypeSchema;
 	} | null = null;
+	private initError: Error | null = null;
 
 	constructor() {
-		this.initializeBaseConfig();
+		try {
+			this.initializeBaseConfig();
+		} catch (e) {
+			this.initError = e instanceof Error ? e : new Error(String(e));
+			console.error(`❌ Database configuration error: ${this.initError.message}`);
+		}
 	}
 
 	/**
@@ -52,12 +58,12 @@ class DatabaseManager {
 				return "mongodb";
 			case "sqlite":
 				return "sqlite";
-			case "redis":
-			case "rediss":
-				return "redis";
+			// case "redis":
+			// case "rediss":
+			// 	return "redis";
 			default:
 				throw new Error(
-					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://), Redis (redis://).`,
+					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://).`,
 				);
 		}
 	}
@@ -114,6 +120,7 @@ class DatabaseManager {
 	 * Get the detected database type
 	 */
 	getDbType(): DatabaseTypeSchema {
+		if (this.initError) throw this.initError;
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
@@ -124,6 +131,7 @@ class DatabaseManager {
 	 * Build a connection string for the specified database
 	 */
 	buildConnectionString(database?: string): string {
+		if (this.initError) throw this.initError;
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
