@@ -82,7 +82,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
     "@tanstack/ai-devtools-core": "^0.3.19",
-    "@tanstack/devtools-vite": "^0.6.0",
+    "@tanstack/devtools-vite": "^0.7.0",
     "@tanstack/react-devtools": "^0.10.3",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.167.0",
@@ -91,10 +91,10 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^6.0.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.12"
+    "vite": "^8.0.14"
   },
   "peerDependencies": {
     "typescript": "^5"
