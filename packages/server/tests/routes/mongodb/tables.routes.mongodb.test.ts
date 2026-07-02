@@ -71,7 +71,7 @@ describe("Tables Routes (MongoDB)", () => {
 			];
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/mongodb/tables?db=testdb");
+			const res = await app.request("/api/mongodb/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -82,7 +82,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("returns empty array when no collections exist", async () => {
 			mockDao.getTablesList.mockResolvedValue([]);
 
-			const res = await app.request("/mongodb/tables?db=emptydb");
+			const res = await app.request("/api/mongodb/tables?db=emptydb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -90,7 +90,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when db param is missing", async () => {
-			const res = await app.request("/mongodb/tables");
+			const res = await app.request("/api/mongodb/tables");
 
 			expect(res.status).toBe(400);
 		});
@@ -100,7 +100,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(500, { message: "MongoDB error" }),
 			);
 
-			const res = await app.request("/mongodb/tables?db=testdb");
+			const res = await app.request("/api/mongodb/tables?db=testdb");
 
 			expect(res.status).toBe(500);
 		});
@@ -110,7 +110,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
-			const res = await app.request("/mongodb/tables?db=testdb");
+			const res = await app.request("/api/mongodb/tables?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -120,7 +120,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("creates a collection with a field definition and returns 200", async () => {
 			mockDao.createTable.mockResolvedValue(undefined);
 
-			const res = await app.request("/mongodb/tables?db=testdb", {
+			const res = await app.request("/api/mongodb/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -139,7 +139,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("creates a collection with fields and JSON Schema validator", async () => {
 			mockDao.createTable.mockResolvedValue(undefined);
 
-			const res = await app.request("/mongodb/tables?db=testdb", {
+			const res = await app.request("/api/mongodb/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -155,7 +155,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when tableName is missing", async () => {
-			const res = await app.request("/mongodb/tables?db=testdb", {
+			const res = await app.request("/api/mongodb/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -173,7 +173,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(400, { message: 'Collection "users" already exists' }),
 			);
 
-			const res = await app.request("/mongodb/tables?db=testdb", {
+			const res = await app.request("/api/mongodb/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", fields: [] }),
@@ -191,7 +191,7 @@ describe("Tables Routes (MongoDB)", () => {
 				relatedRecords: [],
 			});
 
-			const res = await app.request("/mongodb/tables/users?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -199,7 +199,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when db param is missing", async () => {
-			const res = await app.request("/mongodb/tables/users", {
+			const res = await app.request("/api/mongodb/tables/users", {
 				method: "DELETE",
 			});
 
@@ -249,7 +249,7 @@ describe("Tables Routes (MongoDB)", () => {
 			];
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/mongodb/tables/users/columns?db=testdb");
+			const res = await app.request("/api/mongodb/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -263,7 +263,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("returns empty columns for empty collection", async () => {
 			mockDao.getTableColumns.mockResolvedValue([]);
 
-			const res = await app.request("/mongodb/tables/empty_coll/columns?db=testdb");
+			const res = await app.request("/api/mongodb/tables/empty_coll/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -273,7 +273,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("returns 503 on connection failure", async () => {
 			mockDao.getTableColumns.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mongodb/tables/users/columns?db=testdb");
+			const res = await app.request("/api/mongodb/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -297,7 +297,7 @@ describe("Tables Routes (MongoDB)", () => {
 			};
 			mockDao.getTableData.mockResolvedValue(mockData);
 
-			const res = await app.request("/mongodb/tables/users/data?db=testdb&limit=50");
+			const res = await app.request("/api/mongodb/tables/users/data?db=testdb&limit=50");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -322,7 +322,7 @@ describe("Tables Routes (MongoDB)", () => {
 			mockDao.getTableData.mockResolvedValue(mockData);
 
 			const res = await app.request(
-				"/mongodb/tables/orders/data?db=testdb&limit=10&cursor=eyJvZmZzZXQiOjEwfQ",
+				"/api/mongodb/tables/orders/data?db=testdb&limit=10&cursor=eyJvZmZzZXQiOjEwfQ",
 			);
 
 			expect(res.status).toBe(200);
@@ -334,7 +334,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("returns 503 on connection failure", async () => {
 			mockDao.getTableData.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mongodb/tables/users/data?db=testdb");
+			const res = await app.request("/api/mongodb/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -363,7 +363,7 @@ describe("Tables Routes (MongoDB)", () => {
 			);
 			mockDao.getTableSchema.mockResolvedValue(mockSchema);
 
-			const res = await app.request("/mongodb/tables/users/schema?db=testdb");
+			const res = await app.request("/api/mongodb/tables/users/schema?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -375,7 +375,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(404, { message: 'Collection "ghost" does not exist' }),
 			);
 
-			const res = await app.request("/mongodb/tables/ghost/schema?db=testdb");
+			const res = await app.request("/api/mongodb/tables/ghost/schema?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
@@ -388,7 +388,7 @@ describe("Tables Routes (MongoDB)", () => {
 				rows: [{ _id: "1", name: "Alice", email: "alice@example.com" }],
 			});
 
-			const res = await app.request("/mongodb/tables/users/export?db=testdb&format=csv");
+			const res = await app.request("/api/mongodb/tables/users/export?db=testdb&format=csv");
 
 			expect(res.status).toBe(200);
 			expect(res.headers.get("Content-Type")).toContain("text/csv");
@@ -401,7 +401,7 @@ describe("Tables Routes (MongoDB)", () => {
 				rows: [{ _id: "1", name: "Alice" }],
 			});
 
-			const res = await app.request("/mongodb/tables/users/export?db=testdb&format=json");
+			const res = await app.request("/api/mongodb/tables/users/export?db=testdb&format=json");
 
 			expect(res.status).toBe(200);
 			expect(res.headers.get("Content-Type")).toContain("application/json");
@@ -412,7 +412,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("deletes a field from all documents and returns 200", async () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 42 });
 
-			const res = await app.request("/mongodb/tables/users/columns/age?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns/age?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -429,7 +429,7 @@ describe("Tables Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when db param is missing", async () => {
-			const res = await app.request("/mongodb/tables/users/columns/age", {
+			const res = await app.request("/api/mongodb/tables/users/columns/age", {
 				method: "DELETE",
 			});
 
@@ -439,7 +439,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("returns 503 on connection failure", async () => {
 			mockDao.deleteColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mongodb/tables/users/columns/age?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns/age?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -451,7 +451,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("adds a field to all documents and returns 200", async () => {
 			mockDao.addColumn.mockResolvedValue(undefined);
 
-			const res = await app.request("/mongodb/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -477,7 +477,7 @@ describe("Tables Routes (MongoDB)", () => {
 				}),
 			);
 
-			const res = await app.request("/mongodb/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -495,7 +495,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(404, { message: 'Collection "ghost" does not exist' }),
 			);
 
-			const res = await app.request("/mongodb/tables/ghost/columns?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/ghost/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -514,7 +514,7 @@ describe("Tables Routes (MongoDB)", () => {
 			mockDao.renameColumn.mockResolvedValue(undefined);
 
 			const res = await app.request(
-				"/mongodb/tables/users/columns/username/rename?db=testdb",
+				"/api/mongodb/tables/users/columns/username/rename?db=testdb",
 				{
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
@@ -541,7 +541,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(400, { message: 'Cannot rename the "_id" field' }),
 			);
 
-			const res = await app.request("/mongodb/tables/users/columns/_id/rename?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns/_id/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "id" }),
@@ -558,7 +558,7 @@ describe("Tables Routes (MongoDB)", () => {
 			);
 
 			const res = await app.request(
-				"/mongodb/tables/users/columns/ghost/rename?db=testdb",
+				"/api/mongodb/tables/users/columns/ghost/rename?db=testdb",
 				{
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
@@ -577,7 +577,7 @@ describe("Tables Routes (MongoDB)", () => {
 			);
 
 			const res = await app.request(
-				"/mongodb/tables/users/columns/mail/rename?db=testdb",
+				"/api/mongodb/tables/users/columns/mail/rename?db=testdb",
 				{
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
@@ -593,7 +593,7 @@ describe("Tables Routes (MongoDB)", () => {
 		it("updates the field validator and returns 200", async () => {
 			mockDao.alterColumn.mockResolvedValue(undefined);
 
-			const res = await app.request("/mongodb/tables/users/columns/age?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns/age?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ columnType: "int", isNullable: false }),
@@ -618,7 +618,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(400, { message: 'Cannot alter the "_id" field' }),
 			);
 
-			const res = await app.request("/mongodb/tables/users/columns/_id?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/users/columns/_id?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ columnType: "string", isNullable: true }),
@@ -632,7 +632,7 @@ describe("Tables Routes (MongoDB)", () => {
 				new HTTPException(404, { message: 'Collection "ghost" does not exist' }),
 			);
 
-			const res = await app.request("/mongodb/tables/ghost/columns/field?db=testdb", {
+			const res = await app.request("/api/mongodb/tables/ghost/columns/field?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ columnType: "string", isNullable: true }),

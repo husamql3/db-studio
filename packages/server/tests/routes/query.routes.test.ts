@@ -79,7 +79,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users" }),
@@ -104,7 +104,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -128,7 +128,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -152,7 +152,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -176,7 +176,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -204,7 +204,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users LIMIT 1000" }),
@@ -244,7 +244,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM complex_table" }),
@@ -270,7 +270,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -295,7 +295,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -320,7 +320,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "DROP TABLE IF EXISTS test_table" }),
@@ -342,7 +342,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -368,7 +368,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -393,7 +393,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -417,7 +417,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1 as id" }),
@@ -432,7 +432,7 @@ describe("Query Routes", () => {
 		// Validation errors
 		// ============================================
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/query", {
+			const res = await app.request("/api/pg/query", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users" }),
@@ -442,7 +442,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 when query is missing from body", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -452,7 +452,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 when body is empty", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: "",
@@ -462,7 +462,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 when body is invalid JSON", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: "invalid json",
@@ -472,7 +472,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 when query is not a string", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: 123 }),
@@ -486,7 +486,7 @@ describe("Query Routes", () => {
 				new HTTPException(400, { message: "Query is required" })
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "" }),
@@ -500,7 +500,7 @@ describe("Query Routes", () => {
 				new HTTPException(400, { message: "Query is required" })
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "   " }),
@@ -517,7 +517,7 @@ describe("Query Routes", () => {
 				new Error('syntax error at or near "SELEC"')
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELEC * FROM users" }),
@@ -531,7 +531,7 @@ describe("Query Routes", () => {
 				new Error('relation "nonexistent_table" does not exist')
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM nonexistent_table" }),
@@ -545,7 +545,7 @@ describe("Query Routes", () => {
 				new Error('column "nonexistent_column" does not exist')
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -561,7 +561,7 @@ describe("Query Routes", () => {
 				new Error("duplicate key value violates unique constraint")
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -578,7 +578,7 @@ describe("Query Routes", () => {
 				new Error("violates foreign key constraint")
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -594,7 +594,7 @@ describe("Query Routes", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:5432")
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -610,7 +610,7 @@ describe("Query Routes", () => {
 				new Error("timeout expired")
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -624,7 +624,7 @@ describe("Query Routes", () => {
 				new HTTPException(500, { message: "Internal server error" })
 			);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -639,7 +639,7 @@ describe("Query Routes", () => {
 	// ============================================
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type", async () => {
-			const res = await app.request("/invalid/query?db=testdb", {
+			const res = await app.request("/api/invalid/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -656,7 +656,7 @@ describe("Query Routes", () => {
 				duration: 1.0,
 			});
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -667,7 +667,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
-			const res = await app.request("/sqlite/query?db=testdb", {
+			const res = await app.request("/api/sqlite/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -682,13 +682,13 @@ describe("Query Routes", () => {
 	// ============================================
 	describe("HTTP methods validation", () => {
 		it("should return 404 for GET /query", async () => {
-			const res = await app.request("/pg/query?db=testdb");
+			const res = await app.request("/api/pg/query?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for PUT /query", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -698,7 +698,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 404 for DELETE /query", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -706,7 +706,7 @@ describe("Query Routes", () => {
 		});
 
 		it("should return 404 for PATCH /query", async () => {
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -728,7 +728,7 @@ describe("Query Routes", () => {
 				duration: 1.0,
 			});
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1 as id" }),
@@ -745,7 +745,7 @@ describe("Query Routes", () => {
 				duration: 1.0,
 			});
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1 as id" }),
@@ -768,7 +768,7 @@ describe("Query Routes", () => {
 			});
 
 			const requests = Array.from({ length: 10 }, () =>
-				app.request("/pg/query?db=testdb", {
+				app.request("/api/pg/query?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ query: "SELECT 1 as id" }),
@@ -803,12 +803,12 @@ describe("Query Routes", () => {
 			});
 
 			const [res1, res2] = await Promise.all([
-				app.request("/pg/query?db=testdb", {
+				app.request("/api/pg/query?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ query: "SELECT * FROM users" }),
 				}),
-				app.request("/pg/query?db=testdb", {
+				app.request("/api/pg/query?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ query: "SELECT * FROM orders" }),
@@ -840,7 +840,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -863,7 +863,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -893,7 +893,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: longQuery }),
@@ -912,7 +912,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -933,7 +933,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1 as id;" }),
@@ -952,7 +952,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1 as id;;;" }),
@@ -971,7 +971,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -992,7 +992,7 @@ describe("Query Routes", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/pg/query?db=testdb", {
+			const res = await app.request("/api/pg/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

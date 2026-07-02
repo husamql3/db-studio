@@ -1,8 +1,8 @@
 ### Records API Endpoints
-### Base URL: http://localhost:3333/:dbType
+### Base URL: http://localhost:3333/api/:dbType
 ### Replace :dbType with 'pg' for PostgreSQL
 
-@baseUrl = http://localhost:3333/pg
+@baseUrl = http://localhost:3333/api/pg
 @database = postgres
 
 ### ============================================
@@ -605,7 +605,7 @@ Content-Type: application/json
 ### ============================================
 
 ### Invalid database type on POST (should return 400)
-POST http://localhost:3333/invalid/records?database={{database}}
+POST http://localhost:3333/api/invalid/records?database={{database}}
 Content-Type: application/json
 
 {
@@ -616,7 +616,7 @@ Content-Type: application/json
 ###
 
 ### MySQL database type on PATCH - not supported (should return 400)
-PATCH http://localhost:3333/mysql/records?database={{database}}
+PATCH http://localhost:3333/api/mysql/records?database={{database}}
 Content-Type: application/json
 
 {
@@ -634,7 +634,7 @@ Content-Type: application/json
 ###
 
 ### SQLite database type on DELETE - not supported (should return 400)
-DELETE http://localhost:3333/sqlite/records?database={{database}}
+DELETE http://localhost:3333/api/sqlite/records?database={{database}}
 Content-Type: application/json
 
 {

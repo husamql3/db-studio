@@ -69,7 +69,7 @@ describe("Records Routes (MySQL)", () => {
 				data: { name: "John Doe", email: "john@example.com" },
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -101,7 +101,7 @@ describe("Records Routes (MySQL)", () => {
 				},
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -118,7 +118,7 @@ describe("Records Routes (MySQL)", () => {
 				data: { name: "Jane", email: null, bio: null },
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -128,7 +128,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when tableName is missing", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ data: { name: "Test" } }),
@@ -138,7 +138,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when data is missing", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users" }),
@@ -148,7 +148,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/records", {
+			const res = await app.request("/api/mysql/records", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
@@ -162,7 +162,7 @@ describe("Records Routes (MySQL)", () => {
 				new HTTPException(500, { message: 'Failed to insert record into "users"' }),
 			);
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
@@ -174,7 +174,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should return 503 when MySQL connection fails", async () => {
 			mockDao.addRecord.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:3306"));
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
@@ -199,7 +199,7 @@ describe("Records Routes (MySQL)", () => {
 				updates: [{ rowData: { id: 1, name: "Old Name" }, columnName: "name", value: "New Name" }],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -224,7 +224,7 @@ describe("Records Routes (MySQL)", () => {
 				],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -244,7 +244,7 @@ describe("Records Routes (MySQL)", () => {
 				updates: [{ rowData: { id: 1 }, columnName: "preferences", value: { theme: "dark" } }],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -262,7 +262,7 @@ describe("Records Routes (MySQL)", () => {
 				updates: [{ rowData: { id: 1 }, columnName: "deleted_at", value: null }],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -279,7 +279,7 @@ describe("Records Routes (MySQL)", () => {
 				updates: [{ rowData: { id: 1 }, columnName: "name", value: "Updated" }],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -293,7 +293,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when tableName is missing", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ primaryKey: "id", updates: [{ rowData: { id: 1 }, columnName: "name", value: "Test" }] }),
@@ -303,7 +303,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when updates array is empty", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKey: "id", updates: [] }),
@@ -313,7 +313,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/records", {
+			const res = await app.request("/api/mysql/records", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKey: "id", updates: [{ rowData: { id: 1 }, columnName: "name", value: "Test" }] }),
@@ -327,7 +327,7 @@ describe("Records Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Record with id = 999 not found in table "users"' }),
 			);
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKey: "id", updates: [{ rowData: { id: 999 }, columnName: "name", value: "Test" }] }),
@@ -339,7 +339,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should return 503 when MySQL connection fails", async () => {
 			mockDao.updateRecords.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKey: "id", updates: [{ rowData: { id: 1 }, columnName: "name", value: "Test" }] }),
@@ -358,7 +358,7 @@ describe("Records Routes (MySQL)", () => {
 
 			const body = { tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] };
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -382,7 +382,7 @@ describe("Records Routes (MySQL)", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }, { columnName: "id", value: 2 }, { columnName: "id", value: 3 }],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -409,7 +409,7 @@ describe("Records Routes (MySQL)", () => {
 
 			const body = { tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] };
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -423,7 +423,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when tableName is missing", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -433,7 +433,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when primaryKeys is empty", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [] }),
@@ -443,7 +443,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/records", {
+			const res = await app.request("/api/mysql/records", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -457,7 +457,7 @@ describe("Records Routes (MySQL)", () => {
 				new HTTPException(500, { message: 'Failed to delete records from "users"' }),
 			);
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -469,7 +469,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should return 503 when MySQL connection fails", async () => {
 			mockDao.deleteRecords.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -488,7 +488,7 @@ describe("Records Routes (MySQL)", () => {
 
 			const body = { tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] };
 
-			const res = await app.request("/mysql/records/force?db=testdb", {
+			const res = await app.request("/api/mysql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -512,7 +512,7 @@ describe("Records Routes (MySQL)", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }, { columnName: "id", value: 2 }],
 			};
 
-			const res = await app.request("/mysql/records/force?db=testdb", {
+			const res = await app.request("/api/mysql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -524,7 +524,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when tableName is missing", async () => {
-			const res = await app.request("/mysql/records/force?db=testdb", {
+			const res = await app.request("/api/mysql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -534,7 +534,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when primaryKeys is empty", async () => {
-			const res = await app.request("/mysql/records/force?db=testdb", {
+			const res = await app.request("/api/mysql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [] }),
@@ -544,7 +544,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/records/force", {
+			const res = await app.request("/api/mysql/records/force", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -558,7 +558,7 @@ describe("Records Routes (MySQL)", () => {
 				new HTTPException(500, { message: 'Failed to force delete records from "users"' }),
 			);
 
-			const res = await app.request("/mysql/records/force?db=testdb", {
+			const res = await app.request("/api/mysql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -570,7 +570,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should return 503 when MySQL connection fails", async () => {
 			mockDao.forceDeleteRecords.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/records/force?db=testdb", {
+			const res = await app.request("/api/mysql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -601,7 +601,7 @@ describe("Records Routes (MySQL)", () => {
 				],
 			};
 
-			const res = await app.request("/mysql/records/bulk?db=testdb", {
+			const res = await app.request("/api/mysql/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -614,7 +614,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when tableName is missing", async () => {
-			const res = await app.request("/mysql/records/bulk?db=testdb", {
+			const res = await app.request("/api/mysql/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ records: [{ name: "Alice" }] }),
@@ -624,7 +624,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when records array is empty", async () => {
-			const res = await app.request("/mysql/records/bulk?db=testdb", {
+			const res = await app.request("/api/mysql/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", records: [] }),
@@ -636,7 +636,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should return 503 when MySQL connection fails", async () => {
 			mockDao.bulkInsertRecords.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/records/bulk?db=testdb", {
+			const res = await app.request("/api/mysql/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", records: [{ name: "Alice" }] }),
@@ -651,7 +651,7 @@ describe("Records Routes (MySQL)", () => {
 	// ============================================
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type on POST", async () => {
-			const res = await app.request("/invalid/records?db=testdb", {
+			const res = await app.request("/api/invalid/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
@@ -661,7 +661,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 400 for sqlite database type on DELETE", async () => {
-			const res = await app.request("/sqlite/records?db=testdb", {
+			const res = await app.request("/api/sqlite/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", primaryKeys: [{ columnName: "id", value: 1 }] }),
@@ -676,12 +676,12 @@ describe("Records Routes (MySQL)", () => {
 	// ============================================
 	describe("HTTP methods validation", () => {
 		it("should return 404 for GET /mysql/records", async () => {
-			const res = await app.request("/mysql/records?db=testdb");
+			const res = await app.request("/api/mysql/records?db=testdb");
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for PUT /mysql/records", async () => {
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -690,7 +690,7 @@ describe("Records Routes (MySQL)", () => {
 		});
 
 		it("should return 404 for GET /mysql/records/force", async () => {
-			const res = await app.request("/mysql/records/force?db=testdb");
+			const res = await app.request("/api/mysql/records/force?db=testdb");
 			expect(res.status).toBe(404);
 		});
 	});
@@ -702,7 +702,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should include CORS headers on POST", async () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
@@ -714,7 +714,7 @@ describe("Records Routes (MySQL)", () => {
 		it("should return JSON content type", async () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
@@ -732,7 +732,7 @@ describe("Records Routes (MySQL)", () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const requests = Array.from({ length: 10 }, (_, i) =>
-				app.request("/mysql/records?db=testdb", {
+				app.request("/api/mysql/records?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ tableName: "users", data: { name: `User ${i}` } }),
@@ -766,7 +766,7 @@ describe("Records Routes (MySQL)", () => {
 				},
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),

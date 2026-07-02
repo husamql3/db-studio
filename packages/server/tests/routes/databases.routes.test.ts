@@ -68,7 +68,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -80,7 +80,7 @@ describe("Databases Routes", () => {
 		it("should return empty array when no databases exist", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -94,7 +94,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -112,7 +112,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -127,7 +127,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -145,7 +145,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -161,7 +161,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -177,7 +177,7 @@ describe("Databases Routes", () => {
 				new HTTPException(500, { message: "No databases returned from database" }),
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(500);
 		});
@@ -186,7 +186,7 @@ describe("Databases Routes", () => {
 			const connectionError = new Error("connect ECONNREFUSED 127.0.0.1:5432");
 			mockDao.getDatabasesList.mockRejectedValue(connectionError);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -197,7 +197,7 @@ describe("Databases Routes", () => {
 			const timeoutError = new Error("timeout expired");
 			mockDao.getDatabasesList.mockRejectedValue(timeoutError);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -208,7 +208,7 @@ describe("Databases Routes", () => {
 			const terminatedError = new Error("Connection terminated unexpectedly");
 			mockDao.getDatabasesList.mockRejectedValue(terminatedError);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(503);
 		});
@@ -217,7 +217,7 @@ describe("Databases Routes", () => {
 			const dbError = new Error("Unexpected database error");
 			mockDao.getDatabasesList.mockRejectedValue(dbError);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(500);
 			const json = await res.json();
@@ -231,7 +231,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -246,7 +246,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -258,7 +258,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -270,7 +270,7 @@ describe("Databases Routes", () => {
 				new HTTPException(500, { message: "No current database returned from database" }),
 			);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(500);
 		});
@@ -278,7 +278,7 @@ describe("Databases Routes", () => {
 		it("should return 503 on connection error", async () => {
 			mockDao.getCurrentDatabase.mockRejectedValue(new Error("connection refused"));
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(503);
 		});
@@ -298,7 +298,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -319,7 +319,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -340,7 +340,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -370,7 +370,7 @@ describe("Databases Routes", () => {
 
 				mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-				const res = await app.request("/databases/connection");
+				const res = await app.request("/api/databases/connection");
 
 				expect(res.status).toBe(200);
 				const json = await res.json();
@@ -391,7 +391,7 @@ describe("Databases Routes", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -403,7 +403,7 @@ describe("Databases Routes", () => {
 				new HTTPException(500, { message: "No connection information returned from database" }),
 			);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(500);
 		});
@@ -413,7 +413,7 @@ describe("Databases Routes", () => {
 				new Error("connect ECONNREFUSED"),
 			);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(503);
 		});
@@ -421,19 +421,19 @@ describe("Databases Routes", () => {
 
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type", async () => {
-			const res = await app.request("/invalid/databases");
+			const res = await app.request("/api/invalid/databases");
 
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 404 for /mysql/databases (no dbType-prefixed databases route)", async () => {
-			const res = await app.request("/mysql/databases");
+			const res = await app.request("/api/mysql/databases");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
-			const res = await app.request("/sqlite/databases");
+			const res = await app.request("/api/sqlite/databases");
 
 			expect(res.status).toBe(400);
 		});
@@ -445,7 +445,7 @@ describe("Databases Routes", () => {
 		});
 
 		it("should return 400 for numeric database type", async () => {
-			const res = await app.request("/123/databases");
+			const res = await app.request("/api/123/databases");
 
 			expect(res.status).toBe(400);
 		});
@@ -453,7 +453,7 @@ describe("Databases Routes", () => {
 		it("should accept valid pg database type", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 		});
@@ -461,38 +461,38 @@ describe("Databases Routes", () => {
 
 	describe("HTTP methods validation", () => {
 		it("should reject POST /databases", async () => {
-			const res = await app.request("/databases", { method: "POST" });
+			const res = await app.request("/api/databases", { method: "POST" });
 
 			expect([404, 405, 400]).toContain(res.status);
 		});
 
 		it("should reject PUT /databases", async () => {
-			const res = await app.request("/databases", { method: "PUT" });
+			const res = await app.request("/api/databases", { method: "PUT" });
 
 			expect([404, 405, 400]).toContain(res.status);
 		});
 
 		it("should reject DELETE /databases", async () => {
-			const res = await app.request("/databases", { method: "DELETE" });
+			const res = await app.request("/api/databases", { method: "DELETE" });
 
 			expect([404, 405, 400]).toContain(res.status);
 		});
 
 		it("should reject PATCH /databases", async () => {
-			const res = await app.request("/databases", { method: "PATCH" });
+			const res = await app.request("/api/databases", { method: "PATCH" });
 
 			expect([404, 405, 400]).toContain(res.status);
 		});
 
 		it("should handle OPTIONS request for CORS", async () => {
-			const res = await app.request("/databases", { method: "OPTIONS" });
+			const res = await app.request("/api/databases", { method: "OPTIONS" });
 
 			expect([200, 204, 404]).toContain(res.status);
 		});
 
 		it("should return 404 for HEAD /databases", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
-			const res = await app.request("/databases", { method: "HEAD" });
+			const res = await app.request("/api/databases", { method: "HEAD" });
 
 			expect([200, 404]).toContain(res.status);
 		});
@@ -502,7 +502,7 @@ describe("Databases Routes", () => {
 		it("should include CORS headers", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
@@ -510,7 +510,7 @@ describe("Databases Routes", () => {
 		it("should return JSON content type", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
@@ -522,7 +522,7 @@ describe("Databases Routes", () => {
 				{ name: "testdb", size: "1 MB", owner: "user", encoding: "UTF8" },
 			]);
 
-			const requests = Array.from({ length: 10 }, () => app.request("/databases"));
+			const requests = Array.from({ length: 10 }, () => app.request("/api/databases"));
 
 			const responses = await Promise.all(requests);
 
@@ -547,9 +547,9 @@ describe("Databases Routes", () => {
 			});
 
 			const [res1, res2, res3] = await Promise.all([
-				app.request("/databases"),
-				app.request("/databases/current"),
-				app.request("/databases/connection"),
+				app.request("/api/databases"),
+				app.request("/api/databases/current"),
+				app.request("/api/databases/connection"),
 			]);
 
 			expect(res1.status).toBe(200);
@@ -562,7 +562,7 @@ describe("Databases Routes", () => {
 		it("should handle trailing slash in URL", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases/");
+			const res = await app.request("/api/databases/");
 
 			expect([200, 404]).toContain(res.status);
 		});
@@ -570,25 +570,25 @@ describe("Databases Routes", () => {
 		it("should handle query parameters gracefully", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases?foo=bar&baz=123");
+			const res = await app.request("/api/databases?foo=bar&baz=123");
 
 			expect(res.status).toBe(200);
 		});
 
 		it("should handle URL encoded characters", async () => {
-			const res = await app.request("/databases%2Fcurrent");
+			const res = await app.request("/api/databases%2Fcurrent");
 
 			expect([200, 400, 404]).toContain(res.status);
 		});
 
 		it("should reject non-existent sub-routes", async () => {
-			const res = await app.request("/databases/nonexistent");
+			const res = await app.request("/api/databases/nonexistent");
 
 			expect([404, 400]).toContain(res.status);
 		});
 
 		it("should reject deeply nested non-existent routes", async () => {
-			const res = await app.request("/databases/current/extra/path");
+			const res = await app.request("/api/databases/current/extra/path");
 
 			expect([404, 400]).toContain(res.status);
 		});

@@ -1,8 +1,8 @@
 ### Tables API Endpoints
-### Base URL: http://localhost:3333/:dbType
+### Base URL: http://localhost:3333/api/:dbType
 ### Replace :dbType with 'pg' for PostgreSQL
 
-@baseUrl = http://localhost:3333/pg
+@baseUrl = http://localhost:3333/api/pg
 @database = flowx
 @tableName = user
 
@@ -406,19 +406,19 @@ Content-Type: application/json
 ### ============================================
 
 ### Invalid database type (should return 400)
-GET http://localhost:3333/invalid/tables?database={{database}}
+GET http://localhost:3333/api/invalid/tables?database={{database}}
 Content-Type: application/json
 
 ###
 
 ### MySQL database type - not supported (should return 400)
-GET http://localhost:3333/mysql/tables?database={{database}}
+GET http://localhost:3333/api/mysql/tables?database={{database}}
 Content-Type: application/json
 
 ###
 
 ### SQLite database type - not supported (should return 400)
-GET http://localhost:3333/sqlite/tables?database={{database}}
+GET http://localhost:3333/api/sqlite/tables?database={{database}}
 Content-Type: application/json
 
 ### ============================================

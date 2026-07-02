@@ -1,8 +1,8 @@
 ### Database API Endpoints
-### Base URL: http://localhost:3333/:dbType
+### Base URL: http://localhost:3333/api/:dbType
 ### Replace :dbType with 'pg' for PostgreSQL or 'mysql' for MySQL
 
-@baseUrl = http://localhost:3333/pg
+@baseUrl = http://localhost:3333/api/pg
 
 ### ============================================
 ### GET /databases - List all databases

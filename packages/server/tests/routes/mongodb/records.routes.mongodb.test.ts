@@ -70,7 +70,7 @@ describe("Records Routes (MongoDB)", () => {
 				data: { name: "Alice", email: "alice@example.com", age: 30 },
 			};
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -97,7 +97,7 @@ describe("Records Routes (MongoDB)", () => {
 				},
 			};
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -114,7 +114,7 @@ describe("Records Routes (MongoDB)", () => {
 				data: { _id: "507f1f77bcf86cd799439011", key: "theme", value: "dark" },
 			};
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -124,7 +124,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when tableName is missing", async () => {
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ data: { name: "Alice" } }),
@@ -134,7 +134,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when db param is missing", async () => {
-			const res = await app.request("/mongodb/records", {
+			const res = await app.request("/api/mongodb/records", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: {} }),
@@ -148,7 +148,7 @@ describe("Records Routes (MongoDB)", () => {
 				new HTTPException(500, { message: 'Failed to insert record into "users"' }),
 			);
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Bob" } }),
@@ -162,7 +162,7 @@ describe("Records Routes (MongoDB)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Bob" } }),
@@ -193,7 +193,7 @@ describe("Records Routes (MongoDB)", () => {
 				],
 			};
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -215,7 +215,7 @@ describe("Records Routes (MongoDB)", () => {
 		it("returns 0 updated records for no-op update", async () => {
 			mockDao.updateRecords.mockResolvedValue({ updatedCount: 0 });
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -243,7 +243,7 @@ describe("Records Routes (MongoDB)", () => {
 				}),
 			);
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -267,7 +267,7 @@ describe("Records Routes (MongoDB)", () => {
 				new HTTPException(400, { message: 'Primary key "_id" not found in row data.' }),
 			);
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -297,7 +297,7 @@ describe("Records Routes (MongoDB)", () => {
 				],
 			};
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -316,7 +316,7 @@ describe("Records Routes (MongoDB)", () => {
 				relatedRecords: [],
 			});
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -337,7 +337,7 @@ describe("Records Routes (MongoDB)", () => {
 				relatedRecords: [],
 			});
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -352,7 +352,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when body is invalid", async () => {
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users" }),
@@ -364,7 +364,7 @@ describe("Records Routes (MongoDB)", () => {
 		it("returns 503 on connection failure", async () => {
 			mockDao.deleteRecords.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mongodb/records?db=testdb", {
+			const res = await app.request("/api/mongodb/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -390,7 +390,7 @@ describe("Records Routes (MongoDB)", () => {
 				],
 			};
 
-			const res = await app.request("/mongodb/records/force?db=testdb", {
+			const res = await app.request("/api/mongodb/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -404,7 +404,7 @@ describe("Records Routes (MongoDB)", () => {
 		it("returns 503 on connection failure", async () => {
 			mockDao.forceDeleteRecords.mockRejectedValue(new Error("connection refused"));
 
-			const res = await app.request("/mongodb/records/force?db=testdb", {
+			const res = await app.request("/api/mongodb/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -435,7 +435,7 @@ describe("Records Routes (MongoDB)", () => {
 				],
 			};
 
-			const res = await app.request("/mongodb/records/bulk?db=testdb", {
+			const res = await app.request("/api/mongodb/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -455,7 +455,7 @@ describe("Records Routes (MongoDB)", () => {
 				failureCount: 1,
 			});
 
-			const res = await app.request("/mongodb/records/bulk?db=testdb", {
+			const res = await app.request("/api/mongodb/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -474,7 +474,7 @@ describe("Records Routes (MongoDB)", () => {
 				new HTTPException(400, { message: "At least one record is required" }),
 			);
 
-			const res = await app.request("/mongodb/records/bulk?db=testdb", {
+			const res = await app.request("/api/mongodb/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", records: [] }),
@@ -488,7 +488,7 @@ describe("Records Routes (MongoDB)", () => {
 				new HTTPException(500, { message: "Bulk insert failed: duplicate key error" }),
 			);
 
-			const res = await app.request("/mongodb/records/bulk?db=testdb", {
+			const res = await app.request("/api/mongodb/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -501,7 +501,7 @@ describe("Records Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when tableName is missing", async () => {
-			const res = await app.request("/mongodb/records/bulk?db=testdb", {
+			const res = await app.request("/api/mongodb/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ records: [{ name: "Alice" }] }),
