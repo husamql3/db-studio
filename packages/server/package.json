@@ -77,7 +77,7 @@
     "@db-studio/shared": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/mssql": "^12.3.0",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.0.0",
     "@types/pg": "^8.16.0",
     "@vitest/coverage-v8": "^4.0.17",
     "tsup": "^8.5.1",
