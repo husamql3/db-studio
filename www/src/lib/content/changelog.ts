@@ -16,6 +16,16 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.9.5",
+		date: "2026-07-02",
+		title: "Fix npm package URLs in README",
+		bugsFixed: [
+			{
+				text: "Fixed npm package URLs in the published README pointing to wrong package name (dbstudio → db-studio) and wrong license badge repo",
+			},
+		],
+	},
+	{
 		version: "1.9.4",
 		date: "2026-07-02",
 		title: "Dependency updates and README fix",
