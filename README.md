@@ -25,7 +25,7 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
     <img src="https://img.shields.io/npm/dm/db-studio?style=flat-rounded" />
   </a>
   <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/husamql3/pstrack">
+    <img alt="License" src="https://img.shields.io/github/license/husamql3/db-studio">
   </a>
   <a href="https://deepwiki.com/husamql3/db-studio">
     <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
