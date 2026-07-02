@@ -16,6 +16,24 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.9.4",
+		date: "2026-07-02",
+		title: "Dependency updates and README fix",
+		improvements: [
+			{
+				text: "Updated production dependencies: @tanstack/ai (0.16→0.38), @tanstack/ai-react (0.8→0.16), @tanstack/react-router (1.170.2→1.170.16), @tanstack/react-start (1.168.3→1.168.26), commander (14→15), three (0.184→0.185)",
+			},
+			{
+				text: "Updated dev dependencies (6 packages)",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed license badge in README pointing to wrong repository",
+			},
+		],
+	},
+	{
 		version: "1.9.3",
 		date: "2026-05-16",
 		title: "Fix the database connection error",
