@@ -44,7 +44,7 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "knip": "^6.14.1",
-    "portless": "^0.14.0"
+    "portless": "^0.15.1"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
