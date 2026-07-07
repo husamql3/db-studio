@@ -29,15 +29,21 @@ jobs:
 
       - name: Prepare PR body
         id: pr-body
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "$EVENT_NAME" == "pull_request" ]; then
             {
               echo 'body<<EOF'
               echo 'This PR was automatically created from the `stage` branch.'
               echo ''
-              echo "Triggered by merged PR: #${{ github.event.pull_request.number }}"
+              printf 'Triggered by merged PR: #%s\n' "$PR_NUMBER"
               echo ''
-              echo "${{ github.event.pull_request.html_url }}"
+              printf '%s\n' "$PR_URL"
               echo 'EOF'
             } >> $GITHUB_OUTPUT
           else
@@ -45,9 +51,9 @@ jobs:
               echo 'body<<EOF'
               echo 'This PR was automatically created from the `stage` branch.'
               echo ''
-              echo "Triggered by push to stage: ${{ github.event.head_commit.message }}"
+              printf 'Triggered by push to stage: %s\n' "$COMMIT_MESSAGE"
               echo ''
-              echo "${{ github.event.head_commit.url }}"
+              printf '%s\n' "$COMMIT_URL"
               echo 'EOF'
             } >> $GITHUB_OUTPUT
           fi
@@ -85,25 +91,33 @@ jobs:
 
       - name: Update existing PR
         if: steps.check-pr.outputs.exists == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          EXISTING_PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
             let body = 'This PR was automatically updated from the `stage` branch.\n\n';
-            
-            if ('${{ github.event_name }}' === 'pull_request') {
-              body += `Triggered by merged PR: #${{ github.event.pull_request.number }}\n\n`;
-              body += `Merged PR: ${{ github.event.pull_request.html_url }}`;
+
+            if (process.env.EVENT_NAME === 'pull_request') {
+              body += `Triggered by merged PR: #${process.env.PR_NUMBER}\n\n`;
+              body += `Merged PR: ${process.env.PR_URL}`;
             } else {
-              body += `Triggered by push to stage: ${{ github.event.head_commit.message }}\n\n`;
-              body += `Commit: ${{ github.event.head_commit.url }}`;
+              body += `Triggered by push to stage: ${process.env.COMMIT_MESSAGE}\n\n`;
+              body += `Commit: ${process.env.COMMIT_URL}`;
             }
-            
+
+            const prNumber = Number(process.env.EXISTING_PR_NUMBER);
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: ${{ steps.check-pr.outputs.pr_number }},
+              pull_number: prNumber,
               body: body
             });
-            
-            console.log(`Updated existing PR #${{ steps.check-pr.outputs.pr_number }}`);
+
+            console.log(`Updated existing PR #${prNumber}`);
