@@ -34,7 +34,7 @@
     },
     "packages/server": {
       "name": "db-studio",
-      "version": "1.9.5",
+      "version": "1.9.6",
       "bin": {
         "db-studio": "./dist/index.js",
       },

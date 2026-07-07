@@ -16,6 +16,24 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.9.6",
+		date: "2026-07-07",
+		title: "Fix SPA/API namespace collision and dependency updates",
+		bugsFixed: [
+			{
+				text: "Fix browser refresh on client routes returning 400 — API now lives under /api prefix so the SPA owns the root namespace",
+			},
+		],
+		improvements: [
+			{
+				text: "Updated production dependencies: @tanstack/ai (0.38→0.39.1), @tanstack/ai-gemini (0.18→0.19), @tanstack/react-router (1.170.16→1.170.17), @tanstack/react-start (1.168.26→1.168.27)",
+			},
+			{
+				text: "Updated dev dependencies: portless (0.13→0.15), vite (8.0.12→8.1.3), @vitejs/plugin-react (4→6)",
+			},
+		],
+	},
+	{
 		version: "1.9.5",
 		date: "2026-07-02",
 		title: "Fix npm package URLs in README",
