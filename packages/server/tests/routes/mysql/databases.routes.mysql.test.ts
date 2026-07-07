@@ -70,7 +70,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -82,7 +82,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should return empty array when no databases exist", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -95,7 +95,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -111,7 +111,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getDatabasesList.mockResolvedValue(mockDatabases);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -121,7 +121,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should include dbType as mysql in response", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -133,7 +133,7 @@ describe("Databases Routes (MySQL)", () => {
 				new HTTPException(500, { message: "Failed to list databases" })
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(500);
 		});
@@ -143,7 +143,7 @@ describe("Databases Routes (MySQL)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:3306")
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -155,7 +155,7 @@ describe("Databases Routes (MySQL)", () => {
 				new Error("timeout expired")
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(503);
 		});
@@ -165,7 +165,7 @@ describe("Databases Routes (MySQL)", () => {
 				new Error("Unexpected database error")
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.status).toBe(500);
 			const json = await res.json();
@@ -182,7 +182,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -196,7 +196,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getCurrentDatabase.mockResolvedValue(mockCurrent);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -206,7 +206,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should include dbType as mysql in current response", async () => {
 			mockDao.getCurrentDatabase.mockResolvedValue({ db: "testdb" });
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -218,7 +218,7 @@ describe("Databases Routes (MySQL)", () => {
 				new HTTPException(500, { message: "No current database returned" })
 			);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(500);
 		});
@@ -228,7 +228,7 @@ describe("Databases Routes (MySQL)", () => {
 				new Error("connection refused")
 			);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 
 			expect(res.status).toBe(503);
 		});
@@ -251,7 +251,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -275,7 +275,7 @@ describe("Databases Routes (MySQL)", () => {
 
 				mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-				const res = await app.request("/databases/connection");
+				const res = await app.request("/api/databases/connection");
 
 				expect(res.status).toBe(200);
 				const json = await res.json();
@@ -296,7 +296,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -317,7 +317,7 @@ describe("Databases Routes (MySQL)", () => {
 
 			mockDao.getDatabaseConnectionInfo.mockResolvedValue(mockConnectionInfo);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -329,7 +329,7 @@ describe("Databases Routes (MySQL)", () => {
 				new HTTPException(500, { message: "Failed to get connection info" })
 			);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(500);
 		});
@@ -339,7 +339,7 @@ describe("Databases Routes (MySQL)", () => {
 				new Error("connect ECONNREFUSED")
 			);
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 
 			expect(res.status).toBe(503);
 		});
@@ -352,7 +352,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should include CORS headers", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
@@ -360,7 +360,7 @@ describe("Databases Routes (MySQL)", () => {
 		it("should return JSON content type", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});

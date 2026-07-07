@@ -62,7 +62,7 @@ describe("Records Routes (MSSQL)", () => {
 		it("adds a record and returns success message", async () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -77,7 +77,7 @@ describe("Records Routes (MSSQL)", () => {
 		});
 
 		it("returns 400 for invalid payload", async () => {
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ data: { name: "Ali" } }),
@@ -91,7 +91,7 @@ describe("Records Routes (MSSQL)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:1433"),
 			);
 
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "Ali" } }),
@@ -105,7 +105,7 @@ describe("Records Routes (MSSQL)", () => {
 		it("updates records with default primary key", async () => {
 			mockDao.updateRecords.mockResolvedValue({ updatedCount: 2 });
 
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -126,7 +126,7 @@ describe("Records Routes (MSSQL)", () => {
 				new HTTPException(404, { message: "Record not found" }),
 			);
 
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -148,7 +148,7 @@ describe("Records Routes (MSSQL)", () => {
 				relatedRecords: [],
 			});
 
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -176,7 +176,7 @@ describe("Records Routes (MSSQL)", () => {
 				],
 			});
 
-			const res = await app.request("/mssql/records?db=testdb", {
+			const res = await app.request("/api/mssql/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -193,7 +193,7 @@ describe("Records Routes (MSSQL)", () => {
 		it("force deletes records", async () => {
 			mockDao.forceDeleteRecords.mockResolvedValue({ deletedCount: 4 });
 
-			const res = await app.request("/mssql/records/force?db=testdb", {
+			const res = await app.request("/api/mssql/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -217,7 +217,7 @@ describe("Records Routes (MSSQL)", () => {
 				failureCount: 0,
 			});
 
-			const res = await app.request("/mssql/records/bulk?db=testdb", {
+			const res = await app.request("/api/mssql/records/bulk?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -235,7 +235,7 @@ describe("Records Routes (MSSQL)", () => {
 
 	describe("Validation and behavior", () => {
 		it("rejects invalid database type", async () => {
-			const res = await app.request("/invalid/records?db=testdb", {
+			const res = await app.request("/api/invalid/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "users", data: { name: "X" } }),
@@ -244,7 +244,7 @@ describe("Records Routes (MSSQL)", () => {
 		});
 
 		it("returns 404 for unsupported methods", async () => {
-			const res = await app.request("/mssql/records?db=testdb", { method: "GET" });
+			const res = await app.request("/api/mssql/records?db=testdb", { method: "GET" });
 			expect(res.status).toBe(404);
 		});
 
@@ -253,7 +253,7 @@ describe("Records Routes (MSSQL)", () => {
 
 			const responses = await Promise.all(
 				Array.from({ length: 6 }, (_, i) =>
-					app.request("/mssql/records?db=testdb", {
+					app.request("/api/mssql/records?db=testdb", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({

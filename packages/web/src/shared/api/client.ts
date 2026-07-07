@@ -88,7 +88,9 @@ export class ApiClient {
 
 	constructor(resolveBaseUrl: () => string = getBaseUrl) {
 		this.resolveBaseUrl = resolveBaseUrl;
-		const baseURL = this.resolveBaseUrl();
+		// API is namespaced under API_PREFIX so it never collides with SPA
+		// routes served from the same origin. See db-studio#214.
+		const baseURL = `${this.resolveBaseUrl()}${DEFAULTS.API_PREFIX}`;
 		this.rootApi = setupInterceptors(axios.create({ baseURL }));
 		this.api = setupInterceptors(axios.create({ baseURL }));
 	}
@@ -97,7 +99,7 @@ export class ApiClient {
 		if (this.dbType === type) return;
 
 		this.dbType = type;
-		this.api.defaults.baseURL = `${this.resolveBaseUrl()}/${type}`;
+		this.api.defaults.baseURL = `${this.resolveBaseUrl()}${DEFAULTS.API_PREFIX}/${type}`;
 	}
 
 	getDbType(): DatabaseTypeSchema | null {

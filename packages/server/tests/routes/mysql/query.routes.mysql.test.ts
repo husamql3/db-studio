@@ -74,7 +74,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users" }),
@@ -99,7 +99,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -122,7 +122,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -145,7 +145,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -168,7 +168,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -195,7 +195,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SHOW TABLES" }),
@@ -219,7 +219,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "DESCRIBE users" }),
@@ -240,7 +240,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users WHERE id = -1" }),
@@ -263,7 +263,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM wide_table LIMIT 1" }),
@@ -284,7 +284,7 @@ describe("Query Routes (MySQL)", () => {
 
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SET @var = 1; SELECT @var as id" }),
@@ -294,7 +294,7 @@ describe("Query Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when query is missing", async () => {
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -311,7 +311,7 @@ describe("Query Routes (MySQL)", () => {
 				duration: 0.5,
 			});
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "" }),
@@ -322,7 +322,7 @@ describe("Query Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/query", {
+			const res = await app.request("/api/mysql/query", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -332,7 +332,7 @@ describe("Query Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when body is not JSON", async () => {
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: "not-json",
@@ -348,7 +348,7 @@ describe("Query Routes (MySQL)", () => {
 				})
 			);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FORM users" }),
@@ -362,7 +362,7 @@ describe("Query Routes (MySQL)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:3306")
 			);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -378,7 +378,7 @@ describe("Query Routes (MySQL)", () => {
 				new Error("Unknown table 'users'")
 			);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users" }),
@@ -393,7 +393,7 @@ describe("Query Routes (MySQL)", () => {
 	// ============================================
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type", async () => {
-			const res = await app.request("/invalid/query?db=testdb", {
+			const res = await app.request("/api/invalid/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -403,7 +403,7 @@ describe("Query Routes (MySQL)", () => {
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
-			const res = await app.request("/sqlite/query?db=testdb", {
+			const res = await app.request("/api/sqlite/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -418,13 +418,13 @@ describe("Query Routes (MySQL)", () => {
 	// ============================================
 	describe("HTTP methods validation", () => {
 		it("should return 404 for GET /mysql/query", async () => {
-			const res = await app.request("/mysql/query?db=testdb");
+			const res = await app.request("/api/mysql/query?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for PUT /mysql/query", async () => {
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -447,7 +447,7 @@ describe("Query Routes (MySQL)", () => {
 			};
 			mockDao.executeQuery.mockResolvedValue(mockResult);
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -464,7 +464,7 @@ describe("Query Routes (MySQL)", () => {
 				duration: 1.0,
 			});
 
-			const res = await app.request("/mysql/query?db=testdb", {
+			const res = await app.request("/api/mysql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -487,7 +487,7 @@ describe("Query Routes (MySQL)", () => {
 			});
 
 			const requests = Array.from({ length: 10 }, () =>
-				app.request("/mysql/query?db=testdb", {
+				app.request("/api/mysql/query?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ query: "SELECT 1" }),

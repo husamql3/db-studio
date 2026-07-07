@@ -77,7 +77,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -114,7 +114,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -137,7 +137,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -158,7 +158,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -172,7 +172,7 @@ describe("Records Routes", () => {
 				data: { name: "Test" },
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -186,7 +186,7 @@ describe("Records Routes", () => {
 				tableName: "users",
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -201,7 +201,7 @@ describe("Records Routes", () => {
 				data: { name: "Test" },
 			};
 
-			const res = await app.request("/pg/records", {
+			const res = await app.request("/api/pg/records", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -222,7 +222,7 @@ describe("Records Routes", () => {
 				data: { name: "Test" },
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -241,7 +241,7 @@ describe("Records Routes", () => {
 				data: { name: "Test" },
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -260,7 +260,7 @@ describe("Records Routes", () => {
 				data: { user_id: 1, bio: "Hello" },
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -291,7 +291,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -328,7 +328,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -364,7 +364,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -391,7 +391,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -423,7 +423,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -449,7 +449,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -475,7 +475,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -501,7 +501,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -522,7 +522,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -538,7 +538,7 @@ describe("Records Routes", () => {
 				updates: [],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -553,7 +553,7 @@ describe("Records Routes", () => {
 				primaryKey: "id",
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -574,7 +574,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -595,7 +595,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -617,7 +617,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records", {
+			const res = await app.request("/api/pg/records", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -645,7 +645,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -674,7 +674,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -702,7 +702,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -728,7 +728,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -754,7 +754,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -790,7 +790,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -813,7 +813,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "sku", value: "PROD-123" }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -839,7 +839,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -853,7 +853,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -868,7 +868,7 @@ describe("Records Routes", () => {
 				primaryKeys: [],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -882,7 +882,7 @@ describe("Records Routes", () => {
 				tableName: "users",
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -897,7 +897,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records", {
+			const res = await app.request("/api/pg/records", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -912,7 +912,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ value: 1 }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -943,7 +943,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -977,7 +977,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -996,7 +996,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1020,7 +1020,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1049,7 +1049,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1065,7 +1065,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1080,7 +1080,7 @@ describe("Records Routes", () => {
 				primaryKeys: [],
 			};
 
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1095,7 +1095,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records/force", {
+			const res = await app.request("/api/pg/records/force", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1116,7 +1116,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1135,7 +1135,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1155,7 +1155,7 @@ describe("Records Routes", () => {
 				data: { name: "Test" },
 			};
 
-			const res = await app.request("/invalid/records?db=testdb", {
+			const res = await app.request("/api/invalid/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1179,7 +1179,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/mysql/records?db=testdb", {
+			const res = await app.request("/api/mysql/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1195,7 +1195,7 @@ describe("Records Routes", () => {
 				primaryKeys: [{ columnName: "id", value: 1 }],
 			};
 
-			const res = await app.request("/sqlite/records?db=testdb", {
+			const res = await app.request("/api/sqlite/records?db=testdb", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1210,13 +1210,13 @@ describe("Records Routes", () => {
 	// ============================================
 	describe("HTTP methods validation", () => {
 		it("should return 404 for GET /records", async () => {
-			const res = await app.request("/pg/records?db=testdb");
+			const res = await app.request("/api/pg/records?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for PUT /records", async () => {
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -1226,13 +1226,13 @@ describe("Records Routes", () => {
 		});
 
 		it("should return 404 for GET /records/force", async () => {
-			const res = await app.request("/pg/records/force?db=testdb");
+			const res = await app.request("/api/pg/records/force?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for POST /records/force", async () => {
-			const res = await app.request("/pg/records/force?db=testdb", {
+			const res = await app.request("/api/pg/records/force?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -1249,7 +1249,7 @@ describe("Records Routes", () => {
 		it("should include CORS headers on POST", async () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -1264,7 +1264,7 @@ describe("Records Routes", () => {
 		it("should return JSON content type", async () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -1285,7 +1285,7 @@ describe("Records Routes", () => {
 			mockDao.addRecord.mockResolvedValue({ insertedCount: 1 });
 
 			const requests = Array.from({ length: 10 }, (_, i) =>
-				app.request("/pg/records?db=testdb", {
+				app.request("/api/pg/records?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -1316,7 +1316,7 @@ describe("Records Routes", () => {
 			});
 
 			const [res1, res2, res3] = await Promise.all([
-				app.request("/pg/records?db=testdb", {
+				app.request("/api/pg/records?db=testdb", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -1324,7 +1324,7 @@ describe("Records Routes", () => {
 						data: { name: "New User" },
 					}),
 				}),
-				app.request("/pg/records?db=testdb", {
+				app.request("/api/pg/records?db=testdb", {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -1339,7 +1339,7 @@ describe("Records Routes", () => {
 						],
 					}),
 				}),
-				app.request("/pg/records?db=testdb", {
+				app.request("/api/pg/records?db=testdb", {
 					method: "DELETE",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -1367,7 +1367,7 @@ describe("Records Routes", () => {
 				data: {},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1386,7 +1386,7 @@ describe("Records Routes", () => {
 				data: { bio: longString },
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1407,7 +1407,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1430,7 +1430,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1450,7 +1450,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1477,7 +1477,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1494,7 +1494,7 @@ describe("Records Routes", () => {
 				data: { user_id: 1 },
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1524,7 +1524,7 @@ describe("Records Routes", () => {
 				},
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -1565,7 +1565,7 @@ describe("Records Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/records?db=testdb", {
+			const res = await app.request("/api/pg/records?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),

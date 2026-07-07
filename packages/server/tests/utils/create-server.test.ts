@@ -80,8 +80,8 @@ describe("createServer", () => {
 
 		it("should create app with strict: false option", async () => {
 			// Test that trailing slashes are handled gracefully
-			const res1 = await server.app.request("/databases");
-			const res2 = await server.app.request("/databases/");
+			const res1 = await server.app.request("/api/databases");
+			const res2 = await server.app.request("/api/databases/");
 
 			// Both should work (or at least not throw 500)
 			expect([200, 404]).toContain(res1.status);
@@ -91,49 +91,49 @@ describe("createServer", () => {
 
 	describe("Database type validation middleware", () => {
 		it("should accept pg as valid database type", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 			expect(res.status).toBe(200);
 		});
 
 		it("should reject invalid database type with 400", async () => {
-			const res = await server.app.request("/invalid/databases");
+			const res = await server.app.request("/api/invalid/databases");
 			expect(res.status).toBe(400);
 		});
 
 		it("should accept mysql database type as valid (no /mysql/databases route → 404)", async () => {
-			const res = await server.app.request("/mysql/databases");
+			const res = await server.app.request("/api/mysql/databases");
 			// mysql is now a valid dbType; /mysql/databases has no handler → 404
 			expect(res.status).toBe(404);
 		});
 
 		it("should reject sqlite database type", async () => {
-			const res = await server.app.request("/sqlite/databases");
+			const res = await server.app.request("/api/sqlite/databases");
 			expect(res.status).toBe(400);
 		});
 
 		it("should accept mongodb database type as valid (no /mongodb/databases route → 404)", async () => {
-			const res = await server.app.request("/mongodb/databases");
+			const res = await server.app.request("/api/mongodb/databases");
 			// mongodb is now a valid dbType; /mongodb/databases has no handler → 404
 			expect(res.status).toBe(404);
 		});
 
 		it("should reject numeric database type", async () => {
-			const res = await server.app.request("/123/databases");
+			const res = await server.app.request("/api/123/databases");
 			expect(res.status).toBe(400);
 		});
 
 		it("should reject uppercase PG", async () => {
-			const res = await server.app.request("/PG/databases");
+			const res = await server.app.request("/api/PG/databases");
 			expect(res.status).toBe(400);
 		});
 
 		it("should reject mixed case Pg", async () => {
-			const res = await server.app.request("/Pg/databases");
+			const res = await server.app.request("/api/Pg/databases");
 			expect(res.status).toBe(400);
 		});
 
 		it("should return validation error for invalid type", async () => {
-			const res = await server.app.request("/invalid/databases");
+			const res = await server.app.request("/api/invalid/databases");
 			const json = await res.json();
 
 			// zValidator returns error in a different format
@@ -145,13 +145,13 @@ describe("createServer", () => {
 
 	describe("CORS middleware", () => {
 		it("should include Access-Control-Allow-Origin header", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
 
 		it("should include Access-Control-Allow-Methods header", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 
 			const methods = res.headers.get("Access-Control-Allow-Methods");
 			expect(methods).toContain("GET");
@@ -162,13 +162,13 @@ describe("createServer", () => {
 		});
 
 		it("should include Access-Control-Allow-Headers header", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
 		});
 
 		it("should handle OPTIONS preflight request", async () => {
-			const res = await server.app.request("/databases", {
+			const res = await server.app.request("/api/databases", {
 				method: "OPTIONS",
 			});
 
@@ -179,7 +179,7 @@ describe("createServer", () => {
 
 	describe("Pretty JSON middleware", () => {
 		it("should return JSON response", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 			const json = await res.json();
 
 			// Verify it's valid JSON with expected structure
@@ -191,24 +191,24 @@ describe("createServer", () => {
 	describe("Routes registration", () => {
 		describe("/databases routes", () => {
 			it("should register GET /databases", async () => {
-				const res = await server.app.request("/databases");
+				const res = await server.app.request("/api/databases");
 				expect(res.status).toBe(200);
 			});
 
 			it("should register GET /databases/current", async () => {
-				const res = await server.app.request("/databases/current");
+				const res = await server.app.request("/api/databases/current");
 				expect(res.status).toBe(200);
 			});
 
 			it("should register GET /databases/connection", async () => {
-				const res = await server.app.request("/databases/connection");
+				const res = await server.app.request("/api/databases/connection");
 				expect(res.status).toBe(200);
 			});
 		});
 
 		describe("/tables routes", () => {
 			it("should register /tables route group", async () => {
-				const res = await server.app.request("/pg/tables");
+				const res = await server.app.request("/api/pg/tables");
 				// Should not be 404 (route exists), but may require params
 				expect([200, 400, 404, 500]).toContain(res.status);
 			});
@@ -216,7 +216,7 @@ describe("createServer", () => {
 
 		describe("/records routes", () => {
 			it("should register /records route group", async () => {
-				const res = await server.app.request("/pg/records");
+				const res = await server.app.request("/api/pg/records");
 				// Should not be 404 (route exists), but may require params
 				expect([200, 400, 404, 500]).toContain(res.status);
 			});
@@ -224,7 +224,7 @@ describe("createServer", () => {
 
 		describe("/query routes", () => {
 			it("should register /query route group", async () => {
-				const res = await server.app.request("/pg/query", { method: "POST" });
+				const res = await server.app.request("/api/pg/query", { method: "POST" });
 				// Should not be 404 (route exists), but may require body
 				expect([200, 400, 404, 500]).toContain(res.status);
 			});
@@ -232,7 +232,7 @@ describe("createServer", () => {
 
 		describe("/chat routes", () => {
 			it("should register /chat route group", async () => {
-				const res = await server.app.request("/pg/chat", { method: "POST" });
+				const res = await server.app.request("/api/pg/chat", { method: "POST" });
 				// Should not be 404 (route exists), but may require body
 				expect([200, 400, 404, 500]).toContain(res.status);
 			});
@@ -243,7 +243,7 @@ describe("createServer", () => {
 		it("should handle errors with custom error handler", async () => {
 			// The error handler is tested more thoroughly in error-handler.test.ts
 			// Here we just verify it's wired up correctly
-			const res = await server.app.request("/invalid/databases");
+			const res = await server.app.request("/api/invalid/databases");
 
 			expect(res.status).toBe(400);
 			const json = await res.json();
@@ -252,34 +252,46 @@ describe("createServer", () => {
 	});
 
 	describe("Base path handling", () => {
-		it("should have /databases routes at root level", async () => {
-			// /databases routes are now at root level (no dbType required)
-			const res = await server.app.request("/databases");
+		it("should have /databases routes under the API prefix (no dbType required)", async () => {
+			const res = await server.app.request("/api/databases");
 			expect(res.status).toBe(200);
 		});
 
 		it("should require valid database type for dbType-specific routes", async () => {
 			// Request with invalid dbType gets validated and fails
-			const res = await server.app.request("/invalid/tables?db=testdb");
+			const res = await server.app.request("/api/invalid/tables?db=testdb");
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 404 for root path", async () => {
 			const res = await server.app.request("/");
-			// Root path doesn't match any registered routes
+			// Root path is owned by the SPA (served only outside test env), so in
+			// tests it matches no registered API route.
 			expect(res.status).toBe(404);
+		});
+
+		it("should not treat SPA client routes as a database type (db-studio#214)", async () => {
+			// A browser refresh on a client route like /table/:name must NOT be
+			// interpreted as a /:dbType API request. Pre-fix this returned 400
+			// "Invalid database type: table"; now it falls through to the SPA.
+			const res = await server.app.request("/table/users", {
+				headers: { Accept: "text/html" },
+			});
+			expect(res.status).not.toBe(400);
+			const body = await res.text();
+			expect(body).not.toContain("Invalid database type");
 		});
 	});
 
 	describe("Response format", () => {
 		it("should return JSON responses", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
 
 		it("should wrap data in data property", async () => {
-			const res = await server.app.request("/databases");
+			const res = await server.app.request("/api/databases");
 			const json = await res.json();
 
 			expect(json).toHaveProperty("data");
@@ -299,8 +311,8 @@ describe("createServer", () => {
 			const server2 = createServer();
 
 			const [res1, res2] = await Promise.all([
-				server1.app.request("/databases"),
-				server2.app.request("/databases"),
+				server1.app.request("/api/databases"),
+				server2.app.request("/api/databases"),
 			]);
 
 			expect(res1.status).toBe(200);
@@ -310,30 +322,30 @@ describe("createServer", () => {
 
 	describe("Query parameters handling", () => {
 		it("should ignore unknown query parameters", async () => {
-			const res = await server.app.request("/databases?unknown=value&foo=bar");
+			const res = await server.app.request("/api/databases?unknown=value&foo=bar");
 			expect(res.status).toBe(200);
 		});
 
 		it("should handle empty query string", async () => {
-			const res = await server.app.request("/databases?");
+			const res = await server.app.request("/api/databases?");
 			expect(res.status).toBe(200);
 		});
 	});
 
 	describe("Path handling edge cases", () => {
 		it("should handle double slashes", async () => {
-			const res = await server.app.request("/pg//databases");
+			const res = await server.app.request("/api/pg//databases");
 			// May normalize or return 404
 			expect([200, 404]).toContain(res.status);
 		});
 
 		it("should return 404 for unknown routes under valid dbType", async () => {
-			const res = await server.app.request("/pg/unknown-route");
+			const res = await server.app.request("/api/pg/unknown-route");
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for deeply nested unknown routes", async () => {
-			const res = await server.app.request("/pg/unknown/deep/path");
+			const res = await server.app.request("/api/pg/unknown/deep/path");
 			expect(res.status).toBe(404);
 		});
 	});

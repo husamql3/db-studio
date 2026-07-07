@@ -65,7 +65,7 @@ describe("Databases Routes (MSSQL)", () => {
 				{ name: "appdb", size: "256 MB" },
 			]);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 			const json = await res.json();
 
 			expect(res.status).toBe(200);
@@ -79,7 +79,7 @@ describe("Databases Routes (MSSQL)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:1433"),
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 			expect(res.status).toBe(503);
 		});
 
@@ -88,7 +88,7 @@ describe("Databases Routes (MSSQL)", () => {
 				new Error("Unexpected SQL Server error"),
 			);
 
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 			expect(res.status).toBe(500);
 		});
 	});
@@ -97,7 +97,7 @@ describe("Databases Routes (MSSQL)", () => {
 		it("returns current database and dbType", async () => {
 			mockDao.getCurrentDatabase.mockResolvedValue({ db: "appdb" });
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 			const json = await res.json();
 
 			expect(res.status).toBe(200);
@@ -109,7 +109,7 @@ describe("Databases Routes (MSSQL)", () => {
 				new HTTPException(500, { message: "No current database returned" }),
 			);
 
-			const res = await app.request("/databases/current");
+			const res = await app.request("/api/databases/current");
 			expect(res.status).toBe(500);
 		});
 	});
@@ -126,7 +126,7 @@ describe("Databases Routes (MSSQL)", () => {
 				max_connections: 32767,
 			});
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 			const json = await res.json();
 
 			expect(res.status).toBe(200);
@@ -137,7 +137,7 @@ describe("Databases Routes (MSSQL)", () => {
 		it("returns 503 on connection timeout", async () => {
 			mockDao.getDatabaseConnectionInfo.mockRejectedValue(new Error("timeout expired"));
 
-			const res = await app.request("/databases/connection");
+			const res = await app.request("/api/databases/connection");
 			expect(res.status).toBe(503);
 		});
 	});
@@ -145,7 +145,7 @@ describe("Databases Routes (MSSQL)", () => {
 	describe("Response headers", () => {
 		it("includes CORS and JSON headers", async () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
-			const res = await app.request("/databases");
+			const res = await app.request("/api/databases");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 			expect(res.headers.get("Content-Type")).toContain("application/json");
