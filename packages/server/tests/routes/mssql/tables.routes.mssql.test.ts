@@ -65,7 +65,7 @@ describe("Tables Routes (MSSQL)", () => {
 				{ tableName: "orders", rowCount: 1200 },
 			]);
 
-			const res = await app.request("/mssql/tables?db=testdb");
+			const res = await app.request("/api/mssql/tables?db=testdb");
 			const json = await res.json();
 
 			expect(res.status).toBe(200);
@@ -74,7 +74,7 @@ describe("Tables Routes (MSSQL)", () => {
 		});
 
 		it("returns 400 when db query is missing", async () => {
-			const res = await app.request("/mssql/tables");
+			const res = await app.request("/api/mssql/tables");
 			expect(res.status).toBe(400);
 		});
 	});
@@ -83,7 +83,7 @@ describe("Tables Routes (MSSQL)", () => {
 		it("creates a table", async () => {
 			mockDao.createTable.mockResolvedValue(undefined);
 
-			const res = await app.request("/mssql/tables?db=testdb", {
+			const res = await app.request("/api/mssql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -105,7 +105,7 @@ describe("Tables Routes (MSSQL)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:1433"),
 			);
 
-			const res = await app.request("/mssql/tables?db=testdb", {
+			const res = await app.request("/api/mssql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -122,7 +122,7 @@ describe("Tables Routes (MSSQL)", () => {
 		it("deletes a column", async () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
-			const res = await app.request("/mssql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mssql/tables/users/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 			const json = await res.json();
@@ -136,7 +136,7 @@ describe("Tables Routes (MSSQL)", () => {
 				new HTTPException(404, { message: "Table not found" }),
 			);
 
-			const res = await app.request("/mssql/tables/unknown/columns/email?db=testdb", {
+			const res = await app.request("/api/mssql/tables/unknown/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -161,7 +161,7 @@ describe("Tables Routes (MSSQL)", () => {
 				},
 			]);
 
-			const res = await app.request("/mssql/tables/users/columns?db=testdb");
+			const res = await app.request("/api/mssql/tables/users/columns?db=testdb");
 			const json = await res.json();
 
 			expect(res.status).toBe(200);
@@ -187,7 +187,7 @@ describe("Tables Routes (MSSQL)", () => {
 				},
 			});
 
-			const res = await app.request("/mssql/tables/users/data?db=testdb");
+			const res = await app.request("/api/mssql/tables/users/data?db=testdb");
 			const json = await res.json();
 
 			expect(res.status).toBe(200);
@@ -219,7 +219,7 @@ describe("Tables Routes (MSSQL)", () => {
 
 			const filters = JSON.stringify([{ columnName: "status", operator: "=", value: "active" }]);
 			const res = await app.request(
-				`/mssql/tables/users/data?db=testdb&limit=25&sort=created_at&order=desc&filters=${encodeURIComponent(filters)}`,
+				`/api/mssql/tables/users/data?db=testdb&limit=25&sort=created_at&order=desc&filters=${encodeURIComponent(filters)}`,
 			);
 
 			expect(res.status).toBe(200);
@@ -236,20 +236,20 @@ describe("Tables Routes (MSSQL)", () => {
 		it("returns 500 on generic DAO error", async () => {
 			mockDao.getTableData.mockRejectedValue(new Error("Unexpected SQL Server error"));
 
-			const res = await app.request("/mssql/tables/users/data?db=testdb");
+			const res = await app.request("/api/mssql/tables/users/data?db=testdb");
 			expect(res.status).toBe(500);
 		});
 	});
 
 	describe("Route behavior", () => {
 		it("rejects unsupported database types", async () => {
-			const res = await app.request("/sqlite/tables?db=testdb");
+			const res = await app.request("/api/sqlite/tables?db=testdb");
 			expect(res.status).toBe(400);
 		});
 
 		it("includes CORS + JSON headers", async () => {
 			mockDao.getTablesList.mockResolvedValue([]);
-			const res = await app.request("/mssql/tables?db=testdb");
+			const res = await app.request("/api/mssql/tables?db=testdb");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 			expect(res.headers.get("Content-Type")).toContain("application/json");
@@ -259,7 +259,7 @@ describe("Tables Routes (MSSQL)", () => {
 			mockDao.getTablesList.mockResolvedValue([{ tableName: "users", rowCount: 10 }]);
 
 			const responses = await Promise.all(
-				Array.from({ length: 6 }, () => app.request("/mssql/tables?db=testdb")),
+				Array.from({ length: 6 }, () => app.request("/api/mssql/tables?db=testdb")),
 			);
 
 			for (const res of responses) {

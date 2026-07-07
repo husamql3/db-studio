@@ -71,7 +71,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -82,7 +82,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return empty array when no tables exist", async () => {
 			mockDao.getTablesList.mockResolvedValue([]);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -92,7 +92,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should handle single table response", async () => {
 			mockDao.getTablesList.mockResolvedValue([{ tableName: "only_table", rowCount: 10 }]);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -108,7 +108,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -116,7 +116,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables");
+			const res = await app.request("/api/mysql/tables");
 			expect(res.status).toBe(400);
 		});
 
@@ -125,14 +125,14 @@ describe("Tables Routes (MySQL)", () => {
 				new Error("Table 'information_schema.tables' doesn't exist"),
 			);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 			expect(res.status).toBe(500);
 		});
 
 		it("should return 503 when MySQL connection fails", async () => {
 			mockDao.getTablesList.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:3306"));
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 			expect(res.status).toBe(503);
 		});
 	});
@@ -153,7 +153,7 @@ describe("Tables Routes (MySQL)", () => {
 				],
 			};
 
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -181,7 +181,7 @@ describe("Tables Routes (MySQL)", () => {
 				],
 			};
 
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -211,7 +211,7 @@ describe("Tables Routes (MySQL)", () => {
 				],
 			};
 
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -221,7 +221,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when tableName is missing", async () => {
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ fields: [{ columnName: "id", columnType: "INT" }] }),
@@ -231,7 +231,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when fields array is missing", async () => {
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "bad_table" }),
@@ -241,7 +241,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables", {
+			const res = await app.request("/api/mysql/tables", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "test_table", fields: [{ columnName: "id", columnType: "INT" }] }),
@@ -253,7 +253,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return 500 when DAO throws database error", async () => {
 			mockDao.createTable.mockRejectedValue(new Error("Table 'new_users' already exists"));
 
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "new_users", fields: [{ columnName: "id", columnType: "INT" }] }),
@@ -265,7 +265,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return 503 when database connection fails", async () => {
 			mockDao.createTable.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables?db=testdb", {
+			const res = await app.request("/api/mysql/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "test_table", fields: [{ columnName: "id", columnType: "INT" }] }),
@@ -282,7 +282,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should delete a column and return 200", async () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
-			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -300,7 +300,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should delete a column with cascade option", async () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 5 });
 
-			const res = await app.request("/mysql/tables/orders/columns/user_id?db=testdb&cascade=true", {
+			const res = await app.request("/api/mysql/tables/orders/columns/user_id?db=testdb&cascade=true", {
 				method: "DELETE",
 			});
 
@@ -314,7 +314,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables/users/columns/email", { method: "DELETE" });
+			const res = await app.request("/api/mysql/tables/users/columns/email", { method: "DELETE" });
 			expect(res.status).toBe(400);
 		});
 
@@ -323,7 +323,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Table "nonexistent" does not exist' }),
 			);
 
-			const res = await app.request("/mysql/tables/nonexistent/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/nonexistent/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -335,7 +335,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Column "nonexistent" does not exist in table "users"' }),
 			);
 
-			const res = await app.request("/mysql/tables/users/columns/nonexistent?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/nonexistent?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -345,7 +345,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return 503 when database connection fails", async () => {
 			mockDao.deleteColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -371,7 +371,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should add a column and return 200", async () => {
 			mockDao.addColumn.mockResolvedValue(undefined);
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -384,7 +384,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables/users/columns", {
+			const res = await app.request("/api/mysql/tables/users/columns", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -394,7 +394,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when request body is invalid", async () => {
-			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ columnName: "email" }),
@@ -408,7 +408,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Table "users" does not exist' }),
 			);
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -422,7 +422,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(409, { message: 'Column "email" already exists in table "users"' }),
 			);
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -434,7 +434,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return 503 when database connection fails", async () => {
 			mockDao.addColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -451,7 +451,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should rename a column and return 200", async () => {
 			mockDao.renameColumn.mockResolvedValue(undefined);
 
-			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -469,7 +469,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables/users/columns/email/rename", {
+			const res = await app.request("/api/mysql/tables/users/columns/email/rename", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -479,7 +479,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when request body is invalid", async () => {
-			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -493,7 +493,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Column "email" does not exist in table "users"' }),
 			);
 
-			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -507,7 +507,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(409, { message: 'Column "email_address" already exists in table "users"' }),
 			);
 
-			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -519,7 +519,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return 503 when database connection fails", async () => {
 			mockDao.renameColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -538,7 +538,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should alter a column and return 200", async () => {
 			mockDao.alterColumn.mockResolvedValue(undefined);
 
-			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -556,7 +556,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables/users/columns/email", {
+			const res = await app.request("/api/mysql/tables/users/columns/email", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -566,7 +566,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when request body is invalid", async () => {
-			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ isNullable: true }),
@@ -580,7 +580,7 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Column "email" does not exist in table "users"' }),
 			);
 
-			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -592,7 +592,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return 503 when database connection fails", async () => {
 			mockDao.alterColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/mysql/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -636,7 +636,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -662,7 +662,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/mysql/tables/orders/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/orders/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -688,7 +688,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/mysql/tables/tasks/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/tasks/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -713,7 +713,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -721,7 +721,7 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables/users/columns");
+			const res = await app.request("/api/mysql/tables/users/columns");
 			expect(res.status).toBe(400);
 		});
 
@@ -730,14 +730,14 @@ describe("Tables Routes (MySQL)", () => {
 				new HTTPException(404, { message: 'Table "nonexistent" does not exist' }),
 			);
 
-			const res = await app.request("/mysql/tables/nonexistent/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/nonexistent/columns?db=testdb");
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 503 when database connection fails", async () => {
 			mockDao.getTableColumns.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables/users/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/columns?db=testdb");
 			expect(res.status).toBe(503);
 		});
 	});
@@ -764,7 +764,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should return table data with default pagination", async () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request("/mysql/tables/users/data?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -784,7 +784,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should handle custom limit parameter", async () => {
 			mockDao.getTableData.mockResolvedValue({ ...mockDataResponse, meta: { ...mockDataResponse.meta, limit: 25 } });
 
-			const res = await app.request("/mysql/tables/users/data?db=testdb&limit=25");
+			const res = await app.request("/api/mysql/tables/users/data?db=testdb&limit=25");
 
 			expect(res.status).toBe(200);
 			expect(mockDao.getTableData).toHaveBeenCalledWith(expect.objectContaining({ limit: 25 }));
@@ -794,7 +794,7 @@ describe("Tables Routes (MySQL)", () => {
 			const cursor = "eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0";
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request(`/mysql/tables/users/data?db=testdb&cursor=${cursor}&direction=asc`);
+			const res = await app.request(`/api/mysql/tables/users/data?db=testdb&cursor=${cursor}&direction=asc`);
 
 			expect(res.status).toBe(200);
 			expect(mockDao.getTableData).toHaveBeenCalledWith(expect.objectContaining({ cursor, direction: "asc" }));
@@ -804,7 +804,7 @@ describe("Tables Routes (MySQL)", () => {
 			const cursor = "eyJ2YWx1ZXMiOnsiaWQiOjEwfSwic29ydENvbHVtbnMiOlsiaWQiXX0";
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request(`/mysql/tables/users/data?db=testdb&cursor=${cursor}&direction=desc`);
+			const res = await app.request(`/api/mysql/tables/users/data?db=testdb&cursor=${cursor}&direction=desc`);
 
 			expect(res.status).toBe(200);
 			expect(mockDao.getTableData).toHaveBeenCalledWith(expect.objectContaining({ cursor, direction: "desc" }));
@@ -813,7 +813,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should handle single column sort", async () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request("/mysql/tables/users/data?db=testdb&sort=name&order=asc");
+			const res = await app.request("/api/mysql/tables/users/data?db=testdb&sort=name&order=asc");
 
 			expect(res.status).toBe(200);
 			expect(mockDao.getTableData).toHaveBeenCalledWith(expect.objectContaining({ sort: "name", order: "asc" }));
@@ -827,7 +827,7 @@ describe("Tables Routes (MySQL)", () => {
 				{ columnName: "created_at", direction: "desc" },
 			]);
 
-			const res = await app.request(`/mysql/tables/users/data?db=testdb&sort=${encodeURIComponent(sortArray)}`);
+			const res = await app.request(`/api/mysql/tables/users/data?db=testdb&sort=${encodeURIComponent(sortArray)}`);
 
 			expect(res.status).toBe(200);
 			expect(mockDao.getTableData).toHaveBeenCalledWith(
@@ -842,7 +842,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			const filters = JSON.stringify([{ columnName: "name", operator: "=", value: "John" }]);
 
-			const res = await app.request(`/mysql/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`);
+			const res = await app.request(`/api/mysql/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`);
 
 			expect(res.status).toBe(200);
 			expect(mockDao.getTableData).toHaveBeenCalledWith(
@@ -855,7 +855,7 @@ describe("Tables Routes (MySQL)", () => {
 
 			const filters = JSON.stringify([{ columnName: "name", operator: "LIKE", value: "%john%" }]);
 
-			const res = await app.request(`/mysql/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`);
+			const res = await app.request(`/api/mysql/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`);
 
 			expect(res.status).toBe(200);
 		});
@@ -866,7 +866,7 @@ describe("Tables Routes (MySQL)", () => {
 				meta: { limit: 50, total: 0, hasNextPage: false, hasPreviousPage: false, nextCursor: null, prevCursor: null },
 			});
 
-			const res = await app.request("/mysql/tables/empty_table/data?db=testdb");
+			const res = await app.request("/api/mysql/tables/empty_table/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -875,26 +875,26 @@ describe("Tables Routes (MySQL)", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/mysql/tables/users/data");
+			const res = await app.request("/api/mysql/tables/users/data");
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for invalid direction parameter", async () => {
-			const res = await app.request("/mysql/tables/users/data?db=testdb&direction=invalid");
+			const res = await app.request("/api/mysql/tables/users/data?db=testdb&direction=invalid");
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 503 when database connection fails", async () => {
 			mockDao.getTableData.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/mysql/tables/users/data?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/data?db=testdb");
 			expect(res.status).toBe(503);
 		});
 
 		it("should return 500 when DAO throws generic error", async () => {
 			mockDao.getTableData.mockRejectedValue(new Error("Unexpected error"));
 
-			const res = await app.request("/mysql/tables/users/data?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/data?db=testdb");
 			expect(res.status).toBe(500);
 		});
 	});
@@ -904,17 +904,17 @@ describe("Tables Routes (MySQL)", () => {
 	// ============================================
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type", async () => {
-			const res = await app.request("/invalid/tables?db=testdb");
+			const res = await app.request("/api/invalid/tables?db=testdb");
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
-			const res = await app.request("/sqlite/tables?db=testdb");
+			const res = await app.request("/api/sqlite/tables?db=testdb");
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for numeric database type", async () => {
-			const res = await app.request("/123/tables?db=testdb");
+			const res = await app.request("/api/123/tables?db=testdb");
 			expect(res.status).toBe(400);
 		});
 	});
@@ -926,14 +926,14 @@ describe("Tables Routes (MySQL)", () => {
 		it("should include CORS headers", async () => {
 			mockDao.getTablesList.mockResolvedValue([{ tableName: "test", rowCount: 0 }]);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
 
 		it("should return JSON content type", async () => {
 			mockDao.getTablesList.mockResolvedValue([{ tableName: "test", rowCount: 0 }]);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
 	});
@@ -945,7 +945,7 @@ describe("Tables Routes (MySQL)", () => {
 		it("should handle multiple concurrent requests to /tables", async () => {
 			mockDao.getTablesList.mockResolvedValue([{ tableName: "users", rowCount: 100 }]);
 
-			const requests = Array.from({ length: 10 }, () => app.request("/mysql/tables?db=testdb"));
+			const requests = Array.from({ length: 10 }, () => app.request("/api/mysql/tables?db=testdb"));
 			const responses = await Promise.all(requests);
 
 			for (const res of responses) {
@@ -962,13 +962,13 @@ describe("Tables Routes (MySQL)", () => {
 		it("should handle table names with underscores", async () => {
 			mockDao.getTableColumns.mockResolvedValue([]);
 
-			const res = await app.request("/mysql/tables/user_profiles/columns?db=testdb");
+			const res = await app.request("/api/mysql/tables/user_profiles/columns?db=testdb");
 
 			expect(mockDao.getTableColumns).toHaveBeenCalledWith({ tableName: "user_profiles", db: "testdb" });
 		});
 
 		it("should return 404 for non-existent sub-routes", async () => {
-			const res = await app.request("/mysql/tables/users/nonexistent?db=testdb");
+			const res = await app.request("/api/mysql/tables/users/nonexistent?db=testdb");
 			expect(res.status).toBe(404);
 		});
 	});

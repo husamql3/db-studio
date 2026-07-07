@@ -76,7 +76,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -89,7 +89,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -105,7 +105,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -121,7 +121,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -136,7 +136,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -151,7 +151,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTablesList.mockResolvedValue(mockTables);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -159,7 +159,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables");
+			const res = await app.request("/api/pg/tables");
 
 			expect(res.status).toBe(400);
 		});
@@ -169,7 +169,7 @@ describe("Tables Routes", () => {
 				new HTTPException(500, { message: "No tables returned from database" })
 			);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(500);
 		});
@@ -178,7 +178,7 @@ describe("Tables Routes", () => {
 			const connectionError = new Error("connect ECONNREFUSED 127.0.0.1:5432");
 			mockDao.getTablesList.mockRejectedValue(connectionError);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -189,7 +189,7 @@ describe("Tables Routes", () => {
 			const timeoutError = new Error("timeout expired");
 			mockDao.getTablesList.mockRejectedValue(timeoutError);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -219,7 +219,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -268,7 +268,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -308,7 +308,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -356,7 +356,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -370,7 +370,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -385,7 +385,7 @@ describe("Tables Routes", () => {
 				fields: [],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -399,7 +399,7 @@ describe("Tables Routes", () => {
 				tableName: "no_fields_table",
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -414,7 +414,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -429,7 +429,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id" }],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -444,7 +444,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables", {
+			const res = await app.request("/api/pg/tables", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -471,7 +471,7 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -490,7 +490,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -509,7 +509,7 @@ describe("Tables Routes", () => {
 				fields: [{ columnName: "id", columnType: "SERIAL" }],
 			};
 
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -526,7 +526,7 @@ describe("Tables Routes", () => {
 		it("should delete a column and return 200", async () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
-			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -547,7 +547,7 @@ describe("Tables Routes", () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
-				"/pg/tables/orders/columns/user_id?db=testdb&cascade=true",
+				"/api/pg/tables/orders/columns/user_id?db=testdb&cascade=true",
 				{ method: "DELETE" }
 			);
 
@@ -564,7 +564,7 @@ describe("Tables Routes", () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
-				"/pg/tables/products/columns/name?db=testdb&cascade=false",
+				"/api/pg/tables/products/columns/name?db=testdb&cascade=false",
 				{ method: "DELETE" }
 			);
 
@@ -581,7 +581,7 @@ describe("Tables Routes", () => {
 			mockDao.deleteColumn.mockResolvedValue({ deletedCount: 0 });
 
 			const res = await app.request(
-				"/pg/tables/users/columns/created_at?db=testdb",
+				"/api/pg/tables/users/columns/created_at?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -593,7 +593,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables/users/columns/email", {
+			const res = await app.request("/api/pg/tables/users/columns/email", {
 				method: "DELETE",
 			});
 
@@ -606,7 +606,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/nonexistent/columns/email?db=testdb",
+				"/api/pg/tables/nonexistent/columns/email?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -621,7 +621,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/users/columns/nonexistent?db=testdb",
+				"/api/pg/tables/users/columns/nonexistent?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -634,7 +634,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/users/columns/id?db=testdb&cascade=false",
+				"/api/pg/tables/users/columns/id?db=testdb&cascade=false",
 				{ method: "DELETE" }
 			);
 
@@ -647,7 +647,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/users/columns/email?db=testdb",
+				"/api/pg/tables/users/columns/email?db=testdb",
 				{ method: "DELETE" }
 			);
 
@@ -673,7 +673,7 @@ describe("Tables Routes", () => {
 		it("should add a column and return 200", async () => {
 			mockDao.addColumn.mockResolvedValue();
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -690,7 +690,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables/users/columns", {
+			const res = await app.request("/api/pg/tables/users/columns", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -700,7 +700,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when request body is invalid", async () => {
-			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -716,7 +716,7 @@ describe("Tables Routes", () => {
 				new HTTPException(404, { message: 'Table "users" does not exist' }),
 			);
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -732,7 +732,7 @@ describe("Tables Routes", () => {
 				}),
 			);
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -744,7 +744,7 @@ describe("Tables Routes", () => {
 		it("should return 503 when database connection fails", async () => {
 			mockDao.addColumn.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -761,7 +761,7 @@ describe("Tables Routes", () => {
 		it("should rename a column and return 200", async () => {
 			mockDao.renameColumn.mockResolvedValue();
 
-			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -781,7 +781,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables/users/columns/email/rename", {
+			const res = await app.request("/api/pg/tables/users/columns/email/rename", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -791,7 +791,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when request body is invalid", async () => {
-			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -807,7 +807,7 @@ describe("Tables Routes", () => {
 				}),
 			);
 
-			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -823,7 +823,7 @@ describe("Tables Routes", () => {
 				}),
 			);
 
-			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -837,7 +837,7 @@ describe("Tables Routes", () => {
 				new Error("connect ECONNREFUSED"),
 			);
 
-			const res = await app.request("/pg/tables/users/columns/email/rename?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ newColumnName: "email_address" }),
@@ -860,7 +860,7 @@ describe("Tables Routes", () => {
 		it("should alter a column and return 200", async () => {
 			mockDao.alterColumn.mockResolvedValue();
 
-			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -878,7 +878,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables/users/columns/email", {
+			const res = await app.request("/api/pg/tables/users/columns/email", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -888,7 +888,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when request body is invalid", async () => {
-			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ isNullable: true }),
@@ -904,7 +904,7 @@ describe("Tables Routes", () => {
 				}),
 			);
 
-			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -918,7 +918,7 @@ describe("Tables Routes", () => {
 				new Error("connect ECONNREFUSED"),
 			);
 
-			const res = await app.request("/pg/tables/users/columns/email?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns/email?db=testdb", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -962,7 +962,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb");
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1003,7 +1003,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/orders/columns?db=testdb");
+			const res = await app.request("/api/pg/tables/orders/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1029,7 +1029,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/tasks/columns?db=testdb");
+			const res = await app.request("/api/pg/tables/tasks/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1071,7 +1071,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb");
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1091,7 +1091,7 @@ describe("Tables Routes", () => {
 
 			mockDao.getTableColumns.mockResolvedValue(mockColumns);
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb");
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1099,7 +1099,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables/users/columns");
+			const res = await app.request("/api/pg/tables/users/columns");
 
 			expect(res.status).toBe(400);
 		});
@@ -1110,7 +1110,7 @@ describe("Tables Routes", () => {
 			);
 
 			const res = await app.request(
-				"/pg/tables/nonexistent/columns?db=testdb"
+				"/api/pg/tables/nonexistent/columns?db=testdb"
 			);
 
 			expect(res.status).toBe(404);
@@ -1121,7 +1121,7 @@ describe("Tables Routes", () => {
 				new Error("connect ECONNREFUSED")
 			);
 
-			const res = await app.request("/pg/tables/users/columns?db=testdb");
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -1149,7 +1149,7 @@ describe("Tables Routes", () => {
 		it("should return table data with default pagination", async () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request("/pg/tables/users/data?db=testdb");
+			const res = await app.request("/api/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1173,7 +1173,7 @@ describe("Tables Routes", () => {
 			});
 
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&limit=25"
+				"/api/pg/tables/users/data?db=testdb&limit=25"
 			);
 
 			expect(res.status).toBe(200);
@@ -1194,7 +1194,7 @@ describe("Tables Routes", () => {
 			});
 
 			const res = await app.request(
-				`/pg/tables/users/data?db=testdb&cursor=${cursor}&direction=asc`
+				`/api/pg/tables/users/data?db=testdb&cursor=${cursor}&direction=asc`
 			);
 
 			expect(res.status).toBe(200);
@@ -1218,7 +1218,7 @@ describe("Tables Routes", () => {
 			});
 
 			const res = await app.request(
-				`/pg/tables/users/data?db=testdb&cursor=${cursor}&direction=desc`
+				`/api/pg/tables/users/data?db=testdb&cursor=${cursor}&direction=desc`
 			);
 
 			expect(res.status).toBe(200);
@@ -1234,7 +1234,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&sort=name&order=asc"
+				"/api/pg/tables/users/data?db=testdb&sort=name&order=asc"
 			);
 
 			expect(res.status).toBe(200);
@@ -1255,7 +1255,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?db=testdb&sort=${encodeURIComponent(sortArray)}`
+				`/api/pg/tables/users/data?db=testdb&sort=${encodeURIComponent(sortArray)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1273,7 +1273,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&sort=id&order=desc"
+				"/api/pg/tables/users/data?db=testdb&sort=id&order=desc"
 			);
 
 			expect(res.status).toBe(200);
@@ -1297,7 +1297,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`
+				`/api/pg/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1318,7 +1318,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`
+				`/api/pg/tables/users/data?db=testdb&filters=${encodeURIComponent(filters)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1341,7 +1341,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				`/pg/tables/users/data?db=testdb&sort=name&order=asc&filters=${encodeURIComponent(filters)}`
+				`/api/pg/tables/users/data?db=testdb&sort=name&order=asc&filters=${encodeURIComponent(filters)}`
 			);
 
 			expect(res.status).toBe(200);
@@ -1367,7 +1367,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/empty_table/data?db=testdb");
+			const res = await app.request("/api/pg/tables/empty_table/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1391,7 +1391,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/users/data?db=testdb");
+			const res = await app.request("/api/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1401,14 +1401,14 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/pg/tables/users/data");
+			const res = await app.request("/api/pg/tables/users/data");
 
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for invalid direction parameter", async () => {
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&direction=invalid"
+				"/api/pg/tables/users/data?db=testdb&direction=invalid"
 			);
 
 			expect(res.status).toBe(400);
@@ -1416,7 +1416,7 @@ describe("Tables Routes", () => {
 
 		it("should return 400 for invalid order parameter", async () => {
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&order=invalid"
+				"/api/pg/tables/users/data?db=testdb&order=invalid"
 			);
 
 			expect(res.status).toBe(400);
@@ -1426,7 +1426,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&filters=invalid-json"
+				"/api/pg/tables/users/data?db=testdb&filters=invalid-json"
 			);
 
 			expect(res.status).toBe(200);
@@ -1440,7 +1440,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
 			const res = await app.request(
-				"/pg/tables/users/data?db=testdb&sort=invalid-json"
+				"/api/pg/tables/users/data?db=testdb&sort=invalid-json"
 			);
 
 			expect(res.status).toBe(200);
@@ -1455,7 +1455,7 @@ describe("Tables Routes", () => {
 				new Error("connect ECONNREFUSED")
 			);
 
-			const res = await app.request("/pg/tables/users/data?db=testdb");
+			const res = await app.request("/api/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(503);
 		});
@@ -1465,7 +1465,7 @@ describe("Tables Routes", () => {
 				new Error("Unexpected error")
 			);
 
-			const res = await app.request("/pg/tables/users/data?db=testdb");
+			const res = await app.request("/api/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(500);
 		});
@@ -1476,7 +1476,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("Invalid database type validation", () => {
 		it("should return 400 for invalid database type", async () => {
-			const res = await app.request("/invalid/tables?db=testdb");
+			const res = await app.request("/api/invalid/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
@@ -1484,20 +1484,20 @@ describe("Tables Routes", () => {
 		it("should accept mysql database type as valid", async () => {
 			mockDao.getTablesList.mockResolvedValue([]);
 
-			const res = await app.request("/mysql/tables?db=testdb");
+			const res = await app.request("/api/mysql/tables?db=testdb");
 
 			// mysql is a valid database type — route should succeed
 			expect([200, 500]).toContain(res.status);
 		});
 
 		it("should return 400 for sqlite database type (not supported)", async () => {
-			const res = await app.request("/sqlite/tables?db=testdb");
+			const res = await app.request("/api/sqlite/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
 
 		it("should return 400 for numeric database type", async () => {
-			const res = await app.request("/123/tables?db=testdb");
+			const res = await app.request("/api/123/tables?db=testdb");
 
 			expect(res.status).toBe(400);
 		});
@@ -1505,7 +1505,7 @@ describe("Tables Routes", () => {
 		it("should accept valid pg database type", async () => {
 			mockDao.getTablesList.mockResolvedValue([]);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			// This should fail because getTablesList throws when no tables exist
 			// but the route itself should be valid
@@ -1518,7 +1518,7 @@ describe("Tables Routes", () => {
 	// ============================================
 	describe("HTTP methods validation", () => {
 		it("should return 404 for PUT /tables", async () => {
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "PUT",
 			});
 
@@ -1526,7 +1526,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for DELETE /tables (without column path)", async () => {
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "DELETE",
 			});
 
@@ -1534,7 +1534,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for PATCH /tables", async () => {
-			const res = await app.request("/pg/tables?db=testdb", {
+			const res = await app.request("/api/pg/tables?db=testdb", {
 				method: "PATCH",
 			});
 
@@ -1542,7 +1542,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for PUT /tables/:tableName/columns", async () => {
-			const res = await app.request("/pg/tables/users/columns?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "PUT",
 			});
 
@@ -1550,7 +1550,7 @@ describe("Tables Routes", () => {
 		});
 
 		it("should return 404 for PUT /tables/:tableName/data", async () => {
-			const res = await app.request("/pg/tables/users/data?db=testdb", {
+			const res = await app.request("/api/pg/tables/users/data?db=testdb", {
 				method: "PUT",
 			});
 
@@ -1567,7 +1567,7 @@ describe("Tables Routes", () => {
 				{ tableName: "test", rowCount: 0 },
 			]);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
 		});
@@ -1577,7 +1577,7 @@ describe("Tables Routes", () => {
 				{ tableName: "test", rowCount: 0 },
 			]);
 
-			const res = await app.request("/pg/tables?db=testdb");
+			const res = await app.request("/api/pg/tables?db=testdb");
 
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
@@ -1593,7 +1593,7 @@ describe("Tables Routes", () => {
 			]);
 
 			const requests = Array.from({ length: 10 }, () =>
-				app.request("/pg/tables?db=testdb")
+				app.request("/api/pg/tables?db=testdb")
 			);
 
 			const responses = await Promise.all(requests);
@@ -1623,9 +1623,9 @@ describe("Tables Routes", () => {
 			});
 
 			const [res1, res2, res3] = await Promise.all([
-				app.request("/pg/tables?db=testdb"),
-				app.request("/pg/tables/users/columns?db=testdb"),
-				app.request("/pg/tables/users/data?db=testdb"),
+				app.request("/api/pg/tables?db=testdb"),
+				app.request("/api/pg/tables/users/columns?db=testdb"),
+				app.request("/api/pg/tables/users/data?db=testdb"),
 			]);
 
 			expect(res1.status).toBe(200);
@@ -1642,7 +1642,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableColumns.mockResolvedValue([]);
 
 			const res = await app.request(
-				"/pg/tables/user_profiles/columns?db=testdb"
+				"/api/pg/tables/user_profiles/columns?db=testdb"
 			);
 
 			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
@@ -1657,21 +1657,21 @@ describe("Tables Routes", () => {
 			]);
 
 			const res = await app.request(
-				"/pg/tables?db=testdb&foo=bar&baz=123"
+				"/api/pg/tables?db=testdb&foo=bar&baz=123"
 			);
 
 			expect(res.status).toBe(200);
 		});
 
 		it("should return 404 for non-existent sub-routes", async () => {
-			const res = await app.request("/pg/tables/users/nonexistent?db=testdb");
+			const res = await app.request("/api/pg/tables/users/nonexistent?db=testdb");
 
 			expect(res.status).toBe(404);
 		});
 
 		it("should return 404 for deeply nested non-existent routes", async () => {
 			const res = await app.request(
-				"/pg/tables/users/columns/extra/path?db=testdb"
+				"/api/pg/tables/users/columns/extra/path?db=testdb"
 			);
 
 			expect(res.status).toBe(404);
@@ -1682,7 +1682,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableColumns.mockResolvedValue([]);
 
 			const res = await app.request(
-				`/pg/tables/${longTableName}/columns?db=testdb`
+				`/api/pg/tables/${longTableName}/columns?db=testdb`
 			);
 
 			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
@@ -1695,7 +1695,7 @@ describe("Tables Routes", () => {
 			mockDao.getTableColumns.mockResolvedValue([]);
 
 			const res = await app.request(
-				"/pg/tables/user%5Fprofiles/columns?db=testdb"
+				"/api/pg/tables/user%5Fprofiles/columns?db=testdb"
 			);
 
 			expect(mockDao.getTableColumns).toHaveBeenCalledWith({
@@ -1732,7 +1732,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/users/data?db=testdb");
+			const res = await app.request("/api/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();
@@ -1766,7 +1766,7 @@ describe("Tables Routes", () => {
 				},
 			});
 
-			const res = await app.request("/pg/tables/users/data?db=testdb");
+			const res = await app.request("/api/pg/tables/users/data?db=testdb");
 
 			expect(res.status).toBe(200);
 			const json = await res.json();

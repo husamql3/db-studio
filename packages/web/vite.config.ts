@@ -114,7 +114,8 @@ export default defineConfig(({ mode }) => {
         target: process.env.VITE_API_PROXY_TARGET ?? 'https://api.dbstudio.localhost',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        // No rewrite: the server owns the /api namespace, so forward the
+        // prefix intact instead of stripping it. See db-studio#214.
       },
     },
   },

@@ -81,7 +81,7 @@ describe("Query Routes (MongoDB)", () => {
 				limit: 50,
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -113,7 +113,7 @@ describe("Query Routes (MongoDB)", () => {
 				],
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -139,7 +139,7 @@ describe("Query Routes (MongoDB)", () => {
 				document: { name: "Charlie", email: "charlie@example.com" },
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -170,7 +170,7 @@ describe("Query Routes (MongoDB)", () => {
 				],
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -197,7 +197,7 @@ describe("Query Routes (MongoDB)", () => {
 				update: { $set: { age: 31 } },
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -224,7 +224,7 @@ describe("Query Routes (MongoDB)", () => {
 				update: { $set: { status: "inactive" } },
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -250,7 +250,7 @@ describe("Query Routes (MongoDB)", () => {
 				filter: { _id: "507f1f77bcf86cd799439011" },
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -274,7 +274,7 @@ describe("Query Routes (MongoDB)", () => {
 				filter: { expiresAt: { $lt: "2025-01-01" } },
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -300,7 +300,7 @@ describe("Query Routes (MongoDB)", () => {
 				filter: { active: true },
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query }),
@@ -316,7 +316,7 @@ describe("Query Routes (MongoDB)", () => {
 				new HTTPException(400, { message: "Query is required" }),
 			);
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "" }),
@@ -330,7 +330,7 @@ describe("Query Routes (MongoDB)", () => {
 				new HTTPException(400, { message: "Mongo query must be valid JSON" }),
 			);
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "not json" }),
@@ -346,7 +346,7 @@ describe("Query Routes (MongoDB)", () => {
 				}),
 			);
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: JSON.stringify({ collection: "users" }) }),
@@ -360,7 +360,7 @@ describe("Query Routes (MongoDB)", () => {
 				new HTTPException(400, { message: "Unsupported Mongo operation" }),
 			);
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -372,7 +372,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when request body is missing query field", async () => {
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -382,7 +382,7 @@ describe("Query Routes (MongoDB)", () => {
 		});
 
 		it("returns 400 when db param is missing", async () => {
-			const res = await app.request("/mongodb/query", {
+			const res = await app.request("/api/mongodb/query", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -398,7 +398,7 @@ describe("Query Routes (MongoDB)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:27017"),
 			);
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -412,7 +412,7 @@ describe("Query Routes (MongoDB)", () => {
 		it("returns 503 on connection timeout", async () => {
 			mockDao.executeQuery.mockRejectedValue(new Error("timeout expired"));
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -431,7 +431,7 @@ describe("Query Routes (MongoDB)", () => {
 				duration: 12.7,
 			});
 
-			const res = await app.request("/mongodb/query?db=testdb", {
+			const res = await app.request("/api/mongodb/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

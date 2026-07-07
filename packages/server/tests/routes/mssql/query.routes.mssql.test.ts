@@ -67,7 +67,7 @@ describe("Query Routes (MSSQL)", () => {
 				duration: 7.4,
 			});
 
-			const res = await app.request("/mssql/query?db=testdb", {
+			const res = await app.request("/api/mssql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT TOP 1 id, name FROM users" }),
@@ -90,7 +90,7 @@ describe("Query Routes (MSSQL)", () => {
 				duration: 4.2,
 			});
 
-			const res = await app.request("/mssql/query?db=testdb", {
+			const res = await app.request("/api/mssql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT TOP 1 [id] FROM [dbo].[users]" }),
@@ -100,7 +100,7 @@ describe("Query Routes (MSSQL)", () => {
 		});
 
 		it("returns 400 when query payload is missing", async () => {
-			const res = await app.request("/mssql/query?db=testdb", {
+			const res = await app.request("/api/mssql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
@@ -110,7 +110,7 @@ describe("Query Routes (MSSQL)", () => {
 		});
 
 		it("returns 400 when db query param is missing", async () => {
-			const res = await app.request("/mssql/query", {
+			const res = await app.request("/api/mssql/query", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -124,7 +124,7 @@ describe("Query Routes (MSSQL)", () => {
 				new Error("connect ECONNREFUSED 127.0.0.1:1433"),
 			);
 
-			const res = await app.request("/mssql/query?db=testdb", {
+			const res = await app.request("/api/mssql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -138,7 +138,7 @@ describe("Query Routes (MSSQL)", () => {
 				new Error("Incorrect syntax near 'SELEC'"),
 			);
 
-			const res = await app.request("/mssql/query?db=testdb", {
+			const res = await app.request("/api/mssql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELEC * FROM users" }),
@@ -152,7 +152,7 @@ describe("Query Routes (MSSQL)", () => {
 				new HTTPException(500, { message: "Execution failed" }),
 			);
 
-			const res = await app.request("/mssql/query?db=testdb", {
+			const res = await app.request("/api/mssql/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -164,7 +164,7 @@ describe("Query Routes (MSSQL)", () => {
 
 	describe("Other behavior", () => {
 		it("rejects invalid database type", async () => {
-			const res = await app.request("/sqlite/query?db=testdb", {
+			const res = await app.request("/api/sqlite/query?db=testdb", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT 1" }),
@@ -174,7 +174,7 @@ describe("Query Routes (MSSQL)", () => {
 		});
 
 		it("returns 404 for unsupported methods", async () => {
-			const res = await app.request("/mssql/query?db=testdb", { method: "GET" });
+			const res = await app.request("/api/mssql/query?db=testdb", { method: "GET" });
 			expect(res.status).toBe(404);
 		});
 
@@ -188,7 +188,7 @@ describe("Query Routes (MSSQL)", () => {
 
 			const responses = await Promise.all(
 				Array.from({ length: 8 }, () =>
-					app.request("/mssql/query?db=testdb", {
+					app.request("/api/mssql/query?db=testdb", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ query: "SELECT 1 as value" }),

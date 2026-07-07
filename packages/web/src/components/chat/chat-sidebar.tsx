@@ -1,6 +1,6 @@
 "use client";
 
-import { CHAT_SUGGESTIONS } from "@db-studio/shared/constants";
+import { CHAT_SUGGESTIONS, DEFAULTS } from "@db-studio/shared/constants";
 import { Button } from "@db-studio/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
@@ -63,7 +63,7 @@ const ChatSidebarContent = ({
 	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
-		connection: fetchServerSentEvents(`${getBaseUrl()}/chat`),
+		connection: fetchServerSentEvents(`${getBaseUrl()}${DEFAULTS.API_PREFIX}/chat`),
 		body: { db },
 		onError: (error) => console.error("Error:", error.message),
 		onFinish: () => {

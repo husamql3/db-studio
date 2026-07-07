@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULTS } from "@db-studio/shared/constants";
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { zValidator } from "@hono/zod-validator";
@@ -19,6 +20,8 @@ import { databasesRoutes } from "@/routes/databases.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
+
+const { API_PREFIX } = DEFAULTS;
 
 /**
  * Get the path to the web app distribution directory.
@@ -101,22 +104,27 @@ export const createServer = () => {
 		.onError(handleError)
 
 		/**
-		 * Database routes - available at root level (no dbType required)
+		 * API routes are namespaced under API_PREFIX so they never collide with
+		 * client-side (SPA) routes served from the same origin. A refresh on a
+		 * client route like `/table/:name` must fall through to index.html, not
+		 * be interpreted as a `/:dbType/...` API request. See db-studio#214.
+		 *
+		 * Database routes - available at the API root (no dbType required)
 		 */
-		.route("/", databasesRoutes)
-		.route("/", chatRoutes)
+		.route(API_PREFIX, databasesRoutes)
+		.route(API_PREFIX, chatRoutes)
 
 		/**
-		 * Serve static assets (before dbType validation to avoid conflicts)
+		 * Serve static assets (SPA-owned; live at the root, not under the API prefix)
 		 */
 		.use("/assets/*", serveStatic({ root: getWebDistPath() }))
 		.use("/image.png", serveStatic({ root: getWebDistPath() }))
 
 		/**
-		 * Routes that require dbType validation - under /:dbType/...
+		 * Routes that require dbType validation - under API_PREFIX/:dbType/...
 		 */
 		.use(
-			"/:dbType/*",
+			`${API_PREFIX}/:dbType/*`,
 			zValidator("param", databaseTypeParamSchema, (result, c) => {
 				if (!result.success) {
 					const rawType = c.req.param("dbType");
@@ -131,11 +139,21 @@ export const createServer = () => {
 				await next();
 			},
 		)
-		.route("/:dbType", tablesRoutes)
-		.route("/:dbType", recordsRoutes)
-		.route("/:dbType", queryRoutes);
+		.route(`${API_PREFIX}/:dbType`, tablesRoutes)
+		.route(`${API_PREFIX}/:dbType`, recordsRoutes)
+		.route(`${API_PREFIX}/:dbType`, queryRoutes);
 
 	if (process.env.NODE_ENV !== "test") {
+		/**
+		 * Any unmatched API path is a genuine 404 - respond with JSON so API
+		 * clients never receive the SPA's index.html HTML by mistake.
+		 */
+		app.all(`${API_PREFIX}/*`, (c) => c.json({ error: "Not found" }, 404));
+
+		/**
+		 * SPA fallback - every non-API path serves the client app so that
+		 * deep-link refreshes (e.g. /table/:name) load index.html.
+		 */
 		app.use("/*", serveStatic({ root: getWebDistPath() }));
 		app.get("/*", serveStatic({ path: path.resolve(getWebDistPath(), "index.html") }));
 	}
