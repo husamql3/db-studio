@@ -21,8 +21,8 @@
   },
   "dependencies": {
     "@db-studio/shared": "workspace:*",
-    "@tanstack/ai": "^0.39.1",
-    "@tanstack/ai-gemini": "^0.19.0",
+    "@tanstack/ai": "^0.42.0",
+    "@tanstack/ai-gemini": "^0.20.1",
     "@upstash/redis": "^1.36.1",
     "hono": "^4.11.3",
     "hono-rate-limiter": "^0.5.3"
