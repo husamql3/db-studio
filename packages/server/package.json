@@ -75,14 +75,14 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
     "@db-studio/shared": "workspace:*",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/mssql": "^12.3.0",
     "@types/node": "^26.0.0",
     "@types/pg": "^8.16.0",
     "@vitest/coverage-v8": "^4.0.17",
     "tsup": "^8.5.1",
     "tsx": "^4.7.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.0.17"
   }
 }
