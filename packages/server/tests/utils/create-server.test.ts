@@ -144,14 +144,25 @@ describe("createServer", () => {
 	});
 
 	describe("CORS middleware", () => {
-		it("should include Access-Control-Allow-Origin header", async () => {
+		it("should NOT emit a wildcard Access-Control-Allow-Origin for a same-origin/no-origin request", async () => {
 			const res = await server.app.request("/api/databases");
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			// Same-origin default: no allowlist configured means no allow-origin
+			// header is reflected. A cross-origin caller therefore gets no CORS
+			// grant (prevents drive-by-localhost).
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
-		it("should include Access-Control-Allow-Methods header", async () => {
-			const res = await server.app.request("/api/databases");
+		it("should NOT emit an Access-Control-Allow-Origin for a disallowed cross-origin request", async () => {
+			const res = await server.app.request("/api/databases", {
+				headers: { Origin: "https://evil.example" },
+			});
+
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+		});
+
+		it("should advertise allowed methods on a CORS preflight", async () => {
+			const res = await server.app.request("/api/databases", { method: "OPTIONS" });
 
 			const methods = res.headers.get("Access-Control-Allow-Methods");
 			expect(methods).toContain("GET");
@@ -161,8 +172,8 @@ describe("createServer", () => {
 			expect(methods).toContain("OPTIONS");
 		});
 
-		it("should include Access-Control-Allow-Headers header", async () => {
-			const res = await server.app.request("/api/databases");
+		it("should advertise allowed headers on a CORS preflight", async () => {
+			const res = await server.app.request("/api/databases", { method: "OPTIONS" });
 
 			expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
 		});

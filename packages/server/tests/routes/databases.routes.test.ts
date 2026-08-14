@@ -504,7 +504,7 @@ describe("Databases Routes", () => {
 
 			const res = await app.request("/api/databases");
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("should return JSON content type", async () => {
