@@ -708,7 +708,7 @@ describe("Records Routes (MySQL)", () => {
 				body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
 			});
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("should return JSON content type", async () => {

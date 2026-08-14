@@ -734,7 +734,7 @@ describe("Query Routes", () => {
 				body: JSON.stringify({ query: "SELECT 1 as id" }),
 			});
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("should return JSON content type", async () => {

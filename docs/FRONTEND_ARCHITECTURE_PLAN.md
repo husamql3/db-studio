@@ -103,7 +103,7 @@ boundaries exist.
 
 ### Phase 6 — Cleanup & Hardening
 
-- [ ] Delete the legacy `src/lib/api.ts` compatibility facade once all imports use `src/shared/api`
+- [x] Delete the legacy `src/lib/api.ts` compatibility facade once all imports use `src/shared/api`
 - [ ] Collapse copied endpoint logic into the shared API modules and remove duplicate request construction
 - [ ] Audit query invalidation keys and replace ad hoc cache-key arrays with query-key factories
 - [ ] Add tests around `ApiClient`, query-key factories, and table-model behavior

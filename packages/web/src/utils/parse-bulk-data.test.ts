@@ -124,4 +124,73 @@ describe("parseBulkData", () => {
 			expect(result).toEqual([{ name: "John", age: 30 }]);
 		});
 	});
+
+	// --- Extended characterization cases (Plan 005) ---
+	describe("JSON parsing (extended)", () => {
+		it("should surface the underlying syntax detail in the JSON error message", () => {
+			// Malformed JSON that starts like an array so the JSON branch is taken.
+			expect(() => parseBulkData('[{"name": "John", }]')).toThrow(/Invalid JSON format/);
+		});
+
+		it("should throw for a bare JSON primitive wrapped as an object start", () => {
+			// Starts with "{" but is not a valid object -> SyntaxError -> wrapped message.
+			expect(() => parseBulkData("{not json}")).toThrow(/Invalid JSON format/);
+		});
+
+		it("should return an empty array for an empty JSON array", () => {
+			expect(parseBulkData("[]")).toEqual([]);
+		});
+
+		it("should preserve array-valued fields inside JSON objects", () => {
+			const input = '[{"name": "John", "tags": ["a", "b"]}]';
+			const result = parseBulkData(input);
+			expect(result[0].tags).toEqual(["a", "b"]);
+		});
+	});
+
+	describe("CSV parsing (extended)", () => {
+		it("should handle a quoted field containing the delimiter", () => {
+			const input = 'name,city\nJohn,"New York, NY"';
+			const result = parseBulkData(input);
+			expect(result[0].city).toBe("New York, NY");
+		});
+
+		it("should detect semicolon as delimiter", () => {
+			const input = "name;age\nJohn;30";
+			const result = parseBulkData(input);
+			expect(result).toEqual([{ name: "John", age: 30 }]);
+		});
+
+		it("should keep leading-zero strings as strings, not numbers", () => {
+			// "007" -> Number is 7, String(7) !== "007", and no decimal -> stays a string.
+			const input = "name,code\nJohn,007";
+			const result = parseBulkData(input);
+			expect(result[0].code).toBe("007");
+		});
+
+		it("should coerce integer and float numeric columns", () => {
+			const input = "qty,price\n3,9.99";
+			const result = parseBulkData(input);
+			expect(result[0].qty).toBe(3);
+			expect(result[0].price).toBe(9.99);
+		});
+
+		it("should treat both empty and literal null as null", () => {
+			const input = "name,a,b\nJohn,,null";
+			const result = parseBulkData(input);
+			expect(result[0].a).toBeNull();
+			expect(result[0].b).toBeNull();
+		});
+
+		it("should throw when only a header row is present (no data rows)", () => {
+			expect(() => parseBulkData("name,age")).toThrow(/No records/);
+		});
+
+		it("should ignore blank lines between data rows", () => {
+			const input = "name,age\nJohn,30\n\nJane,28\n";
+			const result = parseBulkData(input);
+			expect(result).toHaveLength(2);
+			expect(result[1]).toEqual({ name: "Jane", age: 28 });
+		});
+	});
 });
