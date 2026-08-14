@@ -13,7 +13,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
 import { useTableCols } from "@/features/schema";
-import { api } from "@/lib/api";
+import { api } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { TableRecord } from "@/types/table.type";
 import { CellCopyButton } from "./cell-copy-button";
