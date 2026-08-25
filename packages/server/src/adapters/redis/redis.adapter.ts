@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -7,15 +8,27 @@ import type {
 	CellValue,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateKeySchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DataTypes,
 	DeleteColumnParamsSchemaType,
+	DeleteKeyQuerySchemaType,
+	DeleteKeyResultSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	ExecuteQueryResult,
+	KeyActionSchemaType,
+	KeyDetailsQuerySchemaType,
+	KeyDetailsResultSchemaType,
+	KeyRawQuerySchemaType,
+	KeyRawResultSchemaType,
+	KeyScanQuerySchemaType,
+	KeyScanResultSchemaType,
+	KeyWriteResultSchemaType,
+	RedisKeyTypeSchemaType,
 	RenameColumnParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
@@ -26,6 +39,7 @@ import type { Redis } from "ioredis";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getRedisClient, getRedisDefaultDb } from "@/adapters/connections.js";
+import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
 
 // ---------------------------------------------------------------------------
@@ -60,6 +74,8 @@ const PREV_UNSUPPORTED_MESSAGE =
 const SCAN_ROUND_TRIP_CAP = 10;
 const COUNT_CACHE_TTL_MS = 30_000;
 const COUNT_SCAN_CEILING = 10_000;
+const MAX_STRING_PREVIEW_BYTES = 256 * 1024;
+const MAX_STRING_FULL_BYTES = 8 * 1024 * 1024;
 
 const isRedisTable = (name: string): name is RedisTable =>
 	(REDIS_TABLES as readonly string[]).includes(name);
@@ -88,6 +104,100 @@ interface ScanCursorEnvelope {
 	scanCursor: string;
 	type: RedisTable;
 }
+
+interface KeyBrowserCursorEnvelope {
+	scanCursor: string;
+	search?: string;
+	exactPattern: boolean;
+	type?: RedisKeyTypeSchemaType;
+	pending?: string[];
+}
+
+interface KeyDetailsCursorEnvelope {
+	key: string;
+	type: RedisKeyTypeSchemaType;
+	cursor: string;
+	direction: "forward" | "backward";
+}
+
+const encodeKeyBrowserCursor = (env: KeyBrowserCursorEnvelope): string =>
+	Buffer.from(JSON.stringify(env)).toString("base64url");
+
+const decodeKeyBrowserCursor = (cursor: string): KeyBrowserCursorEnvelope | null => {
+	try {
+		return JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
+	} catch {
+		return null;
+	}
+};
+
+const encodeKeyDetailsCursor = (env: KeyDetailsCursorEnvelope): string =>
+	Buffer.from(JSON.stringify(env)).toString("base64url");
+
+const decodeKeyDetailsCursor = (cursor: string): KeyDetailsCursorEnvelope | null => {
+	try {
+		return JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+	} catch {
+		return null;
+	}
+};
+
+const encodeBinaryValue = (value: Buffer): { base64: string; utf8?: string } => {
+	const utf8 = value.toString("utf8");
+	return Buffer.from(utf8, "utf8").equals(value)
+		? { base64: value.toString("base64url"), utf8 }
+		: { base64: value.toString("base64url") };
+};
+
+const escapeRedisGlob = (value: string): string => value.replaceAll(/[\\*?[\]]/g, "\\$&");
+
+const normalizeRedisKeyType = (value: unknown): RedisKeyTypeSchemaType => {
+	const type = Buffer.isBuffer(value) ? value.toString("utf8") : String(value);
+	return (["string", "hash", "list", "set", "zset", "stream"] as const).includes(
+		type as Exclude<RedisKeyTypeSchemaType, "unknown">,
+	)
+		? (type as RedisKeyTypeSchemaType)
+		: "unknown";
+};
+
+const decodeBinaryValue = (value: string): Buffer => Buffer.from(value, "base64url");
+const decodeKeyParam = (value: string): Buffer =>
+	value === "-" ? Buffer.alloc(0) : decodeBinaryValue(value);
+
+const revisionForDump = (dump: Buffer): string =>
+	createHash("sha256").update(dump).digest("base64url");
+
+const conflict = (): HTTPException =>
+	new HTTPException(409, {
+		message: "This key changed since it was loaded. Reload it or explicitly overwrite.",
+	});
+
+const isUnavailableCommandError = (error: unknown): boolean => {
+	const message = error instanceof Error ? error.message : String(error);
+	return /(NOPERM|unknown command|not allowed|unsupported)/i.test(message);
+};
+
+const assertKeyType = (
+	actual: RedisKeyTypeSchemaType,
+	expected: Exclude<RedisKeyTypeSchemaType, "unknown">,
+): void => {
+	if (actual !== expected) {
+		throw new HTTPException(400, {
+			message: `This operation requires a ${expected} key, but the key is ${actual}.`,
+		});
+	}
+};
+
+const assertTransactionSucceeded = (result: unknown): void => {
+	if (result === null) throw conflict();
+	if (!Array.isArray(result)) return;
+	const failed = result.find(
+		(entry): entry is [Error, unknown] => Array.isArray(entry) && entry[0] instanceof Error,
+	);
+	if (failed) {
+		throw new HTTPException(400, { message: failed[0].message });
+	}
+};
 
 const encodeScanCursor = (env: ScanCursorEnvelope): string =>
 	Buffer.from(JSON.stringify(env)).toString("base64url");
@@ -180,7 +290,7 @@ const SCHEMA_DESCRIPTIONS: Record<RedisTable, string> = {
 // RedisAdapter
 // ---------------------------------------------------------------------------
 
-export class RedisAdapter extends BaseAdapter {
+export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	private countCache: Map<number, CountCacheEntry> = new Map();
 
 	// -----------------------------------------------------------------------
@@ -234,6 +344,562 @@ export class RedisAdapter extends BaseAdapter {
 		return "string";
 	}
 
+	async scanKeys(params: KeyScanQuerySchemaType): Promise<KeyScanResultSchemaType> {
+		try {
+			const { db, limit, search, exactPattern, type, cursor } = params;
+			const dbIndex = parseDbIndex(db);
+			const client = await getRedisClient(dbIndex);
+			let scanCursor = "0";
+			let pending: Buffer[] = [];
+
+			if (cursor) {
+				const decoded = decodeKeyBrowserCursor(cursor);
+				if (
+					!decoded ||
+					decoded.search !== search ||
+					decoded.exactPattern !== exactPattern ||
+					decoded.type !== type
+				) {
+					throw new HTTPException(400, { message: "Invalid or stale key scan cursor" });
+				}
+				scanCursor = decoded.scanCursor;
+				pending = decoded.pending?.map(decodeBinaryValue) ?? [];
+			}
+
+			const pattern = search ? (exactPattern ? search : `*${escapeRedisGlob(search)}*`) : "*";
+			const scanArgs: Array<string | number> = [
+				scanCursor,
+				"MATCH",
+				pattern,
+				"COUNT",
+				Math.max(limit * 2, 100),
+			];
+			if (type) scanArgs.push("TYPE", type);
+
+			let nextScanCursor = scanCursor;
+			if ((pending.length < limit && scanCursor !== "0") || !cursor) {
+				const [nextRaw, keys] = (await (
+					client.scanBuffer as unknown as (
+						...args: Array<string | number>
+					) => Promise<[Buffer | string, Buffer[]]>
+				)(...scanArgs)) as [Buffer | string, Buffer[]];
+				nextScanCursor = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+				pending.push(...keys);
+			}
+			const pageKeys = pending.slice(0, limit);
+			const remaining = pending.slice(limit);
+			const pipeline = client.pipeline();
+			for (const key of pageKeys) {
+				pipeline.call("TYPE", key);
+				pipeline.pttl(key);
+				pipeline.call("MEMORY", "USAGE", key);
+			}
+			const metadata = (await pipeline.exec()) ?? [];
+
+			return {
+				keys: pageKeys.map((key, index) => {
+					const offset = index * 3;
+					const memory = metadata[offset + 2]?.[1];
+					return {
+						key: encodeBinaryValue(key),
+						type: normalizeRedisKeyType(metadata[offset]?.[1]),
+						ttlMs: Number(metadata[offset + 1]?.[1] ?? -2),
+						memoryBytes: memory === null || memory === undefined ? null : Number(memory),
+					};
+				}),
+				nextCursor:
+					nextScanCursor === "0" && remaining.length === 0
+						? null
+						: encodeKeyBrowserCursor({
+								scanCursor: nextScanCursor,
+								search,
+								exactPattern,
+								type,
+								pending: remaining.map((value) => value.toString("base64url")),
+							}),
+				hasMore: nextScanCursor !== "0" || remaining.length > 0,
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async getKeyDetails(
+		params: KeyDetailsQuerySchemaType & { key: string },
+	): Promise<KeyDetailsResultSchemaType> {
+		try {
+			const { db, key: encodedKey, cursor, limit, full, direction } = params;
+			const key = decodeKeyParam(encodedKey);
+			const client = await getRedisClient(parseDbIndex(db));
+			const [typeRaw, ttlMs, memoryRaw, dumpRaw] = await Promise.all([
+				client.callBuffer("TYPE", key),
+				client.pttl(key),
+				client.call("MEMORY", "USAGE", key).catch(() => null),
+				client.callBuffer("DUMP", key),
+			]);
+			const dump = dumpRaw as Buffer | null;
+			if (!dump) {
+				throw new HTTPException(404, { message: "Redis key no longer exists" });
+			}
+
+			const type = normalizeRedisKeyType(typeRaw);
+			const summary = {
+				key: encodeBinaryValue(key),
+				type,
+				ttlMs: Number(ttlMs),
+				memoryBytes: memoryRaw === null ? null : Number(memoryRaw),
+				revision: revisionForDump(dump),
+			};
+			const decodedCursor = cursor ? decodeKeyDetailsCursor(cursor) : null;
+			if (
+				cursor &&
+				(!decodedCursor ||
+					decodedCursor.key !== encodedKey ||
+					decodedCursor.type !== type ||
+					decodedCursor.direction !== direction)
+			) {
+				throw new HTTPException(400, { message: "Invalid or stale key details cursor" });
+			}
+
+			if (type === "string") {
+				const length = await client.strlen(key);
+				const readLimit = full ? MAX_STRING_FULL_BYTES : MAX_STRING_PREVIEW_BYTES;
+				const value = await client.getrangeBuffer(key, 0, readLimit - 1);
+				return {
+					...summary,
+					length,
+					value: {
+						kind: "string",
+						value: encodeBinaryValue(value),
+						truncated: length > readLimit,
+					},
+					nextCursor: null,
+					hasMore: false,
+				};
+			}
+
+			if (type === "hash") {
+				const [length, scanResult] = await Promise.all([
+					client.hlen(key),
+					client.hscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
+				]);
+				const [nextRaw, values] = scanResult as [Buffer | string, Buffer[]];
+				const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+				const entries = [];
+				for (let index = 0; index < values.length; index += 2) {
+					entries.push({
+						field: encodeBinaryValue(values[index]),
+						value: encodeBinaryValue(values[index + 1]),
+					});
+				}
+				return {
+					...summary,
+					length,
+					value: { kind: "hash", entries },
+					nextCursor:
+						next === "0"
+							? null
+							: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
+					hasMore: next !== "0",
+				};
+			}
+
+			if (type === "list") {
+				const offset = Number.parseInt(decodedCursor?.cursor ?? "0", 10);
+				const length = await client.llen(key);
+				const values = await client.lrangeBuffer(key, offset, offset + limit - 1);
+				const nextOffset = offset + values.length;
+				const hasMore = nextOffset < length;
+				return {
+					...summary,
+					length,
+					value: {
+						kind: "list",
+						entries: values.map((value, index) => ({
+							index: offset + index,
+							value: encodeBinaryValue(value),
+						})),
+					},
+					nextCursor: hasMore
+						? encodeKeyDetailsCursor({
+								key: encodedKey,
+								type,
+								cursor: String(nextOffset),
+								direction,
+							})
+						: null,
+					hasMore,
+				};
+			}
+
+			if (type === "set") {
+				const [length, scanResult] = await Promise.all([
+					client.scard(key),
+					client.sscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
+				]);
+				const [nextRaw, members] = scanResult as [Buffer | string, Buffer[]];
+				const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+				return {
+					...summary,
+					length,
+					value: { kind: "set", members: members.map(encodeBinaryValue) },
+					nextCursor:
+						next === "0"
+							? null
+							: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
+					hasMore: next !== "0",
+				};
+			}
+
+			if (type === "zset") {
+				const [length, scanResult] = await Promise.all([
+					client.zcard(key),
+					client.zscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
+				]);
+				const [nextRaw, values] = scanResult as [Buffer | string, Buffer[]];
+				const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+				const entries = [];
+				for (let index = 0; index < values.length; index += 2) {
+					entries.push({
+						member: encodeBinaryValue(values[index]),
+						score: Number(values[index + 1].toString("utf8")),
+					});
+				}
+				return {
+					...summary,
+					length,
+					value: { kind: "zset", entries },
+					nextCursor:
+						next === "0"
+							? null
+							: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
+					hasMore: next !== "0",
+				};
+			}
+
+			if (type === "stream") {
+				const boundary = decodedCursor?.cursor ?? (direction === "forward" ? "-" : "+");
+				const [length, rawEntries] = await Promise.all([
+					client.xlen(key),
+					direction === "forward"
+						? client.xrangeBuffer(key, boundary, "+", "COUNT", limit + 1)
+						: client.xrevrangeBuffer(key, boundary, "-", "COUNT", limit + 1),
+				]);
+				const hasMore = rawEntries.length > limit;
+				const page = rawEntries.slice(0, limit) as Array<[Buffer, Buffer[]]>;
+				const entries = page.map(([id, values]) => {
+					const fields = [];
+					for (let index = 0; index < values.length; index += 2) {
+						fields.push({
+							field: encodeBinaryValue(values[index]),
+							value: encodeBinaryValue(values[index + 1]),
+						});
+					}
+					return { id: id.toString("utf8"), fields };
+				});
+				const lastId = entries.at(-1)?.id;
+				return {
+					...summary,
+					length,
+					value: { kind: "stream", entries },
+					nextCursor:
+						hasMore && lastId
+							? encodeKeyDetailsCursor({
+									key: encodedKey,
+									type,
+									cursor: `(${lastId}`,
+									direction,
+								})
+							: null,
+					hasMore,
+				};
+			}
+
+			return {
+				...summary,
+				length: null,
+				value: { kind: "unknown" },
+				nextCursor: null,
+				hasMore: false,
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async getStringChunk(
+		params: KeyRawQuerySchemaType & { key: string },
+	): Promise<KeyRawResultSchemaType> {
+		try {
+			const client = await getRedisClient(parseDbIndex(params.db));
+			const key = decodeKeyParam(params.key);
+			const type = normalizeRedisKeyType(await client.callBuffer("TYPE", key));
+			if (type === "unknown") {
+				throw new HTTPException(404, { message: "Redis key no longer exists" });
+			}
+			assertKeyType(type, "string");
+			if (params.expectedRevision) {
+				const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
+				if (!dump || revisionForDump(dump) !== params.expectedRevision) throw conflict();
+			}
+			const length = await client.strlen(key);
+			const chunk = await client.getrangeBuffer(
+				key,
+				params.offset,
+				params.offset + params.limit - 1,
+			);
+			const next = params.offset + chunk.length;
+			return {
+				chunk: encodeBinaryValue(chunk),
+				length,
+				nextOffset: next < length ? next : null,
+				hasMore: next < length,
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async createKey(
+		params: CreateKeySchemaType & { db: string },
+	): Promise<KeyWriteResultSchemaType> {
+		const client = await getRedisClient(parseDbIndex(params.db));
+		const key = decodeBinaryValue(params.key.base64);
+		try {
+			await client.watch(key);
+			if ((await client.exists(key)) !== 0) {
+				throw new HTTPException(409, {
+					message: "A Redis key with this name already exists.",
+				});
+			}
+			if (params.type !== params.value.kind) {
+				throw new HTTPException(400, {
+					message: "The initial value does not match the selected Redis key type.",
+				});
+			}
+
+			const transaction = client.multi();
+			switch (params.value.kind) {
+				case "string":
+					transaction.set(key, decodeBinaryValue(params.value.value.base64));
+					break;
+				case "hash":
+					transaction.hset(
+						key,
+						...params.value.entries.flatMap(({ field, value }) => [
+							decodeBinaryValue(field.base64),
+							decodeBinaryValue(value.base64),
+						]),
+					);
+					break;
+				case "list":
+					transaction.rpush(
+						key,
+						...params.value.entries.map((value) => decodeBinaryValue(value.base64)),
+					);
+					break;
+				case "set":
+					transaction.sadd(
+						key,
+						...params.value.members.map((member) => decodeBinaryValue(member.base64)),
+					);
+					break;
+				case "zset":
+					transaction.zadd(
+						key,
+						...params.value.entries.flatMap(({ member, score }) => [
+							score,
+							decodeBinaryValue(member.base64),
+						]),
+					);
+					break;
+				case "stream":
+					transaction.xadd(
+						key,
+						params.value.id,
+						...params.value.fields.flatMap(({ field, value }) => [
+							decodeBinaryValue(field.base64),
+							decodeBinaryValue(value.base64),
+						]),
+					);
+					break;
+			}
+			if (params.ttlMs !== null) transaction.pexpire(key, params.ttlMs);
+			assertTransactionSucceeded(await transaction.exec());
+
+			const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
+			if (!dump) throw conflict();
+			return {
+				key: encodeBinaryValue(key),
+				revision: revisionForDump(dump),
+				deleted: false,
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		} finally {
+			await client.unwatch().catch(() => undefined);
+		}
+	}
+
+	async applyKeyAction(
+		params: KeyActionSchemaType & { db: string; key: string },
+	): Promise<KeyWriteResultSchemaType> {
+		const client = await getRedisClient(parseDbIndex(params.db));
+		const key = decodeKeyParam(params.key);
+		const newKey =
+			params.operation.action === "rename"
+				? decodeBinaryValue(params.operation.newKey.base64)
+				: null;
+		try {
+			if (newKey && !newKey.equals(key)) await client.watch(key, newKey);
+			else await client.watch(key);
+
+			const [dumpRaw, typeRaw, ttlMs] = await Promise.all([
+				client.callBuffer("DUMP", key),
+				client.callBuffer("TYPE", key),
+				client.pttl(key),
+			]);
+			const dump = dumpRaw as Buffer | null;
+			if (!dump) throw new HTTPException(404, { message: "Redis key no longer exists" });
+			if (!params.force && revisionForDump(dump) !== params.expectedRevision) throw conflict();
+			const type = normalizeRedisKeyType(typeRaw);
+			if (newKey && !newKey.equals(key) && (await client.exists(newKey)) !== 0) {
+				throw new HTTPException(409, {
+					message: "A Redis key with the new name already exists.",
+				});
+			}
+
+			const transaction = client.multi();
+			switch (params.operation.action) {
+				case "rename":
+					if (!newKey || newKey.equals(key)) {
+						return {
+							key: encodeBinaryValue(key),
+							revision: revisionForDump(dump),
+							deleted: false,
+						};
+					}
+					transaction.rename(key, newKey);
+					break;
+				case "setTtl":
+					if (params.operation.ttlMs === null) transaction.persist(key);
+					else transaction.pexpire(key, params.operation.ttlMs);
+					break;
+				case "setString":
+					assertKeyType(type, "string");
+					transaction.set(key, decodeBinaryValue(params.operation.value.base64));
+					if (ttlMs > 0) transaction.pexpire(key, ttlMs);
+					break;
+				case "upsertHash":
+					assertKeyType(type, "hash");
+					transaction.hset(
+						key,
+						decodeBinaryValue(params.operation.field.base64),
+						decodeBinaryValue(params.operation.value.base64),
+					);
+					break;
+				case "deleteHash":
+					assertKeyType(type, "hash");
+					transaction.hdel(key, decodeBinaryValue(params.operation.field.base64));
+					break;
+				case "pushList":
+					assertKeyType(type, "list");
+					if (params.operation.side === "left") {
+						transaction.lpush(key, decodeBinaryValue(params.operation.value.base64));
+					} else {
+						transaction.rpush(key, decodeBinaryValue(params.operation.value.base64));
+					}
+					break;
+				case "setList":
+					assertKeyType(type, "list");
+					transaction.lset(
+						key,
+						params.operation.index,
+						decodeBinaryValue(params.operation.value.base64),
+					);
+					break;
+				case "deleteList": {
+					assertKeyType(type, "list");
+					const marker = Buffer.concat([
+						Buffer.from("db-studio:list-delete:"),
+						randomBytes(32),
+					]);
+					transaction.lset(key, params.operation.index, marker);
+					transaction.lrem(key, 1, marker);
+					break;
+				}
+				case "addSet":
+					assertKeyType(type, "set");
+					transaction.sadd(key, decodeBinaryValue(params.operation.member.base64));
+					break;
+				case "removeSet":
+					assertKeyType(type, "set");
+					transaction.srem(key, decodeBinaryValue(params.operation.member.base64));
+					break;
+				case "upsertZset":
+					assertKeyType(type, "zset");
+					transaction.zadd(
+						key,
+						params.operation.score,
+						decodeBinaryValue(params.operation.member.base64),
+					);
+					break;
+				case "removeZset":
+					assertKeyType(type, "zset");
+					transaction.zrem(key, decodeBinaryValue(params.operation.member.base64));
+					break;
+				case "appendStream":
+					assertKeyType(type, "stream");
+					transaction.xadd(
+						key,
+						params.operation.id,
+						...params.operation.fields.flatMap(({ field, value }) => [
+							decodeBinaryValue(field.base64),
+							decodeBinaryValue(value.base64),
+						]),
+					);
+					break;
+				case "deleteStream":
+					assertKeyType(type, "stream");
+					transaction.xdel(key, params.operation.id);
+					break;
+			}
+
+			assertTransactionSucceeded(await transaction.exec());
+			const resultKey = newKey && !newKey.equals(key) ? newKey : key;
+			const nextDump = (await client.callBuffer("DUMP", resultKey)) as Buffer | null;
+			return {
+				key: encodeBinaryValue(resultKey),
+				revision: nextDump ? revisionForDump(nextDump) : null,
+				deleted: nextDump === null,
+			};
+		} catch (e) {
+			throw this.wrapError(e);
+		} finally {
+			await client.unwatch().catch(() => undefined);
+		}
+	}
+
+	async deleteKey(
+		params: DeleteKeyQuerySchemaType & { key: string },
+	): Promise<DeleteKeyResultSchemaType> {
+		const client = await getRedisClient(parseDbIndex(params.db));
+		const key = decodeKeyParam(params.key);
+		try {
+			await client.watch(key);
+			const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
+			if (!dump) throw new HTTPException(404, { message: "Redis key no longer exists" });
+			if (!params.force && revisionForDump(dump) !== params.expectedRevision) throw conflict();
+			const transaction = client.multi().del(key);
+			assertTransactionSucceeded(await transaction.exec());
+			return { deleted: true };
+		} catch (e) {
+			throw this.wrapError(e);
+		} finally {
+			await client.unwatch().catch(() => undefined);
+		}
+	}
+
 	// -----------------------------------------------------------------------
 	// Database operations
 	// -----------------------------------------------------------------------
@@ -241,19 +907,36 @@ export class RedisAdapter extends BaseAdapter {
 	override async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const client = await getRedisClient(getRedisDefaultDb());
-			const configReply = (await client.call("CONFIG", "GET", "databases")) as unknown;
-			let total = 16;
+			let total = 1;
+			let supportsLogicalDatabases = false;
+			let configReply: unknown = null;
+			try {
+				configReply = await client.call("CONFIG", "GET", "databases");
+			} catch (error) {
+				if (!isUnavailableCommandError(error)) throw error;
+			}
 			if (Array.isArray(configReply) && configReply.length >= 2) {
 				const parsed = Number.parseInt(String(configReply[1]), 10);
-				if (Number.isFinite(parsed) && parsed > 0) total = parsed;
+				if (Number.isFinite(parsed) && parsed > 0) {
+					total = parsed;
+					supportsLogicalDatabases = true;
+				}
 			}
 
-			const keyspaceInfo = await client.info("keyspace");
+			let keyspaceInfo = "";
+			try {
+				keyspaceInfo = await client.info("keyspace");
+			} catch (error) {
+				if (!isUnavailableCommandError(error)) throw error;
+			}
 			const keysPerDb = parseKeyspaceInfo(keyspaceInfo);
 
-			return Array.from({ length: total }, (_, i) => ({
-				name: String(i),
-				size: `${keysPerDb.get(i) ?? 0} keys`,
+			const databases = supportsLogicalDatabases
+				? Array.from({ length: total }, (_, index) => index)
+				: [getRedisDefaultDb()];
+			return databases.map((index) => ({
+				name: String(index),
+				size: `${keysPerDb.get(index) ?? 0} keys`,
 				owner: "n/a",
 				encoding: "n/a",
 			}));
@@ -278,7 +961,10 @@ export class RedisAdapter extends BaseAdapter {
 
 			let maxclients = Number.parseInt(clients.maxclients ?? "0", 10);
 			if (!Number.isFinite(maxclients) || maxclients === 0) {
-				const reply = (await client.call("CONFIG", "GET", "maxclients")) as unknown;
+				const reply = await client.call("CONFIG", "GET", "maxclients").catch((error) => {
+					if (!isUnavailableCommandError(error)) throw error;
+					return null;
+				});
 				if (Array.isArray(reply) && reply.length >= 2) {
 					maxclients = Number.parseInt(String(reply[1]), 10) || 0;
 				}

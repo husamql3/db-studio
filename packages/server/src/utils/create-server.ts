@@ -17,6 +17,7 @@ import type { AppType } from "@/app.types.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
+import { keysRoutes } from "@/routes/keys.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
@@ -141,7 +142,8 @@ export const createServer = () => {
 		)
 		.route(`${API_PREFIX}/:dbType`, tablesRoutes)
 		.route(`${API_PREFIX}/:dbType`, recordsRoutes)
-		.route(`${API_PREFIX}/:dbType`, queryRoutes);
+		.route(`${API_PREFIX}/:dbType`, queryRoutes)
+		.route(`${API_PREFIX}/:dbType`, keysRoutes);
 
 	if (process.env.NODE_ENV !== "test") {
 		/**
