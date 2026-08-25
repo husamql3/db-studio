@@ -71,7 +71,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Schema section for views, functions, triggers, and extensions",
-				status: "completed",
+				status: "planned",
 			},
 			{
 				title: "Safe query mode with transaction preview, commit, and rollback",
@@ -100,16 +100,20 @@ export const roadmapItems: RoadmapItem[] = [
 		status: "in-progress",
 		items: [
 			{
-				title: "Import many rows at once using CSV or JSON files",
+				title: "Import many rows at once using CSV, JSON, or Excel files",
 				status: "completed",
 			},
 			{
 				title: "Smart dropdowns for related tables with search and easy navigation",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
-				title: "Export and import both data and database structure",
+				title: "Export table data and copy table structure as SQL",
 				status: "completed",
+			},
+			{
+				title: "Import and export complete database structures",
+				status: "planned",
 			},
 			{
 				title: "Better JSON editor inside cells with formatting and line numbers",
@@ -136,7 +140,7 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "AI-Powered Features",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Turn plain English into accurate SQL using knowledge of your full database",
@@ -191,7 +195,7 @@ export const roadmapItems: RoadmapItem[] = [
 				title: "Add full support for MongoDB databases",
 				status: "completed",
 			},
-			{ title: "Add full support for SQLite databases", status: "planned" },
+			{ title: "Add full support for SQLite databases", status: "completed" },
 			{
 				title: "Add full support for MariaDB databases",
 				status: "planned",
@@ -202,7 +206,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add support for Redis and Valkey key-value databases",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
 				title: "Add support for DuckDB and ClickHouse analytics databases",
@@ -253,12 +257,12 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "NoSQL Tools",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title:
 					"Redis and Valkey key browser with TTL, memory usage, and data structure viewers",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
 				title: "MongoDB collection schema inference, aggregation builder, and document diff",
