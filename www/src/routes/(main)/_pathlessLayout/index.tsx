@@ -16,10 +16,18 @@ import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
 import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
+import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
+	head: () =>
+		seoHead({
+			title: "dbstudio – The modern pgAdmin alternative for every database",
+			description:
+				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis. Browse tables, edit records, and run queries from one UI.",
+			path: "/",
+		}),
 });
 
 const EMAIL = "dbstudio@ql3.dev";
