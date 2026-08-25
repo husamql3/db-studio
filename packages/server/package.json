@@ -33,7 +33,7 @@
   "bugs": {
     "url": "https://github.com/husamql3/db-studio/issues"
   },
-  "license": "BSL-1.1",
+  "license": "Apache-2.0",
   "bin": {
     "db-studio": "./dist/index.js"
   },
