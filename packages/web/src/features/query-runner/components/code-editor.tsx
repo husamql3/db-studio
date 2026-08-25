@@ -15,7 +15,7 @@ interface CodeEditorProps {
 	initialQuery: string;
 	queryId?: string;
 	savedQuery: string;
-	language: "pgsql" | "json";
+	language: "pgsql" | "json" | "plaintext";
 	onQueryChange: (query: string) => void;
 	onUnsavedChanges: (hasChanges: boolean) => void;
 	onExecuteQuery: (query: string) => void;

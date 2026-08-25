@@ -44,7 +44,10 @@ const SidebarSchemaDropdown = () => {
 				value={selectedSchema}
 				onValueChange={setSelectedSchema}
 			>
-				<SelectTrigger className="w-full justify-between h-8">
+				<SelectTrigger
+					variant="outline"
+					className="!h-8 w-full justify-between rounded-sm"
+				>
 					<SelectValue placeholder="Select schema" />
 				</SelectTrigger>
 				<SelectContent>

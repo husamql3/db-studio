@@ -1,15 +1,18 @@
 import { Button } from "@db-studio/ui/button";
 import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation } from "@tanstack/react-router";
+import { useDatabaseStore } from "@/stores/database.store";
 import { TABS } from "@/utils/constants";
 
 export const Tabs = () => {
 	const { pathname } = useLocation();
 	const currentRoute = pathname.split("/")[1] || "table";
+	const { dbType } = useDatabaseStore();
+	const routes = dbType === "redis" ? (["browser", "runner"] as const) : TABS;
 
 	return (
 		<div className="flex h-full items-center">
-			{TABS.map((route) => (
+			{routes.map((route) => (
 				<Link
 					key={route}
 					to={`/${route}`}

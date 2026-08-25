@@ -7,6 +7,7 @@ import { useQueriesStore } from "@/stores/queries.store";
 import {
 	MONGO_PLACEHOLDER_QUERY,
 	PGSQL_PLACEHOLDER_QUERY,
+	REDIS_PLACEHOLDER_QUERY,
 } from "@/utils/constants/placeholders";
 import { QueryResultContainer } from "../components/query-result-container";
 import { RunnerHeader } from "../components/runner-header";
@@ -23,7 +24,13 @@ export type QueryResult = {
 	queryId: string;
 };
 
-export const RunnerScreen = ({ queryId }: { queryId?: string }) => {
+export const RunnerScreen = ({
+	queryId,
+	initialQuery,
+}: {
+	queryId?: string;
+	initialQuery?: string;
+}) => {
 	const navigate = useNavigate();
 	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
 	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
@@ -35,11 +42,16 @@ export const RunnerScreen = ({ queryId }: { queryId?: string }) => {
 	const { dbType } = useDatabaseStore();
 
 	const getInitialQuery = useCallback(() => {
+		if (initialQuery) return initialQuery;
 		const placeholder =
-			dbType === "mongodb" ? MONGO_PLACEHOLDER_QUERY : PGSQL_PLACEHOLDER_QUERY;
+			dbType === "mongodb"
+				? MONGO_PLACEHOLDER_QUERY
+				: dbType === "redis"
+					? REDIS_PLACEHOLDER_QUERY
+					: PGSQL_PLACEHOLDER_QUERY;
 		if (!query) return placeholder;
 		return query?.query ?? placeholder;
-	}, [query, dbType]);
+	}, [query, dbType, initialQuery]);
 
 	const handleExecuteQuery = useCallback(
 		async (query: string) => {
@@ -47,12 +59,19 @@ export const RunnerScreen = ({ queryId }: { queryId?: string }) => {
 				toast.error("Query is empty!");
 				return;
 			}
+			const command = query.trim().match(/^\S+/)?.[0]?.toUpperCase();
+			if (dbType === "redis" && (command === "FLUSHDB" || command === "FLUSHALL")) {
+				const confirmation = window.prompt(
+					`This permanently deletes Redis data. Type ${command} to continue.`,
+				);
+				if (confirmation !== command) return;
+			}
 
 			executeQuery({ query }).then((result) => {
 				setQueryResult({ data: result, queryId: queryId ?? "" });
 			});
 		},
-		[executeQuery, queryId],
+		[dbType, executeQuery, queryId],
 	);
 
 	const handleButtonClick = useCallback(() => {
@@ -110,7 +129,7 @@ export const RunnerScreen = ({ queryId }: { queryId?: string }) => {
 					initialQuery={getInitialQuery()}
 					queryId={queryId}
 					savedQuery={query?.query ?? ""}
-					language={dbType === "mongodb" ? "json" : "pgsql"}
+					language={dbType === "mongodb" ? "json" : dbType === "redis" ? "plaintext" : "pgsql"}
 					onQueryChange={setCurrentQuery}
 					onUnsavedChanges={setHasUnsavedChanges}
 					onExecuteQuery={handleExecuteQuery}
