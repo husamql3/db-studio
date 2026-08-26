@@ -1,12 +1,16 @@
 # Top-level configuration
 name = "dbstudio"
-main = "@tanstack/react-start/server-entry"
+main = "./src/server.ts"
 compatibility_date = "2025-09-02"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
 pattern = "dbstudio.sh"
+custom_domain = true
+
+[[routes]]
+pattern = "www.dbstudio.sh"
 custom_domain = true
 
 [observability]
