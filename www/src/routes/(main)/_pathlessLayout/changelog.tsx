@@ -2,10 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Image } from "fumadocs-core/framework";
 import { PlusIcon } from "lucide-react";
 import { type ChangelogItem, changelog } from "@/lib/content/changelog";
+import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/changelog")({
 	component: RouteComponent,
+	head: () =>
+		seoHead({
+			title: "Changelog – dbstudio",
+			description: "Release notes for dbstudio: new features, improvements, and bug fixes.",
+			path: "/changelog",
+		}),
 });
 
 function UsernameBadge({ username }: { username?: string | string[] }) {

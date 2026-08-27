@@ -1,12 +1,17 @@
 # Top-level configuration
 name = "dbstudio"
-main = "@tanstack/react-start/server-entry"
+main = "src/server.ts"
 compatibility_date = "2025-09-02"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
 pattern = "dbstudio.sh"
+custom_domain = true
+
+# www resolves to the same worker; src/server.ts 301-redirects it to the apex
+[[routes]]
+pattern = "www.dbstudio.sh"
 custom_domain = true
 
 [observability]

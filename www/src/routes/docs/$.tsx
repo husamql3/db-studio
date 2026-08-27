@@ -15,6 +15,7 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { baseOptions } from "@/components/layout.shared";
+import { seoHead } from "@/lib/seo";
 import { source } from "@/lib/source";
 
 export const Route = createFileRoute("/docs/$")({
@@ -25,6 +26,12 @@ export const Route = createFileRoute("/docs/$")({
 		await clientLoader.preload(data.path);
 		return data;
 	},
+	head: ({ loaderData, params }) =>
+		seoHead({
+			title: loaderData?.title ? `${loaderData.title} – dbstudio docs` : "Docs – dbstudio",
+			description: loaderData?.description,
+			path: params._splat ? `/docs/${params._splat}` : "/docs",
+		}),
 });
 
 const serverLoader = createServerFn({
@@ -37,6 +44,8 @@ const serverLoader = createServerFn({
 
 		return {
 			path: page.path,
+			title: page.data.title,
+			description: page.data.description,
 			pageTree: await source.serializePageTree(source.getPageTree()),
 		};
 	});

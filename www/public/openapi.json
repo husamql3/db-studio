@@ -1,0 +1,407 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "db-studio API",
+		"description": "HTTP API of the db-studio server (`npx db-studio`), a modern pgAdmin alternative that works with PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis. All database-scoped endpoints live under `/{dbType}`, where `dbType` is one of `pg`, `mysql`, `mssql`, `mongodb`, `sqlite`, or `redis`. Responses are wrapped in a `{ \"data\": ... }` envelope.",
+		"version": "1.0.0",
+		"contact": {
+			"name": "db-studio",
+			"url": "https://dbstudio.sh"
+		}
+	},
+	"externalDocs": {
+		"description": "db-studio documentation",
+		"url": "https://dbstudio.sh/docs"
+	},
+	"servers": [
+		{
+			"url": "http://localhost:3000",
+			"description": "Local db-studio server (port configurable via --port)"
+		}
+	],
+	"tags": [
+		{ "name": "databases", "description": "List and inspect connected databases" },
+		{ "name": "tables", "description": "Table and schema management" },
+		{ "name": "records", "description": "Row-level CRUD operations" },
+		{ "name": "query", "description": "Raw query execution" },
+		{ "name": "keys", "description": "Key-value operations (Redis)" }
+	],
+	"paths": {
+		"/databases": {
+			"get": {
+				"tags": ["databases"],
+				"summary": "List available databases",
+				"operationId": "listDatabases",
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/databases/current": {
+			"get": {
+				"tags": ["databases"],
+				"summary": "Get the currently connected database",
+				"operationId": "getCurrentDatabase",
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/databases/connection": {
+			"get": {
+				"tags": ["databases"],
+				"summary": "Get connection info for the active database",
+				"operationId": "getConnectionInfo",
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables": {
+			"get": {
+				"tags": ["tables"],
+				"summary": "List tables (or collections / Redis type-tables)",
+				"operationId": "listTables",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": {
+					"200": { "$ref": "#/components/responses/DataResponse" },
+					"503": { "$ref": "#/components/responses/ConnectionError" }
+				}
+			},
+			"post": {
+				"tags": ["tables"],
+				"summary": "Create a table",
+				"operationId": "createTable",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": {
+					"200": { "$ref": "#/components/responses/DataResponse" },
+					"400": { "$ref": "#/components/responses/BadRequest" }
+				}
+			}
+		},
+		"/{dbType}/tables/{tableName}": {
+			"delete": {
+				"tags": ["tables"],
+				"summary": "Drop a table",
+				"operationId": "deleteTable",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables/{tableName}/columns": {
+			"get": {
+				"tags": ["tables"],
+				"summary": "List columns of a table",
+				"operationId": "listColumns",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			},
+			"post": {
+				"tags": ["tables"],
+				"summary": "Add a column to a table",
+				"operationId": "addColumn",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables/{tableName}/columns/{columnName}": {
+			"patch": {
+				"tags": ["tables"],
+				"summary": "Edit a column definition",
+				"operationId": "editColumn",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/ColumnName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			},
+			"delete": {
+				"tags": ["tables"],
+				"summary": "Drop a column",
+				"operationId": "deleteColumn",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/ColumnName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables/{tableName}/columns/{columnName}/rename": {
+			"patch": {
+				"tags": ["tables"],
+				"summary": "Rename a column",
+				"operationId": "renameColumn",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/ColumnName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables/{tableName}/schema": {
+			"get": {
+				"tags": ["tables"],
+				"summary": "Get full table schema",
+				"operationId": "getTableSchema",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables/{tableName}/data": {
+			"get": {
+				"tags": ["tables"],
+				"summary": "Get paginated table data (cursor-based)",
+				"operationId": "getTableData",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/tables/{tableName}/export": {
+			"get": {
+				"tags": ["tables"],
+				"summary": "Export table data",
+				"operationId": "exportTableData",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/TableName" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/records": {
+			"post": {
+				"tags": ["records"],
+				"summary": "Insert a record",
+				"operationId": "addRecord",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			},
+			"patch": {
+				"tags": ["records"],
+				"summary": "Update a record",
+				"operationId": "updateRecord",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			},
+			"delete": {
+				"tags": ["records"],
+				"summary": "Delete records",
+				"operationId": "deleteRecords",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/records/force": {
+			"delete": {
+				"tags": ["records"],
+				"summary": "Force-delete records (cascades foreign-key references)",
+				"operationId": "forceDeleteRecords",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/records/bulk": {
+			"post": {
+				"tags": ["records"],
+				"summary": "Bulk-insert records",
+				"operationId": "bulkInsertRecords",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/{dbType}/query": {
+			"post": {
+				"tags": ["query"],
+				"summary": "Execute a raw query (SQL, MongoDB command, or redis-cli style command)",
+				"operationId": "executeQuery",
+				"parameters": [
+					{ "$ref": "#/components/parameters/DbType" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/redis/keys": {
+			"get": {
+				"tags": ["keys"],
+				"summary": "Scan keys (forward-only SCAN pagination)",
+				"operationId": "scanKeys",
+				"parameters": [{ "$ref": "#/components/parameters/Db" }],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			},
+			"post": {
+				"tags": ["keys"],
+				"summary": "Create a key",
+				"operationId": "createKey",
+				"parameters": [{ "$ref": "#/components/parameters/Db" }],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/redis/keys/{key}": {
+			"get": {
+				"tags": ["keys"],
+				"summary": "Get key details (type, TTL, encoding, value)",
+				"operationId": "getKeyDetails",
+				"parameters": [
+					{ "$ref": "#/components/parameters/Key" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			},
+			"delete": {
+				"tags": ["keys"],
+				"summary": "Delete a key",
+				"operationId": "deleteKey",
+				"parameters": [
+					{ "$ref": "#/components/parameters/Key" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/redis/keys/{key}/raw": {
+			"get": {
+				"tags": ["keys"],
+				"summary": "Get a chunk of a large string value",
+				"operationId": "getStringChunk",
+				"parameters": [
+					{ "$ref": "#/components/parameters/Key" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		},
+		"/redis/keys/{key}/actions": {
+			"post": {
+				"tags": ["keys"],
+				"summary": "Apply an action to a key (expire, persist, rename, ...)",
+				"operationId": "applyKeyAction",
+				"parameters": [
+					{ "$ref": "#/components/parameters/Key" },
+					{ "$ref": "#/components/parameters/Db" }
+				],
+				"requestBody": { "$ref": "#/components/requestBodies/Json" },
+				"responses": { "200": { "$ref": "#/components/responses/DataResponse" } }
+			}
+		}
+	},
+	"components": {
+		"parameters": {
+			"DbType": {
+				"name": "dbType",
+				"in": "path",
+				"required": true,
+				"schema": {
+					"type": "string",
+					"enum": ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"]
+				},
+				"description": "Database engine the request is scoped to"
+			},
+			"Db": {
+				"name": "db",
+				"in": "query",
+				"required": true,
+				"schema": { "type": "string" },
+				"description": "Target database name (for Redis, the logical database index)"
+			},
+			"TableName": {
+				"name": "tableName",
+				"in": "path",
+				"required": true,
+				"schema": { "type": "string" }
+			},
+			"ColumnName": {
+				"name": "columnName",
+				"in": "path",
+				"required": true,
+				"schema": { "type": "string" }
+			},
+			"Key": {
+				"name": "key",
+				"in": "path",
+				"required": true,
+				"schema": { "type": "string" },
+				"description": "Redis key (URL-encoded)"
+			}
+		},
+		"requestBodies": {
+			"Json": {
+				"required": true,
+				"content": { "application/json": { "schema": { "type": "object" } } }
+			}
+		},
+		"responses": {
+			"DataResponse": {
+				"description": "Success",
+				"content": {
+					"application/json": {
+						"schema": {
+							"type": "object",
+							"properties": { "data": {} },
+							"required": ["data"]
+						}
+					}
+				}
+			},
+			"BadRequest": {
+				"description": "Validation error or unsupported operation for this database type"
+			},
+			"ConnectionError": {
+				"description": "Database connection failed"
+			}
+		}
+	}
+}

@@ -8,6 +8,7 @@ import {
 	roadmapItems,
 } from "@/lib/content/roadmap";
 import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
+import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 const getTaskIcon = (status: RoadmapItemStatus) => {
@@ -27,6 +28,13 @@ const getTaskIcon = (status: RoadmapItemStatus) => {
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/roadmap")({
 	component: RouteComponent,
+	head: () =>
+		seoHead({
+			title: "Roadmap – dbstudio",
+			description:
+				"What's shipped, in progress, and planned for dbstudio: database support, table editing, query tools, and more.",
+			path: "/roadmap",
+		}),
 });
 
 function RouteComponent() {
