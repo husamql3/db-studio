@@ -32,6 +32,17 @@ export const encodeTextValue = (value: string): EncodedRedisValueSchemaType => (
 	utf8: value,
 });
 
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+
+/** Encodes raw bytes, keeping `utf8` whenever the bytes are clean UTF-8 text. */
+export const encodeBytesValue = (bytes: Uint8Array): EncodedRedisValueSchemaType => {
+	try {
+		return { base64: base64UrlFromBytes(bytes), utf8: utf8Decoder.decode(bytes) };
+	} catch {
+		return { base64: base64UrlFromBytes(bytes) };
+	}
+};
+
 const hexFromBytes = (bytes: Uint8Array): string =>
 	Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 
@@ -135,9 +146,26 @@ export const RedisValue = ({
 						variant="ghost"
 						size="icon-sm"
 						onClick={copy}
-						aria-label="Copy value"
+						aria-label={copied ? "Value copied" : "Copy value"}
 					>
-						{copied ? <Check /> : <Copy />}
+						<span className="relative inline-flex items-center justify-center">
+							<Copy
+								className={cn(
+									"transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+									copied
+										? "scale-25 opacity-0 blur-[4px]"
+										: "scale-100 opacity-100 blur-[0px]",
+								)}
+							/>
+							<Check
+								className={cn(
+									"absolute inset-0 transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+									copied
+										? "scale-100 opacity-100 blur-[0px]"
+										: "scale-25 opacity-0 blur-[4px]",
+								)}
+							/>
+						</span>
 					</Button>
 					<Button
 						variant="ghost"
@@ -156,6 +184,33 @@ export const RedisValue = ({
 	);
 };
 
+/**
+ * Parses the visible draft under the selected encoding. `null` means the draft
+ * has no byte representation yet (odd-length or non-hex characters, malformed
+ * Base64) — never a value to submit.
+ */
+const parseDraft = (
+	draft: string,
+	mode: "text" | "hex" | "base64",
+): EncodedRedisValueSchemaType | null => {
+	if (mode === "text") return encodeTextValue(draft);
+	if (mode === "hex") {
+		const parsed = bytesFromHex(draft);
+		return parsed && encodeBytesValue(parsed);
+	}
+	try {
+		return encodeBytesValue(bytesFromBase64Url(draft));
+	} catch {
+		return null;
+	}
+};
+
+/**
+ * Value editor with a text/hex/base64 encoding switch. The committed `value`
+ * always mirrors what the input displays: an unparseable draft commits `null`
+ * (rendered via `aria-invalid`), so consumers MUST disable their actions while
+ * `value === null` instead of submitting a stale earlier value.
+ */
 export const RedisValueInput = ({
 	value,
 	onChange,
@@ -163,45 +218,49 @@ export const RedisValueInput = ({
 	className,
 	id,
 }: {
-	value: EncodedRedisValueSchemaType;
-	onChange: (value: EncodedRedisValueSchemaType) => void;
+	value: EncodedRedisValueSchemaType | null;
+	onChange: (value: EncodedRedisValueSchemaType | null) => void;
 	placeholder?: string;
 	className?: string;
 	id?: string;
 }) => {
 	const [mode, setMode] = useState<"text" | "hex" | "base64">(
-		value.utf8 === undefined ? "hex" : "text",
+		value !== null && value.utf8 === undefined ? "hex" : "text",
 	);
-	const bytes = bytesFromBase64Url(value.base64);
+	// While the draft is invalid (value === null) there is nothing canonical to
+	// re-derive the text from, so the draft stays untouched.
 	const shown =
-		mode === "text" ? (value.utf8 ?? "") : mode === "hex" ? hexFromBytes(bytes) : value.base64;
-	const [draft, setDraft] = useState(shown);
-	useEffect(() => setDraft(shown), [shown]);
+		value === null
+			? null
+			: mode === "text"
+				? (value.utf8 ?? "")
+				: mode === "hex"
+					? hexFromBytes(bytesFromBase64Url(value.base64))
+					: value.base64;
+	const [draft, setDraft] = useState(shown ?? "");
+	useEffect(() => {
+		if (shown !== null) setDraft(shown);
+	}, [shown]);
 	const update = (next: string) => {
 		setDraft(next);
-		if (mode === "text") onChange(encodeTextValue(next));
-		if (mode === "hex") {
-			const parsed = bytesFromHex(next);
-			if (parsed) onChange({ base64: base64UrlFromBytes(parsed) });
-		}
-		if (mode === "base64") {
-			try {
-				onChange({ base64: base64UrlFromBytes(bytesFromBase64Url(next)) });
-			} catch {
-				// Keep the last valid binary value while the user is typing.
-			}
-		}
+		onChange(parseDraft(next, mode));
+	};
+	const switchMode = (next: typeof mode) => {
+		setMode(next);
+		// An invalid draft may become valid under the new encoding (and vice
+		// versa); re-commit so the parent always tracks the visible text.
+		if (value === null) onChange(parseDraft(draft, next));
 	};
 
 	return (
 		<div className={cn("flex min-w-0", className)}>
 			<Select
 				value={mode}
-				onValueChange={(next) => setMode(next as typeof mode)}
+				onValueChange={(next) => switchMode(next as typeof mode)}
 			>
 				<SelectTrigger
 					aria-label="Value encoding"
-					className="h-7 w-[4.5rem] shrink-0 rounded-r-none border-r-0 px-1 font-mono text-[10px] uppercase"
+					className="h-8! w-18 shrink-0 rounded-e-none border-e-0 px-1 font-mono text-[10px] uppercase"
 				>
 					<SelectValue />
 				</SelectTrigger>
@@ -216,7 +275,8 @@ export const RedisValueInput = ({
 				value={draft}
 				onChange={(event) => update(event.target.value)}
 				placeholder={placeholder}
-				className="rounded-l-none font-mono"
+				aria-invalid={value === null || undefined}
+				className="rounded-s-none font-mono h-8!"
 			/>
 		</div>
 	);

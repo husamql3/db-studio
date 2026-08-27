@@ -141,7 +141,7 @@ export const RedisKeySidebar = () => {
 							<SelectTrigger
 								variant="outline"
 								aria-label="Filter Redis key type"
-								className="!h-8 min-w-0 flex-1 justify-between rounded-sm"
+								className="h-8! min-w-0 flex-1 justify-between rounded-sm"
 							>
 								<SelectValue />
 							</SelectTrigger>

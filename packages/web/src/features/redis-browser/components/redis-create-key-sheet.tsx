@@ -1,4 +1,7 @@
-import type { CreateKeySchemaType } from "@db-studio/shared/types";
+import type {
+	CreateKeySchemaType,
+	EncodedRedisValueSchemaType,
+} from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@db-studio/ui/field";
 import { Input } from "@db-studio/ui/input";
@@ -20,23 +23,30 @@ const emptyValue = encodeTextValue("");
 
 export const RedisCreateKeySheet = () => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
-	const [key, setKey] = useState(emptyValue);
+	const [key, setKey] = useState<EncodedRedisValueSchemaType | null>(emptyValue);
 	const [type, setType] = useState<(typeof KEY_TYPES)[number]>("string");
-	const [first, setFirst] = useState(emptyValue);
-	const [second, setSecond] = useState(emptyValue);
+	const [first, setFirst] = useState<EncodedRedisValueSchemaType | null>(emptyValue);
+	const [second, setSecond] = useState<EncodedRedisValueSchemaType | null>(emptyValue);
 	const [score, setScore] = useState("0");
 	const [ttl, setTtl] = useState("");
 	const { createKey, isPending } = useRedisKeyMutations();
 	const open = isOverlayOpen("redis-browser.create-key");
 
+	const needsSecond = type === "hash" || type === "stream";
+	const invalid = key === null || first === null || (needsSecond && second === null);
+
 	const submit = async () => {
+		// A stale null `second` from a previously-selected type must not block
+		// types that never render the second input.
+		const pairValue = needsSecond ? second : emptyValue;
+		if (key === null || first === null || pairValue === null) return;
 		let value: CreateKeySchemaType["value"];
 		switch (type) {
 			case "string":
 				value = { kind: "string", value: first };
 				break;
 			case "hash":
-				value = { kind: "hash", entries: [{ field: first, value: second }] };
+				value = { kind: "hash", entries: [{ field: first, value: pairValue }] };
 				break;
 			case "list":
 				value = { kind: "list", entries: [first] };
@@ -48,7 +58,7 @@ export const RedisCreateKeySheet = () => {
 				value = { kind: "zset", entries: [{ member: first, score: Number(score) }] };
 				break;
 			case "stream":
-				value = { kind: "stream", id: "*", fields: [{ field: first, value: second }] };
+				value = { kind: "stream", id: "*", fields: [{ field: first, value: pairValue }] };
 				break;
 		}
 
@@ -76,6 +86,7 @@ export const RedisCreateKeySheet = () => {
 						id="redis-key-name"
 						value={key}
 						onChange={setKey}
+						className="h-8"
 						placeholder="cache:user:42"
 					/>
 					<FieldDescription>
@@ -89,7 +100,10 @@ export const RedisCreateKeySheet = () => {
 						value={type}
 						onValueChange={(value) => setType(value as typeof type)}
 					>
-						<SelectTrigger id="redis-key-type">
+						<SelectTrigger
+							id="redis-key-type"
+							className="h-8!"
+						>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -153,7 +167,7 @@ export const RedisCreateKeySheet = () => {
 						value={ttl}
 						onChange={(event) => setTtl(event.target.value)}
 						placeholder="Persistent"
-						className="font-mono"
+						className="font-mono h-8"
 					/>
 					<FieldDescription>Leave empty to create a persistent key.</FieldDescription>
 				</Field>
@@ -167,7 +181,7 @@ export const RedisCreateKeySheet = () => {
 					Cancel
 				</Button>
 				<Button
-					disabled={isPending}
+					disabled={isPending || invalid}
 					onClick={submit}
 				>
 					Create key

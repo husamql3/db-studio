@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	base64UrlFromBytes,
 	bytesFromBase64Url,
+	encodeBytesValue,
 	encodeTextValue,
 	RedisValue,
 	RedisValueInput,
@@ -37,5 +38,76 @@ describe("Redis binary values", () => {
 		const encoded = onChange.mock.calls[0][0];
 		expect(encoded.utf8).toBe("مرحبا 🥑");
 		expect(new TextDecoder().decode(bytesFromBase64Url(encoded.base64))).toBe("مرحبا 🥑");
+	});
+
+	it("keeps utf8 alongside bytes so encoding switches stay in sync", () => {
+		expect(encodeBytesValue(new TextEncoder().encode("task"))).toEqual({
+			base64: "dGFzaw",
+			utf8: "task",
+		});
+		// 0xFF is not valid UTF-8: no utf8 representation.
+		expect(encodeBytesValue(Uint8Array.from([255, 0]))).toEqual({ base64: "_wA" });
+	});
+});
+
+describe("RedisValueInput invalid drafts", () => {
+	/** Binary value (no utf8) mounts the input in hex mode. */
+	const binary = { base64: base64UrlFromBytes(Uint8Array.from([255, 0, 65])) };
+
+	it("commits null for unparseable hex instead of keeping the stale value", () => {
+		const onChange = vi.fn();
+		const { rerender } = render(
+			<RedisValueInput
+				value={binary}
+				onChange={onChange}
+			/>,
+		);
+		const input = screen.getByRole("textbox");
+
+		fireEvent.change(input, { target: { value: "fsdasfdadsa" } });
+		expect(onChange).toHaveBeenLastCalledWith(null);
+
+		// The parent reflects the invalid commit; the draft and an invalid
+		// marker stay visible instead of silently diverging.
+		rerender(
+			<RedisValueInput
+				value={null}
+				onChange={onChange}
+			/>,
+		);
+		expect(input).toHaveValue("fsdasfdadsa");
+		expect(input).toHaveAttribute("aria-invalid", "true");
+	});
+
+	it("recovers once the hex draft parses again", () => {
+		const onChange = vi.fn();
+		const { rerender } = render(
+			<RedisValueInput
+				value={binary}
+				onChange={onChange}
+			/>,
+		);
+		const input = screen.getByRole("textbox");
+
+		fireEvent.change(input, { target: { value: "zz" } });
+		expect(onChange).toHaveBeenLastCalledWith(null);
+		rerender(
+			<RedisValueInput
+				value={null}
+				onChange={onChange}
+			/>,
+		);
+
+		fireEvent.change(input, { target: { value: "ff00" } });
+		expect(onChange).toHaveBeenLastCalledWith({
+			base64: base64UrlFromBytes(Uint8Array.from([255, 0])),
+		});
+		rerender(
+			<RedisValueInput
+				value={onChange.mock.lastCall?.[0]}
+				onChange={onChange}
+			/>,
+		);
+		expect(input).not.toHaveAttribute("aria-invalid");
 	});
 });
