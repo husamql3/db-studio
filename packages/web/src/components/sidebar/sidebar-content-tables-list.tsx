@@ -46,7 +46,7 @@ const SidebarSchemaDropdown = () => {
 			>
 				<SelectTrigger
 					variant="outline"
-					className="!h-8 w-full justify-between rounded-sm"
+					className="h-8! w-full justify-between rounded-sm"
 				>
 					<SelectValue placeholder="Select schema" />
 				</SelectTrigger>
