@@ -3,6 +3,7 @@ export type Args = {
 	port?: string;
 	databaseUrl?: string;
 	varName?: string;
+	open?: boolean;
 	status?: boolean;
 	help?: boolean;
 	version?: boolean;

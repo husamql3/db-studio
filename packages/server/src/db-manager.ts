@@ -172,7 +172,6 @@ class DatabaseManager {
 			db.pragma("journal_mode = WAL");
 			db.pragma("foreign_keys = ON");
 			this.sqliteDb = db;
-			console.log(`Opened SQLite database: ${filePath}`);
 		}
 
 		return this.sqliteDb;
@@ -212,7 +211,6 @@ class DatabaseManager {
 			});
 
 			this.pgPools.set(connectionString, pool);
-			console.log(`Created PostgreSQL connection pool for: ${connectionString}`);
 		}
 
 		return this.pgPools.get(connectionString) ?? new Pool({ connectionString });
@@ -247,7 +245,6 @@ class DatabaseManager {
 			});
 
 			this.mysqlPools.set(connectionString, pool);
-			console.log(`Created MySQL connection pool for: ${connectionString}`);
 		}
 
 		return this.mysqlPools.get(connectionString) as MysqlPool;
@@ -296,7 +293,6 @@ class DatabaseManager {
 			});
 
 			this.mssqlPools.set(connectionString, pool);
-			console.log(`Created SQL Server connection pool for: ${connectionString}`);
 		}
 
 		return this.mssqlPools.get(connectionString) as MssqlPool;
@@ -471,7 +467,6 @@ class DatabaseManager {
 		}
 
 		this.redisClients.set(index, client);
-		console.log(`Created Redis client for db=${index}`);
 		return client;
 	}
 

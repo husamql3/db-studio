@@ -14,10 +14,19 @@ export const args = () => {
 			"-n, --var-name <name>",
 			"Custom environment variable name (default: DATABASE_URL)",
 		)
+		.option("--open", "Open db-studio in the default browser")
+		.option("--no-open", "Do not open db-studio in the default browser")
 		.option("-s, --status", "Show status of the server")
 		.option("-h, --help", "Show help")
 		.option("-v, --version", "Show version")
 		.parse(process.argv);
 
-	return program.opts<Args>();
+	const options = program.opts<Args>();
+	const open = process.argv.includes("--open")
+		? true
+		: process.argv.includes("--no-open")
+			? false
+			: undefined;
+
+	return { ...options, open };
 };

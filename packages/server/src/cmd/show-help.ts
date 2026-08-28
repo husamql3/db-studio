@@ -19,6 +19,10 @@ export const showHelp = () => {
 	console.log("  -p, --port <port>        Port to run the server on (default: 3333)");
 	console.log("  -d, --database-url <url> Database URL to use");
 	console.log(
+		"      --open               Open db-studio in the default browser (off by default)",
+	);
+	console.log("      --no-open            Do not open db-studio in the default browser");
+	console.log(
 		"  -n, --var-name <name>    Custom environment variable name (default: DATABASE_URL)",
 	);
 	console.log("  -s, --status             Show status of the database connection");
