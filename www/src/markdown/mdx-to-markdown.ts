@@ -40,18 +40,26 @@ export const mdxToMarkdown = (raw: string): string => {
 
 	const out: string[] = [];
 	let fenceIndent = "";
-	let inFence = false;
+	let fenceMarker: { character: "`" | "~"; length: number } | null = null;
 	let hasH1 = false;
 
 	for (const line of body.split("\n")) {
-		const fenceMatch = line.match(/^([ \t]*)(```|~~~)/);
+		const fenceMatch = line.match(/^([ \t]*)(`{3,}|~{3,})/);
 		if (fenceMatch) {
-			if (!inFence) fenceIndent = fenceMatch[1];
-			inFence = !inFence;
+			const marker = fenceMatch[2];
+			if (!fenceMarker) {
+				fenceIndent = fenceMatch[1];
+				fenceMarker = {
+					character: marker[0] as "`" | "~",
+					length: marker.length,
+				};
+			} else if (marker[0] === fenceMarker.character && marker.length >= fenceMarker.length) {
+				fenceMarker = null;
+			}
 			out.push(line.startsWith(fenceIndent) ? line.slice(fenceIndent.length) : line);
 			continue;
 		}
-		if (inFence) {
+		if (fenceMarker) {
 			out.push(line.startsWith(fenceIndent) ? line.slice(fenceIndent.length) : line);
 			continue;
 		}
