@@ -19,6 +19,25 @@ const DATABASE_NAMES: Record<DatabaseTypeSchema, string> = {
 	redis: "Redis",
 };
 
+const STARTUP_TIMEOUT_MS = 2_000;
+
+const withStartupTimeout = async <T>(operation: Promise<T>): Promise<T> => {
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			operation,
+			new Promise<never>((_, reject) => {
+				timeout = setTimeout(
+					() => reject(new Error("Database startup check timed out")),
+					STARTUP_TIMEOUT_MS,
+				);
+			}),
+		]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+	}
+};
+
 export type DatabaseConnectionDetails = {
 	type: DatabaseTypeSchema;
 	name: string;
@@ -49,7 +68,7 @@ export const getDatabaseConnectionDetails = (
 export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise<void> => {
 	switch (type) {
 		case "pg":
-			await getDbPool().query("SELECT 1");
+			await withStartupTimeout(getDbPool().query("SELECT 1"));
 			return;
 		case "mysql":
 			await getMysqlPool().query("SELECT 1");

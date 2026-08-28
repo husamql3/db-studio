@@ -43,7 +43,7 @@ export const main = async () => {
 	const configSource = databaseUrl
 		? "Using database URL from --database-url"
 		: hasEnvFileValue
-			? `Found ${VAR_NAME} in .env`
+			? `Found ${VAR_NAME} in ${env ?? ".env"}`
 			: hasProcessValue
 				? `Found ${VAR_NAME} in environment`
 				: "Using database URL provided interactively";

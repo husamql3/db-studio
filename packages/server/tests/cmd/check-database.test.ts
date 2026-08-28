@@ -44,6 +44,24 @@ describe("database startup check", () => {
 		expect(ping).toHaveBeenCalledOnce();
 	});
 
+	it("bounds the PostgreSQL startup query", async () => {
+		vi.useFakeTimers();
+		const query = vi.fn().mockReturnValue(new Promise(() => undefined));
+		mocks.getDbPool.mockReturnValue({ query });
+
+		try {
+			const result = expect(checkDatabaseConnection("pg")).rejects.toThrow(
+				"Database startup check timed out",
+			);
+			await vi.advanceTimersByTimeAsync(2_000);
+			await result;
+		} finally {
+			vi.useRealTimers();
+		}
+
+		expect(query).toHaveBeenCalledWith("SELECT 1");
+	});
+
 	it("propagates a failed health check", async () => {
 		const connectionError = new Error("Connection refused");
 		mocks.getDbPool.mockReturnValue({
