@@ -147,7 +147,7 @@ describe("Databases Routes (MSSQL)", () => {
 			mockDao.getDatabasesList.mockResolvedValue([]);
 			const res = await app.request("/api/databases");
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
 	});

@@ -1,6 +1,6 @@
 # Top-level configuration
 name = "dbstudio"
-main = "./src/server.ts"
+main = "src/server.ts"
 compatibility_date = "2025-09-02"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
@@ -9,6 +9,7 @@ workers_dev = true
 pattern = "dbstudio.sh"
 custom_domain = true
 
+# www resolves to the same worker; src/server.ts 301-redirects it to the apex
 [[routes]]
 pattern = "www.dbstudio.sh"
 custom_domain = true

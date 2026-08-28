@@ -173,4 +173,4 @@ Check out [CONTRIBUTING.md](/CONTRIBUTING.md) and the open issues.
 
 ## License
 
-Licensed under the [Apache License 2.0](/LICENSE).
+Apache License 2.0 — see [LICENSE](/LICENSE)

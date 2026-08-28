@@ -11,7 +11,7 @@ export const Route = createRootRoute({
 		meta: [
 			{ charSet: "utf-8" },
 			{ title: META.SITE_TITLE },
-			{ author: META.AUTHOR },
+			{ name: "author", content: META.AUTHOR_NAME },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 			{
 				name: "description",
@@ -41,13 +41,47 @@ export const Route = createRootRoute({
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
-			{ rel: "manifest", href: "/site.webmanifest", color: META.SITE_COLOR },
+			{ rel: "manifest", href: "/manifest.json" },
 			{ rel: "icon", href: "/favicon.ico" },
 			{ rel: "sitemap", href: "/sitemap.xml" },
 		],
 	}),
 	shellComponent: RootDocument,
 	notFoundComponent: () => <NotFound />,
+});
+
+const structuredData = JSON.stringify({
+	"@context": "https://schema.org",
+	"@graph": [
+		{
+			"@type": "WebSite",
+			"@id": `${META.SITE_URL}/#website`,
+			url: META.SITE_URL,
+			name: META.SITE_TITLE,
+			description: META.SITE_DESCRIPTION,
+			publisher: { "@id": `${META.SITE_URL}/#organization` },
+		},
+		{
+			"@type": "Organization",
+			"@id": `${META.SITE_URL}/#organization`,
+			name: META.SITE_TITLE,
+			url: META.SITE_URL,
+			logo: `${META.SITE_URL}/logo.png`,
+			sameAs: [META.SITE_X_LINK, META.SITE_GITHUB_LINK],
+		},
+		{
+			"@type": "SoftwareApplication",
+			"@id": `${META.SITE_URL}/#software`,
+			name: META.SITE_TITLE,
+			description: META.SITE_DESCRIPTION,
+			url: META.SITE_URL,
+			applicationCategory: "DeveloperApplication",
+			operatingSystem: "macOS, Windows, Linux",
+			offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+			softwareHelp: { "@type": "CreativeWork", url: META.SITE_DOCS_LINK },
+			publisher: { "@id": `${META.SITE_URL}/#organization` },
+		},
+	],
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -58,6 +92,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		>
 			<head>
 				<HeadContent />
+				<script
+					type="application/ld+json"
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD built from META constants
+					dangerouslySetInnerHTML={{ __html: structuredData }}
+				/>
 			</head>
 			<body className="dark .dark">
 				<RootProvider>{children}</RootProvider>

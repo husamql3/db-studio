@@ -37,10 +37,6 @@ app.post("/chat", async (c) => {
 			return c.json({ error: "Invalid request: messages array required" }, 400);
 		}
 
-		console.log("messages", messages);
-		console.log("systemPrompt", systemPrompt);
-		console.log("conversationId", conversationId);
-
 		const stream = chat({
 			adapter: createGeminiChat("gemini-3-flash-preview", env.GEMINI_API_KEY, {
 				temperature: 0.1, // Very low - we want deterministic, accurate SQL

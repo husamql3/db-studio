@@ -65,9 +65,26 @@ export const createServer = () => {
 
 	const app = new Hono<AppType>({ strict: false })
 		/**
-		 * Enable CORS
+		 * Enable CORS.
+		 *
+		 * Same-origin by default: the SPA is served from the same origin as the
+		 * API, so no cross-origin access is needed. An empty allowlist means no
+		 * allow-origin header is emitted for cross-origin requests, which
+		 * prevents drive-by-localhost attacks (any other browser tab issuing
+		 * cross-origin reads/edits/drops against the user's DB).
+		 *
+		 * Deployments that genuinely need cross-origin access (e.g. a hosted
+		 * fork serving the SPA from a different origin) set `ALLOWED_ORIGINS` to
+		 * a comma-separated list of explicit origins. Never `*`.
 		 */
-		.use("/*", cors())
+		.use(
+			"/*",
+			cors({
+				origin: process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) ?? [],
+				allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+				allowHeaders: ["Content-Type"],
+			}),
+		)
 
 		/**
 		 * Pretty print the JSON response
@@ -88,16 +105,6 @@ export const createServer = () => {
 				path: path.resolve(getWebDistPath(), "favicon.ico"),
 			}),
 		)
-
-		/**
-		 * Handle CORS requests
-		 */
-		.use("*", async (c, next) => {
-			c.header("Access-Control-Allow-Origin", "*");
-			c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-			c.header("Access-Control-Allow-Headers", "Content-Type");
-			await next();
-		})
 
 		/**
 		 * Handle errors

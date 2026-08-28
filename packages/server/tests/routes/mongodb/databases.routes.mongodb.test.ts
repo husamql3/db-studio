@@ -287,7 +287,7 @@ describe("Databases Routes (MongoDB)", () => {
 
 			const res = await app.request("/api/databases");
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("returns JSON content type", async () => {

@@ -251,7 +251,7 @@ describe("Tables Routes (MSSQL)", () => {
 			mockDao.getTablesList.mockResolvedValue([]);
 			const res = await app.request("/api/mssql/tables?db=testdb");
 
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 			expect(res.headers.get("Content-Type")).toContain("application/json");
 		});
 

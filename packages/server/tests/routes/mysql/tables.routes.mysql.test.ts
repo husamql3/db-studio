@@ -927,7 +927,7 @@ describe("Tables Routes (MySQL)", () => {
 			mockDao.getTablesList.mockResolvedValue([{ tableName: "test", rowCount: 0 }]);
 
 			const res = await app.request("/api/mysql/tables?db=testdb");
-			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("should return JSON content type", async () => {

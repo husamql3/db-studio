@@ -2,6 +2,8 @@ import handler from "@tanstack/react-start/server-entry";
 import { getMarkdownForPath } from "./markdown/pages";
 import { prefersMarkdown } from "./markdown/prefers-markdown";
 
+const CANONICAL_HOST = "dbstudio.sh";
+
 const markdownResponse = (body: string | null, status: number): Response =>
 	new Response(body, {
 		status,
@@ -30,9 +32,9 @@ export default {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 
-		// www → apex 301 (www.dbstudio.sh is a second custom domain on this worker)
-		if (url.hostname.startsWith("www.")) {
-			url.hostname = url.hostname.slice(4);
+		// 301 www (and any other non-canonical host alias) to the apex domain
+		if (url.hostname !== CANONICAL_HOST && url.hostname.endsWith(`.${CANONICAL_HOST}`)) {
+			url.hostname = CANONICAL_HOST;
 			return Response.redirect(url.toString(), 301);
 		}
 
@@ -59,4 +61,4 @@ export default {
 		const response = await handler.fetch(request);
 		return isPageRequest ? withVaryAccept(response) : response;
 	},
-};
+} satisfies ExportedHandler<Env>;

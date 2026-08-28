@@ -1,4 +1,5 @@
 import type { Cell, Table } from "@tanstack/react-table";
+import { useMemo } from "react";
 import type { CellVariant, TableRecord } from "@/types/table.type";
 import {
 	TableBooleanCell,
@@ -18,11 +19,15 @@ export const TableCell = ({
 	table: Table<TableRecord>;
 }) => {
 	const meta = table.options.meta;
-	const originalRowIndex = cell.row.index;
 
+	// Display position within the current (possibly sorted/filtered) row model.
+	// Memoized on the row-model identity + this row's data so the O(N) scan runs
+	// at most once per render pass per row model rather than on every cell render.
 	const rows = table.getRowModel().rows;
-	const displayRowIndex = rows.findIndex((row) => row.original === cell.row.original);
-	const rowIndex = displayRowIndex >= 0 ? displayRowIndex : originalRowIndex;
+	const rowIndex = useMemo(() => {
+		const displayRowIndex = rows.findIndex((row) => row.original === cell.row.original);
+		return displayRowIndex >= 0 ? displayRowIndex : cell.row.index;
+	}, [rows, cell.row.original, cell.row.index]);
 	const columnId = cell.column.id;
 
 	const isFocused =

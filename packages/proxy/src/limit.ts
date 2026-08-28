@@ -8,9 +8,8 @@ export const keyGenerator = (c: Context) => {
 	const cfConnectingIp = c.req.header("cf-connecting-ip");
 	const xRealIp = c.req.header("x-real-ip");
 	const xForwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
-	const apiKey = c.req.header("x-api-key");
 
-	const identifier = apiKey ?? cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
+	const identifier = cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
 	return identifier;
 };
 
