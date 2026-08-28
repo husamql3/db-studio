@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.10.0",
+		date: "2026-08-28",
+		title: "Support Redis key browsing",
+		features: [
+			{
+				text: "Added Redis support with a dedicated key browser for strings, hashes, lists, sets, sorted sets, and streams, including a redis-cli style query runner",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.9.7",
 		date: "2026-08-15",
 		title: "Relicense to Apache 2.0",
