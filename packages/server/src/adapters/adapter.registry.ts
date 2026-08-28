@@ -1,6 +1,7 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types/database.types.js";
 import { HTTPException } from "hono/http-exception";
 import type { IDbAdapter } from "./adapter.interface.js";
+import type { IKeyValueAdapter } from "./key-value-adapter.interface.js";
 
 export class AdapterRegistry {
 	private adapters = new Map<DatabaseTypeSchema, IDbAdapter>();
@@ -36,4 +37,23 @@ export const adapterRegistry = new AdapterRegistry();
  */
 export function getAdapter(dbType: DatabaseTypeSchema): IDbAdapter {
 	return adapterRegistry.get(dbType);
+}
+
+const isKeyValueAdapter = (adapter: IDbAdapter): adapter is IDbAdapter & IKeyValueAdapter =>
+	"scanKeys" in adapter && typeof adapter.scanKeys === "function";
+
+export function assertKeyValueAdapter(
+	adapter: IDbAdapter,
+	dbType: DatabaseTypeSchema,
+): IKeyValueAdapter {
+	if (!isKeyValueAdapter(adapter)) {
+		throw new HTTPException(400, {
+			message: `Key browsing is not supported for database type: "${dbType}"`,
+		});
+	}
+	return adapter;
+}
+
+export function getKeyValueAdapter(dbType: DatabaseTypeSchema): IKeyValueAdapter {
+	return assertKeyValueAdapter(adapterRegistry.get(dbType), dbType);
 }

@@ -19,13 +19,13 @@ export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
 	const { connectionInfo, isLoadingConnectionInfo } = useDatabaseConnectionInfo();
-	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
+	const { selectedDatabase, setSelectedDatabase, dbType } = useDatabaseStore();
 	const navigate = useNavigate();
 	const [showDetails, setShowDetails] = useState(false);
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
-		navigate({ to: "/table", search: {} });
+		navigate({ to: dbType === "redis" ? "/browser" : "/table", search: {} });
 	};
 
 	const handleRefresh = async () => {

@@ -3,7 +3,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png">
-  <img src="assets/logo-light.png" alt="DB Studio logo" width="100">
+  <img src="assets/logo-light.png" alt="db-studio logo" width="100">
 </picture>
 
 <br>
@@ -34,7 +34,7 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 
 <br>
 
-<img src="assets/screenshot.png" alt="DB Studio screenshot" width="1000" />
+<img src="assets/screenshot.png" alt="db-studio screenshot" width="1000" />
 </div>
 
 ## Tech Stack
@@ -51,7 +51,7 @@ No installation required. Just run:
 npx db-studio
 ```
 
-This runs the latest published version and uses the **current directory** as the project context. DB Studio looks for a `.env` file in the current working directory and, if not found, searches parent directories until one is found. It reads `DATABASE_URL` from that file (or use `--var-name <name>` for a different variable). If `DATABASE_URL` is not in the .env file, it is also read from **process.env** (e.g. when set in the shell or in a package.json script). To point to a specific env file, use `--env <path>` (e.g. `npx db-studio --env .env.local`).
+This runs the latest published version and uses the **current directory** as the project context. db-studio looks for a `.env` file in the current working directory and, if not found, searches parent directories until one is found. It reads `DATABASE_URL` from that file (or use `--var-name <name>` for a different variable). If `DATABASE_URL` is not in the .env file, it is also read from **process.env** (e.g. when set in the shell or in a package.json script). To point to a specific env file, use `--env <path>` (e.g. `npx db-studio --env .env.local`).
 
 ### Recommended base script (add to package.json)
 
@@ -110,7 +110,7 @@ For full documentation and more examples: [dbstudio.sh](https://dbstudio.sh)
 
 ## Development Setup
 
-**Using the CLI (installed or npx):** Run `npx db-studio` from a directory that contains your `.env` (or from a subfolder; DB Studio will search upward for `.env`). Alternatively use `--env <path>` to specify the env file.
+**Using the CLI (installed or npx):** Run `npx db-studio` from a directory that contains your `.env` (or from a subfolder; db-studio will search upward for `.env`). Alternatively use `--env <path>` to specify the env file.
 
 **Developing from source:**
 
@@ -138,10 +138,10 @@ Development services run through [Portless](https://portless.sh/) with stable lo
 
 | Service | URL |
 |---------|-----|
-| Web app | `https://web.dbstudio.localhost` |
-| API server | `https://api.dbstudio.localhost` |
-| AI proxy | `https://proxy.dbstudio.localhost` |
-| Docs/marketing site | `https://www.dbstudio.localhost` |
+| Web app | `https://web.db-studio.localhost` |
+| API server | `https://api.db-studio.localhost` |
+| AI proxy | `https://proxy.db-studio.localhost` |
+| Docs/marketing site | `https://www.db-studio.localhost` |
 
 On first run, Portless may ask to trust its local certificate authority. You can also run:
 

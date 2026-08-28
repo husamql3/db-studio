@@ -11,7 +11,7 @@ export function baseOptions(): BaseLayoutProps {
 				<Link to="/">
 					<img
 						src="/logo.png"
-						alt="DB Studio"
+						alt="db-studio"
 						width={32}
 					/>
 				</Link>

@@ -64,6 +64,18 @@ export const queryRunnerKeys = {
 	execution: (db?: string | null) => ["query-runner", "execution", db] as const,
 };
 
+export const redisKeyBrowserKeys = {
+	all: ["redis-keys"] as const,
+	list: (db: string | null, search: string, exactPattern: boolean, type: string) =>
+		["redis-keys", "list", db, search, exactPattern, type] as const,
+	detail: (
+		db: string | null,
+		key: string | null,
+		full: boolean,
+		direction: "forward" | "backward",
+	) => ["redis-keys", "detail", db, key, full, direction] as const,
+};
+
 export const chatKeys = {
 	rateLimit: () => ["rate-limit"] as const,
 };

@@ -9,7 +9,7 @@ index: 3
 
 <Accordion id="security" title="Is my database connection safe? Do you store or track it?">
 
-**Yes, completely safe!** DB Studio runs entirely on your computer and is fully open source.
+**Yes, completely safe!** db-studio runs entirely on your computer and is fully open source.
 
 - No tracking or data collection
 - Nothing is sent to the internet
@@ -20,13 +20,13 @@ Feel free to check the code yourself to be sure.
 
 </Accordion>
 
-<Accordion id="prisma-compat" title="Can I use DB Studio with Prisma?">
+<Accordion id="prisma-compat" title="Can I use db-studio with Prisma?">
 
 Yes! Just run `npx db-studio` in your Prisma project folder. It will automatically use your existing `DATABASE_URL` from `.env`.
 
 </Accordion>
 
-<Accordion id="drizzle-compat" title="Can I use DB Studio with Drizzle?">
+<Accordion id="drizzle-compat" title="Can I use db-studio with Drizzle?">
 
 Yes! Run `npx db-studio` in your Drizzle project folder. It uses the same `DATABASE_URL` from your `.env` file. No extra setup needed.
 
@@ -38,7 +38,7 @@ Yes, you have two options:
 
 **Option 1: Multiple databases on the same server**
 
-DB Studio lets you switch between databases on the same host directly in the UI.
+db-studio lets you switch between databases on the same host directly in the UI.
 
 **Option 2: Run multiple instances**
 
@@ -91,7 +91,7 @@ npx db-studio --port 8080
 
 <Accordion id="env-file-location" title="Where should I put my .env file?">
 
-DB Studio looks for `.env` in:
+db-studio looks for `.env` in:
 
 1. Your current folder
 2. Parent folders (it searches upward)
@@ -105,7 +105,7 @@ You can also:
 
 <Accordion id="production-use" title="Can I use this in production?">
 
-You can, but we recommend using DB Studio only for:
+You can, but we recommend using db-studio only for:
 
 - Local development
 - Staging environments

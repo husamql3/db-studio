@@ -195,7 +195,7 @@ function App() {
 				<div className="relative w-full flex flex-col border-y">
 					<img
 						src="/studio.png"
-						alt="DB Studio"
+						alt="db-studio"
 						width={1000}
 						height={1000}
 						className="w-full h-full object-contain"

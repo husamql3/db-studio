@@ -7,14 +7,14 @@
     "dev:app": "vite --port=${PORT:-3001}",
     "build": "vite build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
-    "start": "portless web.dbstuio bun run start:app",
+    "start": "portless web.db-studio bun run start:app",
     "start:app": "vite preview --host --port=${PORT:-3000}",
     "format": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "portless": {
-    "name": "web.dbstuio",
+    "name": "web.db-studio",
     "script": "dev:app"
   },
   "dependencies": {
@@ -83,25 +83,26 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
-    "@testing-library/jest-dom": "^7.0.1",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
     "@tanstack/ai-devtools-core": "^0.5.2",
     "@tanstack/devtools-vite": "^0.8.0",
+    "@tanstack/react-ai-devtools": "^0.2.0",
     "@tanstack/react-devtools": "^0.10.3",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.167.1",
-    "@tanstack/react-ai-devtools": "^0.2.0",
     "@tanstack/router-plugin": "^1.145.10",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.5",
     "happy-dom": "^20.0.10",
     "rollup-plugin-visualizer": "^7.0.1",
+    "sharp": "^0.35.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
-    "vitest": "^4.0.6"
+    "vitest": "^4.0.17"
   },
   "peerDependencies": {
     "typescript": "^5"

@@ -19,7 +19,7 @@ export const META = {
 		"ai sql",
 		"er diagram",
 	],
-	SITE_TITLE: "dbstudio",
+	SITE_TITLE: "db-studio",
 	SITE_NAME: "dbstudio.sh",
 	SITE_URL: "https://dbstudio.sh",
 	SITE_X_LINK: "https://x.com/dbstudio_sh",

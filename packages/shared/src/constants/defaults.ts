@@ -15,7 +15,7 @@ export const DEFAULTS = {
 	PORT: 3333,
 	ENV: ".env",
 	VAR_NAME: "DATABASE_URL",
-	BASE_URL: "https://api.dbstudio.localhost",
+	BASE_URL: "https://api.db-studio.localhost",
 	/**
 	 * URL namespace for all HTTP API routes. The API and the SPA are served
 	 * from the same origin in self-hosted mode, so the API is mounted under
@@ -27,6 +27,6 @@ export const DEFAULTS = {
 	PROXY_URL:
 		env?.DB_STUDIO_PROXY_URL ??
 		(nodeEnv === "development"
-			? "https://proxy.dbstudio.localhost"
+			? "https://proxy.db-studio.localhost"
 			: "https://db-studio-proxy.husamql3.workers.dev"),
 };
