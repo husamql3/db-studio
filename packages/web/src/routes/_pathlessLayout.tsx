@@ -18,6 +18,9 @@ function RouteComponent() {
 	if (dbType === "redis" && section !== "browser" && section !== "runner") {
 		return <Navigate to="/browser" />;
 	}
+	if (dbType !== "redis" && section === "browser") {
+		return <Navigate to="/" />;
+	}
 
 	return (
 		<div className="bg-zinc-950 w-dvw flex h-dvh max-h-dvh overflow-hidden relative">

@@ -1,4 +1,7 @@
-import type { KeyDetailsResultSchemaType } from "@db-studio/shared/types";
+import type {
+	EncodedRedisValueSchemaType,
+	KeyDetailsResultSchemaType,
+} from "@db-studio/shared/types";
 import { Badge } from "@db-studio/ui/badge";
 import { Button } from "@db-studio/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@db-studio/ui/field";
@@ -9,7 +12,7 @@ import { cn } from "@db-studio/ui/utils";
 import { ArrowRight, Pencil, RefreshCw, Terminal, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useReducer, useState } from "react";
 import { RedisCopyButton } from "./redis-copy-button";
-import { encodeTextValue } from "./redis-value";
+import { RedisValueInput } from "./redis-value";
 import type { RedisAct } from "./redis-value-editors";
 
 const TTL_PRESETS = [
@@ -77,7 +80,7 @@ export const RedisKeyHeader = ({
 	onOpenRunner: () => void;
 	onDelete: () => void;
 }) => {
-	const [rename, setRename] = useState(detail.key.utf8 ?? "");
+	const [rename, setRename] = useState<EncodedRedisValueSchemaType | null>(detail.key);
 	const [ttl, setTtl] = useState("");
 	useSecondTick(detail.ttlMs > 0);
 
@@ -216,21 +219,24 @@ export const RedisKeyHeader = ({
 										className="flex"
 										onSubmit={(event) => {
 											event.preventDefault();
-											if (rename === detail.key.utf8 || pending) return;
-											act({ action: "rename", newKey: encodeTextValue(rename) });
+											if (rename === null || rename.base64 === detail.key.base64 || pending)
+												return;
+											act({ action: "rename", newKey: rename });
 										}}
 									>
-										<Input
+										<RedisValueInput
 											id="redis-key-rename"
 											value={rename}
-											onChange={(event) => setRename(event.target.value)}
+											onChange={setRename}
 											className="rounded-e-none font-mono"
 										/>
 										<Button
 											type="submit"
 											size="icon"
 											className="h-auto self-stretch rounded-s-none border-0 bg-clip-border"
-											disabled={rename === detail.key.utf8 || pending}
+											disabled={
+												rename === null || rename.base64 === detail.key.base64 || pending
+											}
 											aria-label="Rename key"
 										>
 											<ArrowRight />

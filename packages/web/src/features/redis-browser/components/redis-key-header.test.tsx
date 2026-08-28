@@ -115,6 +115,22 @@ describe("Rename flow", () => {
 			newKey: expect.objectContaining({ utf8: "session:43", base64: expect.any(String) }),
 		});
 	});
+
+	it("preserves a binary key when opening the rename editor", () => {
+		const handlers = renderHeader({ detail: makeDetail({ key: { base64: "_wA" } }) });
+		openEditPopover();
+
+		const input = screen.getByRole("textbox");
+		expect(input).toHaveValue("ff00");
+		expect(screen.getByRole("button", { name: "Rename key" })).toBeDisabled();
+
+		fireEvent.change(input, { target: { value: "ff01" } });
+		fireEvent.click(screen.getByRole("button", { name: "Rename key" }));
+		expect(handlers.act).toHaveBeenCalledWith({
+			action: "rename",
+			newKey: { base64: "_wE" },
+		});
+	});
 });
 
 describe("TTL presets", () => {

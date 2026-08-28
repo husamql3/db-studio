@@ -76,12 +76,18 @@ export const RedisValue = ({
 		value.utf8 ? (isJson(value.utf8) ? "json" : "text") : "hex",
 	);
 	const [copied, setCopied] = useState(false);
+	const effectiveMode: RedisValueMode =
+		mode === "json" && !isJson(value.utf8)
+			? value.utf8 === undefined
+				? "hex"
+				: "text"
+			: mode;
 	const display =
-		mode === "hex"
+		effectiveMode === "hex"
 			? hexFromBytes(bytes)
-			: mode === "base64"
+			: effectiveMode === "base64"
 				? value.base64
-				: mode === "json" && value.utf8
+				: effectiveMode === "json" && value.utf8
 					? JSON.stringify(JSON.parse(value.utf8), null, 2)
 					: (value.utf8 ?? "Binary value");
 
@@ -118,7 +124,7 @@ export const RedisValue = ({
 					type="single"
 					variant="ghost"
 					size="sm"
-					value={mode}
+					value={effectiveMode}
 					onValueChange={(next) => next && setMode(next as RedisValueMode)}
 					className="h-full rounded-none"
 				>

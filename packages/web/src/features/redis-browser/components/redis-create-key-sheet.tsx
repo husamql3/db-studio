@@ -63,6 +63,12 @@ export const RedisCreateKeySheet = () => {
 		}
 
 		await createKey({ key, type, value, ttlMs: ttl ? Number(ttl) * 1_000 : null });
+		setKey(emptyValue);
+		setType("string");
+		setFirst(emptyValue);
+		setSecond(emptyValue);
+		setScore("0");
+		setTtl("");
 		closeOverlay("redis-browser.create-key");
 	};
 

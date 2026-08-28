@@ -71,7 +71,10 @@ export const useRedisKey = (
 	});
 };
 
-const mutationError = (error: Error): string => error.message || "Redis operation failed";
+const mutationError = (error: Error & { details?: unknown }): string =>
+	(typeof error.details === "string" && error.details) ||
+	error.message ||
+	"Redis operation failed";
 
 export const useRedisKeyMutations = () => {
 	const { selectedDatabase } = useDatabaseStore();

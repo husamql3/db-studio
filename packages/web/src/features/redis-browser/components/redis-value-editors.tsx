@@ -404,15 +404,17 @@ const HashEditor = ({
 const ListRow = ({
 	index,
 	value,
+	revision,
 	act,
 	pending,
 }: {
 	index: number;
 	value: EncodedRedisValueSchemaType;
+	revision: string;
 	act: RedisAct;
 	pending: boolean;
 }) => {
-	const [draft, setDraft] = useSyncedDraft<DraftValue>(value, value.base64);
+	const [draft, setDraft] = useSyncedDraft<DraftValue>(value, `${revision}:${value.base64}`);
 	const dirty = draft !== null && draft.base64 !== value.base64;
 	return (
 		<div className="grid min-h-8 grid-cols-[3rem_1fr_5rem] items-center gap-2 border-b border-border px-2 py-1">
@@ -449,11 +451,13 @@ const ListRow = ({
 
 const ListEditor = ({
 	value,
+	revision,
 	total,
 	act,
 	pending,
 }: {
 	value: ListValue;
+	revision: string;
 	total: number | null;
 	act: RedisAct;
 	pending: boolean;
@@ -522,6 +526,7 @@ const ListEditor = ({
 						key={entry.index}
 						index={entry.index}
 						value={entry.value}
+						revision={revision}
 						act={act}
 						pending={pending}
 					/>
@@ -624,12 +629,14 @@ const ZsetRow = ({
 	pending,
 }: {
 	member: EncodedRedisValueSchemaType;
-	score: number;
+	score: number | "inf" | "-inf";
 	act: RedisAct;
 	pending: boolean;
 }) => {
 	const [draft, setDraft] = useSyncedDraft(String(score), String(score));
-	const dirty = Number(draft) !== score;
+	const parsedDraft = Number(draft);
+	const dirty = draft !== String(score);
+	const valid = Number.isFinite(parsedDraft);
 	return (
 		<div className="grid min-h-8 grid-cols-[1fr_8rem_5rem] items-center gap-2 border-b border-border px-2 py-1">
 			<RedisValue
@@ -637,8 +644,7 @@ const ZsetRow = ({
 				compact
 			/>
 			<Input
-				type="number"
-				step="any"
+				inputMode="decimal"
 				value={draft}
 				onChange={(event) => setDraft(event.target.value)}
 				aria-label="Sorted set score"
@@ -649,8 +655,8 @@ const ZsetRow = ({
 					variant="ghost"
 					size="icon-sm"
 					className={dirty ? "text-primary" : undefined}
-					disabled={pending || !dirty}
-					onClick={() => act({ action: "upsertZset", member, score: Number(draft) })}
+					disabled={pending || !dirty || !valid}
+					onClick={() => act({ action: "upsertZset", member, score: parsedDraft })}
 					aria-label="Save sorted set score"
 				>
 					<Save />
@@ -897,6 +903,7 @@ export const RedisValueEditor = ({
 			return (
 				<ListEditor
 					value={value}
+					revision={detail.revision}
 					total={detail.length}
 					act={act}
 					pending={pending}

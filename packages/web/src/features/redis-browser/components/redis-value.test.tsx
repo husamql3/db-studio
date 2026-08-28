@@ -26,6 +26,18 @@ describe("Redis binary values", () => {
 		expect(screen.getByText(/"ok": true/)).toBeInTheDocument();
 	});
 
+	it("falls back to text when a selected JSON value stops being JSON", () => {
+		const { rerender } = render(<RedisValue value={encodeTextValue('{"ok":true}')} />);
+
+		rerender(<RedisValue value={encodeTextValue("plain text now")} />);
+
+		expect(screen.getByText("plain text now")).toBeInTheDocument();
+		expect(screen.getByRole("radio", { name: "View value as text" })).toHaveAttribute(
+			"data-state",
+			"on",
+		);
+	});
+
 	it("emits encoded text changes without losing unicode", () => {
 		const onChange = vi.fn();
 		render(

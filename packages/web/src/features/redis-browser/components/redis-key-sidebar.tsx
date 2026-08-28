@@ -20,7 +20,7 @@ import {
 	Search,
 } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useRedisKeys } from "../hooks/use-redis-browser";
@@ -63,10 +63,11 @@ export const RedisKeySidebar = () => {
 	const { openOverlay } = useOverlayStore();
 	const [selectedKey, setSelectedKey] = useQueryState("key");
 	const [search, setSearch] = useQueryState("search", { defaultValue: "" });
+	const [debouncedSearch, setDebouncedSearch] = useState(search);
 	const [type, setType] = useQueryState("type", { defaultValue: "" });
 	const [exact, setExact] = useQueryState("glob", { defaultValue: "false" });
 	const exactPattern = exact === "true";
-	const query = useRedisKeys({ search, type, exactPattern });
+	const query = useRedisKeys({ search: debouncedSearch, type, exactPattern });
 	const keys = useMemo(
 		() => query.data?.pages.flatMap((page) => page.keys) ?? [],
 		[query.data],
@@ -79,6 +80,11 @@ export const RedisKeySidebar = () => {
 		overscan: 10,
 	});
 	const items = virtualizer.getVirtualItems();
+
+	useEffect(() => {
+		const timeout = window.setTimeout(() => setDebouncedSearch(search), 250);
+		return () => window.clearTimeout(timeout);
+	}, [search]);
 
 	useEffect(() => {
 		const last = items.at(-1);

@@ -11,6 +11,8 @@ import type {
 } from "@db-studio/shared/types";
 import { api } from "./client";
 
+const keyPath = (key: string): string => key || "-";
+
 export interface ScanRedisKeysParams {
 	db: string;
 	cursor?: string;
@@ -38,7 +40,7 @@ export const getRedisKey = ({
 	full?: boolean;
 	direction?: "forward" | "backward";
 }) =>
-	api.get<BaseResponse<KeyDetailsResultSchemaType>>(`/keys/${key}`, {
+	api.get<BaseResponse<KeyDetailsResultSchemaType>>(`/keys/${keyPath(key)}`, {
 		params: { db, cursor, limit, full, direction },
 	});
 
@@ -53,7 +55,7 @@ export const getRedisStringChunk = ({
 	offset: number;
 	expectedRevision: string;
 }) =>
-	api.get<BaseResponse<KeyRawResultSchemaType>>(`/keys/${key}/raw`, {
+	api.get<BaseResponse<KeyRawResultSchemaType>>(`/keys/${keyPath(key)}/raw`, {
 		params: { db, offset, limit: 1024 * 1024, expectedRevision },
 	});
 
@@ -69,7 +71,7 @@ export const applyRedisKeyAction = ({
 	key: string;
 	data: KeyActionSchemaType;
 }) =>
-	api.post<BaseResponse<KeyWriteResultSchemaType>>(`/keys/${key}/actions`, data, {
+	api.post<BaseResponse<KeyWriteResultSchemaType>>(`/keys/${keyPath(key)}/actions`, data, {
 		params: { db },
 	});
 
@@ -84,6 +86,6 @@ export const deleteRedisKey = ({
 	expectedRevision: string;
 	force?: boolean;
 }) =>
-	api.delete<BaseResponse<DeleteKeyResultSchemaType>>(`/keys/${key}`, {
+	api.delete<BaseResponse<DeleteKeyResultSchemaType>>(`/keys/${keyPath(key)}`, {
 		params: { db, expectedRevision, force },
 	});
