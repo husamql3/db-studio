@@ -113,14 +113,14 @@ export const RedisValue = ({
 
 	return (
 		<div className="overflow-hidden border border-border bg-background">
-			<div className="flex h-8 items-center justify-between border-b border-border px-1">
+			<div className="flex h-10 items-center justify-between border-b border-border">
 				<ToggleGroup
 					type="single"
 					variant="ghost"
 					size="sm"
 					value={mode}
 					onValueChange={(next) => next && setMode(next as RedisValueMode)}
-					className="rounded-none"
+					className="h-full rounded-none"
 				>
 					{(
 						[
@@ -135,7 +135,7 @@ export const RedisValue = ({
 							value={item}
 							aria-label={`View value as ${item}`}
 							disabled={(item === "text" || item === "json") && value.utf8 === undefined}
-							className="h-7 rounded-none px-2 text-[10px] uppercase tracking-wider"
+							className="h-full rounded-none! px-3 text-[10px] uppercase tracking-wider text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
 						>
 							{item}
 						</ToggleGroupItem>
