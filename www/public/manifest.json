@@ -1,6 +1,6 @@
 {
   "short_name": "dbstudio.sh",
-  "name": "DB Studio",
+  "name": "db-studio",
   "icons": [
     {
       "src": "/favicon.ico",

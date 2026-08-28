@@ -52,7 +52,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "portless": {
-    "name": "api.dbstudio",
+    "name": "api.db-studio",
     "script": "dev:app"
   },
   "dependencies": {

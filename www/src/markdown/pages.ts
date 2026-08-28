@@ -30,7 +30,7 @@ const changelogMarkdown = (): string => {
 		return lines.join("\n\n");
 	});
 
-	return `# Changelog\n\nRelease history for DB Studio.\n\n${sections.join("\n\n")}\n`;
+	return `# Changelog\n\nRelease history for db-studio.\n\n${sections.join("\n\n")}\n`;
 };
 
 const roadmapMarkdown = (): string => {
@@ -46,10 +46,10 @@ const roadmapMarkdown = (): string => {
 		return `## ${section.title} (${section.status})\n\n${tasks}`;
 	});
 
-	return `# Roadmap\n\nWhat's done, in progress, and planned for DB Studio.\n\n${sections.join("\n\n")}\n`;
+	return `# Roadmap\n\nWhat's done, in progress, and planned for db-studio.\n\n${sections.join("\n\n")}\n`;
 };
 
-const landingMarkdown = (): string => `# DB Studio
+const landingMarkdown = (): string => `# db-studio
 
 A modern (pgAdmin alternative but good) database management studio for any database.
 

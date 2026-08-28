@@ -42,7 +42,7 @@ bun run test:coverage                # with coverage
 bunx vitest run tests/path/to/file.test.ts  # single file
 ```
 
-> **Dev URLs**: Frontend (Vite) → `https://web.dbstudio.localhost`, API → `https://api.dbstudio.localhost`, proxy → `https://proxy.dbstudio.localhost`, docs → `https://www.dbstudio.localhost`. Production-style local serving uses `https://db-studio.localhost` via the server package `start` script.
+> **Dev URLs**: Frontend (Vite) → `https://web.db-studio.localhost`, API → `https://api.db-studio.localhost`, proxy → `https://proxy.db-studio.localhost`, docs → `https://www.db-studio.localhost`. Production-style local serving uses `https://db-studio.localhost` via the server package `start` script.
 
 ## Architecture
 

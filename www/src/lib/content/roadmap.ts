@@ -38,7 +38,7 @@ export const roadmapItems: RoadmapItem[] = [
 		status: "completed",
 		items: [
 			{
-				title: "Develop CLI tool for running the db studio app",
+				title: "Develop CLI tool for running the db-studio app",
 				status: "completed",
 			},
 			{ title: "Publish the tool on npm and release it", status: "completed" },

@@ -7,14 +7,14 @@
     "dev:app": "vite --port=${PORT:-3001}",
     "build": "vite build",
     "typecheck": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit",
-    "start": "portless web.dbstuio bun run start:app",
+    "start": "portless web.db-studio bun run start:app",
     "start:app": "vite preview --host --port=${PORT:-3000}",
     "format": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "portless": {
-    "name": "web.dbstuio",
+    "name": "web.db-studio",
     "script": "dev:app"
   },
   "dependencies": {
