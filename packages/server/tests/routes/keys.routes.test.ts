@@ -12,7 +12,7 @@ const mockKeyValueAdapter = vi.hoisted(() => ({
 
 vi.mock("@/adapters/adapter.registry.js", () => ({
 	getAdapter: vi.fn(() => mockKeyValueAdapter),
-	getKeyValueAdapter: vi.fn(() => mockKeyValueAdapter),
+	assertKeyValueAdapter: vi.fn(() => mockKeyValueAdapter),
 	adapterRegistry: {
 		register: vi.fn(),
 		get: vi.fn(() => mockKeyValueAdapter),

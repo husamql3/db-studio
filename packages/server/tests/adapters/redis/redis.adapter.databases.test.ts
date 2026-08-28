@@ -50,8 +50,7 @@ describe("RedisAdapter — databases", () => {
 			mockClient.call.mockResolvedValue([]);
 			mockClient.info.mockResolvedValue("# Keyspace\r\n");
 			const list = await adapter.getDatabasesList();
-			expect(list).toHaveLength(1);
-			expect(list[0].size).toBe("0 keys");
+			expect(list).toEqual([{ name: "0", size: "0 keys", owner: "n/a", encoding: "n/a" }]);
 		});
 
 		it("wraps connection errors to 503", async () => {

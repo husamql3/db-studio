@@ -15,7 +15,7 @@ import {
 } from "@db-studio/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { getKeyValueAdapter } from "@/adapters/adapter.registry.js";
+import { assertKeyValueAdapter, getAdapter } from "@/adapters/adapter.registry.js";
 import type { ApiHandler, RouteEnv } from "@/app.types.js";
 
 export const keysRoutes = new Hono<RouteEnv>()
@@ -25,7 +25,8 @@ export const keysRoutes = new Hono<RouteEnv>()
 		zValidator("query", keyScanQuerySchema),
 		async (c): ApiHandler<KeyScanResultSchemaType> => {
 			const query = c.req.valid("query");
-			const adapter = getKeyValueAdapter(c.get("dbType"));
+			const dbType = c.get("dbType");
+			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
 			return c.json({ data: await adapter.scanKeys(query) }, 200);
 		},
 	)
@@ -36,7 +37,8 @@ export const keysRoutes = new Hono<RouteEnv>()
 		async (c): ApiHandler<KeyWriteResultSchemaType> => {
 			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
-			const adapter = getKeyValueAdapter(c.get("dbType"));
+			const dbType = c.get("dbType");
+			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
 			return c.json({ data: await adapter.createKey({ db, ...body }) }, 200);
 		},
 	)
@@ -47,7 +49,8 @@ export const keysRoutes = new Hono<RouteEnv>()
 		async (c): ApiHandler<KeyRawResultSchemaType> => {
 			const { key } = c.req.valid("param");
 			const query = c.req.valid("query");
-			const adapter = getKeyValueAdapter(c.get("dbType"));
+			const dbType = c.get("dbType");
+			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
 			return c.json({ data: await adapter.getStringChunk({ ...query, key }) }, 200);
 		},
 	)
@@ -58,7 +61,8 @@ export const keysRoutes = new Hono<RouteEnv>()
 		async (c): ApiHandler<KeyDetailsResultSchemaType> => {
 			const { key } = c.req.valid("param");
 			const query = c.req.valid("query");
-			const adapter = getKeyValueAdapter(c.get("dbType"));
+			const dbType = c.get("dbType");
+			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
 			return c.json({ data: await adapter.getKeyDetails({ ...query, key }) }, 200);
 		},
 	)
@@ -71,7 +75,8 @@ export const keysRoutes = new Hono<RouteEnv>()
 			const { key } = c.req.valid("param");
 			const { db } = c.req.valid("query");
 			const body = c.req.valid("json");
-			const adapter = getKeyValueAdapter(c.get("dbType"));
+			const dbType = c.get("dbType");
+			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
 			return c.json({ data: await adapter.applyKeyAction({ db, key, ...body }) }, 200);
 		},
 	)
@@ -82,7 +87,8 @@ export const keysRoutes = new Hono<RouteEnv>()
 		async (c): ApiHandler<DeleteKeyResultSchemaType> => {
 			const { key } = c.req.valid("param");
 			const query = c.req.valid("query");
-			const adapter = getKeyValueAdapter(c.get("dbType"));
+			const dbType = c.get("dbType");
+			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
 			return c.json({ data: await adapter.deleteKey({ ...query, key }) }, 200);
 		},
 	);

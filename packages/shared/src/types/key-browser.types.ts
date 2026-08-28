@@ -12,14 +12,24 @@ export const redisKeyTypeSchema = z.enum([
 export type RedisKeyTypeSchemaType = z.infer<typeof redisKeyTypeSchema>;
 
 export const encodedRedisValueSchema = z.object({
-	base64: z.string(),
+	base64: z
+		.string()
+		.max(16 * 1024 * 1024)
+		.refine(
+			(value) => /^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$/.test(value),
+			"Invalid unpadded base64url value",
+		),
 	utf8: z.string().optional(),
 });
 export type EncodedRedisValueSchemaType = z.infer<typeof encodedRedisValueSchema>;
 
 export const keyScanQuerySchema = z.object({
 	db: z.string(),
-	cursor: z.string().optional(),
+	cursor: z
+		.string()
+		.max(2048)
+		.regex(/^[A-Za-z0-9_-]+$/)
+		.optional(),
 	limit: z.coerce.number().int().min(1).max(200).default(50),
 	search: z.string().max(512).optional(),
 	exactPattern: z.stringbool().default(false),
@@ -44,7 +54,11 @@ export type KeyScanResultSchemaType = z.infer<typeof keyScanResultSchema>;
 
 export const keyDetailsQuerySchema = z.object({
 	db: z.string(),
-	cursor: z.string().optional(),
+	cursor: z
+		.string()
+		.max(2048)
+		.regex(/^[A-Za-z0-9_-]+$/)
+		.optional(),
 	limit: z.coerce.number().int().min(1).max(500).default(100),
 	full: z.stringbool().default(false),
 	direction: z.enum(["forward", "backward"]).default("forward"),
@@ -52,7 +66,11 @@ export const keyDetailsQuerySchema = z.object({
 export type KeyDetailsQuerySchemaType = z.infer<typeof keyDetailsQuerySchema>;
 
 export const keyParamSchema = z.object({
-	key: z.string().min(1), // "-" is the URL sentinel for Redis' valid empty binary key.
+	key: z
+		.string()
+		.min(1)
+		.max(16 * 1024)
+		.regex(/^[A-Za-z0-9_-]+$/), // "-" is the URL sentinel for Redis' valid empty binary key.
 });
 
 const redisStringValueSchema = z.object({
@@ -80,7 +98,12 @@ const redisSetValueSchema = z.object({
 
 const redisSortedSetValueSchema = z.object({
 	kind: z.literal("zset"),
-	entries: z.array(z.object({ member: encodedRedisValueSchema, score: z.number() })),
+	entries: z.array(
+		z.object({
+			member: encodedRedisValueSchema,
+			score: z.union([z.number(), z.literal("inf"), z.literal("-inf")]),
+		}),
+	),
 });
 
 const redisStreamValueSchema = z.object({

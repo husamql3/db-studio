@@ -21,6 +21,8 @@ const mockClient = vi.hoisted(() => ({
 	xrevrangeBuffer: vi.fn(),
 	watch: vi.fn(),
 	unwatch: vi.fn(),
+	quit: vi.fn(),
+	disconnect: vi.fn(),
 	exists: vi.fn(),
 	multi: vi.fn(),
 }));
@@ -53,9 +55,11 @@ const mockTransaction = vi.hoisted(() => ({
 }));
 
 const mockGetRedisClient = vi.hoisted(() => vi.fn());
+const mockGetIsolatedRedisClient = vi.hoisted(() => vi.fn());
 
 vi.mock("@/adapters/connections.js", () => ({
 	getRedisClient: mockGetRedisClient,
+	getIsolatedRedisClient: mockGetIsolatedRedisClient,
 	getRedisDefaultDb: vi.fn(() => 0),
 }));
 
@@ -67,6 +71,7 @@ describe("RedisAdapter key browser", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockGetRedisClient.mockResolvedValue(mockClient);
+		mockGetIsolatedRedisClient.mockResolvedValue(mockClient);
 		mockClient.pipeline.mockReturnValue(mockPipeline);
 		mockPipeline.call.mockReturnThis();
 		mockPipeline.pttl.mockReturnThis();
@@ -75,6 +80,7 @@ describe("RedisAdapter key browser", () => {
 		mockClient.multi.mockReturnValue(mockTransaction);
 		mockClient.watch.mockResolvedValue("OK");
 		mockClient.unwatch.mockResolvedValue("OK");
+		mockClient.quit.mockResolvedValue("OK");
 		mockClient.exists.mockResolvedValue(0);
 		adapter = new RedisAdapter();
 	});
@@ -91,6 +97,7 @@ describe("RedisAdapter key browser", () => {
 		});
 
 		expect(mockClient.watch).toHaveBeenCalledWith(Buffer.from("greeting"));
+		expect(mockGetIsolatedRedisClient).toHaveBeenCalledWith(0);
 		expect(mockTransaction.set).toHaveBeenCalledWith(
 			Buffer.from("greeting"),
 			Buffer.from("hello"),
@@ -160,30 +167,62 @@ describe("RedisAdapter key browser", () => {
 		expect(result.nextCursor).toEqual(expect.any(String));
 	});
 
-	it("carries SCAN overflow in the opaque cursor without dropping keys", async () => {
+	it("returns a complete SCAN batch without serializing keys into the cursor", async () => {
 		mockClient.scanBuffer.mockResolvedValue([
-			Buffer.from("0"),
+			Buffer.from("42"),
 			[Buffer.from("one"), Buffer.from("two"), Buffer.from("three")],
 		]);
-		mockPipeline.exec
-			.mockResolvedValueOnce([
-				[null, "string"], [null, -1], [null, 10],
-				[null, "string"], [null, -1], [null, 10],
-			])
-			.mockResolvedValueOnce([[null, "string"], [null, -1], [null, 10]]);
+		mockPipeline.exec.mockResolvedValue([
+			[null, "string"], [null, -1], [null, 10],
+			[null, "string"], [null, -1], [null, 10],
+			[null, "string"], [null, -1], [null, 10],
+		]);
 
 		const first = await adapter.scanKeys({ db: "0", limit: 2, exactPattern: false });
-		const second = await adapter.scanKeys({
-			db: "0",
-			limit: 2,
+
+		expect(first.keys.map((item) => item.key.utf8)).toEqual(["one", "two", "three"]);
+		expect(first.hasMore).toBe(true);
+		expect(JSON.parse(Buffer.from(first.nextCursor ?? "", "base64url").toString())).toEqual({
+			scanCursor: "42",
 			exactPattern: false,
-			cursor: first.nextCursor ?? undefined,
+		});
+		expect(mockClient.scanBuffer).toHaveBeenCalledTimes(1);
+		expect(mockClient.scanBuffer).toHaveBeenCalledWith(
+			"0",
+			"MATCH",
+			"*",
+			"COUNT",
+			2,
+		);
+	});
+
+	it("represents infinite sorted-set scores without producing invalid JSON numbers", async () => {
+		mockClient.callBuffer.mockImplementation((command: string) => {
+			if (command === "TYPE") return Promise.resolve(Buffer.from("zset"));
+			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-zset"));
+			return Promise.resolve(null);
+		});
+		mockClient.call.mockResolvedValue(64);
+		mockClient.pttl.mockResolvedValue(-1);
+		mockClient.zcard.mockResolvedValue(2);
+		mockClient.zscanBuffer.mockResolvedValue([
+			Buffer.from("0"),
+			[Buffer.from("minimum"), Buffer.from("-inf"), Buffer.from("maximum"), Buffer.from("inf")],
+		]);
+
+		const result = await adapter.getKeyDetails({
+			db: "0",
+			key: "c2NvcmVz",
+			limit: 100,
+			full: false,
+			direction: "forward",
 		});
 
-		expect(first.keys.map((item) => item.key.utf8)).toEqual(["one", "two"]);
-		expect(second.keys.map((item) => item.key.utf8)).toEqual(["three"]);
-		expect(second.hasMore).toBe(false);
-		expect(mockClient.scanBuffer).toHaveBeenCalledTimes(1);
+		expect(result.value).toMatchObject({
+			kind: "zset",
+			entries: [{ score: "-inf" }, { score: "inf" }],
+		});
+		expect(JSON.stringify(result)).not.toContain('"score":null');
 	});
 
 	it("loads a bounded string value with a revision", async () => {

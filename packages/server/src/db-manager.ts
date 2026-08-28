@@ -470,6 +470,12 @@ class DatabaseManager {
 		return client;
 	}
 
+	async getIsolatedRedisClient(dbIndex?: number): Promise<Redis> {
+		const client = (await this.getRedisClient(dbIndex)).duplicate();
+		await client.connect();
+		return client;
+	}
+
 	/**
 	 * Get the default Redis logical DB from the URL (e.g. redis://host/3 → 3)
 	 */
@@ -639,6 +645,10 @@ export const getMongoDb = (dbName?: string) => {
  */
 export const getRedisClient = (dbIndex?: number): Promise<Redis> => {
 	return databaseManager.getRedisClient(dbIndex);
+};
+
+export const getIsolatedRedisClient = (dbIndex?: number): Promise<Redis> => {
+	return databaseManager.getIsolatedRedisClient(dbIndex);
 };
 
 /**

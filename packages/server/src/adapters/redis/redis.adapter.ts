@@ -36,9 +36,14 @@ import type {
 } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
 import type { Redis } from "ioredis";
+import { z } from "zod";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getRedisClient, getRedisDefaultDb } from "@/adapters/connections.js";
+import {
+	getIsolatedRedisClient,
+	getRedisClient,
+	getRedisDefaultDb,
+} from "@/adapters/connections.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
 
@@ -110,7 +115,6 @@ interface KeyBrowserCursorEnvelope {
 	search?: string;
 	exactPattern: boolean;
 	type?: RedisKeyTypeSchemaType;
-	pending?: string[];
 }
 
 interface KeyDetailsCursorEnvelope {
@@ -125,7 +129,14 @@ const encodeKeyBrowserCursor = (env: KeyBrowserCursorEnvelope): string =>
 
 const decodeKeyBrowserCursor = (cursor: string): KeyBrowserCursorEnvelope | null => {
 	try {
-		return JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
+		return z
+			.object({
+				scanCursor: z.string().regex(/^\d+$/),
+				search: z.string().max(512).optional(),
+				exactPattern: z.boolean(),
+				type: z.enum(["string", "hash", "list", "set", "zset", "stream"]).optional(),
+			})
+			.parse(JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")));
 	} catch {
 		return null;
 	}
@@ -136,7 +147,17 @@ const encodeKeyDetailsCursor = (env: KeyDetailsCursorEnvelope): string =>
 
 const decodeKeyDetailsCursor = (cursor: string): KeyDetailsCursorEnvelope | null => {
 	try {
-		return JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+		return z
+			.object({
+				key: z
+					.string()
+					.min(1)
+					.max(16 * 1024),
+				type: z.enum(["string", "hash", "list", "set", "zset", "stream", "unknown"]),
+				cursor: z.string().min(1).max(512),
+				direction: z.enum(["forward", "backward"]),
+			})
+			.parse(JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")));
 	} catch {
 		return null;
 	}
@@ -350,7 +371,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			const dbIndex = parseDbIndex(db);
 			const client = await getRedisClient(dbIndex);
 			let scanCursor = "0";
-			let pending: Buffer[] = [];
 
 			if (cursor) {
 				const decoded = decodeKeyBrowserCursor(cursor);
@@ -363,31 +383,18 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 					throw new HTTPException(400, { message: "Invalid or stale key scan cursor" });
 				}
 				scanCursor = decoded.scanCursor;
-				pending = decoded.pending?.map(decodeBinaryValue) ?? [];
 			}
 
 			const pattern = search ? (exactPattern ? search : `*${escapeRedisGlob(search)}*`) : "*";
-			const scanArgs: Array<string | number> = [
-				scanCursor,
-				"MATCH",
-				pattern,
-				"COUNT",
-				Math.max(limit * 2, 100),
-			];
+			const scanArgs: Array<string | number> = [scanCursor, "MATCH", pattern, "COUNT", limit];
 			if (type) scanArgs.push("TYPE", type);
 
-			let nextScanCursor = scanCursor;
-			if ((pending.length < limit && scanCursor !== "0") || !cursor) {
-				const [nextRaw, keys] = (await (
-					client.scanBuffer as unknown as (
-						...args: Array<string | number>
-					) => Promise<[Buffer | string, Buffer[]]>
-				)(...scanArgs)) as [Buffer | string, Buffer[]];
-				nextScanCursor = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
-				pending.push(...keys);
-			}
-			const pageKeys = pending.slice(0, limit);
-			const remaining = pending.slice(limit);
+			const [nextRaw, pageKeys] = (await (
+				client.scanBuffer as unknown as (
+					...args: Array<string | number>
+				) => Promise<[Buffer | string, Buffer[]]>
+			)(...scanArgs)) as [Buffer | string, Buffer[]];
+			const nextScanCursor = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
 			const pipeline = client.pipeline();
 			for (const key of pageKeys) {
 				pipeline.call("TYPE", key);
@@ -408,16 +415,15 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 					};
 				}),
 				nextCursor:
-					nextScanCursor === "0" && remaining.length === 0
+					nextScanCursor === "0"
 						? null
 						: encodeKeyBrowserCursor({
 								scanCursor: nextScanCursor,
 								search,
 								exactPattern,
 								type,
-								pending: remaining.map((value) => value.toString("base64url")),
 							}),
-				hasMore: nextScanCursor !== "0" || remaining.length > 0,
+				hasMore: nextScanCursor !== "0",
 			};
 		} catch (e) {
 			throw this.wrapError(e);
@@ -562,7 +568,12 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				for (let index = 0; index < values.length; index += 2) {
 					entries.push({
 						member: encodeBinaryValue(values[index]),
-						score: Number(values[index + 1].toString("utf8")),
+						score: ((): number | "inf" | "-inf" => {
+							const score = values[index + 1].toString("utf8");
+							if (score === "inf") return "inf";
+							if (score === "-inf") return "-inf";
+							return Number(score);
+						})(),
 					});
 				}
 				return {
@@ -663,9 +674,10 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	async createKey(
 		params: CreateKeySchemaType & { db: string },
 	): Promise<KeyWriteResultSchemaType> {
-		const client = await getRedisClient(parseDbIndex(params.db));
-		const key = decodeBinaryValue(params.key.base64);
+		let client: Redis | null = null;
 		try {
+			client = await getIsolatedRedisClient(parseDbIndex(params.db));
+			const key = decodeBinaryValue(params.key.base64);
 			await client.watch(key);
 			if ((await client.exists(key)) !== 0) {
 				throw new HTTPException(409, {
@@ -737,20 +749,21 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		} catch (e) {
 			throw this.wrapError(e);
 		} finally {
-			await client.unwatch().catch(() => undefined);
+			if (client) await client.quit().catch(() => client?.disconnect());
 		}
 	}
 
 	async applyKeyAction(
 		params: KeyActionSchemaType & { db: string; key: string },
 	): Promise<KeyWriteResultSchemaType> {
-		const client = await getRedisClient(parseDbIndex(params.db));
-		const key = decodeKeyParam(params.key);
-		const newKey =
-			params.operation.action === "rename"
-				? decodeBinaryValue(params.operation.newKey.base64)
-				: null;
+		let client: Redis | null = null;
 		try {
+			client = await getIsolatedRedisClient(parseDbIndex(params.db));
+			const key = decodeKeyParam(params.key);
+			const newKey =
+				params.operation.action === "rename"
+					? decodeBinaryValue(params.operation.newKey.base64)
+					: null;
 			if (newKey && !newKey.equals(key)) await client.watch(key, newKey);
 			else await client.watch(key);
 
@@ -876,16 +889,17 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		} catch (e) {
 			throw this.wrapError(e);
 		} finally {
-			await client.unwatch().catch(() => undefined);
+			if (client) await client.quit().catch(() => client?.disconnect());
 		}
 	}
 
 	async deleteKey(
 		params: DeleteKeyQuerySchemaType & { key: string },
 	): Promise<DeleteKeyResultSchemaType> {
-		const client = await getRedisClient(parseDbIndex(params.db));
-		const key = decodeKeyParam(params.key);
+		let client: Redis | null = null;
 		try {
+			client = await getIsolatedRedisClient(parseDbIndex(params.db));
+			const key = decodeKeyParam(params.key);
 			await client.watch(key);
 			const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
 			if (!dump) throw new HTTPException(404, { message: "Redis key no longer exists" });
@@ -896,7 +910,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		} catch (e) {
 			throw this.wrapError(e);
 		} finally {
-			await client.unwatch().catch(() => undefined);
+			if (client) await client.quit().catch(() => client?.disconnect());
 		}
 	}
 

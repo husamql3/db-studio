@@ -42,12 +42,18 @@ export function getAdapter(dbType: DatabaseTypeSchema): IDbAdapter {
 const isKeyValueAdapter = (adapter: IDbAdapter): adapter is IDbAdapter & IKeyValueAdapter =>
 	"scanKeys" in adapter && typeof adapter.scanKeys === "function";
 
-export function getKeyValueAdapter(dbType: DatabaseTypeSchema): IKeyValueAdapter {
-	const adapter = adapterRegistry.get(dbType);
+export function assertKeyValueAdapter(
+	adapter: IDbAdapter,
+	dbType: DatabaseTypeSchema,
+): IKeyValueAdapter {
 	if (!isKeyValueAdapter(adapter)) {
 		throw new HTTPException(400, {
 			message: `Key browsing is not supported for database type: "${dbType}"`,
 		});
 	}
 	return adapter;
+}
+
+export function getKeyValueAdapter(dbType: DatabaseTypeSchema): IKeyValueAdapter {
+	return assertKeyValueAdapter(adapterRegistry.get(dbType), dbType);
 }
