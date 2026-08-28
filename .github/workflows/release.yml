@@ -1,4 +1,4 @@
-name: Release DB Studio
+name: Release db-studio
 
 on:
   push:
@@ -25,7 +25,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Release DB Studio
+    name: Release db-studio
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -49,14 +49,6 @@ jobs:
           bun run build:web --force
           bun run build:server --force
 
-      - name: Publish to npm
-        if: |
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
-        run: npm publish --workspace=packages/server --access=public --ignore-scripts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Get package version
         id: get_version
         if: |
@@ -65,6 +57,18 @@ jobs:
         run: |
           VERSION=$(node -p "require('./packages/server/package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [ -n "$(npm view "db-studio@$VERSION" version 2>/dev/null)" ]; then
+            echo "db-studio@$VERSION already published — skipping npm publish"
+            echo "published=true" >> $GITHUB_OUTPUT
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm
+        if: steps.get_version.outputs.published == 'false'
+        run: npm publish --workspace=packages/server --access=public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Generate release notes
         id: release_notes

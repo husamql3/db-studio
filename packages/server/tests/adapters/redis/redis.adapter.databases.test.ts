@@ -46,12 +46,11 @@ describe("RedisAdapter — databases", () => {
 			expect(list[2]).toEqual({ name: "2", size: "10 keys", owner: "n/a", encoding: "n/a" });
 		});
 
-		it("falls back to 16 databases when CONFIG GET returns nothing useful", async () => {
+		it("falls back to the connected database when CONFIG GET is unavailable", async () => {
 			mockClient.call.mockResolvedValue([]);
 			mockClient.info.mockResolvedValue("# Keyspace\r\n");
 			const list = await adapter.getDatabasesList();
-			expect(list).toHaveLength(16);
-			expect(list[0].size).toBe("0 keys");
+			expect(list).toEqual([{ name: "0", size: "0 keys", owner: "n/a", encoding: "n/a" }]);
 		});
 
 		it("wraps connection errors to 503", async () => {

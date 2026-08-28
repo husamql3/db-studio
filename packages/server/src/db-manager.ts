@@ -58,12 +58,12 @@ class DatabaseManager {
 				return "mongodb";
 			case "sqlite":
 				return "sqlite";
-			// case "redis":
-			// case "rediss":
-			// 	return "redis";
+			case "redis":
+			case "rediss":
+				return "redis";
 			default:
 				throw new Error(
-					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://).`,
+					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://), Redis/Valkey (redis:// or rediss://).`,
 				);
 		}
 	}
@@ -172,7 +172,6 @@ class DatabaseManager {
 			db.pragma("journal_mode = WAL");
 			db.pragma("foreign_keys = ON");
 			this.sqliteDb = db;
-			console.log(`Opened SQLite database: ${filePath}`);
 		}
 
 		return this.sqliteDb;
@@ -212,7 +211,6 @@ class DatabaseManager {
 			});
 
 			this.pgPools.set(connectionString, pool);
-			console.log(`Created PostgreSQL connection pool for: ${connectionString}`);
 		}
 
 		return this.pgPools.get(connectionString) ?? new Pool({ connectionString });
@@ -247,7 +245,6 @@ class DatabaseManager {
 			});
 
 			this.mysqlPools.set(connectionString, pool);
-			console.log(`Created MySQL connection pool for: ${connectionString}`);
 		}
 
 		return this.mysqlPools.get(connectionString) as MysqlPool;
@@ -296,7 +293,6 @@ class DatabaseManager {
 			});
 
 			this.mssqlPools.set(connectionString, pool);
-			console.log(`Created SQL Server connection pool for: ${connectionString}`);
 		}
 
 		return this.mssqlPools.get(connectionString) as MssqlPool;
@@ -449,10 +445,18 @@ class DatabaseManager {
 			await client.connect();
 			if (!this.redisClusterChecked) {
 				const info = await client.info("server");
-				if (/^redis_mode:cluster\b/m.test(info)) {
+				if (/^redis_mode:(cluster|sentinel)\b/m.test(info)) {
 					await client.quit().catch(() => {});
 					throw new Error(
-						"Redis cluster mode is not supported. Use a single-node redis:// connection.",
+						"Redis cluster and Sentinel modes are not supported. Use a standalone redis:// connection.",
+					);
+				}
+				const version = info.match(/^redis_version:([^\r\n]+)/m)?.[1];
+				const [major = 0, minor = 0] = version?.split(".").map(Number) ?? [];
+				if (major < 6 || (major === 6 && minor < 2)) {
+					await client.quit().catch(() => {});
+					throw new Error(
+						`Redis 6.2 or newer is required. Connected server reports ${version ?? "an unknown version"}.`,
 					);
 				}
 				this.redisClusterChecked = true;
@@ -463,7 +467,12 @@ class DatabaseManager {
 		}
 
 		this.redisClients.set(index, client);
-		console.log(`Created Redis client for db=${index}`);
+		return client;
+	}
+
+	async getIsolatedRedisClient(dbIndex?: number): Promise<Redis> {
+		const client = (await this.getRedisClient(dbIndex)).duplicate();
+		await client.connect();
 		return client;
 	}
 
@@ -636,6 +645,10 @@ export const getMongoDb = (dbName?: string) => {
  */
 export const getRedisClient = (dbIndex?: number): Promise<Redis> => {
 	return databaseManager.getRedisClient(dbIndex);
+};
+
+export const getIsolatedRedisClient = (dbIndex?: number): Promise<Redis> => {
+	return databaseManager.getIsolatedRedisClient(dbIndex);
 };
 
 /**

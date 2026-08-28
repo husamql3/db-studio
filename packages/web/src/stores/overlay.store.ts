@@ -11,6 +11,7 @@ export type OverlayId =
 	| "records.bulk-insert-excel"
 	| "records.bulk-insert-json"
 	| "records.record-reference"
+	| "redis-browser.create-key"
 	| "chat.assistant";
 
 type OverlayState = {

@@ -16,6 +16,7 @@ export * from "./delete-record.types.js"; // done
 export * from "./delete-table.types.js"; // done
 export * from "./execute-query.types.js"; // done
 export * from "./export-table.types.js";
+export * from "./key-browser.types.js";
 export * from "./rate-limit-response.type.js";
 export * from "./rename-column.types.js";
 export * from "./table-data.types.js"; // done

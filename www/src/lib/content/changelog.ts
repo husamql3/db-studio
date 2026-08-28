@@ -16,6 +16,30 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.10.0",
+		date: "2026-08-28",
+		title: "Support Redis key browsing",
+		features: [
+			{
+				text: "Added Redis support with a dedicated key browser for strings, hashes, lists, sets, sorted sets, and streams, including a redis-cli style query runner",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.9.7",
+		date: "2026-08-15",
+		title: "Relicense to Apache 2.0",
+		improvements: [
+			{
+				text: "Relicensed DB Studio from BSL-1.1 to the Apache License 2.0",
+			},
+			{
+				text: "Fixed the release workflow failing when a merge to main doesn't bump the package version — npm publish is now skipped if the version is already published",
+			},
+		],
+	},
+	{
 		version: "1.9.6",
 		date: "2026-07-07",
 		title: "Fix SPA/API namespace collision and dependency updates",
@@ -39,7 +63,7 @@ export const changelog: ChangelogItem[] = [
 		title: "Fix npm package URLs in README",
 		bugsFixed: [
 			{
-				text: "Fixed npm package URLs in the published README pointing to wrong package name (dbstudio → db-studio) and wrong license badge repo",
+				text: "Fixed the npm package URLs and license badge repository in the published README",
 			},
 		],
 	},

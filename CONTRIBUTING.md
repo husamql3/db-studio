@@ -1,6 +1,6 @@
-# Contributing to DB Studio
+# Contributing to db-studio
 
-Thank you for your interest in contributing to DB Studio! This guide will help you understand our workflow and contribution process.
+Thank you for your interest in contributing to db-studio! This guide will help you understand our workflow and contribution process.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Thank you for your interest in contributing to DB Studio! This guide will help y
 
 ## Development Setup
 
-Before contributing to DB Studio, make sure you have the following installed:
+Before contributing to db-studio, make sure you have the following installed:
 
 - [Bun](https://bun.sh/) - We use Bun instead of Node.js/npm/pnpm
 - Git

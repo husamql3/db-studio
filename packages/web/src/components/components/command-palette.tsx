@@ -686,7 +686,7 @@ export function CommandPalette() {
 								onSelect={() =>
 									handleAction(() => {
 										toast.info("Settings - Coming Soon!", {
-											description: "Customize your DB Studio experience",
+											description: "Customize your db-studio experience",
 										});
 									})
 								}

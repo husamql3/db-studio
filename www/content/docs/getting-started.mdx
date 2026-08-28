@@ -37,11 +37,11 @@ No installation needed! Just run this command:
 </CodeBlockTabs>
 
 
-This runs the latest version of DB Studio using your current folder as the project location.
+This runs the latest version of db-studio using your current folder as the project location.
 
 ## How It Works
 
-DB Studio looks for your database connection in this order:
+db-studio looks for your database connection in this order:
 
 1. Checks for a `.env` file in your current folder
 2. If not found, searches parent folders until it finds one
@@ -63,14 +63,14 @@ Then run:
 npx db-studio
 ```
 
-DB Studio will:
+db-studio will:
 1. Find and read your `.env` file
 2. Start a server on port `3333`
 3. Open your browser to `http://localhost:3333`
 
 ## Command Options
 
-You can customize how DB Studio runs with these options:
+You can customize how db-studio runs with these options:
 
 | Option | What It Does | Example |
 |--------|--------------|---------|
@@ -102,7 +102,7 @@ npx db-studio --status
 
 ## Add to Your Project
 
-You can add DB Studio to your `package.json` scripts:
+You can add db-studio to your `package.json` scripts:
 
 ```json
 {
@@ -153,7 +153,7 @@ With this:
 }
 ```
 
-DB Studio uses the same `DATABASE_URL` from your `.env` file. No extra config needed!
+db-studio uses the same `DATABASE_URL` from your `.env` file. No extra config needed!
 
 ### From Drizzle Studio
 

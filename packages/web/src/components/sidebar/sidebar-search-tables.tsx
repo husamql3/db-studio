@@ -33,27 +33,29 @@ export const SidebarSearchTables = () => {
 
 	return (
 		<div className="px-3 pb-3 pt-2 space-y-2">
-			{/* {dbType !== "mongodb" && dbType !== "redis" && ( */}
-			{dbType !== "mongodb" && (
-				<Button
-					className="w-full justify-start h-8"
-					onClick={() => openOverlay("table-builder.create-table")}
-				>
-					<Plus className="size-4" />
-					Add Table
-				</Button>
-			)}
-
-			<div className="relative">
-				<Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-				<Input
-					ref={inputRef}
-					placeholder="Search tables"
-					value={searchTerm ?? ""}
-					onChange={(e) => setSearchTerm(e.target.value.trim())}
-					className="rounded-sm h-8 pl-8 pr-8"
-				/>
-				<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
+			<div className="flex items-center gap-2">
+				<div className="relative min-w-0 flex-1">
+					<Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+					<Input
+						ref={inputRef}
+						variant="outline"
+						placeholder="Search tables"
+						value={searchTerm ?? ""}
+						onChange={(e) => setSearchTerm(e.target.value.trim())}
+						className="rounded-sm h-8 pl-8 pr-8"
+					/>
+					<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
+				</div>
+				{dbType !== "mongodb" && (
+					<Button
+						size="icon-lg"
+						className="shrink-0 rounded-sm"
+						onClick={() => openOverlay("table-builder.create-table")}
+						aria-label="Add table"
+					>
+						<Plus className="size-4" />
+					</Button>
+				)}
 			</div>
 		</div>
 	);

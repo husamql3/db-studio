@@ -22,17 +22,17 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 
 <br />
 
-<img src="https://dbstudio.sh/og-image.png" alt="DB Studio screenshot" width="1000" />
+<img src="https://dbstudio.sh/og-image.png" alt="db-studio screenshot" width="1000" />
 
 ## Getting Started
 
-Run DB Studio without installing it globally:
+Run db-studio without installing it globally:
 
 ```bash
 npx db-studio
 ```
 
-DB Studio reads your database connection from `DATABASE_URL` in a `.env` file.
+db-studio reads your database connection from `DATABASE_URL` in a `.env` file.
 
 ```env
 DATABASE_URL="postgresql://user:password@127.0.0.1:5432/mydb"

@@ -19,7 +19,7 @@
     "init-db:redis": "bash ./scripts/init-db-redis.sh",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=@db-studio/web",
-    "scan:web": "bunx react-scan@latest https://web.dbstuio.localhost",
+    "scan:web": "bunx react-scan@latest https://web.db-studio.localhost",
     "build:server": "turbo run build --filter=db-studio",
     "build:proxy": "turbo run build --filter=@db-studio/proxy",
     "build:www": "turbo run build --filter=@db-studio/www",

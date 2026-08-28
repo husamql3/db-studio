@@ -60,7 +60,7 @@ export const Header = ({ stars }: { stars: string | null }) => {
 					<Link to="/">
 						<img
 							src="/logo.png"
-							alt="DB Studio"
+							alt="db-studio"
 							width={32}
 							className="md:w-8 w-6"
 						/>

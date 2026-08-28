@@ -14,6 +14,7 @@ import { Route as PathlessLayoutIndexRouteImport } from './routes/_pathlessLayou
 import { Route as PathlessLayoutVisualizerRouteImport } from './routes/_pathlessLayout/visualizer'
 import { Route as PathlessLayoutLogsRouteImport } from './routes/_pathlessLayout/logs'
 import { Route as PathlessLayoutIndexesRouteImport } from './routes/_pathlessLayout/indexes'
+import { Route as PathlessLayoutBrowserRouteImport } from './routes/_pathlessLayout/browser'
 import { Route as PathlessLayoutTableIndexRouteImport } from './routes/_pathlessLayout/table/index'
 import { Route as PathlessLayoutSchemaIndexRouteImport } from './routes/_pathlessLayout/schema/index'
 import { Route as PathlessLayoutRunnerIndexRouteImport } from './routes/_pathlessLayout/runner/index'
@@ -44,6 +45,11 @@ const PathlessLayoutLogsRoute = PathlessLayoutLogsRouteImport.update({
 const PathlessLayoutIndexesRoute = PathlessLayoutIndexesRouteImport.update({
   id: '/indexes',
   path: '/indexes',
+  getParentRoute: () => PathlessLayoutRoute,
+} as any)
+const PathlessLayoutBrowserRoute = PathlessLayoutBrowserRouteImport.update({
+  id: '/browser',
+  path: '/browser',
   getParentRoute: () => PathlessLayoutRoute,
 } as any)
 const PathlessLayoutTableIndexRoute =
@@ -85,6 +91,7 @@ const PathlessLayoutRunnerQueryIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof PathlessLayoutIndexRoute
+  '/browser': typeof PathlessLayoutBrowserRoute
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/table/': typeof PathlessLayoutTableIndexRoute
 }
 export interface FileRoutesByTo {
+  '/browser': typeof PathlessLayoutBrowserRoute
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
@@ -110,6 +118,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_pathlessLayout': typeof PathlessLayoutRouteWithChildren
+  '/_pathlessLayout/browser': typeof PathlessLayoutBrowserRoute
   '/_pathlessLayout/indexes': typeof PathlessLayoutIndexesRoute
   '/_pathlessLayout/logs': typeof PathlessLayoutLogsRoute
   '/_pathlessLayout/visualizer': typeof PathlessLayoutVisualizerRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/browser'
     | '/indexes'
     | '/logs'
     | '/visualizer'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/table/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/browser'
     | '/indexes'
     | '/logs'
     | '/visualizer'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_pathlessLayout'
+    | '/_pathlessLayout/browser'
     | '/_pathlessLayout/indexes'
     | '/_pathlessLayout/logs'
     | '/_pathlessLayout/visualizer'
@@ -202,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PathlessLayoutIndexesRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
+    '/_pathlessLayout/browser': {
+      id: '/_pathlessLayout/browser'
+      path: '/browser'
+      fullPath: '/browser'
+      preLoaderRoute: typeof PathlessLayoutBrowserRouteImport
+      parentRoute: typeof PathlessLayoutRoute
+    }
     '/_pathlessLayout/table/': {
       id: '/_pathlessLayout/table/'
       path: '/table'
@@ -248,6 +267,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface PathlessLayoutRouteChildren {
+  PathlessLayoutBrowserRoute: typeof PathlessLayoutBrowserRoute
   PathlessLayoutIndexesRoute: typeof PathlessLayoutIndexesRoute
   PathlessLayoutLogsRoute: typeof PathlessLayoutLogsRoute
   PathlessLayoutVisualizerRoute: typeof PathlessLayoutVisualizerRoute
@@ -261,6 +281,7 @@ interface PathlessLayoutRouteChildren {
 }
 
 const PathlessLayoutRouteChildren: PathlessLayoutRouteChildren = {
+  PathlessLayoutBrowserRoute: PathlessLayoutBrowserRoute,
   PathlessLayoutIndexesRoute: PathlessLayoutIndexesRoute,
   PathlessLayoutLogsRoute: PathlessLayoutLogsRoute,
   PathlessLayoutVisualizerRoute: PathlessLayoutVisualizerRoute,

@@ -8,3 +8,5 @@ export const MONGO_PLACEHOLDER_QUERY = `{
   "sort": { "_id": 1 },
   "limit": 50
 }`;
+
+export const REDIS_PLACEHOLDER_QUERY = "PING";

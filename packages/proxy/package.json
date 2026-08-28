@@ -6,7 +6,7 @@
     "dev": "portless run",
     "dev:app": "wrangler dev --port=${PORT:-8787}",
     "build": "wrangler build",
-    "start": "portless proxy.dbstuio bun run start:app",
+    "start": "portless proxy.db-studio bun run start:app",
     "start:app": "bun run build && wrangler dev --remote --port=${PORT:-8787}",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
@@ -16,7 +16,7 @@
     "secrets:clear": "wrangler secret delete --all"
   },
   "portless": {
-    "name": "proxy.dbstuio",
+    "name": "proxy.db-studio",
     "script": "dev:app"
   },
   "dependencies": {
