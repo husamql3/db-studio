@@ -206,7 +206,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add support for Redis and Valkey key-value databases",
-				status: "in-progress",
+				status: "completed",
 			},
 			{
 				title: "Add support for DuckDB and ClickHouse analytics databases",
@@ -262,7 +262,7 @@ export const roadmapItems: RoadmapItem[] = [
 			{
 				title:
 					"Redis and Valkey key browser with TTL, memory usage, and data structure viewers",
-				status: "in-progress",
+				status: "completed",
 			},
 			{
 				title: "MongoDB collection schema inference, aggregation builder, and document diff",
