@@ -1,4 +1,14 @@
-export PATH="/Users/mac/.bun/bin:$PATH"
+# Ensure bun is in PATH across all operating systems (macOS, Linux, Windows) and environments
+if ! command -v bun >/dev/null 2>&1; then
+	export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:${USERPROFILE:-$HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/bin:$PATH"
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+	echo "husky - bun is not found in PATH. Please install Bun (https://bun.sh) or add it to PATH." >&2
+	exit 1
+fi
+
 bun run format
+bun run typecheck
 bun run test
 bun run build
