@@ -1,94 +1,111 @@
 # Contributing to db-studio
 
-Thank you for your interest in contributing to db-studio! This guide will walk you through setting up your local environment, running the application in development mode, making changes, running tests, and submitting your pull request.
+Thanks for your interest in contributing to db-studio! Whether you want to fix a bug, add a new database engine, improve the UI, or help with documentation, we welcome your contributions.
+
+This guide will walk you through setting up your environment, running the app locally, running tests, and submitting your pull request.
 
 ## Table of Contents
 
-- [Development Setup](#development-setup)
-- [Monorepo Architecture](#monorepo-architecture)
-- [Local Development](#local-development)
-  - [1. Environment Configuration](#1-environment-configuration)
-  - [2. Database Initialization (Optional)](#2-database-initialization-optional)
-  - [3. Start Development Services (Portless)](#3-start-development-services-portless)
-  - [4. Targeted Development](#4-targeted-development)
-- [Issues](#issues)
-- [Branches](#branches)
-- [Commits](#commits)
-- [Testing & Quality Checks](#testing--quality-checks)
-  - [Formatting & Linting](#formatting--linting)
-  - [Type Checking](#type-checking)
+- [Prerequisites](#prerequisites)
+- [Monorepo Overview](#monorepo-overview)
+- [Getting Started](#getting-started)
+- [Running Locally](#running-locally)
+  - [1. Configure Environment Variables](#1-configure-environment-variables)
+  - [2. Initialize Test Data (Optional)](#2-initialize-test-data-optional)
+  - [3. Start the Development Stack](#3-start-the-development-stack)
+  - [4. Running on a Custom Port (No Sudo)](#4-running-on-a-custom-port-no-sudo)
+  - [5. Work on a Single Package](#5-work-on-a-single-package)
+  - [6. Useful Portless Commands](#6-useful-portless-commands)
+- [Testing and Quality Checks](#testing-and-quality-checks)
   - [Running Tests](#running-tests)
+  - [Formatting and Linting](#formatting-and-linting)
+  - [Type Checking](#type-checking)
+- [Development Workflow](#development-workflow)
+  - [Issues](#issues)
+  - [Branching](#branching)
+  - [Commit Messages](#commit-messages)
+  - [Submitting a Pull Request](#submitting-a-pull-request)
 - [First-Time Contributors](#first-time-contributors)
-- [Pull Requests](#pull-requests)
-- [Code Review](#code-review)
-- [Merging](#merging)
 - [Quick Reference](#quick-reference)
 
----
+## Prerequisites
 
-## Development Setup
+Before starting, install the following tools:
 
-Before contributing, make sure you have the following installed on your machine:
+- [Bun](https://bun.sh/) (version 1.2.19 or higher): db-studio uses Bun as its package manager and runtime across the monorepo.
+- [Node.js](https://nodejs.org/) (version 20 or higher): required by certain toolchains and CLI utilities.
+- Git: for version control.
 
-- [Bun](https://bun.sh/) (>= 1.2.19) — *we use Bun instead of Node.js / npm / pnpm*
-- [Node.js](https://nodejs.org/) (>= 20.x)
-- Git
+## Monorepo Overview
 
-### Getting Started
+db-studio is organized as a Bun and Turborepo monorepo with the following structure:
 
-1. **Fork the repository** on GitHub.
-2. **Clone your fork**:
+| Package | Location | Description |
+|---|---|---|
+| `db-studio` | `packages/server` | Hono API server and the CLI tool |
+| `@db-studio/web` | `packages/web` | React 19 web application (Vite, TanStack Router, TanStack Table) |
+| `@db-studio/shared` | `packages/shared` | Shared TypeScript types, Zod schemas, and constants |
+| `@db-studio/ui` | `packages/ui` | Reusable UI components and design tokens |
+| `@db-studio/proxy` | `packages/proxy` | Cloudflare Workers proxy for AI assistant rate limiting |
+| `www` | `www` | Documentation and marketing website |
+
+## Getting Started
+
+1. Fork the [db-studio repository](https://github.com/husamql3/db-studio) on GitHub.
+2. Clone your fork locally:
 
    ```bash
-   git clone https://github.com/husamql3/db-studio.git
+   git clone https://github.com/<your-username>/db-studio.git
    cd db-studio
    ```
 
-3. **Install dependencies**:
+3. Install dependencies:
 
    ```bash
    bun install
    ```
 
-4. **Build the packages**:
+4. Build all packages once:
 
    ```bash
    bun run build
    ```
 
----
+## Running Locally
 
-## Monorepo Architecture
+### 1. Configure Environment Variables
 
-`db-studio` is structured as a **Bun + Turborepo** monorepo:
+Create a `.env` file in the project root by copying the provided example:
 
-| Package | Directory | Role / Stack |
-|---|---|---|
-| `db-studio` | `packages/server` | Hono API server & CLI (`npx db-studio`) |
-| `@db-studio/web` | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table, shadcn/ui) |
-| `@db-studio/shared` | `packages/shared` | Shared TypeScript types, Zod schemas, and constants |
-| `@db-studio/ui` | `packages/ui` | Shared UI primitives and Tailwind components |
-| `@db-studio/proxy` | `packages/proxy` | Cloudflare Workers proxy for AI assistant rate limiting |
-| `www` | `www` | Documentation and marketing site (TanStack Start + Fumadocs) |
-
----
-
-## Local Development
-
-### 1. Environment Configuration
-
-Create a `.env` file in the project root (or inside `packages/server/.env`) to connect to your database:
-
-```env
-# Example PostgreSQL connection
-DATABASE_URL=postgresql://postgres:password@localhost:5432/mydb
+```bash
+cp .env.example .env
 ```
 
-`db-studio` supports multiple database types: PostgreSQL (`pg`), MySQL (`mysql`), SQL Server (`mssql`), MongoDB (`mongodb`), SQLite (`sqlite`), and Redis (`redis`).
+Open `.env` and set your database connection string in `DATABASE_URL`. Here are examples for different databases:
 
-### 2. Database Initialization (Optional)
+```env
+# PostgreSQL
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dbstudio"
 
-To seed a local test database with sample schemas and tables, run the corresponding initialization script:
+# MySQL
+DATABASE_URL="mysql://root@localhost:3306/dbstudio"
+
+# SQL Server (MSSQL)
+DATABASE_URL="mssql://sa:YourPassword1!@localhost:1433/dbstudio"
+
+# MongoDB
+DATABASE_URL="mongodb://localhost:27017/dbstudio"
+
+# SQLite (relative or absolute file path)
+DATABASE_URL="sqlite://./db/dbstudio.sqlite"
+
+# Redis (database index 0 to N)
+DATABASE_URL="redis://localhost:6379/0"
+```
+
+### 2. Initialize Test Data (Optional)
+
+If you want ready-to-use sample tables and data, we provide database seed scripts:
 
 ```bash
 bun run init-db:pgsql   # PostgreSQL
@@ -99,205 +116,225 @@ bun run init-db:sqlite  # SQLite
 bun run init-db:redis   # Redis
 ```
 
-### 3. Start Development Services (Portless)
+Running one of these commands creates sample tables such as users, categories, products, and orders, so you can test features with real data immediately.
 
-Services in `db-studio` run through [Portless](https://portless.sh/), which assigns stable local HTTPS `.localhost` domain names instead of arbitrary port numbers.
+### 3. Start the Development Stack
 
-**First-time setup:** Trust the local Portless certificate authority:
+db-studio uses Portless to provide stable local HTTPS addresses instead of raw port numbers.
+
+Before your first run, trust the local Portless certificate authority:
 
 ```bash
 bunx portless trust
 ```
 
-**Start all services:**
+Start the full stack with:
 
 ```bash
 bun run dev
 ```
 
-Once running, you can access each service at:
+Once running, access the services in your browser:
 
-| Service | Local URL | Description |
-|---|---|---|
-| **Web Frontend** | `https://web.db-studio.localhost` | React 19 UI (Vite dev server) |
-| **API Server** | `https://api.db-studio.localhost` | Hono REST API server |
-| **AI Proxy** | `https://proxy.db-studio.localhost` | Cloudflare Workers proxy |
-| **Docs Site** | `https://www.db-studio.localhost` | Documentation website |
+| Service | Address |
+|---|---|
+| Web App | `https://web.db-studio.localhost` |
+| API Server | `https://api.db-studio.localhost` |
+| AI Proxy | `https://proxy.db-studio.localhost` |
+| Docs Site | `https://www.db-studio.localhost` |
 
-### 4. Targeted Development
+### 4. Running on a Custom Port (No Sudo)
 
-If you only want to work on a specific package rather than running the whole stack:
+By default, Portless binds to port 443, which may prompt for administrator permissions (`sudo`). If you want to run completely unprivileged without any sudo prompts, start Portless on an unprivileged port such as 1355:
+
+1. Start the Portless proxy on port 1355:
+
+   ```bash
+   bunx portless proxy start -p 1355
+   ```
+
+2. Run the dev stack with matching URLs:
+
+   ```bash
+   VITE_API_URL=https://api.db-studio.localhost:1355 \
+   VITE_API_PROXY_TARGET=https://api.db-studio.localhost:1355 \
+   DB_STUDIO_PROXY_URL=https://proxy.db-studio.localhost:1355 \
+   bun run dev
+   ```
+
+3. Open `https://web.db-studio.localhost:1355` in your browser.
+
+### 5. Work on a Single Package
+
+If you only need to work on one part of the codebase, you do not have to run the entire stack:
 
 ```bash
-bun run dev:web     # Frontend only
-bun run dev:server  # API server only
-bun run dev:proxy   # Proxy only
+bun run dev:web     # React frontend only
+bun run dev:server  # Hono API server only
+bun run dev:proxy   # Cloudflare AI proxy only
 bun run dev:www     # Documentation site only
 ```
 
----
+### 6. Useful Portless Commands
 
-## Issues
+- List active routes and their internal ports:
+  ```bash
+  bunx portless list
+  ```
+- Stop the background proxy:
+  ```bash
+  bunx portless proxy stop
+  ```
 
-The GitHub workflow begins by creating or picking an issue.
+## Testing and Quality Checks
 
-### Issue Naming Convention
+### Running Tests
 
-```text
-[<type>]: <short-description>
-```
+We use Vitest to run our test suite through Turborepo. Please avoid running bare `bun test`, as Vitest handles our path aliases and mocking setup.
 
-### Examples
+- Run all tests across the repository:
+  ```bash
+  bun run test
+  ```
 
-```text
-[FIX]: Fix auth flow
-[STYLE]: Improve login page styling
-[FEATURE]: Implement admin dashboard
-[SUB-FEAT]: Implement dashboard UI
-```
+- Run only server tests from the root directory:
+  ```bash
+  bun run test:server
+  ```
 
----
+- Run a single test file (great for focused development):
+  ```bash
+  cd packages/server
+  bunx vitest run tests/adapters/pg.adapter.test.ts
+  ```
 
-## Branches
+- Run tests in watch mode while editing code:
+  ```bash
+  cd packages/server
+  bun run test:watch
+  ```
 
-Create a dedicated feature branch from the `stage` branch before making changes:
+### Formatting and Linting
 
-### Branch Naming Convention
-
-```text
-<type>/<issue-number>/<short-description>
-```
-
-### Examples
-
-- `fix/92/fix_auth_flow`
-- `style/104/improve_login_page_styling`
-- `feat/112/implement_dashboard`
-
----
-
-## Commits
-
-### Commit Message Format
-
-Follow the Conventional Commits specification:
-
-```text
-<type>(<scope>): <short-description>
-```
-
-- **Types**: `feat`, `fix`, `style`, `enhance`, `refactor`, `docs`, `chore`, `test`
-- **Scopes**: `front`, `back`, `shared`, `ui`, `proxy`, `docs`
-
-### Examples
-
-```text
-feat(front): implement dashboard header
-feat(back): implement table export endpoint
-fix(back): handle null timestamp in mysql adapter
-style(front): refine dark mode table borders
-docs: update local development instructions
-```
-
----
-
-## Testing & Quality Checks
-
-Before committing changes or opening a PR, ensure all code formatting, type checking, and tests pass. (Husky runs these checks automatically on git commit).
-
-### Formatting & Linting
-
-We use [Biome](https://biomejs.dev/) for formatting and linting:
+We use Biome for fast, consistent formatting and linting:
 
 ```bash
 bun run format
 ```
 
+This checks all files and automatically formats them according to project rules.
+
 ### Type Checking
 
-Verify TypeScript types across all workspace packages:
+Verify that TypeScript compiles across every package without errors:
 
 ```bash
 bun run typecheck
 ```
 
-### Running Tests
+Our pre-commit hooks run Biome and tests automatically before every commit, so checking these locally helps your commits pass on the first try.
 
-We use [Vitest](https://vitest.dev/) via Turborepo (do **not** run raw `bun test`):
+## Development Workflow
 
-```bash
-# Run all tests across the entire monorepo
-bun run test
+### Issues
 
-# Run tests for a specific package from root
-bun run test:server
+We track work via GitHub issues. Pick an open issue or create one using this naming format:
 
-# Run tests directly inside a package
-cd packages/server && bun run test
-cd packages/web && bun run test
-
-# Run tests in watch mode (within a package)
-bun run test:watch
-
-# Run a single test file
-cd packages/server
-bunx vitest run tests/adapters/pg.adapter.test.ts
+```text
+[<type>]: <short-description>
 ```
 
----
+Examples:
+- `[FIX]: Fix auth flow`
+- `[FEATURE]: Support custom table filters`
+- `[STYLE]: Improve sidebar responsiveness`
+
+### Branching
+
+Always create your branch from the `stage` branch (active development lives on `stage`, not `main`):
+
+```bash
+git checkout stage
+git pull origin stage
+git checkout -b <type>/<issue-number>/<short-description>
+```
+
+Branch naming convention:
+```text
+<type>/<issue-number>/<short-description>
+```
+
+Examples:
+- `fix/142/fix-auth-flow`
+- `feat/156/support-custom-filters`
+- `docs/168/update-setup-guide`
+
+### Commit Messages
+
+We follow Conventional Commits format:
+
+```text
+<type>(<scope>): <short-description>
+```
+
+Common types:
+- `feat`: new feature
+- `fix`: bug fix
+- `style`: design or UI adjustments
+- `refactor`: code improvements without functional changes
+- `docs`: documentation updates
+- `test`: adding or fixing tests
+- `chore`: maintenance or dependency updates
+
+Common scopes:
+- `front`: web frontend
+- `back`: API server or CLI
+- `shared`: types and schemas
+- `ui`: shared UI components
+- `proxy`: Cloudflare proxy
+- `docs`: documentation website
+
+Examples:
+- `feat(back): add support for json array filtering`
+- `fix(front): prevent layout shift on table reload`
+- `docs: update setup and testing instructions`
+
+### Submitting a Pull Request
+
+1. Push your branch to your fork:
+   ```bash
+   git push origin <your-branch-name>
+   ```
+2. Open a Pull Request targeting the `stage` branch.
+3. Keep your PR title clear and descriptive, matching your commit format or branch name.
+4. Describe your changes, why they are needed, and link any related issues (such as `Closes #142`).
+5. Automated CI checks will run Biome, TypeScript checks, and Vitest on push. Maintainers will review your PR and provide feedback.
 
 ## First-Time Contributors
 
-If this is your first contribution to `db-studio`, welcome! Please add your name and email to the [AUTHORS](AUTHORS) file in the root directory:
+If this is your first contribution to db-studio, welcome aboard! Please add your name and email to the [AUTHORS](AUTHORS) file in the root directory:
 
 ```text
 Your Name <your-email@example.com>
 ```
 
----
-
-## Pull Requests
-
-1. Push your branch to your GitHub fork:
-   ```bash
-   git push origin <type>/<issue-number>/<short-description>
-   ```
-2. Open a Pull Request targeting the **`stage`** branch.
-3. PR Title format: `<type>/<scope>/<short-description>` (or match your branch name).
-4. Provide a clear description of the changes made, why they are needed, and link any related issues (e.g., `Closes #123`).
-
----
-
-## Code Review
-
-- Every PR will be reviewed by the maintainers.
-- Automated CI workflows will run Biome checks, TypeScript type checks, and tests on push.
-- Address any reviewer feedback by pushing new commits to your branch.
-
----
-
-## Merging
-
-Once approved and all CI checks pass, your PR will be merged into the `stage` branch and prepared for the next release.
-
----
-
 ## Quick Reference
 
-| Task | Command |
+| Action | Command |
 |---|---|
 | Install dependencies | `bun install` |
 | Build all packages | `bun run build` |
-| Start all dev services | `bun run dev` |
+| Start all services | `bun run dev` |
 | Start frontend only | `bun run dev:web` |
 | Start server only | `bun run dev:server` |
-| Format & lint (Biome) | `bun run format` |
+| Start docs site only | `bun run dev:www` |
+| Format and lint | `bun run format` |
 | Type check | `bun run typecheck` |
 | Run all tests | `bun run test` |
 | Run server tests | `bun run test:server` |
-| Seed sample database | `bun run init-db:<db>` (e.g. `init-db:pgsql`) |
-| Trust local SSL cert | `bunx portless trust` |
+| Seed sample database | `bun run init-db:<engine>` |
+| Trust local SSL | `bunx portless trust` |
+| List active routes | `bunx portless list` |
+| Stop Portless proxy | `bunx portless proxy stop` |
 
----
-
-Thank you for contributing! If you have any questions, feel free to open an issue or reach out to the maintainers.
+Thank you for helping make db-studio better! If you ever have questions or need a hand, feel free to ask in GitHub Discussions or open an issue.
