@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
+import { DialogContext } from "../dialog-context";
 import { cn } from "../utils";
 
 function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
@@ -73,7 +74,7 @@ function DrawerContent({
 				{...props}
 			>
 				{/* <div className="mx-auto mt-4 hidden h-1.5 w-[100px] shrink-0 rounded-full bg-muted group-data-[vaul-drawer-direction=bottom]/drawer-content:block" /> */}
-				{children}
+				<DialogContext.Provider value={true}>{children}</DialogContext.Provider>
 			</DrawerPrimitive.Content>
 		</DrawerPortal>
 	);

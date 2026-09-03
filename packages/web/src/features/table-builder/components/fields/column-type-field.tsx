@@ -38,6 +38,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 			name={`fields.${index}.columnType`}
 			render={({ field }) => (
 				<Popover
+					modal={true}
 					open={typePickerOpen}
 					onOpenChange={setTypePickerOpen}
 				>
