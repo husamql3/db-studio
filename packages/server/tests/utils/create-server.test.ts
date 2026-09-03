@@ -189,12 +189,16 @@ describe("createServer", () => {
 
 		it("should allow localhost and *.localhost origins when NODE_ENV is development", async () => {
 			const originalEnv = process.env.NODE_ENV;
+			const originalOrigins = process.env.ALLOWED_ORIGINS;
 			try {
 				process.env.NODE_ENV = "development";
+				delete process.env.ALLOWED_ORIGINS;
 				const res1 = await server.app.request("/api/databases", {
 					headers: { Origin: "https://web.db-studio.localhost" },
 				});
-				expect(res1.headers.get("Access-Control-Allow-Origin")).toBe("https://web.db-studio.localhost");
+				expect(res1.headers.get("Access-Control-Allow-Origin")).toBe(
+					"https://web.db-studio.localhost",
+				);
 
 				const res2 = await server.app.request("/api/databases", {
 					headers: { Origin: "http://localhost:3000" },
@@ -211,7 +215,16 @@ describe("createServer", () => {
 				});
 				expect(resEvil.headers.get("Access-Control-Allow-Origin")).toBeNull();
 			} finally {
-				process.env.NODE_ENV = originalEnv;
+				if (originalEnv === undefined) {
+					delete process.env.NODE_ENV;
+				} else {
+					process.env.NODE_ENV = originalEnv;
+				}
+				if (originalOrigins === undefined) {
+					delete process.env.ALLOWED_ORIGINS;
+				} else {
+					process.env.ALLOWED_ORIGINS = originalOrigins;
+				}
 			}
 		});
 
@@ -222,9 +235,15 @@ describe("createServer", () => {
 				const res = await server.app.request("/api/databases", {
 					headers: { Origin: "https://custom.dbstudio.sh" },
 				});
-				expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://custom.dbstudio.sh");
+				expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
+					"https://custom.dbstudio.sh",
+				);
 			} finally {
-				process.env.ALLOWED_ORIGINS = originalOrigins;
+				if (originalOrigins === undefined) {
+					delete process.env.ALLOWED_ORIGINS;
+				} else {
+					process.env.ALLOWED_ORIGINS = originalOrigins;
+				}
 			}
 		});
 	});
