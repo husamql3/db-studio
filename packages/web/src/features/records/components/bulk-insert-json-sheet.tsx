@@ -123,7 +123,7 @@ export const BulkInsertJsonSheet = ({ tableName }: { tableName: string }) => {
 						<div className="flex flex-col gap-2">
 							<Label
 								htmlFor="file-input"
-								className="mb-2 text-sm font-medium text-zinc-300"
+								className="mb-2 text-sm font-medium text-foreground"
 							>
 								Select JSON file
 							</Label>
@@ -134,7 +134,7 @@ export const BulkInsertJsonSheet = ({ tableName }: { tableName: string }) => {
 								accept=".json"
 								onChange={handleFileSelect}
 								disabled={isInserting}
-								className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer disabled:opacity-50"
+								className="text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer disabled:opacity-50"
 							/>
 						</div>
 					</TabsContent>
@@ -146,7 +146,7 @@ export const BulkInsertJsonSheet = ({ tableName }: { tableName: string }) => {
 						<div className="flex-1 flex flex-col">
 							<Label
 								htmlFor="text-input"
-								className="mb-2 text-sm font-medium text-zinc-300"
+								className="mb-2 text-sm font-medium text-foreground"
 							>
 								Data Input
 							</Label>

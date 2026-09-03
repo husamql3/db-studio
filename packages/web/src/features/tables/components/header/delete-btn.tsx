@@ -95,7 +95,7 @@ export const DeleteBtn = ({
 			<Button
 				type="button"
 				variant="destructive"
-				className="h-8! border-l-0 border-y-0 border-r border-zinc-800 text-white rounded-none"
+				className="h-8! border-l-0 border-y-0 border-r border-border text-white rounded-none"
 				onClick={handleDeleteClick}
 				aria-label="Delete the selected record"
 				disabled={isDeletingCells}

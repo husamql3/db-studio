@@ -16,11 +16,11 @@ export const SchemaToolbar = ({
 	const isSchemaless = useIsSchemaless();
 
 	return (
-		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center bg-zinc-950 sticky top-0 left-0 right-0 z-0">
+		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center bg-background text-foreground sticky top-0 left-0 right-0 z-0">
 			<Button
 				type="button"
 				variant="ghost"
-				className="size-8! aspect-square border-x-0 border-y-0 border-zinc-800 rounded-none"
+				className="size-8! aspect-square border-x-0 border-y-0 border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 				onClick={() => void refetch()}
 				aria-label={`Refetch schema for ${tableName}`}
 				disabled={isRefetching}
@@ -32,7 +32,7 @@ export const SchemaToolbar = ({
 				<Button
 					type="button"
 					variant="default"
-					className="h-8! border-l border-y-0 border-r-0 border-zinc-800 rounded-none flex items-center gap-2"
+					className="h-8! border-l border-y-0 border-r-0 border-border rounded-none flex items-center gap-2"
 					onClick={() => openOverlay("schema.add-column")}
 				>
 					<Plus className="size-4" />

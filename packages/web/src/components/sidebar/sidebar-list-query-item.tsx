@@ -151,12 +151,16 @@ export const SidebarListQueryItem = ({
 							onClick={handleSelect}
 							className={cn(
 								"w-full flex gap-2 py-2 text-sm transition-colors text-left",
-								"hover:text-zinc-100 focus:outline-none focus:bg-accent/10 focus:text-zinc-100 justify-start items-center",
-								isSelected ? "text-zinc-100 bg-accent/10" : "text-zinc-400",
+								"hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-foreground justify-start items-center",
+								isSelected
+									? "text-sidebar-accent-foreground bg-sidebar-accent font-medium"
+									: "text-sidebar-foreground/70",
 								isNested ? "px-4 pl-12" : "px-4",
 							)}
 						>
-							{isSelected && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
+							{isSelected && (
+								<span className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+							)}
 							<span className="flex-1">{tableName}</span>
 						</button>
 					</ContextMenuTrigger>
@@ -191,12 +195,14 @@ export const SidebarListQueryItem = ({
 					onClick={handleSelect}
 					className={cn(
 						"w-full flex gap-2 py-2 text-sm transition-colors text-left",
-						"hover:text-zinc-100 focus:outline-none focus:bg-accent/10 focus:text-zinc-100 justify-start items-center",
-						isSelected ? "text-zinc-100 bg-accent/10" : "text-zinc-400",
+						"hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-foreground justify-start items-center",
+						isSelected
+							? "text-sidebar-accent-foreground bg-sidebar-accent font-medium"
+							: "text-sidebar-foreground/70",
 						isNested ? "px-4 pl-12" : "px-4",
 					)}
 				>
-					{isSelected && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
+					{isSelected && <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
 					<span className="flex-1">{tableName}</span>
 				</button>
 			)}

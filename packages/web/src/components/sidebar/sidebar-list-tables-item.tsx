@@ -25,11 +25,13 @@ export const SidebarListTablesItem = ({
 				}}
 				className={cn(
 					"w-full flex gap-0.5 px-4 py-1.5 text-sm transition-colors text-left",
-					"hover:text-zinc-100 focus:outline-none focus:bg-accent/10 focus:text-zinc-100 justify-start items-center",
-					isActive ? "text-white bg-zinc-800/50" : "text-zinc-400",
+					"hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-foreground justify-start items-center",
+					isActive
+						? "text-sidebar-accent-foreground bg-sidebar-accent font-medium"
+						: "text-sidebar-foreground/70",
 				)}
 			>
-				{isActive && <span className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
+				{isActive && <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
 				<span className="flex-1 truncate">
 					{schemaName && schemaName !== "public" ? `${schemaName}.` : ""}
 					{tableName}

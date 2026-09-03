@@ -34,12 +34,19 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			runnerResults: {
 				height: 300,
 			},
-			theme: "system",
+			theme: "dark",
 			setTheme: (theme) => set({ theme: theme }),
 			toggleTheme: () =>
-				set((state) => ({
-					theme: state.theme === "dark" ? "light" : "dark",
-				})),
+				set((state) => {
+					const isCurrentlyDark =
+						state.theme === "dark" ||
+						(state.theme === "system" &&
+							typeof window !== "undefined" &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches);
+					return {
+						theme: isCurrentlyDark ? "light" : "dark",
+					};
+				}),
 			setSidebarWidth: (width) =>
 				set((state) => ({
 					sidebar: {

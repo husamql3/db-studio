@@ -42,7 +42,7 @@ export const DataGridBodyRow = <TRow,>({
 				return (
 					<td
 						key={cell.id}
-						className="group relative flex border-r border-zinc-800 h-8 items-center px-3 truncate"
+						className="group relative flex border-r border-border h-8 items-center px-3 truncate"
 						style={{ width: cell.column.getSize() }}
 					>
 						{flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -41,7 +41,7 @@ export const TableBodyRow = ({
 				return (
 					<td
 						key={cell.id}
-						className="group relative flex border-r border-zinc-800 h-8"
+						className="group relative flex border-r border-border h-8"
 						style={{
 							width: vc.index === 0 ? "40px" : cell.column.getSize(),
 							// height: "33px",

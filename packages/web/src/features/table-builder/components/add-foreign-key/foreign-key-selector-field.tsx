@@ -53,7 +53,7 @@ export const ForeignKeySelectorField = ({ index }: { index: number }) => {
 					</div>
 				</div>
 
-				<hr className="my-8 border-zinc-800" />
+				<hr className="my-8 border-border" />
 
 				<div className="flex flex-col gap-6">
 					<UpdateActionSelector index={index} />

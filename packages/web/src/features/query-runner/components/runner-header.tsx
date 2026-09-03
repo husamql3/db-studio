@@ -30,12 +30,12 @@ export const RunnerHeader = ({
 	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
 
 	return (
-		<header className="max-h-8 overflow-hidden border-b border-zinc-800 w-full flex items-center justify-between bg-zinc-950 sticky top-0 left-0 right-0 z-0">
+		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background text-foreground sticky top-0 left-0 right-0 z-0">
 			<div className="flex items-center">
 				<Button
 					type="button"
 					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-black rounded-none bg-green-700/60 text-white hover:bg-green-800/60 gap-1 disabled:opacity-50"
+					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none bg-green-700/60 text-white hover:bg-green-800/60 gap-1 disabled:opacity-50"
 					onClick={handleButtonClick}
 					disabled={isExecutingQuery}
 					aria-label="Run the query"
@@ -48,7 +48,7 @@ export const RunnerHeader = ({
 				<Button
 					type="button"
 					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 					aria-label="Format the query"
 					onClick={handleFormatQuery}
 				>
@@ -58,7 +58,7 @@ export const RunnerHeader = ({
 				<Button
 					type="button"
 					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 					aria-label="Save the query"
 					onClick={handleSaveQuery}
 				>
@@ -68,7 +68,7 @@ export const RunnerHeader = ({
 				<Button
 					type="button"
 					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 					aria-label="Favorite the query"
 					onClick={handleFavorite}
 				>
@@ -87,11 +87,11 @@ export const RunnerHeader = ({
 			<div className="flex items-center">
 				{queryResult && (
 					<div className="flex items-center gap-1 px-2">
-						<span className="text-xs text-zinc-500">
+						<span className="text-xs text-muted-foreground">
 							{queryResult.data?.duration?.toFixed(2)}ms
 						</span>
-						<span className="text-xs text-zinc-500">•</span>
-						<span className="text-xs text-zinc-500">
+						<span className="text-xs text-muted-foreground">•</span>
+						<span className="text-xs text-muted-foreground">
 							{queryResult.data?.rowCount ?? 0} rows
 						</span>
 					</div>
@@ -105,7 +105,7 @@ export const RunnerHeader = ({
 						setShowAs(value);
 					}}
 					value={showAs ?? undefined}
-					className="h-8! rounded-none! border-l!"
+					className="h-8! rounded-none! border-l! border-border!"
 				>
 					<Tooltip>
 						<TooltipTrigger asChild>

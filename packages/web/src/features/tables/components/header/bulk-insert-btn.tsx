@@ -8,7 +8,7 @@ export const BulkInsertBtn = () => {
 		<Button
 			type="button"
 			variant="default"
-			className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+			className="h-8! border-l-0 border-y-0 border-r border-border rounded-none"
 			onClick={() => openOverlay("records.bulk-insert")}
 			title="Bulk insert records from CSV or JSON"
 		>

@@ -84,8 +84,8 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 						type="button"
 						className={`px-3 py-1 text-sm rounded-md transition-colors ${
 							format === "auto"
-								? "bg-blue-600 text-white"
-								: "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+								? "bg-primary text-primary-foreground font-medium"
+								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
 						}`}
 					>
 						Auto
@@ -95,8 +95,8 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 						type="button"
 						className={`px-3 py-1 text-sm rounded-md transition-colors ${
 							format === "csv"
-								? "bg-blue-600 text-white"
-								: "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+								? "bg-primary text-primary-foreground font-medium"
+								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
 						}`}
 					>
 						CSV
@@ -106,8 +106,8 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 						type="button"
 						className={`px-3 py-1 text-sm rounded-md transition-colors ${
 							format === "json"
-								? "bg-blue-600 text-white"
-								: "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+								? "bg-primary text-primary-foreground font-medium"
+								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
 						}`}
 					>
 						JSON
@@ -127,7 +127,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 				<div className="flex-1 flex flex-col">
 					<Label
 						htmlFor="text-input"
-						className="mb-2 text-sm font-medium text-zinc-300"
+						className="mb-2 text-sm font-medium text-foreground"
 					>
 						Data Input
 					</Label>
