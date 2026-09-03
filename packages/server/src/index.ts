@@ -53,6 +53,15 @@ export const main = async () => {
 	// This ensures the db pool is initialized with the correct connection string
 	process.env.DATABASE_URL = DATABASE_URL;
 
+	// Populate other env variables from .env if not already set in process.env
+	if (ENV) {
+		for (const [key, value] of Object.entries(ENV)) {
+			if (process.env[key] === undefined) {
+				process.env[key] = value;
+			}
+		}
+	}
+
 	// Import database modules dynamically after setting DATABASE_URL.
 	const { checkDatabaseConnection, getDatabaseConnectionDetails } = await import(
 		"@/cmd/check-database.js"
