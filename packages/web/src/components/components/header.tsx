@@ -6,15 +6,10 @@ import { LuGithub } from "react-icons/lu";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { useTheme } from "@/hooks/use-theme";
 
 export const Header = () => {
-	const { theme, toggleTheme } = usePersonalPreferencesStore();
-	const isDark =
-		theme === "dark" ||
-		(theme === "system" &&
-			typeof window !== "undefined" &&
-			window.matchMedia("(prefers-color-scheme: dark)").matches);
+	const { isDark, toggleTheme } = useTheme();
 
 	return (
 		<div className="border-b border-border w-full flex items-center justify-between bg-background text-foreground h-12">

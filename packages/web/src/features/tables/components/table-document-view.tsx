@@ -2,7 +2,7 @@ import JsonView from "@uiw/react-json-view";
 import { githubLightTheme } from "@uiw/react-json-view/githubLight";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { TableFooter } from "@/features/tables/components/table-footer";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { useTheme } from "@/hooks/use-theme";
 
 export const TableDocumentView = ({
 	tableName,
@@ -11,12 +11,7 @@ export const TableDocumentView = ({
 	tableName: string;
 	rows: Record<string, unknown>[];
 }) => {
-	const theme = usePersonalPreferencesStore((state) => state.theme);
-	const isDark =
-		theme === "dark" ||
-		(theme === "system" &&
-			typeof window !== "undefined" &&
-			window.matchMedia("(prefers-color-scheme: dark)").matches);
+	const { isDark } = useTheme();
 
 	return (
 		<div className="flex-1 w-full flex flex-col overflow-hidden pb-9">

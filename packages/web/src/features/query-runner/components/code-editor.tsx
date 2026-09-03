@@ -1,7 +1,7 @@
 import * as monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { useTheme } from "@/hooks/use-theme";
 import {
 	BUILTIN_FUNCTIONS,
 	BUILTIN_TYPES,
@@ -36,12 +36,7 @@ export const CodeEditor = ({
 }: CodeEditorProps) => {
 	const monacoEl = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-	const theme = usePersonalPreferencesStore((state) => state.theme);
-	const isDark =
-		theme === "dark" ||
-		(theme === "system" &&
-			typeof window !== "undefined" &&
-			window.matchMedia("(prefers-color-scheme: dark)").matches);
+	const { isDark } = useTheme();
 
 	useEffect(() => {
 		if (editorRef.current) {
