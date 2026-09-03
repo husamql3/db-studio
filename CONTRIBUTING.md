@@ -222,7 +222,7 @@ We use Biome for fast, consistent formatting and linting:
 bun run format
 ```
 
-This checks all files and automatically formats them according to project rules.
+This checks configured files (as specified in `biome.json`) and automatically formats them according to project rules.
 
 ### Type Checking
 
@@ -232,7 +232,7 @@ Verify that TypeScript compiles across every package without errors:
 bun run typecheck
 ```
 
-Our pre-commit hooks run Biome and tests automatically before every commit, so checking these locally helps your commits pass on the first try.
+Our pre-commit hooks run Biome formatting, tests, and project build (`bun run format && bun run test && bun run build`) automatically before every commit, so checking these locally helps your commits pass on the first try.
 
 ## Development Workflow
 
@@ -308,7 +308,7 @@ Examples:
 2. Open a Pull Request targeting the `stage` branch.
 3. Keep your PR title clear and descriptive, matching your commit format or branch name.
 4. Describe your changes, why they are needed, and link any related issues (such as `Closes #142`).
-5. Automated CI checks will run Biome, TypeScript checks, and Vitest on push. Maintainers will review your PR and provide feedback.
+5. Automated CI checks will run project build, Biome formatting checks, TypeScript type checking, and tests on pull requests targeting `stage` or `main` (and on pushes to `stage`). Maintainers will review your PR and provide feedback.
 
 ## First-Time Contributors
 
