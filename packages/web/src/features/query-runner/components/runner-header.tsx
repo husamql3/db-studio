@@ -35,7 +35,7 @@ export const RunnerHeader = ({
 				<Button
 					type="button"
 					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none bg-green-700/60 text-white hover:bg-green-800/60 gap-1 disabled:opacity-50"
+					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none bg-green-700 text-white hover:bg-green-800 gap-1 disabled:opacity-50"
 					onClick={handleButtonClick}
 					disabled={isExecutingQuery}
 					aria-label="Run the query"

@@ -24,7 +24,7 @@ type PersonalPreferencesState = {
 
 export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 	persist(
-		(set) => ({
+		(set, get) => ({
 			sidebar: {
 				width: 400,
 				isOpen: true,
@@ -36,9 +36,9 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			theme: "dark",
 			setTheme: (theme) => set({ theme: theme }),
 			toggleTheme: () =>
-				set((state) => ({
-					theme: getResolvedTheme(state.theme) === "dark" ? "light" : "dark",
-				})),
+				set({
+					theme: getResolvedTheme(get().theme) === "dark" ? "light" : "dark",
+				}),
 			setSidebarWidth: (width) =>
 				set((state) => ({
 					sidebar: {

@@ -150,11 +150,10 @@ export const SidebarListQueryItem = ({
 							type="button"
 							onClick={handleSelect}
 							className={cn(
-								"w-full flex gap-2 py-2 text-sm transition-colors text-left",
-								"hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-foreground justify-start items-center",
+								"w-full flex gap-2 py-2 text-sm transition-colors text-left justify-start items-center focus:outline-none",
 								isSelected
 									? "text-sidebar-accent-foreground bg-sidebar-accent font-medium"
-									: "text-sidebar-foreground/70",
+									: "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:bg-sidebar-accent focus:text-sidebar-accent-foreground",
 								isNested ? "px-4 pl-12" : "px-4",
 							)}
 						>
@@ -194,11 +193,10 @@ export const SidebarListQueryItem = ({
 					type="button"
 					onClick={handleSelect}
 					className={cn(
-						"w-full flex gap-2 py-2 text-sm transition-colors text-left",
-						"hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-foreground justify-start items-center",
+						"w-full flex gap-2 py-2 text-sm transition-colors text-left justify-start items-center focus:outline-none",
 						isSelected
 							? "text-sidebar-accent-foreground bg-sidebar-accent font-medium"
-							: "text-sidebar-foreground/70",
+							: "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:bg-sidebar-accent focus:text-sidebar-accent-foreground",
 						isNested ? "px-4 pl-12" : "px-4",
 					)}
 				>

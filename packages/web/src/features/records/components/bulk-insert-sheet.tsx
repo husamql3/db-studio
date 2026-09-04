@@ -3,6 +3,7 @@ import { Button } from "@db-studio/ui/button";
 import { Label } from "@db-studio/ui/label";
 import { SheetClose } from "@db-studio/ui/sheet";
 import { Textarea } from "@db-studio/ui/textarea";
+import { cn } from "@db-studio/ui/utils";
 import { useCallback, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useOverlayStore } from "@/stores/overlay.store";
@@ -82,33 +83,36 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 					<button
 						onClick={() => setFormat("auto")}
 						type="button"
-						className={`px-3 py-1 text-sm rounded-md transition-colors ${
+						className={cn(
+							"px-3 py-1 text-sm rounded-md transition-colors",
 							format === "auto"
 								? "bg-primary text-primary-foreground font-medium"
-								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-						}`}
+								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+						)}
 					>
 						Auto
 					</button>
 					<button
 						onClick={() => setFormat("csv")}
 						type="button"
-						className={`px-3 py-1 text-sm rounded-md transition-colors ${
+						className={cn(
+							"px-3 py-1 text-sm rounded-md transition-colors",
 							format === "csv"
 								? "bg-primary text-primary-foreground font-medium"
-								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-						}`}
+								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+						)}
 					>
 						CSV
 					</button>
 					<button
 						onClick={() => setFormat("json")}
 						type="button"
-						className={`px-3 py-1 text-sm rounded-md transition-colors ${
+						className={cn(
+							"px-3 py-1 text-sm rounded-md transition-colors",
 							format === "json"
 								? "bg-primary text-primary-foreground font-medium"
-								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-						}`}
+								: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+						)}
 					>
 						JSON
 					</button>

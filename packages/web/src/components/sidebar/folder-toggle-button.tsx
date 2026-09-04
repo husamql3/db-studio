@@ -100,7 +100,7 @@ export const FolderToggleButton = ({
 							onClick={onToggle}
 							className={cn(
 								"w-full flex gap-2 px-4 py-2 text-sm transition-colors text-left",
-								"hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus:outline-none focus:bg-sidebar-accent",
+								"hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-accent-foreground",
 								"text-sidebar-foreground/70 items-center",
 							)}
 						>
@@ -135,7 +135,7 @@ export const FolderToggleButton = ({
 					onClick={onToggle}
 					className={cn(
 						"w-full flex gap-2 px-4 py-2 text-sm transition-colors text-left",
-						"hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus:outline-none focus:bg-sidebar-accent",
+						"hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-accent-foreground",
 						"text-sidebar-foreground/70 items-center",
 					)}
 				>

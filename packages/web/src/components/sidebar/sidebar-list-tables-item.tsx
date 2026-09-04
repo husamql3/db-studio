@@ -24,11 +24,10 @@ export const SidebarListTablesItem = ({
 					table: tableName,
 				}}
 				className={cn(
-					"w-full flex gap-0.5 px-4 py-1.5 text-sm transition-colors text-left",
-					"hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:outline-none focus:bg-sidebar-accent focus:text-sidebar-foreground justify-start items-center",
+					"w-full flex gap-0.5 px-4 py-1.5 text-sm transition-colors text-left justify-start items-center focus:outline-none",
 					isActive
 						? "text-sidebar-accent-foreground bg-sidebar-accent font-medium"
-						: "text-sidebar-foreground/70",
+						: "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 focus:bg-sidebar-accent focus:text-sidebar-accent-foreground",
 				)}
 			>
 				{isActive && <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
