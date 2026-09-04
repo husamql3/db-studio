@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.10.1",
+		date: "2026-09-04",
+		title: "Fix scrolling in column type dropdowns",
+		bugsFixed: [
+			{
+				text: "Fixed column type dropdowns not scrolling with a mouse wheel or trackpad inside table, add-column, and edit-column overlays",
+				username: "marwan562",
+			},
+		],
+	},
+	{
 		version: "1.10.0",
 		date: "2026-08-28",
 		title: "Support Redis key browsing",

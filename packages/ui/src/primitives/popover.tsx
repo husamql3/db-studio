@@ -1,12 +1,15 @@
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import type * as React from "react";
 
+import { useDialogContext } from "../dialog-context";
 import { cn } from "../utils";
 
-function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
+function Popover({ modal, ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
+	const inDialog = useDialogContext();
 	return (
 		<PopoverPrimitive.Root
 			data-slot="popover"
+			modal={modal ?? (inDialog ? true : undefined)}
 			{...props}
 		/>
 	);
