@@ -75,9 +75,14 @@ db-studio is organized as a Bun and Turborepo monorepo with the following struct
 
 ### 1. Configure Environment Variables
 
-Create a `.env` file in the project root and set your database connection string
-in `DATABASE_URL` (a checked-in `.env.example` template is proposed in #260 —
-until that lands, create the file manually). Here are examples for different databases:
+Copy the checked-in environment template, then set your database connection string in
+`DATABASE_URL`:
+
+```bash
+cp .env.example .env
+```
+
+Here are examples for different databases:
 
 ```env
 # PostgreSQL
@@ -228,7 +233,9 @@ Verify that TypeScript compiles across all configured packages without errors:
 bun run typecheck
 ```
 
-Our pre-commit hooks run Biome formatting, tests, and project build (`bun run format && bun run test && bun run build`) automatically before every commit, so checking these locally helps your commits pass on the first try.
+Our pre-commit hooks run Biome formatting, type checking, tests, and the project build
+(`bun run format && bun run typecheck && bun run test && bun run build`) automatically
+before every commit, so checking these locally helps your commits pass on the first try.
 
 ## Development Workflow
 
