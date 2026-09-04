@@ -186,6 +186,66 @@ describe("createServer", () => {
 			// OPTIONS should return without error
 			expect([200, 204, 404]).toContain(res.status);
 		});
+
+		it("should allow localhost and *.localhost origins when NODE_ENV is development", async () => {
+			const originalEnv = process.env.NODE_ENV;
+			const originalOrigins = process.env.ALLOWED_ORIGINS;
+			try {
+				process.env.NODE_ENV = "development";
+				delete process.env.ALLOWED_ORIGINS;
+				const res1 = await server.app.request("/api/databases", {
+					headers: { Origin: "https://web.db-studio.localhost" },
+				});
+				expect(res1.headers.get("Access-Control-Allow-Origin")).toBe(
+					"https://web.db-studio.localhost",
+				);
+
+				const res2 = await server.app.request("/api/databases", {
+					headers: { Origin: "http://localhost:3000" },
+				});
+				expect(res2.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:3000");
+
+				const res3 = await server.app.request("/api/databases", {
+					headers: { Origin: "http://127.0.0.1:5173" },
+				});
+				expect(res3.headers.get("Access-Control-Allow-Origin")).toBe("http://127.0.0.1:5173");
+
+				const resEvil = await server.app.request("/api/databases", {
+					headers: { Origin: "https://evil.example" },
+				});
+				expect(resEvil.headers.get("Access-Control-Allow-Origin")).toBeNull();
+			} finally {
+				if (originalEnv === undefined) {
+					delete process.env.NODE_ENV;
+				} else {
+					process.env.NODE_ENV = originalEnv;
+				}
+				if (originalOrigins === undefined) {
+					delete process.env.ALLOWED_ORIGINS;
+				} else {
+					process.env.ALLOWED_ORIGINS = originalOrigins;
+				}
+			}
+		});
+
+		it("should allow origins configured in ALLOWED_ORIGINS", async () => {
+			const originalOrigins = process.env.ALLOWED_ORIGINS;
+			try {
+				process.env.ALLOWED_ORIGINS = "https://custom.dbstudio.sh, https://admin.dbstudio.sh";
+				const res = await server.app.request("/api/databases", {
+					headers: { Origin: "https://custom.dbstudio.sh" },
+				});
+				expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
+					"https://custom.dbstudio.sh",
+				);
+			} finally {
+				if (originalOrigins === undefined) {
+					delete process.env.ALLOWED_ORIGINS;
+				} else {
+					process.env.ALLOWED_ORIGINS = originalOrigins;
+				}
+			}
+		});
 	});
 
 	describe("Pretty JSON middleware", () => {
