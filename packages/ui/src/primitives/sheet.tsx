@@ -1,6 +1,7 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type * as React from "react";
+import { DialogContext } from "../dialog-context";
 import { cn } from "../utils";
 import { Button } from "./button";
 
@@ -81,7 +82,7 @@ function SheetContent({
 				)}
 				{...props}
 			>
-				{children}
+				<DialogContext.Provider value={true}>{children}</DialogContext.Provider>
 				{showCloseButton && (
 					<SheetPrimitive.Close
 						data-slot="sheet-close"

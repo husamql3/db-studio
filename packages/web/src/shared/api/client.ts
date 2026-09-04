@@ -76,7 +76,16 @@ const setupInterceptors = (instance: AxiosInstance) => {
 };
 
 export const getBaseUrl = (): string => {
-	if (import.meta.env.DEV) return import.meta.env.VITE_API_URL ?? DEFAULTS.BASE_URL;
+	if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+	if (
+		import.meta.env.DEV &&
+		typeof window !== "undefined" &&
+		window.location?.hostname.endsWith(".localhost") &&
+		window.location.port
+	) {
+		return `${window.location.protocol}//api.db-studio.localhost:${window.location.port}`;
+	}
+	if (import.meta.env.DEV) return DEFAULTS.BASE_URL;
 	return globalThis.location?.origin ?? DEFAULTS.BASE_URL;
 };
 

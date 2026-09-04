@@ -1,4 +1,35 @@
-export PATH="/Users/mac/.bun/bin:$PATH"
+# Ensure bun is in PATH across all operating systems (macOS, Linux, Windows) and environments
+if ! command -v bun >/dev/null 2>&1; then
+	# Convert a native Windows path (e.g. C:\Users\alice) to a POSIX path so
+	# it stays a single entry in Git Bash's colon-delimited PATH. POSIX paths
+	# pass through unchanged; when cygpath is missing, fall back to $HOME so
+	# a drive-letter colon never splits PATH.
+	to_posix_path() {
+		case "$1" in
+			[A-Za-z]:* | *\\*)
+				if command -v cygpath >/dev/null 2>&1; then
+					cygpath -u "$1"
+				else
+					printf '%s' "$HOME"
+				fi
+				;;
+			*)
+				printf '%s' "$1"
+				;;
+		esac
+	}
+
+	bun_install_bin="$(to_posix_path "${BUN_INSTALL:-$HOME/.bun}")/bin"
+	userprofile_bun_bin="$(to_posix_path "${USERPROFILE:-$HOME}")/.bun/bin"
+	export PATH="$bun_install_bin:$userprofile_bun_bin:/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/bin:$PATH"
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+	echo "husky - bun is not found in PATH. Please install Bun (https://bun.sh) or add it to PATH." >&2
+	exit 1
+fi
+
 bun run format
+bun run typecheck
 bun run test
 bun run build
