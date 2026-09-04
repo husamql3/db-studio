@@ -46,6 +46,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="referencedTable">Select a table to reference to</Label>
 					<Popover
+						modal={true}
 						onOpenChange={(isOpen) => {
 							if (isOpen) {
 								ensureForeignKeyExists();
