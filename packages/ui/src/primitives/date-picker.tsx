@@ -20,6 +20,7 @@ interface DatePickerProps {
 	icon?: boolean;
 	isFormatted?: boolean;
 	showTime?: boolean;
+	modal?: boolean;
 }
 
 export function DatePicker({
@@ -33,6 +34,7 @@ export function DatePicker({
 	icon = true,
 	isFormatted = true,
 	showTime = false,
+	modal,
 }: DatePickerProps) {
 	const [open, setOpen] = useState(false);
 	const [today] = useState<Date>(() => new Date());
@@ -110,6 +112,7 @@ export function DatePicker({
 
 	return (
 		<Popover
+			modal={modal}
 			open={open}
 			onOpenChange={setOpen}
 		>
