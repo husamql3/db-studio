@@ -75,13 +75,9 @@ db-studio is organized as a Bun and Turborepo monorepo with the following struct
 
 ### 1. Configure Environment Variables
 
-Create a `.env` file in the project root by copying the provided example:
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and set your database connection string in `DATABASE_URL`. Here are examples for different databases:
+Create a `.env` file in the project root and set your database connection string
+in `DATABASE_URL` (a checked-in `.env.example` template is proposed in #260 —
+until that lands, create the file manually). Here are examples for different databases:
 
 ```env
 # PostgreSQL
@@ -116,7 +112,7 @@ bun run init-db:sqlite  # SQLite
 bun run init-db:redis   # Redis
 ```
 
-Running one of these commands creates sample tables such as users, categories, products, and orders, so you can test features with real data immediately.
+Running one of these commands loads database-specific sample data — for SQL engines this generally includes contributors/projects/contributions tables plus engine-specific data, while MongoDB seeds collections and Redis seeds keys — so you can test features with real data immediately.
 
 ### 3. Start the Development Stack
 
@@ -226,7 +222,7 @@ This checks configured files (as specified in `biome.json`) and automatically fo
 
 ### Type Checking
 
-Verify that TypeScript compiles across every package without errors:
+Verify that TypeScript compiles across all configured packages without errors:
 
 ```bash
 bun run typecheck
@@ -297,7 +293,7 @@ Common scopes:
 Examples:
 - `feat(back): add support for json array filtering`
 - `fix(front): prevent layout shift on table reload`
-- `docs: update setup and testing instructions`
+- `docs(docs): update setup and testing instructions`
 
 ### Submitting a Pull Request
 
