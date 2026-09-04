@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@db-studio/shared": "workspace:*",
-    "@tanstack/ai": "^0.51.0",
+    "@tanstack/ai": "^0.52.1",
     "@tanstack/ai-gemini": "^0.26.3",
     "@upstash/redis": "^1.36.1",
     "hono": "^4.11.3",

@@ -44,7 +44,7 @@
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@sentry/react": "^10.52.0",
     "@tailwindcss/vite": "^4.1.18",
-    "@tanstack/ai": "^0.51.0",
+    "@tanstack/ai": "^0.52.1",
     "@tanstack/ai-react": "^0.22.3",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.170.32",
