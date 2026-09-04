@@ -36,7 +36,7 @@ export const SidebarSearchQueriesList = () => {
 	};
 
 	return (
-		<div className="p-3 space-y-2 border-b border-zinc-800">
+		<div className="p-3 space-y-2 border-b border-sidebar-border">
 			<div className="flex gap-2">
 				<Button
 					className="flex-1 justify-start h-8"

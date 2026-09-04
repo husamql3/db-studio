@@ -28,7 +28,9 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 			{
 				id: "index",
 				header: "",
-				cell: ({ row }) => <span className="text-xs text-zinc-600">{row.index + 1}</span>,
+				cell: ({ row }) => (
+					<span className="text-xs text-muted-foreground/60">{row.index + 1}</span>
+				),
 				size: 47,
 				minSize: 47,
 				enableResizing: false,
@@ -38,7 +40,9 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				header: "Name",
 				accessorKey: "columnName",
 				cell: ({ getValue }) => (
-					<span className="font-mono text-zinc-100 truncate">{getValue<string>()}</span>
+					<span className="font-mono text-foreground font-medium truncate">
+						{getValue<string>()}
+					</span>
 				),
 				minSize: 100,
 				size: 200,
@@ -57,9 +61,9 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				cell: ({ getValue }) => {
 					const val = getValue<string | null>();
 					return val ? (
-						<span className="font-mono text-xs text-zinc-400 truncate">{val}</span>
+						<span className="font-mono text-xs text-muted-foreground truncate">{val}</span>
 					) : (
-						<span className="text-zinc-600">—</span>
+						<span className="text-muted-foreground/50">—</span>
 					);
 				},
 				minSize: 100,
@@ -71,9 +75,9 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				accessorKey: "isNullable",
 				cell: ({ getValue }) =>
 					getValue<boolean>() ? (
-						<span className="text-xs text-zinc-400">yes</span>
+						<span className="text-xs text-muted-foreground">yes</span>
 					) : (
-						<span className="text-xs text-zinc-600">no</span>
+						<span className="text-xs text-muted-foreground/50">no</span>
 					),
 				minSize: 100,
 			},
@@ -112,13 +116,13 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				cell: ({ row }) => {
 					const { isForeignKey, referencedTable, referencedColumn } = row.original;
 					if (!isForeignKey || !referencedTable || !referencedColumn) {
-						return <span className="text-zinc-600">—</span>;
+						return <span className="text-muted-foreground/50">—</span>;
 					}
 					return (
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<span className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-default">
-									<LinkIcon className="size-3 text-zinc-600" />
+								<span className="inline-flex items-center gap-1 text-xs text-muted-foreground cursor-default">
+									<LinkIcon className="size-3 text-muted-foreground/70" />
 									<span className="font-mono">
 										{referencedTable}.{referencedColumn}
 									</span>
@@ -135,7 +139,7 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 						</Tooltip>
 					);
 				},
-				size: 220,
+				size: 160,
 				minSize: 100,
 			},
 			{

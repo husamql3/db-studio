@@ -16,6 +16,41 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.11.0",
+		date: "2026-09-05",
+		title: "Light mode and local development improvements",
+		features: [
+			{
+				text: "Added Light, Dark, and System theme options with theme-aware colors across the application",
+				username: "marwan562",
+			},
+		],
+		improvements: [
+			{
+				text: "Made number, date, boolean, and enum table cell controls transparent for consistent styling across light and dark themes",
+				username: "husamql3",
+			},
+			{
+				text: "Removed the browser-native increment and decrement controls from numeric table cells",
+				username: "husamql3",
+			},
+			{
+				text: "Made the pre-commit hook resolve Bun across macOS, Linux, and Windows and added type checking",
+				username: "marwan562",
+			},
+			{
+				text: "Expanded the contributor guide with environment setup, Portless development, database initialization, and testing workflows",
+				username: "marwan562",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Allowed local development origins and preserved custom Portless ports when connecting the web app to the API",
+				username: "marwan562",
+			},
+		],
+	},
+	{
 		version: "1.10.1",
 		date: "2026-09-04",
 		title: "Fix scrolling in column type dropdowns",

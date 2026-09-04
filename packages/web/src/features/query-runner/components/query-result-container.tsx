@@ -94,7 +94,7 @@ export const QueryResultContainer = ({
 
 	return (
 		<div
-			className="absolute bottom-0 left-0 right-0 border-t-2 border-zinc-80 flex flex-col bg-[#1E1E1E] w-full"
+			className="absolute bottom-0 left-0 right-0 border-t border-border flex flex-col bg-background text-foreground w-full"
 			style={{ height: "calc(100vh - 400px)" }}
 		>
 			<div className="flex-1 overflow-auto w-full">

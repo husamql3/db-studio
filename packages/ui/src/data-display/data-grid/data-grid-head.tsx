@@ -25,7 +25,7 @@ export const DataGridHead = <TRow,>({
 				<tr
 					key={headerGroup.id}
 					className={cn(
-						"flex w-fit bg-black border-b border-zinc-800 items-center text-sm [&_svg]:size-4",
+						"flex w-fit bg-muted/40 border-b border-border items-center text-sm [&_svg]:size-4",
 						isAnyColumnResizing && "pointer-events-none",
 					)}
 				>
@@ -37,7 +37,7 @@ export const DataGridHead = <TRow,>({
 						return (
 							<th
 								key={header.id}
-								className="relative h-full flex items-center border-r border-zinc-800 text-xs font-medium text-zinc-500"
+								className="relative h-full flex items-center border-r border-border text-xs font-medium text-muted-foreground"
 								style={{ width: header.getSize() }}
 							>
 								<div className="flex w-full h-full items-center px-3">

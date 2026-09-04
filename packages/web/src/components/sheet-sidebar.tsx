@@ -14,7 +14,7 @@ export const SheetSidebar = ({
 	side = "right",
 	children,
 	size = "sm:max-w-2xl!",
-	headerClassName = "p-0 border-b border-zinc-800 p-3",
+	headerClassName = "p-0 border-b border-border p-3",
 	titleClassName = "text-lg font-semibold",
 	contentClassName = "px-5 py-6 space-y-6",
 	open,

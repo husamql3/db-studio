@@ -69,14 +69,16 @@ export const TableFooter = ({
 
 	return (
 		<footer
-			className="fixed bottom-0 left-0 right-0 h-9 border-t border-zinc-800 flex items-center justify-between bg-zinc-950 px-2 text-white"
+			className="fixed bottom-0 left-0 right-0 h-9 border-t border-border flex items-center justify-between bg-background px-2 text-foreground"
 			style={{
 				marginLeft: isPinned ? `${width}px` : "0",
 			}}
 		>
 			<div className="flex items-center gap-2">
-				<Label className="text-xs text-zinc-400 whitespace-nowrap">{perPageLabel}</Label>
-				<div className="flex items-center h-6 rounded-sm border border-transparent hover:border-zinc-700 focus-within:border-zinc-600 transition-colors">
+				<Label className="text-xs text-muted-foreground whitespace-nowrap">
+					{perPageLabel}
+				</Label>
+				<div className="flex items-center h-6 rounded-sm border border-transparent hover:border-border focus-within:border-ring transition-colors">
 					<input
 						key={limitValue}
 						ref={inputRef}
@@ -90,13 +92,13 @@ export const TableFooter = ({
 								inputRef.current?.blur();
 							}
 						}}
-						className="w-10 h-full bg-transparent text-xs text-center text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+						className="w-10 h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					/>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<button
 								type="button"
-								className="flex items-center h-full px-0.5 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none"
+								className="flex items-center h-full px-0.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
 								aria-label="Choose preset row count"
 							>
 								<ChevronDown className="size-3" />
@@ -104,7 +106,7 @@ export const TableFooter = ({
 						</DropdownMenuTrigger>
 						<DropdownMenuContent
 							align="start"
-							className="min-w-16 border-zinc-800"
+							className="min-w-16 border-border"
 						>
 							{PRESET_SIZES.map((size) => (
 								<DropdownMenuItem
@@ -121,13 +123,13 @@ export const TableFooter = ({
 			</div>
 
 			{/* Row count information */}
-			<div className="flex items-center justify-center text-xs text-zinc-400">
+			<div className="flex items-center justify-center text-xs text-muted-foreground">
 				<p
 					className="whitespace-nowrap"
 					aria-live="polite"
 				>
-					Showing <span className="text-zinc-200">{dataLength}</span> of{" "}
-					<span className="text-zinc-200">{totalRows}</span> {itemLabel}
+					Showing <span className="text-foreground font-medium">{dataLength}</span> of{" "}
+					<span className="text-foreground font-medium">{totalRows}</span> {itemLabel}
 				</p>
 			</div>
 

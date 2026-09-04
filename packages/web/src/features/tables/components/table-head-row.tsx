@@ -139,7 +139,7 @@ export const TableHeadRow = ({
 			<tr
 				key={headerGroup.id}
 				className={cn(
-					"flex w-fit bg-black border-b items-center justify-between text-sm data-[state=open]:bg-accent/40 [&_svg]:size-4",
+					"flex w-fit bg-muted/40 border-b border-border items-center justify-between text-sm data-[state=open]:bg-accent/40 [&_svg]:size-4",
 					isAnyColumnResizing && "pointer-events-none",
 				)}
 			>
@@ -166,7 +166,7 @@ export const TableHeadRow = ({
 								{...{
 									className: cn(
 										"relative w-full h-full flex items-center justify-between gap-2 text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
-										"border-r border-zinc-800",
+										"border-r border-border",
 										header.column.getCanSort() ? "cursor-pointer select-none" : "",
 									),
 									// onClick: header.column.getToggleSortingHandler(),

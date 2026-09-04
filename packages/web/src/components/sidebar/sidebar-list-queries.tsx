@@ -63,7 +63,7 @@ export const SidebarListQueries = () => {
 					/>
 				))}
 
-			<Separator className="bg-zinc-800" />
+			<Separator className="bg-sidebar-border" />
 
 			{/* Queries */}
 			<FolderToggleButton

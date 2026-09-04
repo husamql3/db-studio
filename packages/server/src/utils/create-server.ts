@@ -80,7 +80,27 @@ export const createServer = () => {
 		.use(
 			"/*",
 			cors({
-				origin: process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) ?? [],
+				origin: (origin) => {
+					if (!origin) return undefined;
+					const allowed =
+						process.env.ALLOWED_ORIGINS?.split(",")
+							.map((o) => o.trim())
+							.filter(Boolean) ?? [];
+					if (allowed.includes(origin)) return origin;
+					if (process.env.NODE_ENV === "development") {
+						try {
+							const url = new URL(origin);
+							if (
+								url.hostname === "localhost" ||
+								url.hostname.endsWith(".localhost") ||
+								url.hostname === "127.0.0.1"
+							) {
+								return origin;
+							}
+						} catch {}
+					}
+					return undefined;
+				},
 				allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 				allowHeaders: ["Content-Type", "x-byok-gemini"],
 			}),
