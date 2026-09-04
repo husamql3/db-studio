@@ -18,7 +18,7 @@ export const SidebarToggleButton = () => {
 		<Button
 			variant="ghost"
 			onClick={handleClick}
-			className="h-full aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+			className="h-full aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 		>
 			<PanelLeft className="size-5" />
 		</Button>

@@ -16,7 +16,7 @@ export const TypeBadge = ({ col }: { col: ColumnInfoSchemaType }) => {
 				</TooltipTrigger>
 				<TooltipContent side="right">
 					<div className="text-xs space-y-0.5">
-						<p className="text-zinc-400 mb-1">Enum values:</p>
+						<p className="text-muted-foreground mb-1">Enum values:</p>
 						{col.enumValues.map((v) => (
 							<p
 								key={v}

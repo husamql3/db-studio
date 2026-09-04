@@ -13,15 +13,27 @@ import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useDatabaseStore } from "@/stores/database.store";
 
-const darkModeScript = String.raw`
+const darkModeScript = `
   try {
-    document.documentElement.classList.add('dark')
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#09090b')
-  } catch (_) {}
+    const stored = localStorage.getItem('db-studio-personal-preferences');
+    const theme = stored ? JSON.parse(stored)?.state?.theme : 'dark';
+    const isDark = theme === 'dark' || (theme === 'system' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#09090b');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#ffffff');
+    }
+  } catch (_) {
+    document.documentElement.classList.add('dark');
+  }
 
   try {
     if (/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
-      document.documentElement.classList.add('os-macos')
+      document.documentElement.classList.add('os-macos');
     }
   } catch (_) {}
 `;

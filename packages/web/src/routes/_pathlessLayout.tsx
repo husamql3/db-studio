@@ -23,7 +23,7 @@ function RouteComponent() {
 	}
 
 	return (
-		<div className="bg-zinc-950 w-dvw flex h-dvh max-h-dvh overflow-hidden relative">
+		<div className="bg-background text-foreground w-dvw flex h-dvh max-h-dvh overflow-hidden relative">
 			<Sidebar />
 
 			<div

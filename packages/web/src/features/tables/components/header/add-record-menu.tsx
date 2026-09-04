@@ -17,7 +17,7 @@ export const AddRecordMenu = () => {
 				<Button
 					type="button"
 					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none flex items-center gap-2"
+					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none flex items-center gap-2"
 					aria-label="Add records to the table"
 				>
 					<Plus className="size-4" />

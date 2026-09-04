@@ -7,7 +7,7 @@ export const AddRecordBtn = () => {
 		<Button
 			type="button"
 			variant="default"
-			className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+			className="h-8! border-l-0 border-y-0 border-r border-border rounded-none"
 			onClick={() => openOverlay("records.add-record")}
 			aria-label="Add a new record to the table"
 		>

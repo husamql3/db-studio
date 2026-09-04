@@ -168,7 +168,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 				showCloseButton={false}
 				isPinned={isPinned}
 				className={cn(
-					"bg-black border-r border-zinc-800 p-0",
+					"bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0",
 					"transition-transform duration-300 ease-out",
 				)}
 				style={{ width: `${width}px` }}

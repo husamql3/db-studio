@@ -221,8 +221,8 @@ export const RedisKeySidebar = () => {
 									className={cn(
 										"absolute left-0 top-0 h-auto w-full justify-start gap-2 rounded-none px-4 py-1.5 text-sm font-normal transition-colors",
 										selectedKey === keyParam
-											? "bg-zinc-800/50 text-white hover:!bg-zinc-800/50 dark:hover:!bg-zinc-800/50 before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-accent"
-											: "text-zinc-400 hover:!bg-transparent hover:text-zinc-100 dark:hover:!bg-transparent",
+											? "bg-sidebar-accent text-sidebar-accent-foreground font-medium before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary"
+											: "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
 									)}
 									style={{ transform: `translateY(${item.start}px)` }}
 									title={label}

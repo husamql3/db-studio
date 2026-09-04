@@ -100,7 +100,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 				<Button
 					type="button"
 					variant="ghost"
-					className="size-8! aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+					className="size-8! aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 					aria-label="Filter table data"
 					data-active={hasActiveFilters}
 				>
@@ -121,7 +121,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 					>
 						Add filter
 						{localFilters && localFilters.length > 0 && (
-							<Kbd className="text-xs font-normal text-white bg-primary/10 border border-primary/90 px-1.5 py-0.5">
+							<Kbd className="text-xs font-normal text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5">
 								{localFilters.length}
 							</Kbd>
 						)}

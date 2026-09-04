@@ -9,7 +9,7 @@ export const SidebarHeader = () => {
 	} = usePersonalPreferencesStore();
 
 	return (
-		<div className="flex items-center justify-between h-9 border-b border-zinc-800">
+		<div className="flex items-center justify-between h-9 border-b border-sidebar-border">
 			<Button
 				variant="ghost"
 				size="lg"

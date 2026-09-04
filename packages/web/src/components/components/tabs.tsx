@@ -21,8 +21,10 @@ export const Tabs = () => {
 					<Button
 						variant="ghost"
 						className={cn(
-							"flex-1 px-4 border-l-0 border-y-0 border-r border-zinc-800 h-full rounded-none",
-							currentRoute === route ? "bg-zinc-900 text-white" : "text-zinc-400",
+							"flex-1 px-4 border-l-0 border-y-0 border-r border-border h-full rounded-none capitalize text-xs font-medium transition-colors",
+							currentRoute === route
+								? "bg-muted text-foreground"
+								: "text-muted-foreground hover:text-foreground hover:bg-muted/50",
 						)}
 					>
 						{route}

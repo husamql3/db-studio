@@ -13,7 +13,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 			accessorKey: item,
 			header: item,
 			cell: ({ row }: { row: Row<Record<string, unknown>> }) => (
-				<div className="font-medium truncate text-zinc-200">
+				<div className="font-medium truncate text-foreground">
 					{formatCellValue(row.getValue(item))}
 				</div>
 			),
@@ -46,10 +46,10 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 	return (
 		<div
 			ref={parentRef}
-			className="relative h-full overflow-auto w-full"
+			className="relative h-full overflow-auto w-full bg-background text-foreground"
 		>
 			<div
-				className="sticky top-0 z-20 bg-zinc-950 border-b border-zinc-800"
+				className="sticky top-0 z-20 bg-muted/40 border-b border-border"
 				style={{ width: `${totalTableWidth}px`, minWidth: "100%" }}
 			>
 				{table.getHeaderGroups().map((headerGroup) => (
@@ -60,7 +60,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 						{headerGroup.headers.map((header) => (
 							<div
 								key={header.id}
-								className="shrink-0 p-2 font-semibold text-zinc-300 border-r border-zinc-800 relative"
+								className="shrink-0 p-2 font-semibold text-muted-foreground border-r border-border relative"
 								style={{ width: `${header.getSize()}px` }}
 							>
 								{header.isPlaceholder
@@ -103,12 +103,12 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 								height: `${virtualRow.size}px`,
 								transform: `translateY(${virtualRow.start}px)`,
 							}}
-							className="flex text-xs border-b border-zinc-800 hover:bg-zinc-800/50"
+							className="flex text-xs border-b border-border hover:bg-accent/20"
 						>
 							{row.getVisibleCells().map((cell) => (
 								<div
 									key={cell.id}
-									className="shrink-0 p-2 border-r border-zinc-800"
+									className="shrink-0 p-2 border-r border-border"
 									style={{ width: `${cell.column.getSize()}px` }}
 								>
 									{flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -120,7 +120,9 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 			</div>
 
 			{rows.length === 0 && (
-				<div className="flex items-center justify-center h-24 text-zinc-400">No results.</div>
+				<div className="flex items-center justify-center h-24 text-muted-foreground">
+					No results.
+				</div>
 			)}
 		</div>
 	);
