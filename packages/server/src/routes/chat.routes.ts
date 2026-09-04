@@ -33,11 +33,10 @@ export const chatRoutes = new Hono()
 	 */
 	.post("/", zValidator("json", chatSchema), async (c) => {
 		const { messages, data } = c.req.valid("json");
-		const { db, conversationId } = data;
-		console.log("POST /chat messages", messages);
+		const { db, conversationId, includeSchema } = data;
 
 		// Get the database schema and generate system prompt
-		const schema = await getDetailedSchema(db);
+		const schema = includeSchema ? await getDetailedSchema(db) : null;
 		const systemPrompt = generateSystemPrompt(schema);
 
 		const payload = {
@@ -56,6 +55,7 @@ export const chatRoutes = new Hono()
 				"x-real-ip": c.req.header("x-real-ip") ?? "",
 				"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
 				"x-api-key": c.req.header("x-api-key") ?? "",
+				"x-byok-gemini": c.req.header("x-byok-gemini") ?? "",
 			},
 			body: JSON.stringify(payload),
 		});
@@ -64,7 +64,7 @@ export const chatRoutes = new Hono()
 			const errorData = await proxyResponse.json();
 			return c.json(
 				{ error: errorData.error || "Proxy request failed" },
-				proxyResponse.status as 400 | 500,
+				proxyResponse.status as 400 | 401 | 500,
 			);
 		}
 

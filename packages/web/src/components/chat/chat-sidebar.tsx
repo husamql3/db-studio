@@ -34,6 +34,9 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
+import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useAiSettingsStore } from "@/features/ai-settings";
+import { aiByok } from "@/features/ai-settings/byok";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { getBaseUrl } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -60,16 +63,26 @@ const ChatSidebarContent = ({
 }: ChatSidebarContentProps) => {
 	const [text, setText] = useState("");
 	const { rateLimit } = useRateLimit();
+	const { pendingPrompt, consumePrompt } = useAssistantRequestStore();
+	const { includeSchemaInAiContext } = useAiSettingsStore();
 	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
 		connection: fetchServerSentEvents(`${getBaseUrl()}${DEFAULTS.API_PREFIX}/chat`),
-		body: { db },
+		body: { db, includeSchema: includeSchemaInAiContext },
+		byok: aiByok,
+		forwardedProps: { provider: "gemini" },
 		onError: (error) => console.error("Error:", error.message),
 		onFinish: () => {
 			onRateLimitRefetch();
 		},
 	});
+
+	useEffect(() => {
+		if (!pendingPrompt || isLoading) return;
+		consumePrompt();
+		sendMessage(pendingPrompt);
+	}, [consumePrompt, isLoading, pendingPrompt, sendMessage]);
 
 	useEffect(() => {
 		onControllerReady({
@@ -219,6 +232,7 @@ export const ChatSidebar = () => {
 	const { rateLimit, refetchRateLimit } = useRateLimit();
 	const { isOverlayOpen, closeOverlay } = useOverlayStore();
 	const { selectedDatabase } = useDatabaseStore();
+	const { includeSchemaInAiContext } = useAiSettingsStore();
 	const [controller, setController] = useState<ChatController | null>(null);
 	const controllerSetterRef = useRef((next: ChatController) => setController(next));
 
@@ -266,7 +280,7 @@ export const ChatSidebar = () => {
 		>
 			{selectedDatabase ? (
 				<ChatSidebarContent
-					key={selectedDatabase}
+					key={`${selectedDatabase}:${includeSchemaInAiContext}`}
 					db={selectedDatabase}
 					onRateLimitRefetch={refetchRateLimit}
 					onControllerReady={controllerSetterRef.current}

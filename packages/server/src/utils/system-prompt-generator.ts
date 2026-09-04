@@ -3,7 +3,13 @@ import type { DatabaseSchema } from "@db-studio/shared/types";
 /**
  * Generate system prompt with database context
  */
-export function generateSystemPrompt(schema: DatabaseSchema): string {
+export function generateSystemPrompt(schema: DatabaseSchema | null): string {
+	if (!schema) {
+		return `You are a database assistant for db-studio. Keep answers concise and focused.
+
+The user chose not to share their database schema. Do not claim to know their table or column names. Ask for the minimum missing details needed to answer accurately, generate queries in fenced code blocks, and warn before potentially destructive or expensive operations.`;
+	}
+
 	const dbTypeLower = schema.dbType.toLowerCase();
 	const dbTypeLabel = schema.dbType === "pg" ? "PostgreSQL" : schema.dbType;
 	if (dbTypeLower.includes("mongo")) {

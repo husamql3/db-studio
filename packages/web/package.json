@@ -45,6 +45,8 @@
     "@sentry/react": "^10.52.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/ai": "^0.52.1",
+    "@tanstack/ai-client": "^0.29.2",
+    "@tanstack/ai-gemini": "^0.26.5",
     "@tanstack/ai-react": "^0.22.3",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.170.32",

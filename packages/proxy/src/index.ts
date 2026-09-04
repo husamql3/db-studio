@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { LIMIT } from "@db-studio/shared/constants";
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
+import { getByokKey } from "@tanstack/ai/byok/server";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -20,6 +21,7 @@ app.use(
 			"cf-connecting-ip",
 			"x-real-ip",
 			"x-forwarded-for",
+			"x-byok-gemini",
 		],
 	}),
 );
@@ -37,8 +39,13 @@ app.post("/chat", async (c) => {
 			return c.json({ error: "Invalid request: messages array required" }, 400);
 		}
 
+		const apiKey = getByokKey(c.req.raw, "gemini") ?? env.GEMINI_API_KEY;
+		if (!apiKey) {
+			return c.json({ error: "A Gemini API key is required" }, 401);
+		}
+
 		const stream = chat({
-			adapter: createGeminiChat("gemini-3-flash-preview", env.GEMINI_API_KEY, {
+			adapter: createGeminiChat("gemini-3-flash-preview", apiKey, {
 				temperature: 0.1, // Very low - we want deterministic, accurate SQL
 				topP: 0.9, // Very low - we want deterministic, accurate SQL
 				maxOutputTokens: 1024, // Short responses - SQL + brief explanation
@@ -50,9 +57,11 @@ app.post("/chat", async (c) => {
 
 		return toServerSentEventsResponse(stream);
 	} catch (error) {
-		console.error("Proxy error:", error);
-		const errorMessage = error instanceof Error ? error.message : "An error occurred";
-		return c.json({ error: errorMessage }, 500);
+		console.error(
+			"AI proxy request failed",
+			error instanceof Error ? error.name : "UnknownError",
+		);
+		return c.json({ error: "AI request failed" }, 500);
 	}
 });
 

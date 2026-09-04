@@ -82,7 +82,7 @@ export const createServer = () => {
 			cors({
 				origin: process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) ?? [],
 				allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-				allowHeaders: ["Content-Type"],
+				allowHeaders: ["Content-Type", "x-byok-gemini"],
 			}),
 		)
 

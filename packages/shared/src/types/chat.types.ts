@@ -24,5 +24,6 @@ export const chatSchema = z.object({
 	data: z.object({
 		conversationId: z.string().optional(),
 		db: databaseSchema.shape.db,
+		includeSchema: z.boolean().optional().default(true),
 	}),
 });
