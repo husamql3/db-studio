@@ -27,6 +27,14 @@ export const changelog: ChangelogItem[] = [
 		],
 		improvements: [
 			{
+				text: "Made number, date, boolean, and enum table cell controls transparent for consistent styling across light and dark themes",
+				username: "husamql3",
+			},
+			{
+				text: "Removed the browser-native increment and decrement controls from numeric table cells",
+				username: "husamql3",
+			},
+			{
 				text: "Made the pre-commit hook resolve Bun across macOS, Linux, and Windows and added type checking",
 				username: "marwan562",
 			},

@@ -411,12 +411,13 @@ export const TableNumberCell = memo(
 			>
 				<Input
 					type="number"
+					variant="outline"
 					ref={inputRef}
 					value={value || ""}
 					onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
 					onKeyDown={(event) => onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)}
 					onBlur={onTextInputBlur}
-					className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [&_svg]:hidden"
+					className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 				/>
 			</TableCellWrapper>
 		);
@@ -582,6 +583,7 @@ export const TableBooleanCell = memo(
 					>
 						<SelectTrigger
 							ref={selectTriggerRef}
+							variant="outline"
 							className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [&_svg]:hidden"
 						>
 							<SelectValue />
@@ -753,6 +755,7 @@ export const TableEnumCell = memo(
 					>
 						<SelectTrigger
 							ref={selectTriggerRef}
+							variant="outline"
 							className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [&_svg]:hidden"
 						>
 							<SelectValue />
@@ -884,7 +887,7 @@ export const TableDateCell = memo(
 					value={currentValue ? new Date(currentValue) : undefined}
 					onChange={onDateChange}
 					placeholder="Pick a date"
-					className="size-full px-2! py-1.5! rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [&_svg]:hidden"
+					className="size-full px-2! py-1.5! rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
 				/>
 			</TableCellWrapper>
 		);
