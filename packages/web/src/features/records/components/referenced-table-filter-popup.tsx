@@ -89,6 +89,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 
 	return (
 		<Popover
+			modal={true}
 			open={isOpen}
 			onOpenChange={handleOpenChange}
 		>

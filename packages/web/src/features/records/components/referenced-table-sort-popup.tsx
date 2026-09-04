@@ -75,6 +75,7 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 
 	return (
 		<Popover
+			modal={true}
 			open={isOpen}
 			onOpenChange={handleOpenChange}
 		>
