@@ -96,12 +96,12 @@
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@vitejs/plugin-react": "^6.1.1",
     "happy-dom": "^20.0.10",
     "rollup-plugin-visualizer": "^7.0.1",
     "sharp": "^0.35.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1",
+    "vite": "^8.2.2",
     "vitest": "^4.0.17"
   },
   "peerDependencies": {
