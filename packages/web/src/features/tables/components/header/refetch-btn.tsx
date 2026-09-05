@@ -20,7 +20,7 @@ export const RefetchBtn = ({ tableName }: { tableName: string }) => {
 		<Button
 			type="button"
 			variant="ghost"
-			className="size-8! aspect-square border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+			className="size-8! aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 			onClick={handleRefetch}
 			aria-label="Refetch table data and columns"
 			disabled={isRefetchingTableData || isRefetchingTableCols}

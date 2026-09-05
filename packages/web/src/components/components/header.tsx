@@ -1,15 +1,24 @@
 import { META } from "@db-studio/shared/constants";
 import { Button } from "@db-studio/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@db-studio/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
-import { Bug } from "lucide-react";
+import { Bug, Check, Monitor, Moon, Sun } from "lucide-react";
 import { LuGithub } from "react-icons/lu";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
+import { useTheme } from "@/hooks/use-theme";
 
 export const Header = () => {
+	const { theme, isDark, setTheme } = useTheme();
+
 	return (
-		<div className="border-b border-zinc-800 w-full flex items-center justify-between bg-zinc-950 h-12">
+		<div className="border-b border-border w-full flex items-center justify-between bg-background text-foreground h-12">
 			<div className="flex items-center h-full">
 				<SidebarToggleButton />
 				<Tabs />
@@ -18,11 +27,54 @@ export const Header = () => {
 			<div className="flex items-center h-full">
 				<Chat />
 
+				<DropdownMenu>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+									aria-label={`Theme: ${theme}, switch theme`}
+								>
+									{theme === "light" ? (
+										<Sun className="size-5" />
+									) : theme === "dark" ? (
+										<Moon className="size-5" />
+									) : (
+										<Monitor className="size-5" />
+									)}
+								</Button>
+							</DropdownMenuTrigger>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>{isDark ? "Switch to light mode" : "Switch to dark mode"}</p>
+						</TooltipContent>
+					</Tooltip>
+
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem onClick={() => setTheme("light")}>
+							<Sun />
+							Light
+							{theme === "light" && <Check className="ml-auto" />}
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => setTheme("dark")}>
+							<Moon />
+							Dark
+							{theme === "dark" && <Check className="ml-auto" />}
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => setTheme("system")}>
+							<Monitor />
+							System
+							{theme === "system" && <Check className="ml-auto" />}
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<Button
 							variant="ghost"
-							className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+							className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 							asChild
 						>
 							<a
@@ -44,7 +96,7 @@ export const Header = () => {
 					<TooltipTrigger asChild>
 						<Button
 							variant="ghost"
-							className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12"
+							className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 							asChild
 						>
 							<a

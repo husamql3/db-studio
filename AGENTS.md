@@ -137,7 +137,7 @@ Three export paths:
 
 - **Linter/Formatter**: Biome (tabs, 95-char width). Run `bun run format` to auto-fix.
 - **Tests**: Vitest (server package only). Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in `vitest.config.ts`.
-- **Pre-commit hook**: runs `bun run format && bun run test && bun run build` via Husky.
+- **Pre-commit hook**: runs `bun run format && bun run typecheck && bun run test && bun run build` via Husky.
 - **CI**: GitHub Actions on push to `stage` — build → biome format → tests.
 
 ## Conventions

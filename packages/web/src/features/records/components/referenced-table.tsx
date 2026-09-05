@@ -106,7 +106,7 @@ export const ReferencedTable = ({
 
 	return (
 		<div>
-			<div className="sticky top-0 left-0 right-0 h-8 border-b border-zinc-800 w-full flex items-center justify-between bg-background z-50">
+			<div className="sticky top-0 left-0 right-0 h-8 border-b border-border w-full flex items-center justify-between bg-background z-50">
 				<div className="flex items-center h-full">
 					<ReferencedTableFilterPopup tableName={tableName} />
 					<ReferencedTableSortPopup tableName={tableName} />
@@ -116,7 +116,7 @@ export const ReferencedTable = ({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="border-l border-r-0 border-y-0 border-zinc-800 rounded-none text-xs h-full aspect-square size-8"
+						className="border-l border-r-0 border-y-0 border-border rounded-none text-xs h-full aspect-square size-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 						onClick={handlePrevPage}
 						disabled={!tableData?.meta?.hasPreviousPage}
 					>
@@ -126,7 +126,7 @@ export const ReferencedTable = ({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="border-r border-l border-y-0 border-zinc-800 rounded-none text-xs h-full aspect-square size-8"
+						className="border-r border-l border-y-0 border-border rounded-none text-xs h-full aspect-square size-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 						onClick={handleNextPage}
 						disabled={!tableData?.meta?.hasNextPage}
 					>
@@ -146,7 +146,7 @@ export const ReferencedTable = ({
 								return (
 									<TableHead
 										key={header.id}
-										className="border-r border-zinc-800"
+										className="border-r border-border"
 									>
 										{header.isPlaceholder
 											? null
@@ -168,7 +168,7 @@ export const ReferencedTable = ({
 								{row.getVisibleCells().map((cell) => (
 									<TableCell
 										key={cell.id}
-										className="border-r border-zinc-800"
+										className="border-r border-border"
 									>
 										{flexRender(cell.column.columnDef.cell, cell.getContext())}
 									</TableCell>

@@ -34,14 +34,17 @@ export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 
 	return (
 		<div
-			className="w-full flex-1 overflow-auto"
+			className="w-full flex-1 overflow-auto bg-background text-foreground"
 			ref={tableContainerRef}
 			style={{
 				position: "relative",
 			}}
 		>
 			{/* Even though we're still using sematic table tags, we must use CSS grid and flexbox for dynamic row heights */}
-			<table style={{ display: "grid" }}>
+			<table
+				style={{ display: "grid" }}
+				className="text-foreground"
+			>
 				<TableHead
 					columnVirtualizer={columnVirtualizer}
 					table={table}

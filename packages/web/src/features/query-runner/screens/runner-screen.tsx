@@ -124,7 +124,7 @@ export const RunnerScreen = ({
 				queryResult={queryResult ?? null}
 			/>
 
-			<Suspense fallback={<div className="flex-1 bg-[#1E1E1E] size-full" />}>
+			<Suspense fallback={<div className="flex-1 bg-background size-full" />}>
 				<CodeEditor
 					initialQuery={getInitialQuery()}
 					queryId={queryId}

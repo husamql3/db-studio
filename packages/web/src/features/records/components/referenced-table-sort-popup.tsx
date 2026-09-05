@@ -75,18 +75,19 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 
 	return (
 		<Popover
+			modal={true}
 			open={isOpen}
 			onOpenChange={handleOpenChange}
 		>
 			<PopoverTrigger asChild>
 				<Button
 					variant="ghost"
-					className="border-r border-l-0 border-y-0 border-zinc-800 rounded-none text-xs h-full"
+					className="border-r border-l-0 border-y-0 border-border rounded-none text-xs h-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 				>
 					<ArrowUpDown className="size-4" />
 					Sort
 					{hasActiveSorts && (
-						<Kbd className="text-[10px] font-normal text-white bg-primary/10 border border-primary/90 px-1.5 py-0.5">
+						<Kbd className="text-[10px] font-normal text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5">
 							{sorts.length}
 						</Kbd>
 					)}
@@ -106,7 +107,7 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 					>
 						Add sort
 						{localSort && localSort.length > 0 && (
-							<Kbd className="text-xs font-normal text-white bg-primary/10 border border-primary/90 px-1.5 py-0.5">
+							<Kbd className="text-xs font-normal text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5">
 								{localSort.length}
 							</Kbd>
 						)}

@@ -33,10 +33,20 @@ export const main = async () => {
 
 	intro(color.inverse(" db-studio "));
 
+	const ENV = env ? await loadEnv(env) : await loadEnv();
+
+	// Populate other env variables from .env if not already set in process.env
+	if (ENV) {
+		for (const [key, value] of Object.entries(ENV)) {
+			if (process.env[key] === undefined) {
+				process.env[key] = value;
+			}
+		}
+	}
+
 	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
 	const HOST = process.env.HOST;
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
-	const ENV = env ? await loadEnv(env) : await loadEnv();
 	const hasEnvFileValue = Boolean(ENV?.[VAR_NAME]);
 	const hasProcessValue = Boolean(process.env[VAR_NAME]);
 	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
@@ -93,12 +103,14 @@ export const main = async () => {
 	outro(color.green("Ready"));
 };
 
-main().catch((error: unknown) => {
-	const message = error instanceof Error ? error.message : String(error);
-	const sanitizedMessage = message.replace(
-		/\b(?:postgres(?:ql)?|mysql2?|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi,
-		"the configured database",
-	);
-	outro(color.red(`Startup failed: ${sanitizedMessage}`));
-	process.exit(1);
-});
+if (process.env.NODE_ENV !== "test") {
+	main().catch((error: unknown) => {
+		const message = error instanceof Error ? error.message : String(error);
+		const sanitizedMessage = message.replace(
+			/\b(?:postgres(?:ql)?|mysql2?|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi,
+			"the configured database",
+		);
+		outro(color.red(`Startup failed: ${sanitizedMessage}`));
+		process.exit(1);
+	});
+}

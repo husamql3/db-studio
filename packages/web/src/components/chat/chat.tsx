@@ -30,7 +30,7 @@ export const Chat = () => {
 				<TooltipTrigger asChild>
 					<Button
 						variant="ghost"
-						className="border-r-0 border-y-0 border-l border-zinc-800 rounded-none h-full w-12 relative"
+						className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 relative text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
 						onClick={() => {
 							openOverlay("chat.assistant");
 							if (dbType) posthogAnalytics.capture("chat_opened", { db_type: dbType });

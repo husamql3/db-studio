@@ -68,7 +68,7 @@ const RelatedRecordsView = ({ relatedRecords }: { relatedRecords: RelatedRecord[
 			{relatedRecords.map((related, idx) => (
 				<div
 					key={`${related.tableName}-${related.columnName}-${idx}`}
-					className="border border-zinc-700 rounded-md p-3"
+					className="border border-border rounded-md p-3"
 				>
 					<div className="font-medium text-sm mb-2">
 						Table: <span className="text-primary">{related.tableName}</span>
@@ -80,7 +80,7 @@ const RelatedRecordsView = ({ relatedRecords }: { relatedRecords: RelatedRecord[
 					<div className="text-xs text-muted-foreground mb-2">
 						References column: {related.columnName}
 					</div>
-					<div className="bg-zinc-900 rounded p-2 text-xs overflow-x-auto">
+					<div className="bg-muted rounded p-2 text-xs overflow-x-auto">
 						<pre className="whitespace-pre-wrap">
 							{JSON.stringify(related.records.slice(0, 5), null, 2)}
 							{related.records.length > 5 && (

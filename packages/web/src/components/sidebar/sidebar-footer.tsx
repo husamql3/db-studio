@@ -34,7 +34,7 @@ export function SidebarFooter() {
 	};
 
 	return (
-		<div className="mt-auto border-t bg-background">
+		<div className="mt-auto border-t border-sidebar-border bg-sidebar text-sidebar-foreground">
 			<div className="p-4 space-y-2">
 				{/* Database Selector - Primary Action */}
 				<div className="space-y-2">

@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-type Theme = "dark" | "light" | "system";
+import { getResolvedTheme, type Theme } from "@/lib/theme";
 
 type PersonalPreferencesState = {
 	sidebar: {
@@ -25,7 +24,7 @@ type PersonalPreferencesState = {
 
 export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 	persist(
-		(set) => ({
+		(set, get) => ({
 			sidebar: {
 				width: 400,
 				isOpen: true,
@@ -34,12 +33,12 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			runnerResults: {
 				height: 300,
 			},
-			theme: "system",
+			theme: "dark",
 			setTheme: (theme) => set({ theme: theme }),
 			toggleTheme: () =>
-				set((state) => ({
-					theme: state.theme === "dark" ? "light" : "dark",
-				})),
+				set({
+					theme: getResolvedTheme(get().theme) === "dark" ? "light" : "dark",
+				}),
 			setSidebarWidth: (width) =>
 				set((state) => ({
 					sidebar: {
