@@ -1,5 +1,4 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
-// import { SettingsBtn } from "./settings-menu";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import type { TableRecord } from "@/types/table.type";
 import { AddRecordMenu } from "./add-record-menu";
@@ -34,10 +33,6 @@ export const TableHeader = ({
 					setRowSelection={setRowSelection}
 				/>
 			</div>
-
-			{/* <div className="flex items-center">
-				<SettingsBtn />
-			</div> */}
 		</header>
 	);
 };

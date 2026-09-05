@@ -39,6 +39,7 @@ export const RunnerScreen = ({
 	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 	const [currentQuery, setCurrentQuery] = useState<string>("");
+	const [lastExecutedQuery, setLastExecutedQuery] = useState("");
 	const { dbType } = useDatabaseStore();
 
 	const getInitialQuery = useCallback(() => {
@@ -66,6 +67,7 @@ export const RunnerScreen = ({
 				);
 				if (confirmation !== command) return;
 			}
+			setLastExecutedQuery(query);
 
 			executeQuery({ query }).then((result) => {
 				setQueryResult({ data: result, queryId: queryId ?? "" });
@@ -122,6 +124,7 @@ export const RunnerScreen = ({
 				queryId={queryId ?? ""}
 				hasUnsavedChanges={hasUnsavedChanges}
 				queryResult={queryResult ?? null}
+				currentQuery={currentQuery}
 			/>
 
 			<Suspense fallback={<div className="flex-1 bg-background size-full" />}>
@@ -142,6 +145,7 @@ export const RunnerScreen = ({
 				results={queryResult?.data ?? null}
 				isLoading={isExecutingQuery}
 				error={executeQueryError}
+				lastExecutedQuery={lastExecutedQuery}
 			/>
 		</div>
 	);

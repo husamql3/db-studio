@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getResolvedTheme, type Theme } from "@/lib/theme";
 
+export const TAB_SIZES = [2, 4, 8] as const;
+export type TabSize = (typeof TAB_SIZES)[number];
+
+export const EDITOR_FONT_SIZES = [12, 14, 16, 18] as const;
+export type EditorFontSize = (typeof EDITOR_FONT_SIZES)[number];
+
 type PersonalPreferencesState = {
 	sidebar: {
 		width: number;
@@ -10,6 +16,11 @@ type PersonalPreferencesState = {
 	};
 	runnerResults: {
 		height: number;
+	};
+	editor: {
+		tabSize: TabSize;
+		fontSize: EditorFontSize;
+		wordWrap: boolean;
 	};
 	theme: Theme;
 	setTheme: (theme: Theme) => void;
@@ -20,6 +31,9 @@ type PersonalPreferencesState = {
 	toggleSidebarOpen: () => void;
 	toggleSidebarPinned: () => void;
 	setRunnerResultsHeight: (height: number) => void;
+	setTabSize: (tabSize: TabSize) => void;
+	setEditorFontSize: (fontSize: EditorFontSize) => void;
+	setEditorWordWrap: (wordWrap: boolean) => void;
 };
 
 export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
@@ -32,6 +46,11 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			},
 			runnerResults: {
 				height: 300,
+			},
+			editor: {
+				tabSize: 2,
+				fontSize: 14,
+				wordWrap: true,
 			},
 			theme: "dark",
 			setTheme: (theme) => set({ theme: theme }),
@@ -71,6 +90,18 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 						...state.runnerResults,
 						height: Math.max(150, Math.min(800, height)),
 					},
+				})),
+			setTabSize: (tabSize) =>
+				set((state) => ({
+					editor: { ...state.editor, tabSize },
+				})),
+			setEditorFontSize: (fontSize) =>
+				set((state) => ({
+					editor: { ...state.editor, fontSize },
+				})),
+			setEditorWordWrap: (wordWrap) =>
+				set((state) => ({
+					editor: { ...state.editor, wordWrap },
 				})),
 		}),
 		{

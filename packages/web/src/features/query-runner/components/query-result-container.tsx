@@ -1,9 +1,12 @@
 import type { ExecuteQueryResult } from "@db-studio/shared/types";
+import { Button } from "@db-studio/ui/button";
 import { Spinner } from "@db-studio/ui/spinner";
 import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { useQueryState } from "nuqs";
 import { useMemo } from "react";
+import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 import { TableView } from "./table-view";
 
@@ -11,18 +14,41 @@ export const QueryResultContainer = ({
 	results,
 	isLoading,
 	error,
+	lastExecutedQuery,
 }: {
 	results: ExecuteQueryResult | null;
 	isLoading: boolean;
 	error: Error | null;
+	lastExecutedQuery: string;
 }) => {
 	const [showAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
+	const { requestAssistant } = useAssistantRequestStore();
+	const { openOverlay } = useOverlayStore();
+	const askAssistant = (prompt: string) => {
+		requestAssistant(prompt);
+		openOverlay("chat.assistant");
+	};
 
 	const renderResults = useMemo(() => {
 		if (error) {
 			return (
 				<div className="flex h-full p-2">
-					<div className="text-sm">Error: {error.message}</div>
+					<div className="space-y-2 text-sm">
+						<div>Error: {error.message}</div>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={!lastExecutedQuery.trim()}
+							onClick={() =>
+								askAssistant(
+									`Fix this failing query. Explain the cause and return the complete corrected query in a fenced code block.\n\nQuery:\n${lastExecutedQuery}\n\nError:\n${error.message}`,
+								)
+							}
+						>
+							Suggest fix
+						</Button>
+					</div>
 				</div>
 			);
 		}
@@ -64,7 +90,7 @@ export const QueryResultContainer = ({
 		}
 
 		return <TableView results={results} />;
-	}, [showAs, results, error]);
+	}, [showAs, results, error, lastExecutedQuery]);
 
 	return (
 		<div

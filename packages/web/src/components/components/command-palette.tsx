@@ -682,15 +682,7 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Settings - Coming Soon!", {
-											description: "Customize your db-studio experience",
-										});
-									})
-								}
-							>
+							<CommandItem onSelect={() => handleAction(() => openOverlay("settings.app"))}>
 								<Settings className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Settings & Preferences</span>

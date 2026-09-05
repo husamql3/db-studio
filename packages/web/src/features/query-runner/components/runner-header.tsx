@@ -1,8 +1,20 @@
 import { Button } from "@db-studio/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
-import { AlignLeft, Braces, Command, CornerDownLeft, Heart, Save, Table } from "lucide-react";
+import {
+	AlignLeft,
+	Braces,
+	Command,
+	CornerDownLeft,
+	Heart,
+	Save,
+	Sparkles,
+	Table,
+	Zap,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
+import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 import type { QueryResult } from "../screens/runner-screen";
 
@@ -16,6 +28,7 @@ export const RunnerHeader = ({
 	queryId,
 	hasUnsavedChanges,
 	queryResult,
+	currentQuery,
 }: {
 	isExecutingQuery: boolean;
 	handleButtonClick: () => void;
@@ -26,8 +39,16 @@ export const RunnerHeader = ({
 	queryId: string;
 	hasUnsavedChanges: boolean;
 	queryResult: QueryResult | null;
+	currentQuery: string;
 }) => {
 	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
+	const { requestAssistant } = useAssistantRequestStore();
+	const { openOverlay } = useOverlayStore();
+
+	const askAssistant = (prompt: string) => {
+		requestAssistant(prompt);
+		openOverlay("chat.assistant");
+	};
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background text-foreground sticky top-0 left-0 right-0 z-0">
@@ -44,6 +65,45 @@ export const RunnerHeader = ({
 					<Command className="size-3" />
 					<CornerDownLeft className="size-3" />
 				</Button>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+							aria-label="Generate a query with AI"
+							onClick={() =>
+								askAssistant(
+									"Generate a query for this database. Ask me for the goal if it is unclear.",
+								)
+							}
+						>
+							<Sparkles className="size-3" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Generate with AI</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+							aria-label="Optimize the query with AI"
+							disabled={!currentQuery.trim() || isExecutingQuery}
+							onClick={() =>
+								askAssistant(
+									`Suggest a faster, clearer version of this query. Explain the tradeoffs and return the complete query in a fenced code block.\n\n${currentQuery}`,
+								)
+							}
+						>
+							<Zap className="size-3" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Optimize with AI</TooltipContent>
+				</Tooltip>
 
 				<Button
 					type="button"

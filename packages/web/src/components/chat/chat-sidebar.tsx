@@ -3,7 +3,7 @@
 import { CHAT_SUGGESTIONS, DEFAULTS } from "@db-studio/shared/constants";
 import { Button } from "@db-studio/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
-import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
+import { fetchServerSentEvents, useByok, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -34,6 +34,8 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
+import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { aiByok, useAiByokReady, useAiSettingsStore } from "@/features/settings";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { getBaseUrl } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -59,23 +61,50 @@ const ChatSidebarContent = ({
 	onControllerReady,
 }: ChatSidebarContentProps) => {
 	const [text, setText] = useState("");
-	const { rateLimit } = useRateLimit();
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const { openOverlay } = useOverlayStore();
+	const { pendingPrompt, consumePrompt } = useAssistantRequestStore();
+	const { includeSchemaInAiContext, provider, model } = useAiSettingsStore();
+	const byok = useByok(aiByok);
+	const isByokReady = useAiByokReady();
+	const keyStatus = byok.status[provider];
+	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
+	const { rateLimit } = useRateLimit({
+		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
+	});
 	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
+	const canSend = hasPersonalKey || (provider === "gemini" && remaining > 0);
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
 		connection: fetchServerSentEvents(`${getBaseUrl()}${DEFAULTS.API_PREFIX}/chat`),
-		body: { db },
-		onError: (error) => console.error("Error:", error.message),
+		body: { db, includeSchema: includeSchemaInAiContext },
+		byok: aiByok,
+		forwardedProps: { provider, model },
+		onError: (error) => setErrorMessage(error.message),
 		onFinish: () => {
-			onRateLimitRefetch();
+			// Only the hosted Gemini path spends the shared quota. React Query's
+			// manual `refetch()` runs even while the query is disabled, so refetching
+			// unconditionally would hit /chat/limit on every BYOK response too.
+			if (provider === "gemini" && !hasPersonalKey) {
+				onRateLimitRefetch();
+			}
 		},
 	});
+
+	// Hold a queued prompt until the chat can actually send it. Consuming it while
+	// BYOK is still initialising or the quota is exhausted would drop the prompt.
+	useEffect(() => {
+		if (!pendingPrompt || isLoading || !isByokReady || !canSend) return;
+		consumePrompt();
+		sendMessage(pendingPrompt);
+	}, [canSend, consumePrompt, isByokReady, isLoading, pendingPrompt, sendMessage]);
 
 	useEffect(() => {
 		onControllerReady({
 			clear: () => {
 				clear();
 				setText("");
+				setErrorMessage(null);
 			},
 			isLoading,
 		});
@@ -89,11 +118,13 @@ const ChatSidebarContent = ({
 			return;
 		}
 
+		setErrorMessage(null);
 		sendMessage(message.text);
 		setText("");
 	};
 
 	const handleSuggestionClick = (suggestion: string) => {
+		setErrorMessage(null);
 		sendMessage(suggestion);
 		setText("");
 	};
@@ -171,7 +202,30 @@ const ChatSidebarContent = ({
 			</Conversation>
 
 			<div className="grid shrink-0 gap-4 pt-3">
-				{messages.length === 0 && remaining > 0 && (
+				{errorMessage && (
+					<div className="mx-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+						{errorMessage}
+					</div>
+				)}
+				{!canSend && (
+					<div className="mx-4 rounded-lg border p-3 text-sm">
+						<p className="text-muted-foreground">
+							{provider === "gemini"
+								? "The hosted AI limit is exhausted. Add a personal Gemini key to continue."
+								: `Add a ${provider} API key to use this provider.`}
+						</p>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="mt-2"
+							onClick={() => openOverlay("settings.app")}
+						>
+							Open settings
+						</Button>
+					</div>
+				)}
+				{messages.length === 0 && canSend && (
 					<Suggestions className="px-4">
 						{CHAT_SUGGESTIONS.map((suggestion) => (
 							<Suggestion
@@ -205,7 +259,7 @@ const ChatSidebarContent = ({
 								className="h-8!"
 								status={status}
 								onClick={isLoading ? handleStop : undefined}
-								disabled={rateLimit && rateLimit.remaining === 0}
+								disabled={!canSend}
 							/>
 						</PromptInputFooter>
 					</PromptInput>
@@ -216,9 +270,16 @@ const ChatSidebarContent = ({
 };
 
 export const ChatSidebar = () => {
-	const { rateLimit, refetchRateLimit } = useRateLimit();
 	const { isOverlayOpen, closeOverlay } = useOverlayStore();
 	const { selectedDatabase } = useDatabaseStore();
+	const { includeSchemaInAiContext, provider, model } = useAiSettingsStore();
+	const byok = useByok(aiByok);
+	const isByokReady = useAiByokReady();
+	const keyStatus = byok.status[provider];
+	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
+	const { rateLimit, refetchRateLimit } = useRateLimit({
+		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
+	});
 	const [controller, setController] = useState<ChatController | null>(null);
 	const controllerSetterRef = useRef((next: ChatController) => setController(next));
 
@@ -227,7 +288,7 @@ export const ChatSidebar = () => {
 			title="AI Assistant"
 			cta={
 				<div className="flex items-center gap-2">
-					{rateLimit && (
+					{rateLimit && !hasPersonalKey && (
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<span className="text-xs px-2 py-1 cursor-default text-muted-foreground">
@@ -266,7 +327,7 @@ export const ChatSidebar = () => {
 		>
 			{selectedDatabase ? (
 				<ChatSidebarContent
-					key={selectedDatabase}
+					key={`${selectedDatabase}:${includeSchemaInAiContext}:${provider}:${model}`}
 					db={selectedDatabase}
 					onRateLimitRefetch={refetchRateLimit}
 					onControllerReady={controllerSetterRef.current}

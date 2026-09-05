@@ -16,6 +16,41 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.12.0",
+		date: "2026-09-06",
+		title: "Bring your own AI provider",
+		features: [
+			{
+				text: "Added Gemini, OpenAI, Anthropic, Grok, and OpenRouter to the AI assistant, with a model picker and bring-your-own-key support",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added Generate with AI, Optimize with AI, and Suggest fix actions to the query runner",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added a Settings panel for the AI provider, key, and schema sharing, plus editor tab size, font size, and word wrap",
+				username: "Mahmoudgalalz",
+			},
+		],
+		improvements: [
+			{
+				text: "Gave personal API keys their own rate-limit bucket and blocked forwarding them over plain HTTP",
+				username: "husamql3",
+			},
+			{
+				text: "Kept the assistant working when a response stream fails or table metadata is only partly readable",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed non-Gemini providers defaulting to a Gemini model, dropped query runner prompts, and stale indentation in the JSON cell editor",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.11.0",
 		date: "2026-09-05",
 		title: "Light mode and local development improvements",
