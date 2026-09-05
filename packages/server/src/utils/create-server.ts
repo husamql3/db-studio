@@ -102,7 +102,15 @@ export const createServer = () => {
 					return undefined;
 				},
 				allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-				allowHeaders: ["Content-Type", "x-byok-gemini"],
+				allowHeaders: [
+					"Content-Type",
+					"X-Run-Id",
+					"x-byok-gemini",
+					"x-byok-openai",
+					"x-byok-anthropic",
+					"x-byok-grok",
+					"x-byok-openrouter",
+				],
 			}),
 		)
 

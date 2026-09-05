@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { LIMIT } from "@db-studio/shared/constants";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chatRoutes } from "@/routes/chat.routes.js";
 
@@ -15,8 +16,14 @@ vi.mock("@/utils/system-prompt-generator.js", () => ({
 	generateSystemPrompt: mocks.generateSystemPrompt,
 }));
 
-const requestBody = (includeSchema: boolean) => ({
-	messages: [{ id: "message-1", role: "user", parts: [{ type: "text", content: "Hello" }] }],
+const requestBody = (
+	includeSchema: boolean,
+	provider: "gemini" | "anthropic" = "gemini",
+	model = "gemini-3-flash-preview",
+) => ({
+	provider,
+	model,
+	messages: [{ id: "message-1", role: "user", content: "Hello" }],
 	data: { db: "example", includeSchema },
 });
 
@@ -65,5 +72,55 @@ describe("Chat routes", () => {
 		expect(response.status).toBe(200);
 		expect(mocks.getDetailedSchema).not.toHaveBeenCalled();
 		expect(mocks.generateSystemPrompt).toHaveBeenCalledWith(null);
+	});
+
+	it("forwards only the selected provider key and model", async () => {
+		const response = await app.request("/api/pg/chat", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"x-byok-anthropic": "anthropic-secret",
+			},
+			body: JSON.stringify(requestBody(true, "anthropic", "claude-sonnet-4-6")),
+		});
+
+		expect(response.status).toBe(200);
+		const [, init] = vi.mocked(fetch).mock.calls[0];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("x-byok-anthropic")).toBe("anthropic-secret");
+		expect(headers.get("x-byok-gemini")).toBe("");
+		expect(String(init?.body)).toContain('"provider":"anthropic"');
+		expect(String(init?.body)).toContain('"model":"claude-sonnet-4-6"');
+		expect(String(init?.body)).not.toContain("anthropic-secret");
+	});
+
+	it("relays the proxy stream response without creating a detached stream", async () => {
+		vi.mocked(fetch).mockResolvedValueOnce(
+			new Response("data: done\n\n", {
+				status: 200,
+				headers: {
+					"Content-Type": "text/event-stream",
+					"x-stream-source": "proxy",
+				},
+			}),
+		);
+
+		const response = await app.request("/api/pg/chat", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(requestBody(false)),
+		});
+
+		expect(response.headers.get("x-stream-source")).toBe("proxy");
+		expect(await response.text()).toBe("data: done\n\n");
+	});
+
+	it("reports hosted quota as unavailable when the proxy limit check fails", async () => {
+		vi.mocked(fetch).mockRejectedValueOnce(new Error("proxy unavailable"));
+
+		const response = await app.request("/api/pg/chat/limit");
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ limit: LIMIT, used: LIMIT, remaining: 0 });
 	});
 });

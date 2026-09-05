@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getRateLimit } from "@/shared/api";
 import { chatKeys } from "@/shared/query/keys";
 
-export const useRateLimit = () => {
+export const useRateLimit = ({ enabled = true }: { enabled?: boolean } = {}) => {
 	const {
 		data: rateLimit,
 		isLoading: isLoadingRateLimit,
@@ -11,14 +11,8 @@ export const useRateLimit = () => {
 		refetch: refetchRateLimit,
 	} = useQuery<RateLimitResponse>({
 		queryKey: chatKeys.rateLimit(),
-		queryFn: async () => {
-			try {
-				const res = await getRateLimit();
-				return res.data;
-			} catch {
-				return { limit: 0, used: 0, remaining: 0 };
-			}
-		},
+		queryFn: async () => (await getRateLimit()).data,
+		enabled,
 	});
 
 	return {

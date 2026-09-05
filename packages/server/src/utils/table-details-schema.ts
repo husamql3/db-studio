@@ -95,6 +95,19 @@ async function getSampleData(
 	}
 }
 
+async function getTableColumns(
+	adapter: IDbAdapter,
+	tableName: string,
+	db: DatabaseSchemaType["db"],
+): Promise<ColumnInfoSchemaType[]> {
+	try {
+		return await adapter.getTableColumns({ tableName, db });
+	} catch (error) {
+		console.warn(`Could not fetch columns for table ${tableName}:`, error);
+		return [];
+	}
+}
+
 async function getDatabaseSchema(
 	db: DatabaseSchemaType["db"],
 	options: {
@@ -109,18 +122,16 @@ async function getDatabaseSchema(
 
 	try {
 		const tablesList = await adapter.getTablesList(db);
-		const tableNames = tablesList
-			.slice(0, maxTables ?? tablesList.length)
-			.map((t) => t.tableName);
+		const selectedTables = tablesList.slice(0, maxTables ?? tablesList.length);
 
-		const tablePromises = tableNames.map(async (tableName) => {
+		const tablePromises = selectedTables.map(async ({ schemaName, tableName }) => {
 			const [columns, sampleData] = await Promise.all([
-				adapter.getTableColumns({ tableName, db }),
+				getTableColumns(adapter, tableName, db),
 				includeSampleData ? getSampleData(adapter, tableName, db) : Promise.resolve([]),
 			]);
 
 			const table: Table = {
-				name: tableName,
+				name: schemaName ? `${schemaName}.${tableName}` : tableName,
 				columns: columns.map(convertColumnInfo),
 			};
 

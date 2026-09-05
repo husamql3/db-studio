@@ -12,7 +12,7 @@ export type OverlayId =
 	| "records.bulk-insert-json"
 	| "records.record-reference"
 	| "redis-browser.create-key"
-	| "settings.ai"
+	| "settings.app"
 	| "chat.assistant";
 
 type OverlayState = {

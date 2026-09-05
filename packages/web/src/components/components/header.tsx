@@ -7,15 +7,17 @@ import {
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
-import { Bug, Check, Monitor, Moon, Sun } from "lucide-react";
+import { Bug, Check, Monitor, Moon, Settings, Sun } from "lucide-react";
 import { LuGithub } from "react-icons/lu";
 import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { useTheme } from "@/hooks/use-theme";
+import { useOverlayStore } from "@/stores/overlay.store";
 
 export const Header = () => {
 	const { theme, isDark, setTheme } = useTheme();
+	const { openOverlay } = useOverlayStore();
 
 	return (
 		<div className="border-b border-border w-full flex items-center justify-between bg-background text-foreground h-12">
@@ -26,6 +28,23 @@ export const Header = () => {
 
 			<div className="flex items-center h-full">
 				<Chat />
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+							aria-label="Open settings"
+							onClick={() => openOverlay("settings.app")}
+						>
+							<Settings className="size-5" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						<p>Settings</p>
+					</TooltipContent>
+				</Tooltip>
 
 				<DropdownMenu>
 					<Tooltip>

@@ -27,6 +27,7 @@ import {
 	useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCellStore } from "../stores/update-cell.store";
@@ -907,6 +908,7 @@ export const TableJsonCell = memo(
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
+		const { editor: editorPreferences } = usePersonalPreferencesStore();
 		const rawValue = cell.getValue();
 
 		// If the value is a string (which shouldn't happen but might due to pg driver issues),
@@ -933,7 +935,7 @@ export const TableJsonCell = memo(
 
 		// Separate editor value (formatted) from display value (compact)
 		const [editorValue, setEditorValue] = useState(
-			() => JSON.stringify(initialValue, null, 2) ?? "",
+			() => JSON.stringify(initialValue, null, editorPreferences.tabSize) ?? "",
 		);
 		const [open, setOpen] = useState(false);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -976,7 +978,7 @@ export const TableJsonCell = memo(
 
 		const onCancel = useCallback(() => {
 			// Restore the original value (formatted)
-			setEditorValue(JSON.stringify(initialValue, null, 2) ?? "");
+			setEditorValue(JSON.stringify(initialValue, null, editorPreferences.tabSize) ?? "");
 
 			// Clear this cell's update from the store
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
@@ -1087,7 +1089,7 @@ export const TableJsonCell = memo(
 		useEffect(() => {
 			if (isEditing && !open) {
 				// Initialize editor with formatted JSON
-				setEditorValue(JSON.stringify(currentJsonValue, null, 2));
+				setEditorValue(JSON.stringify(currentJsonValue, null, editorPreferences.tabSize));
 				setOpen(true);
 			} else if (!isEditing && open) {
 				setOpen(false);

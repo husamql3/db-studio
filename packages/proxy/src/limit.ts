@@ -15,6 +15,11 @@ export const keyGenerator = (c: Context) => {
 
 export const createProxyLimiter = (): MiddlewareHandler => {
 	return async (c, next) => {
+		const hasPersonalKey = ["gemini", "openai", "anthropic", "grok", "openrouter"].some(
+			(provider) => Boolean(c.req.header(`x-byok-${provider}`)?.trim()),
+		);
+		if (hasPersonalKey) return next();
+
 		if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
 			console.warn("[proxy] Upstash Redis not configured — skipping rate limiter");
 			return next();

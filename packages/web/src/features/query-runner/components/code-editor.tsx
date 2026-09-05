@@ -2,6 +2,7 @@ import * as monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/hooks/use-theme";
+import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import {
 	BUILTIN_FUNCTIONS,
 	BUILTIN_TYPES,
@@ -37,12 +38,21 @@ export const CodeEditor = ({
 	const monacoEl = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const { isDark } = useTheme();
+	const { editor: editorPreferences } = usePersonalPreferencesStore();
 
 	useEffect(() => {
 		if (editorRef.current) {
 			monaco.editor.setTheme(isDark ? "vs-dark" : "vs");
 		}
 	}, [isDark]);
+
+	useEffect(() => {
+		editorRef.current?.updateOptions({
+			fontSize: editorPreferences.fontSize,
+			wordWrap: editorPreferences.wordWrap ? "on" : "off",
+		});
+		editorRef.current?.getModel()?.updateOptions({ tabSize: editorPreferences.tabSize });
+	}, [editorPreferences.fontSize, editorPreferences.wordWrap, editorPreferences.tabSize]);
 
 	useEffect(() => {
 		if (!monacoEl.current) return;
@@ -242,7 +252,7 @@ export const CodeEditor = ({
 			value: initialQuery,
 			language,
 			theme: isDark ? "vs-dark" : "vs",
-			fontSize: 14,
+			fontSize: editorPreferences.fontSize,
 			minimap: { enabled: false },
 			lineNumbers: "on",
 			roundedSelection: true,
@@ -256,9 +266,9 @@ export const CodeEditor = ({
 				arrowSize: 0,
 			},
 			automaticLayout: true,
-			tabSize: 4,
+			tabSize: editorPreferences.tabSize,
 			insertSpaces: true,
-			wordWrap: "on",
+			wordWrap: editorPreferences.wordWrap ? "on" : "off",
 			folding: true,
 			bracketPairColorization: {
 				enabled: true,

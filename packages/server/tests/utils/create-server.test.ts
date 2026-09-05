@@ -173,9 +173,19 @@ describe("createServer", () => {
 		});
 
 		it("should advertise allowed headers on a CORS preflight", async () => {
-			const res = await server.app.request("/api/databases", { method: "OPTIONS" });
+			const res = await server.app.request("/api/chat", {
+				method: "OPTIONS",
+				headers: {
+					Origin: "https://web.db-studio.localhost",
+					"Access-Control-Request-Method": "POST",
+					"Access-Control-Request-Headers": "content-type,x-run-id,x-byok-anthropic",
+				},
+			});
 
-			expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+			const headers = res.headers.get("Access-Control-Allow-Headers");
+			expect(headers).toContain("Content-Type");
+			expect(headers?.toLowerCase()).toContain("x-run-id");
+			expect(headers?.toLowerCase()).toContain("x-byok-anthropic");
 		});
 
 		it("should handle OPTIONS preflight request", async () => {

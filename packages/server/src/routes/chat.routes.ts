@@ -1,4 +1,4 @@
-import { DEFAULTS } from "@db-studio/shared/constants";
+import { DEFAULTS, LIMIT } from "@db-studio/shared/constants";
 import { chatSchema } from "@db-studio/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -15,16 +15,22 @@ export const chatRoutes = new Hono()
 	 * GET /chat/limit - Proxy rate limit check to Cloudflare Worker
 	 */
 	.get("/limit", async (c) => {
-		const proxyResponse = await fetch(`${DEFAULTS.PROXY_URL}/chat/limit`, {
-			headers: {
-				"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
-				"x-real-ip": c.req.header("x-real-ip") ?? "",
-				"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
-				"x-api-key": c.req.header("x-api-key") ?? "",
-			},
-		});
-		const data = await proxyResponse.json();
-		return c.json(data, proxyResponse.status as 200 | 500);
+		try {
+			const proxyResponse = await fetch(`${DEFAULTS.PROXY_URL}/chat/limit`, {
+				headers: {
+					"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
+					"x-real-ip": c.req.header("x-real-ip") ?? "",
+					"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
+					"x-api-key": c.req.header("x-api-key") ?? "",
+				},
+			});
+			if (!proxyResponse.ok) {
+				return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 }, 200);
+			}
+			return c.json(await proxyResponse.json(), 200);
+		} catch {
+			return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 }, 200);
+		}
 	})
 
 	/**
@@ -32,7 +38,7 @@ export const chatRoutes = new Hono()
 	 * Proxies to the Cloudflare Worker which has the Gemini API key
 	 */
 	.post("/", zValidator("json", chatSchema), async (c) => {
-		const { messages, data } = c.req.valid("json");
+		const { messages, data, provider, model } = c.req.valid("json");
 		const { db, conversationId, includeSchema } = data;
 
 		// Get the database schema and generate system prompt
@@ -43,6 +49,8 @@ export const chatRoutes = new Hono()
 			messages,
 			conversationId,
 			systemPrompt,
+			provider,
+			model,
 		};
 
 		// Forward request to the proxy with the system prompt.
@@ -56,6 +64,10 @@ export const chatRoutes = new Hono()
 				"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
 				"x-api-key": c.req.header("x-api-key") ?? "",
 				"x-byok-gemini": c.req.header("x-byok-gemini") ?? "",
+				"x-byok-openai": c.req.header("x-byok-openai") ?? "",
+				"x-byok-anthropic": c.req.header("x-byok-anthropic") ?? "",
+				"x-byok-grok": c.req.header("x-byok-grok") ?? "",
+				"x-byok-openrouter": c.req.header("x-byok-openrouter") ?? "",
 			},
 			body: JSON.stringify(payload),
 		});
@@ -68,16 +80,11 @@ export const chatRoutes = new Hono()
 			);
 		}
 
-		// Stream the SSE response back to the client
-		const { readable, writable } = new TransformStream();
-		proxyResponse.body?.pipeTo(writable);
-
-		return new Response(readable, {
-			headers: {
-				"Content-Type": "text/event-stream",
-				"Cache-Control": "no-cache",
-				Connection: "keep-alive",
-			},
+		// Relay the original stream directly. A detached pipe can reject after this
+		// handler returns, which makes the browser see only a generic body-read error.
+		return new Response(proxyResponse.body, {
+			status: proxyResponse.status,
+			headers: proxyResponse.headers,
 		});
 	});
 

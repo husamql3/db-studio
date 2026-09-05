@@ -1,5 +1,6 @@
 export * from "./add-column.types.js";
 export * from "./add-record.types.js"; // done
+export * from "./ai-provider.types.js";
 export * from "./alter-column.types.js";
 export * from "./api-response.types.js";
 export * from "./bulk-insert-records.type.js";
