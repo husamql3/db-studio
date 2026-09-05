@@ -986,7 +986,7 @@ export const TableJsonCell = memo(
 			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
 			setOpen(false);
-		}, [meta, initialValue, columnName, rowData, clearUpdate, editorValue]);
+		}, [meta, initialValue, columnName, rowData, clearUpdate, editorPreferences.tabSize]);
 
 		const onChange = useCallback(
 			(event: ChangeEvent<HTMLTextAreaElement>) => {

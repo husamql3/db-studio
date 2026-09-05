@@ -94,6 +94,23 @@ describe("Chat routes", () => {
 		expect(String(init?.body)).not.toContain("anthropic-secret");
 	});
 
+	it("defaults the model to the selected provider's first model", async () => {
+		const response = await app.request("/api/pg/chat", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				provider: "openai",
+				messages: [{ id: "message-1", role: "user", content: "Hello" }],
+				data: { db: "example", includeSchema: false },
+			}),
+		});
+
+		expect(response.status).toBe(200);
+		const [, init] = vi.mocked(fetch).mock.calls[0];
+		// A fixed Gemini default here would be rejected by the proxy with a 400.
+		expect(String(init?.body)).toContain('"model":"gpt-5.2"');
+	});
+
 	it("relays the proxy stream response without creating a detached stream", async () => {
 		vi.mocked(fetch).mockResolvedValueOnce(
 			new Response("data: done\n\n", {

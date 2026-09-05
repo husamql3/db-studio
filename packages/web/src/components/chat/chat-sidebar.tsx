@@ -82,15 +82,22 @@ const ChatSidebarContent = ({
 		forwardedProps: { provider, model },
 		onError: (error) => setErrorMessage(error.message),
 		onFinish: () => {
-			onRateLimitRefetch();
+			// Only the hosted Gemini path spends the shared quota. React Query's
+			// manual `refetch()` runs even while the query is disabled, so refetching
+			// unconditionally would hit /chat/limit on every BYOK response too.
+			if (provider === "gemini" && !hasPersonalKey) {
+				onRateLimitRefetch();
+			}
 		},
 	});
 
+	// Hold a queued prompt until the chat can actually send it. Consuming it while
+	// BYOK is still initialising or the quota is exhausted would drop the prompt.
 	useEffect(() => {
-		if (!pendingPrompt || isLoading) return;
+		if (!pendingPrompt || isLoading || !isByokReady || !canSend) return;
 		consumePrompt();
 		sendMessage(pendingPrompt);
-	}, [consumePrompt, isLoading, pendingPrompt, sendMessage]);
+	}, [canSend, consumePrompt, isByokReady, isLoading, pendingPrompt, sendMessage]);
 
 	useEffect(() => {
 		onControllerReady({

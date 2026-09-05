@@ -16,6 +16,73 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.12.0",
+		date: "2026-09-06",
+		title: "Bring your own AI provider",
+		features: [
+			{
+				text: "Added support for Google Gemini, OpenAI, Anthropic, xAI Grok, and OpenRouter in the AI assistant, with a model picker per provider",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added bring-your-own-key AI settings so a personal provider API key is stored in the browser and never sent in the request body",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added a Settings panel, reachable from the header and the command palette, covering AI provider, model, API key, and schema sharing",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added editor preferences for tab size, font size, and word wrapping, applied to the query editor and JSON cells",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added Generate with AI and Optimize with AI actions to the query runner, plus a Suggest fix action on failed queries",
+				username: "Mahmoudgalalz",
+			},
+			{
+				text: "Added an opt-out toggle for sending the database schema to the AI assistant as context",
+				username: "Mahmoudgalalz",
+			},
+		],
+		improvements: [
+			{
+				text: "Kept the AI response stream attached to the proxy response so streaming errors surface instead of a generic body-read failure",
+				username: "husamql3",
+			},
+			{
+				text: "Kept schema introspection working when table metadata is unavailable or only partially readable",
+				username: "husamql3",
+			},
+			{
+				text: "Gave requests carrying a personal API key their own higher rate-limit bucket instead of skipping the proxy limiter, so an unvalidated header can no longer bypass it",
+				username: "husamql3",
+			},
+			{
+				text: "Rejected non-HTTPS AI proxy destinations unless they point at loopback, so personal API keys are never forwarded in cleartext",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed the AI model defaulting to Gemini when another provider was selected without an explicit model, which made the proxy reject the request",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed a queued query-runner prompt being discarded when the assistant was not ready to send it",
+				username: "husamql3",
+			},
+			{
+				text: "Stopped refetching the hosted chat quota after responses that do not consume it",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the JSON cell editor restoring a cancelled value with a stale indentation width",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.11.0",
 		date: "2026-09-05",
 		title: "Light mode and local development improvements",

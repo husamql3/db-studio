@@ -2,10 +2,41 @@ import { DEFAULTS, LIMIT } from "@db-studio/shared/constants";
 import { chatSchema } from "@db-studio/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import type { RouteEnv } from "@/app.types.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 import { getDetailedSchema } from "@/utils/table-details-schema.js";
 
-export const chatRoutes = new Hono()
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * BYOK API keys are forwarded to the proxy as request headers, so the
+ * destination must be encrypted. `DB_STUDIO_PROXY_URL` can override the HTTPS
+ * default, so plain HTTP is only tolerated when it points at loopback — the
+ * local `bun run dev` proxy.
+ */
+const resolveProxyUrl = (): string => {
+	let url: URL;
+	try {
+		url = new URL(DEFAULTS.PROXY_URL);
+	} catch {
+		throw new HTTPException(500, {
+			message: "DB_STUDIO_PROXY_URL is not a valid URL",
+		});
+	}
+
+	const isLoopback =
+		LOOPBACK_HOSTNAMES.has(url.hostname) || url.hostname.endsWith(".localhost");
+	if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
+		throw new HTTPException(500, {
+			message: "DB_STUDIO_PROXY_URL must use HTTPS unless it points at loopback",
+		});
+	}
+
+	return url.origin;
+};
+
+export const chatRoutes = new Hono<RouteEnv>()
 	/**
 	 * Base path for the endpoints, /:dbType/chat/...
 	 */
@@ -15,8 +46,12 @@ export const chatRoutes = new Hono()
 	 * GET /chat/limit - Proxy rate limit check to Cloudflare Worker
 	 */
 	.get("/limit", async (c) => {
+		// Outside the try: a misconfigured proxy URL is a server error, not an
+		// exhausted quota, so it must not be masked by the fallback below.
+		const proxyUrl = resolveProxyUrl();
+
 		try {
-			const proxyResponse = await fetch(`${DEFAULTS.PROXY_URL}/chat/limit`, {
+			const proxyResponse = await fetch(`${proxyUrl}/chat/limit`, {
 				headers: {
 					"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
 					"x-real-ip": c.req.header("x-real-ip") ?? "",
@@ -55,7 +90,7 @@ export const chatRoutes = new Hono()
 
 		// Forward request to the proxy with the system prompt.
 		// Pass through IP headers so the proxy rate-limiter keys on the real user IP.
-		const proxyResponse = await fetch(`${DEFAULTS.PROXY_URL}/chat`, {
+		const proxyResponse = await fetch(`${resolveProxyUrl()}/chat`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { aiProviderSchema } from "./ai-provider.types.js";
+import { aiProviderSchema, getDefaultAiModel } from "./ai-provider.types.js";
 import { databaseSchema } from "./database.types.js";
 
 // Legacy UI message part schema. Current TanStack AI clients serialize messages
@@ -13,9 +13,12 @@ const messagePart = z
 
 // `fetchServerSentEvents` wraps extra body under `data`. Accept both the current
 // AG-UI wire messages and legacy UI messages so older clients remain compatible.
-export const chatSchema = z.object({
+const chatBodySchema = z.object({
 	provider: aiProviderSchema.optional().default("gemini"),
-	model: z.string().min(1).optional().default("gemini-3-flash-preview"),
+	// Left optional here: a fixed default would pair, say, `provider: "openai"`
+	// with a Gemini model and the proxy would reject the combination with a 400.
+	// The default is resolved from the parsed provider in the transform below.
+	model: z.string().min(1).optional(),
 	messages: z.array(
 		z
 			.object({
@@ -32,3 +35,8 @@ export const chatSchema = z.object({
 		includeSchema: z.boolean().optional().default(true),
 	}),
 });
+
+export const chatSchema = chatBodySchema.transform((body) => ({
+	...body,
+	model: body.model ?? getDefaultAiModel(body.provider),
+}));
