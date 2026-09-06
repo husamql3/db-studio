@@ -63,6 +63,9 @@ export const main = async () => {
 	// This ensures the db pool is initialized with the correct connection string
 	process.env.DATABASE_URL = DATABASE_URL;
 
+	const { initServerObservability } = await import("@/observability.js");
+	initServerObservability();
+
 	// Import database modules dynamically after setting DATABASE_URL.
 	const { checkDatabaseConnection, getDatabaseConnectionDetails } = await import(
 		"@/cmd/check-database.js"

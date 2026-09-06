@@ -15,6 +15,7 @@ export const logger = {
 	},
 
 	request(config: InternalAxiosRequestConfig & { metadata?: { startTime: number } }) {
+		if (!import.meta.env.DEV) return;
 		const method = config.method?.toUpperCase() ?? "GET";
 
 		console.groupCollapsed(`[${this.getTimestamp()}] ${method} ${config.url}`);
@@ -30,6 +31,7 @@ export const logger = {
 	},
 
 	response(response: AxiosResponse, duration: number) {
+		if (!import.meta.env.DEV) return;
 		const method = response.config.method?.toUpperCase() ?? "GET";
 
 		console.groupCollapsed(
@@ -45,6 +47,7 @@ export const logger = {
 	},
 
 	error(error: AxiosError, duration: number) {
+		if (!import.meta.env.DEV) return;
 		const method = error.config?.method?.toUpperCase() ?? "GET";
 		const status = error.response?.status ?? "ERR";
 

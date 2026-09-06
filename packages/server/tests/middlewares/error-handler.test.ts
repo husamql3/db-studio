@@ -546,37 +546,61 @@ describe("Error Handler Middleware", () => {
 	});
 
 	describe("Error logging", () => {
-		it("should log errors to console", async () => {
-			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		/** Errors are logged as one structured JSON line on stderr, not via console.error. */
+		const captureStderr = () => {
+			const lines: string[] = [];
+			const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+				lines.push(String(chunk));
+				return true;
+			});
+			return { lines, restore: () => spy.mockRestore() };
+		};
+
+		const findLog = (lines: string[], event: string) =>
+			lines
+				.map((line) => {
+					try {
+						return JSON.parse(line) as Record<string, unknown>;
+					} catch {
+						return undefined;
+					}
+				})
+				.find((entry) => entry?.event === event);
+
+		it("should log errors as structured stderr output", async () => {
+			const stderr = captureStderr();
 
 			app.get("/test", () => {
 				throw new Error("Test error for logging");
 			});
 
 			await app.request("/test");
+			stderr.restore();
 
-			expect(consoleSpy).toHaveBeenCalled();
-			expect(consoleSpy.mock.calls[0][0]).toBe("handleError:");
-
-			consoleSpy.mockRestore();
+			const entry = findLog(stderr.lines, "request_failed");
+			expect(entry).toBeDefined();
+			expect(entry).toMatchObject({ level: "error", operation: "get_other", error_type: "Error" });
+			expect(typeof entry?.timestamp).toBe("string");
 		});
 
-		it("should log HTTPException to console", async () => {
-			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		it("should log HTTPException with its error type", async () => {
+			const stderr = captureStderr();
 
 			app.get("/test", () => {
 				throw new HTTPException(404, { message: "Not found" });
 			});
 
 			await app.request("/test");
+			stderr.restore();
 
-			expect(consoleSpy).toHaveBeenCalled();
-
-			consoleSpy.mockRestore();
+			expect(findLog(stderr.lines, "request_failed")).toMatchObject({
+				level: "error",
+				error_type: "HTTPException",
+			});
 		});
 
-		it("should log ZodError to console", async () => {
-			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		it("should log ZodError with its error type", async () => {
+			const stderr = captureStderr();
 			const schema = z.string();
 
 			app.get("/test", () => {
@@ -584,10 +608,25 @@ describe("Error Handler Middleware", () => {
 			});
 
 			await app.request("/test");
+			stderr.restore();
 
-			expect(consoleSpy).toHaveBeenCalled();
+			expect(findLog(stderr.lines, "request_failed")).toMatchObject({
+				level: "error",
+				error_type: "ZodError",
+			});
+		});
 
-			consoleSpy.mockRestore();
+		it("should not leak the error message into the log line", async () => {
+			const stderr = captureStderr();
+
+			app.get("/test", () => {
+				throw new Error("connection to user@secret-host failed");
+			});
+
+			await app.request("/test");
+			stderr.restore();
+
+			expect(stderr.lines.join("")).not.toContain("secret-host");
 		});
 	});
 

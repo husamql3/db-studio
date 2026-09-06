@@ -12,6 +12,9 @@
       ],
       "env": [
         "NODE_ENV"
+      ],
+      "passThroughEnv": [
+        "SENTRY_AUTH_TOKEN"
       ]
     },
     "@db-studio/shared#build": {

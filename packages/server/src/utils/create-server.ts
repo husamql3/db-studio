@@ -15,12 +15,20 @@ import { adapterRegistry } from "@/adapters/adapter.registry.js";
 import { registerAdapters } from "@/adapters/register.js";
 import type { AppType } from "@/app.types.js";
 import { handleError } from "@/middlewares/error-handler.js";
+import {
+	captureServerEvent,
+	durationBucket,
+	operationForRequest,
+	outcomeForStatus,
+	startServerSpan,
+} from "@/observability.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { keysRoutes } from "@/routes/keys.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
+import { telemetryRoutes } from "@/routes/telemetry.routes.js";
 
 const { API_PREFIX } = DEFAULTS;
 
@@ -105,6 +113,7 @@ export const createServer = () => {
 				allowHeaders: [
 					"Content-Type",
 					"X-Run-Id",
+					"X-DB-Studio-GPC",
 					"x-byok-gemini",
 					"x-byok-openai",
 					"x-byok-anthropic",
@@ -123,6 +132,27 @@ export const createServer = () => {
 		 * Enable logger in development mode
 		 */
 		.use(process.env.NODE_ENV === "development" ? logger() : (_, next) => next())
+
+		.use(`${API_PREFIX}/*`, async (c, next) => {
+			if (c.req.path.startsWith(`${API_PREFIX}/telemetry`)) return next();
+			const startedAt = performance.now();
+			const operation = operationForRequest(c.req.method, c.req.path);
+			const rawType = c.req.path.split("/")[2];
+			const dbType = adapterRegistry
+				.getSupportedTypes()
+				.find((candidate) => candidate === rawType);
+			await startServerSpan(operation, dbType, next);
+			captureServerEvent({
+				event: "server_operation",
+				properties: {
+					operation,
+					method: c.req.method,
+					outcome: outcomeForStatus(c.res.status),
+					duration_bucket: durationBucket(performance.now() - startedAt),
+					db_type: dbType,
+				},
+			});
+		})
 
 		/**
 		 * Serve the favicon.ico file
@@ -149,6 +179,7 @@ export const createServer = () => {
 		 */
 		.route(API_PREFIX, databasesRoutes)
 		.route(API_PREFIX, chatRoutes)
+		.route(API_PREFIX, telemetryRoutes)
 
 		/**
 		 * Serve static assets (SPA-owned; live at the root, not under the API prefix)
@@ -170,7 +201,7 @@ export const createServer = () => {
 				}
 			}),
 			async (c, next) => {
-				const { dbType } = c.req.valid("param");
+				const { dbType } = databaseTypeParamSchema.parse({ dbType: c.req.param("dbType") });
 				c.set("dbType", dbType);
 				await next();
 			},

@@ -3,12 +3,26 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
 import { ZodError } from "zod";
+import {
+	captureServerError,
+	operationForRequest,
+	writeOperationalLog,
+} from "@/observability.js";
+
+/** HTTPException leaves `name` as "Error", so it needs an explicit check. */
+const errorTypeName = (e: unknown): string => {
+	if (e instanceof HTTPException) return "HTTPException";
+	return e instanceof Error ? e.name : "UnknownError";
+};
 
 /**
  * Centralized error handler for the application
  */
 export function handleError(e: Error | unknown, c: Context) {
-	console.error("handleError:", e);
+	const operation = operationForRequest(c.req.method, c.req.path);
+	const errorType = errorTypeName(e);
+	writeOperationalLog("error", "request_failed", { operation, error_type: errorType });
+	captureServerError(e, operation);
 
 	if (e instanceof HTTPException) {
 		return c.json<ApiError>(

@@ -166,6 +166,11 @@ See what's new, fixed, or improved in each release:
 
 [📜 Changelog](https://dbstudio.sh/changelog)
 
+## Observability
+
+See [Observability](docs/observability.md) for the anonymous analytics, privacy contract, private
+dashboard, and alert configuration.
+
 # Contributing
 
 Extremely welcome! This is early-stage — PRs for new drivers, bug fixes, or even a better logo will be merged lightning-fast.

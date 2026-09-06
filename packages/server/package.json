@@ -1,7 +1,7 @@
 {
   "name": "db-studio",
   "type": "module",
-	"version": "1.12.0",
+  "version": "1.13.0",
   "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
   "keywords": [
     "database client",
@@ -24,7 +24,7 @@
     "database management",
     "database studio"
   ],
-  "author": "H\u00fcsam \ud83e\udd51 <devhsmq@gmail.com>",
+  "author": "Hüsam 🥑 <husam@ql3.dev>",
   "homepage": "https://dbstudio.sh",
   "repository": {
     "type": "git",
@@ -43,7 +43,7 @@
   "scripts": {
     "dev": "portless run",
     "dev:app": "NODE_ENV=development tsx watch src/index.ts",
-    "build": "tsup --minify --sourcemap",
+    "build": "tsup --minify",
     "prepack": "cd ../web && bun run build && cd ../server && bun run build",
     "start": "sh -c 'APP_PORT=${PORT:-3333}; portless proxy start >/dev/null && portless alias db-studio \"$APP_PORT\" --force >/dev/null && HOST=127.0.0.1 PORT=\"$APP_PORT\" DB_STUDIO_SERVER_URL=https://db-studio.localhost node dist/index.js'",
     "format": "biome check --write --unsafe",
@@ -59,6 +59,7 @@
     "@clack/prompts": "^1.0.1",
     "@hono/node-server": "^2.0.0",
     "@hono/zod-validator": "^0.9.0",
+    "@sentry/node": "^10.73.0",
     "better-sqlite3": "^13.0.3",
     "commander": "^15.0.0",
     "dotenv": "^17.3.1",
@@ -70,12 +71,14 @@
     "open": "^11.0.0",
     "pg": "^8.13.1",
     "picocolors": "^1.1.1",
+    "posthog-node": "^5.20.0",
     "xlsx": "^0.18.5",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
     "@db-studio/shared": "workspace:*",
+    "@sentry/esbuild-plugin": "^5.4.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/mssql": "^12.3.0",
     "@types/node": "^26.0.0",
