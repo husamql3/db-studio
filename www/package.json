@@ -12,6 +12,7 @@
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",
     "cf-secrets": "wrangler secret bulk .env",
+		"admin:hash-password": "bun scripts/hash-admin-password.ts",
     "check-meta": "bunx check-site-meta",
     "format": "biome check --write --unsafe"
   },
@@ -20,6 +21,7 @@
     "script": "dev:app"
   },
   "dependencies": {
+    "@db-studio/shared": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
@@ -42,8 +44,8 @@
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "react-use-measure": "^2.1.7",
+    "recharts": "^3.6.0",
     "rough-notation": "^0.5.1",
-    "@db-studio/shared": "workspace:*",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.0.6",
     "three": "^0.185.0",

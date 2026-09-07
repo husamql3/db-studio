@@ -4,6 +4,7 @@ import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { AiSettingsSection } from "./ai-settings-section";
 import { EditorSettingsSection } from "./editor-settings-section";
+import { TelemetrySettingsSection } from "./telemetry-settings-section";
 
 const SettingsGroup = ({
 	title,
@@ -50,6 +51,15 @@ export const SettingsOverlay = () => {
 				description="Provider, model, and API key for the assistant."
 			>
 				<AiSettingsSection />
+			</SettingsGroup>
+
+			<Separator />
+
+			<SettingsGroup
+				title="Privacy"
+				description="Control anonymous analytics and reliability reporting."
+			>
+				<TelemetrySettingsSection />
 			</SettingsGroup>
 		</SheetSidebar>
 	);

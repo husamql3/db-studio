@@ -16,6 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.13.0",
+		date: "2026-09-07",
+		title: "Anonymous usage and reliability analytics",
+		features: [
+			{
+				text: "Added opt-out anonymous analytics covering feature usage, database engine, performance, and sanitized errors, with a toggle in Settings — queries, schemas, names, and values are never collected",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Replaced raw error console output with structured logs that record the operation and error type without leaking connection details",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.12.0",
 		date: "2026-09-06",
 		title: "Bring your own AI provider",

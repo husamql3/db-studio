@@ -9,16 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as DocsSplatRouteImport } from './routes/docs/$'
-import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as mainPathlessLayoutRouteImport } from './routes/(main)/_pathlessLayout'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as mainPathlessLayoutIndexRouteImport } from './routes/(main)/_pathlessLayout/index'
-import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
 import { Route as mainPathlessLayoutChangelogRouteImport } from './routes/(main)/_pathlessLayout/changelog'
+import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
 
-const DocsSplatRoute = DocsSplatRouteImport.update({
-  id: '/docs/$',
-  path: '/docs/$',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const mainPathlessLayoutRoute = mainPathlessLayoutRouteImport.update({
+  id: '/(main)/_pathlessLayout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSearchRoute = ApiSearchRouteImport.update({
@@ -26,8 +31,9 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
-const mainPathlessLayoutRoute = mainPathlessLayoutRouteImport.update({
-  id: '/(main)/_pathlessLayout',
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/docs/$',
+  path: '/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const mainPathlessLayoutIndexRoute = mainPathlessLayoutIndexRouteImport.update({
@@ -35,20 +41,21 @@ const mainPathlessLayoutIndexRoute = mainPathlessLayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => mainPathlessLayoutRoute,
 } as any)
-const mainPathlessLayoutRoadmapRoute =
-  mainPathlessLayoutRoadmapRouteImport.update({
-    id: '/roadmap',
-    path: '/roadmap',
-    getParentRoute: () => mainPathlessLayoutRoute,
-  } as any)
 const mainPathlessLayoutChangelogRoute =
   mainPathlessLayoutChangelogRouteImport.update({
     id: '/changelog',
     path: '/changelog',
     getParentRoute: () => mainPathlessLayoutRoute,
   } as any)
+const mainPathlessLayoutRoadmapRoute =
+  mainPathlessLayoutRoadmapRouteImport.update({
+    id: '/roadmap',
+    path: '/roadmap',
+    getParentRoute: () => mainPathlessLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
+  '/admin': typeof AdminRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
@@ -56,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRoutesByTo {
+  '/admin': typeof AdminRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
@@ -64,6 +72,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/admin': typeof AdminRoute
   '/(main)/_pathlessLayout': typeof mainPathlessLayoutRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
@@ -73,11 +82,18 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
+  fullPaths:
+    | '/admin'
+    | '/api/search'
+    | '/docs/$'
+    | '/changelog'
+    | '/roadmap'
+    | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
+  to: '/admin' | '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
   id:
     | '__root__'
+    | '/admin'
     | '/(main)/_pathlessLayout'
     | '/api/search'
     | '/docs/$'
@@ -87,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AdminRoute: typeof AdminRoute
   mainPathlessLayoutRoute: typeof mainPathlessLayoutRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
   DocsSplatRoute: typeof DocsSplatRoute
@@ -94,18 +111,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/docs/$': {
-      id: '/docs/$'
-      path: '/docs/$'
-      fullPath: '/docs/$'
-      preLoaderRoute: typeof DocsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/search': {
-      id: '/api/search'
-      path: '/api/search'
-      fullPath: '/api/search'
-      preLoaderRoute: typeof ApiSearchRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(main)/_pathlessLayout': {
@@ -115,6 +125,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof mainPathlessLayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/docs/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(main)/_pathlessLayout/': {
       id: '/(main)/_pathlessLayout/'
       path: '/'
@@ -122,18 +146,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof mainPathlessLayoutIndexRouteImport
       parentRoute: typeof mainPathlessLayoutRoute
     }
-    '/(main)/_pathlessLayout/roadmap': {
-      id: '/(main)/_pathlessLayout/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof mainPathlessLayoutRoadmapRouteImport
-      parentRoute: typeof mainPathlessLayoutRoute
-    }
     '/(main)/_pathlessLayout/changelog': {
       id: '/(main)/_pathlessLayout/changelog'
       path: '/changelog'
       fullPath: '/changelog'
       preLoaderRoute: typeof mainPathlessLayoutChangelogRouteImport
+      parentRoute: typeof mainPathlessLayoutRoute
+    }
+    '/(main)/_pathlessLayout/roadmap': {
+      id: '/(main)/_pathlessLayout/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof mainPathlessLayoutRoadmapRouteImport
       parentRoute: typeof mainPathlessLayoutRoute
     }
   }
@@ -155,6 +179,7 @@ const mainPathlessLayoutRouteWithChildren =
   mainPathlessLayoutRoute._addFileChildren(mainPathlessLayoutRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  AdminRoute: AdminRoute,
   mainPathlessLayoutRoute: mainPathlessLayoutRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
   DocsSplatRoute: DocsSplatRoute,

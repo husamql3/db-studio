@@ -38,8 +38,7 @@ export function useTableNavigation() {
 		(tableName: string) => {
 			setActiveTab("table");
 			setActiveTable(tableName);
-			if (dbType)
-				posthogAnalytics.capture("table_viewed", { db_type: dbType, table_name: tableName });
+			if (dbType) posthogAnalytics.capture("table_viewed", { db_type: dbType });
 			setOrder(null);
 			setSort(null);
 			setFilters(null);

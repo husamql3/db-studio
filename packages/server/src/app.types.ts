@@ -7,6 +7,7 @@ import type { DatabasesRoutes } from "@/routes/databases.routes.js";
 import type { QueryRoutes } from "@/routes/query.routes.js";
 import type { RecordsRoutes } from "@/routes/records.routes.js";
 import type { TablesRoutes } from "@/routes/tables.routes.js";
+import type { TelemetryRoutes } from "@/routes/telemetry.routes.js";
 
 export type BaseResponseType<T, S extends StatusCode = 200> = TypedResponse<
 	BaseResponse<T>,
@@ -42,5 +43,6 @@ export type AppType = {
 		records: RecordsRoutes;
 		query: QueryRoutes;
 		chat: ChatRoutes;
+		telemetry: TelemetryRoutes;
 	};
 };

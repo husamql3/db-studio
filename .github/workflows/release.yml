@@ -48,6 +48,8 @@ jobs:
         run: |
           bun run build:web --force
           bun run build:server --force
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Get package version
         id: get_version

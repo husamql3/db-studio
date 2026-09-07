@@ -62,9 +62,9 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			(apiError as Error & { status: number; details?: unknown }).details = details;
 
 			if (status >= 500) {
-				Sentry.captureException(apiError, {
+				Sentry.captureException(new Error("Server request failed"), {
 					tags: { status: String(status) },
-					extra: { url: error.config?.url, method: error.config?.method },
+					extra: { method: error.config?.method },
 				});
 			}
 

@@ -1,4 +1,5 @@
 import handler from "@tanstack/react-start/server-entry";
+import { handleAdminApi } from "./admin/api";
 import { getMarkdownForPath } from "./markdown/pages";
 import { prefersMarkdown } from "./markdown/prefers-markdown";
 
@@ -29,8 +30,10 @@ const withVaryAccept = (response: Response): Response => {
 };
 
 export default {
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
+		const adminResponse = await handleAdminApi(request, env);
+		if (adminResponse) return adminResponse;
 
 		// 301 www (and any other non-canonical host alias) to the apex domain
 		if (url.hostname !== CANONICAL_HOST && url.hostname.endsWith(`.${CANONICAL_HOST}`)) {

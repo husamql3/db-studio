@@ -1,6 +1,10 @@
 import { defineConfig } from "tsup";
+import { sentryEsbuildPlugin } from "@sentry/esbuild-plugin";
 import { cpSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import packageJson from "./package.json" with { type: "json" };
+
+const shouldUploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);
 
 export default defineConfig({
 	entry: ["src/index.ts"],
@@ -8,7 +12,8 @@ export default defineConfig({
 	target: "node20",
 	bundle: true,
 	splitting: false,
-	sourcemap: false,
+	// Maps exist only during authenticated release builds and are deleted after upload.
+	sourcemap: shouldUploadSourceMaps,
 	clean: true,
 	dts: false,
 	outDir: "dist",
@@ -16,19 +21,19 @@ export default defineConfig({
 	banner: {
 		js: "#!/usr/bin/env node",
 	},
-	esbuildPlugins: [
-		{
-			name: "remove-console",
-			setup(build) {
-				build.onEnd(() => { console.log("console.log removed"); });
-				build.onEnd(() => { console.error("console.error removed"); });
-				build.onEnd(() => { console.warn("console.warn removed"); });
-			},
-		},
-	],
-	esbuildOptions(options) {
-		options.drop = ["console"];
-	},
+	esbuildPlugins: shouldUploadSourceMaps
+		? [
+				sentryEsbuildPlugin({
+					authToken: process.env.SENTRY_AUTH_TOKEN,
+					org: "husamql3",
+					project: "db-studio-server",
+					url: "https://de.sentry.io",
+					release: { name: `db-studio@${packageJson.version}` },
+					sourcemaps: { filesToDeleteAfterUpload: "dist/**/*.map" },
+					silent: true,
+				}),
+			]
+		: [],
 	onSuccess: async () => {
 		// Copy web/dist assets to dist/web-dist
 		const webDistPath = resolve(process.cwd(), "../web/dist");

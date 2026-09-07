@@ -3,15 +3,17 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { aiDevtoolsPlugin } from "@tanstack/react-ai-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import { SettingsOverlay } from "@/features/settings";
 import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
-import { posthogAnalytics } from "@/lib/posthog";
+import { initPosthog, posthogAnalytics } from "@/lib/posthog";
+import { initSentry } from "@/lib/sentry";
 import { useDatabaseStore } from "@/stores/database.store";
 
 const darkModeScript = `
@@ -45,6 +47,7 @@ const connectDevtoolsServerBus =
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
+		const pathname = useLocation({ select: (location) => location.pathname });
 
 		const { dbType } = useDatabaseStore();
 		// Initialize database connection when the component mounts, fetches databases list, current db, and selects first db as fallback
@@ -52,12 +55,44 @@ export const Route = createRootRoute({
 
 		useEffect(() => {
 			if (error && dbType) {
+				const status = (error as { status?: number })?.status;
 				posthogAnalytics.capture("connection_error", {
 					db_type: dbType,
-					status: (error as { status?: number })?.status ?? 0,
+					status_bucket: status ? (status >= 500 ? "5xx" : "4xx") : "network",
 				});
 			}
 		}, [error, dbType]);
+
+		useEffect(() => {
+			const noticeKey = "db-studio-telemetry-notice-shown";
+			void initPosthog().then((telemetry) => {
+				if (!telemetry?.enabled) return;
+				initSentry();
+				if (!localStorage.getItem(noticeKey)) {
+					localStorage.setItem(noticeKey, "1");
+					toast.info("Anonymous usage and reliability data helps improve DB Studio.", {
+						description:
+							"Queries, schemas, names, and values are never collected. Disable it in Settings.",
+						duration: 8_000,
+					});
+				}
+			});
+		}, []);
+
+		useEffect(() => {
+			const firstSegment = pathname.split("/").filter(Boolean)[0];
+			const pages = [
+				"browser",
+				"table",
+				"schema",
+				"runner",
+				"visualizer",
+				"logs",
+				"indexes",
+			] as const;
+			const page = pages.find((candidate) => candidate === firstSegment) ?? "home";
+			posthogAnalytics.capture("page_viewed", { page });
+		}, [pathname]);
 
 		// Show loading until both queries complete AND database is initialized in store
 		const showLoading = (isLoading || !isInitialized) && !error;

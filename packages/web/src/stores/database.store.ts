@@ -14,8 +14,7 @@ export const useDatabaseStore = create<DatabaseStore>()((set, get) => ({
 	setSelectedDatabase: (database) => {
 		set({ selectedDatabase: database });
 		const { dbType } = get();
-		if (database && dbType)
-			posthogAnalytics.capture("db_selected", { db_type: dbType, database });
+		if (database && dbType) posthogAnalytics.capture("db_selected", { db_type: dbType });
 	},
 	dbType: null,
 	setDbType: (dbType) => {
