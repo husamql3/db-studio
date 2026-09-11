@@ -3,6 +3,7 @@ import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import type { TableRecord } from "@/types/table.type";
 import { AddRecordMenu } from "./add-record-menu";
 import { ClearBtn } from "./clear-btn";
+import { ColumnPreferencesMenu } from "./column-preferences-menu";
 import { DeleteBtn } from "./delete-btn";
 import { FilterPopup } from "./filter-popup";
 import { RefetchBtn } from "./refetch-btn";
@@ -24,6 +25,7 @@ export const TableHeader = ({
 			<div className="flex items-center ">
 				<RefetchBtn tableName={tableName} />
 				{!isSchemaless && <FilterPopup tableName={tableName} />}
+				<ColumnPreferencesMenu tableName={tableName} />
 				<AddRecordMenu />
 				<SaveBtn setRowSelection={setRowSelection} />
 				<ClearBtn />
