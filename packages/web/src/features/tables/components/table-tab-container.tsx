@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTableCols } from "@/features/schema";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { TableRecord } from "@/types/table.type";
+import { useLiveTable } from "../hooks/use-live-table";
 import { useTableData } from "../hooks/use-table-data";
 import { useTableModel } from "../hooks/use-table-model";
 import { TableDocumentView } from "./table-document-view";
@@ -12,7 +13,7 @@ import { TableLoadingState } from "./table-loading-state";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const { dbType } = useDatabaseStore();
-	const { tableData, isLoadingTableData, errorTableData } = useTableData({
+	const { tableData, isLoadingTableData, errorTableData, refetchTableData } = useTableData({
 		tableName,
 	});
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
@@ -21,17 +22,28 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 
 	const tableDataRows = useMemo<TableRecord[]>(() => tableData?.data || [], [tableData?.data]);
 
-	const { table, selectedRows, setRowSelection } = useTableModel({
+	const { table, selectedRows, setRowSelection, isEditingCell } = useTableModel({
 		tableName,
 		tableCols,
 		tableDataRows,
+	});
+
+	useLiveTable({
+		tableName,
+		tableCols,
+		tableDataRows,
+		refetchTableData,
+		isEditingCell,
 	});
 
 	if (isLoadingTableData || isLoadingTableCols) {
 		return <TableLoadingState />;
 	}
 
-	if (errorTableData || errorTableCols) {
+	const hasInitialLoadError =
+		(!tableData && !!errorTableData) || (!tableCols && !!errorTableCols);
+
+	if (hasInitialLoadError) {
 		return (
 			<TableErrorState
 				tableName={tableName}

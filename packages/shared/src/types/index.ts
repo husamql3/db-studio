@@ -10,6 +10,7 @@ export * from "./column.type.js";
 export * from "./column-info.types.js";
 export * from "./create-table.types.js"; // done
 export * from "./database.types.js"; // done
+export * from "./database-capabilities.types.js";
 export * from "./database-list.types.js"; // done
 export * from "./database-schema.type.js"; // done
 export * from "./delete-column.types.js"; // done
