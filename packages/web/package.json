@@ -104,8 +104,8 @@
     "rollup-plugin-visualizer": "^7.0.1",
     "sharp": "^0.35.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^4.0.17"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
