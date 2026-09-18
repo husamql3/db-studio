@@ -952,3 +952,68 @@ describe("SqliteAdapter — getTableColumns with FK mapping", () => {
 		expect(pkCol?.isForeignKey).toBe(false);
 	});
 });
+
+describe("SqliteAdapter.renameTable", () => {
+	let adapter: SqliteAdapter;
+	let statements: string[];
+	const existing = ["users", "orders", 'we"ird'];
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		adapter = new SqliteAdapter();
+		statements = [];
+		const db = {
+			prepare: vi.fn((sql: string) => {
+				const text = String(sql);
+				return {
+					all: vi.fn(() => []),
+					get: vi.fn((...args: unknown[]) => {
+						if (text.includes("sqlite_master") && text.includes("name=?")) {
+							const name = args[0] as string;
+							return existing.includes(name) ? { name } : undefined;
+						}
+						return null;
+					}),
+					run: vi.fn(() => {
+						statements.push(text);
+						return { changes: 1, lastInsertRowid: 1 };
+					}),
+				};
+			}),
+			pragma: vi.fn(),
+			transaction: vi.fn(<T>(fn: (...args: unknown[]) => T) => fn),
+		};
+		mockGetSqliteDb.mockReturnValue(db);
+	});
+
+	it("renames an existing table", async () => {
+		await adapter.renameTable({ db: "main", tableName: "users", newTableName: "members" });
+		expect(statements).toEqual(['ALTER TABLE "users" RENAME TO "members"']);
+	});
+
+	it("escapes double quotes in identifiers", async () => {
+		await adapter.renameTable({ db: "main", tableName: 'we"ird', newTableName: "ok" });
+		expect(statements).toEqual(['ALTER TABLE "we""ird" RENAME TO "ok"']);
+	});
+
+	it("returns 404 when the table does not exist", async () => {
+		await expect(
+			adapter.renameTable({ db: "main", tableName: "ghost", newTableName: "spook" }),
+		).rejects.toMatchObject({ status: 404 });
+		expect(statements).toEqual([]);
+	});
+
+	it("returns 409 when the target table already exists", async () => {
+		await expect(
+			adapter.renameTable({ db: "main", tableName: "users", newTableName: "orders" }),
+		).rejects.toMatchObject({ status: 409 });
+		expect(statements).toEqual([]);
+	});
+
+	it("returns 400 when the new name equals the current name", async () => {
+		await expect(
+			adapter.renameTable({ db: "main", tableName: "users", newTableName: "users" }),
+		).rejects.toMatchObject({ status: 400 });
+		expect(statements).toEqual([]);
+	});
+});

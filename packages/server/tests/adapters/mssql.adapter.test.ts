@@ -430,3 +430,71 @@ describe("MsSqlAdapter integration scaffold", () => {
 		});
 	});
 });
+
+describe("MsSqlAdapter.renameTable", () => {
+	let adapter: MsSqlAdapter;
+	let statements: string[];
+	let boundParams: Record<string, unknown>[];
+	const existing = ["users", "orders"];
+
+	const createRenamePool = () => {
+		const pool = {
+			request: vi.fn(() => {
+				const params: Record<string, unknown> = {};
+				boundParams.push(params);
+				const req = {
+					input: vi.fn((name: string, value: unknown) => {
+						params[name] = value;
+						return req;
+					}),
+					query: vi.fn(async (sql: string) => {
+						const text = String(sql);
+						statements.push(text);
+						if (text.includes("INFORMATION_SCHEMA.TABLES") && text.includes("COUNT(*) as cnt")) {
+							return {
+								recordset: [{ cnt: existing.includes(params.tableName as string) ? 1 : 0 }],
+								rowsAffected: [0],
+							};
+						}
+						return { recordset: [], rowsAffected: [1] };
+					}),
+				};
+				return req;
+			}),
+		};
+		return pool;
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		adapter = new MsSqlAdapter();
+		statements = [];
+		boundParams = [];
+		mockGetMssqlPool.mockResolvedValue(createRenamePool());
+	});
+
+	it("renames via parameterized sp_rename (no string interpolation)", async () => {
+		await adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "members" });
+		expect(statements.at(-1)).toBe("EXEC sp_rename @oldName, @newName");
+		const renameParams = boundParams.at(-1);
+		expect(renameParams).toMatchObject({ oldName: "users", newName: "members" });
+	});
+
+	it("returns 404 when the table does not exist", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "ghost", newTableName: "spook" }),
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it("returns 409 when the target table already exists", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "orders" }),
+		).rejects.toMatchObject({ status: 409 });
+	});
+
+	it("returns 400 when the new name equals the current name", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "users" }),
+		).rejects.toMatchObject({ status: 400 });
+	});
+});

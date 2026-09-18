@@ -52,6 +52,7 @@ function createMongoMocks() {
 		deleteOne: vi.fn(async () => ({ deletedCount: 1 })),
 		deleteMany: vi.fn(async () => ({ deletedCount: 1 })),
 		drop: vi.fn(async () => true),
+		rename: vi.fn(async () => ({})),
 	};
 
 	const mongoDb = {
@@ -361,5 +362,44 @@ describe("MongoAdapter integration scaffold", () => {
 		expect(
 			(adapter as { buildCursors: () => { nextCursor: null; prevCursor: null } }).buildCursors(),
 		).toEqual({ nextCursor: null, prevCursor: null });
+	});
+});
+
+describe("MongoAdapter.renameTable", () => {
+	let adapter: MongoAdapter;
+	let mocks: ReturnType<typeof createMongoMocks>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		adapter = new MongoAdapter();
+		mocks = createMongoMocks();
+		mockGetMongoDb.mockResolvedValue(mocks.mongoDb);
+	});
+
+	it("renames an existing collection via the driver rename", async () => {
+		await adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "new_users" });
+		expect(mocks.mongoDb.collection).toHaveBeenCalledWith("users");
+		expect(mocks.collection.rename).toHaveBeenCalledWith("new_users");
+	});
+
+	it("returns 404 when the collection does not exist", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "empty", newTableName: "people" }),
+		).rejects.toMatchObject({ status: 404 });
+		expect(mocks.collection.rename).not.toHaveBeenCalled();
+	});
+
+	it("returns 409 when the target collection already exists", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "orders" }),
+		).rejects.toMatchObject({ status: 409 });
+		expect(mocks.collection.rename).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 when the new name equals the current name", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "users" }),
+		).rejects.toMatchObject({ status: 400 });
+		expect(mocks.collection.rename).not.toHaveBeenCalled();
 	});
 });

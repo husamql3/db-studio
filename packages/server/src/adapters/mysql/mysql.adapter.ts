@@ -24,6 +24,7 @@ import type {
 	ForeignKeyDataType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -479,6 +480,35 @@ export class MySqlAdapter extends BaseAdapter {
 			}
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+		}
+	}
+
+	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			if (tableName === newTableName)
+				throw new HTTPException(400, {
+					message: `New table name must be different from "${tableName}"`,
+				});
+			const pool = getMysqlPool(db);
+
+			await this.assertTableExists(pool, tableName);
+
+			const [targetRows] = await pool.execute<RowDataPacket[]>(
+				`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+				[newTableName],
+			);
+			if (Number((targetRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
+				throw new HTTPException(409, {
+					message: `Table "${newTableName}" already exists`,
+				});
+			}
+
+			await pool.execute<ResultSetHeader>(
+				`RENAME TABLE \`${tableName.replaceAll("`", "``")}\` TO \`${newTableName.replaceAll("`", "``")}\``,
+			);
+		} catch (e) {
+			throw this.wrapError(e);
 		}
 	}
 

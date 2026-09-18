@@ -22,6 +22,7 @@ import type {
 	ForeignKeyDataType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -373,6 +374,40 @@ export class MsSqlAdapter extends BaseAdapter {
 			}
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+		}
+	}
+
+	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			if (tableName === newTableName)
+				throw new HTTPException(400, {
+					message: `New table name must be different from "${tableName}"`,
+				});
+			const pool = await getMssqlPool(db);
+
+			await this.assertTableExists(pool, tableName);
+
+			const targetCheck = await pool
+				.request()
+				.input("tableName", newTableName)
+				.query(`
+					SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
+					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
+				`);
+			if (Number(targetCheck.recordset[0]?.cnt ?? 0) > 0) {
+				throw new HTTPException(409, {
+					message: `Table "${newTableName}" already exists`,
+				});
+			}
+
+			await pool
+				.request()
+				.input("oldName", tableName)
+				.input("newName", newTableName)
+				.query("EXEC sp_rename @oldName, @newName");
+		} catch (e) {
+			throw this.wrapError(e);
 		}
 	}
 

@@ -8,6 +8,7 @@ import type {
 	DeleteTableResult,
 	FormatType,
 	RenameColumnSchemaType,
+	RenameTableSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	TableSchemaResult,
@@ -75,6 +76,19 @@ export const deleteTable = ({
 }) =>
 	api.delete<BaseResponse<DeleteTableResult>>(`/tables/${encodeURIComponent(tableName)}`, {
 		params: { db: db ?? "", cascade: cascade ? "true" : "false" },
+	});
+
+export const renameTable = ({
+	tableName,
+	data,
+	db,
+}: {
+	tableName: string;
+	data: RenameTableSchemaType;
+	db?: string | null;
+}) =>
+	api.patch<BaseResponse<string>>(`/tables/${encodeURIComponent(tableName)}/rename`, data, {
+		params: { db: db ?? "" },
 	});
 
 export const addColumn = ({

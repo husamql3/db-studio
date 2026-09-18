@@ -19,7 +19,9 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
-import { useNavigate } from "@tanstack/react-router";
+import { Input } from "@db-studio/ui/input";
+import { Label } from "@db-studio/ui/label";
+import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
 	ClipboardCopy,
 	Download,
@@ -27,20 +29,49 @@ import {
 	FileCode,
 	Pencil,
 	Trash2,
+	Type,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useDeleteTable, useExportFile } from "@/features/tables";
+import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 
 export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 	const navigate = useNavigate();
+	const params = useParams({ strict: false });
+	const { pathname } = useLocation();
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
 	const { exportFile, isExportingFile } = useExportFile();
 	const { deleteTable, forceDeleteTable, isDeletingTable } = useDeleteTable();
+	const { renameTable, isRenamingTable } = useRenameTable({ tableName });
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
+	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
+
+	const handleRenameDialogChange = (open: boolean) => {
+		setIsRenameDialogOpen(open);
+		if (open) {
+			setNewTableName(tableName);
+		}
+	};
+
+	const handleRename = async () => {
+		const trimmed = newTableName.trim();
+		if (!trimmed || trimmed === tableName) return;
+		try {
+			await renameTable({ newTableName: trimmed });
+			handleRenameDialogChange(false);
+			const activeTable = (params as { table?: string }).table;
+			if (activeTable === tableName) {
+				const basePath = pathname.startsWith("/schema") ? "/schema/$table" : "/table/$table";
+				navigate({ to: basePath, params: { table: trimmed } });
+			}
+		} catch {
+			// Error notification handled by toast.promise in useRenameTable
+		}
+	};
 
 	const handleCopyName = () => {
 		navigator.clipboard.writeText(tableName);
@@ -99,6 +130,10 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 							Copy table schema
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
+						<DropdownMenuItem onClick={() => handleRenameDialogChange(true)}>
+							<Type className="size-4" />
+							Rename table
+						</DropdownMenuItem>
 						<DropdownMenuItem
 							onClick={() =>
 								navigate({
@@ -148,6 +183,16 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 				</DropdownMenuContent>
 			</DropdownMenu>
 
+			<RenameTableDialog
+				tableName={tableName}
+				newTableName={newTableName}
+				setNewTableName={setNewTableName}
+				isOpen={isRenameDialogOpen}
+				onOpenChange={handleRenameDialogChange}
+				onRename={handleRename}
+				isRenaming={isRenamingTable}
+			/>
+
 			<DeleteTableDialog
 				isOpen={isDeleteDialogOpen}
 				onOpenChange={setIsDeleteDialogOpen}
@@ -166,6 +211,88 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 				isDeleting={isDeletingTable}
 			/>
 		</>
+	);
+};
+
+const RenameTableDialog = ({
+	tableName,
+	newTableName,
+	setNewTableName,
+	isOpen,
+	onOpenChange,
+	onRename,
+	isRenaming,
+}: {
+	tableName: string;
+	newTableName: string;
+	setNewTableName: (value: string) => void;
+	isOpen: boolean;
+	onOpenChange: (open: boolean) => void;
+	onRename: () => void;
+	isRenaming: boolean;
+}) => {
+	const trimmed = newTableName.trim();
+	const isDisabled = !trimmed || trimmed === tableName;
+
+	return (
+		<Dialog
+			open={isOpen}
+			onOpenChange={onOpenChange}
+		>
+			<DialogContent className="max-w-md">
+				<DialogHeader>
+					<DialogTitle>Rename Table</DialogTitle>
+					<DialogDescription>
+						Update the table name while keeping all data and schema unchanged.
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="space-y-4">
+					<div className="space-y-2">
+						<Label htmlFor="current-table-name">Current name</Label>
+						<Input
+							id="current-table-name"
+							value={tableName}
+							readOnly
+							disabled
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label htmlFor="new-table-name">New name</Label>
+						<Input
+							id="new-table-name"
+							value={newTableName}
+							onChange={(e) => setNewTableName(e.target.value)}
+							placeholder="table_name"
+							autoFocus
+							disabled={isRenaming}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !isDisabled && !isRenaming) {
+									onRename();
+								}
+							}}
+						/>
+					</div>
+				</div>
+
+				<DialogFooter className="gap-2">
+					<Button
+						variant="outline"
+						onClick={() => onOpenChange(false)}
+						disabled={isRenaming}
+					>
+						Cancel
+					</Button>
+					<Button
+						onClick={onRename}
+						disabled={isDisabled || isRenaming}
+					>
+						{isRenaming ? "Renaming..." : "Rename Table"}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 };
 

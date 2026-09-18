@@ -17,6 +17,7 @@ import type {
 	DeleteTableResult,
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -547,6 +548,33 @@ export class MongoAdapter extends BaseAdapter {
 			const rowCount = await collection.estimatedDocumentCount();
 			await collection.drop();
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	override async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			if (tableName === newTableName) {
+				throw new HTTPException(400, {
+					message: `New table name must be different from "${tableName}"`,
+				});
+			}
+			const mongoDb = await getMongoDb(db);
+			const existing = await mongoDb.listCollections({ name: tableName }).toArray();
+			if (existing.length === 0) {
+				throw new HTTPException(404, {
+					message: `Collection "${tableName}" does not exist`,
+				});
+			}
+			const target = await mongoDb.listCollections({ name: newTableName }).toArray();
+			if (target.length > 0) {
+				throw new HTTPException(409, {
+					message: `Collection "${newTableName}" already exists`,
+				});
+			}
+			await mongoDb.collection(tableName).rename(newTableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}

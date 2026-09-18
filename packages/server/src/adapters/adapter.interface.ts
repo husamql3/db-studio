@@ -19,6 +19,7 @@ import type {
 	ExecuteQueryResult,
 	FilterType,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	SortType,
 	TableDataResultSchemaType,
@@ -50,6 +51,7 @@ export interface IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void>;
 	deleteTable(params: DeleteTableParams): Promise<DeleteTableResult>;
+	renameTable(params: RenameTableParamsSchemaType): Promise<void>;
 	getTableSchema(params: { tableName: string; db: DatabaseSchemaType["db"] }): Promise<string>;
 
 	// --- Columns ---

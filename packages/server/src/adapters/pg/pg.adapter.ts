@@ -24,6 +24,7 @@ import type {
 	ForeignKeyDataType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -509,6 +510,48 @@ export class PgAdapter extends BaseAdapter {
 			}
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+		}
+	}
+
+	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			if (tableName === newTableName)
+				throw new HTTPException(400, {
+					message: `New table name must be different from "${tableName}"`,
+				});
+			const pool = getDbPool(db);
+
+			// Tables are listed from every user schema, so resolve the actual schema
+			// instead of assuming "public".
+			const { rows: schemaRows } = await pool.query(
+				`SELECT table_schema as "schemaName" FROM information_schema.tables WHERE table_name = $1 AND table_schema NOT IN ('pg_catalog', 'information_schema') AND table_schema NOT LIKE 'pg_toast%';`,
+				[tableName],
+			);
+			const schemas = (schemaRows as Array<{ schemaName: string }>).map((r) => r.schemaName);
+			if (schemas.length === 0)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (schemas.length > 1 && !schemas.includes("public"))
+				throw new HTTPException(400, {
+					message: `Table "${tableName}" exists in multiple schemas (${schemas.join(", ")}); rename is ambiguous`,
+				});
+			// Prefer "public" when the name exists in several schemas (previous behavior).
+			const schemaName = schemas.includes("public") ? "public" : (schemas[0] as string);
+
+			const { rows: targetRows } = await pool.query(
+				`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = $2) as exists;`,
+				[newTableName, schemaName],
+			);
+			if (targetRows[0]?.exists)
+				throw new HTTPException(409, {
+					message: `Table "${newTableName}" already exists`,
+				});
+
+			await pool.query(
+				`ALTER TABLE "${schemaName.replaceAll('"', '""')}"."${tableName.replaceAll('"', '""')}" RENAME TO "${newTableName.replaceAll('"', '""')}"`,
+			);
+		} catch (e) {
+			throw this.wrapError(e);
 		}
 	}
 

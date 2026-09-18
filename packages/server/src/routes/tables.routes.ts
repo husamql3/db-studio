@@ -10,6 +10,7 @@ import {
 	deleteTableQuerySchema,
 	exportTableSchema,
 	renameColumnSchema,
+	renameTableSchema,
 	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
 	type TableSchemaResult,
@@ -77,6 +78,33 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const dao = getAdapter(dbType);
 			const result = await dao.deleteTable({ tableName, db, cascade });
 			return c.json({ data: result }, 200);
+		},
+	)
+
+	/**
+	 * PATCH /tables/:tableName/rename
+	 * Renames a table
+	 */
+	.patch(
+		"/:tableName/rename",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		zValidator("json", renameTableSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			const dao = getAdapter(dbType);
+			await dao.renameTable({ tableName, db, ...body });
+
+			return c.json(
+				{
+					data: `Table "${tableName}" renamed to "${body.newTableName}"`,
+				},
+				200,
+			);
 		},
 	)
 

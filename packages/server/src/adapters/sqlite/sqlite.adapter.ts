@@ -23,6 +23,7 @@ import type {
 	ForeignKeyDataType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -514,6 +515,43 @@ export class SqliteAdapter extends BaseAdapter {
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
+	}
+
+	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		const { tableName, newTableName, db } = params;
+		if (tableName === newTableName)
+			throw new HTTPException(400, {
+				message: `New table name must be different from "${tableName}"`,
+			});
+		const sqliteDb = getSqliteDb();
+
+		const tableRow = sqliteDb
+			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+			.get(tableName);
+		if (!tableRow)
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
+		const targetRow = sqliteDb
+			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+			.get(newTableName);
+		if (targetRow)
+			throw new HTTPException(409, {
+				message: `Table "${newTableName}" already exists`,
+			});
+
+		try {
+			// Identifiers cannot be bound as parameters — escape the quote character.
+			const escapeIdent = (s: string) => s.replaceAll('"', '""');
+			sqliteDb
+				.prepare(
+					`ALTER TABLE "${escapeIdent(tableName)}" RENAME TO "${escapeIdent(newTableName)}"`,
+				)
+				.run();
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+
+		void db;
 	}
 
 	async getTableSchema({
