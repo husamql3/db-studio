@@ -1,11 +1,15 @@
+const CONNECTION_URL =
+	/\b(?:postgres(?:ql)?|mysql2?|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi;
+
 /**
  * Redact database connection URLs from error text before printing them.
- * Only the URL itself is replaced; surrounding prose and punctuation
- * (closing parens, commas) are left intact.
+ * The whole URL is replaced — including hosts and credentials that contain
+ * `,` or `)`, such as mongodb replica set URIs — while trailing punctuation
+ * that belongs to the surrounding prose is kept.
  */
 export const sanitizeErrorMessage = (message: string): string => {
 	return message.replace(
-		/\b(?:postgres(?:ql)?|mysql2?|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/[^\s),]*/gi,
-		"the configured database",
+		CONNECTION_URL,
+		(url) => `the configured database${url.match(/[),.]+$/)?.[0] ?? ""}`,
 	);
 };
