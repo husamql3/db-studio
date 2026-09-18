@@ -78,13 +78,6 @@
       ],
       "cache": true
     },
-    "@db-studio/web#test": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [],
-      "cache": true
-    },
     "deploy": {
       "dependsOn": [
         "build"
