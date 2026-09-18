@@ -141,6 +141,11 @@ export const operationForRequest = (method: string, pathname: string): string =>
 	return `${method.toLowerCase()}_${resource}`;
 };
 
+export const databaseTypeForRequest = (pathname: string): DatabaseTypeSchema | undefined =>
+	pathname.match(/^\/api\/(pg|mysql|mssql|mongodb|sqlite|redis)(?=\/|$)/)?.[1] as
+		| DatabaseTypeSchema
+		| undefined;
+
 export const initServerObservability = (): void => {
 	if (!isTelemetryEnabled()) return;
 	const sentryDsn = process.env.DB_STUDIO_SENTRY_DSN ?? OFFICIAL_SENTRY_DSN;
@@ -210,21 +215,60 @@ export const captureInstallationActive = (): void => {
 	});
 };
 
-export const captureServerError = (error: unknown, operation: string): void => {
-	if (!isTelemetryEnabled()) return;
-	// HTTPException does not set `name`, so only instanceof separates expected
-	// 4xx/5xx responses from genuine runtime crashes.
-	const errorKind = error instanceof HTTPException ? "http" : "runtime";
+const safeErrorType = (error: unknown): string => {
+	const name =
+		error instanceof HTTPException
+			? "HTTPException"
+			: error instanceof Error
+				? error.name
+				: "Error";
+	return /^[A-Za-z][A-Za-z0-9]{0,49}$/.test(name) ? name : "Error";
+};
+
+const safeErrorCode = (error: unknown): string | undefined => {
+	if (!(error instanceof Error)) return undefined;
+	const { code, errno } = error as Error & { code?: unknown; errno?: unknown };
+	if (typeof code === "string" && /^[A-Z0-9_]{2,32}$/.test(code)) return code;
+	if (typeof errno === "number" && Number.isSafeInteger(errno)) return String(errno);
+	return undefined;
+};
+
+const sanitizedError = (error: unknown, errorType: string): Error => {
 	const sanitized = new Error("Server operation failed");
-	sanitized.stack = undefined;
-	Sentry.captureException(sanitized, {
+	sanitized.name = errorType;
+	if (error instanceof Error && error.stack) {
+		const frames = error.stack
+			.split("\n")
+			.slice(1)
+			.filter((line) => /^\s*at\s/.test(line));
+		sanitized.stack = [`${errorType}: Server operation failed`, ...frames].join("\n");
+	}
+	return sanitized;
+};
+
+export const captureServerError = (
+	error: unknown,
+	{
+		operation,
+		status,
+		dbType,
+	}: { operation: string; status: number; dbType?: DatabaseTypeSchema },
+): void => {
+	if (!isTelemetryEnabled() || status < 500) return;
+	const diagnosticError = error instanceof HTTPException && error.cause ? error.cause : error;
+	const errorType = safeErrorType(diagnosticError);
+	const errorCode = safeErrorCode(diagnosticError);
+	Sentry.captureException(sanitizedError(diagnosticError, errorType), {
 		tags: {
 			operation,
 			source: "server",
 			release: packageJson.version,
-			error_kind: errorKind,
+			status: String(status),
+			...(dbType ? { db_type: dbType } : {}),
+			error_type: errorType,
+			...(errorCode ? { error_code: errorCode } : {}),
 		},
-		fingerprint: [operation, errorKind],
+		fingerprint: [operation, String(status), errorType, errorCode ?? "unknown"],
 	});
 };
 
