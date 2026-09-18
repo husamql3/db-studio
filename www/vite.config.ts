@@ -35,11 +35,14 @@ const rawDocs = (): Plugin => {
 			);
 			return `export default ${JSON.stringify(docs)}`;
 		},
-		hotUpdate({ file, server }) {
+		hotUpdate({ file }) {
 			if (!file.startsWith(`${docsDirectory}/`) || !file.endsWith(".mdx")) return;
-			const module = server.moduleGraph.getModuleById(resolvedId);
+			// hotUpdate runs per environment, so invalidate through this
+			// environment's module graph rather than the deprecated server-wide one.
+			const { moduleGraph } = this.environment;
+			const module = moduleGraph.getModuleById(resolvedId);
 			if (!module) return;
-			server.moduleGraph.invalidateModule(module);
+			moduleGraph.invalidateModule(module);
 			return [module];
 		},
 	};

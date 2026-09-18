@@ -50,7 +50,8 @@ const serverLoader = createServerFn({
 		};
 	});
 
-const clientLoader = browserCollections.docs.createClientLoader({
+// Props default to `undefined`, which makes `getComponent()` unrenderable as <Content />.
+const clientLoader = browserCollections.docs.createClientLoader<Record<string, never>>({
 	component({ toc, frontmatter, default: MDX }) {
 		return (
 			<DocsPage toc={toc}>
