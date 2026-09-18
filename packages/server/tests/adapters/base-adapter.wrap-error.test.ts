@@ -69,7 +69,7 @@ class HarnessAdapter extends BaseAdapter {
 describe("BaseAdapter.wrapError()", () => {
 	it("maps PostgreSQL connection-class errors to 503", () => {
 		const error = Object.assign(new Error("Connection terminated"), { code: "08006" });
-		expect(wrap(new PgAdapter(), error).status).toBe(503);
+		expect(wrap(new PgAdapter(), error)).toMatchObject({ status: 503, cause: error });
 	});
 
 	it("maps MySQL connection errno values to 503", () => {
@@ -86,7 +86,7 @@ describe("BaseAdapter.wrapError()", () => {
 		const error = Object.assign(new Error("server selection failed"), {
 			name: "MongoServerSelectionError",
 		});
-		expect(wrap(new MongoAdapter(), error).status).toBe(503);
+		expect(wrap(new MongoAdapter(), error)).toMatchObject({ status: 503, cause: error });
 	});
 
 	it("preserves HTTPException instances and maps generic errors to 500", () => {
