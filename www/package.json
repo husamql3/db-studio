@@ -14,6 +14,7 @@
     "cf-secrets": "wrangler secret bulk .env",
 		"admin:hash-password": "bun scripts/hash-admin-password.ts",
     "check-meta": "bunx check-site-meta",
+    "typecheck": "tsc --noEmit",
     "format": "biome check --write --unsafe"
   },
   "portless": {

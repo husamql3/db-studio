@@ -1,5 +1,10 @@
 import { cn } from "@/lib/utils";
-import type { Contributor } from "@/utils/get-contributors";
+
+export type Contributor = {
+	login: string;
+	avatarUrl: string;
+	profileUrl: string;
+};
 
 export function ContributorsGrid({ contributors }: { contributors: Contributor[] }) {
 	if (contributors.length === 0) return null;

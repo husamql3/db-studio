@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { LIMIT } from "@db-studio/shared/constants";
 import { AI_PROVIDER_OPTIONS, type AiProvider } from "@db-studio/shared/types";
-import { chat, toServerSentEventsResponse } from "@tanstack/ai";
+import { chat, type ModelMessage, toServerSentEventsResponse } from "@tanstack/ai";
 import { getByokKey } from "@tanstack/ai/byok/server";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
@@ -44,7 +44,7 @@ app.use("/chat", createProxyLimiter());
 app.post("/chat", async (c) => {
 	try {
 		const { messages, systemPrompt, conversationId, provider, model } = await c.req.json<{
-			messages: unknown[];
+			messages: ModelMessage[];
 			systemPrompt: string;
 			conversationId?: string;
 			provider: AiProvider;
