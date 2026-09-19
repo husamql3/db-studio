@@ -74,10 +74,19 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 	return (
 		<>
 			<DropdownMenu>
-				<DropdownMenuTrigger>
+				<DropdownMenuTrigger asChild>
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						onClick={(e) => {
+							// Prevent the parent sidebar <Link> from navigating
+							// when opening the row actions menu.
+							e.stopPropagation();
+							e.preventDefault();
+						}}
+						onPointerDown={(e) => {
+							e.stopPropagation();
+						}}
 					>
 						<EllipsisVertical />
 					</Button>
