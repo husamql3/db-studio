@@ -122,13 +122,13 @@ export abstract class BaseAdapter implements IDbAdapter {
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {
-				return new HTTPException(503, { message: e.message });
+				return new HTTPException(503, { message: e.message, cause: e });
 			}
 
-			return new HTTPException(500, { message: e.message });
+			return new HTTPException(500, { message: e.message, cause: e });
 		}
 
-		return new HTTPException(500, { message: "Internal server error" });
+		return new HTTPException(500, { message: "Internal server error", cause: e });
 	}
 
 	/** Encode cursor data to a URL-safe base64 string. */

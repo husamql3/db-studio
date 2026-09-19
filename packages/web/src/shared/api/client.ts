@@ -20,8 +20,11 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			};
 			logger.request(config);
 			Sentry.addBreadcrumb({
-				category: "http",
-				data: { url: config.url, method: config.method?.toUpperCase() },
+				category: "db_studio.http",
+				data: {
+					operation: apiOperationForRequest(config.method, config.url),
+					method: config.method?.toUpperCase(),
+				},
 				level: "info",
 			});
 			return config;
@@ -60,11 +63,21 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const apiError = new Error(message);
 			(apiError as Error & { status: number; details?: unknown }).status = status;
 			(apiError as Error & { status: number; details?: unknown }).details = details;
-
-			if (status >= 500) {
-				Sentry.captureException(new Error("Server request failed"), {
-					tags: { status: String(status) },
-					extra: { method: error.config?.method },
+			if (!error.response) {
+				const operation = apiOperationForRequest(error.config?.method, error.config?.url);
+				const errorCode =
+					typeof error.code === "string" && /^[A-Z0-9_]{2,32}$/.test(error.code)
+						? error.code
+						: "unknown";
+				const reportedError = new Error("Network request failed");
+				reportedError.name = "AxiosError";
+				if (error.stack) {
+					const frames = error.stack.split("\n").slice(1).filter(isStackFrame);
+					reportedError.stack = ["AxiosError: Network request failed", ...frames].join("\n");
+				}
+				Sentry.captureException(reportedError, {
+					tags: { source: "client", error_kind: "network", operation, error_code: errorCode },
+					fingerprint: ["network", operation, errorCode],
 				});
 			}
 
@@ -73,6 +86,15 @@ const setupInterceptors = (instance: AxiosInstance) => {
 	);
 
 	return instance;
+};
+
+const isStackFrame = (line: string): boolean => /^\s*at\s/.test(line);
+
+export const apiOperationForRequest = (method?: string, url?: string): string => {
+	const resource = url
+		?.replace(/[?#].*$/, "")
+		.match(/\/(databases|tables|records|query|keys|chat)(?:\/|$)/)?.[1];
+	return `${method?.toLowerCase() ?? "unknown"}_${resource ?? "other"}`;
 };
 
 export const getBaseUrl = (): string => {

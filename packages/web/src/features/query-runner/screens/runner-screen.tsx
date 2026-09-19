@@ -69,9 +69,10 @@ export const RunnerScreen = ({
 			}
 			setLastExecutedQuery(query);
 
-			executeQuery({ query }).then((result) => {
+			const result = await executeQuery({ query });
+			if (result) {
 				setQueryResult({ data: result, queryId: queryId ?? "" });
-			});
+			}
 		},
 		[dbType, executeQuery, queryId],
 	);

@@ -39,7 +39,7 @@ const emptyMediaVariants = cva(
 	},
 );
 
-function _EmptyMedia({
+function EmptyMedia({
 	className,
 	variant = "default",
 	...props
@@ -90,4 +90,4 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle };
+export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle };

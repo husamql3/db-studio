@@ -342,7 +342,7 @@ export class MongoAdapter extends BaseAdapter {
 				name === "MongoServerSelectionError" ||
 				name === "MongoTopologyClosedError"
 			) {
-				return new HTTPException(503, { message: e.message });
+				return new HTTPException(503, { message: e.message, cause: e });
 			}
 		}
 		return super.wrapError(e);

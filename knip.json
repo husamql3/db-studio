@@ -14,7 +14,7 @@
       "project": ["src/**/*.ts"]
     },
     "packages/shared": {
-      "entry": ["src/index.ts", "src/types/index.ts", "src/constants/index.ts"],
+      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "www": {

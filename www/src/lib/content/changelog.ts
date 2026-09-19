@@ -16,6 +16,27 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.13.1",
+		date: "2026-09-18",
+		title: "CLI accuracy and safer startup errors",
+		improvements: [
+			{
+				text: "Refreshed TanStack, Vite, and Vitest, and tightened the build, typecheck, and task graph setup",
+				username: ["marwan562", "husamql3"],
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed CLI help and status listing only MySQL and PostgreSQL instead of all six supported databases",
+				username: "marwan562",
+			},
+			{
+				text: "Stopped startup errors from leaking connection URLs containing commas or parentheses, such as MongoDB replica set URIs",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.13.0",
 		date: "2026-09-07",
 		title: "Anonymous usage and reliability analytics",
