@@ -85,6 +85,14 @@ describe("useOverlayStore", () => {
 			expect(state().isOverlayOpen("chat.assistant")).toBe(true);
 		});
 
+		it("stacks the row details sheet below nested overlays", () => {
+			state().openOverlay("tables.row-details");
+			state().openOverlay("records.record-reference");
+			expect(state().openOverlays).toEqual(["tables.row-details", "records.record-reference"]);
+			state().closeOverlay("records.record-reference");
+			expect(state().openOverlays).toEqual(["tables.row-details"]);
+		});
+
 		it("getOverlayIndex returns the stack position, -1 when absent", () => {
 			state().openOverlay("records.add-record");
 			state().openOverlay("records.bulk-insert");
