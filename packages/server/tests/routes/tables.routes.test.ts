@@ -11,6 +11,7 @@ const mockDao = vi.hoisted(() => ({
 	getTablesList: vi.fn(),
 	createTable: vi.fn(),
 	deleteTable: vi.fn(),
+	renameTable: vi.fn(),
 	getTableSchema: vi.fn(),
 	getTableColumns: vi.fn(),
 	addColumn: vi.fn(),
@@ -671,7 +672,7 @@ describe("Tables Routes", () => {
 		};
 
 		it("should add a column and return 200", async () => {
-			mockDao.addColumn.mockResolvedValue();
+			mockDao.addColumn.mockResolvedValue(undefined);
 
 			const res = await app.request("/api/pg/tables/users/columns?db=testdb", {
 				method: "POST",
@@ -755,11 +756,99 @@ describe("Tables Routes", () => {
 	});
 
 	// ============================================
+	// PATCH /tables/:tableName/rename
+	// ============================================
+	describe("PATCH /pg/tables/:tableName/rename", () => {
+		it("should rename a table and return 200", async () => {
+			mockDao.renameTable.mockResolvedValue(undefined);
+
+			const res = await app.request("/api/pg/tables/products/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newTableName: "product" }),
+			});
+
+			expect(res.status).toBe(200);
+			const json = await res.json();
+			expect(json.data).toBe('Table "products" renamed to "product"');
+			expect(mockDao.renameTable).toHaveBeenCalledWith({
+				tableName: "products",
+				db: "testdb",
+				newTableName: "product",
+			});
+		});
+
+		it("should return 400 when db query param is missing", async () => {
+			const res = await app.request("/api/pg/tables/products/rename", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newTableName: "product" }),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should return 400 when newTableName is missing", async () => {
+			const res = await app.request("/api/pg/tables/products/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			});
+
+			expect(res.status).toBe(400);
+		});
+
+		it("should propagate error from adapter", async () => {
+			mockDao.renameTable.mockRejectedValue(
+				new HTTPException(404, { message: 'Table "products" does not exist' }),
+			);
+
+			const res = await app.request("/api/pg/tables/products/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newTableName: "product" }),
+			});
+
+			expect(res.status).toBe(404);
+			const json = await res.json();
+			expect(json.error).toBe('Table "products" does not exist');
+		});
+
+		it("should return 503 when database connection fails", async () => {
+			mockDao.renameTable.mockRejectedValue(
+				new Error("connect ECONNREFUSED")
+			);
+
+			const res = await app.request("/api/pg/tables/products/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newTableName: "product" }),
+			});
+
+			expect(res.status).toBe(503);
+		});
+
+		it("should return 500 when DAO throws database error", async () => {
+			mockDao.renameTable.mockRejectedValue(
+				new Error("relation already exists")
+			);
+
+			const res = await app.request("/api/pg/tables/products/rename?db=testdb", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ newTableName: "product" }),
+			});
+
+			expect(res.status).toBe(500);
+		});
+	});
+
+	// ============================================
 	// PATCH /tables/:tableName/columns/:columnName/rename
 	// ============================================
 	describe("PATCH /pg/tables/:tableName/columns/:columnName/rename", () => {
 		it("should rename a column and return 200", async () => {
-			mockDao.renameColumn.mockResolvedValue();
+			mockDao.renameColumn.mockResolvedValue(undefined);
 
 			const res = await app.request("/api/pg/tables/users/columns/email/rename?db=testdb", {
 				method: "PATCH",
@@ -858,7 +947,7 @@ describe("Tables Routes", () => {
 		};
 
 		it("should alter a column and return 200", async () => {
-			mockDao.alterColumn.mockResolvedValue();
+			mockDao.alterColumn.mockResolvedValue(undefined);
 
 			const res = await app.request("/api/pg/tables/users/columns/email?db=testdb", {
 				method: "PATCH",

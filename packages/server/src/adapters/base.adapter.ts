@@ -19,6 +19,7 @@ import type {
 	DeleteTableResult,
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -248,6 +249,9 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	deleteTable(_params: DeleteTableParams): Promise<DeleteTableResult> {
 		return notImplemented("deleteTable");
+	}
+	renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
+		return notImplemented("renameTable");
 	}
 	getTableSchema(_params: {
 		tableName: string;

@@ -30,6 +30,7 @@ import type {
 	KeyWriteResultSchemaType,
 	RedisKeyTypeSchemaType,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -1027,6 +1028,10 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			message:
 				"Bulk deletion of Redis tables is not supported. Use FLUSHDB from the query runner to clear the entire logical database.",
 		});
+	}
+
+	override async renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
+		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
 	}
 
 	override async getTableSchema({

@@ -168,6 +168,7 @@ describe("createServer", () => {
 			expect(methods).toContain("GET");
 			expect(methods).toContain("POST");
 			expect(methods).toContain("PUT");
+			expect(methods).toContain("PATCH");
 			expect(methods).toContain("DELETE");
 			expect(methods).toContain("OPTIONS");
 		});

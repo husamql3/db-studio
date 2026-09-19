@@ -109,7 +109,7 @@ export const createServer = () => {
 					}
 					return undefined;
 				},
-				allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+				allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 				allowHeaders: [
 					"Content-Type",
 					"X-Run-Id",
@@ -120,6 +120,7 @@ export const createServer = () => {
 					"x-byok-grok",
 					"x-byok-openrouter",
 				],
+				maxAge: 600,
 			}),
 		)
 
