@@ -11,6 +11,7 @@ import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableCell } from "../components/table-cell";
 import { TableSelector } from "../components/table-selector";
+import { useColumnPreferences } from "./use-column-preferences";
 
 export const useTableModel = ({
 	tableName,
@@ -35,12 +36,22 @@ export const useTableModel = ({
 		columnId: string;
 	} | null>(null);
 
+	const { visibleColumns } = useColumnPreferences({ tableName, tableCols });
+
+	const visibleCols = useMemo(() => {
+		if (!tableCols) return undefined;
+		const byName = new Map(tableCols.map((col) => [col.columnName, col]));
+		return visibleColumns
+			.map((name) => byName.get(name))
+			.filter((col): col is ColumnInfoSchemaType => !!col);
+	}, [tableCols, visibleColumns]);
+
 	const selectorColumn = useMemo(() => TableSelector(), []);
 
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
 			selectorColumn,
-			...(tableCols?.map((col) => ({
+			...(visibleCols?.map((col) => ({
 				accessorKey: col.columnName,
 				header: col.columnName,
 				meta: {
@@ -57,7 +68,7 @@ export const useTableModel = ({
 				maxSize: 500,
 			})) || []),
 		],
-		[tableCols, selectorColumn],
+		[visibleCols, selectorColumn],
 	);
 
 	useEffect(() => {
