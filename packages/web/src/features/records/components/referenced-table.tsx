@@ -139,7 +139,7 @@ export const ReferencedTable = ({
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow
-							className="hover:bg-transparent text-xs sticky top-0 right-0 left-0"
+							className="bg-muted hover:bg-muted text-xs sticky top-0 right-0 left-0"
 							key={headerGroup.id}
 						>
 							{headerGroup.headers.map((header) => {

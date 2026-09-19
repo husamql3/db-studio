@@ -20,12 +20,12 @@ export const DataGridHead = <TRow,>({
 	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
 	return (
-		<thead className="h-9 grid sticky top-0 z-10">
+		<thead className="h-9 grid sticky top-0 z-10 bg-muted">
 			{table.getHeaderGroups().map((headerGroup) => (
 				<tr
 					key={headerGroup.id}
 					className={cn(
-						"flex w-fit bg-muted/40 border-b border-border items-center text-sm [&_svg]:size-4",
+						"flex w-fit bg-muted border-b border-border items-center text-sm [&_svg]:size-4",
 						isAnyColumnResizing && "pointer-events-none",
 					)}
 				>
