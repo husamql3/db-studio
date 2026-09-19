@@ -38,6 +38,17 @@ describe("getExportFile", () => {
 		expect(first?.tags).toBe('["a","b"]');
 	});
 
+	it("renders binary columns as hex rather than a serialized Buffer", () => {
+		const binCols = ["id", "payload"];
+		const binRows = [{ id: 1, payload: Buffer.from("hi") }];
+
+		const csv = decode(
+			getExportFile({ cols: binCols, rows: binRows, format: "csv", tableName: "blobs" }),
+		);
+		expect(csv).toContain("0x6869");
+		expect(csv).not.toContain('"type":"Buffer"');
+	});
+
 	it("leaves scalar values untouched across formats", () => {
 		const scalarCols = ["id", "name", "active", "missing"];
 		const scalarRows = [{ id: 1, name: "Ada", active: true, missing: null }];

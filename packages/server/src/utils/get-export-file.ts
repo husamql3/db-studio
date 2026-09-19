@@ -12,13 +12,17 @@ interface ExportFileOptions {
  * Flatten a value into the scalar `CellValue` contract that the sheet writer
  * accepts. Arrays and nested objects (Mongo documents, Postgres `jsonb`, MySQL
  * `json`) are JSON-serialized so they no longer land in the sheet as
- * "[object Object]". Scalars pass through untouched.
+ * "[object Object]", and binary columns render as `0x`-prefixed hex rather than
+ * a serialized Buffer. Scalars pass through untouched.
  *
  * Only CSV and XLSX need this — the JSON export keeps the nested structure.
  */
 const toCellValue = (value: unknown): CellValue => {
 	if (value === null || value === undefined) return value;
 	if (value instanceof Date) return value;
+	// BLOB/bytea/varbinary arrive as Buffers from better-sqlite3, mssql and mysql2.
+	// JSON.stringify would turn them into {"type":"Buffer","data":[...]}.
+	if (Buffer.isBuffer(value)) return `0x${value.toString("hex")}`;
 	if (typeof value === "object") return JSON.stringify(value);
 	if (typeof value === "bigint") return value.toString();
 	return value as CellValue;
