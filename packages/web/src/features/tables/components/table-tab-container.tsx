@@ -1,9 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTableCols } from "@/features/schema";
 import { useDatabaseStore } from "@/stores/database.store";
+import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { useTableData } from "../hooks/use-table-data";
 import { useTableModel } from "../hooks/use-table-model";
+import { useRowDetailsStore } from "../stores/row-details.store";
+import { RowDetailsSheet } from "./row-details-sheet";
 import { TableDocumentView } from "./table-document-view";
 import { TableEmptyState } from "./table-empty-state";
 import { TableErrorState } from "./table-error-state";
@@ -26,6 +29,23 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 		tableCols,
 		tableDataRows,
 	});
+
+	// Visible-order rows for the details sheet. useReactTable keeps a stable
+	// table instance (setOptions per render), so the memo must key on the
+	// row-model output itself, not the table, or the sheet keeps stale rows.
+	const rowModel = table.getRowModel();
+	const visibleRows = useMemo(
+		() => rowModel.rows.map((gridRow) => gridRow.original),
+		[rowModel],
+	);
+
+	// A stale selection must never survive a table switch or unmount.
+	useEffect(() => {
+		return () => {
+			useRowDetailsStore.getState().clearRowDetails();
+			useOverlayStore.getState().closeOverlay("tables.row-details");
+		};
+	}, [tableName]);
 
 	if (isLoadingTableData || isLoadingTableCols) {
 		return <TableLoadingState />;
@@ -64,11 +84,17 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	}
 
 	return (
-		<TableGrid
-			table={table}
-			tableName={tableName}
-			selectedRows={selectedRows}
-			setRowSelection={setRowSelection}
-		/>
+		<>
+			<TableGrid
+				table={table}
+				tableName={tableName}
+				selectedRows={selectedRows}
+				setRowSelection={setRowSelection}
+			/>
+			<RowDetailsSheet
+				tableName={tableName}
+				rows={visibleRows}
+			/>
+		</>
 	);
 };

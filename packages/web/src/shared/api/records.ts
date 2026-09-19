@@ -25,6 +25,7 @@ export const createRecord = ({
 export const updateRecords = ({
 	tableName,
 	updates,
+	primaryKey,
 	db,
 }: {
 	tableName: string;
@@ -33,11 +34,12 @@ export const updateRecords = ({
 		columnName: string;
 		value: unknown;
 	}>;
+	primaryKey?: string;
 	db?: string | null;
 }) =>
 	api.patch<BaseResponse<string>>(
 		"/records",
-		{ tableName, updates },
+		{ tableName, updates, ...(primaryKey ? { primaryKey } : {}) },
 		{ params: { db: db ?? "" } },
 	);
 

@@ -5,7 +5,13 @@ import type { TableRecord } from "@/types/table.type";
 import { TableBody } from "./table-body";
 import { TableHead } from "./table-head";
 
-export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
+export const TableContainer = ({
+	table,
+	tableName,
+}: {
+	table: Table<TableRecord>;
+	tableName: string;
+}) => {
 	const visibleColumns = table.getVisibleLeafColumns();
 
 	// The virtualizers need to know the scrollable container element
@@ -54,6 +60,7 @@ export const TableContainer = ({ table }: { table: Table<TableRecord> }) => {
 				<TableBody
 					columnVirtualizer={columnVirtualizer}
 					table={table}
+					tableName={tableName}
 					tableContainerRef={tableContainerRef as RefObject<HTMLDivElement>}
 					virtualPaddingLeft={virtualPaddingLeft as number | undefined}
 					virtualPaddingRight={virtualPaddingRight}

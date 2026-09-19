@@ -43,7 +43,8 @@ export const AddRecordField = ({
 	isForeignKey,
 	referencedTable,
 	referencedColumn,
-}: ColumnInfoSchemaType) => {
+	hideLabel = false,
+}: ColumnInfoSchemaType & { hideLabel?: boolean }) => {
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
@@ -56,6 +57,9 @@ export const AddRecordField = ({
 			...field,
 			value: field.value ?? "",
 		};
+		// Without a visible <Label>, name each primary control directly. The
+		// visible-label path stays associated through htmlFor and is untouched.
+		const controlName = hideLabel ? columnName : undefined;
 
 		if (isForeignKey) {
 			return (
@@ -63,6 +67,7 @@ export const AddRecordField = ({
 					<div className="flex">
 						<Input
 							id={columnName}
+							aria-label={controlName}
 							placeholder={columnDefault ?? ""}
 							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
 							{...safeField}
@@ -128,6 +133,7 @@ export const AddRecordField = ({
 			return (
 				<Input
 					id={columnName}
+					aria-label={controlName}
 					type="number"
 					placeholder={columnDefault ?? "0"}
 					{...safeField}
@@ -141,7 +147,10 @@ export const AddRecordField = ({
 					value={field.value}
 					onValueChange={(value) => field.onChange(value)}
 				>
-					<SelectTrigger className="w-full">
+					<SelectTrigger
+						aria-label={controlName}
+						className="w-full"
+					>
 						<SelectValue placeholder={columnDefault ?? "true"} />
 					</SelectTrigger>
 					<SelectContent>
@@ -156,6 +165,7 @@ export const AddRecordField = ({
 			return (
 				<Textarea
 					id={columnName}
+					aria-label={controlName}
 					placeholder={columnDefault ?? ""}
 					rows={4}
 					{...safeField}
@@ -167,6 +177,7 @@ export const AddRecordField = ({
 			return (
 				<Textarea
 					id={columnName}
+					aria-label={controlName}
 					placeholder={columnDefault ?? '{"key": "value"}'}
 					rows={6}
 					{...safeField}
@@ -342,6 +353,7 @@ export const AddRecordField = ({
 				<div className="flex">
 					<Input
 						id={columnName}
+						aria-label={controlName}
 						type="text"
 						placeholder={columnDefault ?? ""}
 						pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -378,6 +390,7 @@ export const AddRecordField = ({
 			return (
 				<Textarea
 					id={columnName}
+					aria-label={controlName}
 					placeholder={columnDefault ?? '["item1", "item2"]'}
 					rows={3}
 					{...safeField}
@@ -392,7 +405,10 @@ export const AddRecordField = ({
 						value={field.value}
 						onValueChange={(value) => field.onChange(value)}
 					>
-						<SelectTrigger className="w-full">
+						<SelectTrigger
+							aria-label={controlName}
+							className="w-full"
+						>
 							<SelectValue placeholder={columnDefault ?? "Select a value"} />
 						</SelectTrigger>
 						<SelectContent>
@@ -411,6 +427,7 @@ export const AddRecordField = ({
 			return (
 				<Input
 					id={columnName}
+					aria-label={controlName}
 					placeholder={columnDefault ?? ""}
 					{...safeField}
 				/>
@@ -421,6 +438,7 @@ export const AddRecordField = ({
 			return (
 				<Input
 					id={columnName}
+					aria-label={controlName}
 					type="text"
 					placeholder={columnDefault ?? "1 day"}
 					{...safeField}
@@ -432,6 +450,7 @@ export const AddRecordField = ({
 			return (
 				<Input
 					id={columnName}
+					aria-label={controlName}
 					type="file"
 					{...safeField}
 				/>
@@ -447,6 +466,7 @@ export const AddRecordField = ({
 			return (
 				<Input
 					id={columnName}
+					aria-label={controlName}
 					type="text"
 					placeholder={
 						dataTypeLabel === "inet"
@@ -466,6 +486,7 @@ export const AddRecordField = ({
 			return (
 				<Input
 					id={columnName}
+					aria-label={controlName}
 					type="text"
 					placeholder={
 						dataTypeLabel === "point"
@@ -482,6 +503,7 @@ export const AddRecordField = ({
 		return (
 			<Input
 				id={columnName}
+				aria-label={controlName}
 				type="text"
 				placeholder={columnDefault ?? ""}
 				{...safeField}
@@ -494,15 +516,24 @@ export const AddRecordField = ({
 			key={columnName}
 			control={control}
 			name={columnName}
-			render={({ field }) => (
-				<div className="grid grid-cols-3 gap-4">
-					<div className="col-span-1 flex flex-col gap-1">
-						<Label htmlFor={columnName}>{columnName}</Label>
-						<span className="text-xs text-muted-foreground">{dataTypeLabel}</span>
+			render={({ field }) =>
+				hideLabel ? (
+					<div
+						role="group"
+						aria-label={columnName}
+					>
+						{renderInputField(field)}
 					</div>
-					<div className="col-span-2 w-full">{renderInputField(field)}</div>
-				</div>
-			)}
+				) : (
+					<div className="grid grid-cols-3 gap-4">
+						<div className="col-span-1 flex flex-col gap-1">
+							<Label htmlFor={columnName}>{columnName}</Label>
+							<span className="text-xs text-muted-foreground">{dataTypeLabel}</span>
+						</div>
+						<div className="col-span-2 w-full">{renderInputField(field)}</div>
+					</div>
+				)
+			}
 		/>
 	);
 };

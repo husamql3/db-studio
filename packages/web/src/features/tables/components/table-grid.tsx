@@ -22,7 +22,10 @@ export const TableGrid = ({
 			setRowSelection={setRowSelection}
 			tableName={tableName}
 		/>
-		<TableContainer table={table} />
+		<TableContainer
+			table={table}
+			tableName={tableName}
+		/>
 		<TableFooter tableName={tableName} />
 	</div>
 );

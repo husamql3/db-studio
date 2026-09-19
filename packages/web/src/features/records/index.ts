@@ -1,3 +1,4 @@
+export { AddRecordField } from "./components/add-record-field";
 export { AddRecordForm } from "./components/add-record-form";
 export { BulkInsertCsvSheet } from "./components/bulk-insert-csv-sheet";
 export { BulkInsertExcelSheet } from "./components/bulk-insert-excel-sheet";
