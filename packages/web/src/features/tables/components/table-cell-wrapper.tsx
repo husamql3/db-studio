@@ -2,6 +2,7 @@ import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
 import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
 import type { TableRecord } from "@/types/table.type";
+import { useLiveModeStore } from "../stores/live-mode.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 
 interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
@@ -137,6 +138,10 @@ export function TableCellWrapper<TData>({
 		},
 		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
 	);
+	const isCellHighlighted = useLiveModeStore((state) =>
+		state.highlightedCellKeys.has(`${cell.row.id}:${columnId}`),
+	);
+
 	return (
 		<div
 			role="button"
@@ -154,6 +159,8 @@ export function TableCellWrapper<TData>({
 					"bg-primary/10": isSelected && !isEditing,
 					"cursor-default": !isEditing,
 					"ring-2 ring-primary": hasUpdate,
+					"bg-emerald-500/20 dark:bg-emerald-500/25 transition-colors duration-1000 ease-in-out":
+						isCellHighlighted,
 				},
 				className,
 			)}

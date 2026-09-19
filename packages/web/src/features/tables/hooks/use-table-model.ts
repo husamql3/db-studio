@@ -11,16 +11,22 @@ import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableCell } from "../components/table-cell";
 import { TableSelector } from "../components/table-selector";
+import { useLiveModeStore } from "../stores/live-mode.store";
+import { getRecordKey } from "../utils/table-diff";
 import { useColumnPreferences } from "./use-column-preferences";
 
 export const useTableModel = ({
 	tableName,
 	tableCols,
 	tableDataRows,
+	isRowHighlighted,
+	isCellHighlighted,
 }: {
 	tableName: string;
 	tableCols?: ColumnInfoSchemaType[];
 	tableDataRows: TableRecord[];
+	isRowHighlighted?: (rowId: string) => boolean;
+	isCellHighlighted?: (rowId: string, columnId: string) => boolean;
 }) => {
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
@@ -101,6 +107,13 @@ export const useTableModel = ({
 	const handleDataUpdate = useCallback(() => {}, []);
 	const getIsCellSelected = useCallback(() => false, []);
 
+	const pkCols = useMemo(
+		() => tableCols?.filter((col) => col.isPrimaryKey).map((col) => col.columnName) ?? [],
+		[tableCols],
+	);
+
+	const getRowId = useCallback((row: TableRecord) => getRecordKey(row, pkCols), [pkCols]);
+
 	const tableMeta = useMemo(
 		() => ({
 			editScope: tableName,
@@ -112,6 +125,13 @@ export const useTableModel = ({
 			onCellEditingStop: handleCellEditingStop,
 			onDataUpdate: handleDataUpdate,
 			getIsCellSelected,
+			isRowHighlighted:
+				isRowHighlighted ??
+				((rowId: string) => useLiveModeStore.getState().isRowHighlighted(rowId)),
+			isCellHighlighted:
+				isCellHighlighted ??
+				((rowId: string, columnId: string) =>
+					useLiveModeStore.getState().isCellHighlighted(rowId, columnId)),
 		}),
 		[
 			tableName,
@@ -123,6 +143,8 @@ export const useTableModel = ({
 			handleCellEditingStop,
 			handleDataUpdate,
 			getIsCellSelected,
+			isRowHighlighted,
+			isCellHighlighted,
 		],
 	);
 
@@ -135,6 +157,7 @@ export const useTableModel = ({
 			minSize: 100,
 			maxSize: 500,
 		},
+		getRowId,
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		state: {
@@ -156,5 +179,6 @@ export const useTableModel = ({
 		table,
 		selectedRows: table.getSelectedRowModel().rows,
 		setRowSelection,
+		isEditingCell: !!editingCell,
 	};
 };

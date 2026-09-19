@@ -63,5 +63,7 @@ declare module "@tanstack/react-table" {
 			direction?: NavigationDirection;
 			moveToNextRow?: boolean;
 		}) => void;
+		isRowHighlighted?: (rowId: string) => boolean;
+		isCellHighlighted?: (rowId: string, columnId: string) => boolean;
 	}
 }

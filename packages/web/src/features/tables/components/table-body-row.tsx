@@ -1,8 +1,10 @@
+import { cn } from "@db-studio/ui/utils";
 import { flexRender, type Row } from "@tanstack/react-table";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { useDelayedRowOpen } from "../hooks/use-delayed-row-open";
+import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { CellCopyButton } from "./cell-copy-button";
 
@@ -28,6 +30,7 @@ export const TableBodyRow = ({
 	const visibleCells = row.getVisibleCells();
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const { schedule, cancel } = useDelayedRowOpen();
+	const isRowHighlighted = useLiveModeStore((state) => state.highlightedRowIds.has(row.id));
 
 	const openRowDetails = () => {
 		useRowDetailsStore.getState().setRowDetails(tableName, virtualRow.index);
@@ -39,7 +42,11 @@ export const TableBodyRow = ({
 			data-index={virtualRow.index} //needed for dynamic row height measurement
 			ref={(node) => rowVirtualizer.measureElement(node)} //measure dynamic row height
 			key={row.id}
-			className="flex absolute w-fit border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4"
+			className={cn(
+				"flex absolute w-fit border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
+				isRowHighlighted &&
+					"bg-emerald-500/15 dark:bg-emerald-500/20 transition-colors duration-1000 ease-in-out",
+			)}
 			style={{
 				transform: `translateY(${virtualRow.start}px)`, //this should always be a `style` as it changes on scroll
 			}}
