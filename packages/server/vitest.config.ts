@@ -11,6 +11,13 @@ export default defineConfig({
 			reporter: ["text", "json", "html"],
 			include: ["src/**/*.ts"],
 			exclude: ["src/**/*.test.ts", "src/index.ts", "src/cmd/**"],
+			// Floor of measured coverage per #276 — raise with new tests, never lower to green.
+			thresholds: {
+				lines: 76,
+				branches: 64,
+				functions: 72,
+				statements: 74,
+			},
 		},
 		setupFiles: ["./tests/setup.ts"],
 	},
