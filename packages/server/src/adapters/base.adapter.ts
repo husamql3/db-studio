@@ -206,10 +206,10 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }> {
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
 			const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)}`;
-			const rows = await this.runQuery<Record<string, CellValue>[]>(db, sql, []);
+			const rows = await this.runQuery<Record<string, unknown>[]>(db, sql, []);
 
 			if (!rows || rows.length === 0) {
 				throw new HTTPException(404, {

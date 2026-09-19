@@ -4,7 +4,6 @@ import type {
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
-	CellValue,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
@@ -78,7 +77,7 @@ export interface IDbAdapter {
 	exportTableData(params: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }>;
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
 	// --- Query ---
 	executeQuery(params: {

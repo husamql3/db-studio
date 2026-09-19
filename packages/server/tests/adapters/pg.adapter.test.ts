@@ -546,4 +546,20 @@ describe("PgAdapter integration scaffold", () => {
 			},
 		]);
 	});
+
+	describe("getDatabasesList system filtering", () => {
+		it("sends a query that excludes postgres but keeps the current database", async () => {
+			await adapter.getDatabasesList();
+			const dbQuery = pool.query.mock.calls
+				.map((call) => String(call[0]))
+				.find((sql) => sql.includes("pg_catalog.pg_database"));
+			expect(dbQuery).toContain("NOT IN ('postgres', 'rdsadmin')");
+			expect(dbQuery).toContain("current_database()");
+		});
+
+		it("maps connection errors to 503 via wrapError", async () => {
+			pool.query.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:5432"));
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
+		});
+	});
 });

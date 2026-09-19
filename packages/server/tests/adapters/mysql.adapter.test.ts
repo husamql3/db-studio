@@ -447,4 +447,22 @@ describe("MySqlAdapter integration scaffold", () => {
 			status: 400,
 		});
 	});
+
+	describe("getDatabasesList system filtering", () => {
+		it("sends a query that excludes system schemas but keeps DATABASE()", async () => {
+			await adapter.getDatabasesList();
+			const dbQuery = pool.execute.mock.calls
+				.map((call) => String(call[0]))
+				.find((sql) => sql.includes("information_schema.SCHEMATA"));
+			expect(dbQuery).toContain("NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')");
+			expect(dbQuery).toContain("DATABASE()");
+		});
+
+		it("maps access-denied errors to 503 via wrapError", async () => {
+			pool.execute.mockRejectedValueOnce(
+				Object.assign(new Error("Access denied for user"), { errno: 1045 }),
+			);
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
+		});
+	});
 });

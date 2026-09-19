@@ -311,21 +311,26 @@ export class MySqlAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		const pool = getMysqlPool();
-		const [rows] = await pool.execute<RowDataPacket[]>(`
-			SELECT
-			  s.SCHEMA_NAME AS name,
-			  CONCAT(ROUND(COALESCE(SUM(t.data_length + t.index_length), 0) / 1024 / 1024, 2), ' MB') AS size,
-			  CURRENT_USER() AS owner,
-			  s.DEFAULT_CHARACTER_SET_NAME AS encoding
-			FROM information_schema.SCHEMATA s
-			LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA = s.SCHEMA_NAME
-			GROUP BY s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME
-			ORDER BY s.SCHEMA_NAME
-		`);
-		if (!rows[0])
-			throw new HTTPException(500, { message: "No databases returned from server" });
-		return rows as DatabaseInfoSchemaType[];
+		try {
+			const pool = getMysqlPool();
+			const [rows] = await pool.execute<RowDataPacket[]>(`
+				SELECT
+				  s.SCHEMA_NAME AS name,
+				  CONCAT(ROUND(COALESCE(SUM(t.data_length + t.index_length), 0) / 1024 / 1024, 2), ' MB') AS size,
+				  CURRENT_USER() AS owner,
+				  s.DEFAULT_CHARACTER_SET_NAME AS encoding
+				FROM information_schema.SCHEMATA s
+				LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA = s.SCHEMA_NAME
+				WHERE (s.SCHEMA_NAME NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys') OR s.SCHEMA_NAME = DATABASE())
+				GROUP BY s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME
+				ORDER BY s.SCHEMA_NAME
+			`);
+			if (!rows[0])
+				throw new HTTPException(500, { message: "No databases returned from server" });
+			return rows as DatabaseInfoSchemaType[];
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {

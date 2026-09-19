@@ -397,8 +397,13 @@ class DatabaseManager {
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
-		const path = new URL(this.baseConfig.url).pathname?.replace(/^\//, "");
-		return path || "admin";
+		const raw = new URL(this.baseConfig.url).pathname.replace(/^\/+|\/+$/g, "");
+		try {
+			return decodeURIComponent(raw) || "admin";
+		} catch {
+			// Malformed percent-encoding — fall back to the literal path segment.
+			return raw || "admin";
+		}
 	}
 
 	/**

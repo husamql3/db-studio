@@ -429,4 +429,24 @@ describe("MsSqlAdapter integration scaffold", () => {
 			status: 400,
 		});
 	});
+
+	describe("getDatabasesList system filtering", () => {
+		it("sends a query that keeps system DBs only when current via DB_NAME()", async () => {
+			const request = createRequest();
+			pool.request.mockReturnValue(request);
+			await adapter.getDatabasesList();
+			const dbQuery = request.query.mock.calls
+				.map((call) => String(call[0]))
+				.find((sql) => sql.includes("FROM sys.databases"));
+			expect(dbQuery).toContain("d.database_id > 4");
+			expect(dbQuery).toContain("DB_NAME()");
+		});
+
+		it("maps login failures to 503 via wrapError", async () => {
+			const request = createRequest();
+			pool.request.mockReturnValue(request);
+			request.query.mockRejectedValueOnce(new Error("Login failed for user 'sa'"));
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
+		});
+	});
 });

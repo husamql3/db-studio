@@ -26,6 +26,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMatchStage,
@@ -43,7 +44,7 @@ const normalizeValue = (value: unknown): unknown => {
 	if (typeof value === "bigint") return value.toString();
 	if (value && typeof value === "object") {
 		if ("_bsontype" in value && (value as { _bsontype?: string })._bsontype === "ObjectId") {
-			return (value as { toHexString: () => string }).toHexString();
+			return (value as unknown as { toHexString: () => string }).toHexString();
 		}
 		if (Array.isArray(value)) return value.map((item) => normalizeValue(item));
 		return Object.fromEntries(
@@ -393,6 +394,8 @@ export class MongoAdapter extends BaseAdapter {
 			const mongoDb = await getMongoDb(db);
 			const collection = mongoDb.collection(tableName);
 			const rows = await collection.find({}).limit(10000).toArray();
+			// Nested documents stay nested: the JSON export needs the real structure,
+			// and `getExportFile` flattens them for the CSV/XLSX sheet writer.
 			const normalized = rows.map((row) => normalizeDoc(row));
 			const cols = Array.from(new Set(normalized.flatMap((row) => Object.keys(row))));
 			return { cols, rows: normalized };
@@ -414,7 +417,7 @@ export class MongoAdapter extends BaseAdapter {
 			if (!databases[0]) {
 				throw new HTTPException(500, { message: "No databases returned from MongoDB" });
 			}
-			return databases.map((db) => ({
+			return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
 				name: db.name,
 				size: formatBytes(db.sizeOnDisk ?? 0),
 				owner: "n/a",
@@ -966,7 +969,11 @@ export class MongoAdapter extends BaseAdapter {
 				pkColumn === "_id" && canCoerce(pk.value) ? toMongoId(pk.value) : pk.value,
 			);
 			const result = await collection.deleteMany({ [pkColumn]: { $in: pkValues } });
-			return { deletedCount: result.deletedCount ?? 0 };
+			return {
+				deletedCount: result.deletedCount ?? 0,
+				fkViolation: false,
+				relatedRecords: [],
+			};
 		} catch (e) {
 			throw this.wrapError(e);
 		}

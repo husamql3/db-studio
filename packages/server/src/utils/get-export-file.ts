@@ -3,10 +3,35 @@ import { utils, write } from "xlsx";
 
 interface ExportFileOptions {
 	cols: string[];
-	rows: Record<string, CellValue>[];
+	rows: Record<string, unknown>[];
 	format: FormatType;
 	tableName: string;
 }
+
+/**
+ * Flatten a value into the scalar `CellValue` contract that the sheet writer
+ * accepts. Arrays and nested objects (Mongo documents, Postgres `jsonb`, MySQL
+ * `json`) are JSON-serialized so they no longer land in the sheet as
+ * "[object Object]", and binary columns render as `0x`-prefixed hex rather than
+ * a serialized Buffer. Scalars pass through untouched.
+ *
+ * Only CSV and XLSX need this — the JSON export keeps the nested structure.
+ */
+const toCellValue = (value: unknown): CellValue => {
+	if (value === null || value === undefined) return value;
+	if (value instanceof Date) return value;
+	// BLOB/bytea/varbinary arrive as Buffers from better-sqlite3, mssql and mysql2.
+	// JSON.stringify would turn them into {"type":"Buffer","data":[...]}.
+	if (Buffer.isBuffer(value)) return `0x${value.toString("hex")}`;
+	if (typeof value === "object") return JSON.stringify(value);
+	if (typeof value === "bigint") return value.toString();
+	return value as CellValue;
+};
+
+const toSheetData = (cols: string[], rows: Record<string, unknown>[]): CellValue[][] => [
+	cols,
+	...(rows?.map((row) => cols?.map((col) => toCellValue(row[col]))) ?? []),
+];
 
 /**
  * Converts table data to the specified export format (CSV, XLSX, or JSON)
@@ -26,21 +51,13 @@ export function getExportFile({ cols, rows, format, tableName }: ExportFileOptio
 		}
 
 		case "csv": {
-			const data: CellValue[][] = [
-				cols,
-				...(rows?.map((row) => cols?.map((col) => row[col])) ?? []),
-			];
-			const worksheet = utils.aoa_to_sheet(data);
+			const worksheet = utils.aoa_to_sheet(toSheetData(cols, rows));
 			const csvContent = utils.sheet_to_csv(worksheet);
 			return new Uint8Array(Buffer.from(csvContent, "utf-8"));
 		}
 
 		case "xlsx": {
-			const data: CellValue[][] = [
-				cols,
-				...(rows?.map((row) => cols?.map((col) => row[col])) ?? []),
-			];
-			const worksheet = utils.aoa_to_sheet(data);
+			const worksheet = utils.aoa_to_sheet(toSheetData(cols, rows));
 			const workbook = utils.book_new();
 			utils.book_append_sheet(workbook, worksheet, tableName.slice(0, 31));
 			const buffer = write(workbook, {

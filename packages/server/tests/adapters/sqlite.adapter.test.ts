@@ -951,4 +951,58 @@ describe("SqliteAdapter — getTableColumns with FK mapping", () => {
 		expect(pkCol?.isPrimaryKey).toBe(true);
 		expect(pkCol?.isForeignKey).toBe(false);
 	});
+
+	describe("getDatabasesList system filtering", () => {
+		it("hides the internal temp database", async () => {
+			db.prepare.mockImplementation((sql: string) => ({
+				all: vi.fn(() =>
+					sql.toUpperCase().includes("DATABASE_LIST")
+						? [
+								{ seq: 0, name: "main", file: "/tmp/test.db" },
+								{ seq: 1, name: "temp", file: "" },
+							]
+						: handleAll(sql),
+				),
+				get: vi.fn((..._args: unknown[]) => handleGet(sql)),
+				run: vi.fn(() => ({ changes: 1, lastInsertRowid: 1 })),
+				reader: /^\s*(SELECT|PRAGMA)/i.test(sql.trim()),
+			}));
+			const result = await adapter.getDatabasesList();
+			expect(result.map((d) => d.name)).toEqual(["main"]);
+		});
+
+		it("keeps attached databases alongside main", async () => {
+			db.prepare.mockImplementation((sql: string) => ({
+				all: vi.fn(() =>
+					sql.toUpperCase().includes("DATABASE_LIST")
+						? [
+								{ seq: 0, name: "main", file: "/tmp/test.db" },
+								{ seq: 1, name: "temp", file: "" },
+								{ seq: 2, name: "archive", file: "/tmp/archive.db" },
+							]
+						: handleAll(sql),
+				),
+				get: vi.fn((..._args: unknown[]) => handleGet(sql)),
+				run: vi.fn(() => ({ changes: 1, lastInsertRowid: 1 })),
+				reader: /^\s*(SELECT|PRAGMA)/i.test(sql.trim()),
+			}));
+			const result = await adapter.getDatabasesList();
+			expect(result.map((d) => d.name)).toEqual(["main", "archive"]);
+		});
+
+		it("wraps driver failures as a 500 instead of leaking the raw error", async () => {
+			mockGetSqliteDb.mockImplementation(() => {
+				throw new Error("SQLITE_CANTOPEN: unable to open database file");
+			});
+			await expect(adapter.getDatabasesList()).rejects.toBeInstanceOf(HTTPException);
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 500 });
+		});
+
+		it("maps connection failures to 503", async () => {
+			mockGetSqliteDb.mockImplementation(() => {
+				throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+			});
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
+		});
+	});
 });

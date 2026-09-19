@@ -354,20 +354,25 @@ export class PgAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		const pool = getDbPool();
-		const { rows } = await pool.query(`
-			SELECT
-				d.datname as name,
-				pg_size_pretty(pg_database_size(d.datname)) as size,
-				pg_catalog.pg_get_userbyid(d.datdba) as owner,
-				pg_encoding_to_char(d.encoding) as encoding
-			FROM pg_catalog.pg_database d
-			WHERE d.datistemplate = false
-			ORDER BY d.datname;
-		`);
-		if (!rows[0])
-			throw new HTTPException(500, { message: "No databases returned from database" });
-		return rows;
+		try {
+			const pool = getDbPool();
+			const { rows } = await pool.query(`
+				SELECT
+					d.datname as name,
+					pg_size_pretty(pg_database_size(d.datname)) as size,
+					pg_catalog.pg_get_userbyid(d.datdba) as owner,
+					pg_encoding_to_char(d.encoding) as encoding
+				FROM pg_catalog.pg_database d
+				WHERE d.datistemplate = false
+					AND (d.datname NOT IN ('postgres', 'rdsadmin') OR d.datname = current_database())
+				ORDER BY d.datname;
+			`);
+			if (!rows[0])
+				throw new HTTPException(500, { message: "No databases returned from database" });
+			return rows;
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
