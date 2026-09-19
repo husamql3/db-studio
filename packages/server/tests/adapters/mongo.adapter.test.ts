@@ -393,7 +393,10 @@ describe("MongoAdapter integration scaffold", () => {
 			expect(result.map((d) => d.name)).toEqual(["admin", "myapp"]);
 		});
 
-		it("falls back to the full list when only system dbs exist", async () => {
+		// Regression: Mongo omits databases that hold no data, so an empty connected
+		// database is absent from listDatabases. A blanket "fall back to everything"
+		// rule surfaced exactly the admin/config/local entries #277 asked us to hide.
+		it("shows the connected db and still hides system dbs when the connected db is empty", async () => {
 			mockGetMongoDbName.mockReturnValue("testdb");
 			mocks.admin.listDatabases.mockResolvedValue({
 				databases: [
@@ -402,7 +405,17 @@ describe("MongoAdapter integration scaffold", () => {
 				],
 			});
 			const result = await adapter.getDatabasesList();
-			expect(result.map((d) => d.name)).toEqual(["admin", "local"]);
+			expect(result.map((d) => d.name)).toEqual(["testdb"]);
+		});
+
+		it("maps connection failures to 503", async () => {
+			mockGetMongoDbName.mockReturnValue("myapp");
+			mocks.admin.listDatabases.mockRejectedValue(
+				Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:27017"), {
+					code: "ECONNREFUSED",
+				}),
+			);
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
 		});
 	});
 });
@@ -420,9 +433,17 @@ describe("MongoAdapter.exportTableData", () => {
 		mockGetMongoDb.mockResolvedValue({ collection: vi.fn(() => collection) });
 	};
 
-	it("serializes compound values to JSON strings while preserving scalars", async () => {
+	it("keeps compound values nested so the JSON export stays structured", async () => {
 		mockCollectionWith([
-			{ _id: "1", name: "Ada", age: 36, active: true, retired: null, profile: { role: "admin" }, tags: ["a", "b"] },
+			{
+				_id: "1",
+				name: "Ada",
+				age: 36,
+				active: true,
+				retired: null,
+				profile: { role: "admin" },
+				tags: ["a", "b"],
+			},
 		]);
 		const { cols, rows } = await adapter.exportTableData({ tableName: "users", db: "appdb" });
 		expect(cols).toEqual(
@@ -434,17 +455,25 @@ describe("MongoAdapter.exportTableData", () => {
 			age: 36,
 			active: true,
 			retired: null,
-			profile: '{"role":"admin"}',
-			tags: '["a","b"]',
+			profile: { role: "admin" },
+			tags: ["a", "b"],
 		});
-		for (const value of Object.values(rows[0] ?? {})) {
-			expect(value === null || typeof value !== "object").toBe(true);
-		}
 	});
 
 	it("returns scalar rows unchanged", async () => {
 		mockCollectionWith([{ _id: "2", name: "Linus", age: 55 }]);
 		const { rows } = await adapter.exportTableData({ tableName: "users", db: "appdb" });
 		expect(rows).toEqual([{ _id: "2", name: "Linus", age: 55 }]);
+	});
+
+	it("maps connection failures to 503", async () => {
+		mockGetMongoDb.mockRejectedValue(
+			Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:27017"), {
+				code: "ECONNREFUSED",
+			}),
+		);
+		await expect(
+			adapter.exportTableData({ tableName: "users", db: "appdb" }),
+		).rejects.toMatchObject({ status: 503 });
 	});
 });

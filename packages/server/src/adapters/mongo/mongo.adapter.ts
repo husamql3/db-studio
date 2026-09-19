@@ -4,7 +4,6 @@ import type {
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
-	CellValue,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
@@ -27,6 +26,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMatchStage,
@@ -56,18 +56,6 @@ const normalizeValue = (value: unknown): unknown => {
 
 const normalizeDoc = (doc: unknown): Record<string, unknown> =>
 	normalizeValue(doc) as Record<string, unknown>;
-
-/**
- * Coerce a normalized export value into the shared CellValue contract.
- * Scalars (and null/undefined) pass through untouched; arrays and objects
- * are serialized to JSON strings so tabular exporters receive scalars only.
- */
-const toExportCell = (value: unknown): CellValue => {
-	if (Array.isArray(value) || (typeof value === "object" && value !== null)) {
-		return JSON.stringify(value);
-	}
-	return value as CellValue;
-};
 
 const inferValueType = (value: unknown): DataTypes => {
 	if (value instanceof Date) return "date";
@@ -401,19 +389,14 @@ export class MongoAdapter extends BaseAdapter {
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }> {
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
 			const mongoDb = await getMongoDb(db);
 			const collection = mongoDb.collection(tableName);
 			const rows = await collection.find({}).limit(10000).toArray();
-			// CellValue only permits scalars — serialize compound values so CSV/XLSX
-			// exporters never receive raw objects/arrays (previously "[object Object]").
-			const normalized: Record<string, CellValue>[] = rows.map((row) => {
-				const entries = Object.entries(normalizeDoc(row)).map(
-					([key, value]): [string, CellValue] => [key, toExportCell(value)],
-				);
-				return Object.fromEntries(entries);
-			});
+			// Nested documents stay nested: the JSON export needs the real structure,
+			// and `getExportFile` flattens them for the CSV/XLSX sheet writer.
+			const normalized = rows.map((row) => normalizeDoc(row));
 			const cols = Array.from(new Set(normalized.flatMap((row) => Object.keys(row))));
 			return { cols, rows: normalized };
 		} catch (e) {
@@ -434,13 +417,7 @@ export class MongoAdapter extends BaseAdapter {
 			if (!databases[0]) {
 				throw new HTTPException(500, { message: "No databases returned from MongoDB" });
 			}
-			const SYSTEM_DATABASES = new Set(["admin", "config", "local"]);
-			const currentDb = getMongoDbName();
-			const visible = databases.filter(
-				(db) => !SYSTEM_DATABASES.has(db.name) || db.name === currentDb,
-			);
-			const finalList = visible.length > 0 ? visible : databases;
-			return finalList.map((db) => ({
+			return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
 				name: db.name,
 				size: formatBytes(db.sizeOnDisk ?? 0),
 				owner: "n/a",

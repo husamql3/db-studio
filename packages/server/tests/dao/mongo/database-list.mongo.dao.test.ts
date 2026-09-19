@@ -41,6 +41,8 @@ describe("MongoDB Database List DAO", () => {
 	// ============================================
 	describe("getMongoDatabasesList", () => {
 		it("returns a formatted list of databases", async () => {
+			const { getMongoDbName } = await import("@/db-manager.js");
+			vi.mocked(getMongoDbName).mockReturnValue("myapp");
 			mockListDatabases.mockResolvedValue({
 				databases: [
 					{ name: "admin", sizeOnDisk: 40960 },
@@ -51,7 +53,7 @@ describe("MongoDB Database List DAO", () => {
 
 			const result = await getMongoDatabasesList();
 
-			// system database "admin" is filtered out (current db is "testdb")
+			// system database "admin" is filtered out (current db is "myapp")
 			expect(result).toHaveLength(2);
 			expect(result[0].name).toBe("myapp");
 			expect(result[0].owner).toBe("n/a");
@@ -75,7 +77,7 @@ describe("MongoDB Database List DAO", () => {
 			expect(result.map((d) => d.name)).toEqual(["admin", "myapp"]);
 		});
 
-		it("falls back to all databases when only system databases exist", async () => {
+		it("surfaces an empty connected database instead of falling back to system dbs", async () => {
 			const { getMongoDbName } = await import("@/db-manager.js");
 			vi.mocked(getMongoDbName).mockReturnValue("testdb");
 			mockListDatabases.mockResolvedValue({
@@ -87,7 +89,7 @@ describe("MongoDB Database List DAO", () => {
 
 			const result = await getMongoDatabasesList();
 
-			expect(result).toHaveLength(2);
+			expect(result.map((d) => d.name)).toEqual(["testdb"]);
 		});
 
 		it("formats byte sizes in human-readable units", async () => {
@@ -136,6 +138,8 @@ describe("MongoDB Database List DAO", () => {
 		});
 
 		it("returns single database correctly", async () => {
+			const { getMongoDbName } = await import("@/db-manager.js");
+			vi.mocked(getMongoDbName).mockReturnValue("onlydb");
 			mockListDatabases.mockResolvedValue({
 				databases: [{ name: "onlydb", sizeOnDisk: 8192 }],
 			});
@@ -147,6 +151,8 @@ describe("MongoDB Database List DAO", () => {
 		});
 
 		it("handles large number of databases", async () => {
+			const { getMongoDbName } = await import("@/db-manager.js");
+			vi.mocked(getMongoDbName).mockReturnValue("db_0");
 			const databases = Array.from({ length: 50 }, (_, i) => ({
 				name: `db_${i}`,
 				sizeOnDisk: i * 1024 * 1024,

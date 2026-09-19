@@ -363,8 +363,8 @@ export class PgAdapter extends BaseAdapter {
 					pg_catalog.pg_get_userbyid(d.datdba) as owner,
 					pg_encoding_to_char(d.encoding) as encoding
 				FROM pg_catalog.pg_database d
-			WHERE d.datistemplate = false
-			AND (d.datname NOT IN ('postgres', 'rdsadmin') OR d.datname = current_database())
+				WHERE d.datistemplate = false
+					AND (d.datname NOT IN ('postgres', 'rdsadmin') OR d.datname = current_database())
 				ORDER BY d.datname;
 			`);
 			if (!rows[0])

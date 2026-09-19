@@ -5,6 +5,7 @@ import type {
 } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
 import { getMongoClient, getMongoDbName } from "@/adapters/connections.js";
+import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
 const formatBytes = (bytes: number): string => {
@@ -31,14 +32,7 @@ export async function getMongoDatabasesList(): Promise<DatabaseInfoSchemaType[]>
 		});
 	}
 
-	const SYSTEM_DATABASES = new Set(["admin", "config", "local"]);
-	const currentDb = getMongoDbName();
-	const visible = databases.filter(
-		(db) => !SYSTEM_DATABASES.has(db.name) || db.name === currentDb,
-	);
-	const finalList = visible.length > 0 ? visible : databases;
-
-	return finalList.map((db) => ({
+	return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
 		name: db.name,
 		size: formatBytes(db.sizeOnDisk ?? 0),
 		owner: "n/a",
