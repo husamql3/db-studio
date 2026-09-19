@@ -12,7 +12,7 @@ export const showHelp = () => {
 	console.log("  db-studio [options]\n");
 
 	console.log(color.bold("Supported Databases:"));
-	console.log("  MySQL, PostgreSQL\n");
+	console.log("  PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis\n");
 
 	console.log(color.bold("Options:"));
 	console.log("  -e, --env <path>         Path to custom .env file");

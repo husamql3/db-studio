@@ -17,10 +17,20 @@ export const initSentry = (): void => {
 		beforeSend(event) {
 			delete event.request;
 			delete event.user;
-			delete event.breadcrumbs;
 			delete event.message;
 			delete event.contexts;
 			delete event.extra;
+			event.breadcrumbs = event.breadcrumbs
+				?.filter((breadcrumb) => breadcrumb.category === "db_studio.http")
+				.map((breadcrumb) => ({
+					category: breadcrumb.category,
+					level: breadcrumb.level,
+					timestamp: breadcrumb.timestamp,
+					data: {
+						operation: breadcrumb.data?.operation,
+						method: breadcrumb.data?.method,
+					},
+				}));
 			for (const exception of event.exception?.values ?? []) exception.value = "Client error";
 			return event;
 		},

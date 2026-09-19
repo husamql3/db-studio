@@ -1390,7 +1390,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }> {
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
 			const table = assertRedisTable(tableName);
 			const dbIndex = parseDbIndex(db);

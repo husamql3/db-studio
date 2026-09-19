@@ -368,12 +368,16 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!rows.length)
 				throw new HTTPException(500, { message: "No databases returned from SQLite" });
 
-			return rows.map((row) => ({
-				name: row.name,
-				size: this.getFileSize(row.file),
-				owner: "",
-				encoding: "UTF-8",
-			}));
+			// Hide SQLite's internal temp database. `PRAGMA database_list` always
+			// reports `main`, so filtering can never empty the list.
+			return rows
+				.filter((row) => row.name !== "temp")
+				.map((row) => ({
+					name: row.name,
+					size: this.getFileSize(row.file),
+					owner: "",
+					encoding: "UTF-8",
+				}));
 		} catch (e) {
 			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);

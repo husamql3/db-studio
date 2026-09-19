@@ -5,6 +5,7 @@ import { DatabaseError } from "pg";
 import { ZodError } from "zod";
 import {
 	captureServerError,
+	databaseTypeForRequest,
 	operationForRequest,
 	writeOperationalLog,
 } from "@/observability.js";
@@ -15,14 +16,51 @@ const errorTypeName = (e: unknown): string => {
 	return e instanceof Error ? e.name : "UnknownError";
 };
 
+const isConnectionError = (e: Error): boolean => {
+	const mysqlError = e as Error & { code?: string; errno?: number };
+	const isMysqlConnectionError =
+		mysqlError.code === "ECONNREFUSED" ||
+		mysqlError.code === "ENOTFOUND" ||
+		mysqlError.code === "ETIMEDOUT" ||
+		mysqlError.code === "ER_ACCESS_DENIED_ERROR" ||
+		mysqlError.code === "ER_BAD_HOST_ERROR" ||
+		mysqlError.code === "ECONNRESET" ||
+		mysqlError.errno === 1045 ||
+		mysqlError.errno === 2003 ||
+		mysqlError.errno === 2002;
+
+	return (
+		isMysqlConnectionError ||
+		e.message.includes("ECONNREFUSED") ||
+		e.message.includes("connection refused") ||
+		e.message.includes("timeout expired") ||
+		e.message.includes("Connection terminated") ||
+		e.message.includes("MongoNetworkError") ||
+		e.message.includes("MongoServerSelectionError") ||
+		(e instanceof DatabaseError && e.code?.startsWith("08") === true)
+	);
+};
+
+const statusForError = (e: unknown): number => {
+	if (e instanceof HTTPException) return e.status;
+	if (e instanceof ZodError) return 400;
+	if (e instanceof Error && isConnectionError(e)) return 503;
+	return 500;
+};
+
 /**
  * Centralized error handler for the application
  */
 export function handleError(e: Error | unknown, c: Context) {
 	const operation = operationForRequest(c.req.method, c.req.path);
 	const errorType = errorTypeName(e);
+	const status = statusForError(e);
 	writeOperationalLog("error", "request_failed", { operation, error_type: errorType });
-	captureServerError(e, operation);
+	captureServerError(e, {
+		operation,
+		status,
+		dbType: databaseTypeForRequest(c.req.path),
+	});
 
 	if (e instanceof HTTPException) {
 		return c.json<ApiError>(
@@ -45,30 +83,7 @@ export function handleError(e: Error | unknown, c: Context) {
 	}
 
 	if (e instanceof Error) {
-		// MySQL-specific error codes
-		const mysqlError = e as { code?: string; errno?: number };
-		const isMysqlConnectionError =
-			mysqlError.code === "ECONNREFUSED" ||
-			mysqlError.code === "ENOTFOUND" ||
-			mysqlError.code === "ETIMEDOUT" ||
-			mysqlError.code === "ER_ACCESS_DENIED_ERROR" ||
-			mysqlError.code === "ER_BAD_HOST_ERROR" ||
-			mysqlError.code === "ECONNRESET" ||
-			mysqlError.errno === 1045 || // ER_ACCESS_DENIED_ERROR
-			mysqlError.errno === 2003 || // Can't connect to MySQL server
-			mysqlError.errno === 2002; // Can't connect to local MySQL server
-
-		const isConnectionError =
-			isMysqlConnectionError ||
-			e.message.includes("ECONNREFUSED") ||
-			e.message.includes("connection refused") ||
-			e.message.includes("timeout expired") ||
-			e.message.includes("Connection terminated") ||
-			e.message.includes("MongoNetworkError") ||
-			e.message.includes("MongoServerSelectionError") ||
-			(e instanceof DatabaseError && e.code?.startsWith("08")); // PostgreSQL connection exception class
-
-		if (isConnectionError) {
+		if (isConnectionError(e)) {
 			return c.json<ApiError>(
 				{ error: "Database connection failed", details: e.message },
 				503,

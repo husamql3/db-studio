@@ -196,23 +196,27 @@ export class MsSqlAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		const pool = await getMssqlPool();
-		const result = await pool.request().query(`
-			SELECT
-			  d.name AS name,
-			  CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB' AS size,
-			  SUSER_SNAME(d.owner_sid) AS owner,
-			  d.collation_name AS encoding
-			FROM sys.databases d
-			JOIN sys.master_files mf ON d.database_id = mf.database_id
-			WHERE d.database_id > 4
-			GROUP BY d.name, d.owner_sid, d.collation_name
-			ORDER BY d.name
-		`);
-		if (!result.recordset[0]) {
-			throw new HTTPException(500, { message: "No databases returned from server" });
+		try {
+			const pool = await getMssqlPool();
+			const result = await pool.request().query(`
+				SELECT
+				  d.name AS name,
+				  CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB' AS size,
+				  SUSER_SNAME(d.owner_sid) AS owner,
+				  d.collation_name AS encoding
+				FROM sys.databases d
+				JOIN sys.master_files mf ON d.database_id = mf.database_id
+				WHERE (d.database_id > 4 OR d.name = DB_NAME())
+				GROUP BY d.name, d.owner_sid, d.collation_name
+				ORDER BY d.name
+			`);
+			if (!result.recordset[0]) {
+				throw new HTTPException(500, { message: "No databases returned from server" });
+			}
+			return result.recordset as DatabaseInfoSchemaType[];
+		} catch (e) {
+			throw this.wrapError(e);
 		}
-		return result.recordset as DatabaseInfoSchemaType[];
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {

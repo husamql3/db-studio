@@ -6,6 +6,7 @@ import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
 import { openBrowser, shouldOpenBrowser } from "@/cmd/open-browser.js";
+import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 import { showHelp } from "@/cmd/show-help.js";
 import { showStatus } from "@/cmd/show-status.js";
 import { showVersion } from "@/cmd/show-version.js";
@@ -109,11 +110,7 @@ export const main = async () => {
 if (process.env.NODE_ENV !== "test") {
 	main().catch((error: unknown) => {
 		const message = error instanceof Error ? error.message : String(error);
-		const sanitizedMessage = message.replace(
-			/\b(?:postgres(?:ql)?|mysql2?|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi,
-			"the configured database",
-		);
-		outro(color.red(`Startup failed: ${sanitizedMessage}`));
+		outro(color.red(`Startup failed: ${sanitizeErrorMessage(message)}`));
 		process.exit(1);
 	});
 }

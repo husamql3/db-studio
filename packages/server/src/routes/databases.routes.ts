@@ -10,7 +10,10 @@ import { getDbType } from "@/db-manager.js";
 
 /**
  * /databases routes (at root level, no dbType required)
- * GET /databases - Get list of all databases on the server (name, size, owner, encoding)
+ * GET /databases - Get list of user-visible databases on the server (name, size, owner, encoding).
+ * System databases are hidden unless currently connected (pg: postgres, rdsadmin, mysql:
+ * information_schema/mysql/performance_schema/sys, mssql: database_id <= 4,
+ * mongo: admin/config/local, sqlite: temp).
  * GET /databases/current - Get the name of the database we are currently connected to
  * GET /databases/connection - Get connection details and server information
  */
@@ -22,7 +25,7 @@ export const databasesRoutes = new Hono()
 
 	/**
 	 * GET /databases
-	 * Returns list of all databases on the server (name, size, owner, encoding) and the database type
+	 * Returns list of user-visible databases on the server (name, size, owner, encoding) and the database type
 	 */
 	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
 		const dbType = getDbType();
