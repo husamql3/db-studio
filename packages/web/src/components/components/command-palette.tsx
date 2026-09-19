@@ -8,61 +8,90 @@ import {
 	CommandItem,
 	CommandList,
 	CommandSeparator,
+	CommandShortcut,
 } from "@db-studio/ui/command";
+import { Kbd } from "@db-studio/ui/kbd";
+import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
-	ArrowUpDown,
 	Brain,
 	ChevronLeft,
 	Code,
+	Columns2,
 	Copy,
 	Database,
 	Download,
-	Edit,
-	Eye,
-	FileText,
-	Filter,
 	GitBranch,
-	Lightbulb,
-	Lock,
+	KeyRound,
 	MessageSquare,
+	Moon,
 	Pin,
 	PinOff,
-	PlayCircle,
 	Plus,
 	RotateCw,
 	Search,
 	Settings,
 	Sidebar,
 	Sparkles,
+	Sun,
 	Table2,
-	Trash2,
 	Upload,
-	Users,
-	Wand2,
-	Zap,
 } from "lucide-react";
-import { useQueryState } from "nuqs";
 import { type KeyboardEvent, useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { toast } from "sonner";
-import { useTableNavigation, useTablesList } from "@/features/tables";
+import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useExportFile, useTablesList } from "@/features/tables";
+import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
+import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { useTheme } from "@/hooks/use-theme";
+import { posthogAnalytics } from "@/lib/posthog";
+import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import { CONSTANTS } from "@/utils/constants";
 
 type Mode = "all" | "tables";
 
+const NO_TABLE_HINT = "Select a table first";
+const SCHEMALESS_HINT = "Not available for schemaless databases";
+
 export function CommandPalette() {
-	const [activeTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
-	const { navigateToTable } = useTableNavigation();
+	const navigate = useNavigate();
+	const { pathname } = useLocation();
+	const routeParams = useParams({ strict: false });
+	const activeTable = (routeParams as { table?: string }).table ?? null;
+	const { dbType } = useDatabaseStore();
 	const { openOverlay } = useOverlayStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
-	const { tablesList, isLoadingTablesList } = useTablesList();
+	const { toggleTheme, isDark } = useTheme();
+	const { tablesList, isLoadingTablesList, errorTablesList } = useTablesList();
+	const { exportFile, isExportingFile } = useExportFile();
+	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
+	const { requestAssistant } = useAssistantRequestStore();
 
 	const [open, setOpen] = useState(false);
 	const [mode, setMode] = useState<Mode>("all");
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
+
+	const isRedis = dbType === "redis";
+	const isSchemaless = useIsSchemaless();
+	// Create-table targets SQL-style schemas. Schemaless databases (MongoDB
+	// collections, Redis keys) get their own entry points instead.
+	const canCreateTable = !isSchemaless;
+	// Record and schema sheets mount per-screen (table-screen.tsx,
+	// schema-screen.tsx), so those commands only run on their own screen.
+	// Schema DDL additionally needs a database with real schemas.
+	const onTableScreen = pathname.startsWith("/table/");
+	const onSchemaScreen = pathname.startsWith("/schema/");
+	const canEditRecords = Boolean(activeTable) && onTableScreen;
+	const recordsHint = !activeTable ? NO_TABLE_HINT : "Open the table data screen first";
+	const canEditSchema = Boolean(activeTable) && onSchemaScreen && !isSchemaless;
+	const schemaHint = isSchemaless
+		? SCHEMALESS_HINT
+		: !activeTable
+			? NO_TABLE_HINT
+			: "Open the table schema screen first";
+	const isMac =
+		typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
 
 	const handleOpenChange = (isOpen: boolean) => {
 		setOpen(isOpen);
@@ -73,12 +102,11 @@ export function CommandPalette() {
 		}
 	};
 
-	const handleAction = (action: () => void, message?: string) => {
-		setOpen(false);
+	const handleAction = (action: () => void) => {
+		// Go through handleOpenChange so mode/input reset on every close,
+		// including closes triggered here instead of by the dialog itself.
+		handleOpenChange(false);
 		action();
-		if (message) {
-			toast.success(message);
-		}
 	};
 
 	const switchToTablesMode = useCallback(() => {
@@ -96,9 +124,11 @@ export function CommandPalette() {
 
 	// Handle input changes - detect mode triggers
 	const handleInputChange = (value: string) => {
-		// Detect ">" prefix to switch to tables mode
-		if (mode === "all" && value === ">") {
+		// Detect ">" prefix to switch to tables mode, keeping anything typed
+		// after it (fast typing and pastes arrive as a single value).
+		if (mode === "all" && value.startsWith(">")) {
 			switchToTablesMode();
+			setInputValue(value.slice(1));
 			return;
 		}
 		// Also detect "table " or "tables " as triggers
@@ -112,29 +142,47 @@ export function CommandPalette() {
 		setInputValue(value);
 	};
 
-	// Handle keyboard events for going back
+	// Backspace on empty input goes back to "all" mode. Escape is left to the
+	// dialog so it always closes the palette.
 	const handleKeyDown = (e: KeyboardEvent) => {
-		// Backspace on empty input goes back to "all" mode
 		if (e.key === "Backspace" && inputValue === "" && mode === "tables") {
 			e.preventDefault();
-			switchToAllMode();
-		}
-		// Escape in tables mode goes back to "all" mode first
-		if (e.key === "Escape" && mode === "tables") {
-			e.preventDefault();
-			e.stopPropagation();
 			switchToAllMode();
 		}
 	};
 
 	const handleNavigateToTable = (tableName: string) => {
 		handleAction(() => {
-			navigateToTable(tableName);
-		}, `Navigated to ${tableName}`);
+			if (dbType) {
+				posthogAnalytics.capture("table_viewed", { db_type: dbType });
+			}
+			// Reset search params: sort/filter/cursor keys from the previous
+			// table must not leak into the newly opened one.
+			navigate({ to: "/table/$table", params: { table: tableName }, search: {} });
+		});
 	};
 
-	// Hotkeys for command palette
-	useHotkeys("ctrl+k, meta+k", () => setOpen((open) => !open));
+	const askAssistant = (prompt: string) => {
+		handleAction(() => {
+			requestAssistant(prompt);
+			openOverlay("chat.assistant");
+		});
+	};
+
+	// Global toggle. Enabled on form tags and content-editables so the palette
+	// also opens while another editor is focused. Events from inside the Monaco
+	// surface are ignored so its Ctrl/Cmd+K chord prefix keeps working; the
+	// query editor binds Ctrl/Cmd+Enter, Ctrl/Cmd+Shift+F and Ctrl/Cmd+S, so
+	// there is nothing else to collide with.
+	useHotkeys(
+		"ctrl+k, meta+k",
+		(event) => {
+			if ((event.target as HTMLElement | null)?.closest?.(".monaco-editor")) return;
+			event.preventDefault();
+			setOpen((prev) => !prev);
+		},
+		{ enableOnFormTags: true, enableOnContentEditable: true },
+	);
 
 	const placeholder =
 		mode === "all" ? "Search commands... (type > for tables)" : "Search tables...";
@@ -151,6 +199,7 @@ export function CommandPalette() {
 					<button
 						type="button"
 						onClick={switchToAllMode}
+						aria-label="Back to all commands"
 						className="flex items-center gap-1.5 h-8! rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20 shrink-0"
 					>
 						<Table2 className="size-3.5" />
@@ -173,7 +222,7 @@ export function CommandPalette() {
 				</CommandEmpty>
 
 				{/* Tables Mode - Only show tables */}
-				{mode === "tables" && !isLoadingTablesList && tablesList && (
+				{mode === "tables" && !isLoadingTablesList && !errorTablesList && tablesList && (
 					<CommandGroup heading="Tables">
 						{tablesList.length === 0 ? (
 							<div className="py-6 text-center text-sm text-muted-foreground">
@@ -198,29 +247,117 @@ export function CommandPalette() {
 						)}
 					</CommandGroup>
 				)}
+				{mode === "tables" && isLoadingTablesList && (
+					<div className="py-6 text-center text-sm text-muted-foreground">
+						Loading tables...
+					</div>
+				)}
+				{mode === "tables" && errorTablesList && (
+					<div className="py-6 text-center text-sm text-muted-foreground">
+						Failed to load tables.
+					</div>
+				)}
 
 				{/* All Mode - Show everything */}
 				{mode === "all" && (
 					<>
 						{/* Quick Access - Tables shortcut */}
-						<CommandGroup heading="Quick Access">
-							<CommandItem
-								onSelect={switchToTablesMode}
-								className="group"
-							>
-								<Table2 className="mr-2 size-4 text-primary" />
-								<div className="flex flex-1 items-center justify-between">
+						{!isRedis && (
+							<>
+								<CommandGroup heading="Quick Access">
+									<CommandItem
+										onSelect={switchToTablesMode}
+										keywords={["tables", ">", "go to table"]}
+										className="group"
+									>
+										<Search className="mr-2 size-4 text-primary" />
+										<div className="flex flex-1 items-center justify-between">
+											<div className="flex flex-col">
+												<span>Search Tables</span>
+												<span className="text-xs text-muted-foreground">
+													Navigate to any table quickly
+												</span>
+											</div>
+											<CommandShortcut>&gt;</CommandShortcut>
+										</div>
+									</CommandItem>
+								</CommandGroup>
+
+								<CommandSeparator />
+							</>
+						)}
+
+						{/* Navigation */}
+						<CommandGroup heading="Go to">
+							{!isRedis && (
+								<CommandItem
+									onSelect={() => handleAction(() => navigate({ to: "/" }))}
+									keywords={["go", "navigate", "home", "tables"]}
+								>
+									<Table2 className="mr-2 size-4" />
 									<div className="flex flex-col">
-										<span>Search Tables</span>
+										<span>Go to Tables</span>
 										<span className="text-xs text-muted-foreground">
-											Navigate to any table quickly
+											Open the tables overview
 										</span>
 									</div>
-									<kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground group-hover:inline-block">
-										&gt;
-									</kbd>
+								</CommandItem>
+							)}
+							<CommandItem
+								onSelect={() => handleAction(() => navigate({ to: "/runner" }))}
+								keywords={["go", "navigate", "sql", "query", "runner", "editor"]}
+							>
+								<Code className="mr-2 size-4" />
+								<div className="flex flex-col">
+									<span>Go to Query Runner</span>
+									<span className="text-xs text-muted-foreground">
+										Write and execute queries
+									</span>
 								</div>
 							</CommandItem>
+							{!isRedis && (
+								<CommandItem
+									disabled={!activeTable || isSchemaless}
+									onSelect={() => {
+										if (!activeTable || isSchemaless) return;
+										const table = activeTable;
+										handleAction(() =>
+											navigate({
+												to: "/schema/$table",
+												params: { table },
+												search: {},
+											}),
+										);
+									}}
+									keywords={["go", "navigate", "schema", "columns"]}
+								>
+									<GitBranch className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Go to Schema</span>
+										<span className="text-xs text-muted-foreground">
+											{isSchemaless
+												? SCHEMALESS_HINT
+												: activeTable
+													? `View the schema of ${activeTable}`
+													: NO_TABLE_HINT}
+										</span>
+									</div>
+								</CommandItem>
+							)}
+							{isRedis && (
+								<CommandItem
+									onSelect={() => handleAction(() => navigate({ to: "/browser" }))}
+									keywords={["go", "navigate", "redis", "browser", "keys"]}
+								>
+									<Database className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Go to Redis Browser</span>
+										<span className="text-xs text-muted-foreground">
+											Browse keys across logical databases
+										</span>
+									</div>
+								</CommandItem>
+							)}
 						</CommandGroup>
 
 						<CommandSeparator />
@@ -228,81 +365,8 @@ export function CommandPalette() {
 						{/* AI Assistant Section */}
 						<CommandGroup heading="AI Assistant">
 							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("AI SQL Generator - Coming Soon!", {
-											description: "Generate SQL queries with natural language",
-										});
-									})
-								}
-							>
-								<Sparkles className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Generate SQL with AI</span>
-									<span className="text-xs text-muted-foreground">
-										Create queries using natural language
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("AI Table Designer - Coming Soon!", {
-											description: "Design your database schema with AI assistance",
-										});
-									})
-								}
-							>
-								<Wand2 className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>AI Table Designer</span>
-									<span className="text-xs text-muted-foreground">
-										Design tables with intelligent suggestions
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Schema Explainer - Coming Soon!", {
-											description: "Get AI-powered explanations of your database structure",
-										});
-									})
-								}
-							>
-								<Brain className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Explain Schema</span>
-									<span className="text-xs text-muted-foreground">
-										Understand your database structure with AI
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("AI Query Optimizer - Coming Soon!", {
-											description: "Optimize your queries for better performance",
-										});
-									})
-								}
-							>
-								<Zap className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Optimize Query</span>
-									<span className="text-xs text-muted-foreground">
-										Get performance optimization suggestions
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("AI Chat - Coming Soon!", {
-											description: "Chat with AI about your database",
-										});
-									})
-								}
+								onSelect={() => handleAction(() => openOverlay("chat.assistant"))}
+								keywords={["ai", "assistant", "chat", "help"]}
 							>
 								<MessageSquare className="mr-2 size-4" />
 								<div className="flex flex-col">
@@ -314,18 +378,39 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									handleAction(() => {
-										toast.info("Smart Suggestions - Coming Soon!", {
-											description: "Get AI-powered recommendations for your schema",
-										});
-									})
+									askAssistant(
+										"Generate a query for this database. Ask me for the goal if it is unclear.",
+									)
 								}
+								keywords={["ai", "generate", "sql", "query", "write"]}
 							>
-								<Lightbulb className="mr-2 size-4" />
+								<Sparkles className="mr-2 size-4" />
 								<div className="flex flex-col">
-									<span>Get Schema Suggestions</span>
+									<span>Generate SQL with AI</span>
 									<span className="text-xs text-muted-foreground">
-										Improve your database design with AI insights
+										Create queries using natural language
+									</span>
+								</div>
+							</CommandItem>
+							<CommandItem
+								disabled={!activeTable || isSchemaless}
+								onSelect={() => {
+									if (!activeTable || isSchemaless) return;
+									askAssistant(
+										`Explain the schema of table "${activeTable}": what each column stores and how it relates to other tables.`,
+									);
+								}}
+								keywords={["ai", "explain", "schema", "table", "understand"]}
+							>
+								<Brain className="mr-2 size-4" />
+								<div className="flex flex-col">
+									<span>Explain Table Schema</span>
+									<span className="text-xs text-muted-foreground">
+										{isSchemaless
+											? SCHEMALESS_HINT
+											: activeTable
+												? `Understand the structure of ${activeTable} with AI`
+												: NO_TABLE_HINT}
 									</span>
 								</div>
 							</CommandItem>
@@ -335,320 +420,159 @@ export function CommandPalette() {
 
 						{/* Database Actions */}
 						<CommandGroup heading="Database Actions">
-							<CommandItem
-								onSelect={() => handleAction(() => openOverlay("table-builder.create-table"))}
-							>
-								<Plus className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Create New Table</span>
-									<span className="text-xs text-muted-foreground">
-										Design and create a new database table
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => openOverlay("records.add-record"), "Opening add row form")
-								}
-								disabled={!activeTable}
-							>
-								<Plus className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Add New Row</span>
-									<span className="text-xs text-muted-foreground">
-										Insert a new record to {activeTable || "selected table"}
-									</span>
-								</div>
-							</CommandItem>
+							{canCreateTable && (
+								<CommandItem
+									onSelect={() =>
+										handleAction(() => openOverlay("table-builder.create-table"))
+									}
+									keywords={["create", "new", "table"]}
+								>
+									<Plus className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Create New Table</span>
+										<span className="text-xs text-muted-foreground">
+											Design and create a new database table
+										</span>
+									</div>
+								</CommandItem>
+							)}
+							{isRedis && (
+								<CommandItem
+									onSelect={() => handleAction(() => openOverlay("redis-browser.create-key"))}
+									keywords={["create", "new", "redis", "key"]}
+								>
+									<KeyRound className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Create Redis Key</span>
+										<span className="text-xs text-muted-foreground">
+											Add a new key to the selected database
+										</span>
+									</div>
+								</CommandItem>
+							)}
+							{!isRedis && (
+								<>
+									<CommandItem
+										disabled={!canEditRecords}
+										onSelect={() => handleAction(() => openOverlay("records.add-record"))}
+										keywords={["add", "new", "row", "record", "insert"]}
+									>
+										<Plus className="mr-2 size-4" />
+										<div className="flex flex-col">
+											<span>Add New Row</span>
+											<span className="text-xs text-muted-foreground">
+												{canEditRecords
+													? `Insert a new record into ${activeTable}`
+													: recordsHint}
+											</span>
+										</div>
+									</CommandItem>
+									<CommandItem
+										disabled={!canEditRecords}
+										onSelect={() => handleAction(() => openOverlay("records.bulk-insert"))}
+										keywords={["bulk", "insert", "import", "csv", "excel", "json"]}
+									>
+										<Upload className="mr-2 size-4" />
+										<div className="flex flex-col">
+											<span>Bulk Insert Records</span>
+											<span className="text-xs text-muted-foreground">
+												{canEditRecords
+													? `Import many records into ${activeTable}`
+													: recordsHint}
+											</span>
+										</div>
+									</CommandItem>
+									<CommandItem
+										disabled={!canEditSchema}
+										onSelect={() => handleAction(() => openOverlay("schema.add-column"))}
+										keywords={["add", "new", "column", "schema"]}
+									>
+										<Columns2 className="mr-2 size-4" />
+										<div className="flex flex-col">
+											<span>Add Column</span>
+											<span className="text-xs text-muted-foreground">
+												{canEditSchema ? `Add a column to ${activeTable}` : schemaHint}
+											</span>
+										</div>
+									</CommandItem>
+									<CommandItem
+										disabled={!activeTable || isExportingFile}
+										onSelect={() => {
+											if (!activeTable) return;
+											const tableName = activeTable;
+											handleAction(() => {
+												void exportFile({ tableName, format: "csv" }).catch(() => undefined);
+											});
+										}}
+										keywords={["export", "download", "csv"]}
+									>
+										<Download className="mr-2 size-4" />
+										<div className="flex flex-col">
+											<span>Export Table as CSV</span>
+											<span className="text-xs text-muted-foreground">
+												{activeTable ? `Download ${activeTable} as a CSV file` : NO_TABLE_HINT}
+											</span>
+										</div>
+									</CommandItem>
+									<CommandItem
+										disabled={!activeTable || isExportingFile}
+										onSelect={() => {
+											if (!activeTable) return;
+											const tableName = activeTable;
+											handleAction(() => {
+												void exportFile({ tableName, format: "json" }).catch(() => undefined);
+											});
+										}}
+										keywords={["export", "download", "json"]}
+									>
+										<Download className="mr-2 size-4" />
+										<div className="flex flex-col">
+											<span>Export Table as JSON</span>
+											<span className="text-xs text-muted-foreground">
+												{activeTable
+													? `Download ${activeTable} as a JSON file`
+													: NO_TABLE_HINT}
+											</span>
+										</div>
+									</CommandItem>
+									<CommandItem
+										disabled={!activeTable || isCopyingSchema || isSchemaless}
+										onSelect={() => {
+											if (!activeTable || isSchemaless) return;
+											const tableName = activeTable;
+											handleAction(() => {
+												void copyTableSchema(tableName).catch(() => undefined);
+											});
+										}}
+										keywords={["copy", "schema", "ddl", "clipboard"]}
+									>
+										<Copy className="mr-2 size-4" />
+										<div className="flex flex-col">
+											<span>Copy Table Schema</span>
+											<span className="text-xs text-muted-foreground">
+												{isSchemaless
+													? SCHEMALESS_HINT
+													: activeTable
+														? `Copy the schema of ${activeTable} to the clipboard`
+														: NO_TABLE_HINT}
+											</span>
+										</div>
+									</CommandItem>
+								</>
+							)}
 							<CommandItem
 								onSelect={() =>
 									handleAction(() => {
 										window.location.reload();
-									}, "Refreshing database...")
+									})
 								}
+								keywords={["refresh", "reload", "restart"]}
 							>
 								<RotateCw className="mr-2 size-4" />
 								<div className="flex flex-col">
-									<span>Refresh Database</span>
+									<span>Reload Application</span>
 									<span className="text-xs text-muted-foreground">
 										Reload all tables and data
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Export Feature - Coming Soon!", {
-											description: "Export your data to CSV, JSON, or SQL",
-										});
-									})
-								}
-							>
-								<Download className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Export Data</span>
-									<span className="text-xs text-muted-foreground">
-										Download table data as CSV, JSON, or SQL
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Import Feature - Coming Soon!", {
-											description: "Import data from CSV, JSON, or SQL files",
-										});
-									})
-								}
-							>
-								<Upload className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Import Data</span>
-									<span className="text-xs text-muted-foreground">
-										Upload and import data from files
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Backup Feature - Coming Soon!", {
-											description: "Create a complete backup of your database",
-										});
-									})
-								}
-							>
-								<Copy className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Backup Database</span>
-									<span className="text-xs text-muted-foreground">
-										Create a full database backup
-									</span>
-								</div>
-							</CommandItem>
-						</CommandGroup>
-
-						<CommandSeparator />
-
-						{/* Data Operations */}
-						<CommandGroup heading="Data Operations">
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Advanced Search - Coming Soon!", {
-											description: "Search across all tables",
-										});
-									})
-								}
-							>
-								<Search className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Search Records</span>
-									<span className="text-xs text-muted-foreground">
-										Search across all tables and columns
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Filter Builder - Coming Soon!", {
-											description: "Build complex filters for your data",
-										});
-									})
-								}
-								disabled={!activeTable}
-							>
-								<Filter className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Filter Data</span>
-									<span className="text-xs text-muted-foreground">
-										Apply advanced filters to current table
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Sort Options - Coming Soon!", {
-											description: "Sort data by multiple columns",
-										});
-									})
-								}
-								disabled={!activeTable}
-							>
-								<ArrowUpDown className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Sort Data</span>
-									<span className="text-xs text-muted-foreground">
-										Sort by multiple columns
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Bulk Edit - Coming Soon!", {
-											description: "Edit multiple records at once",
-										});
-									})
-								}
-								disabled={!activeTable}
-							>
-								<Edit className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Bulk Edit</span>
-									<span className="text-xs text-muted-foreground">
-										Update multiple records simultaneously
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Bulk Delete - Coming Soon!", {
-											description: "Delete multiple records at once",
-										});
-									})
-								}
-							>
-								<Trash2 className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Bulk Delete</span>
-									<span className="text-xs text-muted-foreground">
-										Remove multiple records at once
-									</span>
-								</div>
-							</CommandItem>
-						</CommandGroup>
-
-						<CommandSeparator />
-
-						{/* SQL & Schema */}
-						<CommandGroup heading="SQL & Schema">
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("SQL Editor - Coming Soon!", {
-											description: "Run custom SQL queries",
-										});
-									})
-								}
-							>
-								<Code className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>SQL Editor</span>
-									<span className="text-xs text-muted-foreground">
-										Write and execute custom queries
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Query History - Coming Soon!", {
-											description: "View your recent queries",
-										});
-									})
-								}
-							>
-								<FileText className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Query History</span>
-									<span className="text-xs text-muted-foreground">
-										Access previously executed queries
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Schema Viewer - Coming Soon!", {
-											description: "Visualize your database structure",
-										});
-									})
-								}
-							>
-								<GitBranch className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>View Schema Diagram</span>
-									<span className="text-xs text-muted-foreground">
-										Visualize table relationships
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Generate SQL - Coming Soon!", {
-											description: "Generate SQL for current table",
-										});
-									})
-								}
-								disabled={!activeTable}
-							>
-								<PlayCircle className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Generate Table SQL</span>
-									<span className="text-xs text-muted-foreground">
-										Get CREATE TABLE statement
-									</span>
-								</div>
-							</CommandItem>
-						</CommandGroup>
-
-						<CommandSeparator />
-
-						{/* Access & Security */}
-						<CommandGroup heading="Access & Security">
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Permissions - Coming Soon!", {
-											description: "Manage database permissions",
-										});
-									})
-								}
-							>
-								<Lock className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Manage Permissions</span>
-									<span className="text-xs text-muted-foreground">
-										Control user access and privileges
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Users - Coming Soon!", {
-											description: "Manage database users",
-										});
-									})
-								}
-							>
-								<Users className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>User Management</span>
-									<span className="text-xs text-muted-foreground">
-										Add and manage database users
-									</span>
-								</div>
-							</CommandItem>
-							<CommandItem
-								onSelect={() =>
-									handleAction(() => {
-										toast.info("Audit Log - Coming Soon!", {
-											description: "View database activity logs",
-										});
-									})
-								}
-							>
-								<Eye className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Audit Log</span>
-									<span className="text-xs text-muted-foreground">
-										Track all database changes
 									</span>
 								</div>
 							</CommandItem>
@@ -658,7 +582,10 @@ export function CommandPalette() {
 
 						{/* View & Settings */}
 						<CommandGroup heading="View & Settings">
-							<CommandItem onSelect={() => handleAction(toggleSidebarOpen, "Sidebar toggled")}>
+							<CommandItem
+								onSelect={() => handleAction(toggleSidebarOpen)}
+								keywords={["sidebar", "show", "hide", "toggle", "view"]}
+							>
 								<Sidebar className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>{sidebar.isOpen ? "Hide" : "Show"} Sidebar</span>
@@ -668,7 +595,8 @@ export function CommandPalette() {
 								</div>
 							</CommandItem>
 							<CommandItem
-								onSelect={() => handleAction(toggleSidebarPinned, "Sidebar pin toggled")}
+								onSelect={() => handleAction(toggleSidebarPinned)}
+								keywords={["sidebar", "pin", "unpin"]}
 							>
 								{sidebar.isPinned ? (
 									<PinOff className="mr-2 size-4" />
@@ -682,7 +610,22 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							<CommandItem onSelect={() => handleAction(() => openOverlay("settings.app"))}>
+							<CommandItem
+								onSelect={() => handleAction(toggleTheme)}
+								keywords={["theme", "dark", "light", "mode", "appearance"]}
+							>
+								{isDark ? <Sun className="mr-2 size-4" /> : <Moon className="mr-2 size-4" />}
+								<div className="flex flex-col">
+									<span>Switch to {isDark ? "Light" : "Dark"} Mode</span>
+									<span className="text-xs text-muted-foreground">
+										Toggle the application theme
+									</span>
+								</div>
+							</CommandItem>
+							<CommandItem
+								onSelect={() => handleAction(() => openOverlay("settings.app"))}
+								keywords={["settings", "preferences", "configure", "options"]}
+							>
 								<Settings className="mr-2 size-4" />
 								<div className="flex flex-col">
 									<span>Settings & Preferences</span>
@@ -694,44 +637,69 @@ export function CommandPalette() {
 						</CommandGroup>
 
 						{/* Tables Navigation - Show top 5 tables in all mode */}
-						{!isLoadingTablesList && tablesList && tablesList.length > 0 && (
-							<>
-								<CommandSeparator />
-								<CommandGroup heading="Recent Tables">
-									{tablesList.slice(0, 5).map((table) => (
-										<CommandItem
-											key={table.tableName}
-											onSelect={() => handleNavigateToTable(table.tableName)}
-										>
-											<Database className="mr-2 size-4" />
-											<div className="flex flex-col">
-												<span>{table.tableName}</span>
-												<span className="text-xs text-muted-foreground">
-													{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
+						{!isRedis &&
+							!isLoadingTablesList &&
+							!errorTablesList &&
+							tablesList &&
+							tablesList.length > 0 && (
+								<>
+									<CommandSeparator />
+									<CommandGroup heading="Recent Tables">
+										{tablesList.slice(0, 5).map((table) => (
+											<CommandItem
+												key={table.tableName}
+												value={table.tableName}
+												keywords={["table", "recent", table.tableName]}
+												onSelect={() => handleNavigateToTable(table.tableName)}
+											>
+												<Database className="mr-2 size-4" />
+												<div className="flex flex-col">
+													<span>{table.tableName}</span>
+													<span className="text-xs text-muted-foreground">
+														{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
+													</span>
+												</div>
+											</CommandItem>
+										))}
+										{tablesList.length > 5 && (
+											<CommandItem
+												onSelect={switchToTablesMode}
+												className="text-muted-foreground"
+											>
+												<span className="text-xs">
+													+{tablesList.length - 5} more tables — press{" "}
+													<Kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+														&gt;
+													</Kbd>{" "}
+													to see all
 												</span>
-											</div>
-										</CommandItem>
-									))}
-									{tablesList.length > 5 && (
-										<CommandItem
-											onSelect={switchToTablesMode}
-											className="text-muted-foreground"
-										>
-											<span className="text-xs">
-												+{tablesList.length - 5} more tables — press{" "}
-												<kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-													&gt;
-												</kbd>{" "}
-												to see all
-											</span>
-										</CommandItem>
-									)}
-								</CommandGroup>
-							</>
-						)}
+											</CommandItem>
+										)}
+									</CommandGroup>
+								</>
+							)}
 					</>
 				)}
 			</CommandList>
+			<div
+				aria-hidden="true"
+				className="flex items-center gap-3 border-t border-border px-3 py-2 text-[11px] text-muted-foreground"
+			>
+				<span className="flex items-center gap-1">
+					<Kbd>↑</Kbd>
+					<Kbd>↓</Kbd> to navigate
+				</span>
+				<span className="flex items-center gap-1">
+					<Kbd>↵</Kbd> to select
+				</span>
+				<span className="flex items-center gap-1">
+					<Kbd>esc</Kbd> to close
+				</span>
+				<span className="ml-auto flex items-center gap-1">
+					<Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
+					<Kbd>K</Kbd> to toggle
+				</span>
+			</div>
 		</CommandDialog>
 	);
 }
