@@ -38,20 +38,21 @@ export const SidebarListTablesItem = ({
 						{schemaName && schemaName !== "public" ? `${schemaName}.` : ""}
 						{tableName}
 					</span>
-					<Kbd>{rowCount}</Kbd>
 				</Link>
-				<div
-					className={cn(
-						"flex items-center h-5 shrink-0",
-						isActive
-							? "opacity-100"
-							: "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
-					)}
-				>
-					<SidebarListTablesMenu
-						tableName={tableName}
-						schemaName={schemaName}
-					/>
+				<div className="flex items-center gap-1 h-5 shrink-0">
+					<div
+						className={cn(
+							isActive
+								? "opacity-100"
+								: "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
+						)}
+					>
+						<SidebarListTablesMenu
+							tableName={tableName}
+							schemaName={schemaName}
+						/>
+					</div>
+					<Kbd>{rowCount}</Kbd>
 				</div>
 			</div>
 		</li>
