@@ -138,9 +138,8 @@ export function TableCellWrapper<TData>({
 		},
 		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
 	);
-	const isCellHighlighted = useLiveModeStore((state) =>
-		state.highlightedCellKeys.has(`${cell.row.id}:${columnId}`),
-	);
+	const { highlightedCellKeys } = useLiveModeStore();
+	const isCellHighlighted = highlightedCellKeys.has(`${cell.row.id}:${columnId}`);
 
 	return (
 		<div

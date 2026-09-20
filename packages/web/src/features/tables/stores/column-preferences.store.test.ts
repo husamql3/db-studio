@@ -1,99 +1,108 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
 	applyColumnPrefs,
-	clearColumnPrefs,
-	clearMemoryFallback,
-	loadColumnPrefs,
-	makeStorageKey,
+	getColumnPrefs,
+	makeColumnPrefKey,
 	reconcileColumnPrefs,
 	reorderColumns,
 	sameColumnPrefKey,
-	saveColumnPrefs,
-	subscribeColumnPrefsChanged,
+	useColumnPreferencesStore,
 } from "./column-preferences.store";
 
 const parts = { dbType: "pg", database: "dbstudio", tableName: "users" };
+const store = () => useColumnPreferencesStore.getState();
 
-afterEach(() => {
-	clearColumnPrefs(parts);
-	clearMemoryFallback();
+beforeEach(() => {
+	useColumnPreferencesStore.setState({ prefsByTable: {} });
 });
 
-describe("load/save", () => {
-	it("round-trips preferences through localStorage", () => {
-		expect(loadColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
-		saveColumnPrefs(parts, { order: ["b", "a"], hidden: ["b"] });
-		expect(loadColumnPrefs(parts)).toEqual({ order: ["b", "a"], hidden: ["b"] });
+describe("column preferences store", () => {
+	it("round-trips preferences for a table", () => {
+		expect(getColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
+		store().setColumnPrefs(parts, { order: ["b", "a"], hidden: ["b"] });
+		expect(getColumnPrefs(parts)).toEqual({ order: ["b", "a"], hidden: ["b"] });
 	});
 
-	it("produces distinct storage keys when database or table names contain colons", () => {
-		const keyA = makeStorageKey({ dbType: "pg", database: "a:b", tableName: "c" });
-		const keyB = makeStorageKey({ dbType: "pg", database: "a", tableName: "b:c" });
+	it("produces distinct keys when database or table names contain colons", () => {
+		const keyA = makeColumnPrefKey({ dbType: "pg", database: "a:b", tableName: "c" });
+		const keyB = makeColumnPrefKey({ dbType: "pg", database: "a", tableName: "b:c" });
 		expect(keyA).not.toBe(keyB);
 	});
 
 	it("keeps preferences isolated between tables and databases", () => {
-		saveColumnPrefs(parts, { order: ["a"], hidden: [] });
+		store().setColumnPrefs(parts, { order: ["a"], hidden: [] });
 		const otherTable = { ...parts, tableName: "orders" };
-		expect(loadColumnPrefs(otherTable)).toEqual({ order: [], hidden: [] });
-		saveColumnPrefs(otherTable, { order: [], hidden: ["x"] });
-		expect(loadColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
-		const otherDb = { ...parts, database: "otherdb" };
-		expect(loadColumnPrefs(otherDb)).toEqual({ order: [], hidden: [] });
+		expect(getColumnPrefs(otherTable)).toEqual({ order: [], hidden: [] });
+		store().setColumnPrefs(otherTable, { order: [], hidden: ["x"] });
+		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
+		expect(getColumnPrefs({ ...parts, database: "otherdb" })).toEqual({
+			order: [],
+			hidden: [],
+		});
 	});
 
-	it("sanitizes corrupt or partial payloads", () => {
-		window.localStorage.setItem(makeStorageKey(parts), "not json at all");
-		expect(loadColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
+	it("sanitizes corrupt or partial payloads on write", () => {
+		store().setColumnPrefs(parts, {
+			order: ["a", 42, null],
+			hidden: "oops",
+		} as never);
+		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
+	});
+
+	it("drops only the cleared table's preferences", () => {
+		const otherTable = { ...parts, tableName: "orders" };
+		store().setColumnPrefs(parts, { order: ["a"], hidden: ["a"] });
+		store().setColumnPrefs(otherTable, { order: ["b"], hidden: [] });
+
+		store().clearColumnPrefs(parts);
+
+		expect(getColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
+		expect(getColumnPrefs(otherTable)).toEqual({ order: ["b"], hidden: [] });
+	});
+
+	it("persists writes under a single namespaced storage key", () => {
+		store().setColumnPrefs(parts, { order: ["a"], hidden: [] });
+
+		const raw = window.localStorage.getItem("dbstudio-column-preferences");
+		expect(raw).not.toBeNull();
+		expect(JSON.parse(raw as string).state.prefsByTable).toEqual({
+			[makeColumnPrefKey(parts)]: { order: ["a"], hidden: [] },
+		});
+	});
+
+	it("discards a persisted payload that is not an object", () => {
 		window.localStorage.setItem(
-			makeStorageKey(parts),
-			JSON.stringify({ order: ["a", 42, null], hidden: "oops", extra: true }),
+			"dbstudio-column-preferences",
+			JSON.stringify({ state: { prefsByTable: "corrupt" }, version: 0 }),
 		);
-		expect(loadColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
+
+		useColumnPreferencesStore.persist.rehydrate();
+
+		expect(useColumnPreferencesStore.getState().prefsByTable).toEqual({});
+		expect(getColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
 	});
 
-	it("synchronizes preferences via in-memory fallback when storage setItem throws", () => {
-		const throwingStorage = {
-			getItem: () => null,
-			setItem: () => {
-				throw new Error("QuotaExceededError");
-			},
-			removeItem: () => {},
-		};
+	it("sanitizes each table entry when rehydrating persisted preferences", () => {
+		window.localStorage.setItem(
+			"dbstudio-column-preferences",
+			JSON.stringify({
+				state: {
+					prefsByTable: {
+						[makeColumnPrefKey(parts)]: { order: ["a", 7, null], hidden: "nope" },
+					},
+				},
+				version: 0,
+			}),
+		);
 
-		saveColumnPrefs(parts, { order: ["col2", "col1"], hidden: ["col2"] }, throwingStorage);
+		useColumnPreferencesStore.persist.rehydrate();
 
-		expect(loadColumnPrefs(parts, throwingStorage)).toEqual({
-			order: ["col2", "col1"],
-			hidden: ["col2"],
-		});
+		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
 	});
 
-	it("notifies listeners and clears in-memory fallback when removeItem throws", () => {
-		let notified = false;
-		const unsubscribe = subscribeColumnPrefsChanged((changed) => {
-			if (sameColumnPrefKey(changed, parts)) notified = true;
-		});
-
-		const failingStorage = {
-			getItem: () => null,
-			setItem: () => {
-				throw new Error("fail");
-			},
-			removeItem: () => {
-				throw new Error("fail");
-			},
-		};
-
-		saveColumnPrefs(parts, { order: ["a"], hidden: [] }, failingStorage);
-		expect(loadColumnPrefs(parts, failingStorage)).toEqual({ order: ["a"], hidden: [] });
-
-		notified = false;
-		clearColumnPrefs(parts, failingStorage);
-		expect(notified).toBe(true);
-		expect(loadColumnPrefs(parts, failingStorage)).toEqual({ order: [], hidden: [] });
-
-		unsubscribe();
+	it("matches key parts regardless of object identity", () => {
+		expect(sameColumnPrefKey(parts, { ...parts })).toBe(true);
+		expect(sameColumnPrefKey(parts, { ...parts, tableName: "orders" })).toBe(false);
 	});
 });
 

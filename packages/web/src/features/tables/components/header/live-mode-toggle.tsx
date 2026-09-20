@@ -4,15 +4,8 @@ import { cn } from "@db-studio/ui/utils";
 import { useCallback } from "react";
 import { useLiveModeStore } from "../../stores/live-mode.store";
 
-interface LiveModeToggleProps {
-	tableName: string;
-}
-
-export const LiveModeToggle = ({ tableName }: LiveModeToggleProps) => {
-	const isLive = useLiveModeStore((state) => state.isLive);
-	const status = useLiveModeStore((state) => state.status);
-	const isPulsing = useLiveModeStore((state) => state.isPulsing);
-	const setLive = useLiveModeStore((state) => state.setLive);
+export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
+	const { isLive, status, isPulsing, setLive } = useLiveModeStore();
 
 	const handleToggle = useCallback(() => {
 		setLive(!isLive, tableName);

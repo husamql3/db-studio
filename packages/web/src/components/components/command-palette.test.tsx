@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useOverlayStore } from "@/stores/overlay.store";
 import { CommandPalette } from "./command-palette";
 
 const mocks = vi.hoisted(() => ({
 	navigate: vi.fn(),
-	openOverlay: vi.fn(),
 	requestAssistant: vi.fn(),
 	exportFile: vi.fn(),
 	copyTableSchema: vi.fn(),
@@ -24,9 +24,6 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@/stores/database.store", () => ({
 	useDatabaseStore: () => ({ dbType: mocks.dbType, selectedDatabase: "shop" }),
-}));
-vi.mock("@/stores/overlay.store", () => ({
-	useOverlayStore: () => ({ openOverlay: mocks.openOverlay }),
 }));
 vi.mock("@/stores/personal-preferences.store", () => ({
 	usePersonalPreferencesStore: () => ({
@@ -81,6 +78,7 @@ describe("CommandPalette", () => {
 		mocks.routeParams = {};
 		mocks.pathname = "/";
 		mocks.dbType = "pg";
+		useOverlayStore.setState({ openOverlays: [] });
 		user = userEvent.setup();
 	});
 
@@ -98,6 +96,18 @@ describe("CommandPalette", () => {
 			expect(
 				screen.queryByPlaceholderText("Search commands... (type > for tables)"),
 			).not.toBeInTheDocument();
+		});
+	});
+
+	it("registers itself in the overlay registry while open", async () => {
+		render(<CommandPalette />);
+
+		await openPalette(user);
+		expect(useOverlayStore.getState().openOverlays).toContain("command-palette.root");
+
+		await user.keyboard("{Escape}");
+		await waitFor(() => {
+			expect(useOverlayStore.getState().openOverlays).not.toContain("command-palette.root");
 		});
 	});
 
@@ -154,7 +164,7 @@ describe("CommandPalette", () => {
 		expect(screen.getAllByText("Select a table first").length).toBeGreaterThan(0);
 
 		await user.click(addRow);
-		expect(mocks.openOverlay).not.toHaveBeenCalled();
+		expect(useOverlayStore.getState().openOverlays).not.toContain("records.add-record");
 	});
 
 	it("wires create-table to its overlay", async () => {
@@ -165,7 +175,7 @@ describe("CommandPalette", () => {
 
 		await user.click(commandItem("Create New Table"));
 
-		expect(mocks.openOverlay).toHaveBeenCalledWith("table-builder.create-table");
+		expect(useOverlayStore.getState().openOverlays).toContain("table-builder.create-table");
 	});
 
 	it("wires go-to commands to real routes", async () => {
@@ -183,7 +193,7 @@ describe("CommandPalette", () => {
 
 		await user.click(commandItem("Chat with AI Assistant"));
 
-		expect(mocks.openOverlay).toHaveBeenCalledWith("chat.assistant");
+		expect(useOverlayStore.getState().openOverlays).toContain("chat.assistant");
 	});
 
 	it("wires export to the real export action for the active table", async () => {
@@ -207,6 +217,18 @@ describe("CommandPalette", () => {
 		expect(screen.getByText("Create Redis Key")).toBeInTheDocument();
 		expect(screen.queryByText("Create New Table")).not.toBeInTheDocument();
 		expect(screen.queryByText("Search Tables")).not.toBeInTheDocument();
+	});
+
+	it("navigates to the Redis browser before opening its route-scoped create sheet", async () => {
+		mocks.dbType = "redis";
+		mocks.pathname = "/runner";
+		render(<CommandPalette />);
+		await openPalette(user);
+
+		await user.click(commandItem("Create Redis Key"));
+
+		expect(mocks.navigate).toHaveBeenCalledWith({ to: "/browser" });
+		expect(useOverlayStore.getState().openOverlays).toContain("redis-browser.create-key");
 	});
 
 	it("resets mode and input after running an action", async () => {
@@ -256,6 +278,6 @@ describe("CommandPalette", () => {
 		expect(screen.queryByText("Create New Table")).not.toBeInTheDocument();
 
 		await user.click(commandItem("Add Column"));
-		expect(mocks.openOverlay).not.toHaveBeenCalled();
+		expect(useOverlayStore.getState().openOverlays).not.toContain("schema.add-column");
 	});
 });

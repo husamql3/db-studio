@@ -2,7 +2,10 @@ import "@testing-library/jest-dom/vitest";
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadColumnPrefs, saveColumnPrefs } from "../../stores/column-preferences.store";
+import {
+	getColumnPrefs,
+	useColumnPreferencesStore,
+} from "../../stores/column-preferences.store";
 import { ColumnPreferencesMenu } from "./column-preferences-menu";
 
 const parts = { dbType: "pg", database: "dbstudio", tableName: "users" };
@@ -38,8 +41,11 @@ const openMenu = async () => {
 	await screen.findByText("Columns");
 };
 
+const saveColumnPrefs = useColumnPreferencesStore.getState().setColumnPrefs;
+
 beforeEach(() => {
 	localStorage.clear();
+	useColumnPreferencesStore.setState({ prefsByTable: {} });
 });
 
 describe("ColumnPreferencesMenu", () => {
@@ -68,7 +74,7 @@ describe("ColumnPreferencesMenu", () => {
 		expect(screen.getByText("email")).toBeInTheDocument();
 		expect(screen.queryByText("id")).not.toBeInTheDocument();
 		// the table itself stays untouched by search — hidden set is unchanged
-		expect(loadColumnPrefs(parts).hidden).toEqual([]);
+		expect(getColumnPrefs(parts).hidden).toEqual([]);
 	});
 
 	it("toggling visibility persists and updates the count", async () => {
@@ -76,7 +82,7 @@ describe("ColumnPreferencesMenu", () => {
 		await openMenu();
 		fireEvent.click(screen.getByLabelText("Show name"));
 		await waitFor(() => {
-			expect(loadColumnPrefs(parts).hidden).toEqual(["name"]);
+			expect(getColumnPrefs(parts).hidden).toEqual(["name"]);
 		});
 		expect(screen.getByText("2/3 shown")).toBeInTheDocument();
 	});
@@ -108,11 +114,24 @@ describe("ColumnPreferencesMenu", () => {
 		expect(screen.getByText("1/3 shown")).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Show all" }));
 		await waitFor(() => {
-			const saved = loadColumnPrefs(parts);
+			const saved = getColumnPrefs(parts);
 			expect(saved.hidden).toEqual([]);
 			expect(saved.order).toEqual(["email", "name", "id"]);
 		});
 		expect(screen.getByText("3/3 shown")).toBeInTheDocument();
+	});
+
+	it("does not write when show all has nothing to reveal", async () => {
+		saveColumnPrefs(parts, { order: ["email", "name", "id"], hidden: [] });
+		render(<ColumnPreferencesMenu tableName="users" />);
+		await openMenu();
+		const before = useColumnPreferencesStore.getState().prefsByTable;
+
+		fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+
+		expect(screen.getByText("3/3 shown")).toBeInTheDocument();
+		// A no-op update must leave the stored object untouched, not rewrite it.
+		expect(useColumnPreferencesStore.getState().prefsByTable).toBe(before);
 	});
 
 	it("reset restores schema order and default visibility", async () => {
@@ -121,7 +140,7 @@ describe("ColumnPreferencesMenu", () => {
 		await openMenu();
 		fireEvent.click(screen.getByRole("button", { name: "Reset" }));
 		await waitFor(() => {
-			expect(loadColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
+			expect(getColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
 		});
 		expect(screen.getByText("3/3 shown")).toBeInTheDocument();
 	});
@@ -132,11 +151,11 @@ describe("ColumnPreferencesMenu", () => {
 		const emailHandle = screen.getByRole("button", { name: "Reorder email" });
 		fireEvent.keyDown(emailHandle, { key: "ArrowUp" });
 		await waitFor(() => {
-			expect(loadColumnPrefs(parts).order).toEqual(["id", "email", "name"]);
+			expect(getColumnPrefs(parts).order).toEqual(["id", "email", "name"]);
 		});
 		fireEvent.keyDown(emailHandle, { key: "ArrowDown" });
 		await waitFor(() => {
-			expect(loadColumnPrefs(parts).order).toEqual(["id", "name", "email"]);
+			expect(getColumnPrefs(parts).order).toEqual(["id", "name", "email"]);
 		});
 	});
 
@@ -148,7 +167,7 @@ describe("ColumnPreferencesMenu", () => {
 		fireEvent.dragStart(items[2]);
 		fireEvent.drop(items[0]);
 		await waitFor(() => {
-			expect(loadColumnPrefs(parts).order).toEqual(["email", "id", "name"]);
+			expect(getColumnPrefs(parts).order).toEqual(["email", "id", "name"]);
 		});
 	});
 
@@ -162,7 +181,7 @@ describe("ColumnPreferencesMenu", () => {
 		const emailHandle = screen.getByRole("button", { name: "Reorder email" });
 		fireEvent.keyDown(emailHandle, { key: "ArrowUp" });
 		await waitFor(() => {
-			expect(loadColumnPrefs(parts).order).toEqual(["id", "email", "name"]);
+			expect(getColumnPrefs(parts).order).toEqual(["id", "email", "name"]);
 		});
 	});
 });

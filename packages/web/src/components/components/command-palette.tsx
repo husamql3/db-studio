@@ -11,7 +11,7 @@ import {
 	CommandShortcut,
 } from "@db-studio/ui/command";
 import { Kbd } from "@db-studio/ui/kbd";
-import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
 	Brain,
 	ChevronLeft,
@@ -36,29 +36,22 @@ import {
 	Table2,
 	Upload,
 } from "lucide-react";
-import { type KeyboardEvent, useCallback, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
 import { useExportFile, useTablesList } from "@/features/tables";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
-import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-
-type Mode = "all" | "tables";
-
-const NO_TABLE_HINT = "Select a table first";
-const SCHEMALESS_HINT = "Not available for schemaless databases";
+import {
+	NO_TABLE_HINT,
+	SCHEMALESS_HINT,
+	useCommandPaletteCapabilities,
+} from "./use-command-palette-capabilities";
+import { useCommandPaletteState } from "./use-command-palette-state";
 
 export function CommandPalette() {
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
-	const routeParams = useParams({ strict: false });
-	const activeTable = (routeParams as { table?: string }).table ?? null;
-	const { dbType } = useDatabaseStore();
 	const { openOverlay } = useOverlayStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
 	const { toggleTheme, isDark } = useTheme();
@@ -67,89 +60,34 @@ export function CommandPalette() {
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
 	const { requestAssistant } = useAssistantRequestStore();
 
-	const [open, setOpen] = useState(false);
-	const [mode, setMode] = useState<Mode>("all");
-	const [inputValue, setInputValue] = useState("");
-	const inputRef = useRef<HTMLInputElement>(null);
+	const {
+		open,
+		mode,
+		inputValue,
+		inputRef,
+		handleOpenChange,
+		handleAction,
+		handleInputChange,
+		handleKeyDown,
+		switchToAllMode,
+		switchToTablesMode,
+	} = useCommandPaletteState();
 
-	const isRedis = dbType === "redis";
-	const isSchemaless = useIsSchemaless();
-	// Create-table targets SQL-style schemas. Schemaless databases (MongoDB
-	// collections, Redis keys) get their own entry points instead.
-	const canCreateTable = !isSchemaless;
-	// Record and schema sheets mount per-screen (table-screen.tsx,
-	// schema-screen.tsx), so those commands only run on their own screen.
-	// Schema DDL additionally needs a database with real schemas.
-	const onTableScreen = pathname.startsWith("/table/");
-	const onSchemaScreen = pathname.startsWith("/schema/");
-	const canEditRecords = Boolean(activeTable) && onTableScreen;
-	const recordsHint = !activeTable ? NO_TABLE_HINT : "Open the table data screen first";
-	const canEditSchema = Boolean(activeTable) && onSchemaScreen && !isSchemaless;
-	const schemaHint = isSchemaless
-		? SCHEMALESS_HINT
-		: !activeTable
-			? NO_TABLE_HINT
-			: "Open the table schema screen first";
+	const {
+		pathname,
+		activeTable,
+		dbType,
+		isRedis,
+		isSchemaless,
+		canCreateTable,
+		canEditRecords,
+		recordsHint,
+		canEditSchema,
+		schemaHint,
+	} = useCommandPaletteCapabilities();
+
 	const isMac =
 		typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
-
-	const handleOpenChange = (isOpen: boolean) => {
-		setOpen(isOpen);
-		// Reset state when dialog closes
-		if (!isOpen) {
-			setMode("all");
-			setInputValue("");
-		}
-	};
-
-	const handleAction = (action: () => void) => {
-		// Go through handleOpenChange so mode/input reset on every close,
-		// including closes triggered here instead of by the dialog itself.
-		handleOpenChange(false);
-		action();
-	};
-
-	const switchToTablesMode = useCallback(() => {
-		setMode("tables");
-		setInputValue("");
-		// Focus input after mode switch
-		setTimeout(() => inputRef.current?.focus(), 0);
-	}, []);
-
-	const switchToAllMode = useCallback(() => {
-		setMode("all");
-		setInputValue("");
-		setTimeout(() => inputRef.current?.focus(), 0);
-	}, []);
-
-	// Handle input changes - detect mode triggers
-	const handleInputChange = (value: string) => {
-		// Detect ">" prefix to switch to tables mode, keeping anything typed
-		// after it (fast typing and pastes arrive as a single value).
-		if (mode === "all" && value.startsWith(">")) {
-			switchToTablesMode();
-			setInputValue(value.slice(1));
-			return;
-		}
-		// Also detect "table " or "tables " as triggers
-		if (
-			mode === "all" &&
-			(value.toLowerCase() === "table " || value.toLowerCase() === "tables ")
-		) {
-			switchToTablesMode();
-			return;
-		}
-		setInputValue(value);
-	};
-
-	// Backspace on empty input goes back to "all" mode. Escape is left to the
-	// dialog so it always closes the palette.
-	const handleKeyDown = (e: KeyboardEvent) => {
-		if (e.key === "Backspace" && inputValue === "" && mode === "tables") {
-			e.preventDefault();
-			switchToAllMode();
-		}
-	};
 
 	const handleNavigateToTable = (tableName: string) => {
 		handleAction(() => {
@@ -168,21 +106,6 @@ export function CommandPalette() {
 			openOverlay("chat.assistant");
 		});
 	};
-
-	// Global toggle. Enabled on form tags and content-editables so the palette
-	// also opens while another editor is focused. Events from inside the Monaco
-	// surface are ignored so its Ctrl/Cmd+K chord prefix keeps working; the
-	// query editor binds Ctrl/Cmd+Enter, Ctrl/Cmd+Shift+F and Ctrl/Cmd+S, so
-	// there is nothing else to collide with.
-	useHotkeys(
-		"ctrl+k, meta+k",
-		(event) => {
-			if ((event.target as HTMLElement | null)?.closest?.(".monaco-editor")) return;
-			event.preventDefault();
-			setOpen((prev) => !prev);
-		},
-		{ enableOnFormTags: true, enableOnContentEditable: true },
-	);
 
 	const placeholder =
 		mode === "all" ? "Search commands... (type > for tables)" : "Search tables...";
@@ -438,7 +361,14 @@ export function CommandPalette() {
 							)}
 							{isRedis && (
 								<CommandItem
-									onSelect={() => handleAction(() => openOverlay("redis-browser.create-key"))}
+									onSelect={() =>
+										handleAction(() => {
+											if (!pathname.startsWith("/browser")) {
+												navigate({ to: "/browser" });
+											}
+											openOverlay("redis-browser.create-key");
+										})
+									}
 									keywords={["create", "new", "redis", "key"]}
 								>
 									<KeyRound className="mr-2 size-4" />

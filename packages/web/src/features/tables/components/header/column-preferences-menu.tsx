@@ -16,11 +16,7 @@ import { useMemo, useRef, useState } from "react";
 import { useTableCols } from "@/features/schema";
 import { useColumnPreferences } from "../../hooks/use-column-preferences";
 
-interface ColumnPreferencesMenuProps {
-	tableName: string;
-}
-
-export const ColumnPreferencesMenu = ({ tableName }: ColumnPreferencesMenuProps) => {
+export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 	const [search, setSearch] = useState("");
 	const [dragIndex, setDragIndex] = useState<number | null>(null);
 	const searchRef = useRef<HTMLInputElement>(null);

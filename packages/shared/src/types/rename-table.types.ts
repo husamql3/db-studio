@@ -8,6 +8,7 @@ export const renameTableSchema = z.object({
 		.string("New table name is required")
 		.trim()
 		.min(1, "New table name is required"),
+	schemaName: z.string().trim().min(1).optional(),
 });
 
 export type RenameTableSchemaType = z.infer<typeof renameTableSchema>;
@@ -20,6 +21,7 @@ export const renameTableParamsSchema = z.object({
 	db: databaseSchema.shape.db,
 	tableName: tableNameSchema.shape.tableName,
 	newTableName: renameTableSchema.shape.newTableName,
+	schemaName: renameTableSchema.shape.schemaName,
 });
 
 export type RenameTableParamsSchemaType = z.infer<typeof renameTableParamsSchema>;

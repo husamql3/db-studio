@@ -48,7 +48,10 @@ export const SidebarListTablesItem = ({
 							: "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
 					)}
 				>
-					<SidebarListTablesMenu tableName={tableName} />
+					<SidebarListTablesMenu
+						tableName={tableName}
+						schemaName={schemaName}
+					/>
 				</div>
 			</div>
 		</li>

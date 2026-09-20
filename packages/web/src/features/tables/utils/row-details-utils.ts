@@ -22,9 +22,27 @@ export const isGeneratedColumn = (
 	return GENERATED_DEFAULT_PATTERNS.some((pattern) => columnDefault.includes(pattern));
 };
 
+export const getPrimaryKeyColumns = (
+	tableCols: ColumnInfoSchemaType[] | undefined,
+): ColumnInfoSchemaType[] => tableCols?.filter((col) => col.isPrimaryKey) ?? [];
+
 export const getPrimaryKeyColumn = (
 	tableCols: ColumnInfoSchemaType[] | undefined,
-): ColumnInfoSchemaType | undefined => tableCols?.find((col) => col.isPrimaryKey);
+): ColumnInfoSchemaType | undefined => getPrimaryKeyColumns(tableCols)[0];
+
+/**
+ * Every column a record update must match on. Composite keys are returned in
+ * full so a write can never fall back to matching on the first key alone.
+ * Falls back to an "id" column for keyless tables, mirroring the server.
+ */
+export const getIdentityColumnNames = (
+	tableCols: ColumnInfoSchemaType[] | undefined,
+): string[] => {
+	const pkCols = getPrimaryKeyColumns(tableCols);
+	if (pkCols.length > 0) return pkCols.map((col) => col.columnName);
+	const idCol = tableCols?.find((col) => col.columnName === "id");
+	return idCol ? [idCol.columnName] : [];
+};
 
 export const getRecordIdentity = (
 	row: TableRecord | undefined,

@@ -4,6 +4,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
+import { useRowDetailsStore } from "../stores/row-details.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { useLiveTable } from "./use-live-table";
 
@@ -14,6 +15,7 @@ describe("useLiveTable", () => {
 		useLiveModeStore.getState().reset();
 		useUpdateCellStore.getState().clearUpdates();
 		useOverlayStore.getState().closeAllOverlays();
+		useRowDetailsStore.getState().clearRowDetails();
 	});
 
 	afterEach(() => {
@@ -44,7 +46,7 @@ describe("useLiveTable", () => {
 			}),
 		);
 
-		act(() => {
+		await act(async () => {
 			result.current.toggleLive();
 		});
 
@@ -165,6 +167,45 @@ describe("useLiveTable", () => {
 		expect(useLiveModeStore.getState().status).toBe("paused");
 	});
 
+	it("pauses Live mode when the row details sheet has unsaved changes", () => {
+		const refetch = vi.fn().mockResolvedValue({ isError: false });
+		const { rerender } = renderHook(() =>
+			useLiveTable({ tableName: "users", tableDataRows: [], refetchTableData: refetch }),
+		);
+
+		act(() => {
+			useLiveModeStore.getState().setLive(true, "users");
+			useOverlayStore.getState().openOverlay("tables.row-details");
+			useRowDetailsStore.getState().setDirty(true);
+		});
+		rerender();
+
+		expect(useLiveModeStore.getState().isLive).toBe(false);
+		expect(useLiveModeStore.getState().status).toBe("paused");
+	});
+
+	it("never overlaps slow polls", async () => {
+		let resolvePoll: ((value: unknown) => void) | undefined;
+		const refetch = vi.fn(
+			() =>
+				new Promise((resolve) => {
+					resolvePoll = resolve;
+				}),
+		);
+		const { result } = renderHook(() =>
+			useLiveTable({ tableName: "users", tableDataRows: [], refetchTableData: refetch }),
+		);
+
+		act(() => result.current.toggleLive());
+		expect(refetch).toHaveBeenCalledTimes(1);
+		await act(async () => vi.advanceTimersByTime(3_000));
+		expect(refetch).toHaveBeenCalledTimes(1);
+
+		await act(async () => resolvePoll?.({ isError: false }));
+		await act(async () => vi.advanceTimersByTime(1_000));
+		expect(refetch).toHaveBeenCalledTimes(2);
+	});
+
 	it("pulses and sets highlights when data changes during Live mode", () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
 		let rows: TableRecord[] = [{ id: 1, name: "Alice" }];
@@ -221,7 +262,7 @@ describe("useLiveTable", () => {
 			}),
 		);
 
-		act(() => {
+		await act(async () => {
 			result.current.toggleLive();
 		});
 		expect(refetch).toHaveBeenCalledTimes(1);
@@ -237,7 +278,7 @@ describe("useLiveTable", () => {
 
 		// Tab becomes visible again
 		Object.defineProperty(document, "hidden", { value: false, configurable: true });
-		act(() => {
+		await act(async () => {
 			document.dispatchEvent(new Event("visibilitychange"));
 		});
 

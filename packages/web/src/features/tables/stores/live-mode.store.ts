@@ -7,6 +7,7 @@ interface LiveModeStore {
 	status: LiveModeStatus;
 	isPulsing: boolean;
 	activeTable: string | null;
+	generation: number;
 	highlightedRowIds: Set<string>;
 	highlightedCellKeys: Set<string>;
 
@@ -29,6 +30,7 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 	status: "idle",
 	isPulsing: false,
 	activeTable: null,
+	generation: 0,
 	highlightedRowIds: new Set(),
 	highlightedCellKeys: new Set(),
 
@@ -38,12 +40,14 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 				isLive: false,
 				status: "idle",
 				isPulsing: false,
+				generation: get().generation + 1,
 			});
 		} else {
 			set({
 				isLive: true,
 				status: "healthy",
 				activeTable: tableName ?? get().activeTable,
+				generation: get().generation + 1,
 			});
 		}
 	},
@@ -53,6 +57,7 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			isLive: false,
 			status: "paused",
 			isPulsing: false,
+			generation: get().generation + 1,
 		});
 	},
 
@@ -128,6 +133,7 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			status: "idle",
 			isPulsing: false,
 			activeTable: null,
+			generation: get().generation + 1,
 			highlightedRowIds: new Set(),
 			highlightedCellKeys: new Set(),
 		});

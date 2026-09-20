@@ -19,10 +19,12 @@ export const useUpdateRecord = ({ tableName }: { tableName: string }) => {
 			rowData,
 			updates,
 			primaryKey,
+			primaryKeys,
 		}: {
 			rowData: Record<string, unknown>;
 			updates: RowFieldUpdate[];
 			primaryKey?: string;
+			primaryKeys?: string[];
 		}) => {
 			if (!tableName) {
 				throw new Error("No table selected");
@@ -34,6 +36,7 @@ export const useUpdateRecord = ({ tableName }: { tableName: string }) => {
 				tableName,
 				updates: updates.map((update) => ({ rowData, ...update })),
 				...(primaryKey ? { primaryKey } : {}),
+				...(primaryKeys?.length ? { primaryKeys } : {}),
 				db: selectedDatabase,
 			});
 			return res.data.data;
@@ -56,16 +59,18 @@ export const useUpdateRecord = ({ tableName }: { tableName: string }) => {
 		rowData,
 		updates,
 		primaryKey,
+		primaryKeys,
 	}: {
 		rowData: Record<string, unknown>;
 		updates: RowFieldUpdate[];
 		primaryKey?: string;
+		primaryKeys?: string[];
 	}) => {
 		if (updates.length === 0) {
 			throw new Error("At least one field is required");
 		}
 		return toast
-			.promise(updateRecordMutation({ rowData, updates, primaryKey }), {
+			.promise(updateRecordMutation({ rowData, updates, primaryKey, primaryKeys }), {
 				loading: "Saving changes...",
 				success: (message) => message || "Record updated successfully",
 				error: (error: Error) => error.message || "Failed to update record",

@@ -30,7 +30,8 @@ export const TableBodyRow = ({
 	const visibleCells = row.getVisibleCells();
 	const virtualColumns = columnVirtualizer.getVirtualItems();
 	const { schedule, cancel } = useDelayedRowOpen();
-	const isRowHighlighted = useLiveModeStore((state) => state.highlightedRowIds.has(row.id));
+	const { highlightedRowIds } = useLiveModeStore();
+	const isRowHighlighted = highlightedRowIds.has(row.id);
 
 	const openRowDetails = () => {
 		useRowDetailsStore.getState().setRowDetails(tableName, virtualRow.index);

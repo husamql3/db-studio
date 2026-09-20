@@ -571,6 +571,7 @@ describe("PgAdapter.renameTable", () => {
 	// Simulated information_schema: which schemas contain each table name.
 	const schemasByTable: Record<string, string[]> = {
 		users: ["public"],
+		accounts: ["public", "audit"],
 		product: ["analytics"],
 		item: ["analytics"],
 		legacy: ["archive", "backup"],
@@ -607,6 +608,29 @@ describe("PgAdapter.renameTable", () => {
 	it("renames a table living in a non-public schema", async () => {
 		await adapter.renameTable({ db: "appdb", tableName: "product", newTableName: "goods" });
 		expect(statements.at(-1)).toBe('ALTER TABLE "analytics"."product" RENAME TO "goods"');
+	});
+
+	it("renames the explicitly selected schema when table names overlap", async () => {
+		await adapter.renameTable({
+			db: "appdb",
+			tableName: "accounts",
+			newTableName: "archived_accounts",
+			schemaName: "audit",
+		});
+		expect(statements.at(-1)).toBe(
+			'ALTER TABLE "audit"."accounts" RENAME TO "archived_accounts"',
+		);
+	});
+
+	it("rejects a rename aimed at a schema the table is not in", async () => {
+		await expect(
+			adapter.renameTable({
+				db: "appdb",
+				tableName: "accounts",
+				newTableName: "archived_accounts",
+				schemaName: "reporting",
+			}),
+		).rejects.toMatchObject({ status: 404 });
 	});
 
 	it("escapes double quotes in identifiers", async () => {

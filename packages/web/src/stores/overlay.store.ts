@@ -12,6 +12,15 @@ export type OverlayId =
 	| "records.bulk-insert-json"
 	| "records.record-reference"
 	| "tables.row-details"
+	| "tables.row-discard-changes"
+	| "tables.row-change-primary-key"
+	| "tables.row-delete-record"
+	// Per-table so only the menu that was opened reacts; the sidebar renders one
+	// of these components per table.
+	| `tables.rename-table.${string}`
+	| `tables.delete-table.${string}`
+	| `tables.force-delete-table.${string}`
+	| "command-palette.root"
 	| "redis-browser.create-key"
 	| "settings.app"
 	| "chat.assistant";

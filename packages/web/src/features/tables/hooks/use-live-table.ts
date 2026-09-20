@@ -5,6 +5,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
+import { useRowDetailsStore } from "../stores/row-details.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { diffTableRows } from "../utils/table-diff";
 
@@ -27,25 +28,30 @@ export const useLiveTable = ({
 }: UseLiveTableProps) => {
 	const canLiveMode = useDatabaseCapability("liveMode");
 
-	const isLive = useLiveModeStore((state) => state.isLive);
-	const status = useLiveModeStore((state) => state.status);
-	const isPulsing = useLiveModeStore((state) => state.isPulsing);
-	const setLive = useLiveModeStore((state) => state.setLive);
-	const pauseLive = useLiveModeStore((state) => state.pauseLive);
-	const setStatus = useLiveModeStore((state) => state.setStatus);
-	const triggerPulse = useLiveModeStore((state) => state.triggerPulse);
-	const setHighlights = useLiveModeStore((state) => state.setHighlights);
-	const isRowHighlighted = useLiveModeStore((state) => state.isRowHighlighted);
-	const isCellHighlighted = useLiveModeStore((state) => state.isCellHighlighted);
-	const reset = useLiveModeStore((state) => state.reset);
-	const selectedDatabase = useDatabaseStore((state) => state.selectedDatabase);
+	const {
+		isLive,
+		status,
+		isPulsing,
+		setLive,
+		pauseLive,
+		setStatus,
+		triggerPulse,
+		setHighlights,
+		isRowHighlighted,
+		isCellHighlighted,
+		reset,
+	} = useLiveModeStore();
+	const { selectedDatabase } = useDatabaseStore();
+	const { updates } = useUpdateCellStore();
+	const { openOverlays } = useOverlayStore();
+	const { isDirty: isRowDetailsDirty } = useRowDetailsStore();
 
-	const hasCellUpdates = useUpdateCellStore((state) => state.hasAnyUpdates());
-	const hasOpenRecordOverlay = useOverlayStore((state) =>
-		state.openOverlays.some((id) => id.startsWith("records.")),
-	);
+	const hasCellUpdates = updates.size > 0;
+	const hasOpenRecordOverlay = openOverlays.some((id) => id.startsWith("records."));
+	const hasDirtyRowDetails = isRowDetailsDirty && openOverlays.includes("tables.row-details");
 
-	const isEditing = isEditingCell || hasCellUpdates || hasOpenRecordOverlay;
+	const isEditing =
+		isEditingCell || hasCellUpdates || hasOpenRecordOverlay || hasDirtyRowDetails;
 
 	const pkCols = useMemo(
 		() => tableCols?.filter((c) => c.isPrimaryKey).map((c) => c.columnName) ?? [],
@@ -55,7 +61,7 @@ export const useLiveTable = ({
 	const prevRowsRef = useRef<TableRecord[] | null>(null);
 	const refetchRef = useRef(refetchTableData);
 	refetchRef.current = refetchTableData;
-	const sessionRef = useRef(0);
+	const pollInFlightRef = useRef(false);
 	const tableNameRef = useRef(tableName);
 	tableNameRef.current = tableName;
 	const selectedDatabaseRef = useRef(selectedDatabase);
@@ -64,7 +70,6 @@ export const useLiveTable = ({
 	// Pause Live mode when editing begins
 	useEffect(() => {
 		if (isLive && isEditing) {
-			sessionRef.current += 1;
 			pauseLive();
 		}
 	}, [isLive, isEditing, pauseLive]);
@@ -87,20 +92,21 @@ export const useLiveTable = ({
 			return;
 		}
 		if (isEditing) {
-			sessionRef.current += 1;
 			pauseLive();
 			return;
 		}
+		if (pollInFlightRef.current) return;
 
-		const currentSession = sessionRef.current;
+		const currentGeneration = useLiveModeStore.getState().generation;
 		const currentTable = tableNameRef.current;
 		const currentDatabase = selectedDatabaseRef.current;
+		pollInFlightRef.current = true;
 
 		try {
 			const res = await refetchRef.current();
 			const liveState = useLiveModeStore.getState();
 			if (
-				sessionRef.current !== currentSession ||
+				liveState.generation !== currentGeneration ||
 				!liveState.isLive ||
 				tableNameRef.current !== currentTable ||
 				selectedDatabaseRef.current !== currentDatabase
@@ -116,7 +122,7 @@ export const useLiveTable = ({
 		} catch {
 			const liveState = useLiveModeStore.getState();
 			if (
-				sessionRef.current !== currentSession ||
+				liveState.generation !== currentGeneration ||
 				!liveState.isLive ||
 				tableNameRef.current !== currentTable ||
 				selectedDatabaseRef.current !== currentDatabase
@@ -125,6 +131,8 @@ export const useLiveTable = ({
 			}
 
 			setStatus("disconnected");
+		} finally {
+			pollInFlightRef.current = false;
 		}
 	}, [isEditing, pauseLive, setStatus]);
 
@@ -164,16 +172,13 @@ export const useLiveTable = ({
 
 	// Cleanup on table, database, or route switch
 	useEffect(() => {
-		sessionRef.current += 1;
 		return () => {
-			sessionRef.current += 1;
 			reset();
 		};
 	}, [tableName, selectedDatabase, reset]);
 
 	const toggleLive = useCallback(() => {
 		if (!canLiveMode) return;
-		sessionRef.current += 1;
 		if (isLive) {
 			setLive(false);
 		} else {

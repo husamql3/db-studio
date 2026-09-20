@@ -1,3 +1,6 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
 export type ColumnPrefs = {
 	order: string[];
 	hidden: string[];
@@ -9,23 +12,7 @@ export type ColumnPrefKeyParts = {
 	tableName: string;
 };
 
-const STORAGE_PREFIX = "db-studio:columns:";
-
-// Tiny pub/sub so every useColumnPreferences instance (table model, menu, ...)
-// re-reads preferences after any write, staying in sync without prop drilling.
-type PrefsListener = (parts: ColumnPrefKeyParts) => void;
-const listeners = new Set<PrefsListener>();
-
-const notifyPrefsChanged = (parts: ColumnPrefKeyParts): void => {
-	for (const listener of listeners) listener(parts);
-};
-
-export const subscribeColumnPrefsChanged = (listener: PrefsListener): (() => void) => {
-	listeners.add(listener);
-	return () => {
-		listeners.delete(listener);
-	};
-};
+export const EMPTY_COLUMN_PREFS: ColumnPrefs = { order: [], hidden: [] };
 
 export const sameColumnPrefKey = (a: ColumnPrefKeyParts, b: ColumnPrefKeyParts): boolean =>
 	a.dbType === b.dbType && a.database === b.database && a.tableName === b.tableName;
@@ -37,8 +24,12 @@ export const sameColumnPrefs = (a: ColumnPrefs, b: ColumnPrefs): boolean =>
 	a.order.every((name, i) => name === b.order[i]) &&
 	a.hidden.every((name, i) => name === b.hidden[i]);
 
-export const makeStorageKey = ({ dbType, database, tableName }: ColumnPrefKeyParts): string =>
-	`${STORAGE_PREFIX}${JSON.stringify([dbType, database, tableName])}`;
+/** JSON-encoded so a colon inside a database or table name cannot collide. */
+export const makeColumnPrefKey = ({
+	dbType,
+	database,
+	tableName,
+}: ColumnPrefKeyParts): string => JSON.stringify([dbType, database, tableName]);
 
 const sanitize = (value: unknown): ColumnPrefs => {
 	const raw = (value ?? {}) as Partial<ColumnPrefs>;
@@ -49,61 +40,59 @@ const sanitize = (value: unknown): ColumnPrefs => {
 	return { order, hidden };
 };
 
-const memoryFallback = new Map<string, ColumnPrefs>();
-
-export const clearMemoryFallback = (): void => {
-	memoryFallback.clear();
+const sanitizeAll = (value: unknown): Record<string, ColumnPrefs> => {
+	if (!value || typeof value !== "object") return {};
+	return Object.fromEntries(
+		Object.entries(value as Record<string, unknown>).map(([key, prefs]) => [
+			key,
+			sanitize(prefs),
+		]),
+	);
 };
 
-export const loadColumnPrefs = (
-	parts: ColumnPrefKeyParts,
-	storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = window.localStorage,
-): ColumnPrefs => {
-	const key = makeStorageKey(parts);
-	try {
-		const raw = storage.getItem(key);
-		if (raw) {
-			return sanitize(JSON.parse(raw));
-		}
-	} catch {
-		// storage unavailable or getItem failed; fall back to in-memory store
-	}
-	const fallback = memoryFallback.get(key);
-	return fallback
-		? { order: [...fallback.order], hidden: [...fallback.hidden] }
-		: { order: [], hidden: [] };
+type ColumnPreferencesStore = {
+	prefsByTable: Record<string, ColumnPrefs>;
+	setColumnPrefs: (parts: ColumnPrefKeyParts, prefs: ColumnPrefs) => void;
+	clearColumnPrefs: (parts: ColumnPrefKeyParts) => void;
 };
 
-export const saveColumnPrefs = (
-	parts: ColumnPrefKeyParts,
-	prefs: ColumnPrefs,
-	storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = window.localStorage,
-): void => {
-	const key = makeStorageKey(parts);
-	const sanitized = sanitize(prefs);
-	try {
-		storage.setItem(key, JSON.stringify(sanitized));
-		memoryFallback.delete(key);
-	} catch {
-		// storage full or unavailable; preferences become session-only
-		memoryFallback.set(key, sanitized);
-	}
-	notifyPrefsChanged(parts);
-};
+export const useColumnPreferencesStore = create<ColumnPreferencesStore>()(
+	persist(
+		(set) => ({
+			prefsByTable: {},
 
-export const clearColumnPrefs = (
-	parts: ColumnPrefKeyParts,
-	storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = window.localStorage,
-): void => {
-	const key = makeStorageKey(parts);
-	memoryFallback.delete(key);
-	try {
-		storage.removeItem(key);
-	} catch {
-		// ignore
-	}
-	notifyPrefsChanged(parts);
-};
+			setColumnPrefs: (parts, prefs) =>
+				set((state) => ({
+					prefsByTable: {
+						...state.prefsByTable,
+						[makeColumnPrefKey(parts)]: sanitize(prefs),
+					},
+				})),
+
+			clearColumnPrefs: (parts) =>
+				set((state) => {
+					const { [makeColumnPrefKey(parts)]: _removed, ...rest } = state.prefsByTable;
+					return { prefsByTable: rest };
+				}),
+		}),
+		{
+			name: "dbstudio-column-preferences",
+			partialize: (state) => ({ prefsByTable: state.prefsByTable }),
+			// Stored payloads can be stale or hand-edited, so never trust their shape.
+			merge: (persisted, current) => ({
+				...current,
+				prefsByTable: sanitizeAll(
+					(persisted as { prefsByTable?: unknown } | undefined)?.prefsByTable,
+				),
+			}),
+		},
+	),
+);
+
+/** Stored preferences for one table, or the empty defaults. */
+export const getColumnPrefs = (parts: ColumnPrefKeyParts): ColumnPrefs =>
+	useColumnPreferencesStore.getState().prefsByTable[makeColumnPrefKey(parts)] ??
+	EMPTY_COLUMN_PREFS;
 
 /**
  * Reconcile saved prefs against the live schema:

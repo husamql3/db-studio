@@ -10,7 +10,13 @@ type MutationError = Error & {
 	details?: unknown;
 };
 
-export const useRenameTable = ({ tableName }: { tableName: string }) => {
+export const useRenameTable = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName?: string;
+}) => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
 
@@ -22,7 +28,7 @@ export const useRenameTable = ({ tableName }: { tableName: string }) => {
 		mutationFn: async (data) => {
 			const res = await renameTableRequest({
 				tableName,
-				data,
+				data: { ...data, schemaName },
 				db: selectedDatabase,
 			});
 			return res.data.data;

@@ -89,6 +89,14 @@ vi.mock("@/features/records", async (importOriginal) => {
 vi.mock("nuqs", () => ({
 	useQueryState: () => [null, vi.fn()],
 }));
+// The unsaved-draft guard needs a router; its own suite covers the blocking.
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+	const mod = await importOriginal<typeof import("@tanstack/react-router")>();
+	return {
+		...mod,
+		useBlocker: () => ({ status: "idle", proceed: vi.fn(), reset: vi.fn() }),
+	};
+});
 
 describe("TableTabContainer row details wiring", () => {
 	beforeEach(() => {

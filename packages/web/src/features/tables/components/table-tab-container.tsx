@@ -13,6 +13,7 @@ import { TableEmptyState } from "./table-empty-state";
 import { TableErrorState } from "./table-error-state";
 import { TableGrid } from "./table-grid";
 import { TableLoadingState } from "./table-loading-state";
+import { UnsavedRowGuardDialog } from "./unsaved-row-guard-dialog";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const { dbType } = useDatabaseStore();
@@ -44,7 +45,11 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	useEffect(() => {
 		return () => {
 			useRowDetailsStore.getState().clearRowDetails();
-			useOverlayStore.getState().closeOverlay("tables.row-details");
+			const { closeOverlay } = useOverlayStore.getState();
+			closeOverlay("tables.row-change-primary-key");
+			closeOverlay("tables.row-delete-record");
+			closeOverlay("tables.row-discard-changes");
+			closeOverlay("tables.row-details");
 		};
 	}, [tableName]);
 
@@ -107,6 +112,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 				tableName={tableName}
 				rows={visibleRows}
 			/>
+			<UnsavedRowGuardDialog />
 		</>
 	);
 };

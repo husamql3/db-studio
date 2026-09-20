@@ -10,6 +10,7 @@ const mockClient = vi.hoisted(() => ({
 	sadd: vi.fn(),
 	zadd: vi.fn(),
 	xadd: vi.fn(),
+	renamenx: vi.fn(),
 }));
 
 const mockGetRedisClient = vi.hoisted(() => vi.fn());
@@ -189,6 +190,64 @@ describe("RedisAdapter — record mutations", () => {
 			expect(mockClient.del).toHaveBeenCalledWith("q");
 			expect(mockClient.rpush).toHaveBeenCalledWith("q", "a", "b");
 			expect(result.updatedCount).toBe(1);
+		});
+
+		it("renames the key when the key column is edited", async () => {
+			mockClient.set.mockResolvedValue("OK");
+			mockClient.renamenx.mockResolvedValue(1);
+
+			const result = await adapter.updateRecords({
+				db: "0",
+				params: {
+					tableName: "strings",
+					primaryKey: "key",
+					updates: [
+						{
+							rowData: { key: "old", value: "v" },
+							columnName: "key",
+							value: "new",
+						},
+					],
+				},
+			});
+
+			expect(mockClient.renamenx).toHaveBeenCalledWith("old", "new");
+			expect(result.updatedCount).toBe(1);
+		});
+
+		it("does not rename when the key column is unchanged", async () => {
+			mockClient.set.mockResolvedValue("OK");
+
+			await adapter.updateRecords({
+				db: "0",
+				params: {
+					tableName: "strings",
+					primaryKey: "key",
+					updates: [
+						{ rowData: { key: "same", value: "v" }, columnName: "value", value: "w" },
+					],
+				},
+			});
+
+			expect(mockClient.renamenx).not.toHaveBeenCalled();
+		});
+
+		it("returns 409 when renaming onto a key that already exists", async () => {
+			mockClient.set.mockResolvedValue("OK");
+			mockClient.renamenx.mockResolvedValue(0);
+
+			await expect(
+				adapter.updateRecords({
+					db: "0",
+					params: {
+						tableName: "strings",
+						primaryKey: "key",
+						updates: [
+							{ rowData: { key: "old", value: "v" }, columnName: "key", value: "taken" },
+						],
+					},
+				}),
+			).rejects.toMatchObject({ status: 409 });
 		});
 
 		it("returns 404 when updating a string that doesn't exist (SET XX returns null)", async () => {

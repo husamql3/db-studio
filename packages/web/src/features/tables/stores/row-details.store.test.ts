@@ -4,7 +4,7 @@ import { useRowDetailsStore } from "./row-details.store";
 const state = () => useRowDetailsStore.getState();
 
 beforeEach(() => {
-	useRowDetailsStore.setState({ tableName: null, rowIndex: null });
+	useRowDetailsStore.setState({ tableName: null, rowIndex: null, isDirty: false });
 });
 
 describe("useRowDetailsStore", () => {
@@ -31,5 +31,13 @@ describe("useRowDetailsStore", () => {
 		state().clearRowDetails();
 		expect(state().tableName).toBeNull();
 		expect(state().rowIndex).toBeNull();
+		expect(state().isDirty).toBe(false);
+	});
+
+	it("shares dirty state with navigation and Live mode guards", () => {
+		state().setDirty(true);
+		expect(state().isDirty).toBe(true);
+		state().setDirty(false);
+		expect(state().isDirty).toBe(false);
 	});
 });

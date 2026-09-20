@@ -12,8 +12,8 @@ import {
 } from "@db-studio/ui/alert-dialog";
 import { Button } from "@db-studio/ui/button";
 import { Check, ChevronDown, ChevronUp, Copy, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FormProvider, useForm, useFormContext } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { FormProvider, useFormContext } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { AddRecordField, RecordReferenceSheet } from "@/features/records";
@@ -22,16 +22,14 @@ import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useDeleteCells } from "../hooks/use-delete-cell";
+import { useRowDetailsForm } from "../hooks/use-row-details-form";
 import { useUpdateRecord } from "../hooks/use-update-record";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import {
 	buildRowUpdates,
 	copyTextToClipboard,
-	getPrimaryKeyColumn,
-	getRecordIdentity,
 	isGeneratedColumn,
-	toFormValues,
-} from "./row-details-utils";
+} from "../utils/row-details-utils";
 
 type PendingAction = null | "close" | "delete" | number;
 
@@ -125,99 +123,39 @@ export const RowDetailsSheet = ({
 	tableName: string;
 	rows: TableRecord[];
 }) => {
-	const { closeOverlay, isOverlayOpen } = useOverlayStore();
+	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { rowIndex, selectRowDetails, clearRowDetails } = useRowDetailsStore();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
 	const { updateRecord, isUpdatingRecord } = useUpdateRecord({ tableName });
 	const { deleteCells, isDeletingCells } = useDeleteCells({ tableName });
 
+	// Confirmation dialogs go through the overlay registry; the local state below
+	// is the payload each one acts on, never its open flag.
 	const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-	const [showPkConfirm, setShowPkConfirm] = useState(false);
-	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [pendingSave, setPendingSave] = useState<Record<string, string> | null>(null);
+
+	const openDiscardConfirm = (action: PendingAction) => {
+		setPendingAction(action);
+		openOverlay("tables.row-discard-changes");
+	};
+	const closeDiscardConfirm = () => {
+		setPendingAction(null);
+		closeOverlay("tables.row-discard-changes");
+	};
 
 	const open = isOverlayOpen("tables.row-details") && rowIndex !== null;
 	const row = rowIndex === null ? undefined : rows[rowIndex];
 	const isBusy = isUpdatingRecord || isDeletingCells;
 
-	const primaryKeyColumn = useMemo(() => getPrimaryKeyColumn(tableCols), [tableCols]);
-	// The server falls back to an "id" column when no primary key is sent, so
-	// saving works for keyless tables that still carry an "id" column.
-	const identityColumn = useMemo(
-		() => primaryKeyColumn ?? tableCols?.find((col) => col.columnName === "id"),
-		[primaryKeyColumn, tableCols],
-	);
-	const columnsSignature = useMemo(
-		() => JSON.stringify((tableCols ?? []).map((col) => col.columnName)),
-		[tableCols],
-	);
-
-	const methods = useForm<Record<string, string>>({
-		defaultValues: useMemo(() => toFormValues(row, tableCols), [row, tableCols]),
-	});
+	const { methods, isDirty, pkDirty, primaryKeyColumn, identityColumnNames } =
+		useRowDetailsForm({ tableName, tableCols, row, rowIndex });
 	const { formState, reset, handleSubmit } = methods;
-	const isDirty = formState.isDirty;
-	const pkDirty = primaryKeyColumn
-		? Boolean(formState.dirtyFields[primaryKeyColumn.columnName])
-		: false;
-
-	const lastRowRef = useRef<TableRecord | undefined>(undefined);
-	const lastRecordIdentityRef = useRef<string | undefined>(undefined);
-	const lastRowIndexRef = useRef<number | null>(null);
-	const lastTableNameRef = useRef<string | null>(null);
-	const lastColsSigRef = useRef<string>(columnsSignature);
-
-	// Synchronize form values with the active row. An untouched draft resets from
-	// the refreshed row so displayed values stay consistent. Dirty edits are preserved
-	// only when the refreshed row has the same stable record identity.
-	useEffect(() => {
-		const currentIdentity = getRecordIdentity(row, tableCols);
-		const isSameSelection =
-			tableName === lastTableNameRef.current &&
-			rowIndex === lastRowIndexRef.current &&
-			columnsSignature === lastColsSigRef.current;
-
-		if (!isSameSelection) {
-			lastTableNameRef.current = tableName;
-			lastRowIndexRef.current = rowIndex;
-			lastColsSigRef.current = columnsSignature;
-			lastRowRef.current = row;
-			lastRecordIdentityRef.current = currentIdentity;
-			methods.reset(toFormValues(row, tableCols));
-			return;
-		}
-
-		if (row === lastRowRef.current) {
-			return;
-		}
-		lastRowRef.current = row;
-
-		const freshValues = toFormValues(row, tableCols);
-
-		if (!isDirty) {
-			lastRecordIdentityRef.current = currentIdentity;
-			methods.reset(freshValues);
-			return;
-		}
-
-		const sameIdentity =
-			currentIdentity !== undefined &&
-			lastRecordIdentityRef.current !== undefined &&
-			currentIdentity === lastRecordIdentityRef.current;
-
-		if (sameIdentity) {
-			methods.reset(freshValues, { keepDirtyValues: true });
-		} else {
-			lastRecordIdentityRef.current = currentIdentity;
-			methods.reset(freshValues);
-		}
-	}, [row, tableCols, tableName, rowIndex, columnsSignature, methods, isDirty]);
 
 	// The selected index can fall off the page after the data changes.
 	useEffect(() => {
 		if (open && rowIndex !== null && !rows[rowIndex]) {
 			if (isDirty) {
-				setPendingAction("close");
+				openDiscardConfirm("close");
 			} else {
 				clearRowDetails();
 				closeOverlay("tables.row-details");
@@ -227,13 +165,16 @@ export const RowDetailsSheet = ({
 
 	const closeSheet = () => {
 		clearRowDetails();
+		closeOverlay("tables.row-change-primary-key");
+		closeOverlay("tables.row-delete-record");
+		closeOverlay("tables.row-discard-changes");
 		closeOverlay("tables.row-details");
 	};
 
 	const requestClose = () => {
 		if (isBusy) return;
 		if (isDirty) {
-			setPendingAction("close");
+			openDiscardConfirm("close");
 		} else {
 			closeSheet();
 		}
@@ -242,7 +183,7 @@ export const RowDetailsSheet = ({
 	const requestNavigate = (index: number) => {
 		if (isBusy || index === rowIndex || index < 0 || index >= rows.length) return;
 		if (isDirty) {
-			setPendingAction(index);
+			openDiscardConfirm(index);
 		} else {
 			selectRowDetails(index);
 		}
@@ -251,19 +192,19 @@ export const RowDetailsSheet = ({
 	const requestDelete = () => {
 		if (isBusy) return;
 		if (isDirty) {
-			setPendingAction("delete");
+			openDiscardConfirm("delete");
 		} else {
-			setShowDeleteConfirm(true);
+			openOverlay("tables.row-delete-record");
 		}
 	};
 
 	const confirmDiscard = () => {
 		const action = pendingAction;
-		setPendingAction(null);
+		closeDiscardConfirm();
 		if (action === "close") {
 			closeSheet();
 		} else if (action === "delete") {
-			setShowDeleteConfirm(true);
+			openOverlay("tables.row-delete-record");
 		} else if (typeof action === "number") {
 			selectRowDetails(action);
 		}
@@ -277,7 +218,8 @@ export const RowDetailsSheet = ({
 			await updateRecord({
 				rowData: row,
 				updates,
-				primaryKey: identityColumn?.columnName,
+				primaryKey: identityColumnNames[0],
+				primaryKeys: identityColumnNames,
 			});
 			reset(data);
 			closeSheet();
@@ -289,7 +231,7 @@ export const RowDetailsSheet = ({
 	const onSubmit = (data: Record<string, string>) => {
 		if (pkDirty) {
 			setPendingSave(data);
-			setShowPkConfirm(true);
+			openOverlay("tables.row-change-primary-key");
 			return;
 		}
 		void doSave(data);
@@ -297,7 +239,7 @@ export const RowDetailsSheet = ({
 
 	const confirmDelete = async () => {
 		if (!row) return;
-		setShowDeleteConfirm(false);
+		closeOverlay("tables.row-delete-record");
 		try {
 			const result = await deleteCells([row]);
 			if (result.deletedCount > 0) {
@@ -411,9 +353,9 @@ export const RowDetailsSheet = ({
 									<Button
 										type="submit"
 										size="lg"
-										disabled={isBusy || !isDirty || !identityColumn}
+										disabled={isBusy || !isDirty || identityColumnNames.length === 0}
 										title={
-											identityColumn
+											identityColumnNames.length > 0
 												? undefined
 												: "Saving needs a primary key or an id column to address the record"
 										}
@@ -444,11 +386,9 @@ export const RowDetailsSheet = ({
 			</SheetSidebar>
 
 			<AlertDialog
-				open={pendingAction !== null}
+				open={isOverlayOpen("tables.row-discard-changes")}
 				onOpenChange={(isOpen) => {
-					if (!isOpen) {
-						setPendingAction(null);
-					}
+					if (!isOpen) closeDiscardConfirm();
 				}}
 			>
 				<AlertDialogContent>
@@ -466,12 +406,12 @@ export const RowDetailsSheet = ({
 			</AlertDialog>
 
 			<AlertDialog
-				open={showPkConfirm}
+				open={isOverlayOpen("tables.row-change-primary-key")}
 				onOpenChange={(isOpen) => {
-					setShowPkConfirm(isOpen);
-					if (!isOpen) {
-						setPendingSave(null);
-					}
+					// Controlled and trigger-less: the dialog only ever asks to close.
+					if (isOpen) return;
+					closeOverlay("tables.row-change-primary-key");
+					setPendingSave(null);
 				}}
 			>
 				<AlertDialogContent>
@@ -486,7 +426,7 @@ export const RowDetailsSheet = ({
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
-								setShowPkConfirm(false);
+								closeOverlay("tables.row-change-primary-key");
 								if (pendingSave) {
 									void doSave(pendingSave);
 									setPendingSave(null);
@@ -500,8 +440,10 @@ export const RowDetailsSheet = ({
 			</AlertDialog>
 
 			<AlertDialog
-				open={showDeleteConfirm}
-				onOpenChange={setShowDeleteConfirm}
+				open={isOverlayOpen("tables.row-delete-record")}
+				onOpenChange={(isOpen) => {
+					if (!isOpen) closeOverlay("tables.row-delete-record");
+				}}
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>

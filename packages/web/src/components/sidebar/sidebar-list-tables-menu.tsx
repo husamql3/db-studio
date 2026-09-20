@@ -35,25 +35,36 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
+import { useOverlayStore } from "@/stores/overlay.store";
 
-export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
+export const SidebarListTablesMenu = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName?: string;
+}) => {
 	const navigate = useNavigate();
 	const params = useParams({ strict: false });
 	const { pathname } = useLocation();
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
 	const { exportFile, isExportingFile } = useExportFile();
 	const { deleteTable, forceDeleteTable, isDeletingTable } = useDeleteTable();
-	const { renameTable, isRenamingTable } = useRenameTable({ tableName });
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
-	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+	const { renameTable, isRenamingTable } = useRenameTable({ tableName, schemaName });
+	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
+	const renameOverlayId = `tables.rename-table.${tableName}` as const;
+	const deleteOverlayId = `tables.delete-table.${tableName}` as const;
+	const forceDeleteOverlayId = `tables.force-delete-table.${tableName}` as const;
+
 	const handleRenameDialogChange = (open: boolean) => {
-		setIsRenameDialogOpen(open);
 		if (open) {
 			setNewTableName(tableName);
+			openOverlay(renameOverlayId);
+		} else {
+			closeOverlay(renameOverlayId);
 		}
 	};
 
@@ -61,7 +72,7 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 		const trimmed = newTableName.trim();
 		if (!trimmed || trimmed === tableName) return;
 		try {
-			await renameTable({ newTableName: trimmed });
+			await renameTable({ newTableName: trimmed, schemaName });
 			handleRenameDialogChange(false);
 			const activeTable = (params as { table?: string }).table;
 			if (activeTable === tableName) {
@@ -83,22 +94,22 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 
 		if (result.fkViolation) {
 			setRelatedRecords(result.relatedRecords);
-			setIsDeleteDialogOpen(false);
-			setIsForceDeleteDialogOpen(true);
+			closeOverlay(deleteOverlayId);
+			openOverlay(forceDeleteOverlayId);
 		} else {
-			setIsDeleteDialogOpen(false);
+			closeOverlay(deleteOverlayId);
 			navigate({ to: "/" });
 		}
 	};
 
 	const handleForceDelete = async () => {
 		await forceDeleteTable(tableName);
-		setIsForceDeleteDialogOpen(false);
+		closeOverlay(forceDeleteOverlayId);
 		navigate({ to: "/" });
 	};
 
 	const handleCancelForceDelete = () => {
-		setIsForceDeleteDialogOpen(false);
+		closeOverlay(forceDeleteOverlayId);
 		setRelatedRecords([]);
 	};
 
@@ -183,7 +194,7 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 						<DropdownMenuSeparator />
 						<DropdownMenuItem
 							variant="destructive"
-							onClick={() => setIsDeleteDialogOpen(true)}
+							onClick={() => openOverlay(deleteOverlayId)}
 						>
 							<Trash2 className="size-4" />
 							Delete table
@@ -196,23 +207,28 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 				tableName={tableName}
 				newTableName={newTableName}
 				setNewTableName={setNewTableName}
-				isOpen={isRenameDialogOpen}
+				isOpen={isOverlayOpen(renameOverlayId)}
 				onOpenChange={handleRenameDialogChange}
 				onRename={handleRename}
 				isRenaming={isRenamingTable}
 			/>
 
 			<DeleteTableDialog
-				isOpen={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
+				isOpen={isOverlayOpen(deleteOverlayId)}
+				// Controlled and trigger-less: the dialog only ever asks to close.
+				onOpenChange={(open) => {
+					if (!open) closeOverlay(deleteOverlayId);
+				}}
 				tableName={tableName}
 				onDelete={handleDelete}
 				isDeleting={isDeletingTable}
 			/>
 
 			<ForceDeleteTableDialog
-				isOpen={isForceDeleteDialogOpen}
-				onOpenChange={setIsForceDeleteDialogOpen}
+				isOpen={isOverlayOpen(forceDeleteOverlayId)}
+				onOpenChange={(open) => {
+					if (!open) closeOverlay(forceDeleteOverlayId);
+				}}
 				tableName={tableName}
 				relatedRecords={relatedRecords}
 				onForceDelete={handleForceDelete}

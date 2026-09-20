@@ -447,13 +447,30 @@ export const AddRecordField = ({
 		}
 
 		if (dataTypeLabel === "bytea") {
+			// A file input cannot be controlled: assigning a non-empty value throws
+			// InvalidStateError in the browser. Show any stored bytes read-only and
+			// leave the picker uncontrolled so it only ever carries a replacement.
+			const { value: storedValue, ...fileField } = safeField;
+			const storedText = typeof storedValue === "string" ? storedValue : "";
+
 			return (
-				<Input
-					id={columnName}
-					aria-label={controlName}
-					type="file"
-					{...safeField}
-				/>
+				<div className="flex flex-col gap-2">
+					{storedText && (
+						<div
+							role="group"
+							aria-label={`${columnName} stored value`}
+							className="truncate rounded-md border border-input bg-muted/40 px-3 py-2 font-mono text-xs"
+						>
+							{storedText}
+						</div>
+					)}
+					<Input
+						id={columnName}
+						aria-label={controlName}
+						type="file"
+						{...fileField}
+					/>
+				</div>
 			);
 		}
 

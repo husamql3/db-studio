@@ -523,10 +523,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
 		const { tableName, newTableName, db } = params;
-		if (tableName === newTableName)
-			throw new HTTPException(400, {
-				message: `New table name must be different from "${tableName}"`,
-			});
+		this.assertDifferentTableName(tableName, newTableName);
 		const sqliteDb = getSqliteDb();
 
 		const tableRow = sqliteDb
@@ -874,24 +871,15 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
-		const { tableName, updates, primaryKey } = params;
+		const { tableName } = params;
 		const sqliteDb = getSqliteDb();
 
-		const updatesByRow = new Map<unknown, Array<{ columnName: string; value: unknown }>>();
-		for (const u of updates) {
-			const pkValue = u.rowData[primaryKey];
-			if (pkValue === undefined || pkValue === null) {
-				throw new HTTPException(400, {
-					message: `Primary key "${primaryKey}" not found in row data.`,
-				});
-			}
-			if (!updatesByRow.has(pkValue)) updatesByRow.set(pkValue, []);
-			updatesByRow.get(pkValue)?.push({ columnName: u.columnName, value: u.value });
-		}
+		const keyColumns = this.resolveKeyColumns(params);
+		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const doUpdate = sqliteDb.transaction(() => {
 			let total = 0;
-			for (const [pkValue, rowUpdates] of updatesByRow.entries()) {
+			for (const { keyValues, rowUpdates } of groups) {
 				const setClauses = rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ");
 				const values = [
 					...rowUpdates.map((u) =>
@@ -899,15 +887,16 @@ export class SqliteAdapter extends BaseAdapter {
 							? JSON.stringify(u.value)
 							: u.value,
 					),
-					pkValue,
+					...keyValues,
 				];
+				const whereClauses = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
 				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 				const result = sqliteDb
-					.prepare(`UPDATE "${tableName}" SET ${setClauses} WHERE "${primaryKey}" = ?`)
+					.prepare(`UPDATE "${tableName}" SET ${setClauses} WHERE ${whereClauses}`)
 					.run(...(values as any[]));
 				if (result.changes === 0) {
 					throw new HTTPException(404, {
-						message: `Record with ${primaryKey} = ${pkValue} not found in table "${tableName}"`,
+						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 					});
 				}
 				total += result.changes;

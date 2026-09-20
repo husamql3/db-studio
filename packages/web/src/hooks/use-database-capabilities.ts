@@ -2,6 +2,6 @@ import { type DatabaseCapability, hasDatabaseCapability } from "@db-studio/share
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useDatabaseCapability = (capability: DatabaseCapability): boolean => {
-	const dbType = useDatabaseStore((state) => state.dbType);
+	const { dbType } = useDatabaseStore();
 	return hasDatabaseCapability(dbType, capability);
 };

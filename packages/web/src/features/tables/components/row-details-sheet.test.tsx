@@ -122,8 +122,8 @@ const fixtures = vi.hoisted(() => ({
 	copyText: vi.fn(async (_value: string) => {}),
 }));
 
-vi.mock("./row-details-utils", async (importOriginal) => {
-	const mod = await importOriginal<typeof import("./row-details-utils")>();
+vi.mock("../utils/row-details-utils", async (importOriginal) => {
+	const mod = await importOriginal<typeof import("../utils/row-details-utils")>();
 	return { ...mod, copyTextToClipboard: (...args: unknown[]) => fixtures.copyText(...args) };
 });
 
@@ -233,9 +233,39 @@ describe("RowDetailsSheet", () => {
 			rowData: fixtures.rows[0],
 			updates: [{ columnName: "name", value: "Grace" }],
 			primaryKey: "id",
+			primaryKeys: ["id"],
 		});
 		await waitFor(() => {
 			expect(screen.queryByText("Row details")).not.toBeInTheDocument();
+		});
+	});
+
+	it("addresses a composite-key record by every key column", async () => {
+		// tenant_id alone matches every user in the tenant, so the save must carry
+		// both key columns or it can rewrite unrelated records.
+		fixtures.cols = [
+			{
+				...fixtures.cols[0],
+				columnName: "tenant_id",
+				isPrimaryKey: true,
+				columnDefault: null,
+			},
+			{ ...fixtures.cols[0], columnName: "user_id", isPrimaryKey: true, columnDefault: null },
+			fixtures.cols[1],
+		] as ReturnType<typeof makeCols>;
+		fixtures.rows = [{ tenant_id: 7, user_id: 42, name: "Ada" }] as never;
+		renderSheet();
+
+		const nameInput = screen.getByDisplayValue("Ada");
+		await user.clear(nameInput);
+		await user.type(nameInput, "Grace");
+		await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+		expect(fixtures.updateRecord).toHaveBeenCalledWith({
+			rowData: fixtures.rows[0],
+			updates: [{ columnName: "name", value: "Grace" }],
+			primaryKey: "tenant_id",
+			primaryKeys: ["tenant_id", "user_id"],
 		});
 	});
 
@@ -302,7 +332,52 @@ describe("RowDetailsSheet", () => {
 			rowData: fixtures.rows[0],
 			updates: [{ columnName: "code", value: "A2" }],
 			primaryKey: "code",
+			primaryKeys: ["code"],
 		});
+	});
+
+	it("confirms the discard before showing the delete confirmation", async () => {
+		renderSheet();
+
+		const nameInput = screen.getByDisplayValue("Ada");
+		await user.clear(nameInput);
+		await user.type(nameInput, "Grace");
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		// The dirty draft is confirmed first; deleting is the queued action.
+		expect(await screen.findByText("Discard unsaved changes?")).toBeInTheDocument();
+		expect(screen.queryByText("Delete record")).not.toBeInTheDocument();
+		expect(fixtures.deleteCells).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole("button", { name: "Discard changes" }));
+
+		expect(await screen.findByText("Delete record")).toBeInTheDocument();
+		expect(useOverlayStore.getState().openOverlays).toContain("tables.row-delete-record");
+	});
+
+	it("drops the queued save when the primary-key confirmation is dismissed", async () => {
+		fixtures.cols = [
+			{ ...fixtures.cols[1], columnName: "code", isPrimaryKey: true },
+			fixtures.cols[1],
+		] as ReturnType<typeof makeCols>;
+		fixtures.rows = [{ code: "A1", name: "Ada" }] as never;
+		renderSheet();
+
+		const codeInput = screen.getByDisplayValue("A1");
+		await user.clear(codeInput);
+		await user.type(codeInput, "A2");
+		await user.click(screen.getByRole("button", { name: "Save changes" }));
+		expect(await screen.findByText("Change the primary key?")).toBeInTheDocument();
+
+		await user.keyboard("{Escape}");
+
+		await waitFor(() => {
+			expect(useOverlayStore.getState().openOverlays).not.toContain(
+				"tables.row-change-primary-key",
+			);
+		});
+		expect(fixtures.updateRecord).not.toHaveBeenCalled();
 	});
 
 	it("protects unsaved changes when closing", async () => {
