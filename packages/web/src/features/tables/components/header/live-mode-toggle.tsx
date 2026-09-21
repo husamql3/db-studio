@@ -11,11 +11,11 @@ export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
 		setLive(!isLive, tableName);
 	}, [isLive, tableName, setLive]);
 
-	let tooltipText = "Live mode: Automatic 1s PostgreSQL updates (Off)";
+	let tooltipText = "Live mode: Automatic updates (Off)";
 	if (status === "paused") {
 		tooltipText = "Live mode paused while editing. Click to resume.";
 	} else if (isLive && status === "healthy") {
-		tooltipText = "Live mode: Active (healthy, 1s polling)";
+		tooltipText = "Live mode: Active";
 	} else if (isLive && status === "disconnected") {
 		tooltipText = "Live mode: Disconnected. Attempting to reconnect...";
 	}
@@ -29,9 +29,10 @@ export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
 					onClick={handleToggle}
 					aria-label="Toggle Live mode"
 					aria-pressed={isLive}
+					data-active={isLive}
 					className={cn(
-						"h-8! px-2.5 border-l-0 border-y-0 border-r border-border rounded-none text-xs font-medium gap-1.5 flex items-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/60",
-						isLive && "text-foreground bg-accent/20",
+						"h-8! px-2.5 border-l-0 border-y-0 border-r border-border rounded-none text-xs font-medium gap-1.5 flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+						isLive && "text-foreground",
 					)}
 				>
 					<span className="relative flex size-2 items-center justify-center">

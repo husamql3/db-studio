@@ -49,7 +49,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 			className="relative h-full overflow-auto w-full bg-background text-foreground"
 		>
 			<div
-				className="sticky top-0 z-20 bg-muted/40 border-b border-border"
+				className="sticky top-0 z-20 bg-muted/40 border-b border-border supports-backdrop-filter:backdrop-blur-sm"
 				style={{ width: `${totalTableWidth}px`, minWidth: "100%" }}
 			>
 				{table.getHeaderGroups().map((headerGroup) => (
