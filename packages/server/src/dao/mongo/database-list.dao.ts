@@ -5,6 +5,7 @@ import type {
 } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
 import { getMongoClient, getMongoDbName } from "@/adapters/connections.js";
+import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
 const formatBytes = (bytes: number): string => {
@@ -31,7 +32,7 @@ export async function getMongoDatabasesList(): Promise<DatabaseInfoSchemaType[]>
 		});
 	}
 
-	return databases.map((db) => ({
+	return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
 		name: db.name,
 		size: formatBytes(db.sizeOnDisk ?? 0),
 		owner: "n/a",

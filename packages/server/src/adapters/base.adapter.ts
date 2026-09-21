@@ -19,6 +19,7 @@ import type {
 	DeleteTableResult,
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -26,6 +27,12 @@ import type {
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
+
+/** One record's pending updates, addressed by every one of its key columns. */
+export interface RecordUpdateGroup {
+	keyValues: unknown[];
+	rowUpdates: Array<{ columnName: string; value: unknown }>;
+}
 
 /** Bundles a paginated data query together with its companion COUNT query. */
 export interface QueryBundle {
@@ -122,13 +129,64 @@ export abstract class BaseAdapter implements IDbAdapter {
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {
-				return new HTTPException(503, { message: e.message });
+				return new HTTPException(503, { message: e.message, cause: e });
 			}
 
-			return new HTTPException(500, { message: e.message });
+			return new HTTPException(500, { message: e.message, cause: e });
 		}
 
-		return new HTTPException(500, { message: "Internal server error" });
+		return new HTTPException(500, { message: "Internal server error", cause: e });
+	}
+
+	/**
+	 * Resolve the key columns a record update must match on. `primaryKeys` carries
+	 * every component of a composite key; `primaryKey` is the single-column form.
+	 */
+	protected resolveKeyColumns(params: UpdateRecordsSchemaType): string[] {
+		return params.primaryKeys?.length ? params.primaryKeys : [params.primaryKey];
+	}
+
+	/**
+	 * Group updates by the record they target so each row is written once, matched
+	 * on every key column. Throws 400 when a key column is absent from the row.
+	 */
+	protected groupUpdatesByKey(
+		params: UpdateRecordsSchemaType,
+		keyColumns: string[],
+	): RecordUpdateGroup[] {
+		const groups = new Map<string, RecordUpdateGroup>();
+
+		for (const update of params.updates) {
+			const keyValues = keyColumns.map((column) => {
+				const value = update.rowData[column];
+				if (value === undefined || value === null) {
+					throw new HTTPException(400, {
+						message: `Primary key "${column}" not found in row data.`,
+					});
+				}
+				return value;
+			});
+
+			const groupKey = JSON.stringify(keyValues.map((value) => String(value)));
+			const group: RecordUpdateGroup = groups.get(groupKey) ?? { keyValues, rowUpdates: [] };
+			group.rowUpdates.push({ columnName: update.columnName, value: update.value });
+			groups.set(groupKey, group);
+		}
+
+		return [...groups.values()];
+	}
+
+	/** Human-readable `col = value` list used in "record not found" errors. */
+	protected describeKey(keyColumns: string[], keyValues: unknown[]): string {
+		return keyColumns.map((column, i) => `${column} = ${keyValues[i]}`).join(", ");
+	}
+
+	protected assertDifferentTableName(tableName: string, newTableName: string): void {
+		if (tableName === newTableName) {
+			throw new HTTPException(400, {
+				message: `New table name must be different from "${tableName}"`,
+			});
+		}
 	}
 
 	/** Encode cursor data to a URL-safe base64 string. */
@@ -206,10 +264,10 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }> {
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
 			const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)}`;
-			const rows = await this.runQuery<Record<string, CellValue>[]>(db, sql, []);
+			const rows = await this.runQuery<Record<string, unknown>[]>(db, sql, []);
 
 			if (!rows || rows.length === 0) {
 				throw new HTTPException(404, {
@@ -248,6 +306,9 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	deleteTable(_params: DeleteTableParams): Promise<DeleteTableResult> {
 		return notImplemented("deleteTable");
+	}
+	renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
+		return notImplemented("renameTable");
 	}
 	getTableSchema(_params: {
 		tableName: string;

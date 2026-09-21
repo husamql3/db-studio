@@ -7,6 +7,7 @@ import { TableBodyRow } from "./table-body-row";
 interface TableBodyProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
 	table: Table<TableRecord>;
+	tableName: string;
 	tableContainerRef: RefObject<HTMLDivElement | null>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
@@ -15,6 +16,7 @@ interface TableBodyProps {
 export const TableBody = ({
 	columnVirtualizer,
 	table,
+	tableName,
 	tableContainerRef,
 	virtualPaddingLeft,
 	virtualPaddingRight,
@@ -52,6 +54,7 @@ export const TableBody = ({
 						columnVirtualizer={columnVirtualizer}
 						key={row.id}
 						row={row}
+						tableName={tableName}
 						rowVirtualizer={rowVirtualizer}
 						virtualPaddingLeft={virtualPaddingLeft}
 						virtualPaddingRight={virtualPaddingRight}

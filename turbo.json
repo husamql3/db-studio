@@ -17,6 +17,21 @@
         "SENTRY_AUTH_TOKEN"
       ]
     },
+    "db-studio#build": {
+      "dependsOn": [
+        "@db-studio/web#build",
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
+      "env": [
+        "NODE_ENV"
+      ],
+      "passThroughEnv": [
+        "SENTRY_AUTH_TOKEN"
+      ]
+    },
     "@db-studio/shared#build": {
       "outputs": [],
       "cache": true
@@ -25,57 +40,14 @@
       "outputs": [],
       "cache": true
     },
-    "build:web": {
-      "outputs": [
-        "dist/**"
-      ],
-      "cache": true
-    },
-    "build:server": {
-      "dependsOn": [
-        "build:web"
-      ],
-      "outputs": [
-        "dist/**"
-      ],
-      "cache": true
-    },
-    "build:proxy": {
-      "outputs": [
-        "dist/**"
-      ],
-      "cache": true
-    },
-    "build:www": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        ".vercel/**"
-      ],
-      "cache": true
-    },
     "dev": {
       "cache": false,
       "persistent": true
     },
-    "dev:web": {
-      "cache": false,
-      "persistent": true
-    },
-    "dev:server": {
+    "db-studio#dev": {
       "dependsOn": [
-        "build:web"
+        "@db-studio/web#build"
       ],
-      "cache": false,
-      "persistent": true
-    },
-    "dev:proxy": {
-      "cache": false,
-      "persistent": true
-    },
-    "dev:www": {
       "cache": false,
       "persistent": true
     },
@@ -94,6 +66,13 @@
       "dependsOn": [
         "^build"
       ],
+      "outputs": [],
+      "cache": true
+    },
+    "db-studio#test": {
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": [
         "coverage/**"
       ],
@@ -106,23 +85,12 @@
       "cache": false,
       "outputs": []
     },
-    "deploy:www": {
+    "deploy:preview": {
       "dependsOn": [
-        "build:www"
+        "build"
       ],
-      "cache": false
-    },
-    "deploy:www:preview": {
-      "dependsOn": [
-        "build:www"
-      ],
-      "cache": false
-    },
-    "deploy:proxy": {
-      "dependsOn": [
-        "build:proxy"
-      ],
-      "cache": false
+      "cache": false,
+      "outputs": []
     },
     "clean": {
       "cache": false

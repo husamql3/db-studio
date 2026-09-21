@@ -951,4 +951,123 @@ describe("SqliteAdapter — getTableColumns with FK mapping", () => {
 		expect(pkCol?.isPrimaryKey).toBe(true);
 		expect(pkCol?.isForeignKey).toBe(false);
 	});
+
+	describe("getDatabasesList system filtering", () => {
+		it("hides the internal temp database", async () => {
+			db.prepare.mockImplementation((sql: string) => ({
+				all: vi.fn(() =>
+					sql.toUpperCase().includes("DATABASE_LIST")
+						? [
+								{ seq: 0, name: "main", file: "/tmp/test.db" },
+								{ seq: 1, name: "temp", file: "" },
+							]
+						: handleAll(sql),
+				),
+				get: vi.fn((..._args: unknown[]) => handleGet(sql)),
+				run: vi.fn(() => ({ changes: 1, lastInsertRowid: 1 })),
+				reader: /^\s*(SELECT|PRAGMA)/i.test(sql.trim()),
+			}));
+			const result = await adapter.getDatabasesList();
+			expect(result.map((d) => d.name)).toEqual(["main"]);
+		});
+
+		it("keeps attached databases alongside main", async () => {
+			db.prepare.mockImplementation((sql: string) => ({
+				all: vi.fn(() =>
+					sql.toUpperCase().includes("DATABASE_LIST")
+						? [
+								{ seq: 0, name: "main", file: "/tmp/test.db" },
+								{ seq: 1, name: "temp", file: "" },
+								{ seq: 2, name: "archive", file: "/tmp/archive.db" },
+							]
+						: handleAll(sql),
+				),
+				get: vi.fn((..._args: unknown[]) => handleGet(sql)),
+				run: vi.fn(() => ({ changes: 1, lastInsertRowid: 1 })),
+				reader: /^\s*(SELECT|PRAGMA)/i.test(sql.trim()),
+			}));
+			const result = await adapter.getDatabasesList();
+			expect(result.map((d) => d.name)).toEqual(["main", "archive"]);
+		});
+
+		it("wraps driver failures as a 500 instead of leaking the raw error", async () => {
+			mockGetSqliteDb.mockImplementation(() => {
+				throw new Error("SQLITE_CANTOPEN: unable to open database file");
+			});
+			await expect(adapter.getDatabasesList()).rejects.toBeInstanceOf(HTTPException);
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 500 });
+		});
+
+		it("maps connection failures to 503", async () => {
+			mockGetSqliteDb.mockImplementation(() => {
+				throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+			});
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
+		});
+	});
+});
+
+describe("SqliteAdapter.renameTable", () => {
+	let adapter: SqliteAdapter;
+	let statements: string[];
+	const existing = ["users", "orders", 'we"ird'];
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		adapter = new SqliteAdapter();
+		statements = [];
+		const db = {
+			prepare: vi.fn((sql: string) => {
+				const text = String(sql);
+				return {
+					all: vi.fn(() => []),
+					get: vi.fn((...args: unknown[]) => {
+						if (text.includes("sqlite_master") && text.includes("name=?")) {
+							const name = args[0] as string;
+							return existing.includes(name) ? { name } : undefined;
+						}
+						return null;
+					}),
+					run: vi.fn(() => {
+						statements.push(text);
+						return { changes: 1, lastInsertRowid: 1 };
+					}),
+				};
+			}),
+			pragma: vi.fn(),
+			transaction: vi.fn(<T>(fn: (...args: unknown[]) => T) => fn),
+		};
+		mockGetSqliteDb.mockReturnValue(db);
+	});
+
+	it("renames an existing table", async () => {
+		await adapter.renameTable({ db: "main", tableName: "users", newTableName: "members" });
+		expect(statements).toEqual(['ALTER TABLE "users" RENAME TO "members"']);
+	});
+
+	it("escapes double quotes in identifiers", async () => {
+		await adapter.renameTable({ db: "main", tableName: 'we"ird', newTableName: "ok" });
+		expect(statements).toEqual(['ALTER TABLE "we""ird" RENAME TO "ok"']);
+	});
+
+	it("returns 404 when the table does not exist", async () => {
+		await expect(
+			adapter.renameTable({ db: "main", tableName: "ghost", newTableName: "spook" }),
+		).rejects.toMatchObject({ status: 404 });
+		expect(statements).toEqual([]);
+	});
+
+	it("returns 409 when the target table already exists", async () => {
+		await expect(
+			adapter.renameTable({ db: "main", tableName: "users", newTableName: "orders" }),
+		).rejects.toMatchObject({ status: 409 });
+		expect(statements).toEqual([]);
+	});
+
+	it("returns 400 when the new name equals the current name", async () => {
+		await expect(
+			adapter.renameTable({ db: "main", tableName: "users", newTableName: "users" }),
+		).rejects.toMatchObject({ status: 400 });
+		expect(statements).toEqual([]);
+	});
 });

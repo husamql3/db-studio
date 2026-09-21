@@ -447,4 +447,74 @@ describe("MySqlAdapter integration scaffold", () => {
 			status: 400,
 		});
 	});
+
+	describe("getDatabasesList system filtering", () => {
+		it("sends a query that excludes system schemas but keeps DATABASE()", async () => {
+			await adapter.getDatabasesList();
+			const dbQuery = pool.execute.mock.calls
+				.map((call) => String(call[0]))
+				.find((sql) => sql.includes("information_schema.SCHEMATA"));
+			expect(dbQuery).toContain("NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')");
+			expect(dbQuery).toContain("DATABASE()");
+		});
+
+		it("maps access-denied errors to 503 via wrapError", async () => {
+			pool.execute.mockRejectedValueOnce(
+				Object.assign(new Error("Access denied for user"), { errno: 1045 }),
+			);
+			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
+		});
+	});
+});
+
+describe("MySqlAdapter.renameTable", () => {
+	let adapter: MySqlAdapter;
+	let statements: string[];
+	const existing = ["users", "orders", "we`ird"];
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		adapter = new MySqlAdapter();
+		statements = [];
+		const pool = {
+			getConnection: vi.fn(),
+			execute: vi.fn(async (sql: string, values?: unknown[]) => {
+				const text = String(sql);
+				statements.push(text);
+				if (text.includes("information_schema.TABLES") && text.includes("COUNT(*) as cnt")) {
+					return rows([{ cnt: existing.includes(values?.[0] as string) ? 1 : 0 }]);
+				}
+				return ok(1);
+			}),
+		};
+		mockGetMysqlPool.mockReturnValue(pool);
+	});
+
+	it("renames an existing table with RENAME TABLE", async () => {
+		await adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "members" });
+		expect(statements.at(-1)).toBe("RENAME TABLE `users` TO `members`");
+	});
+
+	it("escapes backticks in identifiers", async () => {
+		await adapter.renameTable({ db: "appdb", tableName: "we`ird", newTableName: "ok" });
+		expect(statements.at(-1)).toBe("RENAME TABLE `we``ird` TO `ok`");
+	});
+
+	it("returns 404 when the table does not exist", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "ghost", newTableName: "spook" }),
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it("returns 409 when the target table already exists", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "orders" }),
+		).rejects.toMatchObject({ status: 409 });
+	});
+
+	it("returns 400 when the new name equals the current name", async () => {
+		await expect(
+			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "users" }),
+		).rejects.toMatchObject({ status: 400 });
+	});
 });

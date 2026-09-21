@@ -30,6 +30,7 @@ import type {
 	KeyWriteResultSchemaType,
 	RedisKeyTypeSchemaType,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -1029,6 +1030,10 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		});
 	}
 
+	override async renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
+		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
+	}
+
 	override async getTableSchema({
 		tableName,
 	}: {
@@ -1287,9 +1292,9 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		try {
-			const { tableName, updates, primaryKey } = params;
+			const { tableName, updates, primaryKey, primaryKeys } = params;
 			const table = assertRedisTable(tableName);
-			const pkField = primaryKey || "key";
+			const pkField = primaryKeys?.[0] || primaryKey || "key";
 			const client = await getRedisClient(parseDbIndex(db));
 
 			const updatesByKey = new Map<string, Record<string, unknown>>();
@@ -1311,6 +1316,19 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				const value = row.value;
 				const ttl = extractTtl(row);
 				await this.writeRecord(client, table, key, value, { mode: "update", ttl });
+
+				// Editing the `key` column is a rename, not a write to the old key.
+				const nextKeyRaw = row[pkField];
+				const nextKey =
+					nextKeyRaw === undefined || nextKeyRaw === null ? key : String(nextKeyRaw);
+				if (nextKey !== key) {
+					const renamed = await client.renamenx(key, nextKey);
+					if (renamed === 0) {
+						throw new HTTPException(409, {
+							message: `Key "${nextKey}" already exists`,
+						});
+					}
+				}
 				updatedCount++;
 			}
 			return { updatedCount };
@@ -1390,7 +1408,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }> {
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
 			const table = assertRedisTable(tableName);
 			const dbIndex = parseDbIndex(db);

@@ -19,7 +19,9 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
-import { useNavigate } from "@tanstack/react-router";
+import { Input } from "@db-studio/ui/input";
+import { Label } from "@db-studio/ui/label";
+import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
 	ClipboardCopy,
 	Download,
@@ -27,20 +29,60 @@ import {
 	FileCode,
 	Pencil,
 	Trash2,
+	Type,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useDeleteTable, useExportFile } from "@/features/tables";
+import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
+import { useOverlayStore } from "@/stores/overlay.store";
 
-export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
+export const SidebarListTablesMenu = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName?: string;
+}) => {
 	const navigate = useNavigate();
+	const params = useParams({ strict: false });
+	const { pathname } = useLocation();
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
 	const { exportFile, isExportingFile } = useExportFile();
 	const { deleteTable, forceDeleteTable, isDeletingTable } = useDeleteTable();
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
+	const { renameTable, isRenamingTable } = useRenameTable({ tableName, schemaName });
+	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
+	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
+
+	const renameOverlayId = `tables.rename-table.${tableName}` as const;
+	const deleteOverlayId = `tables.delete-table.${tableName}` as const;
+	const forceDeleteOverlayId = `tables.force-delete-table.${tableName}` as const;
+
+	const handleRenameDialogChange = (open: boolean) => {
+		if (open) {
+			setNewTableName(tableName);
+			openOverlay(renameOverlayId);
+		} else {
+			closeOverlay(renameOverlayId);
+		}
+	};
+
+	const handleRename = async () => {
+		const trimmed = newTableName.trim();
+		if (!trimmed || trimmed === tableName) return;
+		try {
+			await renameTable({ newTableName: trimmed, schemaName });
+			handleRenameDialogChange(false);
+			const activeTable = (params as { table?: string }).table;
+			if (activeTable === tableName) {
+				const basePath = pathname.startsWith("/schema") ? "/schema/$table" : "/table/$table";
+				navigate({ to: basePath, params: { table: trimmed } });
+			}
+		} catch {
+			// Error notification handled by toast.promise in useRenameTable
+		}
+	};
 
 	const handleCopyName = () => {
 		navigator.clipboard.writeText(tableName);
@@ -52,32 +94,41 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 
 		if (result.fkViolation) {
 			setRelatedRecords(result.relatedRecords);
-			setIsDeleteDialogOpen(false);
-			setIsForceDeleteDialogOpen(true);
+			closeOverlay(deleteOverlayId);
+			openOverlay(forceDeleteOverlayId);
 		} else {
-			setIsDeleteDialogOpen(false);
+			closeOverlay(deleteOverlayId);
 			navigate({ to: "/" });
 		}
 	};
 
 	const handleForceDelete = async () => {
 		await forceDeleteTable(tableName);
-		setIsForceDeleteDialogOpen(false);
+		closeOverlay(forceDeleteOverlayId);
 		navigate({ to: "/" });
 	};
 
 	const handleCancelForceDelete = () => {
-		setIsForceDeleteDialogOpen(false);
+		closeOverlay(forceDeleteOverlayId);
 		setRelatedRecords([]);
 	};
 
 	return (
 		<>
 			<DropdownMenu>
-				<DropdownMenuTrigger>
+				<DropdownMenuTrigger asChild>
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						onClick={(e) => {
+							// Prevent the parent sidebar <Link> from navigating
+							// when opening the row actions menu.
+							e.stopPropagation();
+							e.preventDefault();
+						}}
+						onPointerDown={(e) => {
+							e.stopPropagation();
+						}}
 					>
 						<EllipsisVertical />
 					</Button>
@@ -99,6 +150,10 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 							Copy table schema
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
+						<DropdownMenuItem onClick={() => handleRenameDialogChange(true)}>
+							<Type className="size-4" />
+							Rename table
+						</DropdownMenuItem>
 						<DropdownMenuItem
 							onClick={() =>
 								navigate({
@@ -139,7 +194,7 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 						<DropdownMenuSeparator />
 						<DropdownMenuItem
 							variant="destructive"
-							onClick={() => setIsDeleteDialogOpen(true)}
+							onClick={() => openOverlay(deleteOverlayId)}
 						>
 							<Trash2 className="size-4" />
 							Delete table
@@ -148,17 +203,32 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 				</DropdownMenuContent>
 			</DropdownMenu>
 
+			<RenameTableDialog
+				tableName={tableName}
+				newTableName={newTableName}
+				setNewTableName={setNewTableName}
+				isOpen={isOverlayOpen(renameOverlayId)}
+				onOpenChange={handleRenameDialogChange}
+				onRename={handleRename}
+				isRenaming={isRenamingTable}
+			/>
+
 			<DeleteTableDialog
-				isOpen={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
+				isOpen={isOverlayOpen(deleteOverlayId)}
+				// Controlled and trigger-less: the dialog only ever asks to close.
+				onOpenChange={(open) => {
+					if (!open) closeOverlay(deleteOverlayId);
+				}}
 				tableName={tableName}
 				onDelete={handleDelete}
 				isDeleting={isDeletingTable}
 			/>
 
 			<ForceDeleteTableDialog
-				isOpen={isForceDeleteDialogOpen}
-				onOpenChange={setIsForceDeleteDialogOpen}
+				isOpen={isOverlayOpen(forceDeleteOverlayId)}
+				onOpenChange={(open) => {
+					if (!open) closeOverlay(forceDeleteOverlayId);
+				}}
 				tableName={tableName}
 				relatedRecords={relatedRecords}
 				onForceDelete={handleForceDelete}
@@ -166,6 +236,88 @@ export const SidebarListTablesMenu = ({ tableName }: { tableName: string }) => {
 				isDeleting={isDeletingTable}
 			/>
 		</>
+	);
+};
+
+const RenameTableDialog = ({
+	tableName,
+	newTableName,
+	setNewTableName,
+	isOpen,
+	onOpenChange,
+	onRename,
+	isRenaming,
+}: {
+	tableName: string;
+	newTableName: string;
+	setNewTableName: (value: string) => void;
+	isOpen: boolean;
+	onOpenChange: (open: boolean) => void;
+	onRename: () => void;
+	isRenaming: boolean;
+}) => {
+	const trimmed = newTableName.trim();
+	const isDisabled = !trimmed || trimmed === tableName;
+
+	return (
+		<Dialog
+			open={isOpen}
+			onOpenChange={onOpenChange}
+		>
+			<DialogContent className="max-w-md">
+				<DialogHeader>
+					<DialogTitle>Rename Table</DialogTitle>
+					<DialogDescription>
+						Update the table name while keeping all data and schema unchanged.
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="space-y-4">
+					<div className="space-y-2">
+						<Label htmlFor="current-table-name">Current name</Label>
+						<Input
+							id="current-table-name"
+							value={tableName}
+							readOnly
+							disabled
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label htmlFor="new-table-name">New name</Label>
+						<Input
+							id="new-table-name"
+							value={newTableName}
+							onChange={(e) => setNewTableName(e.target.value)}
+							placeholder="table_name"
+							autoFocus
+							disabled={isRenaming}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !isDisabled && !isRenaming) {
+									onRename();
+								}
+							}}
+						/>
+					</div>
+				</div>
+
+				<DialogFooter className="gap-2">
+					<Button
+						variant="outline"
+						onClick={() => onOpenChange(false)}
+						disabled={isRenaming}
+					>
+						Cancel
+					</Button>
+					<Button
+						onClick={onRename}
+						disabled={isDisabled || isRenaming}
+					>
+						{isRenaming ? "Renaming..." : "Rename Table"}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 };
 

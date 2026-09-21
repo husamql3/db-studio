@@ -110,3 +110,23 @@ export function buildCursorWhereClause(
 		values: queryValues,
 	};
 }
+
+/**
+ * Postgres resolves a bare table name through search_path, but catalog queries
+ * filter on a literal schema and would otherwise disagree with the data queries
+ * — the reason a table outside "public" used to list yet 404 on its columns.
+ * Both helpers below mirror Postgres' own resolution.
+ */
+
+/** Every schema on the current search_path. Use for EXISTS-style checks. */
+export const SEARCH_PATH_SCHEMAS = "ANY(current_schemas(false))";
+
+/**
+ * The single schema a bare table name resolves to, honouring search_path order
+ * so a name present in several schemas picks the same one Postgres would.
+ */
+export const resolvedSchemaFor = (tableParam: string): string =>
+	`(SELECT sp.schema_name FROM unnest(current_schemas(false)) WITH ORDINALITY AS sp(schema_name, position)
+	  JOIN information_schema.tables it
+	    ON it.table_schema = sp.schema_name AND it.table_name = ${tableParam}
+	  ORDER BY sp.position LIMIT 1)`;

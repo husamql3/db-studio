@@ -203,6 +203,39 @@ class DatabaseManager {
 
 			const pool = new Pool(poolConfig);
 
+			// The tables list spans every user schema, but the SQL the adapters
+			// build refers to tables by bare name, so a table outside "public" is
+			// listed yet every query against it fails with "relation does not
+			// exist". Widen search_path on each new connection.
+			//
+			// pg emits "connect" synchronously and hands the client straight to
+			// the caller, so this must enqueue in one shot: awaiting a lookup
+			// first would let the caller's query jump ahead of the SET. "public"
+			// stays first so it keeps winning a name collision, as before.
+			pool.on("connect", (client) => {
+				client
+					.query(
+						`DO $$
+						DECLARE extra text;
+						BEGIN
+							SELECT string_agg(quote_ident(nspname), ', ' ORDER BY nspname) INTO extra
+							FROM pg_namespace
+							WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public')
+								AND nspname NOT LIKE 'pg_toast%'
+								AND nspname NOT LIKE 'pg_temp%';
+							IF extra IS NOT NULL THEN
+								EXECUTE 'SET search_path TO public, ' || extra;
+							END IF;
+						END $$;`,
+					)
+					.catch((err: Error) => {
+						console.error(
+							`Failed to widen search_path for "${connectionString}":`,
+							err.message,
+						);
+					});
+			});
+
 			pool.on("error", (err) => {
 				console.error(
 					`Unexpected error on PostgreSQL pool for "${connectionString}":`,
@@ -397,8 +430,13 @@ class DatabaseManager {
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
-		const path = new URL(this.baseConfig.url).pathname?.replace(/^\//, "");
-		return path || "admin";
+		const raw = new URL(this.baseConfig.url).pathname.replace(/^\/+|\/+$/g, "");
+		try {
+			return decodeURIComponent(raw) || "admin";
+		} catch {
+			// Malformed percent-encoding — fall back to the literal path segment.
+			return raw || "admin";
+		}
 	}
 
 	/**

@@ -23,6 +23,7 @@ import type {
 	ForeignKeyDataType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -368,12 +369,16 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!rows.length)
 				throw new HTTPException(500, { message: "No databases returned from SQLite" });
 
-			return rows.map((row) => ({
-				name: row.name,
-				size: this.getFileSize(row.file),
-				owner: "",
-				encoding: "UTF-8",
-			}));
+			// Hide SQLite's internal temp database. `PRAGMA database_list` always
+			// reports `main`, so filtering can never empty the list.
+			return rows
+				.filter((row) => row.name !== "temp")
+				.map((row) => ({
+					name: row.name,
+					size: this.getFileSize(row.file),
+					owner: "",
+					encoding: "UTF-8",
+				}));
 		} catch (e) {
 			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);
@@ -514,6 +519,40 @@ export class SqliteAdapter extends BaseAdapter {
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
+	}
+
+	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		const { tableName, newTableName, db } = params;
+		this.assertDifferentTableName(tableName, newTableName);
+		const sqliteDb = getSqliteDb();
+
+		const tableRow = sqliteDb
+			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+			.get(tableName);
+		if (!tableRow)
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
+		const targetRow = sqliteDb
+			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+			.get(newTableName);
+		if (targetRow)
+			throw new HTTPException(409, {
+				message: `Table "${newTableName}" already exists`,
+			});
+
+		try {
+			// Identifiers cannot be bound as parameters — escape the quote character.
+			const escapeIdent = (s: string) => s.replaceAll('"', '""');
+			sqliteDb
+				.prepare(
+					`ALTER TABLE "${escapeIdent(tableName)}" RENAME TO "${escapeIdent(newTableName)}"`,
+				)
+				.run();
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+
+		void db;
 	}
 
 	async getTableSchema({
@@ -832,24 +871,15 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
-		const { tableName, updates, primaryKey } = params;
+		const { tableName } = params;
 		const sqliteDb = getSqliteDb();
 
-		const updatesByRow = new Map<unknown, Array<{ columnName: string; value: unknown }>>();
-		for (const u of updates) {
-			const pkValue = u.rowData[primaryKey];
-			if (pkValue === undefined || pkValue === null) {
-				throw new HTTPException(400, {
-					message: `Primary key "${primaryKey}" not found in row data.`,
-				});
-			}
-			if (!updatesByRow.has(pkValue)) updatesByRow.set(pkValue, []);
-			updatesByRow.get(pkValue)?.push({ columnName: u.columnName, value: u.value });
-		}
+		const keyColumns = this.resolveKeyColumns(params);
+		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const doUpdate = sqliteDb.transaction(() => {
 			let total = 0;
-			for (const [pkValue, rowUpdates] of updatesByRow.entries()) {
+			for (const { keyValues, rowUpdates } of groups) {
 				const setClauses = rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ");
 				const values = [
 					...rowUpdates.map((u) =>
@@ -857,15 +887,16 @@ export class SqliteAdapter extends BaseAdapter {
 							? JSON.stringify(u.value)
 							: u.value,
 					),
-					pkValue,
+					...keyValues,
 				];
+				const whereClauses = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
 				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 				const result = sqliteDb
-					.prepare(`UPDATE "${tableName}" SET ${setClauses} WHERE "${primaryKey}" = ?`)
+					.prepare(`UPDATE "${tableName}" SET ${setClauses} WHERE ${whereClauses}`)
 					.run(...(values as any[]));
 				if (result.changes === 0) {
 					throw new HTTPException(404, {
-						message: `Record with ${primaryKey} = ${pkValue} not found in table "${tableName}"`,
+						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 					});
 				}
 				total += result.changes;

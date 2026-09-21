@@ -24,6 +24,7 @@ import type {
 	ForeignKeyDataType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -311,21 +312,26 @@ export class MySqlAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		const pool = getMysqlPool();
-		const [rows] = await pool.execute<RowDataPacket[]>(`
-			SELECT
-			  s.SCHEMA_NAME AS name,
-			  CONCAT(ROUND(COALESCE(SUM(t.data_length + t.index_length), 0) / 1024 / 1024, 2), ' MB') AS size,
-			  CURRENT_USER() AS owner,
-			  s.DEFAULT_CHARACTER_SET_NAME AS encoding
-			FROM information_schema.SCHEMATA s
-			LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA = s.SCHEMA_NAME
-			GROUP BY s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME
-			ORDER BY s.SCHEMA_NAME
-		`);
-		if (!rows[0])
-			throw new HTTPException(500, { message: "No databases returned from server" });
-		return rows as DatabaseInfoSchemaType[];
+		try {
+			const pool = getMysqlPool();
+			const [rows] = await pool.execute<RowDataPacket[]>(`
+				SELECT
+				  s.SCHEMA_NAME AS name,
+				  CONCAT(ROUND(COALESCE(SUM(t.data_length + t.index_length), 0) / 1024 / 1024, 2), ' MB') AS size,
+				  CURRENT_USER() AS owner,
+				  s.DEFAULT_CHARACTER_SET_NAME AS encoding
+				FROM information_schema.SCHEMATA s
+				LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA = s.SCHEMA_NAME
+				WHERE (s.SCHEMA_NAME NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys') OR s.SCHEMA_NAME = DATABASE())
+				GROUP BY s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME
+				ORDER BY s.SCHEMA_NAME
+			`);
+			if (!rows[0])
+				throw new HTTPException(500, { message: "No databases returned from server" });
+			return rows as DatabaseInfoSchemaType[];
+		} catch (e) {
+			throw this.wrapError(e);
+		}
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
@@ -479,6 +485,32 @@ export class MySqlAdapter extends BaseAdapter {
 			}
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+		}
+	}
+
+	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			this.assertDifferentTableName(tableName, newTableName);
+			const pool = getMysqlPool(db);
+
+			await this.assertTableExists(pool, tableName);
+
+			const [targetRows] = await pool.execute<RowDataPacket[]>(
+				`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+				[newTableName],
+			);
+			if (Number((targetRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
+				throw new HTTPException(409, {
+					message: `Table "${newTableName}" already exists`,
+				});
+			}
+
+			await pool.execute<ResultSetHeader>(
+				`RENAME TABLE \`${tableName.replaceAll("`", "``")}\` TO \`${newTableName.replaceAll("`", "``")}\``,
+			);
+		} catch (e) {
+			throw this.wrapError(e);
 		}
 	}
 
@@ -717,29 +749,20 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
-		const { tableName, updates, primaryKey } = params;
+		const { tableName } = params;
 		const pool = getMysqlPool(db);
 
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
-		const updatesByRow = new Map<unknown, Array<{ columnName: string; value: unknown }>>();
-		for (const update of updates) {
-			const pkValue = update.rowData[primaryKey];
-			if (pkValue === undefined || pkValue === null) {
-				throw new HTTPException(400, {
-					message: `Primary key "${primaryKey}" not found in row data.`,
-				});
-			}
-			if (!updatesByRow.has(pkValue)) updatesByRow.set(pkValue, []);
-			updatesByRow.get(pkValue)?.push({ columnName: update.columnName, value: update.value });
-		}
+		const keyColumns = this.resolveKeyColumns(params);
+		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const connection = await pool.getConnection();
 		await connection.beginTransaction();
 
 		try {
 			let total = 0;
-			for (const [pkValue, rowUpdates] of updatesByRow.entries()) {
+			for (const { keyValues, rowUpdates } of groups) {
 				const setClauses = rowUpdates.map((u) => `\`${u.columnName}\` = ?`);
 				const values: unknown[] = rowUpdates.map((u) => {
 					if (u.value !== null && typeof u.value === "object") return JSON.stringify(u.value);
@@ -748,15 +771,16 @@ export class MySqlAdapter extends BaseAdapter {
 					}
 					return u.value;
 				});
-				values.push(pkValue);
+				values.push(...keyValues);
+				const whereClauses = keyColumns.map((column) => `\`${column}\` = ?`);
 
 				const [result] = await connection.execute<ResultSetHeader>(
-					`UPDATE \`${tableName}\` SET ${setClauses.join(", ")} WHERE \`${primaryKey}\` = ?`,
+					`UPDATE \`${tableName}\` SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
 					values as any,
 				);
 				if (result.affectedRows === 0) {
 					throw new HTTPException(404, {
-						message: `Record with ${primaryKey} = ${pkValue} not found in table "${tableName}"`,
+						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 					});
 				}
 				total += result.affectedRows;

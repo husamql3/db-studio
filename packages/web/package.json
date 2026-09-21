@@ -44,12 +44,12 @@
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@sentry/react": "^10.52.0",
     "@tailwindcss/vite": "^4.1.18",
-    "@tanstack/ai": "^0.53.0",
+    "@tanstack/ai": "^0.54.0",
     "@tanstack/ai-client": "^0.31.0",
     "@tanstack/ai-gemini": "^0.29.1",
     "@tanstack/ai-react": "^0.24.0",
     "@tanstack/react-query": "^5.90.12",
-    "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-router": "^1.170.35",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.13",
     "@uiw/react-json-view": "^2.0.0-alpha.40",
@@ -104,8 +104,8 @@
     "rollup-plugin-visualizer": "^7.0.1",
     "sharp": "^0.35.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^4.0.17"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"

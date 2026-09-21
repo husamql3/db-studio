@@ -8,6 +8,7 @@ type AnalyticsEvent =
 	| { event: "db_selected"; properties: { db_type: DatabaseTypeSchema } }
 	| { event: "query_executed"; properties: { db_type: DatabaseTypeSchema } }
 	| { event: "record_created"; properties: { db_type: DatabaseTypeSchema } }
+	| { event: "record_updated"; properties: { db_type: DatabaseTypeSchema } }
 	| { event: "record_deleted"; properties: { db_type: DatabaseTypeSchema } }
 	| { event: "record_exported"; properties: { db_type: DatabaseTypeSchema; format: string } }
 	| { event: "table_created"; properties: { db_type: DatabaseTypeSchema } }

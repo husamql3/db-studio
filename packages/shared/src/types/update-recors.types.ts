@@ -3,6 +3,12 @@ import { z } from "zod";
 export const updateRecordsSchema = z.object({
 	tableName: z.string("Table name is required"),
 	primaryKey: z.string("Primary key is required").default("id"),
+	/**
+	 * Every component of a composite primary key. When present it takes precedence
+	 * over `primaryKey`, so a row is matched on all of its key columns instead of
+	 * only the first one.
+	 */
+	primaryKeys: z.array(z.string().min(1)).min(1).optional(),
 	updates: z
 		.array(
 			z.object(

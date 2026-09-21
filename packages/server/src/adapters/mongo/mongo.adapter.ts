@@ -17,6 +17,7 @@ import type {
 	DeleteTableResult,
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -26,6 +27,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMatchStage,
@@ -43,7 +45,7 @@ const normalizeValue = (value: unknown): unknown => {
 	if (typeof value === "bigint") return value.toString();
 	if (value && typeof value === "object") {
 		if ("_bsontype" in value && (value as { _bsontype?: string })._bsontype === "ObjectId") {
-			return (value as { toHexString: () => string }).toHexString();
+			return (value as unknown as { toHexString: () => string }).toHexString();
 		}
 		if (Array.isArray(value)) return value.map((item) => normalizeValue(item));
 		return Object.fromEntries(
@@ -329,7 +331,7 @@ export class MongoAdapter extends BaseAdapter {
 				name === "MongoServerSelectionError" ||
 				name === "MongoTopologyClosedError"
 			) {
-				return new HTTPException(503, { message: e.message });
+				return new HTTPException(503, { message: e.message, cause: e });
 			}
 		}
 		return super.wrapError(e);
@@ -393,6 +395,8 @@ export class MongoAdapter extends BaseAdapter {
 			const mongoDb = await getMongoDb(db);
 			const collection = mongoDb.collection(tableName);
 			const rows = await collection.find({}).limit(10000).toArray();
+			// Nested documents stay nested: the JSON export needs the real structure,
+			// and `getExportFile` flattens them for the CSV/XLSX sheet writer.
 			const normalized = rows.map((row) => normalizeDoc(row));
 			const cols = Array.from(new Set(normalized.flatMap((row) => Object.keys(row))));
 			return { cols, rows: normalized };
@@ -414,7 +418,7 @@ export class MongoAdapter extends BaseAdapter {
 			if (!databases[0]) {
 				throw new HTTPException(500, { message: "No databases returned from MongoDB" });
 			}
-			return databases.map((db) => ({
+			return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
 				name: db.name,
 				size: formatBytes(db.sizeOnDisk ?? 0),
 				owner: "n/a",
@@ -547,6 +551,29 @@ export class MongoAdapter extends BaseAdapter {
 			const rowCount = await collection.estimatedDocumentCount();
 			await collection.drop();
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	override async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			this.assertDifferentTableName(tableName, newTableName);
+			const mongoDb = await getMongoDb(db);
+			const existing = await mongoDb.listCollections({ name: tableName }).toArray();
+			if (existing.length === 0) {
+				throw new HTTPException(404, {
+					message: `Collection "${tableName}" does not exist`,
+				});
+			}
+			const target = await mongoDb.listCollections({ name: newTableName }).toArray();
+			if (target.length > 0) {
+				throw new HTTPException(409, {
+					message: `Collection "${newTableName}" already exists`,
+				});
+			}
+			await mongoDb.collection(tableName).rename(newTableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -916,35 +943,39 @@ export class MongoAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		try {
-			const { tableName, updates, primaryKey } = params;
+			const { tableName } = params;
 			const mongoDb = await getMongoDb(db);
 			const collection = mongoDb.collection(tableName);
 
 			let totalUpdated = 0;
-			const pkField = primaryKey || "_id";
-			const updatesByRow = new Map<unknown, Record<string, unknown>>();
+			const keyColumns = this.resolveKeyColumns(params).map((column) => column || "_id");
+			const groups = this.groupUpdatesByKey(
+				{ ...params, primaryKeys: keyColumns },
+				keyColumns,
+			);
 
-			for (const update of updates) {
-				const pkValue = update.rowData[pkField];
-				if (pkValue === undefined || pkValue === null) {
+			for (const { keyValues, rowUpdates } of groups) {
+				// MongoDB rejects $set on the immutable _id field, so surface it as a
+				// client error instead of letting the driver fail mid-write.
+				if (rowUpdates.some((update) => update.columnName === "_id")) {
 					throw new HTTPException(400, {
-						message: `Primary key "${pkField}" not found in row data.`,
+						message: 'The "_id" field is immutable and cannot be updated.',
 					});
 				}
-				if (!updatesByRow.has(pkValue)) updatesByRow.set(pkValue, {});
-				updatesByRow.get(pkValue)![update.columnName] = update.value;
-			}
 
-			for (const [pkValue, updateSet] of updatesByRow.entries()) {
-				const queryValue =
-					pkField === "_id" && canCoerce(pkValue) ? toMongoId(pkValue) : pkValue;
-				const result = await collection.updateOne(
-					{ [pkField]: queryValue },
-					{ $set: updateSet },
-				);
+				const updateSet: Record<string, unknown> = {};
+				for (const update of rowUpdates) updateSet[update.columnName] = update.value;
+
+				const filter: Record<string, unknown> = {};
+				keyColumns.forEach((column, i) => {
+					const value = keyValues[i];
+					filter[column] = column === "_id" && canCoerce(value) ? toMongoId(value) : value;
+				});
+
+				const result = await collection.updateOne(filter, { $set: updateSet });
 				if (result.matchedCount === 0) {
 					throw new HTTPException(404, {
-						message: `Record with ${pkField} = ${String(pkValue)} not found in "${tableName}"`,
+						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in "${tableName}"`,
 					});
 				}
 				totalUpdated += result.modifiedCount;
@@ -966,7 +997,11 @@ export class MongoAdapter extends BaseAdapter {
 				pkColumn === "_id" && canCoerce(pk.value) ? toMongoId(pk.value) : pk.value,
 			);
 			const result = await collection.deleteMany({ [pkColumn]: { $in: pkValues } });
-			return { deletedCount: result.deletedCount ?? 0 };
+			return {
+				deletedCount: result.deletedCount ?? 0,
+				fkViolation: false,
+				relatedRecords: [],
+			};
 		} catch (e) {
 			throw this.wrapError(e);
 		}

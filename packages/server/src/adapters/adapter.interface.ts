@@ -4,7 +4,6 @@ import type {
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
-	CellValue,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
@@ -19,6 +18,7 @@ import type {
 	ExecuteQueryResult,
 	FilterType,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	SortDirection,
 	SortType,
 	TableDataResultSchemaType,
@@ -50,6 +50,7 @@ export interface IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void>;
 	deleteTable(params: DeleteTableParams): Promise<DeleteTableResult>;
+	renameTable(params: RenameTableParamsSchemaType): Promise<void>;
 	getTableSchema(params: { tableName: string; db: DatabaseSchemaType["db"] }): Promise<string>;
 
 	// --- Columns ---
@@ -78,7 +79,7 @@ export interface IDbAdapter {
 	exportTableData(params: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, CellValue>[] }>;
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
 	// --- Query ---
 	executeQuery(params: {
