@@ -39,6 +39,7 @@ import {
 	buildCursorWhereClause,
 	buildSortClause,
 	buildWhereClause,
+	resolvedSchemaFor,
 } from "./pg.query-builder.js";
 
 type PgPool = ReturnType<typeof getDbPool>;
@@ -483,7 +484,7 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
 			[tableName],
 		);
 		if (!tableRows[0]?.exists)
@@ -571,7 +572,7 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const { rows: existsRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1) as exists`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = ANY(current_schemas(false)) AND table_name = $1) as exists`,
 			[tableName],
 		);
 		if (!existsRows[0]?.exists)
@@ -601,7 +602,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const { rows: columns } = await pool.query<ColumnInfo>(
 			`SELECT column_name, data_type, udt_name, is_nullable, column_default, character_maximum_length, numeric_precision, numeric_scale
-			 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
+			 FROM information_schema.columns WHERE table_schema = ${resolvedSchemaFor("$1")} AND table_name = $1 ORDER BY ordinal_position`,
 			[tableName],
 		);
 
@@ -610,13 +611,13 @@ export class PgAdapter extends BaseAdapter {
 			 FROM information_schema.table_constraints tc
 			 JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
 			 LEFT JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema AND tc.constraint_type = 'FOREIGN KEY'
-			 WHERE tc.table_schema = 'public' AND tc.table_name = $1 ORDER BY tc.constraint_type, tc.constraint_name`,
+			 WHERE tc.table_schema = ${resolvedSchemaFor("$1")} AND tc.table_name = $1 ORDER BY tc.constraint_type, tc.constraint_name`,
 			[tableName],
 		);
 
 		const { rows: indexes } = await pool.query<IndexInfo>(
-			`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1
-			 AND indexname NOT IN (SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = 'public' AND table_name = $1 AND constraint_type = 'PRIMARY KEY')`,
+			`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = ${resolvedSchemaFor("$1")} AND tablename = $1
+			 AND indexname NOT IN (SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = ${resolvedSchemaFor("$1")} AND table_name = $1 AND constraint_type = 'PRIMARY KEY')`,
 			[tableName],
 		);
 
@@ -733,16 +734,16 @@ export class PgAdapter extends BaseAdapter {
 			LEFT JOIN (
 				SELECT ku.column_name FROM information_schema.table_constraints tc
 				JOIN information_schema.key_column_usage ku ON tc.constraint_name = ku.constraint_name AND tc.table_schema = ku.table_schema
-				WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public' AND tc.table_name = $1
+				WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = ${resolvedSchemaFor("$1")} AND tc.table_name = $1
 			) pk ON c.column_name = pk.column_name
 			LEFT JOIN (
 				SELECT kcu.column_name, ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
 				FROM information_schema.table_constraints tc
 				JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
 				JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
-				WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public' AND tc.table_name = $1
+				WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = ${resolvedSchemaFor("$1")} AND tc.table_name = $1
 			) fk ON c.column_name = fk.column_name
-			WHERE c.table_schema = 'public' AND c.table_name = $1 ORDER BY c.ordinal_position;`,
+			WHERE c.table_schema = ${resolvedSchemaFor("$1")} AND c.table_name = $1 ORDER BY c.ordinal_position;`,
 			[tableName],
 		);
 
@@ -789,14 +790,14 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
 			[tableName],
 		);
 		if (!tableRows[0]?.exists)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
 		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`,
 			[tableName, columnName],
 		);
 		if (colRows[0]?.exists)
@@ -820,14 +821,14 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
 			[tableName],
 		);
 		if (!tableRows[0]?.exists)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
 		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`,
 			[tableName, columnName],
 		);
 		if (!colRows[0]?.exists)
@@ -846,14 +847,14 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
 			[tableName],
 		);
 		if (!tableRows[0]?.exists)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
 		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`,
 			[tableName, columnName],
 		);
 		if (!colRows[0]?.exists)
@@ -892,10 +893,10 @@ export class PgAdapter extends BaseAdapter {
 		const { tableName, columnName, newColumnName, db } = params;
 		const pool = getDbPool(db);
 
-		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public') as exists;`;
+		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`;
 
 		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = 'public') as exists;`,
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
 			[tableName],
 		);
 		if (!tableRows[0]?.exists)

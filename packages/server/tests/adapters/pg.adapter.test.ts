@@ -60,11 +60,13 @@ function createPgPool() {
 				return result([{ count: 2 }]);
 			}
 			if (sql.includes('SELECT * FROM "users"')) return result(tableDataRows);
-			if (sql.includes("SELECT EXISTS") && sql.includes("information_schema.tables")) {
-				return result([{ exists: true }]);
-			}
+			// The columns check is tested first: its schema resolver subquery also
+			// mentions information_schema.tables, so the table branch would swallow it.
 			if (sql.includes("SELECT EXISTS") && sql.includes("information_schema.columns")) {
 				return result([{ exists: values?.[1] !== "age" && values?.[1] !== "fullName" }]);
+			}
+			if (sql.includes("SELECT EXISTS") && sql.includes("information_schema.tables")) {
+				return result([{ exists: true }]);
 			}
 			if (sql.includes('c.column_name as "columnName"')) {
 				return result([
