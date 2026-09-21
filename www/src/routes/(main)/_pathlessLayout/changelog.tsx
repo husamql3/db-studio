@@ -31,7 +31,7 @@ function UsernameBadge({ username }: { username?: string | string[] }) {
 						rel="noopener noreferrer"
 						className="inline-flex items-center gap-1 text-blue-600 group"
 					>
-						<span className="text-xs font-medium">@{user}</span>
+						<span className="text-[11px] font-medium">@{user}</span>
 					</a>
 					{index < usernames.length - 1 && ", "}
 				</span>
@@ -64,7 +64,7 @@ function RouteComponent() {
 									})}
 								</div>
 
-								<div className="order-1 md:order-2 w-fit text-zinc-50 px-2 py-1 rounded-sm text-sm font-medium border border-zinc-800 shadow-2xl shadow-zinc-500">
+								<div className="order-1 md:order-2 w-fit text-zinc-50 px-2 py-1 rounded-sm text-xs font-medium border border-zinc-800 shadow-2xl shadow-zinc-500">
 									v{item.version}
 								</div>
 							</div>
@@ -81,7 +81,7 @@ function RouteComponent() {
 								{/* Content Card */}
 								<div className="space-y-3">
 									<div className="flex flex-col-reverse gap-3">
-										<h3 className="text-lg font-semibold">{item.title}</h3>
+										<h3 className="text-base font-semibold">{item.title}</h3>
 
 										<div className="flex gap-1">
 											{item.tags &&
@@ -111,10 +111,10 @@ function RouteComponent() {
 										</div>
 									)}
 
-									<div className="space-y-4 text-sm text-muted-foreground">
+									<div className="space-y-4 text-xs text-muted-foreground">
 										{item.features && item.features.length > 0 && (
 											<div className="space-y-1.5">
-												<h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+												<h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
 													🚀 Features
 												</h4>
 												<ul className="space-y-1">
@@ -135,7 +135,7 @@ function RouteComponent() {
 
 										{item.improvements && item.improvements.length > 0 && (
 											<div className="space-y-1.5">
-												<h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+												<h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
 													🔧 Improvements
 												</h4>
 												<ul className="space-y-1">
@@ -156,7 +156,7 @@ function RouteComponent() {
 
 										{item.bugsFixed && item.bugsFixed.length > 0 && (
 											<div className="space-y-1.5">
-												<h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+												<h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
 													🐛 Bug Fixes
 												</h4>
 												<ul className="space-y-1">
