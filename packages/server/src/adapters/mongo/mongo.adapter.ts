@@ -17,6 +17,7 @@ import type {
 	DeleteTableResult,
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
+	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -555,6 +556,29 @@ export class MongoAdapter extends BaseAdapter {
 		}
 	}
 
+	override async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		try {
+			const { tableName, newTableName, db } = params;
+			this.assertDifferentTableName(tableName, newTableName);
+			const mongoDb = await getMongoDb(db);
+			const existing = await mongoDb.listCollections({ name: tableName }).toArray();
+			if (existing.length === 0) {
+				throw new HTTPException(404, {
+					message: `Collection "${tableName}" does not exist`,
+				});
+			}
+			const target = await mongoDb.listCollections({ name: newTableName }).toArray();
+			if (target.length > 0) {
+				throw new HTTPException(409, {
+					message: `Collection "${newTableName}" already exists`,
+				});
+			}
+			await mongoDb.collection(tableName).rename(newTableName);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
 	override async getTableSchema({
 		tableName,
 		db,
@@ -919,35 +943,39 @@ export class MongoAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		try {
-			const { tableName, updates, primaryKey } = params;
+			const { tableName } = params;
 			const mongoDb = await getMongoDb(db);
 			const collection = mongoDb.collection(tableName);
 
 			let totalUpdated = 0;
-			const pkField = primaryKey || "_id";
-			const updatesByRow = new Map<unknown, Record<string, unknown>>();
+			const keyColumns = this.resolveKeyColumns(params).map((column) => column || "_id");
+			const groups = this.groupUpdatesByKey(
+				{ ...params, primaryKeys: keyColumns },
+				keyColumns,
+			);
 
-			for (const update of updates) {
-				const pkValue = update.rowData[pkField];
-				if (pkValue === undefined || pkValue === null) {
+			for (const { keyValues, rowUpdates } of groups) {
+				// MongoDB rejects $set on the immutable _id field, so surface it as a
+				// client error instead of letting the driver fail mid-write.
+				if (rowUpdates.some((update) => update.columnName === "_id")) {
 					throw new HTTPException(400, {
-						message: `Primary key "${pkField}" not found in row data.`,
+						message: 'The "_id" field is immutable and cannot be updated.',
 					});
 				}
-				if (!updatesByRow.has(pkValue)) updatesByRow.set(pkValue, {});
-				updatesByRow.get(pkValue)![update.columnName] = update.value;
-			}
 
-			for (const [pkValue, updateSet] of updatesByRow.entries()) {
-				const queryValue =
-					pkField === "_id" && canCoerce(pkValue) ? toMongoId(pkValue) : pkValue;
-				const result = await collection.updateOne(
-					{ [pkField]: queryValue },
-					{ $set: updateSet },
-				);
+				const updateSet: Record<string, unknown> = {};
+				for (const update of rowUpdates) updateSet[update.columnName] = update.value;
+
+				const filter: Record<string, unknown> = {};
+				keyColumns.forEach((column, i) => {
+					const value = keyValues[i];
+					filter[column] = column === "_id" && canCoerce(value) ? toMongoId(value) : value;
+				});
+
+				const result = await collection.updateOne(filter, { $set: updateSet });
 				if (result.matchedCount === 0) {
 					throw new HTTPException(404, {
-						message: `Record with ${pkField} = ${String(pkValue)} not found in "${tableName}"`,
+						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in "${tableName}"`,
 					});
 				}
 				totalUpdated += result.modifiedCount;

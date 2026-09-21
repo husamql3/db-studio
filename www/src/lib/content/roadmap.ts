@@ -134,7 +134,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Customize the grid: hide/reorder columns and add color rules",
-				status: "planned",
+				status: "in-progress",
 			},
 		],
 	},

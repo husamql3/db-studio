@@ -20,7 +20,7 @@ export const DataGridHead = <TRow,>({
 	const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
 	return (
-		<thead className="h-9 grid sticky top-0 z-10">
+		<thead className="h-9 grid sticky top-0 z-10 supports-backdrop-filter:backdrop-blur-sm">
 			{table.getHeaderGroups().map((headerGroup) => (
 				<tr
 					key={headerGroup.id}

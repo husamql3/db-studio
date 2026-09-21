@@ -16,6 +16,73 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.14.0",
+		date: "2026-09-21",
+		title: "Live mode, row details, and a command palette",
+		features: [
+			{
+				text: "Added Live mode for PostgreSQL: the table refreshes every second and highlights inserted rows and changed cells, pausing automatically while you edit",
+				username: ["marwan562", "husamql3"],
+			},
+			{
+				text: "Added an editable row details sheet with keyboard navigation between rows and a confirmation before unsaved edits are discarded",
+				username: ["marwan562", "husamql3"],
+			},
+			{
+				text: "Added a command palette for jumping to tables, running actions, and opening the assistant",
+				username: ["marwan562", "husamql3"],
+			},
+			{
+				text: "Added per-table column preferences so you can hide and reorder columns, saved across sessions",
+				username: ["marwan562", "husamql3"],
+			},
+			{
+				text: "Added table renaming across PostgreSQL, MySQL, SQL Server, SQLite, and MongoDB",
+				username: ["marwan562", "husamql3"],
+			},
+		],
+		improvements: [
+			{
+				text: "Blurred the sticky table headers so rows stay legible as they scroll underneath",
+				username: ["marwan562", "husamql3"],
+			},
+			{
+				text: "Enforced server coverage thresholds in CI",
+				username: "marwan562",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed PostgreSQL tables outside the public schema listing in the sidebar but failing to open, export, or show their columns",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed edits to a record with a composite primary key updating every row that shared the first key column",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed renaming a PostgreSQL table applying to a same-named table in another schema",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed editing a Redis key's name writing to the old key instead of renaming it",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed MongoDB record updates failing mid-write when the immutable _id field was edited",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed binary columns crashing the record editor when they already held a value",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed Edit Table navigation not returning to the data view",
+				username: "marwan562",
+			},
+		],
+	},
+	{
 		version: "1.13.1",
 		date: "2026-09-18",
 		title: "CLI accuracy and safer startup errors",

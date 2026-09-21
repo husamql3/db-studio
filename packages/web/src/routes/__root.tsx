@@ -8,6 +8,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { CommandPalette } from "@/components/components/command-palette";
 import { SettingsOverlay } from "@/features/settings";
 import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
@@ -128,6 +129,7 @@ export const Route = createRootRoute({
 				</NuqsAdapter>
 				<Toaster position="top-right" />
 				{/* Global overlays */}
+				<CommandPalette />
 				<TableBuilderOverlay />
 				<SettingsOverlay />
 				{/* Devtools */}

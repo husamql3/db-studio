@@ -1,18 +1,23 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTableCols } from "@/features/schema";
 import { useDatabaseStore } from "@/stores/database.store";
+import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
+import { useLiveTable } from "../hooks/use-live-table";
 import { useTableData } from "../hooks/use-table-data";
 import { useTableModel } from "../hooks/use-table-model";
+import { useRowDetailsStore } from "../stores/row-details.store";
+import { RowDetailsSheet } from "./row-details-sheet";
 import { TableDocumentView } from "./table-document-view";
 import { TableEmptyState } from "./table-empty-state";
 import { TableErrorState } from "./table-error-state";
 import { TableGrid } from "./table-grid";
 import { TableLoadingState } from "./table-loading-state";
+import { UnsavedRowGuardDialog } from "./unsaved-row-guard-dialog";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const { dbType } = useDatabaseStore();
-	const { tableData, isLoadingTableData, errorTableData } = useTableData({
+	const { tableData, isLoadingTableData, errorTableData, refetchTableData } = useTableData({
 		tableName,
 	});
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
@@ -21,17 +26,49 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 
 	const tableDataRows = useMemo<TableRecord[]>(() => tableData?.data || [], [tableData?.data]);
 
-	const { table, selectedRows, setRowSelection } = useTableModel({
+	const { table, selectedRows, setRowSelection, isEditingCell } = useTableModel({
 		tableName,
 		tableCols,
 		tableDataRows,
+	});
+
+	// Visible-order rows for the details sheet. useReactTable keeps a stable
+	// table instance (setOptions per render), so the memo must key on the
+	// row-model output itself, not the table, or the sheet keeps stale rows.
+	const rowModel = table.getRowModel();
+	const visibleRows = useMemo(
+		() => rowModel.rows.map((gridRow) => gridRow.original),
+		[rowModel],
+	);
+
+	// A stale selection must never survive a table switch or unmount.
+	useEffect(() => {
+		return () => {
+			useRowDetailsStore.getState().clearRowDetails();
+			const { closeOverlay } = useOverlayStore.getState();
+			closeOverlay("tables.row-change-primary-key");
+			closeOverlay("tables.row-delete-record");
+			closeOverlay("tables.row-discard-changes");
+			closeOverlay("tables.row-details");
+		};
+	}, [tableName]);
+
+	useLiveTable({
+		tableName,
+		tableCols,
+		tableDataRows,
+		refetchTableData,
+		isEditingCell,
 	});
 
 	if (isLoadingTableData || isLoadingTableCols) {
 		return <TableLoadingState />;
 	}
 
-	if (errorTableData || errorTableCols) {
+	const hasInitialLoadError =
+		(!tableData && !!errorTableData) || (!tableCols && !!errorTableCols);
+
+	if (hasInitialLoadError) {
 		return (
 			<TableErrorState
 				tableName={tableName}
@@ -64,11 +101,18 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	}
 
 	return (
-		<TableGrid
-			table={table}
-			tableName={tableName}
-			selectedRows={selectedRows}
-			setRowSelection={setRowSelection}
-		/>
+		<>
+			<TableGrid
+				table={table}
+				tableName={tableName}
+				selectedRows={selectedRows}
+				setRowSelection={setRowSelection}
+			/>
+			<RowDetailsSheet
+				tableName={tableName}
+				rows={visibleRows}
+			/>
+			<UnsavedRowGuardDialog />
+		</>
 	);
 };

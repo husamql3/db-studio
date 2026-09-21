@@ -1,5 +1,6 @@
 import { Button } from "@db-studio/ui/button";
-import { Plus, RefreshCw } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Plus, RefreshCw, Table2 } from "lucide-react";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useOverlayStore } from "@/stores/overlay.store";
 
@@ -26,6 +27,21 @@ export const SchemaToolbar = ({
 				disabled={isRefetching}
 			>
 				<RefreshCw className="size-4" />
+			</Button>
+
+			<Button
+				variant="ghost"
+				asChild
+				className="h-8! border-l border-y-0 border-r-0 border-border rounded-none flex items-center gap-2 text-muted-foreground hover:text-foreground"
+			>
+				<Link
+					to="/table/$table"
+					params={{ table: tableName }}
+					aria-label={`View data for ${tableName}`}
+				>
+					<Table2 className="size-4" />
+					View data
+				</Link>
 			</Button>
 
 			{!isSchemaless && (

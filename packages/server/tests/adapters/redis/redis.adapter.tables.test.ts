@@ -159,6 +159,11 @@ describe("RedisAdapter — tables", () => {
 						newColumnName: "v",
 					}),
 			},
+			{
+				name: "renameTable",
+				call: () =>
+					adapter.renameTable({ db: "0", tableName: "strings", newTableName: "texts" }),
+			},
 		];
 
 		for (const { name, call } of cases) {
