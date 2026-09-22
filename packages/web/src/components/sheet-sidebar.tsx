@@ -6,7 +6,7 @@ import {
 	SheetTitle,
 } from "@db-studio/ui/sheet";
 import { cn } from "@db-studio/ui/utils";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 export const SheetSidebar = ({
 	title,
@@ -21,6 +21,9 @@ export const SheetSidebar = ({
 	onOpenChange,
 	cta,
 	closeButton = true,
+	modal = true,
+	onFocusOutside,
+	onPointerDownOutside,
 }: {
 	title?: string;
 	description?: string;
@@ -34,16 +37,24 @@ export const SheetSidebar = ({
 	onOpenChange: (open: boolean) => void;
 	cta?: ReactNode;
 	closeButton?: boolean;
+	/** Non-modal sheets keep the page behind them interactive and undimmed. */
+	modal?: boolean;
+	onFocusOutside?: ComponentProps<typeof SheetContent>["onFocusOutside"];
+	onPointerDownOutside?: ComponentProps<typeof SheetContent>["onPointerDownOutside"];
 }) => {
 	return (
 		<Sheet
 			open={open}
 			onOpenChange={onOpenChange}
+			modal={modal}
 		>
 			<SheetContent
 				side={side}
 				className={size}
 				showCloseButton={closeButton}
+				showOverlay={modal}
+				onFocusOutside={onFocusOutside}
+				onPointerDownOutside={onPointerDownOutside}
 			>
 				<SheetHeader className={headerClassName}>
 					<SheetTitle className={cn(titleClassName, "flex justify-between items-center")}>

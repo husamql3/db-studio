@@ -2,6 +2,11 @@ import * as monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/hooks/use-theme";
+import {
+	MONACO_DARK_THEME,
+	MONACO_LIGHT_THEME,
+	registerMonacoThemes,
+} from "@/lib/monaco-theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import {
 	BUILTIN_FUNCTIONS,
@@ -42,7 +47,7 @@ export const CodeEditor = ({
 
 	useEffect(() => {
 		if (editorRef.current) {
-			monaco.editor.setTheme(isDark ? "vs-dark" : "vs");
+			monaco.editor.setTheme(isDark ? MONACO_DARK_THEME : MONACO_LIGHT_THEME);
 		}
 	}, [isDark]);
 
@@ -56,6 +61,7 @@ export const CodeEditor = ({
 
 	useEffect(() => {
 		if (!monacoEl.current) return;
+		registerMonacoThemes();
 		const languageDisposables: monaco.IDisposable[] = [];
 
 		if (language === "pgsql") {
@@ -251,7 +257,7 @@ export const CodeEditor = ({
 		const editorInstance = monaco.editor.create(monacoEl.current, {
 			value: initialQuery,
 			language,
-			theme: isDark ? "vs-dark" : "vs",
+			theme: isDark ? MONACO_DARK_THEME : MONACO_LIGHT_THEME,
 			fontSize: editorPreferences.fontSize,
 			minimap: { enabled: false },
 			lineNumbers: "on",

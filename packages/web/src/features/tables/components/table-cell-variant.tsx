@@ -32,6 +32,7 @@ import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";
+import { JsonEditor } from "./json-editor";
 import { TableCellWrapper } from "./table-cell-wrapper";
 
 interface CellVariantProps<TData> {
@@ -938,7 +939,6 @@ export const TableJsonCell = memo(
 			() => JSON.stringify(initialValue, null, editorPreferences.tabSize) ?? "",
 		);
 		const [open, setOpen] = useState(false);
-		const textareaRef = useRef<HTMLTextAreaElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
@@ -953,11 +953,28 @@ export const TableJsonCell = memo(
 			: initialValue;
 		const displayValue = JSON.stringify(currentJsonValue);
 
-		const onSave = useCallback(() => {
+		const parseError = useMemo(() => {
 			try {
-				// Parse the JSON string to validate and store as object
-				const parsedValue = JSON.parse(editorValue);
-				// Update the store with the parsed value
+				JSON.parse(editorValue);
+				return null;
+			} catch (error) {
+				return error instanceof Error ? error.message : "Invalid JSON";
+			}
+		}, [editorValue]);
+
+		// Push the edited value into the store, or drop the pending update when it
+		// matches the original value. Returns false when the JSON can't be parsed.
+		const commit = useCallback(() => {
+			let parsedValue: unknown;
+			try {
+				parsedValue = JSON.parse(editorValue);
+			} catch {
+				return false;
+			}
+
+			if (JSON.stringify(parsedValue) === JSON.stringify(initialValue)) {
+				clearUpdate(rowData, columnName, table.options.meta?.editScope);
+			} else {
 				setUpdate(
 					rowData,
 					columnName,
@@ -965,16 +982,17 @@ export const TableJsonCell = memo(
 					initialValue,
 					table.options.meta?.editScope,
 				);
-			} catch (error) {
-				console.error("Invalid JSON:", error);
-				// Optionally show an error message to the user
-				return;
 			}
+			return true;
+		}, [editorValue, initialValue, columnName, rowData, setUpdate, clearUpdate]);
+
+		const onSave = useCallback(() => {
+			if (!commit()) return;
 
 			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
 			setOpen(false);
-		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
+		}, [commit, meta]);
 
 		const onCancel = useCallback(() => {
 			// Restore the original value (formatted)
@@ -988,48 +1006,22 @@ export const TableJsonCell = memo(
 			setOpen(false);
 		}, [meta, initialValue, columnName, rowData, clearUpdate, editorPreferences.tabSize]);
 
-		const onChange = useCallback(
-			(event: ChangeEvent<HTMLTextAreaElement>) => {
-				const newValue = event.target.value;
-				setEditorValue(newValue);
-			},
-			[columnName, editorValue, initialValue],
-		);
-
 		const onOpenChange = useCallback(
 			(isOpen: boolean) => {
 				setOpen(isOpen);
 				if (!isOpen) {
-					// When closing, update the store with current value if valid JSON
-					try {
-						const parsedValue = JSON.parse(editorValue);
-						if (JSON.stringify(parsedValue) !== JSON.stringify(initialValue)) {
-							setUpdate(
-								rowData,
-								columnName,
-								parsedValue,
-								initialValue,
-								table.options.meta?.editScope,
-							);
-						}
-					} catch (error) {
-						console.error("Invalid JSON on close:", error);
-					}
+					commit();
 					meta?.onCellEditingStop?.();
 				}
 			},
-			[meta, editorValue, initialValue, columnName, rowData, setUpdate],
+			[commit, meta],
 		);
 
 		const onOpenAutoFocus: NonNullable<
 			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
 		> = useCallback((event) => {
+			// The editor focuses itself once it mounts.
 			event.preventDefault();
-			if (textareaRef.current) {
-				textareaRef.current.focus();
-				const length = textareaRef.current.value.length;
-				textareaRef.current.setSelectionRange(length, length);
-			}
 		}, []);
 
 		const onWrapperKeyDown = useCallback(
@@ -1049,42 +1041,6 @@ export const TableJsonCell = memo(
 			[isEditing, open, meta],
 		);
 
-		const onTextareaKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLTextAreaElement>) => {
-				if (event.key === "Escape") {
-					event.preventDefault();
-					onCancel();
-				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-					event.preventDefault();
-					onSave();
-				}
-				// Stop propagation to prevent grid navigation
-				event.stopPropagation();
-			},
-			[onCancel, onSave, editorValue, initialValue],
-		);
-
-		const onTextareaBlur = useCallback(() => {
-			// Update store on blur if valid JSON
-			try {
-				const parsedValue = JSON.parse(editorValue);
-				if (JSON.stringify(parsedValue) !== JSON.stringify(initialValue)) {
-					setUpdate(
-						rowData,
-						columnName,
-						parsedValue,
-						initialValue,
-						table.options.meta?.editScope,
-					);
-				}
-			} catch (error) {
-				console.error("Invalid JSON on blur:", error);
-			}
-			// Stop editing first, then close the popover
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
-
 		// Sync open state with isEditing prop and initialize editor value
 		useEffect(() => {
 			if (isEditing && !open) {
@@ -1102,8 +1058,8 @@ export const TableJsonCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		useHotkeys("enter", () => onSave());
-		useHotkeys("esc", () => onCancel());
+		useHotkeys("enter", () => onSave(), { enabled: open });
+		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<Popover
@@ -1130,22 +1086,27 @@ export const TableJsonCell = memo(
 					align="start"
 					side="bottom"
 					sideOffset={0}
-					className="w-[400px] rounded-none p-0 gap-0"
+					className="w-[440px] rounded-none p-0 gap-0"
 					onOpenAutoFocus={onOpenAutoFocus}
 				>
-					<Textarea
-						ref={textareaRef}
+					<JsonEditor
 						value={editorValue}
-						onChange={onChange}
-						onKeyDown={onTextareaKeyDown}
-						onBlur={onTextareaBlur}
-						className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
-						placeholder="Enter JSON..."
+						onChange={setEditorValue}
+						onSave={onSave}
+						onCancel={onCancel}
+						className="h-[240px]"
 					/>
+					{parseError && (
+						<p className="border-t px-2 py-1.5 text-xs text-destructive truncate">
+							{parseError}
+						</p>
+					)}
 					<div className="flex flex-col border-t">
 						<Button
 							variant="ghost"
 							size="sm"
+							disabled={Boolean(parseError)}
+							onClick={onSave}
 							className="rounded-none justify-start text-xs py-4 px-2"
 						>
 							<Kbd className="text-xs font-normal">⌘↵</Kbd>
@@ -1155,6 +1116,7 @@ export const TableJsonCell = memo(
 						<Button
 							variant="ghost"
 							size="sm"
+							onClick={onCancel}
 							className="rounded-none justify-start text-xs py-4 px-2"
 						>
 							<Kbd className="text-xs font-normal">esc</Kbd>

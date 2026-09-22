@@ -41,14 +41,12 @@ export function TableCellWrapper<TData>({
 			if (!isEditing) {
 				event.preventDefault();
 				onClickProp?.(event);
-				if (isFocused) {
-					meta?.onCellEditingStart?.(rowIndex, columnId);
-				} else {
-					meta?.onCellClick?.(rowIndex, columnId, event);
-				}
+				// A single click only focuses the cell so the row can open its
+				// details sheet; editing starts on double-click or via the keyboard.
+				meta?.onCellClick?.(rowIndex, columnId, event);
 			}
 		},
-		[meta, rowIndex, columnId, isEditing, isFocused, onClickProp],
+		[meta, rowIndex, columnId, isEditing, onClickProp],
 	);
 
 	const onContextMenu = useCallback(
