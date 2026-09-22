@@ -299,6 +299,17 @@ export const RowDetailsSheet = ({
 						</Button>
 					</div>
 				}
+				closeButton={false}
+				modal={false}
+				// Focus leaving the sheet (a nested confirmation dialog, the grid)
+				// must not dismiss it — only a deliberate click outside does.
+				onFocusOutside={(event) => event.preventDefault()}
+				onPointerDownOutside={(event) => {
+					// Clicking another row re-targets this sheet rather than closing it.
+					if ((event.target as HTMLElement | null)?.closest("table, [role=alertdialog]")) {
+						event.preventDefault();
+					}
+				}}
 				open={open}
 				onOpenChange={(isOpen) => {
 					if (!isOpen) {

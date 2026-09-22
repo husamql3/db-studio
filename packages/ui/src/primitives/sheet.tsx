@@ -63,15 +63,17 @@ function SheetContent({
 	side = "right",
 	showCloseButton = true,
 	isPinned = false,
+	showOverlay = true,
 	...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
 	side?: "top" | "right" | "bottom" | "left";
 	showCloseButton?: boolean;
 	isPinned?: boolean;
+	showOverlay?: boolean;
 }) {
 	return (
 		<SheetPortal>
-			{!isPinned && <SheetOverlay />}
+			{!isPinned && showOverlay && <SheetOverlay />}
 			<SheetPrimitive.Content
 				data-slot="sheet-content"
 				data-side={side}
