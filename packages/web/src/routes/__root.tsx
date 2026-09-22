@@ -3,7 +3,13 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { aiDevtoolsPlugin } from "@tanstack/react-ai-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { createRootRoute, Navigate, Outlet, useLocation } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	Navigate,
+	Outlet,
+	useLocation,
+	useRouterState,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { useEffect } from "react";
@@ -50,6 +56,12 @@ export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 		const pathname = useLocation({ select: (location) => location.pathname });
+		// Committed matches, not the (possibly pending) location: while the lazy /connections
+		// chunk loads, `pathname` already says /connections but <Outlet /> still renders the
+		// previous workspace routes, which need the providers below.
+		const connectionsRouteMatched = useRouterState({
+			select: (state) => state.matches.some((match) => match.routeId === "/connections"),
+		});
 
 		const { dbType } = useDatabaseStore();
 		// Desktop app with no server child running: only the connection manager can render.
@@ -107,6 +119,16 @@ export const Route = createRootRoute({
 						to="/connections"
 						replace
 					/>
+				);
+			}
+			if (!connectionsRouteMatched) {
+				return (
+					<div className="flex items-center justify-center h-screen">
+						<Spinner
+							size="size-8"
+							color="bg-primary"
+						/>
+					</div>
 				);
 			}
 			// No server child yet: skip the workspace overlays, which would query a missing API.
