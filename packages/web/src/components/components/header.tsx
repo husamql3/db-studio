@@ -13,6 +13,7 @@ import { Chat } from "@/components/chat/chat";
 import { Tabs } from "@/components/components/tabs";
 import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { useTheme } from "@/hooks/use-theme";
+import { showsDesktopTitleBar } from "@/lib/desktop";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const Header = () => {
@@ -22,7 +23,7 @@ export const Header = () => {
 	return (
 		<div className="border-b border-border w-full flex items-center justify-between bg-background text-foreground h-12">
 			<div className="flex items-center h-full">
-				<SidebarToggleButton />
+				{!showsDesktopTitleBar && <SidebarToggleButton />}
 				<Tabs />
 			</div>
 

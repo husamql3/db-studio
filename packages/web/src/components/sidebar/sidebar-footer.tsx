@@ -8,11 +8,12 @@ import {
 } from "@db-studio/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, Database, RefreshCw } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeftRight, ChevronDown, Database, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseConnectionInfo, useDatabasesList } from "@/hooks/use-databases-list";
+import { isDesktop } from "@/lib/desktop";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export function SidebarFooter() {
@@ -43,25 +44,47 @@ export function SidebarFooter() {
 							<Database className="size-4 text-muted-foreground" />
 							<span className="text-sm font-medium">Database</span>
 						</div>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="size-6 hover:bg-accent"
-									onClick={handleRefresh}
-									disabled={isLoadingDatabases || isRefetchingDatabases}
-								>
-									<RefreshCw
-										className={cn(
-											"size-3.5",
-											(isLoadingDatabases || isRefetchingDatabases) && "animate-spin",
-										)}
-									/>
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Refresh databases</TooltipContent>
-						</Tooltip>
+						<div className="flex items-center gap-1">
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="size-6 hover:bg-accent"
+										onClick={handleRefresh}
+										disabled={isLoadingDatabases || isRefetchingDatabases}
+									>
+										<RefreshCw
+											className={cn(
+												"size-3.5",
+												(isLoadingDatabases || isRefetchingDatabases) && "animate-spin",
+											)}
+										/>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Refresh databases</TooltipContent>
+							</Tooltip>
+							{isDesktop && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="size-6 hover:bg-accent"
+											asChild
+										>
+											<Link
+												to="/connections"
+												aria-label="Switch connection"
+											>
+												<ArrowLeftRight className="size-3.5" />
+											</Link>
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Switch connection</TooltipContent>
+								</Tooltip>
+							)}
+						</div>
 					</div>
 
 					<Select

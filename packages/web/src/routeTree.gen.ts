@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PathlessLayoutRouteImport } from './routes/_pathlessLayout'
+import { Route as ConnectionsRouteImport } from './routes/connections'
 import { Route as PathlessLayoutIndexRouteImport } from './routes/_pathlessLayout/index'
 import { Route as PathlessLayoutBrowserRouteImport } from './routes/_pathlessLayout/browser'
 import { Route as PathlessLayoutIndexesRouteImport } from './routes/_pathlessLayout/indexes'
@@ -24,6 +25,11 @@ import { Route as PathlessLayoutTableTableRouteImport } from './routes/_pathless
 
 const PathlessLayoutRoute = PathlessLayoutRouteImport.update({
   id: '/_pathlessLayout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectionsRoute = ConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PathlessLayoutIndexRoute = PathlessLayoutIndexRouteImport.update({
@@ -91,6 +97,7 @@ const PathlessLayoutTableTableRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof PathlessLayoutIndexRoute
+  '/connections': typeof ConnectionsRoute
   '/browser': typeof PathlessLayoutBrowserRoute
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/table/': typeof PathlessLayoutTableIndexRoute
 }
 export interface FileRoutesByTo {
+  '/connections': typeof ConnectionsRoute
   '/browser': typeof PathlessLayoutBrowserRoute
   '/indexes': typeof PathlessLayoutIndexesRoute
   '/logs': typeof PathlessLayoutLogsRoute
@@ -118,6 +126,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_pathlessLayout': typeof PathlessLayoutRouteWithChildren
+  '/connections': typeof ConnectionsRoute
   '/_pathlessLayout/browser': typeof PathlessLayoutBrowserRoute
   '/_pathlessLayout/indexes': typeof PathlessLayoutIndexesRoute
   '/_pathlessLayout/logs': typeof PathlessLayoutLogsRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/connections'
     | '/browser'
     | '/indexes'
     | '/logs'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/table/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/connections'
     | '/browser'
     | '/indexes'
     | '/logs'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_pathlessLayout'
+    | '/connections'
     | '/_pathlessLayout/browser'
     | '/_pathlessLayout/indexes'
     | '/_pathlessLayout/logs'
@@ -175,6 +187,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   PathlessLayoutRoute: typeof PathlessLayoutRouteWithChildren
+  ConnectionsRoute: typeof ConnectionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PathlessLayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connections': {
+      id: '/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof ConnectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_pathlessLayout/': {
@@ -300,6 +320,7 @@ const PathlessLayoutRouteWithChildren = PathlessLayoutRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   PathlessLayoutRoute: PathlessLayoutRouteWithChildren,
+  ConnectionsRoute: ConnectionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
