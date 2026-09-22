@@ -16,6 +16,49 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.14.1",
+		date: "2026-09-23",
+		title: "A real JSON editor and a quicker row details sheet",
+		features: [
+			{
+				text: "Replaced the JSON cell's plain textarea with a code editor: line numbers, syntax highlighting, folding, and inline errors that block saving invalid JSON",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Row details now opens on a single click and the cell editor on a double click, with the sheet no longer dimming or blocking the grid behind it",
+				username: "husamql3",
+			},
+			{
+				text: "Updated production dependencies: @tanstack/ai (0.54→0.55), @tanstack/ai-client (0.31.1→0.32.1), @tanstack/ai-gemini (0.29.4→0.30), @tanstack/ai-react (0.24.1→0.27), @tanstack/react-router (1.170.35→1.170.38), @tanstack/react-start (1.168.52→1.168.56), dotenv (17.4.2→18)",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed saving an unedited JSON cell marking it as a pending change",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the Save and Cancel buttons in the JSON cell editor doing nothing",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed Enter and Escape in the grid committing or discarding JSON cells other than the one being edited",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed a single click on a selected cell opening the cell editor and the row details sheet at the same time",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the row details close button overlapping the row navigation arrows",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.14.0",
 		date: "2026-09-21",
 		title: "Live mode, row details, and a command palette",
