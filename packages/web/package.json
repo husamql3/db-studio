@@ -47,7 +47,7 @@
     "@tanstack/ai": "^0.55.0",
     "@tanstack/ai-client": "^0.32.1",
     "@tanstack/ai-gemini": "^0.30.0",
-    "@tanstack/ai-react": "^0.27.0",
+    "@tanstack/ai-react": "^0.24.1",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.170.38",
     "@tanstack/react-table": "^8.21.3",
