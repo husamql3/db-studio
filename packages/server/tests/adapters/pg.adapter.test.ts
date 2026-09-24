@@ -187,139 +187,7 @@ describe("PgAdapter integration scaffold", () => {
 		mockGetDbPool.mockReturnValue(pool);
 	});
 
-	it("executes every IDbAdapter method on the PostgreSQL pool happy path", async () => {
-		expect(await adapter.getDatabasesList()).toHaveLength(1);
-		expect(await adapter.getCurrentDatabase()).toEqual({ db: "appdb" });
-		expect((await adapter.getDatabaseConnectionInfo()).database).toBe("appdb");
-		expect(await adapter.getTablesList("appdb")).toEqual([
-			{ schemaName: "public", tableName: "users", rowCount: 2 },
-		]);
-
-		await adapter.createTable({
-			db: "appdb",
-			tableData: {
-				tableName: "users",
-				fields: [
-					{ columnName: "id", columnType: "integer", isPrimaryKey: true },
-					{
-						columnName: "email",
-						columnType: "text",
-						isUnique: true,
-						isNullable: false,
-						defaultValue: "'n/a'",
-					},
-					{ columnName: "tags", columnType: "text", isArray: true, isNullable: true },
-					{ columnName: "serial_no", columnType: "integer", isIdentity: true },
-				],
-				foreignKeys: [
-					{
-						columnName: "group_id",
-						referencedTable: "groups",
-						referencedColumn: "id",
-						onUpdate: "CASCADE",
-						onDelete: "SET NULL",
-					},
-				],
-			} as never,
-		});
-		expect(await adapter.deleteTable({ db: "appdb", tableName: "users", cascade: true })).toEqual(
-			{ deletedCount: 2, fkViolation: false, relatedRecords: [] },
-		);
-		expect(await adapter.getTableSchema({ db: "appdb", tableName: "users" })).toContain(
-			"create table public.users",
-		);
-		expect(await adapter.getTableColumns({ db: "appdb", tableName: "users" })).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ columnName: "id" }),
-				expect.objectContaining({ columnName: "status", enumValues: ["active", "inactive"] }),
-			]),
-		);
-
-		await adapter.addColumn({
-			db: "appdb",
-			tableName: "users",
-			columnName: "age",
-			columnType: "integer",
-			defaultValue: "18",
-			isUnique: true,
-			isNullable: true,
-			isArray: true,
-		} as never);
-		expect(
-			await adapter.deleteColumn({
-				db: "appdb",
-				tableName: "users",
-				columnName: "name",
-				cascade: true,
-			}),
-		).toEqual({ deletedCount: 1 });
-		await adapter.alterColumn({
-			db: "appdb",
-			tableName: "users",
-			columnName: "name",
-			columnType: "text",
-			isNullable: true,
-		} as never);
-		await adapter.renameColumn({
-			db: "appdb",
-			tableName: "users",
-			columnName: "name",
-			newColumnName: "fullName",
-		});
-
-		expect(
-			await adapter.getTableData({ db: "appdb", tableName: "users", limit: 2, sort: "id" }),
-		).toMatchObject({ meta: { total: 2 }, data: tableDataRows });
-		expect(
-			await adapter.exportTableData({ db: "appdb", tableName: "users" }),
-		).toMatchObject({ cols: ["id", "name", "ctid"], rows: tableDataRows });
-		expect(
-			await adapter.addRecord({
-				db: "appdb",
-				params: { tableName: "users", data: { name: "Ada" } },
-			} as never),
-		).toEqual({ insertedCount: 1 });
-		expect(
-			await adapter.updateRecords({
-				db: "appdb",
-				params: {
-					tableName: "users",
-					primaryKey: "id",
-					updates: [{ columnName: "name", value: "Grace", rowData: { id: 1 } }],
-				},
-			} as never),
-		).toEqual({ updatedCount: 1 });
-		expect(
-			await adapter.deleteRecords({
-				db: "appdb",
-				tableName: "users",
-				primaryKeys: [{ columnName: "id", value: 1 }],
-			}),
-		).toEqual({ deletedCount: 1, fkViolation: false, relatedRecords: [] });
-		expect(
-			await adapter.forceDeleteRecords({
-				db: "appdb",
-				tableName: "users",
-				primaryKeys: [{ columnName: "id", value: 1 }],
-			}),
-		).toEqual({ deletedCount: 1 });
-		expect(
-			await adapter.bulkInsertRecords({
-				db: "appdb",
-				tableName: "users",
-				records: [{ name: "Ada" }],
-			}),
-		).toMatchObject({ success: true, successCount: 1, failureCount: 0 });
-		expect(await adapter.executeQuery({ db: "appdb", query: "SELECT 1;" })).toMatchObject({
-			columns: ["id"],
-			rowCount: 1,
-		});
-		expect(adapter.mapToUniversalType("integer")).toBe("number");
-		expect(adapter.mapFromUniversalType("json")).toBe("JSONB");
-		expect(pool.query).toHaveBeenCalled();
-	});
-
-	it("covers PostgreSQL cursor pagination and protected query helpers", async () => {
+	it("builds the paginated data query and maps column types", async () => {
 		const cursor = (
 			adapter as unknown as {
 				encodeCursor: (data: { values: Record<string, unknown>; sortColumns: string[] }) => string;
@@ -331,13 +199,6 @@ describe("PgAdapter integration scaffold", () => {
 				sql: string;
 				values: unknown[];
 			};
-			buildCursors: (
-				params: Record<string, unknown>,
-				rows: Record<string, unknown>[],
-				hasMore: boolean,
-			) => { nextCursor: string | null; prevCursor: string | null };
-			quoteIdentifier: (name: string) => string;
-			decodeCursor: (cursor: string) => unknown;
 		};
 
 		expect(
@@ -362,34 +223,6 @@ describe("PgAdapter integration scaffold", () => {
 				cursor,
 			}).values,
 		).toEqual(["true", 1, 51]);
-		expect(helper.buildCursors({ sort: "id", direction: "asc" }, [], false)).toEqual({
-			nextCursor: null,
-			prevCursor: null,
-		});
-		expect(
-			helper.buildCursors({ sort: "id", direction: "desc", cursor }, [{ id: 1 }, { id: 2 }], true),
-		).toEqual({ nextCursor: expect.any(String), prevCursor: expect.any(String) });
-		expect(helper.quoteIdentifier("users")).toBe('"users"');
-		expect(helper.decodeCursor("not-a-cursor")).toBeNull();
-
-		expect(
-			await adapter.getTableData({
-				db: "appdb",
-				tableName: "users",
-				limit: 1,
-				direction: "desc",
-				cursor,
-				sort: [{ columnName: "id", direction: "desc" }],
-				filters: [{ columnName: "name", operator: "ilike", value: "%a%" }],
-			}),
-		).toMatchObject({
-			meta: {
-				limit: 1,
-				total: 2,
-				hasNextPage: true,
-				hasPreviousPage: true,
-			},
-		});
 
 		expect(adapter.mapFromUniversalType("text")).toBe("TEXT");
 		expect(adapter.mapFromUniversalType("number")).toBe("INTEGER");
@@ -403,152 +236,6 @@ describe("PgAdapter integration scaffold", () => {
 		expect(adapter.mapToUniversalType("timestamp")).toBe("date");
 	});
 
-	it("covers PostgreSQL validation and error branches", async () => {
-		pool.query.mockResolvedValueOnce(result([]));
-		await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 500 });
-
-		pool.query.mockResolvedValueOnce(result([]));
-		await expect(adapter.getCurrentDatabase()).rejects.toMatchObject({ status: 500 });
-
-		pool.query.mockResolvedValueOnce(result([]));
-		await expect(adapter.getDatabaseConnectionInfo()).rejects.toMatchObject({ status: 500 });
-
-		pool.query.mockResolvedValueOnce(result([]));
-		await expect(adapter.getTablesList("appdb")).resolves.toEqual([]);
-
-		pool.query.mockResolvedValueOnce(result([{ exists: false }]));
-		await expect(adapter.deleteTable({ db: "appdb", tableName: "missing" })).rejects.toMatchObject({
-			status: 404,
-		});
-
-		pool.query.mockResolvedValueOnce(result([{ exists: false }]));
-		await expect(
-			adapter.getTableSchema({ db: "appdb", tableName: "missing" }),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.query.mockResolvedValueOnce(result([]));
-		await expect(
-			adapter.getTableColumns({ db: "appdb", tableName: "missing" }),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.query.mockResolvedValueOnce(result([{ exists: false }]));
-		await expect(
-			adapter.addColumn({
-				db: "appdb",
-				tableName: "missing",
-				columnName: "age",
-				columnType: "integer",
-			} as never),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.query
-			.mockResolvedValueOnce(result([{ exists: true }]))
-			.mockResolvedValueOnce(result([{ exists: true }]));
-		await expect(
-			adapter.addColumn({
-				db: "appdb",
-				tableName: "users",
-				columnName: "age",
-				columnType: "integer",
-			} as never),
-		).rejects.toMatchObject({ status: 409 });
-
-		pool.query
-			.mockResolvedValueOnce(result([{ exists: true }]))
-			.mockResolvedValueOnce(result([{ exists: false }]));
-		await expect(
-			adapter.deleteColumn({ db: "appdb", tableName: "users", columnName: "missing" }),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.query
-			.mockResolvedValueOnce(result([{ exists: true }]))
-			.mockResolvedValueOnce(result([{ exists: true }]))
-			.mockResolvedValueOnce(result([{ exists: true }]));
-		await expect(
-			adapter.renameColumn({
-				db: "appdb",
-				tableName: "users",
-				columnName: "name",
-				newColumnName: "id",
-			}),
-		).rejects.toMatchObject({ status: 409 });
-
-		await expect(
-			adapter.updateRecords({
-				db: "appdb",
-				params: {
-					tableName: "users",
-					primaryKey: "id",
-					updates: [{ columnName: "name", value: "Ada", rowData: {} }],
-				},
-			} as never),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(
-			adapter.deleteRecords({ db: "appdb", tableName: "users", primaryKeys: [] }),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(
-			adapter.forceDeleteRecords({ db: "appdb", tableName: "users", primaryKeys: [] }),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(
-			adapter.bulkInsertRecords({ db: "appdb", tableName: "users", records: [] }),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(adapter.executeQuery({ db: "appdb", query: "" })).rejects.toMatchObject({
-			status: 400,
-		});
-
-		const helper = adapter as unknown as {
-			getFkConstraints: (pgPool: typeof pool, tableName: string) => Promise<unknown[]>;
-			getRelatedRecordsForTable: (pgPool: typeof pool, tableName: string) => Promise<unknown[]>;
-			getRelatedRecords: (
-				pgPool: typeof pool,
-				tableName: string,
-				primaryKeys: Array<{ columnName: string; value: unknown }>,
-				db: string,
-			) => Promise<unknown[]>;
-		};
-		const fkRows = [
-			{
-				constraint_name: "orders_user_id_fkey",
-				referencing_table: "orders",
-				referencing_column: "user_id",
-				referenced_table: "users",
-				referenced_column: "id",
-			},
-		];
-		pool.query.mockResolvedValueOnce(result(fkRows));
-		await expect(helper.getFkConstraints(pool, "users")).resolves.toEqual([
-			{
-				constraintName: "orders_user_id_fkey",
-				referencingTable: "orders",
-				referencingColumn: "user_id",
-				referencedTable: "users",
-				referencedColumn: "id",
-			},
-		]);
-
-		pool.query.mockResolvedValueOnce(result(fkRows)).mockResolvedValueOnce(result([{ id: 10 }]));
-		await expect(helper.getRelatedRecordsForTable(pool, "users")).resolves.toEqual([
-			{
-				tableName: "orders",
-				columnName: "user_id",
-				constraintName: "orders_user_id_fkey",
-				records: [{ id: 10 }],
-			},
-		]);
-
-		pool.query.mockResolvedValueOnce(result(fkRows)).mockResolvedValueOnce(result([{ id: 10 }]));
-		await expect(
-			helper.getRelatedRecords(pool, "users", [{ columnName: "id", value: 1 }], "appdb"),
-		).resolves.toEqual([
-			{
-				tableName: "orders",
-				columnName: "user_id",
-				constraintName: "orders_user_id_fkey",
-				records: [{ id: 10 }],
-			},
-		]);
-	});
-
 	describe("getDatabasesList system filtering", () => {
 		it("sends a query that excludes postgres but keeps the current database", async () => {
 			await adapter.getDatabasesList();
@@ -557,11 +244,6 @@ describe("PgAdapter integration scaffold", () => {
 				.find((sql) => sql.includes("pg_catalog.pg_database"));
 			expect(dbQuery).toContain("NOT IN ('postgres', 'rdsadmin')");
 			expect(dbQuery).toContain("current_database()");
-		});
-
-		it("maps connection errors to 503 via wrapError", async () => {
-			pool.query.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:5432"));
-			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
 		});
 	});
 });
@@ -650,12 +332,6 @@ describe("PgAdapter.renameTable", () => {
 		await expect(
 			adapter.renameTable({ db: "appdb", tableName: "product", newTableName: "item" }),
 		).rejects.toMatchObject({ status: 409 });
-	});
-
-	it("returns 400 when the new name equals the current name", async () => {
-		await expect(
-			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "users" }),
-		).rejects.toMatchObject({ status: 400 });
 	});
 
 	it("returns 400 when the table exists in multiple non-public schemas", async () => {

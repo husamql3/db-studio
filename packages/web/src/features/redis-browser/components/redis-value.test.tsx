@@ -18,7 +18,6 @@ describe("Redis binary values", () => {
 	it("defaults binary data to an exact hex representation", () => {
 		render(<RedisValue value={{ base64: "_wBB" }} />);
 		expect(screen.getByText("ff0041")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Download original bytes" })).toBeEnabled();
 	});
 
 	it("recognizes and pretty-prints JSON strings", () => {

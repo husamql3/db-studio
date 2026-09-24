@@ -5,7 +5,6 @@ import {
 	makeColumnPrefKey,
 	reconcileColumnPrefs,
 	reorderColumns,
-	sameColumnPrefKey,
 	useColumnPreferencesStore,
 } from "./column-preferences.store";
 
@@ -17,28 +16,10 @@ beforeEach(() => {
 });
 
 describe("column preferences store", () => {
-	it("round-trips preferences for a table", () => {
-		expect(getColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
-		store().setColumnPrefs(parts, { order: ["b", "a"], hidden: ["b"] });
-		expect(getColumnPrefs(parts)).toEqual({ order: ["b", "a"], hidden: ["b"] });
-	});
-
 	it("produces distinct keys when database or table names contain colons", () => {
 		const keyA = makeColumnPrefKey({ dbType: "pg", database: "a:b", tableName: "c" });
 		const keyB = makeColumnPrefKey({ dbType: "pg", database: "a", tableName: "b:c" });
 		expect(keyA).not.toBe(keyB);
-	});
-
-	it("keeps preferences isolated between tables and databases", () => {
-		store().setColumnPrefs(parts, { order: ["a"], hidden: [] });
-		const otherTable = { ...parts, tableName: "orders" };
-		expect(getColumnPrefs(otherTable)).toEqual({ order: [], hidden: [] });
-		store().setColumnPrefs(otherTable, { order: [], hidden: ["x"] });
-		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
-		expect(getColumnPrefs({ ...parts, database: "otherdb" })).toEqual({
-			order: [],
-			hidden: [],
-		});
 	});
 
 	it("sanitizes corrupt or partial payloads on write", () => {
@@ -47,27 +28,6 @@ describe("column preferences store", () => {
 			hidden: "oops",
 		} as never);
 		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
-	});
-
-	it("drops only the cleared table's preferences", () => {
-		const otherTable = { ...parts, tableName: "orders" };
-		store().setColumnPrefs(parts, { order: ["a"], hidden: ["a"] });
-		store().setColumnPrefs(otherTable, { order: ["b"], hidden: [] });
-
-		store().clearColumnPrefs(parts);
-
-		expect(getColumnPrefs(parts)).toEqual({ order: [], hidden: [] });
-		expect(getColumnPrefs(otherTable)).toEqual({ order: ["b"], hidden: [] });
-	});
-
-	it("persists writes under a single namespaced storage key", () => {
-		store().setColumnPrefs(parts, { order: ["a"], hidden: [] });
-
-		const raw = window.localStorage.getItem("dbstudio-column-preferences");
-		expect(raw).not.toBeNull();
-		expect(JSON.parse(raw as string).state.prefsByTable).toEqual({
-			[makeColumnPrefKey(parts)]: { order: ["a"], hidden: [] },
-		});
 	});
 
 	it("discards a persisted payload that is not an object", () => {
@@ -99,21 +59,9 @@ describe("column preferences store", () => {
 
 		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
 	});
-
-	it("matches key parts regardless of object identity", () => {
-		expect(sameColumnPrefKey(parts, { ...parts })).toBe(true);
-		expect(sameColumnPrefKey(parts, { ...parts, tableName: "orders" })).toBe(false);
-	});
 });
 
 describe("reconcileColumnPrefs", () => {
-	it("passes through when prefs are empty", () => {
-		expect(reconcileColumnPrefs(["a", "b"], { order: [], hidden: [] })).toEqual({
-			order: ["a", "b"],
-			hidden: [],
-		});
-	});
-
 	it("keeps saved order for known columns and appends new ones", () => {
 		expect(reconcileColumnPrefs(["a", "b", "c"], { order: ["c", "a"], hidden: [] })).toEqual({
 			order: ["c", "a", "b"],

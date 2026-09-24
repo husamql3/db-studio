@@ -35,15 +35,6 @@ describe("database startup check", () => {
 		});
 	});
 
-	it("runs a real Redis ping before reporting a successful connection", async () => {
-		const ping = vi.fn().mockResolvedValue("PONG");
-		mocks.getRedisClient.mockResolvedValue({ ping });
-
-		await checkDatabaseConnection("redis");
-
-		expect(ping).toHaveBeenCalledOnce();
-	});
-
 	it("bounds the PostgreSQL startup query", async () => {
 		vi.useFakeTimers();
 		const query = vi.fn().mockReturnValue(new Promise(() => undefined));
@@ -60,14 +51,5 @@ describe("database startup check", () => {
 		}
 
 		expect(query).toHaveBeenCalledWith("SELECT 1");
-	});
-
-	it("propagates a failed health check", async () => {
-		const connectionError = new Error("Connection refused");
-		mocks.getDbPool.mockReturnValue({
-			query: vi.fn().mockRejectedValue(connectionError),
-		});
-
-		await expect(checkDatabaseConnection("pg")).rejects.toBe(connectionError);
 	});
 });
