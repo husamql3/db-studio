@@ -117,7 +117,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Better JSON editor inside cells with formatting and line numbers",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Bulk edit rows, clone records, and preview pending changes before saving",
@@ -133,8 +133,12 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Customize the grid: hide/reorder columns and add color rules",
-				status: "in-progress",
+				title: "Customize the grid: hide and reorder columns",
+				status: "completed",
+			},
+			{
+				title: "Color rules for highlighting grid cells and rows",
+				status: "planned",
 			},
 		],
 	},
@@ -224,17 +228,17 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Platform Availability",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Native desktop apps for macOS, Windows, and Linux",
-				status: "planned",
+				status: "in-progress",
 			},
 		],
 	},
 	{
 		title: "Database Operations",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title:
@@ -242,7 +246,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Saved connection manager with SSH tunnels, SSL/TLS, env vars, and templates",
+				title: "Saved connection manager to add, label, edit, and switch between connections",
+				status: "in-progress",
+			},
+			{
+				title: "SSH tunnels, SSL/TLS options, and connection templates",
 				status: "planned",
 			},
 			{
