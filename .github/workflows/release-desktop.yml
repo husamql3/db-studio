@@ -27,6 +27,8 @@ jobs:
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
+    env:
+      VERSION: ${{ inputs.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -72,8 +74,8 @@ jobs:
         shell: bash
         run: |
           SERVER_VERSION=$(node -p "require('./packages/server/package.json').version")
-          if [ "$SERVER_VERSION" != "${{ inputs.version }}" ]; then
-            echo "packages/server is $SERVER_VERSION but release is ${{ inputs.version }}"
+          if [ "$SERVER_VERSION" != "$VERSION" ]; then
+            echo "packages/server is $SERVER_VERSION but release is $VERSION"
             exit 1
           fi
 
@@ -90,4 +92,4 @@ jobs:
           if [ -f packages/desktop/release/latest.yml ]; then
             files+=(packages/desktop/release/latest.yml)
           fi
-          gh release upload "v${{ inputs.version }}" "${files[@]}" --clobber
+          gh release upload "v$VERSION" "${files[@]}" --clobber
