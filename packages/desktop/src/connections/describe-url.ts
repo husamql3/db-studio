@@ -37,7 +37,8 @@ export const describeConnectionUrl = (raw: string): ConnectionDescription => {
 	}
 
 	if (dbType === "sqlite") {
-		return { dbType, summary: value.slice(`${scheme}://`.length) || "in-memory" };
+		const file = value.slice(`${scheme}://`.length).replace(/[?#].*$/, "");
+		return { dbType, summary: file || "in-memory" };
 	}
 
 	let url: URL;

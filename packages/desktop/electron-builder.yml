@@ -38,6 +38,7 @@ mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
   # v1 ships unsigned. Set CSC_LINK / APPLE_* secrets and remove `identity: null` to sign.
+  # Signing also unlocks auto-update (src/updater.ts, latest-mac.yml in release-desktop.yml).
   identity: null
   hardenedRuntime: false
   gatekeeperAssess: false

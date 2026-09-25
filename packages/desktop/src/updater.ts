@@ -3,11 +3,12 @@ import { autoUpdater } from "electron-updater";
 import type { Logger } from "./log";
 
 /**
- * GitHub Releases auto-update. Unsigned macOS builds cannot install updates (Squirrel.Mac
- * refuses them), so on those the check logs and no-ops; Windows works as-is.
+ * GitHub Releases auto-update, Windows only for now. Squirrel.Mac refuses to install updates
+ * into an unsigned app, so on macOS the updater would download a release and then fail to
+ * apply it. Enable darwin together with code signing.
  */
 export const setupAutoUpdater = (log: Logger): void => {
-	if (!app.isPackaged) return;
+	if (!app.isPackaged || process.platform === "darwin") return;
 	autoUpdater.autoDownload = true;
 	autoUpdater.autoInstallOnAppQuit = true;
 	autoUpdater.logger = {

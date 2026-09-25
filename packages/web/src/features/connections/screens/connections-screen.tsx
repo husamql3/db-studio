@@ -82,6 +82,7 @@ export const ConnectionsScreen = () => {
 
 						<section>
 							<ConnectionForm
+								key={editing?.id ?? "new"}
 								editing={editing}
 								onCancel={() => setEditing(null)}
 								onSubmit={async (input) => {

@@ -1,7 +1,9 @@
 name: Release desktop
 
-# Builds the Electron app for each platform and attaches the installers plus the
-# electron-updater manifests (latest*.yml) to the existing GitHub release `v<version>`.
+# Builds the Electron app for each platform and attaches the installers plus the Windows
+# electron-updater manifest (latest.yml) to the existing GitHub release `v<version>`.
+# latest-mac.yml is not published: macOS auto-update stays off until builds are signed, and
+# the arm64 and x64 jobs each write their own copy that would need merging first.
 # Called from release.yml after the release is created; can also be run by hand.
 
 on:
@@ -89,5 +91,5 @@ jobs:
             packages/desktop/release/*.zip \
             packages/desktop/release/*.exe \
             packages/desktop/release/*.blockmap \
-            packages/desktop/release/latest*.yml \
+            packages/desktop/release/latest.yml \
             --clobber

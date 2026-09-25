@@ -23,6 +23,17 @@ describe("describeConnectionUrl", () => {
 		});
 	});
 
+	it("drops sqlite query parameters, which can carry secrets", () => {
+		expect(describeConnectionUrl("sqlite://./app.db?password=s3cret#frag")).toEqual({
+			dbType: "sqlite",
+			summary: "./app.db",
+		});
+		expect(describeConnectionUrl("sqlite://?mode=memory")).toEqual({
+			dbType: "sqlite",
+			summary: "in-memory",
+		});
+	});
+
 	it("rejects schemes the server does not support", () => {
 		expect(() => describeConnectionUrl("http://example.com")).toThrow(/Unsupported/);
 		expect(() => describeConnectionUrl("not a url")).toThrow(/Unsupported/);

@@ -9,16 +9,21 @@ import { summarizeOutput } from "./redact";
 
 const READY_TIMEOUT_MS = 20_000;
 const READY_POLL_MS = 250;
+const PROBE_TIMEOUT_MS = 2_000;
 const STOP_TIMEOUT_MS = 3_000;
 const OUTPUT_TAIL = 30;
+const DATABASE_URL_VAR = "DB_STUDIO_DESKTOP_DATABASE_URL";
 
 /**
  * Owns the single server child (`packages/server` CLI). One connection at a time: starting a
- * new one stops the previous child first. Emits "status" whenever the state changes.
+ * new one stops the previous child first. Starts and stops run one after another, so
+ * overlapping connect/disconnect requests cannot orphan a child. Emits "status" whenever the
+ * state changes.
  */
 export class ServerProcess extends EventEmitter<{ status: [DesktopServerStatus] }> {
 	status: DesktopServerStatus = { state: "idle" };
 	private child: ChildProcess | undefined;
+	private transition: Promise<unknown> = Promise.resolve();
 
 	constructor(private readonly log: Logger) {
 		super();
@@ -28,8 +33,25 @@ export class ServerProcess extends EventEmitter<{ status: [DesktopServerStatus] 
 		return this.status.state === "running" ? this.status.apiBaseUrl : null;
 	}
 
-	async start(connectionId: string, databaseUrl: string): Promise<DesktopServerStatus> {
-		await this.stop();
+	start(connectionId: string, databaseUrl: string): Promise<DesktopServerStatus> {
+		return this.serialize(() => this.startNow(connectionId, databaseUrl));
+	}
+
+	stop(): Promise<void> {
+		return this.serialize(() => this.stopNow());
+	}
+
+	private serialize<T>(run: () => Promise<T>): Promise<T> {
+		const next = this.transition.then(run);
+		this.transition = next.catch(() => {});
+		return next;
+	}
+
+	private async startNow(
+		connectionId: string,
+		databaseUrl: string,
+	): Promise<DesktopServerStatus> {
+		await this.stopNow();
 		this.setStatus({ state: "starting", connectionId });
 
 		const port = await getFreePort();
@@ -38,7 +60,11 @@ export class ServerProcess extends EventEmitter<{ status: [DesktopServerStatus] 
 		const child = this.spawnServer(databaseUrl, port, tail);
 		this.child = child;
 
-		const exited = new Promise<number | null>((resolve) => child.once("exit", resolve));
+		// A spawn failure emits "error" and may never emit "exit".
+		const exited = new Promise<number | null>((resolve) => {
+			child.once("exit", resolve);
+			child.once("error", () => resolve(null));
+		});
 		try {
 			await this.waitUntilReady(`${apiBaseUrl}/api/databases`, exited);
 			this.setStatus({ state: "running", connectionId, apiBaseUrl });
@@ -63,7 +89,7 @@ export class ServerProcess extends EventEmitter<{ status: [DesktopServerStatus] 
 		return this.status;
 	}
 
-	async stop(): Promise<void> {
+	private async stopNow(): Promise<void> {
 		const child = this.child;
 		this.child = undefined;
 		if (child && child.exitCode === null && !child.killed) {
@@ -87,11 +113,14 @@ export class ServerProcess extends EventEmitter<{ status: [DesktopServerStatus] 
 		// them with the system Node. Packaged: Electron's own binary in Node mode, against the
 		// staged install whose native addons target Electron's ABI.
 		const command = isDev ? (process.env.DB_STUDIO_DESKTOP_NODE ?? "node") : process.execPath;
-		const child = spawn(command, [serverEntry, "--database-url", databaseUrl, "--no-open"], {
+		// The URL goes through the environment, not argv, so `ps` cannot read the password. A
+		// dedicated variable name keeps a stray DATABASE_URL in some parent .env from winning.
+		const child = spawn(command, [serverEntry, "--var-name", DATABASE_URL_VAR, "--no-open"], {
 			cwd: serverDir,
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {
 				...process.env,
+				[DATABASE_URL_VAR]: databaseUrl,
 				ELECTRON_RUN_AS_NODE: "1",
 				NODE_ENV: isDev ? "development" : "production",
 				HOST: "127.0.0.1",
@@ -127,7 +156,7 @@ export class ServerProcess extends EventEmitter<{ status: [DesktopServerStatus] 
 			throw new Error(`Server exited before it was ready (code ${code})`);
 		});
 		while (!done) {
-			const probe = fetch(url).then(
+			const probe = fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) }).then(
 				(response) => response.ok,
 				() => false,
 			);

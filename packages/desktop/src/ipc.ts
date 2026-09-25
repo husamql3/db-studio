@@ -27,8 +27,16 @@ export const registerIpc = ({
 	});
 	ipcMain.handle(IPC.getServerStatus, () => server.status);
 
+	let previousState = server.status.state;
 	server.on("status", (status) => {
-		getWindow()?.webContents.send(IPC.serverStatusChanged, status);
+		const window = getWindow();
+		window?.webContents.send(IPC.serverStatusChanged, status);
+		// running -> error only happens when the child crashes. The page still points at the dead
+		// API, so reload it; with no API base URL it falls back to the connection manager.
+		if (window && previousState === "running" && status.state === "error") {
+			reloadRenderer(window);
+		}
+		previousState = status.state;
 	});
 
 	ipcMain.handle(IPC.listConnections, () => store.list());

@@ -31,17 +31,22 @@ if (!app.requestSingleInstanceLock()) {
 		handleAppProtocol();
 		registerIpc({ store, server, getWindow: () => mainWindow });
 
-		mainWindow = createMainWindow(store);
-		mainWindow.on("closed", () => {
-			mainWindow = undefined;
-		});
+		const openWindow = () => {
+			const window = createMainWindow(store);
+			window.on("closed", () => {
+				if (mainWindow === window) mainWindow = undefined;
+			});
+			mainWindow = window;
+		};
+		openWindow();
 
 		app.on("activate", () => {
-			if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow(store);
+			if (BrowserWindow.getAllWindows().length === 0) openWindow();
 		});
 		app.on("second-instance", () => {
-			if (mainWindow?.isMinimized()) mainWindow.restore();
-			mainWindow?.focus();
+			if (!mainWindow) return openWindow();
+			if (mainWindow.isMinimized()) mainWindow.restore();
+			mainWindow.focus();
 		});
 
 		setupAutoUpdater(log);
