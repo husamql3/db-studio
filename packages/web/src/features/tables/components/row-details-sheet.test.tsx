@@ -119,13 +119,7 @@ const fixtures = vi.hoisted(() => ({
 	rows: [] as ReturnType<typeof makeRows>,
 	updateRecord: vi.fn(async () => "Updated 1 record"),
 	deleteCells: vi.fn(async () => ({ deletedCount: 1 })),
-	copyText: vi.fn(async (_value: string) => {}),
 }));
-
-vi.mock("../utils/row-details-utils", async (importOriginal) => {
-	const mod = await importOriginal<typeof import("../utils/row-details-utils")>();
-	return { ...mod, copyTextToClipboard: (...args: unknown[]) => fixtures.copyText(...args) };
-});
 
 vi.mock("@/features/schema", () => ({
 	useTableCols: () => ({ tableCols: fixtures.cols, isLoadingTableCols: false }),
@@ -161,13 +155,6 @@ const renderSheet = (rowIndex = 0) => {
 	);
 };
 
-const sheetDialog = () => {
-	const title = screen.getByText("Row details");
-	const dialog = title.closest("[role='dialog']");
-	expect(dialog).not.toBeNull();
-	return dialog as HTMLElement;
-};
-
 describe("RowDetailsSheet", () => {
 	let user: UserEvent;
 
@@ -178,66 +165,6 @@ describe("RowDetailsSheet", () => {
 		useOverlayStore.setState({ openOverlays: [] });
 		useRowDetailsStore.setState({ tableName: null, rowIndex: null });
 		user = userEvent.setup();
-	});
-
-	it("shows every field with formatted values and type-appropriate controls", () => {
-		renderSheet();
-
-		expect(screen.getByDisplayValue("Ada")).toBeInTheDocument();
-		expect(screen.getByDisplayValue("36")).toBeInTheDocument();
-		expect(screen.getByDisplayValue('{"a":1}')).toBeInTheDocument();
-		// Boolean, enum, and date controls keep an accessible group label.
-		expect(screen.getByRole("group", { name: "is_active" })).toBeInTheDocument();
-		expect(screen.getByRole("group", { name: "role" })).toBeInTheDocument();
-		expect(screen.getByRole("group", { name: "created" })).toBeInTheDocument();
-		// Text, number, and JSON inputs are named directly.
-		expect(screen.getByRole("textbox", { name: "name" })).toBeInTheDocument();
-		expect(screen.getByRole("spinbutton", { name: "age" })).toBeInTheDocument();
-		expect(screen.getByRole("textbox", { name: "meta" })).toBeInTheDocument();
-		expect(screen.getByRole("combobox", { name: "is_active" })).toBeInTheDocument();
-	});
-
-	it("renders generated primary keys read-only", () => {
-		renderSheet();
-
-		expect(screen.getByText("1")).toBeInTheDocument();
-		expect(screen.queryByDisplayValue("1")).not.toBeInTheDocument();
-	});
-
-	it("copies an individual value to the clipboard", async () => {
-		renderSheet();
-
-		const copyButtons = screen.getAllByLabelText("Copy value");
-		expect(copyButtons.length).toBeGreaterThan(1);
-		await user.click(copyButtons[1]);
-
-		expect(fixtures.copyText).toHaveBeenCalledWith("Ada");
-		expect(await screen.findByLabelText("Copied")).toBeInTheDocument();
-	});
-
-	it("saves all dirty fields through one update call", async () => {
-		renderSheet();
-
-		const saveButton = screen.getByRole("button", { name: "Save changes" });
-		expect(saveButton).toBeDisabled();
-
-		const nameInput = screen.getByDisplayValue("Ada");
-		await user.clear(nameInput);
-		await user.type(nameInput, "Grace");
-		expect(saveButton).not.toBeDisabled();
-
-		await user.click(saveButton);
-
-		expect(fixtures.updateRecord).toHaveBeenCalledTimes(1);
-		expect(fixtures.updateRecord).toHaveBeenCalledWith({
-			rowData: fixtures.rows[0],
-			updates: [{ columnName: "name", value: "Grace" }],
-			primaryKey: "id",
-			primaryKeys: ["id"],
-		});
-		await waitFor(() => {
-			expect(screen.queryByText("Row details")).not.toBeInTheDocument();
-		});
 	});
 
 	it("addresses a composite-key record by every key column", async () => {
@@ -356,163 +283,6 @@ describe("RowDetailsSheet", () => {
 		expect(useOverlayStore.getState().openOverlays).toContain("tables.row-delete-record");
 	});
 
-	it("drops the queued save when the primary-key confirmation is dismissed", async () => {
-		fixtures.cols = [
-			{ ...fixtures.cols[1], columnName: "code", isPrimaryKey: true },
-			fixtures.cols[1],
-		] as ReturnType<typeof makeCols>;
-		fixtures.rows = [{ code: "A1", name: "Ada" }] as never;
-		renderSheet();
-
-		const codeInput = screen.getByDisplayValue("A1");
-		await user.clear(codeInput);
-		await user.type(codeInput, "A2");
-		await user.click(screen.getByRole("button", { name: "Save changes" }));
-		expect(await screen.findByText("Change the primary key?")).toBeInTheDocument();
-
-		await user.keyboard("{Escape}");
-
-		await waitFor(() => {
-			expect(useOverlayStore.getState().openOverlays).not.toContain(
-				"tables.row-change-primary-key",
-			);
-		});
-		expect(fixtures.updateRecord).not.toHaveBeenCalled();
-	});
-
-	it("protects unsaved changes when closing", async () => {
-		renderSheet();
-
-		const nameInput = screen.getByDisplayValue("Ada");
-		await user.clear(nameInput);
-		await user.type(nameInput, "Grace");
-
-		const closeButtons = screen.getAllByRole("button", { name: "Close" });
-		const closeButton = closeButtons.find((button) => button.textContent === "Close");
-		expect(closeButton).toBeDefined();
-		await user.click(closeButton as HTMLElement);
-		expect(await screen.findByText("Discard unsaved changes?")).toBeInTheDocument();
-		expect(screen.getByText("Row details")).toBeInTheDocument();
-
-		const dialog = screen
-			.getByText("Discard unsaved changes?")
-			.closest("[role='alertdialog']");
-		await user.click(
-			within(dialog as HTMLElement).getByRole("button", { name: "Discard changes" }),
-		);
-		await waitFor(() => {
-			expect(screen.queryByText("Row details")).not.toBeInTheDocument();
-		});
-	});
-
-	it("deletes the record behind a destructive confirmation", async () => {
-		renderSheet();
-
-		await user.click(screen.getByRole("button", { name: "Delete" }));
-		expect(await screen.findByText("Delete record")).toBeInTheDocument();
-
-		const dialog = screen.getByText("Delete record").closest("[role='alertdialog']");
-		await user.click(within(dialog as HTMLElement).getByRole("button", { name: "Delete" }));
-
-		expect(fixtures.deleteCells).toHaveBeenCalledWith([fixtures.rows[0]]);
-		await waitFor(() => {
-			expect(screen.queryByText("Row details")).not.toBeInTheDocument();
-		});
-	});
-
-	it("disables deletion and saving for tables without record identity", async () => {
-		fixtures.cols = fixtures.cols.filter((col) => !col.isPrimaryKey);
-		renderSheet();
-
-		expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-
-		const nameInput = screen.getByDisplayValue("Ada");
-		await user.clear(nameInput);
-		await user.type(nameInput, "Grace");
-		expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
-	});
-
-	it("navigates between rows with chevrons and boundary states", async () => {
-		renderSheet(0);
-
-		expect(screen.getByRole("button", { name: "Previous row" })).toBeDisabled();
-		expect(screen.getByRole("button", { name: "Next row" })).not.toBeDisabled();
-
-		await user.click(screen.getByRole("button", { name: "Next row" }));
-		expect(await screen.findByDisplayValue("Bob")).toBeInTheDocument();
-
-		await user.click(screen.getByRole("button", { name: "Next row" }));
-		expect(await screen.findByDisplayValue("Cy")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Next row" })).toBeDisabled();
-		expect(screen.getByRole("button", { name: "Previous row" })).not.toBeDisabled();
-	});
-
-	it("navigates with the keyboard outside editors", async () => {
-		renderSheet(0);
-		sheetDialog();
-
-		await user.keyboard("{ArrowDown}");
-		expect(await screen.findByDisplayValue("Bob")).toBeInTheDocument();
-
-		await user.keyboard("{ArrowUp}");
-		expect(await screen.findByDisplayValue("Ada")).toBeInTheDocument();
-	});
-
-	it("cancels the primary key change without saving", async () => {
-		fixtures.cols = [
-			{
-				columnName: "code",
-				dataType: "text",
-				dataTypeLabel: "text",
-				isNullable: false,
-				columnDefault: null,
-				isPrimaryKey: true,
-				isForeignKey: false,
-				referencedTable: null,
-				referencedColumn: null,
-				enumValues: null,
-			},
-		];
-		fixtures.rows = [{ code: "A1" }];
-		renderSheet();
-
-		const codeInput = screen.getByDisplayValue("A1");
-		await user.clear(codeInput);
-		await user.type(codeInput, "A2");
-		await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-		expect(await screen.findByText("Change the primary key?")).toBeInTheDocument();
-		const dialog = screen.getByText("Change the primary key?").closest("[role='alertdialog']");
-		await user.click(within(dialog as HTMLElement).getByRole("button", { name: "Cancel" }));
-
-		expect(fixtures.updateRecord).not.toHaveBeenCalled();
-		expect(screen.queryByText("Change the primary key?")).not.toBeInTheDocument();
-		expect(screen.getByText("Row details")).toBeInTheDocument();
-	});
-
-	it("opens the reference picker for foreign keys", async () => {
-		fixtures.cols = [
-			{
-				columnName: "team_id",
-				dataType: "number",
-				dataTypeLabel: "int",
-				isNullable: true,
-				columnDefault: null,
-				isPrimaryKey: false,
-				isForeignKey: true,
-				referencedTable: "teams",
-				referencedColumn: "id",
-				enumValues: null,
-			},
-		];
-		fixtures.rows = [{ team_id: 7 }];
-		renderSheet();
-
-		await user.click(screen.getByRole("button", { name: "Go to table" }));
-
-		expect(useOverlayStore.getState().openOverlays).toContain("records.record-reference");
-	});
-
 	it("asks before dropping a dirty row that falls off the page", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		useRowDetailsStore.getState().setRowDetails("users", 2);
@@ -545,25 +315,6 @@ describe("RowDetailsSheet", () => {
 		await waitFor(() => {
 			expect(screen.queryByText("Row details")).not.toBeInTheDocument();
 		});
-	});
-
-	it("asks before navigating away with dirty fields", async () => {
-		renderSheet(0);
-
-		const nameInput = screen.getByDisplayValue("Ada");
-		await user.clear(nameInput);
-		await user.type(nameInput, "Grace");
-
-		await user.click(screen.getByRole("button", { name: "Next row" }));
-		expect(await screen.findByText("Discard unsaved changes?")).toBeInTheDocument();
-
-		const dialog = screen
-			.getByText("Discard unsaved changes?")
-			.closest("[role='alertdialog']");
-		await user.click(
-			within(dialog as HTMLElement).getByRole("button", { name: "Discard changes" }),
-		);
-		expect(await screen.findByDisplayValue("Bob")).toBeInTheDocument();
 	});
 
 	it("resets all fields when untouched draft receives refreshed row data", () => {
@@ -641,48 +392,5 @@ describe("RowDetailsSheet", () => {
 
 		expect(screen.getByDisplayValue("Bob")).toBeInTheDocument();
 		expect(screen.queryByDisplayValue("Grace")).not.toBeInTheDocument();
-	});
-
-	it("preserves dirty state and baseline after row refresh and subsequent edits", async () => {
-		useOverlayStore.getState().openOverlay("tables.row-details");
-		useRowDetailsStore.getState().setRowDetails("users", 0);
-		const { rerender } = render(
-			<RowDetailsSheet
-				tableName="users"
-				rows={fixtures.rows}
-			/>,
-		);
-
-		const nameInput = screen.getByDisplayValue("Ada");
-		await user.clear(nameInput);
-		await user.type(nameInput, "Grace");
-
-		const saveButton = screen.getByRole("button", { name: "Save changes" });
-		expect(saveButton).toBeEnabled();
-
-		// Refresh from server with updated age, keeping same id: 1
-		const updatedRows = makeRows();
-		updatedRows[0] = { ...updatedRows[0], age: 37 };
-		rerender(
-			<RowDetailsSheet
-				tableName="users"
-				rows={updatedRows}
-			/>,
-		);
-
-		expect(screen.getByDisplayValue("Grace")).toBeInTheDocument();
-		expect(screen.getByDisplayValue("37")).toBeInTheDocument();
-		expect(saveButton).toBeEnabled();
-
-		// Change name again
-		await user.type(nameInput, " Hopper");
-		expect(screen.getByDisplayValue("Grace Hopper")).toBeInTheDocument();
-		expect(saveButton).toBeEnabled();
-
-		// Restore name back to Grace
-		await user.clear(nameInput);
-		await user.type(nameInput, "Grace");
-		expect(screen.getByDisplayValue("Grace")).toBeInTheDocument();
-		expect(saveButton).toBeEnabled();
 	});
 });

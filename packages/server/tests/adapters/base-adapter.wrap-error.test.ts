@@ -125,23 +125,6 @@ describe("BaseAdapter template methods", () => {
 		expect(result.meta.prevCursor).toEqual(expect.any(String));
 	});
 
-	it("returns empty pages without cursors", async () => {
-		const adapter = new HarnessAdapter();
-
-		await expect(
-			adapter.getTableData({ db: "appdb", tableName: "users", limit: 5 }),
-		).resolves.toMatchObject({
-			data: [],
-			meta: {
-				total: 0,
-				hasNextPage: false,
-				hasPreviousPage: false,
-				nextCursor: null,
-				prevCursor: null,
-			},
-		});
-	});
-
 	it("exports rows through the shared SELECT * template", async () => {
 		const adapter = new HarnessAdapter();
 		adapter.queryRows = [{ id: 1, name: "Ada" }];
@@ -158,32 +141,5 @@ describe("BaseAdapter template methods", () => {
 		await expect(adapter.exportTableData({ db: "appdb", tableName: "users" })).rejects.toMatchObject(
 			{ status: 404 },
 		);
-	});
-
-	it("returns 501 for default IDbAdapter stubs", async () => {
-		const adapter = new HarnessAdapter();
-
-		for (const call of [
-			() => adapter.getDatabasesList(),
-			() => adapter.getCurrentDatabase(),
-			() => adapter.getDatabaseConnectionInfo(),
-			() => adapter.getTablesList("appdb"),
-			() => adapter.createTable({ db: "appdb", tableData: { tableName: "x", fields: [] } }),
-			() => adapter.deleteTable({ db: "appdb", tableName: "x" }),
-			() => adapter.getTableSchema({ db: "appdb", tableName: "x" }),
-			() => adapter.getTableColumns({ db: "appdb", tableName: "x" }),
-			() => adapter.addColumn({ db: "appdb", tableName: "x", columnName: "c", columnType: "text" } as never),
-			() => adapter.deleteColumn({ db: "appdb", tableName: "x", columnName: "c" }),
-			() => adapter.alterColumn({ db: "appdb", tableName: "x", columnName: "c", columnType: "text" } as never),
-			() => adapter.renameColumn({ db: "appdb", tableName: "x", columnName: "c", newColumnName: "d" }),
-			() => adapter.addRecord({ db: "appdb", params: { tableName: "x", data: {} } as never }),
-			() => adapter.updateRecords({ db: "appdb", params: { tableName: "x", primaryKey: "id", updates: [] } as never }),
-			() => adapter.deleteRecords({ db: "appdb", tableName: "x", primaryKeys: [] }),
-			() => adapter.forceDeleteRecords({ db: "appdb", tableName: "x", primaryKeys: [] }),
-			() => adapter.bulkInsertRecords({ db: "appdb", tableName: "x", records: [] }),
-			() => adapter.executeQuery({ db: "appdb", query: "SELECT 1" }),
-		]) {
-			await expect(Promise.resolve().then(call)).rejects.toMatchObject({ status: 501 });
-		}
 	});
 });

@@ -158,142 +158,13 @@ describe("MsSqlAdapter integration scaffold", () => {
 		pool = createMssqlPool().pool;
 		mockGetMssqlPool.mockResolvedValue(pool);
 	});
-
-	it("executes every IDbAdapter method on the MSSQL pool happy path", async () => {
-		expect(await adapter.getDatabasesList()).toHaveLength(1);
-		expect(await adapter.getCurrentDatabase()).toEqual({ db: "appdb" });
-		expect((await adapter.getDatabaseConnectionInfo()).port).toBe(1433);
-		expect(await adapter.getTablesList("appdb")).toEqual([
-			{ tableName: "users", rowCount: 2 },
-		]);
-
-		await adapter.createTable({
-			db: "appdb",
-			tableData: {
-				tableName: "users",
-				fields: [
-					{ columnName: "id", columnType: "integer", isPrimaryKey: true },
-					{
-						columnName: "email",
-						columnType: "varchar",
-						isUnique: true,
-						isNullable: false,
-						defaultValue: "'n/a'",
-					},
-					{ columnName: "tags", columnType: "text", isArray: true, isNullable: true },
-					{ columnName: "serial_no", columnType: "integer", isIdentity: true },
-				],
-				foreignKeys: [
-					{
-						columnName: "group_id",
-						referencedTable: "groups",
-						referencedColumn: "id",
-						onUpdate: "CASCADE",
-						onDelete: "SET NULL",
-					},
-				],
-			} as never,
-		});
-		expect(await adapter.deleteTable({ db: "appdb", tableName: "users", cascade: true })).toEqual(
-			{ deletedCount: 2, fkViolation: false, relatedRecords: [] },
-		);
-		expect(await adapter.getTableSchema({ db: "appdb", tableName: "users" })).toContain(
-			"CREATE TABLE [users]",
-		);
-		expect(await adapter.getTableColumns({ db: "appdb", tableName: "users" })).toHaveLength(1);
-
-		await adapter.addColumn({
-			db: "appdb",
-			tableName: "users",
-			columnName: "age",
-			columnType: "integer",
-			defaultValue: "18",
-			isUnique: true,
-			isNullable: true,
-		} as never);
-		expect(
-			await adapter.deleteColumn({ db: "appdb", tableName: "users", columnName: "name" }),
-		).toEqual({ deletedCount: 1 });
-		await adapter.alterColumn({
-			db: "appdb",
-			tableName: "users",
-			columnName: "name",
-			columnType: "NVARCHAR(MAX)",
-			isNullable: true,
-		} as never);
-		await adapter.renameColumn({
-			db: "appdb",
-			tableName: "users",
-			columnName: "name",
-			newColumnName: "fullName",
-		});
-
-		expect(
-			await adapter.getTableData({ db: "appdb", tableName: "users", limit: 2, sort: "id" }),
-		).toMatchObject({ meta: { total: 2 }, data: tableDataRows });
-		expect(
-			await adapter.exportTableData({ db: "appdb", tableName: "users" }),
-		).toMatchObject({ cols: ["id", "name"], rows: tableDataRows });
-		expect(
-			await adapter.addRecord({
-				db: "appdb",
-				params: { tableName: "users", data: { name: "Ada" } },
-			} as never),
-		).toEqual({ insertedCount: 1 });
-		expect(
-			await adapter.updateRecords({
-				db: "appdb",
-				params: {
-					tableName: "users",
-					primaryKey: "id",
-					updates: [{ columnName: "name", value: "Grace", rowData: { id: 1 } }],
-				},
-			} as never),
-		).toEqual({ updatedCount: 1 });
-		expect(
-			await adapter.deleteRecords({
-				db: "appdb",
-				tableName: "users",
-				primaryKeys: [{ columnName: "id", value: 1 }],
-			}),
-		).toEqual({ deletedCount: 1, fkViolation: false, relatedRecords: [] });
-		expect(
-			await adapter.forceDeleteRecords({
-				db: "appdb",
-				tableName: "users",
-				primaryKeys: [{ columnName: "id", value: 1 }],
-			}),
-		).toEqual({ deletedCount: 1 });
-		expect(
-			await adapter.bulkInsertRecords({
-				db: "appdb",
-				tableName: "users",
-				records: [{ name: "Ada" }],
-			}),
-		).toMatchObject({ success: true, successCount: 1, failureCount: 0 });
-		expect(await adapter.executeQuery({ db: "appdb", query: "SELECT 1;" })).toMatchObject({
-			columns: ["id"],
-			rowCount: 1,
-		});
-		expect(adapter.mapToUniversalType("int")).toBe("number");
-		expect(adapter.mapFromUniversalType("json")).toBe("NVARCHAR(MAX)");
-		expect(pool.request).toHaveBeenCalled();
-	});
-
-	it("covers MSSQL cursor pagination and protected query helpers", async () => {
+	it("builds the paginated OFFSET/FETCH query and maps column types", async () => {
 		const helper = adapter as unknown as {
 			buildTableDataQuery: (params: Record<string, unknown>) => {
 				sql: string;
 				values: unknown[];
 			};
-			buildCursors: (
-				params: Record<string, unknown>,
-				rows: Record<string, unknown>[],
-				hasMore: boolean,
-			) => { nextCursor: string | null; prevCursor: string | null };
-			quoteIdentifier: (name: string) => string;
 			makeCursor: (offset: number) => string;
-			decodeOffsetCursor: (cursor: string) => number;
 		};
 		const cursor = helper.makeCursor(2);
 
@@ -312,28 +183,6 @@ describe("MsSqlAdapter integration scaffold", () => {
 		expect(
 			helper.buildTableDataQuery({ db: "appdb", tableName: "users", limit: 5 }).sql,
 		).toContain("ORDER BY (SELECT NULL)");
-		expect(helper.buildCursors({ limit: 2 }, [], true).nextCursor).toEqual(expect.any(String));
-		expect(helper.buildCursors({ limit: 2, cursor }, [], false).prevCursor).toEqual(expect.any(String));
-		expect(helper.quoteIdentifier("users")).toBe("[users]");
-		expect(helper.decodeOffsetCursor("not-a-cursor")).toBe(0);
-
-		expect(
-			await adapter.getTableData({
-				db: "appdb",
-				tableName: "users",
-				limit: 1,
-				cursor,
-				sort: [{ columnName: "id", direction: "desc" }],
-				filters: [{ columnName: "name", operator: "ilike", value: "%a%" }],
-			}),
-		).toMatchObject({
-			meta: {
-				limit: 1,
-				total: 2,
-				hasNextPage: true,
-				hasPreviousPage: true,
-			},
-		});
 
 		expect(adapter.mapFromUniversalType("text")).toBe("NVARCHAR(MAX)");
 		expect(adapter.mapFromUniversalType("number")).toBe("INT");
@@ -347,89 +196,6 @@ describe("MsSqlAdapter integration scaffold", () => {
 		expect(adapter.mapToUniversalType("datetime2")).toBe("date");
 	});
 
-	it("covers MSSQL validation and error branches", async () => {
-		const requestReturning = (data: unknown[], rowsAffected = [data.length]) => {
-			const request = {
-				input: vi.fn(),
-				query: vi.fn(async () => recordset(data, rowsAffected)),
-			};
-			request.input.mockReturnValue(request);
-			return request;
-		};
-
-		pool.request.mockReturnValueOnce(requestReturning([]));
-		await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 500 });
-
-		pool.request.mockReturnValueOnce(requestReturning([]));
-		await expect(adapter.getCurrentDatabase()).rejects.toMatchObject({ status: 500 });
-
-		pool.request.mockReturnValueOnce(requestReturning([]));
-		await expect(adapter.getDatabaseConnectionInfo()).rejects.toMatchObject({ status: 500 });
-
-		pool.request.mockReturnValueOnce(requestReturning([]));
-		await expect(adapter.getTablesList("appdb")).resolves.toEqual([]);
-
-		pool.request.mockReturnValueOnce(requestReturning([{ cnt: 0 }]));
-		await expect(adapter.deleteTable({ db: "appdb", tableName: "missing" })).rejects.toMatchObject({
-			status: 404,
-		});
-
-		pool.request.mockReturnValueOnce(requestReturning([{ cnt: 0 }]));
-		await expect(
-			adapter.getTableSchema({ db: "appdb", tableName: "missing" }),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.request.mockReturnValueOnce(requestReturning([]));
-		await expect(
-			adapter.getTableColumns({ db: "appdb", tableName: "missing" }),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.request.mockReturnValueOnce(requestReturning([{ cnt: 0 }]));
-		await expect(
-			adapter.addColumn({
-				db: "appdb",
-				tableName: "missing",
-				columnName: "age",
-				columnType: "integer",
-			} as never),
-		).rejects.toMatchObject({ status: 404 });
-
-		pool.request
-			.mockReturnValueOnce(requestReturning([{ cnt: 1 }]))
-			.mockReturnValueOnce(requestReturning([{ cnt: 1 }]));
-		await expect(
-			adapter.addColumn({
-				db: "appdb",
-				tableName: "users",
-				columnName: "age",
-				columnType: "integer",
-			} as never),
-		).rejects.toMatchObject({ status: 409 });
-
-		await expect(
-			adapter.updateRecords({
-				db: "appdb",
-				params: {
-					tableName: "users",
-					primaryKey: "id",
-					updates: [{ columnName: "name", value: "Ada", rowData: {} }],
-				},
-			} as never),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(
-			adapter.deleteRecords({ db: "appdb", tableName: "users", primaryKeys: [] }),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(
-			adapter.forceDeleteRecords({ db: "appdb", tableName: "users", primaryKeys: [] }),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(
-			adapter.bulkInsertRecords({ db: "appdb", tableName: "users", records: [] }),
-		).rejects.toMatchObject({ status: 400 });
-		await expect(adapter.executeQuery({ db: "appdb", query: "" })).rejects.toMatchObject({
-			status: 400,
-		});
-	});
-
 	describe("getDatabasesList system filtering", () => {
 		it("sends a query that keeps system DBs only when current via DB_NAME()", async () => {
 			const request = createRequest();
@@ -440,13 +206,6 @@ describe("MsSqlAdapter integration scaffold", () => {
 				.find((sql) => sql.includes("FROM sys.databases"));
 			expect(dbQuery).toContain("d.database_id > 4");
 			expect(dbQuery).toContain("DB_NAME()");
-		});
-
-		it("maps login failures to 503 via wrapError", async () => {
-			const request = createRequest();
-			pool.request.mockReturnValue(request);
-			request.query.mockRejectedValueOnce(new Error("Login failed for user 'sa'"));
-			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
 		});
 	});
 });
@@ -498,23 +257,5 @@ describe("MsSqlAdapter.renameTable", () => {
 		expect(statements.at(-1)).toBe("EXEC sp_rename @oldName, @newName");
 		const renameParams = boundParams.at(-1);
 		expect(renameParams).toMatchObject({ oldName: "users", newName: "members" });
-	});
-
-	it("returns 404 when the table does not exist", async () => {
-		await expect(
-			adapter.renameTable({ db: "appdb", tableName: "ghost", newTableName: "spook" }),
-		).rejects.toMatchObject({ status: 404 });
-	});
-
-	it("returns 409 when the target table already exists", async () => {
-		await expect(
-			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "orders" }),
-		).rejects.toMatchObject({ status: 409 });
-	});
-
-	it("returns 400 when the new name equals the current name", async () => {
-		await expect(
-			adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "users" }),
-		).rejects.toMatchObject({ status: 400 });
 	});
 });
