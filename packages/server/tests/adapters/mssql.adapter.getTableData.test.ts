@@ -23,6 +23,7 @@ function makeRequest(recordset: unknown[]) {
 function makePool(countRecordset: unknown[], dataRecordset: unknown[]) {
 	const pool = { request: vi.fn() };
 	pool.request
+		.mockReturnValueOnce(makeRequest([]))
 		.mockReturnValueOnce(makeRequest(countRecordset))
 		.mockReturnValueOnce(makeRequest(dataRecordset));
 	return pool;
@@ -43,8 +44,8 @@ describe("MsSqlAdapter.getTableData()", () => {
 
 			await adapter.getTableData({ tableName: "orders", db: "db" });
 
-			const countReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[0]?.value;
-			const dataReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[1]?.value;
+			const countReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[1]?.value;
+			const dataReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[2]?.value;
 
 			const countSql: string = (countReq.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
 			const dataSql: string = (dataReq.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
@@ -63,7 +64,7 @@ describe("MsSqlAdapter.getTableData()", () => {
 
 			await adapter.getTableData({ tableName: "my table", db: "db" });
 
-			const dataReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[1]?.value;
+			const dataReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[2]?.value;
 			const sql: string = (dataReq.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
 			expect(sql).toContain("[my table]");
 		});

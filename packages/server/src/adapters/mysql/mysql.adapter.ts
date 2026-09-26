@@ -242,6 +242,7 @@ export class MySqlAdapter extends BaseAdapter {
 		}
 
 		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
+		const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
 		let effectiveSortClause = sortClause;
 		if (direction === "desc") {
 			if (sortClause) {
@@ -249,11 +250,17 @@ export class MySqlAdapter extends BaseAdapter {
 					.replace(/\bASC\b/gi, "TEMP_DESC")
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
+				if (pkTieBreakerCols.length) {
+					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
+					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${tbDir}`).join(", ")}`;
+				}
 			} else if (cursorColumns.length > 0) {
 				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `\`${col}\` ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause && cursorColumns.length > 0) {
 			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+		} else if (pkTieBreakerCols.length) {
+			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
 		const [countRows] = await pool.execute<RowDataPacket[]>(

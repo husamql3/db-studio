@@ -36,6 +36,7 @@ import { getMssqlPool } from "@/adapters/connections.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMssqlColumnDefinition,
+	buildOrderByClause,
 	buildSortClause,
 	buildWhereClause,
 	formatMssqlDefaultValue,
@@ -141,13 +142,15 @@ export class MsSqlAdapter extends BaseAdapter {
 			} = params;
 			const pool = await getMssqlPool(db);
 
+			const pkColumns = await this.getPrimaryKeyColumns(pool, tableName);
+
 			const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 			const {
 				clause: filterWhere,
 				values: filterValues,
 				nextIdx,
 			} = buildWhereClause(filters, 0);
-			const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
+			const sortClause = buildOrderByClause(sort, order, pkColumns);
 
 			const countRequest = pool.request();
 			filterValues.forEach((val, idx) => {
@@ -1184,6 +1187,25 @@ export class MsSqlAdapter extends BaseAdapter {
 		const pool = await getMssqlPool(db);
 		const result = await pool.request().query(`SELECT COUNT(*) as count FROM [${tableName}]`);
 		return Number(result.recordset[0]?.count ?? 0);
+	}
+
+	private async getPrimaryKeyColumns(pool: MssqlPool, tableName: string): Promise<string[]> {
+		const result = await pool
+			.request()
+			.input("tableName", tableName)
+			.query(`
+				SELECT ku.COLUMN_NAME AS columnName
+				FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+				JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
+				  ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
+				  AND tc.TABLE_SCHEMA = ku.TABLE_SCHEMA
+				  AND tc.TABLE_NAME = ku.TABLE_NAME
+				WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+				  AND tc.TABLE_NAME = @tableName
+				  AND tc.TABLE_SCHEMA = 'dbo'
+				ORDER BY ku.ORDINAL_POSITION
+			`);
+		return (result.recordset as { columnName: string }[]).map((r) => r.columnName);
 	}
 
 	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {

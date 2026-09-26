@@ -73,6 +73,25 @@ export function buildSortClause(sorts: SortType[] | string, order: SortDirection
 	return "";
 }
 
+export function buildOrderByClause(
+	sorts: SortType[] | string,
+	order: SortDirection,
+	keyColumns: string[],
+): string {
+	const sortClause = buildSortClause(sorts, order);
+	const sortColumns = Array.isArray(sorts) ? sorts.map((s) => s.columnName) : [sorts];
+	const direction = (
+		Array.isArray(sorts) ? (sorts[0]?.direction ?? order) : order
+	).toUpperCase();
+	const tieBreakers = keyColumns
+		.filter((col) => !sortColumns.includes(col))
+		.map((col) => `[${col}] ${direction}`)
+		.join(", ");
+
+	if (!tieBreakers) return sortClause || "ORDER BY (SELECT NULL)";
+	return sortClause ? `${sortClause}, ${tieBreakers}` : `ORDER BY ${tieBreakers}`;
+}
+
 export function mapColumnTypeToMssql(columnType: string, isArray: boolean): string {
 	if (isArray) return "NVARCHAR(MAX)";
 
