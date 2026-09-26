@@ -283,11 +283,12 @@ export const TableNumberCell = memo(
 		isFocused,
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
-		const { setUpdate, clearUpdate } = useUpdateCellStore();
+		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue() as number;
 
 		// Initialize state with initialValue
 		const [value, setValue] = useState(() => initialValue);
+		const [syncedValue, setSyncedValue] = useState(initialValue);
 		const [open, setOpen] = useState(false);
 		const inputRef = useRef<HTMLInputElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
@@ -296,6 +297,12 @@ export const TableNumberCell = memo(
 		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
+
+		// A refetch (e.g. Live mode) replaced the server value; keep any unsaved edit.
+		if (initialValue !== syncedValue) {
+			setSyncedValue(initialValue);
+			if (!getUpdate(rowData, columnName, meta?.editScope)) setValue(initialValue);
+		}
 
 		const onSave = useCallback(() => {
 			// Update the store with the final value
