@@ -93,6 +93,15 @@ export const roadmapItems: RoadmapItem[] = [
 				title: "Smart SQL editor with color coding, auto-complete, and formatting",
 				status: "completed",
 			},
+			{
+				title:
+					"Command palette for jumping to tables, running actions, and opening the assistant",
+				status: "completed",
+			},
+			{
+				title: "Light, dark, and system themes",
+				status: "completed",
+			},
 		],
 	},
 	{
@@ -117,7 +126,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Better JSON editor inside cells with formatting and line numbers",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Bulk edit rows, clone records, and preview pending changes before saving",
@@ -133,8 +142,29 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Customize the grid: hide/reorder columns and add color rules",
-				status: "in-progress",
+				title: "Customize the grid: hide and reorder columns",
+				status: "completed",
+			},
+			{
+				title: "Color rules for highlighting grid cells and rows",
+				status: "planned",
+			},
+			{
+				title: "Editable row details sheet with keyboard navigation between rows",
+				status: "completed",
+			},
+			{
+				title: "Rename tables across all SQL databases and MongoDB",
+				status: "completed",
+			},
+			{
+				title:
+					"Live mode for PostgreSQL that refreshes tables and highlights new and changed rows",
+				status: "completed",
+			},
+			{
+				title: "Live mode for MySQL, SQL Server, SQLite, and MongoDB",
+				status: "planned",
 			},
 		],
 	},
@@ -144,7 +174,7 @@ export const roadmapItems: RoadmapItem[] = [
 		items: [
 			{
 				title: "Turn plain English into accurate SQL using knowledge of your full database",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Explain any SQL query in simple, everyday English",
@@ -152,12 +182,12 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Support for adding personal AI provider credentials (OpenAI, Anthropic, etc.)",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title:
 					"Suggest faster ways to write queries, explain plans, and show how much quicker they’ll run",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
 				title: "Help design tables and suggest smart improvements to your database structure",
@@ -169,7 +199,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Spot errors in failed queries and suggest quick fixes",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Generate migration drafts from schema changes with human review",
@@ -224,17 +254,17 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Platform Availability",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Native desktop apps for macOS, Windows, and Linux",
-				status: "planned",
+				status: "in-progress",
 			},
 		],
 	},
 	{
 		title: "Database Operations",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title:
@@ -242,7 +272,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Saved connection manager with SSH tunnels, SSL/TLS, env vars, and templates",
+				title: "Saved connection manager to add, label, edit, and switch between connections",
+				status: "in-progress",
+			},
+			{
+				title: "SSH tunnels, SSL/TLS options, and connection templates",
 				status: "planned",
 			},
 			{
