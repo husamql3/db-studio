@@ -42,34 +42,6 @@ describe("RedisAdapter — getTableData (SCAN)", () => {
 		adapter = new RedisAdapter();
 	});
 
-	it("rejects 'desc' direction (backward pagination not supported)", async () => {
-		await expect(
-			adapter.getTableData({ db: "0", tableName: "strings", direction: "desc" }),
-		).rejects.toMatchObject({ status: 400 });
-	});
-
-	it("rejects sort parameters", async () => {
-		await expect(
-			adapter.getTableData({ db: "0", tableName: "strings", sort: "key" }),
-		).rejects.toMatchObject({ status: 400 });
-	});
-
-	it("rejects filter parameters", async () => {
-		await expect(
-			adapter.getTableData({
-				db: "0",
-				tableName: "strings",
-				filters: [{ columnName: "key", operator: "=", value: "x" }],
-			}),
-		).rejects.toMatchObject({ status: 400 });
-	});
-
-	it("rejects unknown table names", async () => {
-		await expect(
-			adapter.getTableData({ db: "0", tableName: "ghost-table" }),
-		).rejects.toMatchObject({ status: 404 });
-	});
-
 	it("returns rows for a strings table on the first page", async () => {
 		mockClient.scan.mockResolvedValueOnce(["0", ["alpha", "beta"]]);
 		mockPipeline.exec

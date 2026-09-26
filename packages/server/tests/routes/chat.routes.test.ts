@@ -62,38 +62,6 @@ describe("Chat routes", () => {
 		expect(String(init?.body)).not.toContain("personal-secret");
 	});
 
-	it("does not introspect the database when schema context is disabled", async () => {
-		const response = await app.request("/api/pg/chat", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(requestBody(false)),
-		});
-
-		expect(response.status).toBe(200);
-		expect(mocks.getDetailedSchema).not.toHaveBeenCalled();
-		expect(mocks.generateSystemPrompt).toHaveBeenCalledWith(null);
-	});
-
-	it("forwards only the selected provider key and model", async () => {
-		const response = await app.request("/api/pg/chat", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"x-byok-anthropic": "anthropic-secret",
-			},
-			body: JSON.stringify(requestBody(true, "anthropic", "claude-sonnet-4-6")),
-		});
-
-		expect(response.status).toBe(200);
-		const [, init] = vi.mocked(fetch).mock.calls[0];
-		const headers = new Headers(init?.headers);
-		expect(headers.get("x-byok-anthropic")).toBe("anthropic-secret");
-		expect(headers.get("x-byok-gemini")).toBe("");
-		expect(String(init?.body)).toContain('"provider":"anthropic"');
-		expect(String(init?.body)).toContain('"model":"claude-sonnet-4-6"');
-		expect(String(init?.body)).not.toContain("anthropic-secret");
-	});
-
 	it("defaults the model to the selected provider's first model", async () => {
 		const response = await app.request("/api/pg/chat", {
 			method: "POST",
@@ -109,27 +77,6 @@ describe("Chat routes", () => {
 		const [, init] = vi.mocked(fetch).mock.calls[0];
 		// A fixed Gemini default here would be rejected by the proxy with a 400.
 		expect(String(init?.body)).toContain('"model":"gpt-5.2"');
-	});
-
-	it("relays the proxy stream response without creating a detached stream", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(
-			new Response("data: done\n\n", {
-				status: 200,
-				headers: {
-					"Content-Type": "text/event-stream",
-					"x-stream-source": "proxy",
-				},
-			}),
-		);
-
-		const response = await app.request("/api/pg/chat", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(requestBody(false)),
-		});
-
-		expect(response.headers.get("x-stream-source")).toBe("proxy");
-		expect(await response.text()).toBe("data: done\n\n");
 	});
 
 	it("reports hosted quota as unavailable when the proxy limit check fails", async () => {

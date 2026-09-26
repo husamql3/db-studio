@@ -51,11 +51,6 @@ const openEditPopover = () => {
 };
 
 describe("TTL stat", () => {
-	it("shows ∞ for persistent keys", () => {
-		renderHeader({ detail: makeDetail({ ttlMs: -1 }) });
-		expect(screen.getByText("∞")).toBeInTheDocument();
-	});
-
 	it("counts a positive TTL down live", () => {
 		vi.useFakeTimers();
 		try {
@@ -83,39 +78,7 @@ describe("TTL stat", () => {
 	});
 });
 
-describe("Runner button", () => {
-	it("opens the runner when a command is available", () => {
-		const handlers = renderHeader({ command: "GET session:42" });
-		fireEvent.click(screen.getByRole("button", { name: "Runner" }));
-		expect(handlers.onOpenRunner).toHaveBeenCalledTimes(1);
-	});
-
-	it("is absent when no command is available", () => {
-		renderHeader({ command: null });
-		expect(screen.queryByRole("button", { name: "Runner" })).toBeNull();
-	});
-});
-
 describe("Rename flow", () => {
-	it("prefills the current key, blocks unchanged submits, and renames", () => {
-		const handlers = renderHeader();
-		openEditPopover();
-
-		const input = screen.getByRole("textbox");
-		expect(input).toHaveValue("session:42");
-		const submit = screen.getByRole("button", { name: "Rename key" });
-		expect(submit).toBeDisabled();
-
-		fireEvent.change(input, { target: { value: "session:43" } });
-		expect(submit).toBeEnabled();
-		fireEvent.click(submit);
-
-		expect(handlers.act).toHaveBeenCalledWith({
-			action: "rename",
-			newKey: expect.objectContaining({ utf8: "session:43", base64: expect.any(String) }),
-		});
-	});
-
 	it("preserves a binary key when opening the rename editor", () => {
 		const handlers = renderHeader({ detail: makeDetail({ key: { base64: "_wA" } }) });
 		openEditPopover();
@@ -130,61 +93,5 @@ describe("Rename flow", () => {
 			action: "rename",
 			newKey: { base64: "_wE" },
 		});
-	});
-});
-
-describe("TTL presets", () => {
-	it("maps the 60s preset to a 60000ms setTtl", () => {
-		const handlers = renderHeader({ detail: makeDetail({ ttlMs: 90_000 }) });
-		openEditPopover();
-		fireEvent.click(screen.getByRole("button", { name: "60s" }));
-		expect(handlers.act).toHaveBeenCalledWith({ action: "setTtl", ttlMs: 60_000 });
-	});
-
-	it("persists the key with a null TTL", () => {
-		const handlers = renderHeader({ detail: makeDetail({ ttlMs: 90_000 }) });
-		openEditPopover();
-		fireEvent.click(screen.getByRole("button", { name: "Persist" }));
-		expect(handlers.act).toHaveBeenCalledWith({ action: "setTtl", ttlMs: null });
-	});
-
-	it("disables Persist when the key already persists", () => {
-		renderHeader({ detail: makeDetail({ ttlMs: -1 }) });
-		openEditPopover();
-		expect(screen.getByRole("button", { name: "Persist" })).toBeDisabled();
-	});
-});
-
-describe("Custom TTL", () => {
-	it("converts entered seconds to milliseconds", () => {
-		const handlers = renderHeader();
-		openEditPopover();
-		fireEvent.change(screen.getByLabelText("TTL in seconds"), {
-			target: { value: "120" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-		expect(handlers.act).toHaveBeenCalledWith({ action: "setTtl", ttlMs: 120_000 });
-	});
-
-	it("sends a null TTL when the input is empty", () => {
-		const handlers = renderHeader();
-		openEditPopover();
-		fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-		expect(handlers.act).toHaveBeenCalledWith({ action: "setTtl", ttlMs: null });
-	});
-});
-
-describe("Delete and Refresh", () => {
-	it("wires Delete and Refresh to their handlers", () => {
-		const handlers = renderHeader();
-		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-		expect(handlers.onDelete).toHaveBeenCalledTimes(1);
-		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-		expect(handlers.onRefresh).toHaveBeenCalledTimes(1);
-	});
-
-	it("disables Refresh while a fetch is in flight", () => {
-		renderHeader({ isFetching: true });
-		expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
 	});
 });

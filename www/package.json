@@ -15,6 +15,7 @@
 		"admin:hash-password": "bun scripts/hash-admin-password.ts",
     "check-meta": "bunx check-site-meta",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "format": "biome check --write --unsafe"
   },
   "portless": {

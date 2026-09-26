@@ -16,6 +16,25 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.14.2",
+		date: "2026-09-26",
+		title: "Leaner test suite and an up-to-date roadmap",
+		improvements: [
+			{
+				text: "Removed unit tests that could not catch real bugs, keeping the ones that pin down SQL building, error mapping, data parsing, and credential redaction",
+				username: "husamql3",
+			},
+			{
+				text: "Added the website's admin authentication tests to the project-wide test run; they had never been running",
+				username: "husamql3",
+			},
+			{
+				text: "Brought the roadmap up to date with shipped features, including the JSON cell editor, column preferences, bring-your-own AI keys, the command palette, and Live mode",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.14.1",
 		date: "2026-09-23",
 		title: "A real JSON editor and a quicker row details sheet",

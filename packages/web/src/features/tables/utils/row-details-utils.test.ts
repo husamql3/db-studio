@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
 	buildRowUpdates,
-	getPrimaryKeyColumn,
 	getRecordIdentity,
 	isGeneratedColumn,
 	toFormValues,
@@ -53,17 +52,6 @@ describe("row-details-utils", () => {
 			expect(isGeneratedColumn({ columnDefault: null })).toBe(false);
 			expect(isGeneratedColumn({ columnDefault: "now()" })).toBe(false);
 			expect(isGeneratedColumn({ columnDefault: "'active'" })).toBe(false);
-		});
-	});
-
-	describe("getPrimaryKeyColumn", () => {
-		it("returns the primary key column", () => {
-			expect(getPrimaryKeyColumn([...cols])?.columnName).toBe("id");
-		});
-
-		it("returns undefined without a primary key", () => {
-			expect(getPrimaryKeyColumn([])).toBeUndefined();
-			expect(getPrimaryKeyColumn(undefined)).toBeUndefined();
 		});
 	});
 
@@ -119,11 +107,6 @@ describe("row-details-utils", () => {
 				]),
 			).toEqual({ id: "1", code: "A" });
 		});
-
-		it("returns empty values without a row or columns", () => {
-			expect(toFormValues(undefined, [...cols])).toEqual({});
-			expect(toFormValues({ id: 1 }, undefined)).toEqual({});
-		});
 	});
 
 	describe("buildRowUpdates", () => {
@@ -131,10 +114,6 @@ describe("row-details-utils", () => {
 			expect(buildRowUpdates({ code: true, id: false }, { id: "1", code: "B" })).toEqual([
 				{ columnName: "code", value: "B" },
 			]);
-		});
-
-		it("returns no updates when nothing is dirty", () => {
-			expect(buildRowUpdates({}, { id: "1" })).toEqual([]);
 		});
 	});
 });

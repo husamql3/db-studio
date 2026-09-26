@@ -136,7 +136,7 @@ Three export paths:
 ## Tooling
 
 - **Linter/Formatter**: Biome (tabs, 95-char width). Run `bun run format` to auto-fix.
-- **Tests**: Vitest (server package only). Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in `vitest.config.ts`.
+- **Tests**: Vitest (`server`, `web`, `www`). Deliberately minimal — see [Testing](#testing) before adding any. Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in each `vitest.config.ts`.
 - **Pre-commit hook**: runs `bun run format && bun run typecheck && bun run test && bun run build` via Husky.
 - **CI**: GitHub Actions on push to `stage` — build → biome format → tests.
 
@@ -147,7 +147,7 @@ Three export paths:
 - **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
-- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. Legacy Mongo DAO files remain only for standalone compatibility tests.
+- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. `src/dao/mongo/**` is dead code — it was kept alive only by a mock-heavy DAO test suite that has since been deleted, and nothing outside tests imports it. Do not add to it; it is pending removal.
 - **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
 
 ## Patterns
@@ -482,57 +482,85 @@ export const setDbType = (type: DatabaseTypeSchema): void => {
 
 `src/lib/api.ts` is a legacy compatibility facade — do not add new code there.
 
-### Tests
+### Testing
 
-Location: `packages/server/tests/[area]/[feature].test.ts`
+This repo deliberately carries very few unit tests. A large mock-heavy unit suite was deleted
+because it could not fail for any bug a user would ever hit. Do not grow it back.
 
-**Route tests** mock `adapter.registry.js` so all DB types share the same mock adapter:
-```ts
-const mockAdapter = vi.hoisted(() => ({
-  getTablesList: vi.fn(),
-  addRecord: vi.fn(),
-  executeQuery: vi.fn(),
-  // ... all IDbAdapter methods used by the route under test
-}));
+#### Never write unit tests after you write code
 
-vi.mock("@/adapters/adapter.registry.js", () => ({
-  getAdapter: vi.fn(() => mockAdapter),
-  adapterRegistry: {
-    register: vi.fn(),
-    get: vi.fn(() => mockAdapter),
-    getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
-  },
-}));
+Writing tests *after* the implementation only produces tests shaped like the implementation.
+They restate the code you just wrote, pass on the first run, and keep passing after you break
+the behaviour. If you finished a change and your instinct is "now add a test for it" — don't.
+Verify the change with an E2E run instead.
 
-vi.mock("@/db-manager.js", () => ({
-  getDbPool: vi.fn(() => ({ query: vi.fn() })),
-  getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
-  getMssqlPool: vi.fn(),
-  // ...
-}));
+The only tests written after code are **regression tests for a specific reported bug**, and only
+when the test fails before the fix and passes after it. If you cannot demonstrate that
+red-then-green transition, you do not have a regression test, you have decoration.
 
-describe("Tables Routes", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    app = createServer().app;
-  });
-});
-```
+#### Prefer E2E tests as the sole testing mechanism
 
-**Adapter tests** mock `adapters/connections.js` and instantiate the adapter:
-```ts
-const mockPool = vi.hoisted(() => vi.fn());
-vi.mock("@/adapters/connections.js", () => ({ getMssqlPool: mockPool, ... }));
+E2E is the default and usually the only testing mechanism here. Use E2E to verify that a complex
+feature actually works: drive the real app against a real database (see `scripts/init-db-*.sh`
+for seeded instances of each supported engine), perform the user's actual sequence of actions,
+and assert on what the user would see.
 
-import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
+**Every E2E test must end by producing a verifiable, repeatable artifact.** A test that only
+prints "pass" is not evidence. The artifact is the deliverable — a screenshot, a recorded trace,
+an exported result set, a dumped table state, a diffable JSON snapshot of the final DB rows.
+It must be:
 
-const adapter = new MsSqlAdapter();
-mockPool.mockResolvedValue({ request: vi.fn().mockReturnValue({...}) });
-```
+- **Verifiable** — a human can open it and independently confirm the feature worked.
+- **Repeatable** — running the test again from the same seeded state produces the same artifact.
+  No timestamps, no random IDs, no connection strings, no machine-specific paths baked into it.
+  Normalise or redact anything non-deterministic before writing the artifact out.
 
-**Rules**:
-- Route tests always mock `@/adapters/adapter.registry.js` — never individual adapter files
-- Use `vi.hoisted()` for mock objects referenced inside `vi.mock()` factory functions
-- Reset mocks in `beforeEach` (not `afterEach`)
-- Test both happy path and error cases (connection errors → 503, generic errors → 500)
-- Run a single file: `bunx vitest run tests/path/to/file.test.ts` (from `packages/server`)
+Write artifacts to a gitignored output directory and name them after the scenario, so a reviewer
+can pair a failing run with the exact artifact it produced.
+
+#### If you must test a system in isolation, write the failure modes down first
+
+Isolated tests are a last resort, reserved for logic that E2E genuinely cannot reach or cannot
+pin down precisely — parsers, SQL and pipeline builders, value formatters, diffing, redaction,
+auth token validation.
+
+When you decide an isolated test is warranted, the order is mandatory:
+
+1. **First, write down every way the system could fail.** In the PR description or a comment at
+   the top of the test file, enumerate the real failure modes: wrong identifier quoting for a
+   dialect, wrong placeholder style, off-by-one in LIMIT/OFFSET, a composite key silently
+   matching the wrong row, `null` vs `""` vs `0` vs `false` collapsing into each other, an
+   unescaped quote enabling injection, a secret surviving redaction.
+2. **Then write the tests**, one per failure mode you listed, each with an expected value you
+   derived independently of the implementation.
+3. **Then write or fix the code.**
+
+If you cannot name a concrete failure mode, there is no test to write.
+
+#### What makes a test worth keeping
+
+Apply one question to every test: *if I introduced a plausible bug in the code under test, would
+this test fail?* If the answer is no, delete it. In particular, never write:
+
+- **Mock theater** — mocking the unit's only collaborator, then asserting the mock's configured
+  return value came back out. This proves `vi.fn()` works.
+- **Call assertions with no argument checks** — `expect(mockFn).toHaveBeenCalled()`.
+- **Pass-through route tests** — asserting a status code for a handler whose whole body is
+  `return c.json(await adapter.x())`, where `adapter` is mocked.
+- **Store setter/getter tests** — `setFoo(true)` then `expect(foo).toBe(true)`; "starts with
+  default values"; "reset() restores defaults".
+- **Render-the-prop tests** — rendering a component and asserting a string that was passed in as
+  a prop appears on screen, or that clicking calls a `vi.fn()` prop.
+- **Tests of what TypeScript already guarantees** — required props, enum membership, field types.
+- **Copy-paste families** — the same test duplicated per database type against one shared mock.
+- Snapshot tests.
+
+#### Mechanics
+
+- Vitest. `bun run test` at the root runs every package's suite.
+- Server: `cd packages/server && bunx vitest run tests/path/to/file.test.ts`.
+- Web: `cd packages/web && bunx vitest run src/path/to/file.test.ts` (happy-dom).
+- Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are set in each
+  `vitest.config.ts`.
+- Naming: `[file-name].test.ts`, colocated with the source in `packages/web` and `www`;
+  under `packages/server/tests/[area]/` for the server.
