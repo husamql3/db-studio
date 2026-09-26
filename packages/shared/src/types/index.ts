@@ -16,6 +16,7 @@ export * from "./database-schema.type.js"; // done
 export * from "./delete-column.types.js"; // done
 export * from "./delete-record.types.js"; // done
 export * from "./delete-table.types.js"; // done
+export * from "./desktop.types.js";
 export * from "./execute-query.types.js"; // done
 export * from "./export-table.types.js";
 export * from "./key-browser.types.js";

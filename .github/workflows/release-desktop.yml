@@ -1,0 +1,95 @@
+name: Release desktop
+
+# Builds the Electron app for each platform and attaches the installers plus the Windows
+# electron-updater manifest (latest.yml) to the existing GitHub release `v<version>`.
+# latest-mac.yml is not published: macOS auto-update stays off until builds are signed, and
+# the arm64 and x64 jobs each write their own copy that would need merging first.
+# Called from release.yml after the release is created; can also be run by hand.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to attach artifacts to (must match packages/server/package.json)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      VERSION: ${{ inputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            runner: macos-latest
+            platform: --mac
+            arch: arm64
+          - label: macOS x64
+            runner: macos-latest
+            platform: --mac
+            arch: x64
+          - label: Windows x64
+            runner: windows-latest
+            platform: --win
+            arch: x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: v${{ inputs.version }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      # Lifecycle scripts stay on so Electron's postinstall downloads the binary.
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build web + server
+        run: bun run build:server --force
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Verify version
+        shell: bash
+        run: |
+          SERVER_VERSION=$(node -p "require('./packages/server/package.json').version")
+          if [ "$SERVER_VERSION" != "$VERSION" ]; then
+            echo "packages/server is $SERVER_VERSION but release is $VERSION"
+            exit 1
+          fi
+
+      - name: Package
+        run: bun run --cwd packages/desktop package -- ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Upload to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(packages/desktop/release/*.{dmg,zip,exe,blockmap})
+          if [ -f packages/desktop/release/latest.yml ]; then
+            files+=(packages/desktop/release/latest.yml)
+          fi
+          gh release upload "v$VERSION" "${files[@]}" --clobber

@@ -32,3 +32,7 @@ dist-ssr
 .turbo
 .env
 db/
+# desktop (Electron)
+packages/desktop/dist-electron
+packages/desktop/server-stage
+packages/desktop/release

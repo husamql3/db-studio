@@ -11,6 +11,13 @@
 	scrollbar-color: gray transparent;
 }
 
+/* macOS desktop app: the in-app title bar owns the top strip, so the sidebar sheet (portaled to
+   body, absolute when pinned, fixed when hovering) starts below it. */
+.desktop-title-bar [data-slot="sheet-content"][data-side="left"] {
+	top: var(--desktop-title-bar-height);
+	height: calc(100% - var(--desktop-title-bar-height));
+}
+
 @layer utilities {
 	/* Shine animation for LoadingText */
 	@keyframes shine {
