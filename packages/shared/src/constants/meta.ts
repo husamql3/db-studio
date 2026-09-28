@@ -1,6 +1,6 @@
 export const META = {
 	//* author
-	AUTHOR: "Hüsam 🥑 <devhsmq@gmail.com>",
+	AUTHOR: "Hüsam 🥑 <husam@ql3.dev>",
 	AUTHOR_NAME: "Hüsam",
 	AUTHOR_AVATAR: "/avocado.png",
 	AUTHOR_USERNAME: "husamql3",

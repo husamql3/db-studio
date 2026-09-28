@@ -29,14 +29,6 @@ enabled = true
 persist = true
 head_sampling_rate = 1
 
-# ADMIN_PASSWORD_HASH, ADMIN_SESSION_SECRET, POSTHOG_PERSONAL_API_KEY, and
-# SENTRY_AUTH_TOKEN are encrypted Worker secrets (`bun run cf-secrets`).
-[vars]
-POSTHOG_HOST = "https://eu.posthog.com"
-POSTHOG_PROJECT_ID = "267671"
-SENTRY_ORG = "husamql3"
-SENTRY_HOST = "https://de.sentry.io"
-
 [env.preview]
 name = "dbstudio"
 workers_dev = true
