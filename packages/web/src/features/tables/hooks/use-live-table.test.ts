@@ -51,7 +51,7 @@ describe("useLiveTable", () => {
 	});
 
 	it("does not enable or poll if database does not support liveMode", () => {
-		useDatabaseStore.setState({ dbType: "mysql" });
+		useDatabaseStore.setState({ dbType: "mongodb" });
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
 
 		const { result } = renderHook(() =>
