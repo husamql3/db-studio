@@ -8,9 +8,9 @@ export interface DatabaseCapabilities {
 
 export const DATABASE_CAPABILITIES: Record<DatabaseTypeSchema, DatabaseCapabilities> = {
 	pg: { liveMode: true },
-	mysql: { liveMode: false },
-	mssql: { liveMode: false },
-	sqlite: { liveMode: false },
+	mysql: { liveMode: true },
+	mssql: { liveMode: true },
+	sqlite: { liveMode: true },
 	mongodb: { liveMode: false },
 	redis: { liveMode: false },
 };

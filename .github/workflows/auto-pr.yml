@@ -15,20 +15,41 @@ jobs:
       group: auto-pr-stage-to-main
       cancel-in-progress: false
     if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'stage') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'stage' && github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'push' && github.ref == 'refs/heads/stage')
     permissions:
       contents: write
       pull-requests: write
 
     steps:
+      # A fork PR merged into stage also fires the push event; skip those too.
+      - name: Skip fork PR merges
+        id: guard
+        if: github.event_name == 'push'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha
+            });
+
+            const repo = `${context.repo.owner}/${context.repo.repo}`;
+            const fromFork = prs.some(
+              (pr) => pr.merged_at && pr.base.ref === 'stage' && pr.head.repo?.full_name !== repo
+            );
+            core.setOutput('skip', String(fromFork));
+
       - name: Checkout code
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Prepare PR body
         id: pr-body
+        if: steps.guard.outputs.skip != 'true'
         env:
           EVENT_NAME: ${{ github.event_name }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
@@ -60,6 +81,7 @@ jobs:
 
       - name: Check if PR already exists
         id: check-pr
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/github-script@v9
         with:
           script: |

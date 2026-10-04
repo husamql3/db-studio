@@ -16,6 +16,37 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.15.0",
+		date: "2026-10-05",
+		title: "Live mode for MySQL, SQL Server and SQLite",
+		features: [
+			{
+				text: "Live mode now works on MySQL, SQL Server, and SQLite, not just PostgreSQL: the grid refreshes every second and highlights rows and cells that changed",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Removed the website's admin dashboard along with its sign-in, analytics API, and charting dependency",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed SQL Server tables without a sort returning rows in storage order instead of primary-key order, which let rows shift between refreshes",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed MySQL paging repeating or skipping rows when sorting by a column with duplicate values",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed number cells keeping their old value after the table refreshed, on every database; unsaved edits are still preserved",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.14.2",
 		date: "2026-09-26",
 		title: "Leaner test suite and an up-to-date roadmap",
