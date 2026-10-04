@@ -1,0 +1,60 @@
+# Version is injected at package time from packages/server/package.json (scripts/package.mjs).
+appId: sh.dbstudio.desktop
+productName: db-studio
+copyright: Copyright © 2026 Hüsam
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+
+directories:
+  output: release
+  buildResources: build
+
+# Main and preload are fully bundled, so no node_modules ship in the asar. Without the
+# exclusion electron-builder falls back to the monorepo root and drags in biome/turbo binaries.
+files:
+  - dist-electron/**
+  - package.json
+  - "!**/*.map"
+  - "!node_modules/**"
+
+# The server child (built CLI + its production node_modules) lives outside the asar so
+# native addons load from a real path. `server-stage/server` lands in `resources/server`.
+extraResources:
+  - from: server-stage
+    to: .
+
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+
+# Used to generate app-update.yml for electron-updater. Uploading is done by CI with
+# `gh release upload`, not by electron-builder (`--publish never`).
+publish:
+  provider: github
+  owner: husamql3
+  repo: db-studio
+  releaseType: release
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  # v1 ships unsigned. Set CSC_LINK / APPLE_* secrets and remove `identity: null` to sign.
+  # Signing also unlocks auto-update (src/updater.ts, latest-mac.yml in release-desktop.yml).
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+    - target: zip
+
+dmg:
+  sign: false
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false

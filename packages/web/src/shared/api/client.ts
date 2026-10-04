@@ -98,6 +98,9 @@ export const apiOperationForRequest = (method?: string, url?: string): string =>
 };
 
 export const getBaseUrl = (): string => {
+	// Desktop app: the Electron main process owns the server child and tells us where it listens.
+	const desktopBaseUrl = globalThis.window?.desktop?.getApiBaseUrl();
+	if (desktopBaseUrl) return desktopBaseUrl;
 	if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
 	if (
 		import.meta.env.DEV &&

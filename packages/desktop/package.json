@@ -1,0 +1,33 @@
+{
+  "name": "@db-studio/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "description": "db-studio desktop app (Electron). Version is taken from packages/server at package time.",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "author": "Hüsam 🥑 <husam@ql3.dev>",
+  "homepage": "https://dbstudio.sh",
+  "license": "Apache-2.0",
+  "scripts": {
+    "ensure:electron": "node scripts/ensure-electron.mjs",
+    "build": "tsup",
+    "dev": "node scripts/dev.mjs",
+    "stage:server": "node scripts/stage-server.mjs",
+    "package": "node scripts/package.mjs",
+    "typecheck": "tsc --noEmit",
+    "format": "biome check --write --unsafe",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
+    "@db-studio/shared": "workspace:*",
+    "@types/node": "^26.0.0",
+    "electron": "44.4.2",
+    "electron-builder": "26.15.6",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}

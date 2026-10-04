@@ -32,6 +32,14 @@
         "SENTRY_AUTH_TOKEN"
       ]
     },
+    "@db-studio/desktop#build": {
+      "dependsOn": [
+        "db-studio#build"
+      ],
+      "outputs": [
+        "dist-electron/**"
+      ]
+    },
     "@db-studio/shared#build": {
       "outputs": [],
       "cache": true
@@ -47,6 +55,13 @@
     "db-studio#dev": {
       "dependsOn": [
         "@db-studio/web#build"
+      ],
+      "cache": false,
+      "persistent": true
+    },
+    "@db-studio/desktop#dev": {
+      "dependsOn": [
+        "db-studio#build"
       ],
       "cache": false,
       "persistent": true
@@ -86,6 +101,13 @@
       "outputs": []
     },
     "deploy:preview": {
+      "dependsOn": [
+        "build"
+      ],
+      "cache": false,
+      "outputs": []
+    },
+    "package": {
       "dependsOn": [
         "build"
       ],

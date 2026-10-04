@@ -3,7 +3,13 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { aiDevtoolsPlugin } from "@tanstack/react-ai-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	Navigate,
+	Outlet,
+	useLocation,
+	useRouterState,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { useEffect } from "react";
@@ -13,6 +19,7 @@ import { SettingsOverlay } from "@/features/settings";
 import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
+import { isDesktopDisconnected } from "@/lib/desktop";
 import { initPosthog, posthogAnalytics } from "@/lib/posthog";
 import { initSentry } from "@/lib/sentry";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -49,10 +56,20 @@ export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 		const pathname = useLocation({ select: (location) => location.pathname });
+		// Committed matches, not the (possibly pending) location: while the lazy /connections
+		// chunk loads, `pathname` already says /connections but <Outlet /> still renders the
+		// previous workspace routes, which need the providers below.
+		const connectionsRouteMatched = useRouterState({
+			select: (state) => state.matches.some((match) => match.routeId === "/connections"),
+		});
 
 		const { dbType } = useDatabaseStore();
+		// Desktop app with no server child running: only the connection manager can render.
+		const desktopDisconnected = isDesktopDisconnected();
 		// Initialize database connection when the component mounts, fetches databases list, current db, and selects first db as fallback
-		const { isLoading, isInitialized, error } = useInitializeDatabase();
+		const { isLoading, isInitialized, error } = useInitializeDatabase({
+			enabled: !desktopDisconnected,
+		});
 
 		useEffect(() => {
 			if (error && dbType) {
@@ -94,6 +111,38 @@ export const Route = createRootRoute({
 			const page = pages.find((candidate) => candidate === firstSegment) ?? "home";
 			posthogAnalytics.capture("page_viewed", { page });
 		}, [pathname]);
+
+		if (desktopDisconnected) {
+			if (pathname !== "/connections") {
+				return (
+					<Navigate
+						to="/connections"
+						replace
+					/>
+				);
+			}
+			if (!connectionsRouteMatched) {
+				return (
+					<div className="flex items-center justify-center h-screen">
+						<Spinner
+							size="size-8"
+							color="bg-primary"
+						/>
+					</div>
+				);
+			}
+			// No server child yet: skip the workspace overlays, which would query a missing API.
+			return (
+				<>
+					<script
+						defer
+						src={`data:text/javascript;base64,${btoa(darkModeScript)}`}
+					/>
+					<Outlet />
+					<Toaster position="top-right" />
+				</>
+			);
+		}
 
 		// Show loading until both queries complete AND database is initialized in store
 		const showLoading = (isLoading || !isInitialized) && !error;

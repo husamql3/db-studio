@@ -1,6 +1,6 @@
 import { AxiosError, type InternalAxiosRequestConfig } from "axios";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiClient, apiOperationForRequest } from "./client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClient, apiOperationForRequest, getBaseUrl } from "./client";
 
 const sentry = vi.hoisted(() => ({
 	addBreadcrumb: vi.fn(),
@@ -93,5 +93,28 @@ describe("API error reporting", () => {
 		});
 		expect(JSON.stringify(context)).not.toContain("private-host");
 		expect(JSON.stringify(context)).not.toContain("customer_secrets");
+	});
+});
+
+describe("getBaseUrl", () => {
+	afterEach(() => {
+		delete window.desktop;
+	});
+
+	it("prefers the desktop bridge origin when a server child is running", () => {
+		window.desktop = {
+			getApiBaseUrl: () => "http://127.0.0.1:43123",
+		} as unknown as NonNullable<typeof window.desktop>;
+
+		expect(getBaseUrl()).toBe("http://127.0.0.1:43123");
+	});
+
+	it("falls back to the web resolution when the desktop app is disconnected", () => {
+		window.desktop = {
+			getApiBaseUrl: () => null,
+		} as unknown as NonNullable<typeof window.desktop>;
+
+		expect(getBaseUrl()).not.toBe("null");
+		expect(getBaseUrl()).toMatch(/^https?:\/\//);
 	});
 });

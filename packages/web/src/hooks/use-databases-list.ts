@@ -52,7 +52,7 @@ export const useDatabasesList = () => {
  * Fetches current database, falls back to first database in list if none.
  * Shows loading until a database is selected.
  */
-export const useInitializeDatabase = () => {
+export const useInitializeDatabase = ({ enabled = true }: { enabled?: boolean } = {}) => {
 	const { selectedDatabase, setSelectedDatabase, setDbType } = useDatabaseStore();
 	const hasInitializedRef = useRef(false);
 
@@ -66,6 +66,7 @@ export const useInitializeDatabase = () => {
 		queryFn: getDatabases,
 		select: (response) => response.data.data,
 		staleTime: 1000 * 60 * 5,
+		enabled,
 	});
 
 	// Then fetch current database (only after databases list is loaded)
@@ -87,7 +88,7 @@ export const useInitializeDatabase = () => {
 			return res.data.data;
 		},
 		staleTime: 1000 * 60 * 5,
-		enabled: !!databasesData, // Only run after databases are loaded
+		enabled: enabled && !!databasesData, // Only run after databases are loaded
 	});
 
 	// Initialize once requests settle so UI does not get stuck on the loading screen.

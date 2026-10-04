@@ -10,6 +10,7 @@
     "dev:server": "turbo run dev --filter=db-studio",
     "dev:proxy": "turbo run dev --filter=@db-studio/proxy",
     "dev:www": "turbo run dev --filter=@db-studio/www",
+    "dev:desktop": "turbo run dev --filter=@db-studio/desktop",
     "start": "turbo run start",
     "init-db:pgsql": "bash ./scripts/init-db-pgsql.sh",
     "init-db:mysql": "bash ./scripts/init-db-mysql.sh",
@@ -23,6 +24,8 @@
     "build:server": "turbo run build --filter=db-studio",
     "build:proxy": "turbo run build --filter=@db-studio/proxy",
     "build:www": "turbo run build --filter=@db-studio/www",
+    "build:desktop": "turbo run build --filter=@db-studio/desktop",
+    "package:desktop": "turbo run package --filter=@db-studio/desktop",
     "deploy:www": "turbo run deploy --filter=@db-studio/www",
     "deploy:www:preview": "turbo run deploy:preview --filter=@db-studio/www",
     "deploy:proxy": "turbo run deploy --filter=@db-studio/proxy",
@@ -53,6 +56,9 @@
     "esbuild": "0.27.2",
     "@tanstack/ai-client": "0.32.1"
   },
+  "trustedDependencies": [
+    "electron"
+  ],
   "engines": {
     "node": ">=20.x",
     "bun": ">=1.2.19"
