@@ -254,11 +254,14 @@ class DatabaseManager {
 				poolMin: 0,
 				poolMax: 10,
 				connectTimeout: 5,
-				// Dates and timestamps compared with strings (filters, implicit casts) use these formats.
+				// LTZ values are projected in the session zone; pin it so pooled connections agree.
 				sessionCallback: (connection, _tag, done) => {
 					connection
-						.execute(
-							`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS' NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF' NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FFTZH:TZM'`,
+						.execute("ALTER SESSION SET TIME_ZONE = '+00:00'")
+						.then(() =>
+							connection.execute(
+								`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS' NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9' NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM' NLS_NUMERIC_CHARACTERS = '.,'`,
+							),
 						)
 						.then(() => done(), done);
 				},

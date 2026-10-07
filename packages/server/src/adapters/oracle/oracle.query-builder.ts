@@ -24,12 +24,120 @@ export const createBinds = () => {
 	return { values, bind };
 };
 
+type OracleTemporalType = "date" | "timestamp" | "timestampTz" | "timestampLtz";
+
+const ORACLE_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
+const ORACLE_TIMESTAMP_FORMAT = `${ORACLE_DATE_FORMAT}.FF9`;
+const ORACLE_TIMESTAMP_TZ_FORMAT = `${ORACLE_TIMESTAMP_FORMAT}TZH:TZM`;
+const ISO_DATE =
+	/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/i;
+
+const temporalTypeOf = (columnType: string): OracleTemporalType | null => {
+	const type = columnType.toUpperCase();
+	if (type === "DATE") return "date";
+	if (!type.startsWith("TIMESTAMP")) return null;
+	if (type.includes("WITH LOCAL TIME ZONE")) return "timestampLtz";
+	if (type.includes("WITH TIME ZONE")) return "timestampTz";
+	return "timestamp";
+};
+
+const normalizeTemporalValue = (value: unknown, temporalType: OracleTemporalType) => {
+	const input = value instanceof Date ? value.toISOString() : value;
+	if (typeof input !== "string")
+		throw new HTTPException(400, { message: `Invalid Oracle ${temporalType} value` });
+	const match = input.trim().match(ISO_DATE);
+	if (!match)
+		throw new HTTPException(400, {
+			message: `Invalid Oracle date or timestamp value: ${input}`,
+		});
+	const [, year, month, day, hour = "00", minute = "00", second = "00", fraction = "", zone] =
+		match;
+	const wallClock = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+	if (temporalType === "date") return wallClock;
+	const timestamp = `${wallClock}.${fraction.padEnd(9, "0")}`;
+	if (temporalType === "timestamp") return timestamp;
+	if (!zone || zone.toUpperCase() === "Z") return `${timestamp}+00:00`;
+	const compactZone = zone.replace(":", "");
+	return `${timestamp}${compactZone.slice(0, 3)}:${compactZone.slice(3).padEnd(2, "0")}`;
+};
+
+export const bindOracleValue = (
+	value: unknown,
+	columnType: string | undefined,
+	bind: (boundValue: unknown) => string,
+) => {
+	const temporalType = columnType ? temporalTypeOf(columnType) : null;
+	if (!temporalType) return bind(value);
+	const placeholder = bind(
+		value === null || value === undefined ? null : normalizeTemporalValue(value, temporalType),
+	);
+	if (temporalType === "date") return `TO_DATE(${placeholder}, '${ORACLE_DATE_FORMAT}')`;
+	if (temporalType === "timestamp")
+		return `TO_TIMESTAMP(${placeholder}, '${ORACLE_TIMESTAMP_FORMAT}')`;
+	return `TO_TIMESTAMP_TZ(${placeholder}, '${ORACLE_TIMESTAMP_TZ_FORMAT}')`;
+};
+
+export const buildOracleSelectList = (
+	columns: Array<{ COLUMN_NAME: string; DATA_TYPE: string }>,
+	tableAlias?: string,
+) =>
+	columns
+		.map(({ COLUMN_NAME: name, DATA_TYPE: dataType }) => {
+			const column = `${tableAlias ? `${tableAlias}.` : ""}${quoteOracleIdent(name)}`;
+			const temporalType = temporalTypeOf(dataType);
+			if (!temporalType) return column;
+			const format =
+				temporalType === "date"
+					? ORACLE_DATE_FORMAT
+					: temporalType === "timestampTz"
+						? ORACLE_TIMESTAMP_TZ_FORMAT
+						: ORACLE_TIMESTAMP_FORMAT;
+			return `TO_CHAR(${column}, '${format}') AS ${quoteOracleIdent(name)}`;
+		})
+		.join(", ");
+
+export type OracleForeignKeyRow = {
+	CONSTRAINT_NAME: string;
+	REFERENCING_TABLE: string;
+	REFERENCING_COLUMN: string;
+	REFERENCED_TABLE: string;
+	REFERENCED_COLUMN: string;
+};
+
+export type OracleForeignKey = {
+	constraintName: string;
+	referencingTable: string;
+	columns: string[];
+	referencedTable: string;
+	referencedColumns: string[];
+};
+
+export const groupOracleForeignKeys = (rows: OracleForeignKeyRow[]): OracleForeignKey[] => {
+	const constraints = new Map<string, OracleForeignKey>();
+	for (const row of rows) {
+		const existing = constraints.get(row.CONSTRAINT_NAME);
+		if (existing) {
+			existing.columns.push(row.REFERENCING_COLUMN);
+			existing.referencedColumns.push(row.REFERENCED_COLUMN);
+			continue;
+		}
+		constraints.set(row.CONSTRAINT_NAME, {
+			constraintName: row.CONSTRAINT_NAME,
+			referencingTable: row.REFERENCING_TABLE,
+			columns: [row.REFERENCING_COLUMN],
+			referencedTable: row.REFERENCED_TABLE,
+			referencedColumns: [row.REFERENCED_COLUMN],
+		});
+	}
+	return [...constraints.values()];
+};
+
 export const whereSql = (conditions: string[]) =>
 	conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
 export function buildFilterConditions(
 	filters: FilterType[],
-	bind: (value: unknown) => string,
+	bind: (value: unknown, columnName: string) => string,
 ): string[] {
 	const conditions: string[] = [];
 
@@ -43,25 +151,31 @@ export function buildFilterConditions(
 			case ">=":
 			case "<":
 			case "<=":
-				conditions.push(`${col} ${filter.operator} ${bind(filter.value)}`);
+				conditions.push(`${col} ${filter.operator} ${bind(filter.value, filter.columnName)}`);
 				break;
 			case "is":
-				conditions.push(isNull ? `${col} IS NULL` : `${col} = ${bind(filter.value)}`);
+				conditions.push(
+					isNull ? `${col} IS NULL` : `${col} = ${bind(filter.value, filter.columnName)}`,
+				);
 				break;
 			case "is not":
-				conditions.push(isNull ? `${col} IS NOT NULL` : `${col} != ${bind(filter.value)}`);
+				conditions.push(
+					isNull ? `${col} IS NOT NULL` : `${col} != ${bind(filter.value, filter.columnName)}`,
+				);
 				break;
 			case "like":
-				conditions.push(`${col} LIKE ${bind(filter.value)}`);
+				conditions.push(`${col} LIKE ${bind(filter.value, filter.columnName)}`);
 				break;
 			case "not like":
-				conditions.push(`${col} NOT LIKE ${bind(filter.value)}`);
+				conditions.push(`${col} NOT LIKE ${bind(filter.value, filter.columnName)}`);
 				break;
 			case "ilike":
-				conditions.push(`UPPER(${col}) LIKE UPPER(${bind(filter.value)})`);
+				conditions.push(`UPPER(${col}) LIKE UPPER(${bind(filter.value, filter.columnName)})`);
 				break;
 			case "not ilike":
-				conditions.push(`UPPER(${col}) NOT LIKE UPPER(${bind(filter.value)})`);
+				conditions.push(
+					`UPPER(${col}) NOT LIKE UPPER(${bind(filter.value, filter.columnName)})`,
+				);
 				break;
 		}
 	}
