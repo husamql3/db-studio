@@ -23,6 +23,7 @@
     "init-db:tidb": "bash ./scripts/init-db-tidb.sh",
     "init-db:duckdb": "bash ./scripts/init-db-duckdb.sh",
     "init-db:oracle": "bash ./scripts/init-db-oracle.sh",
+    "init-db:clickhouse": "bash ./scripts/init-db-clickhouse.sh",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=@db-studio/web",
     "scan:web": "bunx react-scan@latest https://web.db-studio.localhost",
