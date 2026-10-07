@@ -49,7 +49,8 @@
     "format": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "e2e": "tsx e2e/contract.ts"
   },
   "portless": {
     "name": "api.db-studio",
