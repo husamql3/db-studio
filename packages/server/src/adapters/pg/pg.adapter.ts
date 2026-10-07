@@ -398,7 +398,7 @@ export class PgAdapter extends BaseAdapter {
 				current_database() as database,
 				current_user as user,
 				inet_server_addr() as host,
-				inet_server_port() as port,
+				inet_server_port()::int4 as port,
 				(SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) as active_connections,
 				(SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max_connections;
 		`);
