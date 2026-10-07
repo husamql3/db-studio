@@ -303,13 +303,11 @@ export class PgAdapter extends BaseAdapter {
 		);
 		const total = Number(countRes.rows[0].total);
 
-		// SELECT * omits ctid and CockroachDB's hidden rowid primary key, so primary key
-		// columns are selected explicitly and cursor columns again under aliases.
-		const cursorAlias = (i: number) => `__cursor_${i}`;
-		const extraSelect = [
-			...pkColumns.map((col) => `"${col}"`),
-			...cursorColumns.map((col, i) => `"${col}" AS "${cursorAlias(i)}"`),
-		];
+		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
+		// selected explicitly; ctid is a reserved system column name, so selecting it by name
+		// cannot shadow a user column.
+		const usesCtid = cursorColumns.includes("ctid");
+		const extraSelect = [...pkColumns.map((col) => `"${col}"`), ...(usesCtid ? ["ctid"] : [])];
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
@@ -322,15 +320,16 @@ export class PgAdapter extends BaseAdapter {
 		if (hasMore) rawRows = rawRows.slice(0, limit);
 		if (direction === "desc") rawRows = rawRows.reverse();
 
-		const cursorKeys = new Set(cursorColumns.map((_, i) => cursorAlias(i)));
 		const rows = rawRows
-			.map((row) =>
-				Object.fromEntries(Object.entries(row).filter(([k]) => !cursorKeys.has(k))),
-			)
+			.map((row) => {
+				if (!usesCtid) return row;
+				const { ctid: _ctid, ...rest } = row;
+				return rest;
+			})
 			.filter((row) => Object.keys(row).length > 0);
 
 		const createCursor = (row: Record<string, unknown>): CursorData => ({
-			values: Object.fromEntries(cursorColumns.map((col, i) => [col, row[cursorAlias(i)]])),
+			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
 			sortColumns: cursorColumns,
 		});
 
