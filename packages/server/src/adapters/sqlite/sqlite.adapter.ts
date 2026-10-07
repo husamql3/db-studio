@@ -39,6 +39,7 @@ import {
 	buildSortClause,
 	buildWhereClause,
 	hasMultipleStatements,
+	isTransactionControl,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
@@ -115,9 +116,6 @@ const all = async <T = Record<string, unknown>>(
 
 // The client returns the connection to its pool after every call, which rolls back
 // anything left open, so a lone BEGIN would leave the next query autocommitting.
-const TRANSACTION_CONTROL =
-	/^(begin|start\s+transaction|commit|end|rollback|savepoint|release)\b[^;]*$/i;
-
 const isFkViolation = (e: unknown) =>
 	e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
 
@@ -1070,7 +1068,7 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
 		const cleaned = query.trim().replace(/;+$/, "");
-		if (TRANSACTION_CONTROL.test(cleaned))
+		if (isTransactionControl(cleaned))
 			throw new HTTPException(400, {
 				message:
 					"Transaction statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE) are not supported in the query runner: each query runs on its own connection, so a transaction cannot span queries.",
