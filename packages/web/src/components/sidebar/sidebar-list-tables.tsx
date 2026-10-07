@@ -3,7 +3,7 @@ import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
 import { useTablesList } from "@/features/tables";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarListTables = () => {
@@ -13,7 +13,7 @@ export const SidebarListTables = () => {
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
 		defaultValue: "all",
 	});
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 
 	const { tablesList = [], isLoadingTablesList, errorTablesList } = useTablesList();
 	const schemas = useMemo(
@@ -28,7 +28,7 @@ export const SidebarListTables = () => {
 			).sort(),
 		[tablesList],
 	);
-	const showSchemaDropdown = dbType === "pg" && schemas.length > 1;
+	const showSchemaDropdown = (engine?.schemaSelector ?? false) && schemas.length > 1;
 
 	const filteredTables = tablesList?.filter((table) => {
 		const matchesSchema = selectedSchema === "all" || table.schemaName === selectedSchema;

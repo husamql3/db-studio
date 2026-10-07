@@ -1,4 +1,10 @@
+import { DATABASE_TYPES } from "@db-studio/shared/types";
 import * as Sentry from "@sentry/react";
+
+const DB_SCOPED_API_PATH = new RegExp(
+	`/api/(?:${DATABASE_TYPES.join("|")})/(databases|tables|records|query|keys|chat)(?:/\\S*)?`,
+	"g",
+);
 
 const OFFICIAL_SENTRY_DSN =
 	"https://c1a01551ba00da0aee2c5e9c977906e7@o4509725125181440.ingest.de.sentry.io/4512040493318224";
@@ -37,10 +43,7 @@ export const initSentry = (): void => {
 		beforeSendSpan(span) {
 			const description = span.description
 				?.replace(/[?#].*$/, "")
-				.replace(
-					/\/api\/(?:pg|mysql|mssql|mongodb|sqlite|redis)\/(databases|tables|records|query|keys|chat)(?:\/\S*)?/g,
-					"/api/$1",
-				)
+				.replace(DB_SCOPED_API_PATH, "/api/$1")
 				.replace(/\/(table|schema|runner)\/[^/\s]+/g, "/$1/:id");
 			return { ...span, description, data: {} };
 		},

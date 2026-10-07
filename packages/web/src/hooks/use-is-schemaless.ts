@@ -1,14 +1,11 @@
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 
 /**
- * Returns true when the connected database has a fixed/synthesized schema
- * that does not support DDL operations (add column, alter column, etc.)
- * or arbitrary sort/filter on table data.
- *
- * Today this is only Redis — schema is fixed to six type-tables and SCAN
- * pagination has no global ordering.
+ * Returns true when the connected database has no user-defined schema, so DDL
+ * operations (add column, alter column, etc.) do not apply. False until the
+ * engine is known.
  */
 export const useIsSchemaless = (): boolean => {
-	const { dbType } = useDatabaseStore();
-	return dbType === "mongodb" || dbType === "redis";
+	const engine = useDatabaseEngine();
+	return engine !== undefined && engine.dataModel !== "relational";
 };
