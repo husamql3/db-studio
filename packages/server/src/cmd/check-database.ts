@@ -1,4 +1,4 @@
-import type { DatabaseTypeSchema } from "@db-studio/shared/types";
+import { DATABASE_ENGINES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import {
 	getDbPool,
 	getDbType,
@@ -10,15 +10,6 @@ import {
 	getSqliteDb,
 } from "@/db-manager.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
-
-const DATABASE_NAMES: Record<DatabaseTypeSchema, string> = {
-	pg: "PostgreSQL",
-	mysql: "MySQL",
-	mssql: "SQL Server",
-	mongodb: "MongoDB",
-	sqlite: "SQLite",
-	redis: "Redis",
-};
 
 const STARTUP_TIMEOUT_MS = 2_000;
 
@@ -49,12 +40,11 @@ export const getDatabaseConnectionDetails = (
 	databaseUrl: string,
 ): DatabaseConnectionDetails => {
 	const type = getDbType();
-	if (type === "sqlite") {
-		return { type, name: DATABASE_NAMES[type], destination: "local file" };
-	}
+	const { label: name, defaultPort } = DATABASE_ENGINES[type];
+	if (defaultPort === null) return { type, name, destination: "local file" };
 
 	const { host, port } = parseDatabaseUrl(databaseUrl);
-	return { type, name: DATABASE_NAMES[type], destination: `${host}:${port}` };
+	return { type, name, destination: `${host}:${port}` };
 };
 
 export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise<void> => {

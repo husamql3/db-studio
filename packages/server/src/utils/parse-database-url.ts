@@ -1,31 +1,23 @@
-import type { DatabaseTypeSchema } from "@db-studio/shared/types";
+import { DATABASE_ENGINES, dbTypeFromProtocol } from "@db-studio/shared/types";
 
-type UrlScheme = {
-	dbType: DatabaseTypeSchema;
-	defaultPort: number;
-	/** Wire-compatible engines are handed to the driver under this scheme. */
-	driverScheme?: string;
+/** Wire-compatible aliases the drivers don't understand, with the alias engine's own default port. */
+const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort: number }> = {
+	cockroachdb: { driverScheme: "postgresql", defaultPort: 26257 },
+	mariadb: { driverScheme: "mysql", defaultPort: 3306 },
+	tidb: { driverScheme: "mysql", defaultPort: 4000 },
 };
 
-const URL_SCHEMES = new Map<string, UrlScheme>([
-	["postgres", { dbType: "pg", defaultPort: 5432 }],
-	["postgresql", { dbType: "pg", defaultPort: 5432 }],
-	["cockroachdb", { dbType: "pg", defaultPort: 26257, driverScheme: "postgresql" }],
-	["mysql", { dbType: "mysql", defaultPort: 3306 }],
-	["mysql2", { dbType: "mysql", defaultPort: 3306 }],
-	["mariadb", { dbType: "mysql", defaultPort: 3306, driverScheme: "mysql" }],
-	["tidb", { dbType: "mysql", defaultPort: 4000, driverScheme: "mysql" }],
-	["mssql", { dbType: "mssql", defaultPort: 1433 }],
-	["sqlserver", { dbType: "mssql", defaultPort: 1433 }],
-	["mongodb", { dbType: "mongodb", defaultPort: 27017 }],
-	["mongodb+srv", { dbType: "mongodb", defaultPort: 27017 }],
-	["sqlite", { dbType: "sqlite", defaultPort: 0 }],
-	["redis", { dbType: "redis", defaultPort: 6379 }],
-	["rediss", { dbType: "redis", defaultPort: 6379 }],
-]);
+const schemeOf = (url: URL) => url.protocol.replace(":", "");
 
-export const resolveUrlScheme = (url: URL): UrlScheme | undefined =>
-	URL_SCHEMES.get(url.protocol.replace(":", ""));
+export const defaultPortFor = (url: URL): number => {
+	const scheme = schemeOf(url);
+	const dbType = dbTypeFromProtocol(scheme);
+	return (
+		DRIVER_ALIASES[scheme]?.defaultPort ??
+		(dbType && DATABASE_ENGINES[dbType].defaultPort) ??
+		5432
+	);
+};
 
 /**
  * Rewrite a wire-compatible alias (e.g. `cockroachdb://`) to the scheme its driver
@@ -33,10 +25,10 @@ export const resolveUrlScheme = (url: URL): UrlScheme | undefined =>
  */
 export const toDriverUrl = (databaseUrl: string): string => {
 	const url = new URL(databaseUrl);
-	const scheme = resolveUrlScheme(url);
-	if (!scheme?.driverScheme) return databaseUrl;
-	url.port ||= String(scheme.defaultPort);
-	url.protocol = scheme.driverScheme;
+	const alias = DRIVER_ALIASES[schemeOf(url)];
+	if (!alias) return databaseUrl;
+	url.port ||= String(alias.defaultPort);
+	url.protocol = alias.driverScheme;
 	return url.toString();
 };
 
@@ -55,7 +47,7 @@ export function parseDatabaseUrl(databaseUrl = process.env.DATABASE_URL): {
 		const url = new URL(databaseUrl);
 		return {
 			host: url.hostname || "localhost",
-			port: Number.parseInt(url.port, 10) || (resolveUrlScheme(url)?.defaultPort ?? 5432),
+			port: Number.parseInt(url.port, 10) || defaultPortFor(url),
 		};
 	} catch (error) {
 		console.error("Failed to parse DATABASE_URL:", error);

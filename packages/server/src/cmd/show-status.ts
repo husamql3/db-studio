@@ -1,5 +1,6 @@
 import { intro, note, outro } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
+import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import color from "picocolors";
 import { loadEnv } from "@/cmd/load-env.js";
 
@@ -32,7 +33,9 @@ export const showStatus = async (env?: string, databaseUrl?: string, varName?: s
 		console.log(color.yellow("\n  To configure database connection:"));
 		console.log(
 			color.dim(
-				"  • Supported databases: PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis",
+				`  • Supported databases: ${Object.values(DATABASE_ENGINES)
+					.map(({ label }) => label)
+					.join(", ")}`,
 			),
 		);
 		console.log(

@@ -1,5 +1,6 @@
 import { intro, outro } from "@clack/prompts";
 import { META } from "@db-studio/shared/constants/meta.js";
+import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import color from "picocolors";
 
 /**
@@ -12,8 +13,11 @@ export const showHelp = () => {
 	console.log("  db-studio [options]\n");
 
 	console.log(color.bold("Supported Databases:"));
-	console.log("  PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis");
-	console.log("  CockroachDB (cockroachdb://), MariaDB (mariadb://), TiDB (tidb://)\n");
+	console.log(
+		`  ${Object.values(DATABASE_ENGINES)
+			.map(({ label }) => label)
+			.join(", ")}\n`,
+	);
 
 	console.log(color.bold("Options:"));
 	console.log("  -e, --env <path>         Path to custom .env file");
