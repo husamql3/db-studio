@@ -35,6 +35,9 @@ export const showStatus = async (env?: string, databaseUrl?: string, varName?: s
 				"  • Supported databases: PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis",
 			),
 		);
+		console.log(
+			color.dim("  • Also via wire-compatible URLs: cockroachdb://, mariadb://, tidb://"),
+		);
 		console.log(color.dim(`  • Add ${envVarName} to your .env file or set it in process.env`));
 		console.log(color.dim("  • Use -d flag: db-studio -d <url>"));
 		console.log(color.dim("  • Use -e flag: db-studio -e <path-to-env>"));

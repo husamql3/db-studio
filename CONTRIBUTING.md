@@ -88,8 +88,17 @@ Here are examples for different databases:
 # PostgreSQL
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dbstudio"
 
+# CockroachDB (uses the PostgreSQL adapter)
+DATABASE_URL="cockroachdb://root@localhost:26257/dbstudio"
+
 # MySQL
 DATABASE_URL="mysql://root@localhost:3306/dbstudio"
+
+# MariaDB (uses the MySQL adapter)
+DATABASE_URL="mariadb://root@localhost:3307/dbstudio"
+
+# TiDB (uses the MySQL adapter)
+DATABASE_URL="tidb://root@localhost:4000/dbstudio"
 
 # SQL Server (MSSQL)
 DATABASE_URL="mssql://sa:YourPassword1!@localhost:1433/dbstudio"

@@ -1,5 +1,5 @@
 const CONNECTION_URL =
-	/\b(?:postgres(?:ql)?|mysql2?|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi;
+	/\b(?:postgres(?:ql)?|cockroachdb|mysql2?|mariadb|tidb|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi;
 
 /**
  * Redact database connection URLs from error text before printing them.

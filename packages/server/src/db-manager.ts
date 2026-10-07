@@ -7,6 +7,7 @@ import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
 import { Pool, type PoolConfig } from "pg";
+import { resolveUrlScheme, toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB
@@ -42,30 +43,11 @@ class DatabaseManager {
 	 * Detect database type from URL protocol
 	 */
 	private detectDbType(url: URL): DatabaseTypeSchema {
-		const protocol = url.protocol.replace(":", "");
-		switch (protocol) {
-			case "postgres":
-			case "postgresql":
-				return "pg";
-			case "mysql":
-			case "mysql2":
-				return "mysql";
-			case "mssql":
-			case "sqlserver":
-				return "mssql";
-			case "mongodb":
-			case "mongodb+srv":
-				return "mongodb";
-			case "sqlite":
-				return "sqlite";
-			case "redis":
-			case "rediss":
-				return "redis";
-			default:
-				throw new Error(
-					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://), Redis/Valkey (redis:// or rediss://).`,
-				);
-		}
+		const scheme = resolveUrlScheme(url);
+		if (scheme) return scheme.dbType;
+		throw new Error(
+			`Unsupported database type: ${url.protocol.replace(":", "")}. Supported types: PostgreSQL (postgres://), CockroachDB (cockroachdb://), MySQL (mysql://), MariaDB (mariadb://), TiDB (tidb://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://), Redis/Valkey (redis:// or rediss://).`,
+		);
 	}
 
 	/**
@@ -91,22 +73,13 @@ class DatabaseManager {
 		}
 
 		try {
-			const url = new URL(databaseUrl);
+			const driverUrl = toDriverUrl(databaseUrl);
+			const url = new URL(driverUrl);
 			const detectedType = this.detectDbType(url);
-			const defaultPort =
-				detectedType === "mysql"
-					? 3306
-					: detectedType === "mssql"
-						? 1433
-						: detectedType === "mongodb"
-							? 27017
-							: detectedType === "redis"
-								? 6379
-								: 5432;
 			this.baseConfig = {
-				url: databaseUrl,
+				url: driverUrl,
 				host: url.hostname,
-				port: Number.parseInt(url.port, 10) || defaultPort,
+				port: Number.parseInt(url.port, 10) || (resolveUrlScheme(url)?.defaultPort ?? 5432),
 				user: url.username,
 				password: url.password,
 				dbType: detectedType,
