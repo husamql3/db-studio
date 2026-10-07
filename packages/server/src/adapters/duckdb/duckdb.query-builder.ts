@@ -59,23 +59,61 @@ export interface OrderTerm {
 	direction: SortDirection;
 }
 
-export const buildOrderBy = (terms: OrderTerm[]) =>
-	`ORDER BY ${terms.map((t) => `${quoteDuckdbIdent(t.column)} ${t.direction.toUpperCase()}`).join(", ")}`;
+/** NULLs sort last in either direction; a backward page reads that order reversed. */
+const placement = (term: OrderTerm, backward: boolean) => ({
+	descending: (term.direction === "desc") !== backward,
+	nullsLast: !backward,
+});
+
+export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
+	`ORDER BY ${terms
+		.map((term) => {
+			const { descending, nullsLast } = placement(term, backward);
+			return `${quoteDuckdbIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
+		})
+		.join(", ")}`;
 
 /**
- * Keyset predicate `(a, b) > (CAST(? AS T1), CAST(? AS T2))`. DuckDB binds a row-value
- * comparison's parameters as VARCHAR and refuses to compare STRUCT(DATE, …) with
- * STRUCT(VARCHAR, …), so every cursor value is cast to its column's type.
+ * Rows after the `cursor` row in `buildOrderBy(terms, backward)` order:
+ * `(c1 after v1) OR (c1 = v1 AND c2 after v2) OR …`, where "after" follows each column's own
+ * direction and NULL placement. A row-value comparison `(c1, c2) > (v1, v2)` cannot express
+ * mixed directions and never matches NULL.
  */
-export function buildCursorWhereClause(
-	columns: Array<{ name: string; type: string }>,
-	values: Record<string, unknown>,
-	operator: ">" | "<",
+export function buildKeysetPredicate(
+	terms: OrderTerm[],
+	cursor: Record<string, unknown>,
+	backward: boolean,
 ): { clause: string; values: unknown[] } {
-	return {
-		clause: `(${columns.map((c) => quoteDuckdbIdent(c.name)).join(", ")}) ${operator} (${columns.map((c) => `CAST(? AS ${c.type})`).join(", ")})`,
-		values: columns.map((c) => values[c.name]),
-	};
+	const branches: string[] = [];
+	const values: unknown[] = [];
+	const equal: string[] = [];
+	const equalValues: unknown[] = [];
+
+	for (const term of terms) {
+		const col = quoteDuckdbIdent(term.column);
+		const value = cursor[term.column] ?? null;
+		const { descending, nullsLast } = placement(term, backward);
+
+		const after =
+			value === null
+				? nullsLast
+					? null
+					: `${col} IS NOT NULL`
+				: `${col} ${descending ? "<" : ">"} ?${nullsLast ? ` OR ${col} IS NULL` : ""}`;
+		if (after) {
+			branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
+			values.push(...equalValues, ...(value === null ? [] : [value]));
+		}
+
+		if (value === null) {
+			equal.push(`${col} IS NULL`);
+		} else {
+			equal.push(`${col} = ?`);
+			equalValues.push(value);
+		}
+	}
+
+	return { clause: branches.length ? `(${branches.join(" OR ")})` : "FALSE", values };
 }
 
 const SERIAL_TYPES = new Set([

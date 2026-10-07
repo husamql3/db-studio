@@ -39,8 +39,8 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { withDuckdbConnection } from "@/adapters/connections.js";
 import {
-	buildCursorWhereClause,
 	buildFilterConditions,
+	buildKeysetPredicate,
 	buildOrderBy,
 	quoteDuckdbIdent as ident,
 	isSerialType,
@@ -248,8 +248,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		} = params;
 
 		return this.withConnection(async (conn) => {
-			const columns = await this.requireColumns(conn, tableName);
-			const columnTypes = new Map(columns.map((c) => [c.column_name, c.data_type]));
+			await this.requireColumns(conn, tableName);
 			const primaryKey = await this.primaryKey(conn, tableName);
 			const keyColumns = primaryKey.length ? primaryKey : ["rowid"];
 
@@ -271,22 +270,9 @@ export class DuckDbAdapter extends BaseAdapter {
 			const filter = buildFilterConditions(filters);
 			const cursorData = cursor ? this.decodeCursor(cursor) : null;
 			const keyset = cursorData
-				? buildCursorWhereClause(
-						cursorData.sortColumns.map((name) => ({
-							name,
-							// Only the rowid pseudo-column is missing from the column list.
-							type: columnTypes.get(name) ?? "BIGINT",
-						})),
-						cursorData.values,
-						(sortDirection === "asc") === !backward ? ">" : "<",
-					)
+				? buildKeysetPredicate(terms, cursorData.values, backward)
 				: null;
-
-			const orderBy = buildOrderBy(
-				backward
-					? terms.map((t) => ({ ...t, direction: t.direction === "asc" ? "desc" : "asc" }))
-					: terms,
-			);
+			const orderBy = buildOrderBy(terms, backward);
 			const select = primaryKey.length ? "*" : "*, rowid";
 			const where = whereSql(
 				keyset ? [...filter.conditions, keyset.clause] : filter.conditions,
