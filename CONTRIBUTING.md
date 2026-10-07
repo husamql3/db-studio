@@ -117,6 +117,9 @@ DATABASE_URL="redis://localhost:6379/0"
 
 # DuckDB (relative or absolute file path)
 DATABASE_URL="duckdb://./db/dbstudio.duckdb"
+
+# Oracle (service name as the path)
+DATABASE_URL="oracle://dbstudio:dbstudio@localhost:1521/FREEPDB1"
 ```
 
 ### 2. Initialize Test Data (Optional)
@@ -135,6 +138,7 @@ bun run init-db:mariadb # MariaDB
 bun run init-db:cockroach # CockroachDB
 bun run init-db:tidb    # TiDB
 bun run init-db:duckdb  # DuckDB
+bun run init-db:oracle  # Oracle
 ```
 
 Running one of these commands loads database-specific sample data — for SQL engines this generally includes contributors/projects/contributions tables plus engine-specific data, while MongoDB seeds collections and Redis seeds keys — so you can test features with real data immediately.

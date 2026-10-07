@@ -63,7 +63,7 @@ npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
 
 ## Works with your stack
 
-PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, and DuckDB.
+PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, and Oracle.
 
 ## Everything you need to manage your database
 
