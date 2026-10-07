@@ -823,3 +823,65 @@ export function standardizeOracleDataTypeLabel(oracleType: string): Standardized
 
 	return StandardizedDataType.text;
 }
+
+/** Strips the `Nullable(...)` and `LowCardinality(...)` wrappers, which do not change how a value renders. */
+export function unwrapClickhouseType(clickhouseType: string): string {
+	let type = clickhouseType.trim();
+	for (;;) {
+		const match = type.match(/^(?:Nullable|LowCardinality)\((.*)\)$/);
+		if (!match?.[1]) return type;
+		type = match[1].trim();
+	}
+}
+
+/**
+ * Maps ClickHouse column types (as reported by `system.columns.type`) to generic DataTypes.
+ */
+export function mapClickhouseToDataType(clickhouseType: string): DataTypes {
+	const type = unwrapClickhouseType(clickhouseType);
+
+	if (type.startsWith("Array(")) return DataTypes.array;
+	if (type.startsWith("Enum8(") || type.startsWith("Enum16(")) return DataTypes.enum;
+	if (type === "Bool") return DataTypes.boolean;
+	if (/^(Date|Date32|DateTime|DateTime64|Time|Time64)\b/.test(type)) return DataTypes.date;
+	if (/^(U?Int\d+|Float\d+|BFloat16|Decimal\d*)\b/.test(type)) return DataTypes.number;
+	if (/^(JSON|Object|Map|Tuple|Variant|Dynamic|Nested)\b/.test(type)) return DataTypes.json;
+
+	return DataTypes.text;
+}
+
+/**
+ * Maps ClickHouse column types to the standardized display labels used in ColumnInfoSchemaType.
+ */
+export function standardizeClickhouseDataTypeLabel(
+	clickhouseType: string,
+): StandardizedDataType {
+	const type = unwrapClickhouseType(clickhouseType);
+
+	if (type.startsWith("Array(")) return StandardizedDataType.array;
+	if (type.startsWith("Enum8(") || type.startsWith("Enum16("))
+		return StandardizedDataType.enum;
+	if (type === "Bool") return StandardizedDataType.boolean;
+
+	if (/^U?Int8$/.test(type)) return StandardizedDataType.tinyint;
+	if (/^U?Int16$/.test(type)) return StandardizedDataType.smallint;
+	if (/^U?Int32$/.test(type)) return StandardizedDataType.int;
+	if (/^U?Int(64|128|256)$/.test(type)) return StandardizedDataType.bigint;
+	if (type === "Float32" || type === "BFloat16") return StandardizedDataType.float;
+	if (type === "Float64") return StandardizedDataType.double;
+	if (type.startsWith("Decimal")) return StandardizedDataType.numeric;
+
+	if (type.startsWith("FixedString(")) return StandardizedDataType.char;
+	if (type === "UUID") return StandardizedDataType.uuid;
+	if (type === "IPv4" || type === "IPv6") return StandardizedDataType.inet;
+
+	if (type === "Date" || type === "Date32") return StandardizedDataType.date;
+	if (type.startsWith("DateTime64")) return StandardizedDataType.timestamp;
+	if (type.startsWith("DateTime")) return StandardizedDataType.datetime;
+	if (type.startsWith("Time")) return StandardizedDataType.time;
+
+	if (/^(JSON|Object|Map|Tuple|Variant|Dynamic|Nested)\b/.test(type))
+		return StandardizedDataType.json;
+
+	return StandardizedDataType.text;
+}

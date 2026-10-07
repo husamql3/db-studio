@@ -15,6 +15,7 @@ export const DATABASE_TYPES = [
 	"redis",
 	"duckdb",
 	"oracle",
+	"clickhouse",
 ] as const;
 
 export const databaseTypeSchema = z.enum(DATABASE_TYPES, {

@@ -87,6 +87,15 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		liveMode: true,
 		schemaSelector: false,
 	},
+	clickhouse: {
+		label: "ClickHouse",
+		protocols: ["clickhouse", "clickhouses"],
+		defaultPort: 8123,
+		dataModel: "relational",
+		editorLanguage: "pgsql",
+		liveMode: false,
+		schemaSelector: false,
+	},
 };
 
 /** Maps a URL scheme without the trailing colon (e.g. `"postgresql"`) to its db type. */
