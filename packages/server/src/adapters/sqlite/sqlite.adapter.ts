@@ -59,6 +59,17 @@ interface FkRow {
 	on_delete: string;
 }
 
+type SqliteValue = string | number | bigint | null;
+
+const toSqliteValue = (value: unknown): SqliteValue => {
+	if (value === null || value === undefined) return null;
+	if (typeof value === "boolean") return value ? 1 : 0;
+	if (typeof value === "string" || typeof value === "number" || typeof value === "bigint")
+		return value;
+	if (value instanceof Date) return value.toISOString();
+	return JSON.stringify(value);
+};
+
 export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 	// Abstract method implementations
@@ -844,9 +855,7 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
-		const values = Object.values(data).map((v) =>
-			v !== null && typeof v === "object" ? JSON.stringify(v) : v,
-		);
+		const values = Object.values(data).map(toSqliteValue);
 		const colNames = columns.map((c) => `"${c}"`).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
 
@@ -881,19 +890,11 @@ export class SqliteAdapter extends BaseAdapter {
 			let total = 0;
 			for (const { keyValues, rowUpdates } of groups) {
 				const setClauses = rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ");
-				const values = [
-					...rowUpdates.map((u) =>
-						u.value !== null && typeof u.value === "object"
-							? JSON.stringify(u.value)
-							: u.value,
-					),
-					...keyValues,
-				];
+				const values = [...rowUpdates.map((u) => u.value), ...keyValues].map(toSqliteValue);
 				const whereClauses = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 				const result = sqliteDb
 					.prepare(`UPDATE "${tableName}" SET ${setClauses} WHERE ${whereClauses}`)
-					.run(...(values as any[]));
+					.run(...values);
 				if (result.changes === 0) {
 					throw new HTTPException(404, {
 						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
@@ -924,14 +925,13 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
-		const pkValues = primaryKeys.map((pk) => pk.value);
+		const pkValues = primaryKeys.map((pk) => toSqliteValue(pk.value));
 		const placeholders = pkValues.map(() => "?").join(", ");
 
 		const doDelete = sqliteDb.transaction(() => {
-			// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 			return sqliteDb
 				.prepare(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`)
-				.run(...(pkValues as any[])).changes;
+				.run(...pkValues).changes;
 		});
 
 		try {
@@ -959,7 +959,7 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
-		const pkValues = primaryKeys.map((pk) => pk.value);
+		const pkValues = primaryKeys.map((pk) => toSqliteValue(pk.value));
 
 		sqliteDb.pragma("foreign_keys = OFF");
 		const doForceDelete = sqliteDb.transaction(() => {
@@ -968,20 +968,18 @@ export class SqliteAdapter extends BaseAdapter {
 
 			for (const fk of fkRefs) {
 				const ph = pkValues.map(() => "?").join(", ");
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 				const res = sqliteDb
 					.prepare(
 						`DELETE FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph})`,
 					)
-					.run(...(pkValues as any[]));
+					.run(...pkValues);
 				totalRelated += res.changes;
 			}
 
 			const ph = pkValues.map(() => "?").join(", ");
-			// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
 			const result = sqliteDb
 				.prepare(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${ph})`)
-				.run(...(pkValues as any[]));
+				.run(...pkValues);
 			return result.changes + totalRelated;
 		});
 
@@ -1016,12 +1014,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const doInsert = sqliteDb.transaction((recs: typeof records) => {
 			let count = 0;
 			for (const record of recs) {
-				const values = columns.map((col) => {
-					const v = record[col];
-					return v !== null && typeof v === "object" ? JSON.stringify(v) : v;
-				});
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-				stmt.run(...(values as any[]));
+				stmt.run(...columns.map((col) => toSqliteValue(record[col])));
 				count++;
 			}
 			return count;
