@@ -481,16 +481,19 @@ export class PgAdapter extends BaseAdapter {
 		const { tableName, fields, foreignKeys } = tableData;
 		const pool = getDbPool(db);
 
+		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
 			let def = `"${field.columnName}" ${field.columnType}`;
 			if (field.isArray) def += "[]";
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
+			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 			if (!field.isNullable) def += " NOT NULL";
 			if (field.isIdentity) def += " GENERATED ALWAYS AS IDENTITY";
 			if (field.defaultValue && !field.isIdentity) def += ` DEFAULT ${field.defaultValue}`;
 			return def;
 		});
+		if (primaryKey.length > 1)
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map((fk: ForeignKeyDataType) => {

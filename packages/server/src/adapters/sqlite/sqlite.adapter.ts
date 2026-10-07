@@ -516,19 +516,22 @@ export class SqliteAdapter extends BaseAdapter {
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
 
+		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
 			// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
-			if (field.isPrimaryKey && field.isIdentity) {
+			if (primaryKey.length === 1 && field.isPrimaryKey && field.isIdentity) {
 				return `"${field.columnName}" INTEGER PRIMARY KEY AUTOINCREMENT`;
 			}
 			let def = `"${field.columnName}" ${field.columnType}`;
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
+			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 			if (field.defaultValue?.trim() && !field.isIdentity)
 				def += ` DEFAULT ${field.defaultValue.trim()}`;
 			return def;
 		});
+		if (primaryKey.length > 1)
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map(
