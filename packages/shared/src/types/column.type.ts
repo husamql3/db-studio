@@ -675,3 +675,88 @@ export function standardizeSqliteDataTypeLabel(sqliteType: string): Standardized
 
 	return StandardizedDataType.text;
 }
+
+/**
+ * Maps DuckDB column types (as reported by `duckdb_columns().data_type`) to generic DataTypes.
+ * LIST, ARRAY, STRUCT, MAP and UNION values arrive as JSON, so they render as json cells.
+ */
+export function mapDuckdbToDataType(duckdbType: string): DataTypes {
+	const normalized = duckdbType?.toLowerCase().trim() || "";
+
+	if (
+		normalized.endsWith("]") ||
+		normalized.startsWith("struct") ||
+		normalized.startsWith("map") ||
+		normalized.startsWith("union") ||
+		normalized === "json"
+	) {
+		return DataTypes.json;
+	}
+	if (normalized === "boolean" || normalized === "bool") return DataTypes.boolean;
+	if (normalized.startsWith("enum")) return DataTypes.enum;
+	if (normalized === "interval") return DataTypes.text;
+	if (normalized === "date" || normalized.startsWith("time") || normalized === "datetime") {
+		return DataTypes.date;
+	}
+	if (
+		normalized.includes("int") ||
+		normalized === "float" ||
+		normalized === "real" ||
+		normalized === "double" ||
+		normalized.startsWith("decimal") ||
+		normalized.startsWith("numeric") ||
+		normalized === "bignum"
+	) {
+		return DataTypes.number;
+	}
+
+	return DataTypes.text;
+}
+
+/**
+ * Maps DuckDB column types to the standardized display labels used in ColumnInfoSchemaType.
+ */
+export function standardizeDuckdbDataTypeLabel(duckdbType: string): StandardizedDataType {
+	const normalized = duckdbType?.toLowerCase().trim() || "";
+
+	if (normalized.endsWith("]")) return StandardizedDataType.array;
+	if (
+		normalized.startsWith("struct") ||
+		normalized.startsWith("map") ||
+		normalized.startsWith("union") ||
+		normalized === "json"
+	) {
+		return StandardizedDataType.json;
+	}
+	if (normalized.startsWith("enum")) return StandardizedDataType.enum;
+	if (normalized === "interval") return StandardizedDataType.interval;
+
+	if (normalized === "tinyint" || normalized === "utinyint")
+		return StandardizedDataType.tinyint;
+	if (normalized === "smallint" || normalized === "usmallint")
+		return StandardizedDataType.smallint;
+	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
+	if (normalized.includes("int") || normalized === "bignum")
+		return StandardizedDataType.bigint;
+	if (normalized.startsWith("decimal") || normalized.startsWith("numeric"))
+		return StandardizedDataType.numeric;
+	if (normalized === "float" || normalized === "real") return StandardizedDataType.float;
+	if (normalized === "double") return StandardizedDataType.double;
+
+	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
+	if (normalized === "varchar" || normalized.startsWith("varchar("))
+		return StandardizedDataType.varchar;
+	if (normalized === "uuid") return StandardizedDataType.uuid;
+
+	if (normalized === "date") return StandardizedDataType.date;
+	if (normalized === "timestamp with time zone" || normalized === "timestamptz")
+		return StandardizedDataType.timestamptz;
+	if (normalized.startsWith("timestamp") || normalized === "datetime")
+		return StandardizedDataType.timestamp;
+	if (normalized.startsWith("time")) return StandardizedDataType.time;
+
+	if (normalized === "blob" || normalized === "bytea") return StandardizedDataType.blob;
+	if (normalized === "bit" || normalized === "bitstring") return StandardizedDataType.bit;
+
+	return StandardizedDataType.text;
+}
