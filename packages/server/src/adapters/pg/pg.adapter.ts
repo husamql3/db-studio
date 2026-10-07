@@ -242,11 +242,11 @@ export class PgAdapter extends BaseAdapter {
 			sortColumns = [sort];
 		}
 
+		const keyColumns = pkColumns.length ? pkColumns : ["ctid"];
 		const cursorColumns = [
 			...sortColumns,
-			...pkColumns.filter((pk) => !sortColumns.includes(pk)),
+			...keyColumns.filter((key) => !sortColumns.includes(key)),
 		];
-		if (cursorColumns.length === 0) cursorColumns.push("ctid");
 
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
@@ -297,6 +297,15 @@ export class PgAdapter extends BaseAdapter {
 			effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
 		}
 
+		if (sortClause) {
+			const tieBreakers = keyColumns.filter((key) => !sortColumns.includes(key));
+			const tieDirection =
+				(effectiveSortDirection === "desc") !== (direction === "desc") ? "DESC" : "ASC";
+			if (tieBreakers.length) {
+				effectiveSortClause += `, ${tieBreakers.map((key) => `${this.quoteIdentifier(key)} ${tieDirection}`).join(", ")}`;
+			}
+		}
+
 		const countRes = await pool.query(
 			`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
 			filterValues,
@@ -311,7 +320,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
-			`SELECT *, ${extraSelect.join(", ")} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
+			`SELECT ${["*", ...extraSelect].join(", ")} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
 			[...filterValues, ...cursorValues, limit + 1],
 		);
 
