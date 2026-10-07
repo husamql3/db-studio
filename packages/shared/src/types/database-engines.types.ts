@@ -74,20 +74,3 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 /** Maps a URL scheme without the trailing colon (e.g. `"postgresql"`) to its db type. */
 export const dbTypeFromProtocol = (protocol: string): DatabaseTypeSchema | undefined =>
 	DATABASE_TYPES.find((type) => DATABASE_ENGINES[type].protocols.includes(protocol));
-
-export type DatabaseCapability = "liveMode";
-
-export interface DatabaseCapabilities {
-	liveMode: boolean;
-}
-
-export const DATABASE_CAPABILITIES: Record<DatabaseTypeSchema, DatabaseCapabilities> =
-	DATABASE_ENGINES;
-
-export function hasDatabaseCapability(
-	dbType: DatabaseTypeSchema | null | undefined,
-	capability: DatabaseCapability,
-): boolean {
-	if (!dbType) return false;
-	return DATABASE_CAPABILITIES[dbType]?.[capability] ?? false;
-}

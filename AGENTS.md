@@ -130,6 +130,7 @@ Three export paths:
 ### Key types
 
 - `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"]` in `database.types.ts`
+- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, protocols, default port, data model, editor language, Live mode, schema selector); web reads it via `useDatabaseEngine()`
 - `RouteEnv` — Hono env type that provides `c.get("dbType")`
 - `CellVariant` / `DataTypes` — used for table cell rendering
 
@@ -410,6 +411,7 @@ export class PgAdapter extends BaseAdapter {
 3. Add connection handling in `src/db-manager.ts` and expose adapter-facing helpers through `src/adapters/connections.ts`.
 4. Register the adapter in `src/adapters/register.ts`: `adapterRegistry.register("<dbname>", new MyAdapter())`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols, default port, data model, editor language, Live mode support and schema selector. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 
