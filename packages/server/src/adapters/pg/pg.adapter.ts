@@ -303,32 +303,43 @@ export class PgAdapter extends BaseAdapter {
 		);
 		const total = Number(countRes.rows[0].total);
 
+		// SELECT * omits ctid and CockroachDB's hidden rowid primary key, so primary key
+		// columns are selected explicitly and cursor columns again under aliases.
+		const cursorAlias = (i: number) => `__cursor_${i}`;
+		const extraSelect = [
+			...pkColumns.map((col) => `"${col}"`),
+			...cursorColumns.map((col, i) => `"${col}" AS "${cursorAlias(i)}"`),
+		];
+
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
-			`SELECT * FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
+			`SELECT *, ${extraSelect.join(", ")} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
 			[...filterValues, ...cursorValues, limit + 1],
 		);
 
-		const hasColumns = dataRes.fields && dataRes.fields.length > 0;
-		let rows = hasColumns
-			? dataRes.rows.filter((row) => Object.keys(row).length > 0)
-			: dataRes.rows;
+		let rawRows: Record<string, unknown>[] = dataRes.rows;
+		const hasMore = rawRows.length > limit;
+		if (hasMore) rawRows = rawRows.slice(0, limit);
+		if (direction === "desc") rawRows = rawRows.reverse();
 
-		const hasMore = rows.length > limit;
-		if (hasMore) rows = rows.slice(0, limit);
-		if (direction === "desc") rows = rows.reverse();
+		const cursorKeys = new Set(cursorColumns.map((_, i) => cursorAlias(i)));
+		const rows = rawRows
+			.map((row) =>
+				Object.fromEntries(Object.entries(row).filter(([k]) => !cursorKeys.has(k))),
+			)
+			.filter((row) => Object.keys(row).length > 0);
 
 		const createCursor = (row: Record<string, unknown>): CursorData => ({
-			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
+			values: Object.fromEntries(cursorColumns.map((col, i) => [col, row[cursorAlias(i)]])),
 			sortColumns: cursorColumns,
 		});
 
 		let nextCursor: string | null = null;
 		let prevCursor: string | null = null;
 
-		if (rows.length > 0) {
-			const firstRow = rows[0];
-			const lastRow = rows[rows.length - 1];
+		if (rawRows.length > 0) {
+			const firstRow = rawRows[0];
+			const lastRow = rawRows[rawRows.length - 1];
 			if (direction === "asc") {
 				if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
 				if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
