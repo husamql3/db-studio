@@ -158,7 +158,7 @@ export function hasMultipleStatements(sql: string): boolean {
 }
 
 const TRANSACTION_CONTROL =
-	/^(begin|start\s+transaction|commit|end|rollback|savepoint|release)\b[^;]*;?\s*$/i;
+	/^(begin|start\s+transaction|commit|end|rollback|savepoint|release)\b/i;
 
 /** True when `sql`, ignoring leading comments, is only a transaction-control statement. */
 export function isTransactionControl(sql: string): boolean {

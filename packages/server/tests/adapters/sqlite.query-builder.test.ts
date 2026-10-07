@@ -246,6 +246,7 @@ describe("sqlite.query-builder — hasMultipleStatements", () => {
 
 // Failure modes for spotting a statement that only controls a transaction:
 // - a leading comment hides BEGIN/COMMIT/ROLLBACK from the check
+// - a comment after the transaction's semicolon hides it from the check
 // - lowercase or extra whitespace variants slip through
 // - an ordinary statement that merely starts with a similar word (BEGINNING, ENDPOINT) is rejected
 // - CREATE TRIGGER ... BEGIN is mistaken for a transaction
@@ -254,6 +255,8 @@ describe("sqlite.query-builder — isTransactionControl", () => {
 		"BEGIN",
 		"begin transaction",
 		"/* note */ BEGIN",
+		"BEGIN; -- trailing comment",
+		"COMMIT; /* trailing comment */",
 		"-- start\nBEGIN IMMEDIATE",
 		"  START   TRANSACTION",
 		"COMMIT",
