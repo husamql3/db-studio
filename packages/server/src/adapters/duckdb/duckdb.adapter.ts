@@ -33,6 +33,7 @@ import {
 	type DuckDBValue,
 	type Json,
 	ResultReturnType,
+	StatementType,
 } from "@duckdb/node-api";
 import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
@@ -758,28 +759,46 @@ export class DuckDbAdapter extends BaseAdapter {
 
 		return this.withConnection(async (conn) => {
 			const start = performance.now();
-			const reader = await conn.runAndReadAll(sql.trim().replace(/;+$/, ""));
-			const duration = performance.now() - start;
+			const statements = await conn.extractStatements(sql);
+			if (statements.count !== 1) {
+				throw new HTTPException(400, {
+					message:
+						"The query runner runs one statement at a time. Run each statement separately.",
+				});
+			}
+			const statement = await statements.prepare(0);
+			try {
+				if (statement.statementType === StatementType.TRANSACTION) {
+					throw new HTTPException(400, {
+						message:
+							"Transactions cannot span query-runner requests. BEGIN, COMMIT, and ROLLBACK are not supported.",
+					});
+				}
+				const reader = await statement.runAndReadAll();
+				const duration = performance.now() - start;
 
-			if (reader.returnType === ResultReturnType.CHANGED_ROWS)
+				if (reader.returnType === ResultReturnType.CHANGED_ROWS)
+					return {
+						columns: [],
+						rows: [],
+						rowCount: reader.rowsChanged,
+						duration,
+						message: `OK (${reader.rowsChanged} rows affected)`,
+					};
+				if (reader.returnType === ResultReturnType.NOTHING)
+					return { columns: [], rows: [], rowCount: 0, duration, message: "OK" };
+
+				const rows = toRows(reader);
 				return {
-					columns: [],
-					rows: [],
-					rowCount: reader.rowsChanged,
+					columns: reader.columnNames(),
+					rows,
+					rowCount: rows.length,
 					duration,
-					message: `OK (${reader.rowsChanged} rows affected)`,
+					message: rows.length === 0 ? "OK" : undefined,
 				};
-			if (reader.returnType === ResultReturnType.NOTHING)
-				return { columns: [], rows: [], rowCount: 0, duration, message: "OK" };
-
-			const rows = toRows(reader);
-			return {
-				columns: reader.columnNames(),
-				rows,
-				rowCount: rows.length,
-				duration,
-				message: rows.length === 0 ? "OK" : undefined,
-			};
+			} finally {
+				statement.destroySync();
+			}
 		});
 	}
 
