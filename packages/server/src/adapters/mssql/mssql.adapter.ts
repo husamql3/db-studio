@@ -847,6 +847,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const transaction = pool.transaction();
@@ -891,6 +892,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const transaction = pool.transaction();

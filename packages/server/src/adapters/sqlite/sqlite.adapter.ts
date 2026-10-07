@@ -956,6 +956,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const client = await getSqliteClient();
 
 		try {
+			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 			const result = await client.execute(
 				stmt(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`, pkValues),
 			);
@@ -993,6 +994,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 		try {
 			const client = await getSqliteClient();
+			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 			const fksByParent = await this.getForeignKeysByParent(client);
 			const deletes: InStatement[] = [];
 

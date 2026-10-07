@@ -92,6 +92,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	// =========================================================
 
 	/**
+	 * Delete requests carry one key column per row, so on a composite key they would match
+	 * every row sharing that column's value. Refuse until the request addresses whole keys.
+	 */
+	protected assertDeletableKey(pkColumns: string[]): void {
+		if (pkColumns.length > 1)
+			throw new HTTPException(400, {
+				message:
+					"Deleting rows from tables with a composite primary key is not supported yet.",
+			});
+	}
+
+	/**
 	 * Wrap any thrown value in an HTTPException.
 	 * Detects connection errors for all supported databases and maps them to 503.
 	 * Concrete adapters can override to handle additional DB-specific error codes.
