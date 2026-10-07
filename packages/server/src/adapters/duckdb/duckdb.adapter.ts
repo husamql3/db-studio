@@ -17,7 +17,6 @@ import type {
 	DeleteTableParams,
 	DeleteTableResult,
 	ExecuteQueryResult,
-	ForeignKeyConstraint,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -51,6 +50,15 @@ import {
 } from "./duckdb.query-builder.js";
 
 type Row = Record<string, Json>;
+
+/** One FOREIGN KEY constraint; composite keys keep their columns together, in order. */
+type ForeignKey = {
+	constraintName: string;
+	table: string;
+	columns: string[];
+	referencedTable: string;
+	referencedColumns: string[];
+};
 
 type ColumnRow = {
 	column_name: string;
@@ -126,6 +134,18 @@ const inTransaction = async <T>(conn: DuckDBConnection, fn: () => Promise<T>): P
 };
 
 const placeholders = (values: unknown[]) => values.map(() => "?").join(", ");
+
+/** Rows whose `columns` equal one of `tuples`, every column compared together. */
+const matchesAny = (columns: string[], tuples: unknown[][]) =>
+	columns.length === 1
+		? `${ident(columns[0])} IN (${placeholders(tuples)})`
+		: `(${tuples.map(() => `(${columns.map((c) => `${ident(c)} = ?`).join(" AND ")})`).join(" OR ")})`;
+
+/** Join condition from a referencing row `c` to the referenced row `p`. */
+const joinOn = (fk: ForeignKey) =>
+	fk.columns
+		.map((c, i) => `c.${ident(c)} = p.${ident(fk.referencedColumns[i])}`)
+		.join(" AND ");
 
 const sequenceNamesIn = (columns: ColumnRow[]) =>
 	columns.flatMap((c) =>
@@ -431,12 +451,12 @@ export class DuckDbAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 			const referencing = (await this.foreignKeys(conn, "referenced_table", tableName)).filter(
-				(fk) => fk.referencingTable !== tableName,
+				(fk) => fk.table !== tableName,
 			);
 			if (referencing.length) {
 				if (cascade)
 					throw new HTTPException(400, {
-						message: `DuckDB cannot drop "${tableName}" while ${[...new Set(referencing.map((fk) => `"${fk.referencingTable}"`))].join(", ")} reference it, and it cannot remove those foreign keys. Delete the referencing tables first.`,
+						message: `DuckDB cannot drop "${tableName}" while ${[...new Set(referencing.map((fk) => `"${fk.table}"`))].join(", ")} reference it, and it cannot remove those foreign keys. Delete the referencing tables first.`,
 					});
 				return {
 					deletedCount: 0,
@@ -494,10 +514,12 @@ export class DuckDbAdapter extends BaseAdapter {
 			const columns = await this.requireColumns(conn, tableName);
 			const primaryKey = new Set(await this.primaryKey(conn, tableName));
 			const references = new Map(
-				(await this.foreignKeys(conn, "table_name", tableName)).map((fk) => [
-					fk.referencingColumn,
-					fk,
-				]),
+				(await this.foreignKeys(conn, "table_name", tableName)).flatMap((fk) =>
+					fk.columns.map((column, i) => [
+						column,
+						{ table: fk.referencedTable, column: fk.referencedColumns[i] },
+					]),
+				),
 			);
 
 			return columns.map((col) => {
@@ -511,8 +533,8 @@ export class DuckDbAdapter extends BaseAdapter {
 					columnDefault: col.column_default,
 					isPrimaryKey,
 					isForeignKey: !!fk,
-					referencedTable: fk?.referencedTable ?? null,
-					referencedColumn: fk?.referencedColumn ?? null,
+					referencedTable: fk?.table ?? null,
+					referencedColumn: fk?.column ?? null,
 					enumValues: col.data_type.startsWith("ENUM(")
 						? [...col.data_type.matchAll(/'((?:[^']|'')*)'/g)].map((m) =>
 								m[1].replaceAll("''", "'"),
@@ -688,20 +710,17 @@ export class DuckDbAdapter extends BaseAdapter {
 			} catch (e) {
 				if (!(e instanceof Error) || !e.message.includes("Violates foreign key constraint"))
 					throw e;
-				const referencing = (
-					await this.foreignKeys(conn, "referenced_table", tableName)
-				).filter((fk) => fk.referencedColumn === pkColumn);
 				const relatedRecords: RelatedRecord[] = [];
-				for (const fk of referencing) {
+				for (const fk of await this.foreignKeys(conn, "referenced_table", tableName)) {
 					const records = await query(
 						conn,
-						`SELECT * FROM ${ident(fk.referencingTable)} WHERE ${ident(fk.referencingColumn)} IN (${placeholders(values)}) LIMIT 100`,
+						`SELECT c.* FROM ${ident(fk.table)} c JOIN ${ident(tableName)} p ON ${joinOn(fk)} WHERE p.${ident(pkColumn)} IN (${placeholders(values)}) LIMIT 100`,
 						values,
 					);
 					if (records.length)
 						relatedRecords.push({
-							tableName: fk.referencingTable,
-							columnName: fk.referencingColumn,
+							tableName: fk.table,
+							columnName: fk.columns.join(", "),
 							constraintName: fk.constraintName,
 							records,
 						});
@@ -727,37 +746,34 @@ export class DuckDbAdapter extends BaseAdapter {
 		const purge = async (
 			conn: DuckDBConnection,
 			table: string,
-			column: string,
-			values: unknown[],
+			columns: string[],
+			tuples: unknown[][],
 			path: string[],
 		): Promise<number> => {
-			if (!values.length) return 0;
+			if (!tuples.length) return 0;
 			if (path.includes(table))
 				throw new HTTPException(400, {
 					message: `Cannot force delete: the foreign keys ${[...path, table].map((t) => `"${t}"`).join(" -> ")} form a cycle.`,
 				});
+			const where = matchesAny(columns, tuples);
+			const values = tuples.flat();
 			let deleted = 0;
 			for (const fk of await this.foreignKeys(conn, "referenced_table", table)) {
 				const referenced = await query(
 					conn,
-					`SELECT DISTINCT ${ident(fk.referencedColumn)} AS v FROM ${ident(table)} WHERE ${ident(column)} IN (${placeholders(values)})`,
+					`SELECT DISTINCT ${fk.referencedColumns.map(ident).join(", ")} FROM ${ident(table)} WHERE ${where}`,
 					values,
 				);
 				deleted += await purge(
 					conn,
-					fk.referencingTable,
-					fk.referencingColumn,
-					referenced.map((r) => r.v),
+					fk.table,
+					fk.columns,
+					referenced.map((row) => fk.referencedColumns.map((c) => row[c])),
 					[...path, table],
 				);
 			}
 			return (
-				deleted +
-				(await execute(
-					conn,
-					`DELETE FROM ${ident(table)} WHERE ${ident(column)} IN (${placeholders(values)})`,
-					values,
-				))
+				deleted + (await execute(conn, `DELETE FROM ${ident(table)} WHERE ${where}`, values))
 			);
 		};
 
@@ -765,8 +781,8 @@ export class DuckDbAdapter extends BaseAdapter {
 			purge(
 				conn,
 				tableName,
-				pkColumn,
-				primaryKeys.map((pk) => pk.value),
+				[pkColumn],
+				primaryKeys.map((pk) => [pk.value]),
 				[],
 			),
 		);
@@ -896,43 +912,28 @@ export class DuckDbAdapter extends BaseAdapter {
 		conn: DuckDBConnection,
 		side: "table_name" | "referenced_table",
 		tableName: string,
-	): Promise<ForeignKeyConstraint[]> {
-		const rows = await query<{
-			constraint_name: string;
-			table_name: string;
-			constraint_column_names: string[];
-			referenced_table: string;
-			referenced_column_names: string[];
-		}>(
+	): Promise<ForeignKey[]> {
+		return query<ForeignKey>(
 			conn,
-			`SELECT constraint_name, table_name, constraint_column_names, referenced_table, referenced_column_names FROM duckdb_constraints() WHERE ${IN_CURRENT_SCHEMA} AND constraint_type = 'FOREIGN KEY' AND ${side} = ?`,
+			`SELECT constraint_name AS "constraintName", table_name AS "table", constraint_column_names AS "columns", referenced_table AS "referencedTable", referenced_column_names AS "referencedColumns" FROM duckdb_constraints() WHERE ${IN_CURRENT_SCHEMA} AND constraint_type = 'FOREIGN KEY' AND ${side} = ?`,
 			[tableName],
-		);
-		return rows.flatMap((row) =>
-			row.constraint_column_names.map((column, i) => ({
-				constraintName: row.constraint_name,
-				referencingTable: row.table_name,
-				referencingColumn: column,
-				referencedTable: row.referenced_table,
-				referencedColumn: row.referenced_column_names[i],
-			})),
 		);
 	}
 
 	private async sampleReferencingRows(
 		conn: DuckDBConnection,
-		references: ForeignKeyConstraint[],
+		references: ForeignKey[],
 	): Promise<RelatedRecord[]> {
 		const related: RelatedRecord[] = [];
 		for (const fk of references) {
 			const records = await query(
 				conn,
-				`SELECT * FROM ${ident(fk.referencingTable)} WHERE ${ident(fk.referencingColumn)} IS NOT NULL LIMIT 100`,
+				`SELECT * FROM ${ident(fk.table)} WHERE ${fk.columns.map((c) => `${ident(c)} IS NOT NULL`).join(" AND ")} LIMIT 100`,
 			);
 			if (records.length)
 				related.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
+					tableName: fk.table,
+					columnName: fk.columns.join(", "),
 					constraintName: fk.constraintName,
 					records,
 				});
