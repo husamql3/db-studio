@@ -20,7 +20,7 @@ interface ExportFileOptions {
 const toCellValue = (value: unknown): CellValue => {
 	if (value === null || value === undefined) return value;
 	if (value instanceof Date) return value;
-	// BLOB/bytea/varbinary arrive as Buffers from better-sqlite3, mssql and mysql2.
+	// BLOB/bytea/varbinary arrive as Buffers from the sqlite adapter, mssql and mysql2.
 	// JSON.stringify would turn them into {"type":"Buffer","data":[...]}.
 	if (Buffer.isBuffer(value)) return `0x${value.toString("hex")}`;
 	if (typeof value === "object") return JSON.stringify(value);

@@ -1,9 +1,14 @@
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
 	DATABASE_ENGINES,
 	type DatabaseTypeSchema,
 	dbTypeFromProtocol,
 } from "@db-studio/shared/types";
-import Database from "better-sqlite3";
+import {
+	createClient as createLibsqlClient,
+	type Client as LibsqlClient,
+} from "@libsql/client";
 import { Redis, type RedisOptions } from "ioredis";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
@@ -14,14 +19,14 @@ import { Pool, type PoolConfig } from "pg";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
- * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB
+ * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite / libSQL and Redis
  */
 class DatabaseManager {
 	private pgPools: Map<string, Pool> = new Map();
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
-	private sqliteDb: Database.Database | null = null;
+	private sqliteClient: Promise<LibsqlClient> | null = null;
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
 	private baseConfig: {
@@ -138,33 +143,41 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Get or create the SQLite database connection
+	 * Get or create the libSQL client for a local SQLite file or a remote libSQL / Turso database
 	 */
-	getSqliteDb(): Database.Database {
+	getSqliteClient(): Promise<LibsqlClient> {
 		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
-			throw new Error("DATABASE_URL is not a sqlite:// connection");
+			throw new Error("DATABASE_URL is not a sqlite:// or libsql:// connection");
 		}
+		const { url } = this.baseConfig;
+		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
+			this.sqliteClient = null;
+			throw error;
+		});
+		return this.sqliteClient;
+	}
 
-		if (!this.sqliteDb) {
-			// Strip "sqlite://" prefix to get the file path (e.g. sqlite:///path/db.sqlite → /path/db.sqlite)
-			const filePath = this.baseConfig.url.replace(/^sqlite:\/\//, "");
-			const db = new Database(filePath);
-			db.pragma("journal_mode = WAL");
-			db.pragma("foreign_keys = ON");
-			this.sqliteDb = db;
+	private async openSqliteClient(url: string): Promise<LibsqlClient> {
+		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL;
+		// libsql:// URLs keep their authToken and tls query params.
+		const libsqlUrl = url.startsWith("sqlite://")
+			? pathToFileURL(resolve(url.slice("sqlite://".length))).href
+			: url;
+		const client = createLibsqlClient({ url: libsqlUrl, intMode: "bigint" });
+		if (client.protocol === "file") {
+			await client.execute("PRAGMA journal_mode = WAL");
+			await client.execute("PRAGMA foreign_keys = ON");
 		}
-
-		return this.sqliteDb;
+		return client;
 	}
 
 	/**
-	 * Close the SQLite database connection
+	 * Close the libSQL client
 	 */
-	closeSqliteDb(): void {
-		if (this.sqliteDb) {
-			this.sqliteDb.close();
-			this.sqliteDb = null;
-		}
+	async closeSqliteClient(): Promise<void> {
+		const client = this.sqliteClient;
+		this.sqliteClient = null;
+		if (client) (await client.catch(() => null))?.close();
 	}
 
 	/**
@@ -361,7 +374,7 @@ class DatabaseManager {
 	 */
 	async closePool(connectionString: string): Promise<void> {
 		if (this.baseConfig?.dbType === "sqlite" && connectionString === this.baseConfig.url) {
-			this.closeSqliteDb();
+			await this.closeSqliteClient();
 			return;
 		}
 		await this.closePgPool(connectionString);
@@ -374,7 +387,7 @@ class DatabaseManager {
 	 */
 	async closePoolByDatabase(database: string): Promise<void> {
 		if (this.baseConfig?.dbType === "sqlite") {
-			this.closeSqliteDb();
+			await this.closeSqliteClient();
 			return;
 		}
 		const connectionString = this.buildConnectionString(database);
@@ -542,7 +555,7 @@ class DatabaseManager {
 			await this.mongoClient.close();
 			this.mongoClient = null;
 		}
-		this.closeSqliteDb();
+		await this.closeSqliteClient();
 		const redisClosePromises = Array.from(this.redisClients.entries()).map(
 			async ([index, client]) => {
 				await client.quit().catch(() => {});
@@ -633,10 +646,10 @@ const _getActivePools = (): string[] => {
 };
 
 /**
- * Get the SQLite database connection (single file, opened once)
+ * Get the libSQL client for the configured SQLite file or libSQL / Turso database
  */
-export const getSqliteDb = (): Database.Database => {
-	return databaseManager.getSqliteDb();
+export const getSqliteClient = (): Promise<LibsqlClient> => {
+	return databaseManager.getSqliteClient();
 };
 
 /**

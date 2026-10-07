@@ -17,7 +17,7 @@ vi.mock("pg", () => ({
 	DatabaseError: class DatabaseError extends Error {},
 	default: { Pool: FakePool },
 }));
-vi.mock("better-sqlite3", () => ({ default: class {} }));
+vi.mock("@libsql/client", () => ({ createClient: vi.fn() }));
 vi.mock("ioredis", () => ({ Redis: class {} }));
 vi.mock("mongodb", () => ({ MongoClient: class {}, ObjectId: class {} }));
 vi.mock("mssql", () => ({ default: { ConnectionPool: class {} } }));

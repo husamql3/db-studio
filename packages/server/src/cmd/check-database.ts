@@ -7,7 +7,7 @@ import {
 	getMssqlPool,
 	getMysqlPool,
 	getRedisClient,
-	getSqliteDb,
+	getSqliteClient,
 } from "@/db-manager.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
@@ -64,7 +64,7 @@ export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise
 			return;
 		}
 		case "sqlite":
-			getSqliteDb().prepare("SELECT 1").get();
+			await withStartupTimeout(getSqliteClient().then((client) => client.execute("SELECT 1")));
 			return;
 		case "redis":
 			await (await getRedisClient()).ping();

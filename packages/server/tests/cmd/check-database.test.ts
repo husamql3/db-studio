@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 	getMssqlPool: vi.fn(),
 	getMysqlPool: vi.fn(),
 	getRedisClient: vi.fn(),
-	getSqliteDb: vi.fn(),
+	getSqliteClient: vi.fn(),
 }));
 
 vi.mock("@/db-manager.js", () => mocks);

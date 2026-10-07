@@ -12,13 +12,17 @@
  * 4. The backward (`direction: "desc"`) query must flip the tie-breaker too. Otherwise paging
  *    back does not return the page the user came from.
  *
- * SQLite runs in memory on every test run. MySQL and SQL Server run only when
+ * SQLite runs on a temporary file on every test run. MySQL and SQL Server run only when
  * MYSQL_TEST_URL / MSSQL_TEST_URL are set, e.g.
  *   MYSQL_TEST_URL=mysql://root@127.0.0.1:3306/dbstudio
  *   MSSQL_TEST_URL=mssql://sa:DbStudio1!@127.0.0.1:1433/master
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import type { SortType } from "@db-studio/shared/types";
-import Database from "better-sqlite3";
+import { type Client as LibsqlClient, createClient as createLibsqlClient } from "@libsql/client";
 import sql from "mssql";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +30,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 const connections = vi.hoisted(() => ({
 	getMysqlPool: vi.fn(),
 	getMssqlPool: vi.fn(),
-	getSqliteDb: vi.fn(),
+	getSqliteClient: vi.fn(),
 }));
 
 vi.mock("@/adapters/connections.js", () => connections);
@@ -52,22 +56,24 @@ interface Engine {
 
 let mysqlPool: mysql.Pool | undefined;
 let mssqlPool: sql.ConnectionPool | undefined;
-let sqliteDb: Database.Database | undefined;
+let sqliteClient: LibsqlClient | undefined;
+const sqliteDir = mkdtempSync(path.join(tmpdir(), "db-studio-live-poll-"));
 
 const engines: Engine[] = [
 	{
 		name: "sqlite",
-		url: ":memory:",
+		url: pathToFileURL(path.join(sqliteDir, "live-poll.db")).href,
 		adapter: new SqliteAdapter(),
 		connect: async (url) => {
-			sqliteDb = new Database(url);
-			connections.getSqliteDb.mockReturnValue(sqliteDb);
+			sqliteClient = createLibsqlClient({ url, intMode: "bigint" });
+			connections.getSqliteClient.mockResolvedValue(sqliteClient);
 		},
 		exec: async (statement) => {
-			sqliteDb?.exec(statement);
+			await sqliteClient?.execute(statement);
 		},
 		close: async () => {
-			sqliteDb?.close();
+			sqliteClient?.close();
+			rmSync(sqliteDir, { recursive: true, force: true });
 		},
 		schema: [
 			`DROP TABLE IF EXISTS ${TABLE}`,
