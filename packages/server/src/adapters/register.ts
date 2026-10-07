@@ -1,4 +1,5 @@
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
+import { ClickhouseAdapter } from "@/adapters/clickhouse/clickhouse.adapter.js";
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
@@ -20,4 +21,6 @@ export function registerAdapters(): void {
 	adapterRegistry.register("redis", new RedisAdapter());
 	adapterRegistry.register("duckdb", new DuckDbAdapter());
 	adapterRegistry.register("oracle", new OracleAdapter());
+
+	adapterRegistry.register("clickhouse", new ClickhouseAdapter());
 }
