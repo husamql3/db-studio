@@ -124,6 +124,9 @@ bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
 bun run init-db:redis   # Redis
+bun run init-db:mariadb # MariaDB
+bun run init-db:cockroach # CockroachDB
+bun run init-db:tidb    # TiDB
 ```
 
 Running one of these commands loads database-specific sample data — for SQL engines this generally includes contributors/projects/contributions tables plus engine-specific data, while MongoDB seeds collections and Redis seeds keys — so you can test features with real data immediately.
