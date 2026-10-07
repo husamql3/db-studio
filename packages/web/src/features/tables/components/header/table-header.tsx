@@ -21,7 +21,10 @@ export const TableHeader = ({
 	tableName: string;
 }) => {
 	const isSchemaless = useIsSchemaless();
-	const canLiveMode = useDatabaseEngine()?.liveMode ?? false;
+	const engine = useDatabaseEngine();
+	const canLiveMode = engine?.liveMode ?? false;
+	const rowMutationReason =
+		engine?.rowMutation === false ? engine.rowMutationReason : undefined;
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background sticky top-0 left-0 right-0 z-0">
@@ -31,12 +34,16 @@ export const TableHeader = ({
 				{!isSchemaless && <FilterPopup tableName={tableName} />}
 				<ColumnPreferencesMenu tableName={tableName} />
 				<AddRecordMenu />
-				<SaveBtn setRowSelection={setRowSelection} />
+				<SaveBtn
+					setRowSelection={setRowSelection}
+					disabledReason={rowMutationReason}
+				/>
 				<ClearBtn />
 				<DeleteBtn
 					tableName={tableName}
 					selectedRows={selectedRows}
 					setRowSelection={setRowSelection}
+					disabledReason={rowMutationReason}
 				/>
 			</div>
 		</header>

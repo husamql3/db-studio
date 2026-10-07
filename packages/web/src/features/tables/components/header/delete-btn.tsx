@@ -19,10 +19,12 @@ export const DeleteBtn = ({
 	selectedRows,
 	setRowSelection,
 	tableName,
+	disabledReason,
 }: {
 	tableName: string;
 	selectedRows: Row<TableRecord>[];
 	setRowSelection: OnChangeFn<RowSelectionState>;
+	disabledReason?: string;
 }) => {
 	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } = useDeleteCells(
 		{ tableName },
@@ -33,10 +35,12 @@ export const DeleteBtn = ({
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
 	const handleDeleteClick = useCallback(() => {
+		if (disabledReason) return;
 		setIsOpenConfirmDialog(true);
-	}, []);
+	}, [disabledReason]);
 
 	const handleConfirmDelete = useCallback(async () => {
+		if (disabledReason) return;
 		const rowData = selectedRows.map((row) => row.original);
 		let relatedRecords: RelatedRecord[] | undefined;
 
@@ -50,10 +54,10 @@ export const DeleteBtn = ({
 			setRelatedRecords(relatedRecords || []);
 			setIsOpenFkDialog(true);
 		}
-	}, [deleteCells, selectedRows, setRowSelection]);
+	}, [disabledReason, deleteCells, selectedRows, setRowSelection]);
 
 	const handleForceDelete = async () => {
-		if (pendingRowData.length === 0) return;
+		if (disabledReason || pendingRowData.length === 0) return;
 
 		const res = await forceDeleteCells(pendingRowData);
 
@@ -98,7 +102,8 @@ export const DeleteBtn = ({
 				className="h-8! border-l-0 border-y-0 border-r border-border text-white rounded-none"
 				onClick={handleDeleteClick}
 				aria-label="Delete the selected record"
-				disabled={isDeletingCells}
+				disabled={isDeletingCells || Boolean(disabledReason)}
+				title={disabledReason}
 			>
 				Delete Record
 				{selectedRows?.length > 1 && (

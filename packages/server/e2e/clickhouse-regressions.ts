@@ -64,7 +64,10 @@ const asRecord = (value: unknown, label: string): Record<string, unknown> => {
 	return value as Record<string, unknown>;
 };
 
-const assert = (condition: unknown, message: string): asserts condition => {
+const assert: (condition: unknown, message: string) => asserts condition = (
+	condition,
+	message,
+) => {
 	if (!condition) throw new Error(message);
 };
 
