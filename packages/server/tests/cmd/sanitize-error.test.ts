@@ -7,6 +7,8 @@ import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 // - the `+` in `mongodb+srv` is left unescaped and turns into a quantifier, so SRV URIs leak
 // - the TLS variant `rediss` is dropped while `redis` is kept
 // - a non-database scheme such as https:// is redacted, mangling ordinary error text
+// - the libsql scheme is missing, so a Turso URL prints its authToken verbatim
+// - the libsql client rewrites libsql:// to https://, so an authToken in a kept https URL leaks
 
 describe("sanitizeErrorMessage", () => {
 	it("redacts a bare connection URL", () => {
@@ -55,10 +57,19 @@ describe("sanitizeErrorMessage", () => {
 		"cockroachdb://root:secret@crdb:26257/defaultdb",
 		"mariadb://root:secret@maria:3306/app",
 		"tidb://root:secret@tidb:4000/app",
+		"libsql://my-db-org.turso.io?authToken=eyJhbGciOiJFZERTQSJ9.secret",
 	])("redacts %s", (url) => {
 		expect(sanitizeErrorMessage(`connect failed: ${url}`)).toBe(
 			"connect failed: the configured database",
 		);
+	});
+
+	it("redacts an authToken carried by a non-database URL", () => {
+		expect(
+			sanitizeErrorMessage(
+				"fetch https://my-db-org.turso.io/v2/pipeline?tls=1&authToken=eyJhbGci.secret&x=1 failed",
+			),
+		).toBe("fetch https://my-db-org.turso.io/v2/pipeline?tls=1&authToken=[redacted]&x=1 failed");
 	});
 
 	it("keeps non-database URLs", () => {

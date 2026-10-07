@@ -109,6 +109,9 @@ DATABASE_URL="mongodb://localhost:27017/dbstudio"
 # SQLite (relative or absolute file path)
 DATABASE_URL="sqlite://./db/dbstudio.sqlite"
 
+# libSQL / Turso (local sqld needs ?tls=0 and an explicit port)
+DATABASE_URL="libsql://my-db-my-org.turso.io?authToken=YOUR_TOKEN"
+
 # Redis (database index 0 to N)
 DATABASE_URL="redis://localhost:6379/0"
 ```

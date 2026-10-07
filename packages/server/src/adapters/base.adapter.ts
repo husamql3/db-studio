@@ -101,14 +101,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 
 		if (e instanceof Error) {
 			const err = e as { code?: string; errno?: number };
+			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
+			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
 
 			const isConnectionError =
-				err.code === "ECONNREFUSED" ||
-				err.code === "ENOTFOUND" ||
-				err.code === "ETIMEDOUT" ||
-				err.code === "ER_ACCESS_DENIED_ERROR" ||
-				err.code === "ER_BAD_HOST_ERROR" ||
-				err.code === "ECONNRESET" ||
+				code === "ECONNREFUSED" ||
+				code === "ENOTFOUND" ||
+				code === "ETIMEDOUT" ||
+				code === "ER_ACCESS_DENIED_ERROR" ||
+				code === "ER_BAD_HOST_ERROR" ||
+				code === "ECONNRESET" ||
 				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
 				err.errno === 2003 || // MySQL can't connect to server
 				err.errno === 2002 || // MySQL can't connect to local server
@@ -119,6 +121,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.includes("MongoNetworkError") ||
 				e.message.includes("MongoServerSelectionError") ||
 				e.message.includes("Login failed") ||
+				/HTTP status (401|403)\b/.test(e.message) || // libSQL / Turso: bad or missing authToken
 				e.message.startsWith("NOAUTH") || // Redis: auth required
 				e.message.startsWith("WRONGPASS") || // Redis: invalid credentials
 				e.message.startsWith("LOADING") || // Redis: dataset loading

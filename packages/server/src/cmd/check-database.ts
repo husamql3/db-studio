@@ -41,7 +41,9 @@ export const getDatabaseConnectionDetails = (
 ): DatabaseConnectionDetails => {
 	const type = getDbType();
 	const { label: name, defaultPort } = DATABASE_ENGINES[type];
-	if (defaultPort === null) return { type, name, destination: "local file" };
+	if (databaseUrl.startsWith("sqlite://")) return { type, name, destination: "local file" };
+
+	if (defaultPort === null) return { type, name, destination: new URL(databaseUrl).host };
 
 	const { host, port } = parseDatabaseUrl(databaseUrl);
 	return { type, name, destination: `${host}:${port}` };

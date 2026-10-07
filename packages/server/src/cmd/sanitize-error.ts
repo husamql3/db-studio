@@ -5,6 +5,7 @@ const SCHEMES = Object.values(DATABASE_ENGINES)
 	.map((protocol) => protocol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
 	.join("|");
 const CONNECTION_URL = new RegExp(`\\b(?:${SCHEMES}):\\/\\/\\S+`, "gi");
+const AUTH_TOKEN = /\b(authToken=)[^&\s]+/gi;
 
 /**
  * Redact database connection URLs from error text before printing them.
@@ -13,8 +14,10 @@ const CONNECTION_URL = new RegExp(`\\b(?:${SCHEMES}):\\/\\/\\S+`, "gi");
  * that belongs to the surrounding prose is kept.
  */
 export const sanitizeErrorMessage = (message: string): string => {
-	return message.replace(
-		CONNECTION_URL,
-		(url) => `the configured database${url.match(/[),.]+$/)?.[0] ?? ""}`,
-	);
+	return message
+		.replace(
+			CONNECTION_URL,
+			(url) => `the configured database${url.match(/[),.]+$/)?.[0] ?? ""}`,
+		)
+		.replace(AUTH_TOKEN, "$1[redacted]");
 };
