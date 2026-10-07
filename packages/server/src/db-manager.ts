@@ -5,11 +5,11 @@ import {
 	type DatabaseTypeSchema,
 	dbTypeFromProtocol,
 } from "@db-studio/shared/types";
+import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import {
 	createClient as createLibsqlClient,
 	type Client as LibsqlClient,
 } from "@libsql/client";
-import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import { Redis, type RedisOptions } from "ioredis";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
