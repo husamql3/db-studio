@@ -21,6 +21,7 @@
     "init-db:mariadb": "bash ./scripts/init-db-mariadb.sh",
     "init-db:cockroach": "bash ./scripts/init-db-cockroach.sh",
     "init-db:tidb": "bash ./scripts/init-db-tidb.sh",
+    "init-db:duckdb": "bash ./scripts/init-db-duckdb.sh",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=@db-studio/web",
     "scan:web": "bunx react-scan@latest https://web.db-studio.localhost",
