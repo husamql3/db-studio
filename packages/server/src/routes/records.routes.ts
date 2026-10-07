@@ -50,16 +50,13 @@ export const recordsRoutes = new Hono<RouteEnv>()
 		zValidator("json", updateRecordsSchema),
 		async (c): ApiHandler<string> => {
 			const { db } = c.req.valid("query");
-			const { tableName, primaryKey, updates } = c.req.valid("json");
+			const params = c.req.valid("json");
 			const dbType = c.get("dbType");
 			const dao = getAdapter(dbType);
-			const { updatedCount } = await dao.updateRecords({
-				params: { tableName, primaryKey, updates },
-				db,
-			});
+			const { updatedCount } = await dao.updateRecords({ params, db });
 			return c.json(
 				{
-					data: `Updated ${updatedCount} records in "${tableName}"`,
+					data: `Updated ${updatedCount} records in "${params.tableName}"`,
 				},
 				200,
 			);
