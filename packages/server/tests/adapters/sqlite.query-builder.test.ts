@@ -3,6 +3,7 @@ import {
 	buildCursorWhereClause,
 	buildSortClause,
 	buildWhereClause,
+	hasMultipleStatements,
 } from "@/adapters/sqlite/sqlite.query-builder.js";
 
 describe("sqlite.query-builder — buildWhereClause", () => {
@@ -197,5 +198,40 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 		);
 		expect(clause).toBe(`("name", "id") > (?, ?)`);
 		expect(values).toEqual(["Ada", 1]);
+	});
+});
+
+// Failure modes for detecting a second statement in a query-runner input:
+// - a semicolon inside a string literal ('a;b') or quoted identifier ("a;b", `a;b`, [a;b]) counts as a split
+// - a semicolon inside a -- line comment or /* block comment */ counts as a split
+// - trailing semicolons, whitespace or comments after the only statement count as a second statement
+// - an escaped quote ('it''s; fine') ends the string early and exposes the semicolon
+// - a real second statement after a comment or string is missed
+describe("sqlite.query-builder — hasMultipleStatements", () => {
+	it.each([
+		"SELECT 1",
+		"SELECT 1;",
+		"SELECT 1;;  \n",
+		"SELECT 1; -- trailing note",
+		"SELECT 1; /* done */",
+		"SELECT 'a;b'",
+		"SELECT 'it''s; fine'",
+		`SELECT "a;b" FROM t`,
+		"SELECT `a;b` FROM t",
+		"SELECT [a;b] FROM t",
+		"SELECT 1 -- x; DROP TABLE t\n",
+		"SELECT 1 /* x; DROP TABLE t */",
+	])("treats %j as one statement", (sql) => {
+		expect(hasMultipleStatements(sql)).toBe(false);
+	});
+
+	it.each([
+		"SELECT 1; SELECT 2",
+		"BEGIN; INSERT INTO t VALUES (1); COMMIT;",
+		"SELECT 'a;b'; DELETE FROM t",
+		"SELECT 1 /* c */; SELECT 2",
+		"SELECT 1; -- note\nSELECT 2",
+	])("detects a second statement in %j", (sql) => {
+		expect(hasMultipleStatements(sql)).toBe(true);
 	});
 });

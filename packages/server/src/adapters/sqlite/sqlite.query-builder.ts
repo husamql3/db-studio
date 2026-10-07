@@ -99,3 +99,42 @@ export function buildCursorWhereClause(
 		values: queryValues,
 	};
 }
+
+const CLOSING_QUOTE: Record<string, string> = { "'": "'", '"': '"', "`": "`", "[": "]" };
+
+/** True when `sql` holds more than one statement; quotes, comments and trailing `;` are ignored. */
+export function hasMultipleStatements(sql: string): boolean {
+	let sawTerminator = false;
+	let i = 0;
+	while (i < sql.length) {
+		const ch = sql[i];
+		if (ch === "-" && sql[i + 1] === "-") {
+			const end = sql.indexOf("\n", i);
+			i = end === -1 ? sql.length : end + 1;
+			continue;
+		}
+		if (ch === "/" && sql[i + 1] === "*") {
+			const end = sql.indexOf("*/", i + 2);
+			i = end === -1 ? sql.length : end + 2;
+			continue;
+		}
+		if (ch === ";") {
+			sawTerminator = true;
+			i++;
+			continue;
+		}
+		if (/\s/.test(ch)) {
+			i++;
+			continue;
+		}
+		if (sawTerminator) return true;
+		const close = CLOSING_QUOTE[ch];
+		if (close) {
+			const end = sql.indexOf(close, i + 1);
+			i = end === -1 ? sql.length : end + 1;
+			continue;
+		}
+		i++;
+	}
+	return false;
+}

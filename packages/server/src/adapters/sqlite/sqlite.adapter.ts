@@ -38,6 +38,7 @@ import {
 	buildCursorWhereClause,
 	buildSortClause,
 	buildWhereClause,
+	hasMultipleStatements,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
@@ -1073,6 +1074,11 @@ export class SqliteAdapter extends BaseAdapter {
 			throw new HTTPException(400, {
 				message:
 					"Transaction statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE) are not supported in the query runner: each query runs on its own connection, so a transaction cannot span queries.",
+			});
+		if (hasMultipleStatements(cleaned))
+			throw new HTTPException(400, {
+				message:
+					"The query runner runs one statement at a time. Run each statement separately.",
 			});
 		const start = performance.now();
 
