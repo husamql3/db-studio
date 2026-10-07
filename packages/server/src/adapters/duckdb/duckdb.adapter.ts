@@ -135,12 +135,6 @@ const inTransaction = async <T>(conn: DuckDBConnection, fn: () => Promise<T>): P
 
 const placeholders = (values: unknown[]) => values.map(() => "?").join(", ");
 
-/** Rows whose `columns` equal one of `tuples`, every column compared together. */
-const matchesAny = (columns: string[], tuples: unknown[][]) =>
-	columns.length === 1
-		? `${ident(columns[0])} IN (${placeholders(tuples)})`
-		: `(${tuples.map(() => `(${columns.map((c) => `${ident(c)} = ?`).join(" AND ")})`).join(" OR ")})`;
-
 /** Join condition from a referencing row `c` to the referenced row `p`. */
 const joinOn = (fk: ForeignKey) =>
 	fk.columns
@@ -716,152 +710,15 @@ export class DuckDbAdapter extends BaseAdapter {
 		});
 	}
 
-	/**
-	 * Deletes the rows and every row that references them, children first. The whole plan is
-	 * read before the first DELETE, so a refusal leaves the data untouched. Each level of the
-	 * plan commits on its own: DuckDB checks foreign keys against the state at transaction
-	 * start, so a child and its parent cannot be deleted in one transaction.
-	 */
-	async forceDeleteRecords({
-		tableName,
-		primaryKeys,
-	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pkColumn = primaryKeys[0]?.columnName;
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
-		const deletedCount = await this.withConnection(async (conn) => {
-			const levels = await this.planForceDelete(
-				conn,
-				tableName,
-				pkColumn,
-				primaryKeys.map((pk) => pk.value),
-			);
-			let deleted = 0;
-			for (const level of levels) {
-				deleted += await inTransaction(conn, async () => {
-					let count = 0;
-					for (const { table, keyColumns, keys } of level)
-						count += await execute(
-							conn,
-							`DELETE FROM ${ident(table)} WHERE ${matchesAny(keyColumns, keys)}`,
-							keys.flat(),
-						);
-					return count;
-				});
-			}
-			return deleted;
-		});
-		return { deletedCount };
-	}
-
-	/**
-	 * Read-only: every row the force delete removes, grouped into levels so that no row is
-	 * deleted while a row referencing it remains. Rows are tracked by rowid while planning
-	 * (stable inside this read) but deleted by primary key, because DuckDB renumbers rowids when
-	 * a checkpoint vacuums deleted rows between levels.
-	 */
-	private async planForceDelete(
-		conn: DuckDBConnection,
-		tableName: string,
-		column: string,
-		values: unknown[],
-	): Promise<Array<Array<{ table: string; keyColumns: string[]; keys: Json[][] }>>> {
-		type PlannedRow = { table: string; key: Json[]; referencedBy: Set<string> };
-		const rows = new Map<string, PlannedRow>();
-		const idOf = (table: string, rowid: Json) => JSON.stringify([table, rowid]);
-
-		const keyColumnsByTable = new Map<string, string[]>();
-		const keyColumnsOf = async (table: string) => {
-			let keyColumns = keyColumnsByTable.get(table);
-			if (!keyColumns) {
-				const primaryKey = await this.primaryKey(conn, table);
-				keyColumns = primaryKey.length ? primaryKey : ["rowid"];
-				keyColumnsByTable.set(table, keyColumns);
-			}
-			return keyColumns;
-		};
-		const selectKey = (alias: string, keyColumns: string[]) =>
-			keyColumns.map((k, i) => `${alias}.${ident(k)} AS "__key${i}"`).join(", ");
-
-		/** Adds unseen rows to the plan and returns their rowids. */
-		const add = (table: string, keyColumns: string[], found: Row[]) => {
-			const added: Json[] = [];
-			for (const row of found) {
-				const id = idOf(table, row.__rowid);
-				if (rows.has(id)) continue;
-				rows.set(id, {
-					table,
-					key: keyColumns.map((_, i) => row[`__key${i}`]),
-					referencedBy: new Set(),
-				});
-				added.push(row.__rowid);
-			}
-			return added;
-		};
-
-		const rootKeys = await keyColumnsOf(tableName);
-		const pending = [
-			{
-				table: tableName,
-				rowids: add(
-					tableName,
-					rootKeys,
-					await query(
-						conn,
-						`SELECT t.rowid AS __rowid, ${selectKey("t", rootKeys)} FROM ${ident(tableName)} t WHERE t.${ident(column)} IN (${placeholders(values)})`,
-						values,
-					),
-				),
-			},
-		];
-
-		for (let next = pending.pop(); next; next = pending.pop()) {
-			const { table, rowids } = next;
-			if (!rowids.length) continue;
-			for (const fk of await this.foreignKeys(conn, "referenced_table", table)) {
-				const childKeys = await keyColumnsOf(fk.table);
-				// The equi-join skips references with a NULL column: they point at nothing.
-				const references = await query(
-					conn,
-					`SELECT c.rowid AS __rowid, p.rowid AS __parent, ${selectKey("c", childKeys)} FROM ${ident(fk.table)} c JOIN ${ident(table)} p ON ${joinOn(fk)} WHERE p.rowid IN (${placeholders(rowids)})`,
-					rowids,
-				);
-				pending.push({ table: fk.table, rowids: add(fk.table, childKeys, references) });
-				for (const ref of references)
-					rows.get(idOf(table, ref.__parent))?.referencedBy.add(idOf(fk.table, ref.__rowid));
-			}
+	async forceDeleteRecords(params: DeleteRecordParams): Promise<{ deletedCount: number }> {
+		const result = await this.deleteRecords(params);
+		if (result.fkViolation) {
+			throw new HTTPException(400, {
+				message:
+					"DuckDB cannot atomically delete a row and its dependent rows. Delete the dependent rows explicitly, then retry. Nothing was deleted.",
+			});
 		}
-
-		const levels: Array<Array<{ table: string; keyColumns: string[]; keys: Json[][] }>> = [];
-		const deleted = new Set<string>();
-		let remaining = [...rows.keys()];
-		while (remaining.length) {
-			const ready = remaining.filter((id) =>
-				[...(rows.get(id)?.referencedBy ?? [])].every((child) => deleted.has(child)),
-			);
-			if (!ready.length) {
-				const tables = [...new Set(remaining.map((id) => rows.get(id)?.table))];
-				throw new HTTPException(409, {
-					message: `Cannot force delete from "${tableName}": rows in ${tables.map((t) => `"${t}"`).join(", ")} reference each other in a cycle. Nothing was deleted.`,
-				});
-			}
-			const byTable = new Map<string, Json[][]>();
-			for (const id of ready) {
-				deleted.add(id);
-				const row = rows.get(id);
-				if (row) byTable.set(row.table, [...(byTable.get(row.table) ?? []), row.key]);
-			}
-			levels.push(
-				[...byTable].map(([table, keys]) => ({
-					table,
-					keyColumns: keyColumnsByTable.get(table) ?? [],
-					keys,
-				})),
-			);
-			remaining = remaining.filter((id) => !deleted.has(id));
-		}
-		return levels;
+		return { deletedCount: result.deletedCount };
 	}
 
 	async bulkInsertRecords({
