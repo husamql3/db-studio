@@ -563,6 +563,29 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			},
 		},
 		{
+			name: "composite key: delete is refused",
+			method: "DELETE",
+			path: records,
+			body: () => ({ tableName: PAIRS, primaryKeys: [{ columnName: "tenant", value: 1 }] }),
+			expect: 400,
+		},
+		{
+			name: "composite key: force delete is refused",
+			method: "DELETE",
+			path: `${records}/force`,
+			body: () => ({ tableName: PAIRS, primaryKeys: [{ columnName: "tenant", value: 1 }] }),
+			expect: 400,
+		},
+		{
+			name: "composite key: refused deletes kept every row",
+			method: "GET",
+			path: `${t}/${PAIRS}/data`,
+			query: () => ({ limit: String(PAGE), sort: "name", order: "asc" }),
+			check: (body) => {
+				assertEqual(namesOf(pageOf(body)), ["x1", "x2-edited", "x3"], "names after delete");
+			},
+		},
+		{
 			name: "composite key: delete table",
 			method: "DELETE",
 			path: `${t}/${PAIRS}`,
