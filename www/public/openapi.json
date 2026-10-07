@@ -346,7 +346,7 @@
 				"required": true,
 				"schema": {
 					"type": "string",
-					"enum": ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle"]
+					"enum": ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]
 				},
 				"description": "Database engine the request is scoped to"
 			},

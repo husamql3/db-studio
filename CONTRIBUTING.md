@@ -120,6 +120,9 @@ DATABASE_URL="duckdb://./db/dbstudio.duckdb"
 
 # Oracle (service name as the path)
 DATABASE_URL="oracle://dbstudio:dbstudio@localhost:1521/FREEPDB1"
+
+# ClickHouse (HTTP interface; clickhouses:// for TLS)
+DATABASE_URL="clickhouse://dbstudio:dbstudio@localhost:8123/dbstudio"
 ```
 
 ### 2. Initialize Test Data (Optional)
@@ -139,6 +142,7 @@ bun run init-db:cockroach # CockroachDB
 bun run init-db:tidb    # TiDB
 bun run init-db:duckdb  # DuckDB
 bun run init-db:oracle  # Oracle
+bun run init-db:clickhouse # ClickHouse
 ```
 
 Running one of these commands loads database-specific sample data — for SQL engines this generally includes contributors/projects/contributions tables plus engine-specific data, while MongoDB seeds collections and Redis seeds keys — so you can test features with real data immediately.

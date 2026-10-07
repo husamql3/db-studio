@@ -244,7 +244,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add support for ClickHouse analytics databases",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Add support for Elasticsearch and OpenSearch databases",
