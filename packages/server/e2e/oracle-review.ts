@@ -329,6 +329,72 @@ await run(
 );
 
 await run(
+	"mixed-offset timestamps sort by instant and accept canonical patterns",
+	async () => {
+		await dropTable("oracle_review_tz_sort");
+		await query(`CREATE TABLE "oracle_review_tz_sort" (
+			"id" NUMBER PRIMARY KEY,
+			"zoned_at" TIMESTAMP(9) WITH TIME ZONE
+		)`);
+		await query(`INSERT ALL
+			INTO "oracle_review_tz_sort" VALUES (
+				1,
+				TO_TIMESTAMP_TZ(
+					'2026-01-01T01:00:00.000000000+05:00',
+					'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM'
+				)
+			)
+			INTO "oracle_review_tz_sort" VALUES (
+				2,
+				TO_TIMESTAMP_TZ(
+					'2026-01-01T00:30:00.000000000+00:00',
+					'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM'
+				)
+			)
+		SELECT 1 FROM dual`);
+
+		const sortQuery = new URLSearchParams({
+			limit: "10",
+			sort: "zoned_at",
+			order: "asc",
+		});
+		const sorted = recordOf(
+			dataOf(await api("GET", `/oracle/tables/oracle_review_tz_sort/data?${sortQuery}`)),
+		).data as Row[];
+
+		const filterQuery = new URLSearchParams({
+			limit: "10",
+			filters: JSON.stringify([
+				{
+					columnName: "zoned_at",
+					operator: "like",
+					value: "2026-01-01T01:%+05:00",
+				},
+			]),
+		});
+		const filtered = recordOf(
+			dataOf(await api("GET", `/oracle/tables/oracle_review_tz_sort/data?${filterQuery}`)),
+		).data as Row[];
+		return { sorted, filtered };
+	},
+	({ sorted, filtered }) => {
+		equal(
+			sorted.map((row) => [row.id, row.zoned_at]),
+			[
+				[1, "2026-01-01T01:00:00.000000000+05:00"],
+				[2, "2026-01-01T00:30:00.000000000+00:00"],
+			],
+			"mixed-offset instant order",
+		);
+		equal(
+			filtered.map((row) => row.id),
+			[1],
+			"temporal LIKE row ids",
+		);
+	},
+);
+
+await run(
 	"composite primary key deletes are refused before writes",
 	async () => {
 		await dropTable("oracle_review_composite_pk");
@@ -366,6 +432,7 @@ for (const table of [
 	"oracle_review_parent",
 	"oracle_review_timestamp",
 	"oracle_review_temporal",
+	"oracle_review_tz_sort",
 	"oracle_review_composite_pk",
 ]) {
 	await dropTable(table).catch(() => {});

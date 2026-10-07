@@ -41,6 +41,19 @@ const temporalTypeOf = (columnType: string): OracleTemporalType | null => {
 	return "timestamp";
 };
 
+const temporalFormatOf = (columnType: string | undefined) => {
+	const temporalType = columnType ? temporalTypeOf(columnType) : null;
+	if (temporalType === "date") return ORACLE_DATE_FORMAT;
+	if (temporalType === "timestampTz") return ORACLE_TIMESTAMP_TZ_FORMAT;
+	if (temporalType) return ORACLE_TIMESTAMP_FORMAT;
+	return null;
+};
+
+const formatTemporalColumn = (column: string, columnType: string | undefined) => {
+	const format = temporalFormatOf(columnType);
+	return format ? `TO_CHAR(${column}, '${format}')` : column;
+};
+
 const normalizeTemporalValue = (value: unknown, temporalType: OracleTemporalType) => {
 	const input = value instanceof Date ? value.toISOString() : value;
 	if (typeof input !== "string")
@@ -84,15 +97,8 @@ export const buildOracleSelectList = (
 	columns
 		.map(({ COLUMN_NAME: name, DATA_TYPE: dataType }) => {
 			const column = `${tableAlias ? `${tableAlias}.` : ""}${quoteOracleIdent(name)}`;
-			const temporalType = temporalTypeOf(dataType);
-			if (!temporalType) return column;
-			const format =
-				temporalType === "date"
-					? ORACLE_DATE_FORMAT
-					: temporalType === "timestampTz"
-						? ORACLE_TIMESTAMP_TZ_FORMAT
-						: ORACLE_TIMESTAMP_FORMAT;
-			return `TO_CHAR(${column}, '${format}') AS ${quoteOracleIdent(name)}`;
+			const projected = formatTemporalColumn(column, dataType);
+			return projected === column ? column : `${projected} AS ${quoteOracleIdent(name)}`;
 		})
 		.join(", ");
 
@@ -137,12 +143,14 @@ export const whereSql = (conditions: string[]) =>
 
 export function buildFilterConditions(
 	filters: FilterType[],
-	bind: (value: unknown, columnName: string) => string,
+	bind: (value: unknown) => string,
+	columnTypes: ReadonlyMap<string, string>,
 ): string[] {
 	const conditions: string[] = [];
 
 	for (const filter of filters) {
 		const col = quoteOracleIdent(filter.columnName);
+		const columnType = columnTypes.get(filter.columnName);
 		const isNull = filter.value.toLowerCase() === "null";
 		switch (filter.operator) {
 			case "=":
@@ -151,30 +159,40 @@ export function buildFilterConditions(
 			case ">=":
 			case "<":
 			case "<=":
-				conditions.push(`${col} ${filter.operator} ${bind(filter.value, filter.columnName)}`);
+				conditions.push(
+					`${col} ${filter.operator} ${bindOracleValue(filter.value, columnType, bind)}`,
+				);
 				break;
 			case "is":
 				conditions.push(
-					isNull ? `${col} IS NULL` : `${col} = ${bind(filter.value, filter.columnName)}`,
+					isNull
+						? `${col} IS NULL`
+						: `${col} = ${bindOracleValue(filter.value, columnType, bind)}`,
 				);
 				break;
 			case "is not":
 				conditions.push(
-					isNull ? `${col} IS NOT NULL` : `${col} != ${bind(filter.value, filter.columnName)}`,
+					isNull
+						? `${col} IS NOT NULL`
+						: `${col} != ${bindOracleValue(filter.value, columnType, bind)}`,
 				);
 				break;
 			case "like":
-				conditions.push(`${col} LIKE ${bind(filter.value, filter.columnName)}`);
+				conditions.push(`${formatTemporalColumn(col, columnType)} LIKE ${bind(filter.value)}`);
 				break;
 			case "not like":
-				conditions.push(`${col} NOT LIKE ${bind(filter.value, filter.columnName)}`);
+				conditions.push(
+					`${formatTemporalColumn(col, columnType)} NOT LIKE ${bind(filter.value)}`,
+				);
 				break;
 			case "ilike":
-				conditions.push(`UPPER(${col}) LIKE UPPER(${bind(filter.value, filter.columnName)})`);
+				conditions.push(
+					`UPPER(${formatTemporalColumn(col, columnType)}) LIKE UPPER(${bind(filter.value)})`,
+				);
 				break;
 			case "not ilike":
 				conditions.push(
-					`UPPER(${col}) NOT LIKE UPPER(${bind(filter.value, filter.columnName)})`,
+					`UPPER(${formatTemporalColumn(col, columnType)}) NOT LIKE UPPER(${bind(filter.value)})`,
 				);
 				break;
 		}
@@ -189,11 +207,11 @@ export interface OrderTerm {
 	direction: SortDirection;
 }
 
-export const buildOrderBy = (terms: OrderTerm[]) =>
+export const buildOrderBy = (terms: OrderTerm[], tableAlias?: string) =>
 	`ORDER BY ${terms
 		.map(
 			(t) =>
-				`${t.column === null ? "ROWID" : quoteOracleIdent(t.column)} ${t.direction.toUpperCase()}`,
+				`${tableAlias ? `${tableAlias}.` : ""}${t.column === null ? "ROWID" : quoteOracleIdent(t.column)} ${t.direction.toUpperCase()}`,
 		)
 		.join(", ")}`;
 

@@ -320,15 +320,7 @@ export class OracleAdapter extends BaseAdapter {
 
 			const offset = cursor ? Number(this.decodeCursor(cursor)?.values._offset ?? 0) : 0;
 			const { values, bind } = createBinds();
-			const where = whereSql(
-				buildFilterConditions(filters, (value, column) =>
-					bindOracleValue(
-						toOracleValue(value, columnTypes.get(column)),
-						columnTypes.get(column),
-						bind,
-					),
-				),
-			);
+			const where = whereSql(buildFilterConditions(filters, bind, columnTypes));
 			const filterValues = [...values];
 
 			const [countRow] = await this.query<{ total: number }>(
@@ -336,9 +328,10 @@ export class OracleAdapter extends BaseAdapter {
 				`SELECT COUNT(*) AS "total" FROM ${ident(tableName)} ${where}`,
 				filterValues,
 			);
+			const tableAlias = "t";
 			const fetched = await this.query(
 				conn,
-				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(tableName)} ${where} ${buildOrderBy(terms)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
+				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${buildOrderBy(terms, tableAlias)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
 				values,
 			);
 

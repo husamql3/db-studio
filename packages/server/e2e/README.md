@@ -15,8 +15,9 @@ MongoDB and Redis are out of scope. Dialect-specific SQL goes in `OVERRIDES` in 
 
 ## Run the Oracle review probe
 
-The Oracle review probe checks composite foreign-key deletion, nanosecond timestamp keys,
-nullable temporal bulk inserts, and the composite primary-key delete guard.
+The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp
+keys, nullable temporal bulk inserts, mixed-offset timestamp sorting, temporal pattern filters,
+and the composite primary-key delete guard.
 
 ```bash
 cd packages/server

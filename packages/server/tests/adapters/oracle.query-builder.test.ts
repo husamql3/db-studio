@@ -11,11 +11,17 @@
  *    and lose sub-millisecond precision before a converter can run.
  * 5. USER_CONS_COLUMNS returns one row per foreign-key column. Treating those rows as separate
  *    constraints turns a composite reference into independent matches that delete sibling rows.
+ * 6. An unqualified ORDER BY can resolve to a temporal string alias instead of the native column,
+ *    which gives mixed-offset timestamps the wrong chronological order.
+ * 7. Temporal LIKE patterns sent through timestamp normalization are rejected as invalid values
+ *    instead of matching the canonical string returned by table reads.
  */
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it } from "vitest";
 import {
 	bindOracleValue,
+	buildFilterConditions,
+	buildOrderBy,
 	buildOracleSelectList,
 	createBinds,
 	groupOracleForeignKeys,
@@ -78,6 +84,46 @@ describe("Oracle temporal SQL", () => {
 		).toBe(
 			`"id", TO_CHAR("made_on", 'YYYY-MM-DD"T"HH24:MI:SS') AS "made_on", TO_CHAR("recorded_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9') AS "recorded_at", TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM') AS "zoned_at", TO_CHAR("local_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9') AS "local_at"`,
 		);
+	});
+
+	it("qualifies native ordering when a temporal projection keeps the column name", () => {
+		expect(
+			buildOrderBy(
+				[
+					{ column: "zoned_at", direction: "asc" },
+					{ column: null, direction: "asc" },
+				],
+				"source",
+			),
+		).toBe('ORDER BY source."zoned_at" ASC, source.ROWID ASC');
+	});
+
+	it("formats temporal LIKE operands but keeps range comparisons native", () => {
+		const { values, bind } = createBinds();
+		expect(
+			buildFilterConditions(
+				[
+					{ columnName: "zoned_at", operator: "like", value: "2026-01%" },
+					{ columnName: "zoned_at", operator: "not ilike", value: "%+05:00" },
+					{
+						columnName: "zoned_at",
+						operator: ">=",
+						value: "2026-01-01T00:00:00.000000000+00:00",
+					},
+				],
+				bind,
+				new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]),
+			),
+		).toEqual([
+			`TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM') LIKE :1`,
+			`UPPER(TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')) NOT LIKE UPPER(:2)`,
+			`"zoned_at" >= TO_TIMESTAMP_TZ(:3, 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')`,
+		]);
+		expect(values).toEqual([
+			"2026-01%",
+			"%+05:00",
+			"2026-01-01T00:00:00.000000000+00:00",
+		]);
 	});
 });
 
