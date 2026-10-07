@@ -9,6 +9,7 @@ import {
 	createClient as createLibsqlClient,
 	type Client as LibsqlClient,
 } from "@libsql/client";
+import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import { Redis, type RedisOptions } from "ioredis";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
@@ -27,6 +28,9 @@ class DatabaseManager {
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
 	private sqliteClient: Promise<LibsqlClient> | null = null;
+	private duckdb: Promise<{ instance: DuckDBInstance; connection: DuckDBConnection }> | null =
+		null;
+	private duckdbQueue: Promise<unknown> = Promise.resolve();
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
 	private baseConfig: {
@@ -70,15 +74,16 @@ class DatabaseManager {
 			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
 		}
 
-		// SQLite URLs use a file path that doesn't parse well as a standard URL
-		if (databaseUrl.startsWith("sqlite://")) {
+		// File-based engines (sqlite://, duckdb://) carry a file path that doesn't parse well as a standard URL
+		const fileDbType = dbTypeFromProtocol(databaseUrl.split("://")[0]);
+		if (fileDbType && DATABASE_ENGINES[fileDbType].defaultPort === null) {
 			this.baseConfig = {
 				url: databaseUrl,
 				host: "localhost",
 				port: 0,
 				user: "",
 				password: "",
-				dbType: "sqlite",
+				dbType: fileDbType,
 			};
 			return;
 		}
@@ -121,8 +126,8 @@ class DatabaseManager {
 			throw new Error("Base configuration not initialized");
 		}
 
-		// SQLite is a single-file database; the URL is already the full connection string
-		if (this.baseConfig.dbType === "sqlite") {
+		// File-based databases: the URL is already the full connection string
+		if (DATABASE_ENGINES[this.baseConfig.dbType].defaultPort === null) {
 			return this.baseConfig.url;
 		}
 
@@ -178,6 +183,55 @@ class DatabaseManager {
 		const client = this.sqliteClient;
 		this.sqliteClient = null;
 		if (client) (await client.catch(() => null))?.close();
+	}
+
+	/**
+	 * Run `fn` with the DuckDB connection, opening the file on first use. DuckDB holds one
+	 * connection per file, so calls are serialized: a transaction opened inside `fn` cannot
+	 * interleave with statements from a concurrent request.
+	 */
+	withDuckdbConnection<T>(fn: (connection: DuckDBConnection) => Promise<T>): Promise<T> {
+		const run = this.duckdbQueue.then(async () => fn((await this.openDuckdb()).connection));
+		this.duckdbQueue = run.catch(() => {});
+		return run;
+	}
+
+	private openDuckdb() {
+		if (!this.baseConfig || this.baseConfig.dbType !== "duckdb") {
+			throw new Error("DATABASE_URL is not a duckdb:// connection");
+		}
+		if (!this.duckdb) {
+			const filePath = this.baseConfig.url.replace(/^duckdb:\/\//, "");
+			this.duckdb = (async () => {
+				try {
+					// Checkpoint on every commit. DuckDB (1.4 and 1.5) cannot replay an ALTER TABLE on a
+					// table with a nextval() default from the WAL, so a process that exits before the
+					// next checkpoint leaves a file that no longer opens.
+					const instance = await DuckDBInstance.create(filePath, {
+						checkpoint_threshold: "0b",
+					});
+					return { instance, connection: await instance.connect() };
+				} catch (e) {
+					this.duckdb = null;
+					const message = e instanceof Error ? e.message : String(e);
+					if (message.includes("Could not set lock on file")) {
+						throw new Error(
+							`The DuckDB file "${filePath}" is locked by another process. Close the other program using it and try again. (${message})`,
+						);
+					}
+					throw e;
+				}
+			})();
+		}
+		return this.duckdb;
+	}
+
+	async closeDuckdb(): Promise<void> {
+		const open = this.duckdb;
+		this.duckdb = null;
+		const handle = await open?.catch(() => null);
+		handle?.connection.closeSync();
+		handle?.instance.closeSync();
 	}
 
 	/**
@@ -377,6 +431,10 @@ class DatabaseManager {
 			await this.closeSqliteClient();
 			return;
 		}
+		if (this.baseConfig?.dbType === "duckdb" && connectionString === this.baseConfig.url) {
+			await this.closeDuckdb();
+			return;
+		}
 		await this.closePgPool(connectionString);
 		await this.closeMysqlPool(connectionString);
 		await this.closeMssqlPool(connectionString);
@@ -388,6 +446,10 @@ class DatabaseManager {
 	async closePoolByDatabase(database: string): Promise<void> {
 		if (this.baseConfig?.dbType === "sqlite") {
 			await this.closeSqliteClient();
+			return;
+		}
+		if (this.baseConfig?.dbType === "duckdb") {
+			await this.closeDuckdb();
 			return;
 		}
 		const connectionString = this.buildConnectionString(database);
@@ -556,6 +618,7 @@ class DatabaseManager {
 			this.mongoClient = null;
 		}
 		await this.closeSqliteClient();
+		await this.closeDuckdb();
 		const redisClosePromises = Array.from(this.redisClients.entries()).map(
 			async ([index, client]) => {
 				await client.quit().catch(() => {});
@@ -650,6 +713,15 @@ const _getActivePools = (): string[] => {
  */
 export const getSqliteClient = (): Promise<LibsqlClient> => {
 	return databaseManager.getSqliteClient();
+};
+
+/**
+ * Run `fn` with the DuckDB connection (single file, opened once, calls serialized)
+ */
+export const withDuckdbConnection = <T>(
+	fn: (connection: DuckDBConnection) => Promise<T>,
+): Promise<T> => {
+	return databaseManager.withDuckdbConnection(fn);
 };
 
 /**

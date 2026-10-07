@@ -12,6 +12,9 @@ export const getMssqlPool: typeof dbManager.getMssqlPool = (database) =>
 export const getSqliteClient: typeof dbManager.getSqliteClient = () =>
 	dbManager.getSqliteClient();
 
+export const withDuckdbConnection: typeof dbManager.withDuckdbConnection = (fn) =>
+	dbManager.withDuckdbConnection(fn);
+
 export const getMongoClient: typeof dbManager.getMongoClient = () =>
 	dbManager.getMongoClient();
 

@@ -1,4 +1,5 @@
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
+import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
@@ -16,4 +17,5 @@ export function registerAdapters(): void {
 	adapterRegistry.register("mongodb", new MongoAdapter());
 	adapterRegistry.register("sqlite", new SqliteAdapter());
 	adapterRegistry.register("redis", new RedisAdapter());
+	adapterRegistry.register("duckdb", new DuckDbAdapter());
 }

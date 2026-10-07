@@ -129,6 +129,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.startsWith("READONLY") || // Redis: read-only replica
 				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
 				e.message.includes("Redis cluster mode is not supported") ||
+				e.message.includes("Could not set lock on file") || // DuckDB: file locked by another process
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {

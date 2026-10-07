@@ -8,6 +8,7 @@ import {
 	getMysqlPool,
 	getRedisClient,
 	getSqliteClient,
+	withDuckdbConnection,
 } from "@/db-manager.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
@@ -70,5 +71,8 @@ export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise
 			return;
 		case "redis":
 			await (await getRedisClient()).ping();
+			return;
+		case "duckdb":
+			await withDuckdbConnection((connection) => connection.run("SELECT 1"));
 	}
 };

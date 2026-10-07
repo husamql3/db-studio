@@ -12,7 +12,7 @@
  * 4. The backward (`direction: "desc"`) query must flip the tie-breaker too. Otherwise paging
  *    back does not return the page the user came from.
  *
- * SQLite runs on a temporary file on every test run. MySQL and SQL Server run only when
+ * SQLite runs on a temporary file and DuckDB in memory on every test run. MySQL and SQL Server run only when
  * MYSQL_TEST_URL / MSSQL_TEST_URL are set, e.g.
  *   MYSQL_TEST_URL=mysql://root@127.0.0.1:3306/dbstudio
  *   MSSQL_TEST_URL=mssql://sa:DbStudio1!@127.0.0.1:1433/master
@@ -23,6 +23,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SortType } from "@db-studio/shared/types";
 import { type Client as LibsqlClient, createClient as createLibsqlClient } from "@libsql/client";
+import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import sql from "mssql";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,11 +32,13 @@ const connections = vi.hoisted(() => ({
 	getMysqlPool: vi.fn(),
 	getMssqlPool: vi.fn(),
 	getSqliteClient: vi.fn(),
+	withDuckdbConnection: vi.fn(),
 }));
 
 vi.mock("@/adapters/connections.js", () => connections);
 
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
+import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
@@ -58,6 +61,8 @@ let mysqlPool: mysql.Pool | undefined;
 let mssqlPool: sql.ConnectionPool | undefined;
 let sqliteClient: LibsqlClient | undefined;
 const sqliteDir = mkdtempSync(path.join(tmpdir(), "db-studio-live-poll-"));
+let duckdbInstance: DuckDBInstance | undefined;
+let duckdb: DuckDBConnection | undefined;
 
 const engines: Engine[] = [
 	{
@@ -79,6 +84,30 @@ const engines: Engine[] = [
 			`DROP TABLE IF EXISTS ${TABLE}`,
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name TEXT NOT NULL)`,
 			`CREATE INDEX ${TABLE}_grp_rnk ON ${TABLE} (grp, rnk)`,
+		],
+	},
+	{
+		name: "duckdb",
+		url: ":memory:",
+		adapter: new DuckDbAdapter(),
+		connect: async (url) => {
+			duckdbInstance = await DuckDBInstance.create(url);
+			const connection = await duckdbInstance.connect();
+			duckdb = connection;
+			connections.withDuckdbConnection.mockImplementation(
+				(fn: (c: DuckDBConnection) => Promise<unknown>) => fn(connection),
+			);
+		},
+		exec: async (statement) => {
+			await duckdb?.run(statement);
+		},
+		close: async () => {
+			duckdb?.closeSync();
+			duckdbInstance?.closeSync();
+		},
+		schema: [
+			`DROP TABLE IF EXISTS ${TABLE}`,
+			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name VARCHAR NOT NULL)`,
 		],
 	},
 	{
