@@ -48,6 +48,7 @@ import {
 	type OrderTerm,
 	whereSql,
 } from "./oracle.query-builder.js";
+import { toJsonNumber } from "./oracle.values.js";
 
 type Row = Record<string, unknown>;
 
@@ -66,21 +67,6 @@ type ColumnRow = {
 
 /** Oracle 23ai is the first release with SQL BOOLEAN and the native JSON type. */
 const supportsNativeTypes = (conn: Connection) => conn.oracleServerVersion >= 2300000000;
-
-/**
- * NUMBER arrives as the driver's exact decimal string. It becomes a JS number when that is
- * lossless (a safe integer, or at most 15 significant digits), else it stays a string.
- */
-const toJsonNumber = (value: unknown) => {
-	if (typeof value !== "string") return value;
-	const n = Number(value);
-	const digits = value
-		.replace(/^-/, "")
-		.replace(".", "")
-		.replace(/^0+/, "")
-		.replace(/0+$/, "");
-	return Number.isSafeInteger(n) || digits.length <= 15 ? n : value;
-};
 
 const toHex = (value: unknown) => (Buffer.isBuffer(value) ? value.toString("hex") : value);
 
