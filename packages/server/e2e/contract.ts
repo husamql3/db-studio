@@ -44,6 +44,7 @@ type EngineOverrides = {
 const OVERRIDES: Partial<Record<DatabaseTypeSchema, EngineOverrides>> = {
 	sqlite: { dbName: () => "main" },
 	duckdb: { dbName: (url) => path.parse(url.pathname).name },
+	oracle: { selectOne: 'SELECT 1 AS "one" FROM dual' },
 };
 
 const TABLE = "dbstudio_e2e";

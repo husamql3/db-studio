@@ -6,6 +6,7 @@ import {
 	getMongoDbName,
 	getMssqlPool,
 	getMysqlPool,
+	getOraclePool,
 	getRedisClient,
 	getSqliteClient,
 	withDuckdbConnection,
@@ -74,5 +75,10 @@ export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise
 			return;
 		case "duckdb":
 			await withDuckdbConnection((connection) => connection.run("SELECT 1"));
+			return;
+		case "oracle": {
+			const connection = await (await getOraclePool()).getConnection();
+			await connection.execute("SELECT 1 FROM dual").finally(() => connection.close());
+		}
 	}
 };
