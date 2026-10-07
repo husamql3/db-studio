@@ -116,6 +116,16 @@ const isFkViolation = (e: unknown) =>
 	e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
 
 export class SqliteAdapter extends BaseAdapter {
+	// alterColumn reads the column list and then rebuilds the table from it; a column added
+	// between the two would be dropped by the rebuild, so column changes run one at a time.
+	private schemaChange: Promise<unknown> = Promise.resolve();
+
+	private serializeSchemaChange<T>(change: () => Promise<T>): Promise<T> {
+		const run = this.schemaChange.then(change);
+		this.schemaChange = run.catch(() => {});
+		return run;
+	}
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
@@ -667,173 +677,181 @@ export class SqliteAdapter extends BaseAdapter {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
-			params;
-		const client = await getSqliteClient();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
+				params;
+			const client = await getSqliteClient();
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
-		if (colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(409, {
-				message: `Column "${columnName}" already exists in table "${tableName}"`,
-			});
-		}
+			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			if (colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(409, {
+					message: `Column "${columnName}" already exists in table "${tableName}"`,
+				});
+			}
 
-		let def = `"${columnName}" ${columnType}`;
-		if (isUnique) def += " UNIQUE";
-		if (!isNullable) def += " NOT NULL";
-		if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
+			let def = `"${columnName}" ${columnType}`;
+			if (isUnique) def += " UNIQUE";
+			if (!isNullable) def += " NOT NULL";
+			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
-		try {
-			await client.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+			try {
+				await client.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
 
-		void db;
+			void db;
+		});
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, columnName, db } = params;
-		const client = await getSqliteClient();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, db } = params;
+			const client = await getSqliteClient();
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
-		if (!colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
+			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			if (!colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(404, {
+					message: `Column "${columnName}" does not exist in table "${tableName}"`,
+				});
+			}
 
-		try {
-			await client.execute(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+			try {
+				await client.execute(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
 
-		void db;
-		return { deletedCount: 1 };
+			void db;
+			return { deletedCount: 1 };
+		});
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const client = await getSqliteClient();
-		const q = (name: string) => this.quoteIdentifier(name);
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
+			const client = await getSqliteClient();
+			const q = (name: string) => this.quoteIdentifier(name);
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info(${q(tableName)})`);
-		if (!colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
+			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info(${q(tableName)})`);
+			if (!colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(404, {
+					message: `Column "${columnName}" does not exist in table "${tableName}"`,
+				});
+			}
+
+			// SQLite doesn't support ALTER COLUMN — use the recreate-table approach
+			const pkCols = colInfo.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk);
+			const hasCompositePk = pkCols.length > 1;
+
+			const newColDefs = colInfo.map((col) => {
+				const isTarget = col.name === columnName;
+				const type = isTarget ? columnType : col.type;
+				const nullable = isTarget ? isNullable : col.notnull === 0;
+				const defVal = isTarget ? defaultValue?.trim() || null : col.dflt_value;
+				const isPk = col.pk > 0;
+
+				let def = `${q(col.name)} ${type}`;
+				if (!hasCompositePk && isPk) def += " PRIMARY KEY";
+				if (!isPk && !nullable) def += " NOT NULL";
+				if (defVal) def += ` DEFAULT ${defVal}`;
+				return def;
 			});
-		}
 
-		// SQLite doesn't support ALTER COLUMN — use the recreate-table approach
-		const pkCols = colInfo.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk);
-		const hasCompositePk = pkCols.length > 1;
+			if (hasCompositePk) {
+				newColDefs.push(`PRIMARY KEY (${pkCols.map((c) => q(c.name)).join(", ")})`);
+			}
 
-		const newColDefs = colInfo.map((col) => {
-			const isTarget = col.name === columnName;
-			const type = isTarget ? columnType : col.type;
-			const nullable = isTarget ? isNullable : col.notnull === 0;
-			const defVal = isTarget ? defaultValue?.trim() || null : col.dflt_value;
-			const isPk = col.pk > 0;
+			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list(${q(tableName)})`);
+			const fksByGroup = new Map<number, FkRow[]>();
+			for (const fk of fks) {
+				const arr = fksByGroup.get(fk.id) ?? [];
+				arr.push(fk);
+				fksByGroup.set(fk.id, arr);
+			}
+			const fkDefs = Array.from(fksByGroup.values()).map((group) => {
+				const from = group.map((f) => q(f.from)).join(", ");
+				const toColumns = group.map((f) => f.to);
+				const to = allNamed(toColumns) ? ` (${toColumns.map(q).join(", ")})` : "";
+				const { table, on_update, on_delete } = group[0];
+				return `FOREIGN KEY (${from}) REFERENCES ${q(table)}${to} ON UPDATE ${on_update} ON DELETE ${on_delete}`;
+			});
 
-			let def = `${q(col.name)} ${type}`;
-			if (!hasCompositePk && isPk) def += " PRIMARY KEY";
-			if (!isPk && !nullable) def += " NOT NULL";
-			if (defVal) def += ` DEFAULT ${defVal}`;
-			return def;
+			const colNames = colInfo.map((c) => q(c.name)).join(", ");
+			const tempName = `${tableName}_alter_${Date.now()}`;
+
+			const existingIndexes = await all<{ sql: string }>(
+				client,
+				`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`,
+				[tableName],
+			);
+			const existingTriggers = await all<{ sql: string }>(
+				client,
+				`SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?`,
+				[tableName],
+			);
+
+			// DROP TABLE runs an implicit DELETE, which would fire ON DELETE CASCADE on child
+			// tables, so foreign keys must be off. That PRAGMA is a no-op inside a transaction
+			// and does not outlive one request on a remote server; migrate() turns it off,
+			// runs the statements in one transaction on one connection, and turns it back on
+			// even when a statement fails.
+			try {
+				await client.migrate([
+					`CREATE TABLE ${q(tempName)} (${[...newColDefs, ...fkDefs].join(", ")})`,
+					`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
+					`DROP TABLE ${q(tableName)}`,
+					`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
+					...existingIndexes.map(({ sql }) => sql),
+					...existingTriggers.map(({ sql }) => sql),
+				]);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
+
+			void db;
 		});
-
-		if (hasCompositePk) {
-			newColDefs.push(`PRIMARY KEY (${pkCols.map((c) => q(c.name)).join(", ")})`);
-		}
-
-		const fks = await all<FkRow>(client, `PRAGMA foreign_key_list(${q(tableName)})`);
-		const fksByGroup = new Map<number, FkRow[]>();
-		for (const fk of fks) {
-			const arr = fksByGroup.get(fk.id) ?? [];
-			arr.push(fk);
-			fksByGroup.set(fk.id, arr);
-		}
-		const fkDefs = Array.from(fksByGroup.values()).map((group) => {
-			const from = group.map((f) => q(f.from)).join(", ");
-			const toColumns = group.map((f) => f.to);
-			const to = allNamed(toColumns) ? ` (${toColumns.map(q).join(", ")})` : "";
-			const { table, on_update, on_delete } = group[0];
-			return `FOREIGN KEY (${from}) REFERENCES ${q(table)}${to} ON UPDATE ${on_update} ON DELETE ${on_delete}`;
-		});
-
-		const colNames = colInfo.map((c) => q(c.name)).join(", ");
-		const tempName = `${tableName}_alter_${Date.now()}`;
-
-		const existingIndexes = await all<{ sql: string }>(
-			client,
-			`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`,
-			[tableName],
-		);
-		const existingTriggers = await all<{ sql: string }>(
-			client,
-			`SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?`,
-			[tableName],
-		);
-
-		// DROP TABLE runs an implicit DELETE, which would fire ON DELETE CASCADE on child
-		// tables, so foreign keys must be off. That PRAGMA is a no-op inside a transaction
-		// and does not outlive one request on a remote server; migrate() turns it off,
-		// runs the statements in one transaction on one connection, and turns it back on
-		// even when a statement fails.
-		try {
-			await client.migrate([
-				`CREATE TABLE ${q(tempName)} (${[...newColDefs, ...fkDefs].join(", ")})`,
-				`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
-				`DROP TABLE ${q(tableName)}`,
-				`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
-				...existingIndexes.map(({ sql }) => sql),
-				...existingTriggers.map(({ sql }) => sql),
-			]);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
-
-		void db;
 	}
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, newColumnName, db } = params;
-		const client = await getSqliteClient();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, newColumnName, db } = params;
+			const client = await getSqliteClient();
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
-		if (!colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
-		if (colInfo.some((c) => c.name === newColumnName)) {
-			throw new HTTPException(409, {
-				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-			});
-		}
+			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			if (!colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(404, {
+					message: `Column "${columnName}" does not exist in table "${tableName}"`,
+				});
+			}
+			if (colInfo.some((c) => c.name === newColumnName)) {
+				throw new HTTPException(409, {
+					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
+				});
+			}
 
-		try {
-			await client.execute(
-				`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+			try {
+				await client.execute(
+					`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
+				);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
 
-		void db;
+			void db;
+		});
 	}
 
 	// =========================================================
