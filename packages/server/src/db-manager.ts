@@ -450,10 +450,10 @@ class DatabaseManager {
 			database: dbName,
 			request_timeout: 30_000,
 			clickhouse_settings: {
-				output_format_json_quote_64bit_integers: 0,
+				output_format_json_quote_64bit_integers: 1,
 				output_format_json_quote_decimals: 1,
+				wait_end_of_query: 1,
 			},
-			json: { parse: parseClickhouseJson, stringify: JSON.stringify },
 			// Failures surface through the adapter's error mapping; the client's own log would duplicate them.
 			log: { level: ClickHouseLogLevel.OFF },
 		});
@@ -735,20 +735,6 @@ class DatabaseManager {
 		];
 	}
 }
-
-/**
- * Parses ClickHouse JSON output without losing precision: integers outside the
- * safe range (Int64/UInt64/Int128 and JSON-typed paths) keep their source text.
- */
-const parseClickhouseJson = <T>(input: string): T =>
-	JSON.parse(input, (_key, value: unknown, context?: { source?: string }) =>
-		typeof value === "number" &&
-		Number.isInteger(value) &&
-		!Number.isSafeInteger(value) &&
-		context?.source
-			? context.source
-			: value,
-	);
 
 // Singleton instance
 const databaseManager = new DatabaseManager();

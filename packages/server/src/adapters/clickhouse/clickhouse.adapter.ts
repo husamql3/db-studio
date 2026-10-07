@@ -23,6 +23,7 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import {
+	DATABASE_ENGINES,
 	mapClickhouseToDataType,
 	standardizeClickhouseDataTypeLabel,
 	unwrapClickhouseType,
@@ -56,8 +57,6 @@ type Params = Record<string, unknown>;
 /** Wait for ALTER ... UPDATE/DELETE mutations to finish on every replica before returning. */
 const MUTATION_SETTINGS = { mutations_sync: "2" } as const;
 
-const NO_KEY_MESSAGE = "Rows in this table have no key to address them by";
-
 const isNullableType = (type: string) => /^(LowCardinality\()?Nullable\(/.test(type);
 
 /** Shapes a client value for a JSONEachRow insert into a column of `type`. */
@@ -81,14 +80,6 @@ const toClickhouseValue = (value: unknown, type: string): unknown => {
 	}
 	if (typeof value === "object" && base === "String") return JSON.stringify(value);
 	return value;
-};
-
-/** Text form of a value bound as a `String` query parameter and cast by ClickHouse. */
-const toParamText = (value: unknown): string | null => {
-	if (value === undefined || value === null) return null;
-	if (value instanceof Date) return value.toISOString();
-	if (typeof value === "object") return JSON.stringify(value);
-	return String(value);
 };
 
 export class ClickhouseAdapter extends BaseAdapter {
@@ -509,106 +500,19 @@ export class ClickhouseAdapter extends BaseAdapter {
 		};
 	}
 
-	/**
-	 * Applies every row's changes in one `ALTER TABLE ... UPDATE` mutation and waits
-	 * for it. Each addressed key must match exactly one row: the sorting key is not
-	 * unique, and a mutation cannot target one of several identical-key rows.
-	 */
-	async updateRecords({
-		db,
-		params,
-	}: {
+	async updateRecords(_input: {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		try {
-			const keyColumns = this.resolveKeyColumns(params);
-			const groups = this.groupUpdatesByKey(params, keyColumns);
-			const columns = await this.getKeyedColumns(db, tableName, keyColumns);
-			const keyNames = new Set(columns.filter((c) => c.is_in_sorting_key).map((c) => c.name));
-
-			const types = new Map(columns.map((c) => [c.name, c.type]));
-			const queryParams: Params = {};
-			const bind = (value: unknown, type = "String") => {
-				const name = `p${Object.keys(queryParams).length}`;
-				// Array and Map literals need ClickHouse quoting, so they bind with their own type.
-				const structured = /^(Array|Map)\(/.test(type);
-				queryParams[name] = structured ? toClickhouseValue(value, type) : toParamText(value);
-				return `{${name}:${structured ? type : "Nullable(String)"}}`;
-			};
-
-			const commands: string[] = [];
-			for (const { keyValues, rowUpdates } of groups) {
-				for (const { columnName } of rowUpdates) {
-					if (keyNames.has(columnName)) {
-						throw new HTTPException(400, {
-							message: `"${columnName}" is part of the sorting key; ClickHouse cannot update key columns`,
-						});
-					}
-				}
-				const where = keyColumns
-					.map((col, i) => `${q(col)} = ${bind(keyValues[i])}`)
-					.join(" AND ");
-				await this.assertMatches(db, tableName, where, queryParams, 1, () =>
-					this.describeKey(keyColumns, keyValues),
-				);
-				const sets = rowUpdates
-					.map((u) => `${q(u.columnName)} = ${bind(u.value, types.get(u.columnName))}`)
-					.join(", ");
-				commands.push(`UPDATE ${sets} WHERE ${where}`);
-			}
-
-			await this.command(
-				db,
-				`ALTER TABLE ${q(tableName)} ${commands.join(", ")}`,
-				queryParams,
-				MUTATION_SETTINGS,
-			);
-			return { updatedCount: groups.length };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		throw new HTTPException(400, { message: DATABASE_ENGINES.clickhouse.rowMutationReason });
 	}
 
-	async deleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const keyColumn = primaryKeys[0]?.columnName;
-		if (!keyColumn) {
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		}
-		try {
-			await this.getKeyedColumns(db, tableName, [keyColumn]);
-			const values = [...new Set(primaryKeys.map((pk) => toParamText(pk.value)))];
-			const queryParams: Params = Object.fromEntries(values.map((v, i) => [`p${i}`, v]));
-			const where = `${q(keyColumn)} IN (${values.map((_, i) => `{p${i}:String}`).join(", ")})`;
-
-			const deletedCount = await this.assertMatches(
-				db,
-				tableName,
-				where,
-				queryParams,
-				values.length,
-				() => `${keyColumn} IN (${values.join(", ")})`,
-			);
-			await this.command(
-				db,
-				`ALTER TABLE ${q(tableName)} DELETE WHERE ${where}`,
-				queryParams,
-				MUTATION_SETTINGS,
-			);
-			return { deletedCount, fkViolation: false, relatedRecords: [] };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+	async deleteRecords(_params: DeleteRecordParams): Promise<DeleteRecordResult> {
+		throw new HTTPException(400, { message: DATABASE_ENGINES.clickhouse.rowMutationReason });
 	}
 
-	async forceDeleteRecords(params: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const { deletedCount } = await this.deleteRecords(params);
-		return { deletedCount };
+	async forceDeleteRecords(_params: DeleteRecordParams): Promise<{ deletedCount: number }> {
+		throw new HTTPException(400, { message: DATABASE_ENGINES.clickhouse.rowMutationReason });
 	}
 
 	// =========================================================
@@ -748,54 +652,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 			});
 		}
 		return column;
-	}
-
-	/** Columns of a table whose rows can be addressed by `keyColumns` (all in the sorting key). */
-	private async getKeyedColumns(
-		db: string,
-		tableName: string,
-		keyColumns: string[],
-	): Promise<ColumnRow[]> {
-		const table = await this.getTable(db, tableName);
-		if (!table.sorting_key) throw new HTTPException(400, { message: NO_KEY_MESSAGE });
-		const columns = await this.getColumns(db, tableName);
-		const notKey = keyColumns.find(
-			(key) => !columns.some((c) => c.name === key && c.is_in_sorting_key),
-		);
-		if (notKey) {
-			throw new HTTPException(400, {
-				message: `"${notKey}" is not in the table's sorting key, so it cannot address rows`,
-			});
-		}
-		return columns;
-	}
-
-	/** Counts rows matching `where`; throws unless exactly `expected` rows match. */
-	private async assertMatches(
-		db: string,
-		tableName: string,
-		where: string,
-		queryParams: Params,
-		expected: number,
-		describe: () => string,
-	): Promise<number> {
-		const [row] = await this.select<{ total: string | number }>(
-			db,
-			`SELECT count() AS total FROM ${q(tableName)} WHERE ${where}`,
-			queryParams,
-		);
-		const total = Number(row?.total ?? 0);
-		if (total === 0) {
-			throw new HTTPException(404, {
-				message: `Record with ${describe()} not found in table "${tableName}"`,
-			});
-		}
-		if (total > expected) {
-			throw new HTTPException(400, {
-				message: `${total} rows match ${describe()}; ClickHouse keys are not unique, so these rows cannot be told apart. Edit them with a query instead.`,
-			});
-		}
-		return total;
 	}
 
 	private async insertRows(

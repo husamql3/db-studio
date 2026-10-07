@@ -7,6 +7,7 @@ import {
 	columnInfoSchema,
 	connectionInfoSchema,
 	currentDatabaseSchema,
+	DATABASE_ENGINES,
 	type DatabaseTypeSchema,
 	databaseListSchema,
 	type TableDataResultSchemaType,
@@ -126,6 +127,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 	const t = `/${dbType}/tables`;
 	const records = `/${dbType}/records`;
 	const dataOfTable = `${t}/${TABLE}/data`;
+	const canMutateRows = DATABASE_ENGINES[dbType].rowMutation;
 
 	return [
 		{
@@ -334,7 +336,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			},
 		},
 		{
-			name: "update row-07 amount",
+			name: canMutateRows ? "update row-07 amount" : "grid update is refused",
 			method: "PATCH",
 			path: records,
 			body: (ctx) => ({
@@ -342,41 +344,50 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				primaryKey: "id",
 				updates: [{ rowData: row07(ctx), columnName: "amount", value: 999 }],
 			}),
+			...(canMutateRows ? {} : { expect: 400 }),
 		},
 		{
-			name: "read back updated row-07",
+			name: canMutateRows ? "read back updated row-07" : "refused update kept row-07",
 			method: "GET",
 			path: dataOfTable,
 			query: () => ({ limit: String(PAGE), filters: filterBy("name", rowName(7)) }),
 			check: (body) => {
 				const [row] = pageOf(body).data;
 				assert(row, "row-07 missing after update");
-				assertEqual(Number(row.amount), 999, "updated amount");
+				assertEqual(Number(row.amount), canMutateRows ? 999 : 10.5, "row amount");
 			},
 		},
 		{
-			name: "delete row-07",
+			name: canMutateRows ? "delete row-07" : "grid delete is refused",
 			method: "DELETE",
 			path: records,
 			body: (ctx) => ({
 				tableName: TABLE,
 				primaryKeys: [{ columnName: "id", value: row07(ctx).id }],
 			}),
-			check: (body) => {
-				assertEqual(
-					dataOf(z.object({ deletedCount: z.number() }), body).deletedCount,
-					1,
-					"deletedCount",
-				);
-			},
+			...(canMutateRows
+				? {
+						check: (body: unknown) => {
+							assertEqual(
+								dataOf(z.object({ deletedCount: z.number() }), body).deletedCount,
+								1,
+								"deletedCount",
+							);
+						},
+					}
+				: { expect: 400 }),
 		},
 		{
-			name: "deleted row-07 is gone",
+			name: canMutateRows ? "deleted row-07 is gone" : "refused delete kept row-07",
 			method: "GET",
 			path: dataOfTable,
 			query: () => ({ limit: String(PAGE), filters: filterBy("name", rowName(7)) }),
 			check: (body) => {
-				assertEqual(namesOf(pageOf(body)), [], "rows matching row-07");
+				assertEqual(
+					namesOf(pageOf(body)),
+					canMutateRows ? [] : [rowName(7)],
+					"rows matching row-07",
+				);
 			},
 		},
 		{
@@ -385,7 +396,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			path: t,
 			check: (body) => {
 				const table = tablesOf(body).find((x) => x.tableName === TABLE);
-				assertEqual(table?.rowCount, ROW_COUNT, "rowCount");
+				assertEqual(table?.rowCount, canMutateRows ? ROW_COUNT : ROW_COUNT + 1, "rowCount");
 			},
 			record: onlyE2eTables,
 		},
@@ -471,7 +482,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				const rows = z.array(z.record(z.string(), z.unknown())).parse(body);
 				assertEqual(
 					rows.map((r) => String(r.name)).sort(),
-					range(1, 26).filter((n) => n !== rowName(7)),
+					canMutateRows ? range(1, 26).filter((n) => n !== rowName(7)) : range(1, 26),
 					"exported names",
 				);
 			},
@@ -489,7 +500,11 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			check: (body) => {
 				const lines = String(body).trim().split("\n");
 				assertEqual(lines[0], COLUMNS.join(","), "csv header");
-				assertEqual(lines.length - 1, ROW_COUNT, "csv data lines");
+				assertEqual(
+					lines.length - 1,
+					canMutateRows ? ROW_COUNT : ROW_COUNT + 1,
+					"csv data lines",
+				);
 			},
 			record: (body) => {
 				const [header, ...rows] = String(body).trim().split("\n");
@@ -520,7 +535,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			check: (body) => {
 				assertEqual(
 					dataOf(z.object({ deletedCount: z.number() }), body).deletedCount,
-					ROW_COUNT,
+					canMutateRows ? ROW_COUNT : ROW_COUNT + 1,
 					"deletedCount",
 				);
 			},
@@ -545,7 +560,9 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			body: () => ({ tableName: PAIRS, records: PAIR_ROWS }),
 		},
 		{
-			name: "composite key: update one row by both keys",
+			name: canMutateRows
+				? "composite key: update one row by both keys"
+				: "composite key: grid update is refused",
 			method: "PATCH",
 			path: records,
 			body: () => ({
@@ -553,6 +570,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				primaryKeys: ["tenant", "item"],
 				updates: [{ rowData: PAIR_ROWS[1], columnName: "name", value: "x2-edited" }],
 			}),
+			...(canMutateRows ? {} : { expect: 400 }),
 		},
 		{
 			name: "composite key: only the addressed row changed",
@@ -560,7 +578,11 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			path: `${t}/${PAIRS}/data`,
 			query: () => ({ limit: String(PAGE), sort: "name", order: "asc" }),
 			check: (body) => {
-				assertEqual(namesOf(pageOf(body)), ["x1", "x2-edited", "x3"], "names after update");
+				assertEqual(
+					namesOf(pageOf(body)),
+					canMutateRows ? ["x1", "x2-edited", "x3"] : ["x1", "x2", "x3"],
+					"names after update",
+				);
 			},
 		},
 		{
@@ -583,7 +605,11 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			path: `${t}/${PAIRS}/data`,
 			query: () => ({ limit: String(PAGE), sort: "name", order: "asc" }),
 			check: (body) => {
-				assertEqual(namesOf(pageOf(body)), ["x1", "x2-edited", "x3"], "names after delete");
+				assertEqual(
+					namesOf(pageOf(body)),
+					canMutateRows ? ["x1", "x2-edited", "x3"] : ["x1", "x2", "x3"],
+					"names after delete",
+				);
 			},
 		},
 		{
