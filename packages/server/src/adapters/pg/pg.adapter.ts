@@ -45,6 +45,8 @@ import {
 type PgPool = ReturnType<typeof getDbPool>;
 
 export class PgAdapter extends BaseAdapter {
+	private databaseSizeSupport?: Promise<boolean>;
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
@@ -358,10 +360,13 @@ export class PgAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const pool = getDbPool();
+			const size = (await this.supportsDatabaseSize(pool))
+				? "pg_size_pretty(pg_database_size(d.datname))"
+				: "'unknown'";
 			const { rows } = await pool.query(`
 				SELECT
 					d.datname as name,
-					pg_size_pretty(pg_database_size(d.datname)) as size,
+					${size} as size,
 					pg_catalog.pg_get_userbyid(d.datdba) as owner,
 					pg_encoding_to_char(d.encoding) as encoding
 				FROM pg_catalog.pg_database d
@@ -1163,6 +1168,18 @@ export class PgAdapter extends BaseAdapter {
 	// =========================================================
 	// Private helpers
 	// =========================================================
+
+	/** CockroachDB speaks the PostgreSQL protocol but has no pg_database_size(). */
+	private supportsDatabaseSize(pool: PgPool): Promise<boolean> {
+		this.databaseSizeSupport ??= pool
+			.query(`SELECT to_regprocedure('pg_database_size(name)') IS NOT NULL AS "supported"`)
+			.then(({ rows }) => rows[0]?.supported === true)
+			.catch((e) => {
+				this.databaseSizeSupport = undefined;
+				throw e;
+			});
+		return this.databaseSizeSupport;
+	}
 
 	private async getPrimaryKeyColumns(pool: PgPool, tableName: string): Promise<string[]> {
 		const result = await pool.query(
