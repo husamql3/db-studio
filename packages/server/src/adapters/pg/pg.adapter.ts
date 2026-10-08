@@ -379,7 +379,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		const pool = getDbPool();
-		const { rows } = await pool.query("SELECT current_database() as database;");
+		const { rows } = await pool.query<DatabaseSchemaType>("SELECT current_database() AS db;");
 		if (!rows[0])
 			throw new HTTPException(500, { message: "No current database returned from database" });
 		return rows[0];
