@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate, Outlet, useLocation } from "@tanstack/react-router";
 import { Header } from "@/components/components/header";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
 export const Route = createFileRoute("/_pathlessLayout")({
@@ -9,16 +9,16 @@ export const Route = createFileRoute("/_pathlessLayout")({
 });
 
 function RouteComponent() {
-	const { dbType } = useDatabaseStore();
+	const isKeyValue = useDatabaseEngine()?.dataModel === "key-value";
 	const { pathname } = useLocation();
 	const section = pathname.split("/")[1];
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
-	if (dbType === "redis" && section !== "browser" && section !== "runner") {
+	if (isKeyValue && section !== "browser" && section !== "runner") {
 		return <Navigate to="/browser" />;
 	}
-	if (dbType !== "redis" && section === "browser") {
+	if (!isKeyValue && section === "browser") {
 		return <Navigate to="/" />;
 	}
 

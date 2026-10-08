@@ -9,7 +9,13 @@ export const getMysqlPool: typeof dbManager.getMysqlPool = (database) =>
 export const getMssqlPool: typeof dbManager.getMssqlPool = (database) =>
 	dbManager.getMssqlPool(database);
 
-export const getSqliteDb: typeof dbManager.getSqliteDb = () => dbManager.getSqliteDb();
+export const getSqliteClient: typeof dbManager.getSqliteClient = () =>
+	dbManager.getSqliteClient();
+
+export const withDuckdbConnection: typeof dbManager.withDuckdbConnection = (fn) =>
+	dbManager.withDuckdbConnection(fn);
+
+export const getOraclePool: typeof dbManager.getOraclePool = () => dbManager.getOraclePool();
 
 export const getMongoClient: typeof dbManager.getMongoClient = () =>
 	dbManager.getMongoClient();
@@ -28,3 +34,6 @@ export const getIsolatedRedisClient: typeof dbManager.getIsolatedRedisClient = (
 
 export const getRedisDefaultDb: typeof dbManager.getRedisDefaultDb = () =>
 	dbManager.getRedisDefaultDb();
+
+export const getClickhouseClient: typeof dbManager.getClickhouseClient = (database) =>
+	dbManager.getClickhouseClient(database);

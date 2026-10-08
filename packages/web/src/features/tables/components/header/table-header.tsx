@@ -1,7 +1,8 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
-import { useDatabaseCapability } from "@/hooks/use-database-capabilities";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import type { TableRecord } from "@/types/table.type";
+import { useRowMutation } from "../../hooks/use-row-mutation";
 import { AddRecordMenu } from "./add-record-menu";
 import { ClearBtn } from "./clear-btn";
 import { ColumnPreferencesMenu } from "./column-preferences-menu";
@@ -21,7 +22,9 @@ export const TableHeader = ({
 	tableName: string;
 }) => {
 	const isSchemaless = useIsSchemaless();
-	const canLiveMode = useDatabaseCapability("liveMode");
+	const engine = useDatabaseEngine();
+	const canLiveMode = engine?.liveMode ?? false;
+	const { rowMutationReason } = useRowMutation();
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background sticky top-0 left-0 right-0 z-0">
@@ -31,12 +34,16 @@ export const TableHeader = ({
 				{!isSchemaless && <FilterPopup tableName={tableName} />}
 				<ColumnPreferencesMenu tableName={tableName} />
 				<AddRecordMenu />
-				<SaveBtn setRowSelection={setRowSelection} />
+				<SaveBtn
+					setRowSelection={setRowSelection}
+					disabledReason={rowMutationReason}
+				/>
 				<ClearBtn />
 				<DeleteBtn
 					tableName={tableName}
 					selectedRows={selectedRows}
 					setRowSelection={setRowSelection}
+					disabledReason={rowMutationReason}
 				/>
 			</div>
 		</header>

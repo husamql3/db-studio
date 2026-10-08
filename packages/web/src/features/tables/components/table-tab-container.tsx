@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useTableCols } from "@/features/schema";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { useLiveTable } from "../hooks/use-live-table";
@@ -16,7 +16,7 @@ import { TableLoadingState } from "./table-loading-state";
 import { UnsavedRowGuardDialog } from "./unsaved-row-guard-dialog";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 	const { tableData, isLoadingTableData, errorTableData, refetchTableData } = useTableData({
 		tableName,
 	});
@@ -90,8 +90,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 		);
 	}
 
-	// if (dbType === "mongodb" || dbType === "redis") {
-	if (dbType === "mongodb") {
+	if (engine?.dataModel === "document") {
 		return (
 			<TableDocumentView
 				tableName={tableName}

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 	getMssqlPool: vi.fn(),
 	getMysqlPool: vi.fn(),
 	getRedisClient: vi.fn(),
-	getSqliteDb: vi.fn(),
+	getSqliteClient: vi.fn(),
 }));
 
 vi.mock("@/db-manager.js", () => mocks);
@@ -33,6 +33,16 @@ describe("database startup check", () => {
 			name: "PostgreSQL",
 			destination: "database.internal:5432",
 		});
+	});
+
+	it.each([
+		["pg", "cockroachdb://root@database.internal/app", "database.internal:26257"],
+		["mysql", "mariadb://root@database.internal/app", "database.internal:3306"],
+		["mysql", "tidb://root@database.internal/app", "database.internal:4000"],
+	])("uses the %s alias default port for %s", (type, url, destination) => {
+		mocks.getDbType.mockReturnValue(type);
+
+		expect(getDatabaseConnectionDetails(url).destination).toBe(destination);
 	});
 
 	it("bounds the PostgreSQL startup query", async () => {

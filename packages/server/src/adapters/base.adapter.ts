@@ -20,6 +20,7 @@ import type {
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	SortDirection,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -92,6 +93,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	// =========================================================
 
 	/**
+	 * Delete requests carry one key column per row, so on a composite key they would match
+	 * every row sharing that column's value. Refuse until the request addresses whole keys.
+	 */
+	protected assertDeletableKey(pkColumns: string[]): void {
+		if (pkColumns.length > 1)
+			throw new HTTPException(400, {
+				message:
+					"Deleting rows from tables with a composite primary key is not supported yet.",
+			});
+	}
+
+	/**
 	 * Wrap any thrown value in an HTTPException.
 	 * Detects connection errors for all supported databases and maps them to 503.
 	 * Concrete adapters can override to handle additional DB-specific error codes.
@@ -101,14 +114,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 
 		if (e instanceof Error) {
 			const err = e as { code?: string; errno?: number };
+			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
+			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
 
 			const isConnectionError =
-				err.code === "ECONNREFUSED" ||
-				err.code === "ENOTFOUND" ||
-				err.code === "ETIMEDOUT" ||
-				err.code === "ER_ACCESS_DENIED_ERROR" ||
-				err.code === "ER_BAD_HOST_ERROR" ||
-				err.code === "ECONNRESET" ||
+				code === "ECONNREFUSED" ||
+				code === "ENOTFOUND" ||
+				code === "ETIMEDOUT" ||
+				code === "ER_ACCESS_DENIED_ERROR" ||
+				code === "ER_BAD_HOST_ERROR" ||
+				code === "ECONNRESET" ||
 				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
 				err.errno === 2003 || // MySQL can't connect to server
 				err.errno === 2002 || // MySQL can't connect to local server
@@ -119,6 +134,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.includes("MongoNetworkError") ||
 				e.message.includes("MongoServerSelectionError") ||
 				e.message.includes("Login failed") ||
+				/HTTP status (401|403)\b/.test(e.message) || // libSQL / Turso: bad or missing authToken
 				e.message.startsWith("NOAUTH") || // Redis: auth required
 				e.message.startsWith("WRONGPASS") || // Redis: invalid credentials
 				e.message.startsWith("LOADING") || // Redis: dataset loading
@@ -126,6 +142,14 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.startsWith("READONLY") || // Redis: read-only replica
 				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
 				e.message.includes("Redis cluster mode is not supported") ||
+				e.message.includes("Could not set lock on file") || // DuckDB: file locked by another process
+				// Oracle: no listener, unknown service/SID, bad credentials, locked account,
+				// timeout or lost connection; NJS-5xx are the thin driver's network errors
+				/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/.test(
+					e.message,
+				) ||
+				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
+				e.message === "Timeout error." || // @clickhouse/client request timeout
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {
@@ -144,6 +168,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 */
 	protected resolveKeyColumns(params: UpdateRecordsSchemaType): string[] {
 		return params.primaryKeys?.length ? params.primaryKeys : [params.primaryKey];
+	}
+
+	/**
+	 * An update matched on part of a primary key would write every row sharing those
+	 * values, so the request must name every key column of the table.
+	 */
+	protected assertWholeKey(pkColumns: string[], keyColumns: string[]): void {
+		const missing = pkColumns.filter((column) => !keyColumns.includes(column));
+		if (missing.length > 0)
+			throw new HTTPException(400, {
+				message: `Updates must match on every primary key column; missing: ${missing.join(", ")}`,
+			});
 	}
 
 	/**
@@ -174,6 +210,26 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 
 		return [...groups.values()];
+	}
+
+	/**
+	 * ORDER BY terms for a page: the requested sorts, then every key column not already
+	 * sorted on, as tie-breakers in the leading sort's direction so paging stays stable.
+	 */
+	protected orderTerms<K>(
+		sort: GetTableDataParams["sort"] = [],
+		order: SortDirection,
+		keyColumns: K[],
+	): Array<{ column: string | K; direction: SortDirection }> {
+		const sorts =
+			typeof sort === "string" ? (sort ? [{ columnName: sort, direction: order }] : []) : sort;
+		const tieBreakerDirection = sorts[0]?.direction ?? order;
+		return [
+			...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
+			...keyColumns
+				.filter((key) => !sorts.some((s) => s.columnName === key))
+				.map((column) => ({ column, direction: tieBreakerDirection })),
+		];
 	}
 
 	/** Human-readable `col = value` list used in "record not found" errors. */

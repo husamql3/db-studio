@@ -232,15 +232,19 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add full support for Oracle databases",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Add support for Redis and Valkey key-value databases",
 				status: "completed",
 			},
 			{
-				title: "Add support for DuckDB and ClickHouse analytics databases",
-				status: "planned",
+				title: "Add support for DuckDB analytics databases",
+				status: "completed",
+			},
+			{
+				title: "Add support for ClickHouse analytics databases",
+				status: "completed",
 			},
 			{
 				title: "Add support for Elasticsearch and OpenSearch databases",

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import {
@@ -11,11 +11,18 @@ import {
 import { FeaturesGrid } from "@/components/features";
 import { InfiniteSlider } from "@/components/infinite-slider";
 import { Highlighter } from "@/components/ui/highlighter";
+import { ClickhouseIcon } from "@/components/ui/svgs/clickhouseIcon";
+import { CockroachdbIcon } from "@/components/ui/svgs/cockroachdbIcon";
+import { DuckdbIcon } from "@/components/ui/svgs/duckdbIcon";
+import { MariadbIconDark } from "@/components/ui/svgs/mariadbIconDark";
 import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
 import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
+import { OracleIcon } from "@/components/ui/svgs/oracleIcon";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
 import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
+import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
+import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +32,43 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 		seoHead({
 			title: "dbstudio – The modern pgAdmin alternative for every database",
 			description:
-				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis. Browse tables, edit records, and run queries from one UI.",
+				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and Turso. Browse tables, edit records, and run queries from one UI.",
 			path: "/",
 		}),
 });
 
 const EMAIL = "dbstudio@ql3.dev";
+
+/** Engines whose brand ships an icon only; the slider pairs each with its name. */
+const iconLogo = (name: string, Icon: typeof OracleIcon) => (
+	<>
+		<Icon
+			aria-hidden="true"
+			className="h-7 w-auto"
+		/>
+		<span className="text-2xl font-semibold tracking-tight">{name}</span>
+	</>
+);
+
+/** Slider logos, each linking to its section on /docs/databases. */
+const LOGOS = [
+	{
+		slug: "postgresql",
+		name: "PostgreSQL",
+		logo: <PostgresqlWordmarkDark className="h-10 w-auto" />,
+	},
+	{ slug: "mysql", name: "MySQL", logo: <MysqlWordmarkDark className="h-10 w-auto" /> },
+	{ slug: "mongodb", name: "MongoDB", logo: <MongodbWordmarkDark className="h-10 w-auto" /> },
+	{ slug: "sql-server", name: "SQL Server", logo: <SqlServer className="h-10 w-auto" /> },
+	{ slug: "sqlite", name: "SQLite", logo: <SQLite className="h-10 w-auto" /> },
+	{ slug: "turso", name: "Turso", logo: <TursoWordmarkDark className="h-8 w-auto" /> },
+	{ slug: "mariadb", name: "MariaDB", logo: iconLogo("MariaDB", MariadbIconDark) },
+	{ slug: "cockroachdb", name: "CockroachDB", logo: iconLogo("CockroachDB", CockroachdbIcon) },
+	{ slug: "tidb", name: "TiDB", logo: iconLogo("TiDB", TidbIcon) },
+	{ slug: "duckdb", name: "DuckDB", logo: iconLogo("DuckDB", DuckdbIcon) },
+	{ slug: "oracle", name: "Oracle", logo: iconLogo("Oracle", OracleIcon) },
+	{ slug: "clickhouse", name: "ClickHouse", logo: iconLogo("ClickHouse", ClickhouseIcon) },
+];
 
 function EmailCopyButton() {
 	const [copied, setCopied] = useState(false);
@@ -230,25 +268,18 @@ function App() {
 						speedOnHover={30}
 						className="py-8 border-t"
 					>
-						<div className="flex items-center justify-center h-10 px-2">
-							<PostgresqlWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<MysqlWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<MongodbWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<SqlServer className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<SQLite className="h-10 w-auto" />
-						</div>
+						{LOGOS.map(({ slug, name, logo }) => (
+							<Link
+								key={slug}
+								to="/docs/$"
+								params={{ _splat: "databases" }}
+								hash={slug}
+								aria-label={`${name} docs`}
+								className="flex items-center justify-center gap-2.5 h-10 px-2 transition-opacity duration-200 hover:opacity-70"
+							>
+								{logo}
+							</Link>
+						))}
 					</InfiniteSlider>
 
 					<PlusIcon

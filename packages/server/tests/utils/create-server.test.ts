@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockDao = vi.hoisted(() => ({
 	getDatabasesList: vi.fn().mockResolvedValue([]),
-	getCurrentDatabase: vi.fn().mockResolvedValue({ database: "test" }),
+	getCurrentDatabase: vi.fn().mockResolvedValue({ db: "test" }),
 	getDatabaseConnectionInfo: vi.fn().mockResolvedValue({
 		version: "PostgreSQL 15.2",
 		database: "test",

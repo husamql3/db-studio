@@ -11,14 +11,14 @@ import { useMemo } from "react";
 import { SidebarListTables } from "@/components/sidebar/sidebar-list-tables";
 import { SidebarSearchTables } from "@/components/sidebar/sidebar-search-tables";
 import { useTablesList } from "@/features/tables";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { CONSTANTS } from "@/utils/constants";
 
 const SidebarSchemaDropdown = () => {
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
 		defaultValue: "all",
 	});
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 	const { tablesList = [] } = useTablesList();
 
 	const schemas = useMemo(
@@ -34,7 +34,7 @@ const SidebarSchemaDropdown = () => {
 		[tablesList],
 	);
 
-	const showSchemaDropdown = dbType === "pg" && schemas.length > 1;
+	const showSchemaDropdown = (engine?.schemaSelector ?? false) && schemas.length > 1;
 
 	if (!showSchemaDropdown) return null;
 

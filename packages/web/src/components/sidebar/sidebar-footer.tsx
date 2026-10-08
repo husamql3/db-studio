@@ -12,6 +12,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Database, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDatabaseConnectionInfo, useDatabasesList } from "@/hooks/use-databases-list";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -19,13 +20,14 @@ export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
 	const { connectionInfo, isLoadingConnectionInfo } = useDatabaseConnectionInfo();
-	const { selectedDatabase, setSelectedDatabase, dbType } = useDatabaseStore();
+	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 	const navigate = useNavigate();
 	const [showDetails, setShowDetails] = useState(false);
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
-		navigate({ to: dbType === "redis" ? "/browser" : "/table", search: {} });
+		navigate({ to: engine?.dataModel === "key-value" ? "/browser" : "/table", search: {} });
 	};
 
 	const handleRefresh = async () => {

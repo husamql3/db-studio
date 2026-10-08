@@ -1,24 +1,46 @@
-import type { DatabaseTypeSchema } from "@db-studio/shared/types";
-import Database from "better-sqlite3";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+	type ClickHouseClient,
+	ClickHouseLogLevel,
+	createClient as createClickhouseClient,
+} from "@clickhouse/client";
+import {
+	DATABASE_ENGINES,
+	type DatabaseTypeSchema,
+	dbTypeFromProtocol,
+} from "@db-studio/shared/types";
+import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
+import {
+	createClient as createLibsqlClient,
+	type Client as LibsqlClient,
+} from "@libsql/client";
 import { Redis, type RedisOptions } from "ioredis";
 import { MongoClient, ObjectId } from "mongodb";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
+import oracledb from "oracledb";
 import { Pool, type PoolConfig } from "pg";
+import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
- * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB
+ * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, SQLite / libSQL, DuckDB and Redis
  */
 class DatabaseManager {
 	private pgPools: Map<string, Pool> = new Map();
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
-	private sqliteDb: Database.Database | null = null;
+	private sqliteClient: Promise<LibsqlClient> | null = null;
+	private duckdb: Promise<{ instance: DuckDBInstance; connection: DuckDBConnection }> | null =
+		null;
+	private duckdbQueue: Promise<unknown> = Promise.resolve();
+	private oraclePool: Promise<oracledb.Pool> | null = null;
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
+	private clickhouseClients: Map<string, ClickHouseClient> = new Map();
 	private baseConfig: {
 		url: string;
 		host: string;
@@ -43,29 +65,12 @@ class DatabaseManager {
 	 */
 	private detectDbType(url: URL): DatabaseTypeSchema {
 		const protocol = url.protocol.replace(":", "");
-		switch (protocol) {
-			case "postgres":
-			case "postgresql":
-				return "pg";
-			case "mysql":
-			case "mysql2":
-				return "mysql";
-			case "mssql":
-			case "sqlserver":
-				return "mssql";
-			case "mongodb":
-			case "mongodb+srv":
-				return "mongodb";
-			case "sqlite":
-				return "sqlite";
-			case "redis":
-			case "rediss":
-				return "redis";
-			default:
-				throw new Error(
-					`Unsupported database type: ${protocol}. Supported types: PostgreSQL (postgres://), MySQL (mysql://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://), Redis/Valkey (redis:// or rediss://).`,
-				);
-		}
+		const dbType = dbTypeFromProtocol(protocol);
+		if (dbType) return dbType;
+		const supported = Object.values(DATABASE_ENGINES)
+			.map(({ label, protocols }) => `${label} (${protocols.join(", ")})`)
+			.join(", ");
+		throw new Error(`Unsupported database type: ${protocol}. Supported types: ${supported}.`);
 	}
 
 	/**
@@ -77,36 +82,29 @@ class DatabaseManager {
 			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
 		}
 
-		// SQLite URLs use a file path that doesn't parse well as a standard URL
-		if (databaseUrl.startsWith("sqlite://")) {
+		// File-based engines (sqlite://, duckdb://) carry a file path that doesn't parse well as a standard URL
+		const fileDbType = dbTypeFromProtocol(databaseUrl.split("://")[0]);
+		if (fileDbType && DATABASE_ENGINES[fileDbType].defaultPort === null) {
 			this.baseConfig = {
 				url: databaseUrl,
 				host: "localhost",
 				port: 0,
 				user: "",
 				password: "",
-				dbType: "sqlite",
+				dbType: fileDbType,
 			};
 			return;
 		}
 
 		try {
-			const url = new URL(databaseUrl);
+			const driverUrl = toDriverUrl(databaseUrl);
+			const url = new URL(driverUrl);
 			const detectedType = this.detectDbType(url);
-			const defaultPort =
-				detectedType === "mysql"
-					? 3306
-					: detectedType === "mssql"
-						? 1433
-						: detectedType === "mongodb"
-							? 27017
-							: detectedType === "redis"
-								? 6379
-								: 5432;
 			this.baseConfig = {
-				url: databaseUrl,
+				url: driverUrl,
 				host: url.hostname,
-				port: Number.parseInt(url.port, 10) || defaultPort,
+				port:
+					Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
 				user: url.username,
 				password: url.password,
 				dbType: detectedType,
@@ -136,8 +134,8 @@ class DatabaseManager {
 			throw new Error("Base configuration not initialized");
 		}
 
-		// SQLite is a single-file database; the URL is already the full connection string
-		if (this.baseConfig.dbType === "sqlite") {
+		// File-based databases: the URL is already the full connection string
+		if (DATABASE_ENGINES[this.baseConfig.dbType].defaultPort === null) {
 			return this.baseConfig.url;
 		}
 
@@ -158,33 +156,137 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Get or create the SQLite database connection
+	 * Get or create the libSQL client for a local SQLite file or a remote libSQL / Turso database
 	 */
-	getSqliteDb(): Database.Database {
+	getSqliteClient(): Promise<LibsqlClient> {
 		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
-			throw new Error("DATABASE_URL is not a sqlite:// connection");
+			throw new Error("DATABASE_URL is not a sqlite:// or libsql:// connection");
 		}
+		const { url } = this.baseConfig;
+		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
+			this.sqliteClient = null;
+			throw error;
+		});
+		return this.sqliteClient;
+	}
 
-		if (!this.sqliteDb) {
-			// Strip "sqlite://" prefix to get the file path (e.g. sqlite:///path/db.sqlite → /path/db.sqlite)
-			const filePath = this.baseConfig.url.replace(/^sqlite:\/\//, "");
-			const db = new Database(filePath);
-			db.pragma("journal_mode = WAL");
-			db.pragma("foreign_keys = ON");
-			this.sqliteDb = db;
+	private async openSqliteClient(url: string): Promise<LibsqlClient> {
+		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
+		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
+		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
+		const libsqlUrl =
+			sqlitePath === null
+				? url
+				: sqlitePath === ":memory:"
+					? sqlitePath
+					: pathToFileURL(resolve(sqlitePath)).href;
+		const client = createLibsqlClient({ url: libsqlUrl, intMode: "bigint" });
+		if (client.protocol === "file") {
+			await client.execute("PRAGMA journal_mode = WAL");
+			await client.execute("PRAGMA foreign_keys = ON");
 		}
-
-		return this.sqliteDb;
+		return client;
 	}
 
 	/**
-	 * Close the SQLite database connection
+	 * Close the libSQL client
 	 */
-	closeSqliteDb(): void {
-		if (this.sqliteDb) {
-			this.sqliteDb.close();
-			this.sqliteDb = null;
+	async closeSqliteClient(): Promise<void> {
+		const client = this.sqliteClient;
+		this.sqliteClient = null;
+		if (client) (await client.catch(() => null))?.close();
+	}
+
+	/**
+	 * Run `fn` with the DuckDB connection, opening the file on first use. DuckDB holds one
+	 * connection per file, so calls are serialized: a transaction opened inside `fn` cannot
+	 * interleave with statements from a concurrent request.
+	 */
+	withDuckdbConnection<T>(fn: (connection: DuckDBConnection) => Promise<T>): Promise<T> {
+		const run = this.duckdbQueue.then(async () => fn((await this.openDuckdb()).connection));
+		this.duckdbQueue = run.catch(() => {});
+		return run;
+	}
+
+	private openDuckdb() {
+		if (!this.baseConfig || this.baseConfig.dbType !== "duckdb") {
+			throw new Error("DATABASE_URL is not a duckdb:// connection");
 		}
+		if (!this.duckdb) {
+			const filePath = this.baseConfig.url.replace(/^duckdb:\/\//, "");
+			this.duckdb = (async () => {
+				try {
+					// Checkpoint on every commit. DuckDB (1.4 and 1.5) cannot replay an ALTER TABLE on a
+					// table with a nextval() default from the WAL, so a process that exits before the
+					// next checkpoint leaves a file that no longer opens.
+					const instance = await DuckDBInstance.create(filePath, {
+						checkpoint_threshold: "0b",
+					});
+					return { instance, connection: await instance.connect() };
+				} catch (e) {
+					this.duckdb = null;
+					const message = e instanceof Error ? e.message : String(e);
+					if (message.includes("Could not set lock on file")) {
+						throw new Error(
+							`The DuckDB file "${filePath}" is locked by another process. Close the other program using it and try again. (${message})`,
+						);
+					}
+					throw e;
+				}
+			})();
+		}
+		return this.duckdb;
+	}
+
+	async closeDuckdb(): Promise<void> {
+		const open = this.duckdb;
+		this.duckdb = null;
+		const handle = await open?.catch(() => null);
+		handle?.connection.closeSync();
+		handle?.instance.closeSync();
+	}
+
+	/**
+	 * Get or create the Oracle pool for the service in the URL (`oracle://user:pass@host:1521/SERVICE`).
+	 * One pool per process: an Oracle service is a single database, so `db` never selects another pool.
+	 */
+	getOraclePool(): Promise<oracledb.Pool> {
+		if (!this.baseConfig || this.baseConfig.dbType !== "oracle") {
+			throw new Error("DATABASE_URL is not an oracle:// connection");
+		}
+		const { url, host, port, user, password } = this.baseConfig;
+		const service = decodeURIComponent(new URL(url).pathname.slice(1));
+		this.oraclePool ??= oracledb
+			.createPool({
+				user: decodeURIComponent(user),
+				password: decodeURIComponent(password),
+				connectString: `${host}:${port}/${service}`,
+				poolMin: 0,
+				poolMax: 10,
+				connectTimeout: 5,
+				// LTZ values are projected in the session zone; pin it so pooled connections agree.
+				sessionCallback: (connection, _tag, done) => {
+					connection
+						.execute("ALTER SESSION SET TIME_ZONE = '+00:00'")
+						.then(() =>
+							connection.execute(
+								`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS' NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9' NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM' NLS_NUMERIC_CHARACTERS = '.,'`,
+							),
+						)
+						.then(() => done(), done);
+				},
+			})
+			.catch((error: unknown) => {
+				this.oraclePool = null;
+				throw error;
+			});
+		return this.oraclePool;
+	}
+
+	async closeOraclePool(): Promise<void> {
+		const pool = this.oraclePool;
+		this.oraclePool = null;
+		await (await pool?.catch(() => null))?.close(0);
 	}
 
 	/**
@@ -211,22 +313,24 @@ class DatabaseManager {
 			// pg emits "connect" synchronously and hands the client straight to
 			// the caller, so this must enqueue in one shot: awaiting a lookup
 			// first would let the caller's query jump ahead of the SET. "public"
-			// stays first so it keeps winning a name collision, as before.
+			// stays first so it keeps winning a name collision, as before. A
+			// single set_config() rather than a DO block, because CockroachDB
+			// does not run PL/pgSQL.
 			pool.on("connect", (client) => {
 				client
 					.query(
-						`DO $$
-						DECLARE extra text;
-						BEGIN
-							SELECT string_agg(quote_ident(nspname), ', ' ORDER BY nspname) INTO extra
-							FROM pg_namespace
-							WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public')
-								AND nspname NOT LIKE 'pg_toast%'
-								AND nspname NOT LIKE 'pg_temp%';
-							IF extra IS NOT NULL THEN
-								EXECUTE 'SET search_path TO public, ' || extra;
-							END IF;
-						END $$;`,
+						`SELECT set_config(
+							'search_path',
+							COALESCE(
+								'public, ' || string_agg(quote_ident(nspname), ', ' ORDER BY nspname),
+								current_setting('search_path')
+							),
+							false
+						)
+						FROM pg_namespace
+						WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public', 'crdb_internal', 'pg_extension')
+							AND nspname NOT LIKE 'pg_toast%'
+							AND nspname NOT LIKE 'pg_temp%';`,
 					)
 					.catch((err: Error) => {
 						console.error(
@@ -332,6 +436,36 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Get or create a ClickHouse HTTP client for the specified database.
+	 * `clickhouse://` maps to http, `clickhouses://` to https (default port 8443).
+	 */
+	getClickhouseClient(database?: string): ClickHouseClient {
+		const url = new URL(this.buildConnectionString(database));
+		const dbName = decodeURIComponent(url.pathname.slice(1)) || "default";
+
+		const existing = this.clickhouseClients.get(dbName);
+		if (existing) return existing;
+
+		const tls = url.protocol === "clickhouses:";
+		const client = createClickhouseClient({
+			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
+			username: decodeURIComponent(url.username) || "default",
+			password: decodeURIComponent(url.password),
+			database: dbName,
+			request_timeout: 30_000,
+			clickhouse_settings: {
+				output_format_json_quote_64bit_integers: 1,
+				output_format_json_quote_decimals: 1,
+				wait_end_of_query: 1,
+			},
+			// Failures surface through the adapter's error mapping; the client's own log would duplicate them.
+			log: { level: ClickHouseLogLevel.OFF },
+		});
+		this.clickhouseClients.set(dbName, client);
+		return client;
+	}
+
+	/**
 	 * Get the appropriate pool based on database type (legacy/PG-only helper)
 	 */
 	getPool(database?: string): Pool {
@@ -379,7 +513,15 @@ class DatabaseManager {
 	 */
 	async closePool(connectionString: string): Promise<void> {
 		if (this.baseConfig?.dbType === "sqlite" && connectionString === this.baseConfig.url) {
-			this.closeSqliteDb();
+			await this.closeSqliteClient();
+			return;
+		}
+		if (this.baseConfig?.dbType === "duckdb" && connectionString === this.baseConfig.url) {
+			await this.closeDuckdb();
+			return;
+		}
+		if (this.baseConfig?.dbType === "oracle") {
+			await this.closeOraclePool();
 			return;
 		}
 		await this.closePgPool(connectionString);
@@ -392,7 +534,15 @@ class DatabaseManager {
 	 */
 	async closePoolByDatabase(database: string): Promise<void> {
 		if (this.baseConfig?.dbType === "sqlite") {
-			this.closeSqliteDb();
+			await this.closeSqliteClient();
+			return;
+		}
+		if (this.baseConfig?.dbType === "duckdb") {
+			await this.closeDuckdb();
+			return;
+		}
+		if (this.baseConfig?.dbType === "oracle") {
+			await this.closeOraclePool();
 			return;
 		}
 		const connectionString = this.buildConnectionString(database);
@@ -560,7 +710,9 @@ class DatabaseManager {
 			await this.mongoClient.close();
 			this.mongoClient = null;
 		}
-		this.closeSqliteDb();
+		await this.closeSqliteClient();
+		await this.closeDuckdb();
+		await this.closeOraclePool();
 		const redisClosePromises = Array.from(this.redisClients.entries()).map(
 			async ([index, client]) => {
 				await client.quit().catch(() => {});
@@ -570,6 +722,10 @@ class DatabaseManager {
 		await Promise.all(redisClosePromises);
 		this.redisClients.clear();
 		this.redisClusterChecked = false;
+		await Promise.all(
+			Array.from(this.clickhouseClients.values()).map((client) => client.close()),
+		);
+		this.clickhouseClients.clear();
 	}
 
 	/**
@@ -606,6 +762,13 @@ export const getMysqlPool = (database?: string): MysqlPool => {
  */
 export const getMssqlPool = async (database?: string): Promise<MssqlPool> => {
 	return databaseManager.getMssqlPool(database);
+};
+
+/**
+ * Get a ClickHouse client for the specified database
+ */
+export const getClickhouseClient = (database?: string): ClickHouseClient => {
+	return databaseManager.getClickhouseClient(database);
 };
 
 /**
@@ -651,10 +814,26 @@ const _getActivePools = (): string[] => {
 };
 
 /**
- * Get the SQLite database connection (single file, opened once)
+ * Get the libSQL client for the configured SQLite file or libSQL / Turso database
  */
-export const getSqliteDb = (): Database.Database => {
-	return databaseManager.getSqliteDb();
+export const getSqliteClient = (): Promise<LibsqlClient> => {
+	return databaseManager.getSqliteClient();
+};
+
+/**
+ * Run `fn` with the DuckDB connection (single file, opened once, calls serialized)
+ */
+export const withDuckdbConnection = <T>(
+	fn: (connection: DuckDBConnection) => Promise<T>,
+): Promise<T> => {
+	return databaseManager.withDuckdbConnection(fn);
+};
+
+/**
+ * Get or create the Oracle pool for the configured service
+ */
+export const getOraclePool = (): Promise<oracledb.Pool> => {
+	return databaseManager.getOraclePool();
 };
 
 /**

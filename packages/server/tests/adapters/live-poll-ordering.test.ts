@@ -12,28 +12,39 @@
  * 4. The backward (`direction: "desc"`) query must flip the tie-breaker too. Otherwise paging
  *    back does not return the page the user came from.
  *
- * SQLite runs in memory on every test run. MySQL and SQL Server run only when
- * MYSQL_TEST_URL / MSSQL_TEST_URL are set, e.g.
+ * SQLite runs on a temporary file and DuckDB in memory on every test run. MySQL, SQL Server and Oracle run
+ * only when MYSQL_TEST_URL / MSSQL_TEST_URL / ORACLE_TEST_URL are set, e.g.
  *   MYSQL_TEST_URL=mysql://root@127.0.0.1:3306/dbstudio
  *   MSSQL_TEST_URL=mssql://sa:DbStudio1!@127.0.0.1:1433/master
+ *   ORACLE_TEST_URL=oracle://dbstudio:dbstudio@127.0.0.1:1521/FREEPDB1
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import type { SortType } from "@db-studio/shared/types";
-import Database from "better-sqlite3";
+import { type Client as LibsqlClient, createClient as createLibsqlClient } from "@libsql/client";
+import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import sql from "mssql";
 import mysql from "mysql2/promise";
+import oracledb from "oracledb";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const connections = vi.hoisted(() => ({
 	getMysqlPool: vi.fn(),
 	getMssqlPool: vi.fn(),
-	getSqliteDb: vi.fn(),
+	getSqliteClient: vi.fn(),
+	withDuckdbConnection: vi.fn(),
+	getOraclePool: vi.fn(),
 }));
 
 vi.mock("@/adapters/connections.js", () => connections);
 
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
+import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
+import { OracleAdapter } from "@/adapters/oracle/oracle.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 
 const TABLE = "live_poll_items";
@@ -52,27 +63,56 @@ interface Engine {
 
 let mysqlPool: mysql.Pool | undefined;
 let mssqlPool: sql.ConnectionPool | undefined;
-let sqliteDb: Database.Database | undefined;
+let sqliteClient: LibsqlClient | undefined;
+const sqliteDir = mkdtempSync(path.join(tmpdir(), "db-studio-live-poll-"));
+let duckdbInstance: DuckDBInstance | undefined;
+let duckdb: DuckDBConnection | undefined;
+let oraclePool: oracledb.Pool | undefined;
 
 const engines: Engine[] = [
 	{
 		name: "sqlite",
-		url: ":memory:",
+		url: pathToFileURL(path.join(sqliteDir, "live-poll.db")).href,
 		adapter: new SqliteAdapter(),
 		connect: async (url) => {
-			sqliteDb = new Database(url);
-			connections.getSqliteDb.mockReturnValue(sqliteDb);
+			sqliteClient = createLibsqlClient({ url, intMode: "bigint" });
+			connections.getSqliteClient.mockResolvedValue(sqliteClient);
 		},
 		exec: async (statement) => {
-			sqliteDb?.exec(statement);
+			await sqliteClient?.execute(statement);
 		},
 		close: async () => {
-			sqliteDb?.close();
+			sqliteClient?.close();
+			rmSync(sqliteDir, { recursive: true, force: true });
 		},
 		schema: [
 			`DROP TABLE IF EXISTS ${TABLE}`,
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name TEXT NOT NULL)`,
 			`CREATE INDEX ${TABLE}_grp_rnk ON ${TABLE} (grp, rnk)`,
+		],
+	},
+	{
+		name: "duckdb",
+		url: ":memory:",
+		adapter: new DuckDbAdapter(),
+		connect: async (url) => {
+			duckdbInstance = await DuckDBInstance.create(url);
+			const connection = await duckdbInstance.connect();
+			duckdb = connection;
+			connections.withDuckdbConnection.mockImplementation(
+				(fn: (c: DuckDBConnection) => Promise<unknown>) => fn(connection),
+			);
+		},
+		exec: async (statement) => {
+			await duckdb?.run(statement);
+		},
+		close: async () => {
+			duckdb?.closeSync();
+			duckdbInstance?.closeSync();
+		},
+		schema: [
+			`DROP TABLE IF EXISTS ${TABLE}`,
+			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name VARCHAR NOT NULL)`,
 		],
 	},
 	{
@@ -117,6 +157,40 @@ const engines: Engine[] = [
 			`DROP TABLE IF EXISTS ${TABLE}`,
 			`CREATE TABLE ${TABLE} (id INT PRIMARY KEY NONCLUSTERED, grp INT NOT NULL, rnk INT NOT NULL, name NVARCHAR(50) NOT NULL)`,
 			`CREATE INDEX idx_grp_rnk ON ${TABLE} (grp, rnk) INCLUDE (name)`,
+		],
+	},
+	{
+		name: "oracle",
+		url: process.env.ORACLE_TEST_URL,
+		adapter: new OracleAdapter(),
+		connect: async (url) => {
+			const { username, password, hostname, port, pathname } = new URL(url);
+			oraclePool = await oracledb.createPool({
+				user: decodeURIComponent(username),
+				password: decodeURIComponent(password),
+				connectString: `${hostname}:${port || 1521}${pathname}`,
+			});
+			connections.getOraclePool.mockResolvedValue(oraclePool);
+		},
+		// Oracle folds unquoted names to uppercase; the adapter quotes the lowercase names used here.
+		exec: async (statement) => {
+			const connection = await oraclePool?.getConnection();
+			try {
+				await connection?.execute(
+					statement.replace(/(?<!")\b(live_poll_items|id|grp|rnk|name)\b(?!")/g, '"$1"'),
+					[],
+					{ autoCommit: true },
+				);
+			} finally {
+				await connection?.close();
+			}
+		},
+		close: async () => oraclePool?.close(0),
+		// Heap table: without a key in ORDER BY, rows come back in insertion order.
+		schema: [
+			`DROP TABLE IF EXISTS ${TABLE}`,
+			`CREATE TABLE ${TABLE} (id NUMBER(10) PRIMARY KEY, grp NUMBER(10) NOT NULL, rnk NUMBER(10) NOT NULL, name VARCHAR2(50) NOT NULL)`,
+			`CREATE INDEX idx_grp_rnk ON ${TABLE} (grp, rnk, name)`,
 		],
 	},
 ];

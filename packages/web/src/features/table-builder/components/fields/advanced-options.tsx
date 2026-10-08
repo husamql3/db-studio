@@ -11,7 +11,7 @@ import { Settings } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import type { AddTableFormData } from "@/features/table-builder/types";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import {
 	ADD_TABLE_OPTIONS,
 	ARRAY_COMPATIBLE_TYPES,
@@ -26,7 +26,7 @@ export const AdvancedOptions = ({
 	isDisabled: boolean;
 }) => {
 	const { control } = useFormContext<AddTableFormData>();
-	const dbType = useDatabaseStore((state) => state.dbType);
+	const isDocument = useDatabaseEngine()?.dataModel === "document";
 
 	const columnType = useWatch({ control, name: `fields.${index}.columnType` });
 	const isPrimaryKey = useWatch({ control, name: `fields.${index}.isPrimaryKey` });
@@ -37,7 +37,7 @@ export const AdvancedOptions = ({
 
 	const shouldShowOption = useCallback(
 		(optionName: string) => {
-			if (dbType === "mongodb") {
+			if (isDocument) {
 				switch (optionName) {
 					case "isIdentity":
 						return false;
@@ -59,7 +59,7 @@ export const AdvancedOptions = ({
 					return true;
 			}
 		},
-		[dbType, isPrimaryKey, columnType],
+		[isDocument, isPrimaryKey, columnType],
 	);
 
 	const checkedCount = useMemo(() => {

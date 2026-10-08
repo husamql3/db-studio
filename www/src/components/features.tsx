@@ -16,7 +16,8 @@ const features: Feature[] = [
 	{
 		icon: DatabaseIcon,
 		title: "Multi-Database",
-		description: "First-class support for PostgreSQL and MySQL, with more coming.",
+		description:
+			"PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and more from one UI.",
 	},
 	{
 		icon: TableIcon,

@@ -2,13 +2,9 @@ import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useQueriesStore } from "@/stores/queries.store";
-import {
-	MONGO_PLACEHOLDER_QUERY,
-	PGSQL_PLACEHOLDER_QUERY,
-	REDIS_PLACEHOLDER_QUERY,
-} from "@/utils/constants/placeholders";
+import { PLACEHOLDER_QUERIES } from "@/utils/constants/placeholders";
 import { QueryResultContainer } from "../components/query-result-container";
 import { RunnerHeader } from "../components/runner-header";
 import { useExecuteQuery } from "../hooks/use-execute-query";
@@ -40,19 +36,16 @@ export const RunnerScreen = ({
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 	const [currentQuery, setCurrentQuery] = useState<string>("");
 	const [lastExecutedQuery, setLastExecutedQuery] = useState("");
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
+	const editorLanguage = engine?.editorLanguage ?? "pgsql";
+	const isKeyValue = engine?.dataModel === "key-value";
 
 	const getInitialQuery = useCallback(() => {
 		if (initialQuery) return initialQuery;
-		const placeholder =
-			dbType === "mongodb"
-				? MONGO_PLACEHOLDER_QUERY
-				: dbType === "redis"
-					? REDIS_PLACEHOLDER_QUERY
-					: PGSQL_PLACEHOLDER_QUERY;
+		const placeholder = PLACEHOLDER_QUERIES[editorLanguage];
 		if (!query) return placeholder;
 		return query?.query ?? placeholder;
-	}, [query, dbType, initialQuery]);
+	}, [query, editorLanguage, initialQuery]);
 
 	const handleExecuteQuery = useCallback(
 		async (query: string) => {
@@ -61,7 +54,7 @@ export const RunnerScreen = ({
 				return;
 			}
 			const command = query.trim().match(/^\S+/)?.[0]?.toUpperCase();
-			if (dbType === "redis" && (command === "FLUSHDB" || command === "FLUSHALL")) {
+			if (isKeyValue && (command === "FLUSHDB" || command === "FLUSHALL")) {
 				const confirmation = window.prompt(
 					`This permanently deletes Redis data. Type ${command} to continue.`,
 				);
@@ -74,7 +67,7 @@ export const RunnerScreen = ({
 				setQueryResult({ data: result, queryId: queryId ?? "" });
 			}
 		},
-		[dbType, executeQuery, queryId],
+		[isKeyValue, executeQuery, queryId],
 	);
 
 	const handleButtonClick = useCallback(() => {
@@ -133,7 +126,7 @@ export const RunnerScreen = ({
 					initialQuery={getInitialQuery()}
 					queryId={queryId}
 					savedQuery={query?.query ?? ""}
-					language={dbType === "mongodb" ? "json" : dbType === "redis" ? "plaintext" : "pgsql"}
+					language={editorLanguage}
 					onQueryChange={setCurrentQuery}
 					onUnsavedChanges={setHasUnsavedChanges}
 					onExecuteQuery={handleExecuteQuery}

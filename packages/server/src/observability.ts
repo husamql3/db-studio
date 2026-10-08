@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import path from "node:path";
-import type { DatabaseTypeSchema } from "@db-studio/shared/types";
+import { DATABASE_TYPES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import * as Sentry from "@sentry/node";
 import { HTTPException } from "hono/http-exception";
 import { PostHog } from "posthog-node";
@@ -124,11 +124,10 @@ export const outcomeForStatus = (status: number): Outcome => {
 	return "success";
 };
 
+const DB_TYPE_PATH = new RegExp(`^/api/(${DATABASE_TYPES.join("|")})(?=/|$)`);
+
 export const operationForRequest = (method: string, pathname: string): string => {
-	const pathWithoutType = pathname.replace(
-		/^\/api\/(?:pg|mysql|mssql|mongodb|sqlite|redis)(?=\/|$)/,
-		"/api",
-	);
+	const pathWithoutType = pathname.replace(DB_TYPE_PATH, "/api");
 	const rules: Array<[RegExp, string]> = [
 		[/^\/api\/databases(?:\/|$)/, "databases"],
 		[/^\/api\/tables(?:\/|$)/, "tables"],
@@ -142,9 +141,7 @@ export const operationForRequest = (method: string, pathname: string): string =>
 };
 
 export const databaseTypeForRequest = (pathname: string): DatabaseTypeSchema | undefined =>
-	pathname.match(/^\/api\/(pg|mysql|mssql|mongodb|sqlite|redis)(?=\/|$)/)?.[1] as
-		| DatabaseTypeSchema
-		| undefined;
+	pathname.match(DB_TYPE_PATH)?.[1] as DatabaseTypeSchema | undefined;
 
 export const initServerObservability = (): void => {
 	if (!isTelemetryEnabled()) return;

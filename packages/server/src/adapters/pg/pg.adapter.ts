@@ -45,6 +45,8 @@ import {
 type PgPool = ReturnType<typeof getDbPool>;
 
 export class PgAdapter extends BaseAdapter {
+	private databaseSizeSupport?: Promise<boolean>;
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
@@ -240,11 +242,11 @@ export class PgAdapter extends BaseAdapter {
 			sortColumns = [sort];
 		}
 
+		const keyColumns = pkColumns.length ? pkColumns : ["ctid"];
 		const cursorColumns = [
 			...sortColumns,
-			...pkColumns.filter((pk) => !sortColumns.includes(pk)),
+			...keyColumns.filter((key) => !sortColumns.includes(key)),
 		];
-		if (cursorColumns.length === 0) cursorColumns.push("ctid");
 
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
@@ -295,26 +297,45 @@ export class PgAdapter extends BaseAdapter {
 			effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
 		}
 
+		if (sortClause) {
+			const tieBreakers = keyColumns.filter((key) => !sortColumns.includes(key));
+			const tieDirection =
+				(effectiveSortDirection === "desc") !== (direction === "desc") ? "DESC" : "ASC";
+			if (tieBreakers.length) {
+				effectiveSortClause += `, ${tieBreakers.map((key) => `${this.quoteIdentifier(key)} ${tieDirection}`).join(", ")}`;
+			}
+		}
+
 		const countRes = await pool.query(
 			`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
 			filterValues,
 		);
 		const total = Number(countRes.rows[0].total);
 
+		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
+		// selected explicitly; ctid is a reserved system column name, so selecting it by name
+		// cannot shadow a user column.
+		const usesCtid = cursorColumns.includes("ctid");
+		const extraSelect = [...pkColumns.map((col) => `"${col}"`), ...(usesCtid ? ["ctid"] : [])];
+
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
-			`SELECT * FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
+			`SELECT ${["*", ...extraSelect].join(", ")} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
 			[...filterValues, ...cursorValues, limit + 1],
 		);
 
-		const hasColumns = dataRes.fields && dataRes.fields.length > 0;
-		let rows = hasColumns
-			? dataRes.rows.filter((row) => Object.keys(row).length > 0)
-			: dataRes.rows;
+		let rawRows: Record<string, unknown>[] = dataRes.rows;
+		const hasMore = rawRows.length > limit;
+		if (hasMore) rawRows = rawRows.slice(0, limit);
+		if (direction === "desc") rawRows = rawRows.reverse();
 
-		const hasMore = rows.length > limit;
-		if (hasMore) rows = rows.slice(0, limit);
-		if (direction === "desc") rows = rows.reverse();
+		const rows = rawRows
+			.map((row) => {
+				if (!usesCtid) return row;
+				const { ctid: _ctid, ...rest } = row;
+				return rest;
+			})
+			.filter((row) => Object.keys(row).length > 0);
 
 		const createCursor = (row: Record<string, unknown>): CursorData => ({
 			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
@@ -324,9 +345,9 @@ export class PgAdapter extends BaseAdapter {
 		let nextCursor: string | null = null;
 		let prevCursor: string | null = null;
 
-		if (rows.length > 0) {
-			const firstRow = rows[0];
-			const lastRow = rows[rows.length - 1];
+		if (rawRows.length > 0) {
+			const firstRow = rawRows[0];
+			const lastRow = rawRows[rawRows.length - 1];
 			if (direction === "asc") {
 				if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
 				if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
@@ -358,10 +379,13 @@ export class PgAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const pool = getDbPool();
+			const size = (await this.supportsDatabaseSize(pool))
+				? "pg_size_pretty(pg_database_size(d.datname))"
+				: "'unknown'";
 			const { rows } = await pool.query(`
 				SELECT
 					d.datname as name,
-					pg_size_pretty(pg_database_size(d.datname)) as size,
+					${size} as size,
 					pg_catalog.pg_get_userbyid(d.datdba) as owner,
 					pg_encoding_to_char(d.encoding) as encoding
 				FROM pg_catalog.pg_database d
@@ -379,7 +403,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		const pool = getDbPool();
-		const { rows } = await pool.query("SELECT current_database() as database;");
+		const { rows } = await pool.query<DatabaseSchemaType>("SELECT current_database() AS db;");
 		if (!rows[0])
 			throw new HTTPException(500, { message: "No current database returned from database" });
 		return rows[0];
@@ -393,7 +417,7 @@ export class PgAdapter extends BaseAdapter {
 				current_database() as database,
 				current_user as user,
 				inet_server_addr() as host,
-				inet_server_port() as port,
+				inet_server_port()::int4 as port,
 				(SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) as active_connections,
 				(SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max_connections;
 		`);
@@ -457,16 +481,19 @@ export class PgAdapter extends BaseAdapter {
 		const { tableName, fields, foreignKeys } = tableData;
 		const pool = getDbPool(db);
 
+		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
 			let def = `"${field.columnName}" ${field.columnType}`;
 			if (field.isArray) def += "[]";
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
+			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 			if (!field.isNullable) def += " NOT NULL";
 			if (field.isIdentity) def += " GENERATED ALWAYS AS IDENTITY";
 			if (field.defaultValue && !field.isIdentity) def += ` DEFAULT ${field.defaultValue}`;
 			return def;
 		});
+		if (primaryKey.length > 1)
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map((fk: ForeignKeyDataType) => {
@@ -954,6 +981,7 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const keyColumns = this.resolveKeyColumns(params);
+		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		await pool.query("BEGIN");
@@ -996,6 +1024,7 @@ export class PgAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
@@ -1031,6 +1060,7 @@ export class PgAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		await pool.query("BEGIN");
@@ -1163,6 +1193,18 @@ export class PgAdapter extends BaseAdapter {
 	// =========================================================
 	// Private helpers
 	// =========================================================
+
+	/** CockroachDB speaks the PostgreSQL protocol but has no pg_database_size(). */
+	private supportsDatabaseSize(pool: PgPool): Promise<boolean> {
+		this.databaseSizeSupport ??= pool
+			.query(`SELECT to_regprocedure('pg_database_size(name)') IS NOT NULL AS "supported"`)
+			.then(({ rows }) => rows[0]?.supported === true)
+			.catch((e) => {
+				this.databaseSizeSupport = undefined;
+				throw e;
+			});
+		return this.databaseSizeSupport;
+	}
 
 	private async getPrimaryKeyColumns(pool: PgPool, tableName: string): Promise<string[]> {
 		const result = await pool.query(

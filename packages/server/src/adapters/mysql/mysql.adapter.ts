@@ -49,6 +49,8 @@ const MYSQL_FK_VIOLATION = 1451;
 const MYSQL_FK_DEPENDENCY = 1217;
 
 export class MySqlAdapter extends BaseAdapter {
+	private mariaDb?: Promise<boolean>;
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
@@ -558,11 +560,21 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
 		const pool = getMysqlPool(db);
+		// MariaDB stores JSON as LONGTEXT guarded by a json_valid() column check.
+		const isJsonCheckedText = (await this.isMariaDb(pool))
+			? `EXISTS (
+			    SELECT 1 FROM information_schema.CHECK_CONSTRAINTS cc
+			    WHERE cc.CONSTRAINT_SCHEMA = c.TABLE_SCHEMA
+			      AND cc.TABLE_NAME = c.TABLE_NAME
+			      AND cc.CHECK_CLAUSE = CONCAT('json_valid(\`', c.COLUMN_NAME, '\`)')
+			  )`
+			: "FALSE";
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT
 			  c.COLUMN_NAME            AS columnName,
 			  c.DATA_TYPE              AS dataType,
 			  c.COLUMN_TYPE            AS columnType,
+			  ${isJsonCheckedText}     AS isJsonText,
 			  (c.IS_NULLABLE = 'YES')  AS isNullable,
 			  c.COLUMN_DEFAULT         AS columnDefault,
 			  (c.COLUMN_KEY = 'PRI')   AS isPrimaryKey,
@@ -590,6 +602,7 @@ export class MySqlAdapter extends BaseAdapter {
 				columnName: string;
 				dataType: string;
 				columnType: string;
+				isJsonText: number | boolean;
 				isNullable: number | boolean;
 				columnDefault: string | null;
 				isPrimaryKey: number | boolean;
@@ -599,10 +612,13 @@ export class MySqlAdapter extends BaseAdapter {
 			}>
 		).map((r) => {
 			const isEnum = r.dataType === "enum" || r.dataType === "set";
+			const [dataType, columnType] = r.isJsonText
+				? ["json", "json"]
+				: [r.dataType, r.columnType];
 			return {
 				columnName: r.columnName,
-				dataType: mapMysqlToDataType(r.dataType, r.columnType),
-				dataTypeLabel: standardizeMysqlDataTypeLabel(r.dataType, r.columnType),
+				dataType: mapMysqlToDataType(dataType, columnType),
+				dataTypeLabel: standardizeMysqlDataTypeLabel(dataType, columnType),
 				isNullable: Boolean(r.isNullable),
 				columnDefault: r.columnDefault ?? null,
 				isPrimaryKey: Boolean(r.isPrimaryKey),
@@ -762,6 +778,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
 		const keyColumns = this.resolveKeyColumns(params);
+		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const connection = await pool.getConnection();
@@ -812,6 +829,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const placeholders = pkValues.map(() => "?").join(", ");
@@ -850,6 +868,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const connection = await pool.getConnection();
@@ -1037,6 +1056,17 @@ export class MySqlAdapter extends BaseAdapter {
 	// =========================================================
 	// Private helpers
 	// =========================================================
+
+	private isMariaDb(pool: MysqlPool): Promise<boolean> {
+		this.mariaDb ??= pool
+			.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
+			.then(([rows]) => Number(rows[0]?.mariadb) === 1)
+			.catch((e) => {
+				this.mariaDb = undefined;
+				throw e;
+			});
+		return this.mariaDb;
+	}
 
 	private async getPrimaryKeyColumns(pool: MysqlPool, tableName: string): Promise<string[]> {
 		const [rows] = await pool.execute<RowDataPacket[]>(

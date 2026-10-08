@@ -14,6 +14,7 @@ import { TableSelector } from "../components/table-selector";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { getRecordKey } from "../utils/table-diff";
 import { useColumnPreferences } from "./use-column-preferences";
+import { useRowMutation } from "./use-row-mutation";
 
 export const useTableModel = ({
 	tableName,
@@ -30,6 +31,7 @@ export const useTableModel = ({
 }) => {
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
+	const { canMutateRows, rowMutationReason } = useRowMutation();
 
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 	const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
@@ -81,6 +83,10 @@ export const useTableModel = ({
 		setRowSelection({});
 	}, [tableName]);
 
+	useEffect(() => {
+		if (!canMutateRows) setEditingCell(null);
+	}, [canMutateRows]);
+
 	const sorting = useMemo(() => {
 		if (columnName && order) {
 			return [{ id: columnName, desc: order === "desc" }];
@@ -92,13 +98,19 @@ export const useTableModel = ({
 		setFocusedCell({ rowIndex, columnId });
 	}, []);
 
-	const handleCellDoubleClick = useCallback((rowIndex: number, columnId: string) => {
-		setEditingCell({ rowIndex, columnId });
-	}, []);
+	const handleCellDoubleClick = useCallback(
+		(rowIndex: number, columnId: string) => {
+			if (canMutateRows) setEditingCell({ rowIndex, columnId });
+		},
+		[canMutateRows],
+	);
 
-	const handleCellEditingStart = useCallback((rowIndex: number, columnId: string) => {
-		setEditingCell({ rowIndex, columnId });
-	}, []);
+	const handleCellEditingStart = useCallback(
+		(rowIndex: number, columnId: string) => {
+			if (canMutateRows) setEditingCell({ rowIndex, columnId });
+		},
+		[canMutateRows],
+	);
 
 	const handleCellEditingStop = useCallback(() => {
 		setEditingCell(null);
@@ -117,6 +129,8 @@ export const useTableModel = ({
 	const tableMeta = useMemo(
 		() => ({
 			editScope: tableName,
+			canMutateRows,
+			rowMutationReason,
 			focusedCell,
 			editingCell,
 			onCellClick: handleCellClick,
@@ -135,6 +149,8 @@ export const useTableModel = ({
 		}),
 		[
 			tableName,
+			canMutateRows,
+			rowMutationReason,
 			focusedCell,
 			editingCell,
 			handleCellClick,

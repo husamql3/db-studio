@@ -29,7 +29,11 @@ bun run init-db:mysql   # MySQL
 bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
+bun run init-db:libsql  # libSQL server (sqld) in Docker
 bun run init-db:redis   # Redis
+bun run init-db:duckdb  # DuckDB
+bun run init-db:oracle  # Oracle
+bun run init-db:clickhouse  # ClickHouse
 ```
 
 ### Running a single test (server package)
@@ -61,7 +65,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
 - **Hono app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, validates `/:dbType`, and serves the frontend build.
 - **DB connections**: `src/db-manager.ts` owns connection creation and URL parsing; adapters import connection helpers through `src/adapters/connections.ts`.
-- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis all route through registered adapters.
+- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse all route through registered adapters.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
 - **Adapter registry**: `src/adapters/adapter.registry.ts` exports `adapterRegistry` and `getAdapter(dbType)`. `src/adapters/register.ts` registers each adapter before routes mount.
 - **Routes**: `src/routes/` — each route file uses `new Hono<RouteEnv>()` (not `AppType`) to avoid circular imports and to access `c.get("dbType")`
@@ -129,7 +133,8 @@ Three export paths:
 
 ### Key types
 
-- `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"]` in `database.types.ts`
+- `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]` in `database.types.ts`
+- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, protocols, default port, data model, editor language, Live mode, schema selector); web reads it via `useDatabaseEngine()`
 - `RouteEnv` — Hono env type that provides `c.get("dbType")`
 - `CellVariant` / `DataTypes` — used for table cell rendering
 
@@ -148,7 +153,11 @@ Three export paths:
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
 - **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. `src/dao/mongo/**` is dead code — it was kept alive only by a mock-heavy DAO test suite that has since been deleted, and nothing outside tests imports it. Do not add to it; it is pending removal.
+- **SQLite / libSQL specifics**: one `SqliteAdapter` on `@libsql/client` (`intMode: "bigint"`, rows normalized in `toRows`) serves `sqlite://` files (opened as `file:` URLs) and remote `libsql://` / Turso URLs (`?authToken=`, `?tls=0` for local sqld) under dbType `sqlite`; `PRAGMA foreign_keys` does not persist between requests on a remote server and is a no-op inside a transaction, so the table rebuild in `alterColumn` goes through `client.migrate()`.
 - **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
+- **DuckDB specifics**: file-based like SQLite (`duckdb:///abs/path.duckdb` or `duckdb://./rel.duckdb`); one `DuckDBInstance` + connection per file via `@duckdb/node-api`, and every call goes through `withDuckdbConnection()`, which serializes access so transactions cannot interleave; the instance checkpoints on every commit (`checkpoint_threshold: "0b"`) because DuckDB cannot replay an `ALTER TABLE` on a table with a `nextval()` default from the WAL; a file locked by another process surfaces as 503; `"ident"` quoting, `?` placeholders; rows go through one boundary (`getRowObjectsJson()`, then safe-range BIGINT/HUGEINT to numbers); keyset pagination sorts NULLS LAST in both directions and builds a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …` honouring each column's direction and NULLs (`buildKeysetPredicate`), never a row-value tuple comparison; only the current schema (`main`) is listed; identity/serial columns become a `<table>_<column>_seq` sequence default; FK actions CASCADE/SET NULL/SET DEFAULT, ADD COLUMN with UNIQUE/PRIMARY KEY, and ALTER on tables other tables reference return 400; `forceDeleteRecords` uses the ordinary single-statement delete and refuses 400 when dependent rows exist, because DuckDB cannot delete a parent and its children in one atomic transaction; implemented in `DuckDbAdapter`.
+- **Oracle specifics**: `oracle://user:pass@host:1521/SERVICE` via `oracledb` in Thin mode (no Instant Client), one pool per process; the connected container (`CON_NAME`) is the only database and only the user's own tables (`USER_TABLES`) are listed; every identifier is quoted as stored, so `"ident"` quoting preserves case, and names containing `"` are rejected with 400 because Oracle cannot quote them; `:n` bind placeholders; OFFSET/FETCH pagination with an offset cursor like MSSQL, ordered by the user sort then the primary key (`ROWID` without one); `text` becomes `VARCHAR2(4000)`, not CLOB, so it stays sortable and comparable; DDL auto-commits, so every schema operation is a single statement that cannot half-apply; `oracleServerVersion >= 23ai` gates native `BOOLEAN` and `JSON` (older releases get `NUMBER(1)` and `CLOB`); array columns, ON UPDATE actions and ON DELETE SET DEFAULT return 400; implemented in `OracleAdapter`. Adapter-owned reads return `DATE` and `TIMESTAMP` columns as strings and preserve nine fractional digits. The query runner returns 400 for native temporal result columns because Thin mode converts them to millisecond-only JavaScript `Date` values. Select those columns with `TO_CHAR` and an explicit Oracle format.
+- **ClickHouse specifics**: OLAP engine over the HTTP interface via `@clickhouse/client` (`clickhouse://` → http, `clickhouses://` → https, one client per database in `db-manager.ts`); every request sets `wait_end_of_query = 1` so late server failures reach the API; row counts come from `system.tables.total_rows` (no `count()` scans); `isPrimaryKey` marks sorting-key columns, which are not unique, so pagination is OFFSET-based ordered by user sort, then the sorting key, then `_part`/`_part_offset`; inserts use `JSONEachRow`; grid updates, deletes, and force deletes return 400 because sorting keys cannot identify one row safely, while explicit query-runner mutations remain available and wait with `mutations_sync = 2`; created tables are `MergeTree ORDER BY (<pk>)`, identity/serial columns become `UInt64 DEFAULT generateSnowflakeID()`; no FKs or UNIQUE (400); JSON output quotes 64/128/256-bit integers and decimals so their exact values cross the JavaScript boundary as strings; implemented in `ClickhouseAdapter`.
 
 ## Patterns
 
@@ -181,7 +190,7 @@ export const databaseSchema = z.object({
 });
 export type DatabaseSchemaType = z.infer<typeof databaseSchema>;
 
-export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"] as const;
+export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"] as const;
 export const databaseTypeSchema = z.enum(DATABASE_TYPES);
 export type DatabaseTypeSchema = z.infer<typeof databaseTypeSchema>;
 ```
@@ -410,6 +419,7 @@ export class PgAdapter extends BaseAdapter {
 3. Add connection handling in `src/db-manager.ts` and expose adapter-facing helpers through `src/adapters/connections.ts`.
 4. Register the adapter in `src/adapters/register.ts`: `adapterRegistry.register("<dbname>", new MyAdapter())`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols, default port, data model, editor language, Live mode support and schema selector. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 
