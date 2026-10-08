@@ -13,7 +13,7 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { AddTableFormData } from "@/features/table-builder/types";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import {
 	ARRAY_COMPATIBLE_TYPES,
 	MONGO_TYPES,
@@ -23,8 +23,8 @@ import {
 
 export const ColumnTypeField = ({ index }: { index: number }) => {
 	const [typePickerOpen, setTypePickerOpen] = useState(false);
-	const dbType = useDatabaseStore((state) => state.dbType);
-	const typeGroups = dbType === "mongodb" ? MONGO_TYPES : PSQL_TYPES;
+	const isDocument = useDatabaseEngine()?.dataModel === "document";
+	const typeGroups = isDocument ? MONGO_TYPES : PSQL_TYPES;
 
 	const {
 		control,
@@ -85,12 +85,12 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 												onSelect={() => {
 													field.onChange(type.value);
 
-													if (dbType !== "mongodb" && SERIAL_TYPES.includes(type.value)) {
+													if (!isDocument && SERIAL_TYPES.includes(type.value)) {
 														setValue(`fields.${index}.isIdentity`, false);
 													}
 
 													if (
-														dbType !== "mongodb" &&
+														!isDocument &&
 														type.value &&
 														!ARRAY_COMPATIBLE_TYPES.includes(type.value)
 													) {

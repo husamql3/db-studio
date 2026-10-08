@@ -1,15 +1,15 @@
 import { Button } from "@db-studio/ui/button";
 import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { TABS } from "@/utils/constants";
 
 export const Tabs = () => {
 	const { pathname } = useLocation();
 	const params = useParams({ strict: false });
 	const currentRoute = pathname.split("/")[1] || "table";
-	const { dbType } = useDatabaseStore();
-	const routes = dbType === "redis" ? (["browser", "runner"] as const) : TABS;
+	const engine = useDatabaseEngine();
+	const routes = engine?.dataModel === "key-value" ? (["browser", "runner"] as const) : TABS;
 	const activeTable = (params as { table?: string }).table;
 
 	return (

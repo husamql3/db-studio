@@ -1,12 +1,14 @@
-export const PGSQL_PLACEHOLDER_QUERY = `-- Your query here...
-`;
+import type { DatabaseEngine } from "@db-studio/shared/types";
 
-export const MONGO_PLACEHOLDER_QUERY = `{
+export const PLACEHOLDER_QUERIES: Record<DatabaseEngine["editorLanguage"], string> = {
+	pgsql: `-- Your query here...
+`,
+	json: `{
   "collection": "your_collection",
   "operation": "find",
   "filter": {},
   "sort": { "_id": 1 },
   "limit": 50
-}`;
-
-export const REDIS_PLACEHOLDER_QUERY = "PING";
+}`,
+	plaintext: "PING",
+};

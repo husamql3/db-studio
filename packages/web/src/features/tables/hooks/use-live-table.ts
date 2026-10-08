@@ -1,6 +1,6 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useDatabaseCapability } from "@/hooks/use-database-capabilities";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
@@ -26,7 +26,7 @@ export const useLiveTable = ({
 	refetchTableData,
 	isEditingCell = false,
 }: UseLiveTableProps) => {
-	const canLiveMode = useDatabaseCapability("liveMode");
+	const canLiveMode = useDatabaseEngine()?.liveMode ?? false;
 
 	const {
 		isLive,

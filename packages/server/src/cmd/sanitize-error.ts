@@ -1,5 +1,10 @@
-const CONNECTION_URL =
-	/\b(?:postgres(?:ql)?|cockroachdb|mysql2?|mariadb|tidb|mssql|sqlserver|mongodb(?:\+srv)?|sqlite|rediss?):\/\/\S+/gi;
+import { DATABASE_ENGINES } from "@db-studio/shared/types";
+
+const SCHEMES = Object.values(DATABASE_ENGINES)
+	.flatMap(({ protocols }) => protocols)
+	.map((protocol) => protocol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+	.join("|");
+const CONNECTION_URL = new RegExp(`\\b(?:${SCHEMES}):\\/\\/\\S+`, "gi");
 
 /**
  * Redact database connection URLs from error text before printing them.

@@ -1,4 +1,4 @@
-import type { DatabaseTypeSchema } from "./database.types";
+import type { DatabaseTypeSchema } from "./database.types.js";
 
 export type DatabaseSchema = {
 	dbType: DatabaseTypeSchema;

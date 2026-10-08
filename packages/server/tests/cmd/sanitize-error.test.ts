@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 
+// Failure modes for the scheme alternation built from the engine registry:
+// - an alias scheme (cockroachdb, mariadb, tidb) is missing, so its credentials print verbatim
+// - the `+` in `mongodb+srv` is left unescaped and turns into a quantifier, so SRV URIs leak
+// - the TLS variant `rediss` is dropped while `redis` is kept
+// - a non-database scheme such as https:// is redacted, mangling ordinary error text
+
 describe("sanitizeErrorMessage", () => {
 	it("redacts a bare connection URL", () => {
 		expect(
@@ -40,6 +46,24 @@ describe("sanitizeErrorMessage", () => {
 	it("redacts credentials containing parens or commas", () => {
 		expect(sanitizeErrorMessage("auth failed for postgresql://u:p)x,y@localhost:5432/db")).toBe(
 			"auth failed for the configured database",
+		);
+	});
+
+	it.each([
+		"mongodb+srv://user:secret@cluster0.example.net/app",
+		"rediss://default:secret@cache.example.com:6380",
+		"cockroachdb://root:secret@crdb:26257/defaultdb",
+		"mariadb://root:secret@maria:3306/app",
+		"tidb://root:secret@tidb:4000/app",
+	])("redacts %s", (url) => {
+		expect(sanitizeErrorMessage(`connect failed: ${url}`)).toBe(
+			"connect failed: the configured database",
+		);
+	});
+
+	it("keeps non-database URLs", () => {
+		expect(sanitizeErrorMessage("see https://dbstudio.sh/docs")).toBe(
+			"see https://dbstudio.sh/docs",
 		);
 	});
 

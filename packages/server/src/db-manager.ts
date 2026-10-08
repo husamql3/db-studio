@@ -1,4 +1,8 @@
-import type { DatabaseTypeSchema } from "@db-studio/shared/types";
+import {
+	DATABASE_ENGINES,
+	type DatabaseTypeSchema,
+	dbTypeFromProtocol,
+} from "@db-studio/shared/types";
 import Database from "better-sqlite3";
 import { Redis, type RedisOptions } from "ioredis";
 import { MongoClient, ObjectId } from "mongodb";
@@ -7,7 +11,7 @@ import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
 import { Pool, type PoolConfig } from "pg";
-import { resolveUrlScheme, toDriverUrl } from "@/utils/parse-database-url.js";
+import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, and MongoDB
@@ -43,11 +47,13 @@ class DatabaseManager {
 	 * Detect database type from URL protocol
 	 */
 	private detectDbType(url: URL): DatabaseTypeSchema {
-		const scheme = resolveUrlScheme(url);
-		if (scheme) return scheme.dbType;
-		throw new Error(
-			`Unsupported database type: ${url.protocol.replace(":", "")}. Supported types: PostgreSQL (postgres://), CockroachDB (cockroachdb://), MySQL (mysql://), MariaDB (mariadb://), TiDB (tidb://), SQL Server (mssql://), MongoDB (mongodb://), SQLite (sqlite://), Redis/Valkey (redis:// or rediss://).`,
-		);
+		const protocol = url.protocol.replace(":", "");
+		const dbType = dbTypeFromProtocol(protocol);
+		if (dbType) return dbType;
+		const supported = Object.values(DATABASE_ENGINES)
+			.map(({ label, protocols }) => `${label} (${protocols.join(", ")})`)
+			.join(", ");
+		throw new Error(`Unsupported database type: ${protocol}. Supported types: ${supported}.`);
 	}
 
 	/**
@@ -79,7 +85,8 @@ class DatabaseManager {
 			this.baseConfig = {
 				url: driverUrl,
 				host: url.hostname,
-				port: Number.parseInt(url.port, 10) || (resolveUrlScheme(url)?.defaultPort ?? 5432),
+				port:
+					Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
 				user: url.username,
 				password: url.password,
 				dbType: detectedType,

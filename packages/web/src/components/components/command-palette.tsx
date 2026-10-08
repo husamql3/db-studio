@@ -77,7 +77,7 @@ export function CommandPalette() {
 		pathname,
 		activeTable,
 		dbType,
-		isRedis,
+		isKeyValue,
 		isSchemaless,
 		canCreateTable,
 		canEditRecords,
@@ -185,7 +185,7 @@ export function CommandPalette() {
 				{mode === "all" && (
 					<>
 						{/* Quick Access - Tables shortcut */}
-						{!isRedis && (
+						{!isKeyValue && (
 							<>
 								<CommandGroup heading="Quick Access">
 									<CommandItem
@@ -212,7 +212,7 @@ export function CommandPalette() {
 
 						{/* Navigation */}
 						<CommandGroup heading="Go to">
-							{!isRedis && (
+							{!isKeyValue && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/" }))}
 									keywords={["go", "navigate", "home", "tables"]}
@@ -238,7 +238,7 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							{!isRedis && (
+							{!isKeyValue && (
 								<CommandItem
 									disabled={!activeTable || isSchemaless}
 									onSelect={() => {
@@ -267,7 +267,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isRedis && (
+							{isKeyValue && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/browser" }))}
 									keywords={["go", "navigate", "redis", "browser", "keys"]}
@@ -359,7 +359,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isRedis && (
+							{isKeyValue && (
 								<CommandItem
 									onSelect={() =>
 										handleAction(() => {
@@ -380,7 +380,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{!isRedis && (
+							{!isKeyValue && (
 								<>
 									<CommandItem
 										disabled={!canEditRecords}
@@ -567,7 +567,7 @@ export function CommandPalette() {
 						</CommandGroup>
 
 						{/* Tables Navigation - Show top 5 tables in all mode */}
-						{!isRedis &&
+						{!isKeyValue &&
 							!isLoadingTablesList &&
 							!errorTablesList &&
 							tablesList &&
