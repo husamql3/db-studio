@@ -121,7 +121,7 @@ jobs:
       # npm must trust husamql3/db-studio's release.yml with direct publishing enabled.
       - name: Publish to npm with OIDC
         if: steps.check_version.outputs.published == 'false'
-        run: npm publish "release/db-studio-$VERSION.tgz" --access=public --ignore-scripts
+        run: npm publish "./release/db-studio-$VERSION.tgz" --access=public --ignore-scripts
 
       - name: Create GitHub release
         env:
