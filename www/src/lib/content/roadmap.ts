@@ -239,7 +239,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Add support for DuckDB and ClickHouse analytics databases",
+				title: "Add support for DuckDB analytics databases",
+				status: "completed",
+			},
+			{
+				title: "Add support for ClickHouse analytics databases",
 				status: "planned",
 			},
 			{

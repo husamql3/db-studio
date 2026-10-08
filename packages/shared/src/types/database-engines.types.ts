@@ -69,6 +69,15 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		liveMode: false,
 		schemaSelector: false,
 	},
+	duckdb: {
+		label: "DuckDB",
+		protocols: ["duckdb"],
+		defaultPort: null,
+		dataModel: "relational",
+		editorLanguage: "pgsql",
+		liveMode: true,
+		schemaSelector: false,
+	},
 };
 
 /** Maps a URL scheme without the trailing colon (e.g. `"postgresql"`) to its db type. */
