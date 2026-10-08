@@ -21,6 +21,7 @@ concurrency:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   deploy:
@@ -38,8 +39,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       - name: Install dependencies
         run: bun install --ignore-scripts
@@ -66,11 +68,10 @@ jobs:
             echo "published=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish to npm
+      # npm must trust husamql3/db-studio's release.yml with direct publishing enabled.
+      - name: Publish to npm with OIDC
         if: steps.get_version.outputs.published == 'false'
         run: npm publish --workspace=packages/server --access=public --ignore-scripts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Generate release notes
         id: release_notes
