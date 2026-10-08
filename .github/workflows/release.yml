@@ -63,12 +63,17 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Pack release
-        env:
-          VERSION: ${{ steps.get_version.outputs.version }}
         run: |
           mkdir release
           npm pack --workspace=packages/server --ignore-scripts --pack-destination release
-          bun scripts/generate-release-notes.js "$VERSION" > release/release-notes.md
+
+      - name: Generate release notes
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: bun scripts/generate-release-notes.js "$VERSION" > release/release-notes.md
 
       - name: Upload release
         uses: actions/upload-artifact@v7
