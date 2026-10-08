@@ -9,6 +9,16 @@ describe("sanitizeErrorMessage", () => {
 		).toBe("connect ECONNREFUSED the configured database");
 	});
 
+	it("redacts MariaDB, TiDB and CockroachDB connection URLs", () => {
+		expect(
+			sanitizeErrorMessage(
+				"failed: mariadb://root:secret@h:3307/a, tidb://root:secret@h/b, cockroachdb://root:secret@h/c",
+			),
+		).toBe(
+			"failed: the configured database, the configured database, the configured database",
+		);
+	});
+
 	it("keeps closing parens and commas of the supported-types message", () => {
 		expect(
 			sanitizeErrorMessage(

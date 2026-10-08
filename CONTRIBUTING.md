@@ -88,8 +88,17 @@ Here are examples for different databases:
 # PostgreSQL
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dbstudio"
 
+# CockroachDB (uses the PostgreSQL adapter)
+DATABASE_URL="cockroachdb://root@localhost:26257/dbstudio"
+
 # MySQL
 DATABASE_URL="mysql://root@localhost:3306/dbstudio"
+
+# MariaDB (uses the MySQL adapter)
+DATABASE_URL="mariadb://root@localhost:3307/dbstudio"
+
+# TiDB (uses the MySQL adapter)
+DATABASE_URL="tidb://root@localhost:4000/dbstudio"
 
 # SQL Server (MSSQL)
 DATABASE_URL="mssql://sa:YourPassword1!@localhost:1433/dbstudio"
@@ -115,6 +124,9 @@ bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
 bun run init-db:redis   # Redis
+bun run init-db:mariadb # MariaDB
+bun run init-db:cockroach # CockroachDB
+bun run init-db:tidb    # TiDB
 ```
 
 Running one of these commands loads database-specific sample data — for SQL engines this generally includes contributors/projects/contributions tables plus engine-specific data, while MongoDB seeds collections and Redis seeds keys — so you can test features with real data immediately.

@@ -45,7 +45,7 @@ describe("PostgreSQL pool search_path", () => {
 		pool.emit("connect", client);
 
 		expect(client.query).toHaveBeenCalledTimes(1);
-		expect(client.query.mock.calls[0][0]).toContain("SET search_path TO public, ");
+		expect(client.query.mock.calls[0][0]).toMatch(/set_config\(\s*'search_path'/);
 	});
 
 	it("enqueues the statement synchronously so no query can overtake it", async () => {
@@ -75,7 +75,7 @@ describe("PostgreSQL pool search_path", () => {
 		pool.emit("connect", client);
 
 		const sql = client.query.mock.calls[0][0] as string;
-		expect(sql).toContain("'SET search_path TO public, ' || extra");
+		expect(sql).toContain("'public, ' || string_agg");
 		// Only non-system, non-public schemas are appended after it.
 		expect(sql).toContain("'pg_catalog', 'information_schema', 'public'");
 	});

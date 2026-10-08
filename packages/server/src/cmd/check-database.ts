@@ -9,6 +9,7 @@ import {
 	getRedisClient,
 	getSqliteDb,
 } from "@/db-manager.js";
+import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
 const DATABASE_NAMES: Record<DatabaseTypeSchema, string> = {
 	pg: "PostgreSQL",
@@ -52,17 +53,8 @@ export const getDatabaseConnectionDetails = (
 		return { type, name: DATABASE_NAMES[type], destination: "local file" };
 	}
 
-	const url = new URL(databaseUrl);
-	const defaultPorts: Record<Exclude<DatabaseTypeSchema, "sqlite">, number> = {
-		pg: 5432,
-		mysql: 3306,
-		mssql: 1433,
-		mongodb: 27017,
-		redis: 6379,
-	};
-	const port = Number.parseInt(url.port, 10) || defaultPorts[type];
-
-	return { type, name: DATABASE_NAMES[type], destination: `${url.hostname}:${port}` };
+	const { host, port } = parseDatabaseUrl(databaseUrl);
+	return { type, name: DATABASE_NAMES[type], destination: `${host}:${port}` };
 };
 
 export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise<void> => {

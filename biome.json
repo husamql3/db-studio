@@ -53,6 +53,8 @@
 			"!packages/web/src/index.css",
 			"!packages/web/src/routeTree.gen.ts",
 			"packages/server/src/**",
+			"packages/server/e2e/**",
+			"!packages/server/e2e/artifacts",
 			"packages/proxy/src/**",
 			"packages/shared/src/**",
 			"www/src/**",
