@@ -7,7 +7,6 @@ import {
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableCell } from "../components/table-cell";
@@ -15,6 +14,7 @@ import { TableSelector } from "../components/table-selector";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { getRecordKey } from "../utils/table-diff";
 import { useColumnPreferences } from "./use-column-preferences";
+import { useRowMutation } from "./use-row-mutation";
 
 export const useTableModel = ({
 	tableName,
@@ -31,10 +31,7 @@ export const useTableModel = ({
 }) => {
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
-	const engine = useDatabaseEngine();
-	const canMutateRows = engine?.rowMutation ?? true;
-	const rowMutationReason =
-		engine?.rowMutation === false ? engine.rowMutationReason : undefined;
+	const { canMutateRows, rowMutationReason } = useRowMutation();
 
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 	const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});

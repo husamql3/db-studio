@@ -146,7 +146,9 @@ export function hasMultipleStatements(sql: string): boolean {
 			const word = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(sql.slice(i))?.[0] ?? ch;
 			const upper = word.toUpperCase();
 			const isTrigger =
-				words[0] === "CREATE" && (words[1] === "TRIGGER" || words[2] === "TRIGGER");
+				words[0] === "CREATE" &&
+				(words[1] === "TRIGGER" ||
+					((words[1] === "TEMP" || words[1] === "TEMPORARY") && words[2] === "TRIGGER"));
 			if (isTrigger && (upper === "BEGIN" || (depth > 0 && upper === "CASE"))) depth++;
 			else if (depth > 0 && upper === "END") depth--;
 			if (words.length < 3) words.push(upper);

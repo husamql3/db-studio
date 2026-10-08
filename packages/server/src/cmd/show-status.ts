@@ -3,6 +3,7 @@ import { DEFAULTS } from "@db-studio/shared/constants";
 import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import color from "picocolors";
 import { loadEnv } from "@/cmd/load-env.js";
+import { DRIVER_ALIASES } from "@/utils/parse-database-url.js";
 
 /**
  * Show connection status
@@ -39,7 +40,11 @@ export const showStatus = async (env?: string, databaseUrl?: string, varName?: s
 			),
 		);
 		console.log(
-			color.dim("  • Also via wire-compatible URLs: cockroachdb://, mariadb://, tidb://"),
+			color.dim(
+				`  • Also via wire-compatible URLs: ${Object.keys(DRIVER_ALIASES)
+					.map((scheme) => `${scheme}://`)
+					.join(", ")}`,
+			),
 		);
 		console.log(color.dim(`  • Add ${envVarName} to your .env file or set it in process.env`));
 		console.log(color.dim("  • Use -d flag: db-studio -d <url>"));

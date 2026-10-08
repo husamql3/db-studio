@@ -560,6 +560,17 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			body: () => ({ tableName: PAIRS, records: PAIR_ROWS }),
 		},
 		{
+			name: "composite key: update by a partial key is refused",
+			method: "PATCH",
+			path: records,
+			body: () => ({
+				tableName: PAIRS,
+				primaryKey: "tenant",
+				updates: [{ rowData: PAIR_ROWS[1], columnName: "name", value: "every-tenant-row" }],
+			}),
+			expect: 400,
+		},
+		{
 			name: canMutateRows
 				? "composite key: update one row by both keys"
 				: "composite key: grid update is refused",

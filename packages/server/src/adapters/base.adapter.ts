@@ -20,6 +20,7 @@ import type {
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	SortDirection,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -170,6 +171,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 
 	/**
+	 * An update matched on part of a primary key would write every row sharing those
+	 * values, so the request must name every key column of the table.
+	 */
+	protected assertWholeKey(pkColumns: string[], keyColumns: string[]): void {
+		const missing = pkColumns.filter((column) => !keyColumns.includes(column));
+		if (missing.length > 0)
+			throw new HTTPException(400, {
+				message: `Updates must match on every primary key column; missing: ${missing.join(", ")}`,
+			});
+	}
+
+	/**
 	 * Group updates by the record they target so each row is written once, matched
 	 * on every key column. Throws 400 when a key column is absent from the row.
 	 */
@@ -197,6 +210,26 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 
 		return [...groups.values()];
+	}
+
+	/**
+	 * ORDER BY terms for a page: the requested sorts, then every key column not already
+	 * sorted on, as tie-breakers in the leading sort's direction so paging stays stable.
+	 */
+	protected orderTerms<K>(
+		sort: GetTableDataParams["sort"] = [],
+		order: SortDirection,
+		keyColumns: K[],
+	): Array<{ column: string | K; direction: SortDirection }> {
+		const sorts =
+			typeof sort === "string" ? (sort ? [{ columnName: sort, direction: order }] : []) : sort;
+		const tieBreakerDirection = sorts[0]?.direction ?? order;
+		return [
+			...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
+			...keyColumns
+				.filter((key) => !sorts.some((s) => s.columnName === key))
+				.map((column) => ({ column, direction: tieBreakerDirection })),
+		];
 	}
 
 	/** Human-readable `col = value` list used in "record not found" errors. */

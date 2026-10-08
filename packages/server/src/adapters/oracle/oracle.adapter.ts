@@ -19,7 +19,6 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
-	SortType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -289,20 +288,11 @@ export class OracleAdapter extends BaseAdapter {
 			);
 			const primaryKey = await this.primaryKey(conn, tableName);
 
-			const sorts: SortType[] =
-				typeof sort === "string"
-					? sort
-						? [{ columnName: sort, direction: order }]
-						: []
-					: sort;
-			const sortDirection = sorts[0]?.direction ?? order;
-			const keyColumns: Array<string | null> = primaryKey.length ? primaryKey : [null];
-			const terms: OrderTerm[] = [
-				...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
-				...keyColumns
-					.filter((key) => !sorts.some((s) => s.columnName === key))
-					.map((column) => ({ column, direction: sortDirection })),
-			];
+			const terms: OrderTerm[] = this.orderTerms<string | null>(
+				sort,
+				order,
+				primaryKey.length ? primaryKey : [null],
+			);
 
 			const offset = cursor ? Number(this.decodeCursor(cursor)?.values._offset ?? 0) : 0;
 			const { values, bind } = createBinds();
@@ -700,6 +690,7 @@ export class OracleAdapter extends BaseAdapter {
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const updatedCount = await this.inTransaction(async (conn) => {
+			this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
 			const types = await this.columnTypes(conn, tableName);
 			let total = 0;
 			for (const { keyValues, rowUpdates } of groups) {

@@ -778,6 +778,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
 		const keyColumns = this.resolveKeyColumns(params);
+		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const connection = await pool.getConnection();

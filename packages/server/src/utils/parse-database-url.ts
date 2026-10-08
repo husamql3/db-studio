@@ -1,16 +1,14 @@
 import { DATABASE_ENGINES, dbTypeFromProtocol } from "@db-studio/shared/types";
 
 /** Wire-compatible aliases the drivers don't understand, with the alias engine's own default port. */
-const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort: number }> = {
+export const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort: number }> = {
 	cockroachdb: { driverScheme: "postgresql", defaultPort: 26257 },
 	mariadb: { driverScheme: "mysql", defaultPort: 3306 },
 	tidb: { driverScheme: "mysql", defaultPort: 4000 },
 };
 
-const schemeOf = (url: URL) => url.protocol.replace(":", "");
-
 export const defaultPortFor = (url: URL): number => {
-	const scheme = schemeOf(url);
+	const scheme = url.protocol.replace(":", "");
 	const dbType = dbTypeFromProtocol(scheme);
 	return (
 		DRIVER_ALIASES[scheme]?.defaultPort ??
@@ -25,7 +23,7 @@ export const defaultPortFor = (url: URL): number => {
  */
 export const toDriverUrl = (databaseUrl: string): string => {
 	const url = new URL(databaseUrl);
-	const alias = DRIVER_ALIASES[schemeOf(url)];
+	const alias = DRIVER_ALIASES[url.protocol.replace(":", "")];
 	if (!alias) return databaseUrl;
 	url.port ||= String(alias.defaultPort);
 	url.protocol = alias.driverScheme;

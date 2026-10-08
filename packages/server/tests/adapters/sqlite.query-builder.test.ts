@@ -239,6 +239,8 @@ describe("sqlite.query-builder — hasMultipleStatements", () => {
 		"SELECT 1; -- note\nSELECT 2",
 		"CREATE TRIGGER trg AFTER INSERT ON a BEGIN INSERT INTO b VALUES (1); END; SELECT 1",
 		"BEGIN; CREATE TRIGGER trg AFTER INSERT ON a BEGIN SELECT 1; END;",
+		// a table named "trigger" is not a trigger body, so its `;` still ends the statement
+		"CREATE TABLE trigger (begin int); DROP TABLE users",
 	])("detects a second statement in %j", (sql) => {
 		expect(hasMultipleStatements(sql)).toBe(true);
 	});

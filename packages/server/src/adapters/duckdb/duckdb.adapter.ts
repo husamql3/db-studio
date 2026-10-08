@@ -20,7 +20,6 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
-	SortType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -245,21 +244,11 @@ export class DuckDbAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
 			const primaryKey = await this.primaryKey(conn, tableName);
-			const keyColumns = primaryKey.length ? primaryKey : ["rowid"];
-
-			const sorts: SortType[] =
-				typeof sort === "string"
-					? sort
-						? [{ columnName: sort, direction: order }]
-						: []
-					: sort;
-			const sortDirection = sorts[0]?.direction ?? order;
-			const terms: OrderTerm[] = [
-				...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
-				...keyColumns
-					.filter((key) => !sorts.some((s) => s.columnName === key))
-					.map((column) => ({ column, direction: sortDirection })),
-			];
+			const terms: OrderTerm[] = this.orderTerms(
+				sort,
+				order,
+				primaryKey.length ? primaryKey : ["rowid"],
+			);
 
 			const backward = direction === "desc";
 			const filter = buildFilterConditions(filters);
@@ -652,6 +641,7 @@ export class DuckDbAdapter extends BaseAdapter {
 
 		const updatedCount = await this.withConnection((conn) =>
 			inTransaction(conn, async () => {
+				this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
 				let total = 0;
 				for (const { keyValues, rowUpdates } of groups) {
 					const changed = await execute(
