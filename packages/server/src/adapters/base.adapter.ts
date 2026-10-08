@@ -147,6 +147,8 @@ export abstract class BaseAdapter implements IDbAdapter {
 				/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/.test(
 					e.message,
 				) ||
+				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
+				e.message === "Timeout error." || // @clickhouse/client request timeout
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {

@@ -1,5 +1,6 @@
 import { DATABASE_ENGINES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import {
+	getClickhouseClient,
 	getDbPool,
 	getDbType,
 	getMongoClient,
@@ -79,6 +80,10 @@ export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise
 		case "oracle": {
 			const connection = await (await getOraclePool()).getConnection();
 			await connection.execute("SELECT 1 FROM dual").finally(() => connection.close());
+			return;
 		}
+
+		case "clickhouse":
+			await withStartupTimeout(getClickhouseClient().query({ query: "SELECT 1" }));
 	}
 };

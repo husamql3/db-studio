@@ -18,6 +18,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { AddRecordField, RecordReferenceSheet } from "@/features/records";
 import { useTableCols } from "@/features/schema";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
@@ -126,6 +127,10 @@ export const RowDetailsSheet = ({
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { rowIndex, selectRowDetails, clearRowDetails } = useRowDetailsStore();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
+	const engine = useDatabaseEngine();
+	const canMutateRows = engine?.rowMutation ?? true;
+	const rowMutationReason =
+		engine?.rowMutation === false ? engine.rowMutationReason : undefined;
 	const { updateRecord, isUpdatingRecord } = useUpdateRecord({ tableName });
 	const { deleteCells, isDeletingCells } = useDeleteCells({ tableName });
 
@@ -190,7 +195,7 @@ export const RowDetailsSheet = ({
 	};
 
 	const requestDelete = () => {
-		if (isBusy) return;
+		if (isBusy || !canMutateRows) return;
 		if (isDirty) {
 			openDiscardConfirm("delete");
 		} else {
@@ -211,7 +216,7 @@ export const RowDetailsSheet = ({
 	};
 
 	const doSave = async (data: Record<string, string>) => {
-		if (!row) return;
+		if (!row || !canMutateRows) return;
 		const updates = buildRowUpdates(formState.dirtyFields, data);
 		if (updates.length === 0) return;
 		try {
@@ -229,6 +234,7 @@ export const RowDetailsSheet = ({
 	};
 
 	const onSubmit = (data: Record<string, string>) => {
+		if (!canMutateRows) return;
 		if (pkDirty) {
 			setPendingSave(data);
 			openOverlay("tables.row-change-primary-key");
@@ -238,7 +244,7 @@ export const RowDetailsSheet = ({
 	};
 
 	const confirmDelete = async () => {
-		if (!row) return;
+		if (!row || !canMutateRows) return;
 		closeOverlay("tables.row-delete-record");
 		try {
 			const result = await deleteCells([row]);
@@ -324,12 +330,19 @@ export const RowDetailsSheet = ({
 							className="flex flex-col h-full"
 						>
 							<div className="space-y-6">
+								{rowMutationReason && (
+									<Alert
+										variant="info"
+										title="Row editing unavailable"
+										message={rowMutationReason}
+									/>
+								)}
 								{tableCols.map((col) => (
 									<RowDetailsField
 										key={col.columnName}
 										column={col}
 										displayValue={formatCellValue(row[col.columnName])}
-										readOnly={isGeneratedColumn(col)}
+										readOnly={!canMutateRows || isGeneratedColumn(col)}
 									/>
 								))}
 							</div>
@@ -339,11 +352,12 @@ export const RowDetailsSheet = ({
 									type="button"
 									variant="destructive"
 									size="lg"
-									disabled={isBusy || !primaryKeyColumn}
+									disabled={isBusy || !canMutateRows || !primaryKeyColumn}
 									title={
-										primaryKeyColumn
+										rowMutationReason ??
+										(primaryKeyColumn
 											? undefined
-											: "Records in tables without a primary key can't be deleted"
+											: "Records in tables without a primary key can't be deleted")
 									}
 									onClick={requestDelete}
 								>
@@ -364,11 +378,14 @@ export const RowDetailsSheet = ({
 									<Button
 										type="submit"
 										size="lg"
-										disabled={isBusy || !isDirty || identityColumnNames.length === 0}
+										disabled={
+											isBusy || !canMutateRows || !isDirty || identityColumnNames.length === 0
+										}
 										title={
-											identityColumnNames.length > 0
+											rowMutationReason ??
+											(identityColumnNames.length > 0
 												? undefined
-												: "Saving needs a primary key or an id column to address the record"
+												: "Saving needs a primary key or an id column to address the record")
 										}
 									>
 										Save changes

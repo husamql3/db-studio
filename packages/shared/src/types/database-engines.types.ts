@@ -2,7 +2,7 @@ import { DATABASE_TYPES, type DatabaseTypeSchema } from "./database.types.js";
 
 export type DataModel = "relational" | "document" | "key-value";
 
-export interface DatabaseEngine {
+interface DatabaseEngineBase {
 	label: string;
 	/** URL schemes; the first is canonical. */
 	protocols: readonly string[];
@@ -14,7 +14,13 @@ export interface DatabaseEngine {
 	schemaSelector: boolean;
 }
 
-export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
+type RowMutationCapability =
+	| { rowMutation: true; rowMutationReason?: never }
+	| { rowMutation: false; rowMutationReason: string };
+
+export type DatabaseEngine = DatabaseEngineBase & RowMutationCapability;
+
+export const DATABASE_ENGINES = {
 	pg: {
 		label: "PostgreSQL",
 		protocols: ["postgres", "postgresql", "cockroachdb"],
@@ -23,6 +29,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: true,
+		rowMutation: true,
 	},
 	mysql: {
 		label: "MySQL",
@@ -32,6 +39,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		rowMutation: true,
 	},
 	mssql: {
 		label: "SQL Server",
@@ -41,6 +49,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		rowMutation: true,
 	},
 	mongodb: {
 		label: "MongoDB",
@@ -50,6 +59,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "json",
 		liveMode: false,
 		schemaSelector: false,
+		rowMutation: true,
 	},
 	sqlite: {
 		label: "SQLite / libSQL",
@@ -59,6 +69,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		rowMutation: true,
 	},
 	redis: {
 		label: "Redis",
@@ -68,6 +79,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "plaintext",
 		liveMode: false,
 		schemaSelector: false,
+		rowMutation: true,
 	},
 	duckdb: {
 		label: "DuckDB",
@@ -77,6 +89,7 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		rowMutation: true,
 	},
 	oracle: {
 		label: "Oracle",
@@ -86,8 +99,21 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		rowMutation: true,
 	},
-};
+	clickhouse: {
+		label: "ClickHouse",
+		protocols: ["clickhouse", "clickhouses"],
+		defaultPort: 8123,
+		dataModel: "relational",
+		editorLanguage: "pgsql",
+		liveMode: false,
+		schemaSelector: false,
+		rowMutation: false,
+		rowMutationReason:
+			"Use a SQL query to update or delete ClickHouse rows; sorting keys are not unique.",
+	},
+} satisfies Record<DatabaseTypeSchema, DatabaseEngine>;
 
 /** Maps a URL scheme without the trailing colon (e.g. `"postgresql"`) to its db type. */
 export const dbTypeFromProtocol = (protocol: string): DatabaseTypeSchema | undefined =>

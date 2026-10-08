@@ -1,6 +1,11 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+	type ClickHouseClient,
+	ClickHouseLogLevel,
+	createClient as createClickhouseClient,
+} from "@clickhouse/client";
+import {
 	DATABASE_ENGINES,
 	type DatabaseTypeSchema,
 	dbTypeFromProtocol,
@@ -35,6 +40,7 @@ class DatabaseManager {
 	private oraclePool: Promise<oracledb.Pool> | null = null;
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
+	private clickhouseClients: Map<string, ClickHouseClient> = new Map();
 	private baseConfig: {
 		url: string;
 		host: string;
@@ -426,6 +432,36 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Get or create a ClickHouse HTTP client for the specified database.
+	 * `clickhouse://` maps to http, `clickhouses://` to https (default port 8443).
+	 */
+	getClickhouseClient(database?: string): ClickHouseClient {
+		const url = new URL(this.buildConnectionString(database));
+		const dbName = decodeURIComponent(url.pathname.slice(1)) || "default";
+
+		const existing = this.clickhouseClients.get(dbName);
+		if (existing) return existing;
+
+		const tls = url.protocol === "clickhouses:";
+		const client = createClickhouseClient({
+			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
+			username: decodeURIComponent(url.username) || "default",
+			password: decodeURIComponent(url.password),
+			database: dbName,
+			request_timeout: 30_000,
+			clickhouse_settings: {
+				output_format_json_quote_64bit_integers: 1,
+				output_format_json_quote_decimals: 1,
+				wait_end_of_query: 1,
+			},
+			// Failures surface through the adapter's error mapping; the client's own log would duplicate them.
+			log: { level: ClickHouseLogLevel.OFF },
+		});
+		this.clickhouseClients.set(dbName, client);
+		return client;
+	}
+
+	/**
 	 * Get the appropriate pool based on database type (legacy/PG-only helper)
 	 */
 	getPool(database?: string): Pool {
@@ -682,6 +718,10 @@ class DatabaseManager {
 		await Promise.all(redisClosePromises);
 		this.redisClients.clear();
 		this.redisClusterChecked = false;
+		await Promise.all(
+			Array.from(this.clickhouseClients.values()).map((client) => client.close()),
+		);
+		this.clickhouseClients.clear();
 	}
 
 	/**
@@ -718,6 +758,13 @@ export const getMysqlPool = (database?: string): MysqlPool => {
  */
 export const getMssqlPool = async (database?: string): Promise<MssqlPool> => {
 	return databaseManager.getMssqlPool(database);
+};
+
+/**
+ * Get a ClickHouse client for the specified database
+ */
+export const getClickhouseClient = (database?: string): ClickHouseClient => {
+	return databaseManager.getClickhouseClient(database);
 };
 
 /**

@@ -29,3 +29,17 @@ The probe writes `packages/server/.e2e-output/oracle-review.json`. A native Orac
 
 Runtime verification for this probe is pending. Do not record a pass until the command exits 0
 against Oracle and writes the normalized artifact.
+
+## ClickHouse regressions
+
+The ClickHouse probe requires Node 20 and checks exact wide-number values, refused grid
+mutations, inserts, explicit SQL mutations, and failures that arrive after response streaming
+starts.
+
+```bash
+DATABASE_URL=clickhouse://dbstudio:dbstudio@127.0.0.1:8123/dbstudio \
+  node --import tsx e2e/clickhouse-regressions.ts after
+```
+
+It writes `e2e/artifacts/clickhouse-regressions-<label>.json`. Use a new label for each run so
+before and after evidence can be compared directly.

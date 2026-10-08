@@ -34,3 +34,6 @@ export const getIsolatedRedisClient: typeof dbManager.getIsolatedRedisClient = (
 
 export const getRedisDefaultDb: typeof dbManager.getRedisDefaultDb = () =>
 	dbManager.getRedisDefaultDb();
+
+export const getClickhouseClient: typeof dbManager.getClickhouseClient = (database) =>
+	dbManager.getClickhouseClient(database);

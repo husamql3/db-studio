@@ -44,6 +44,8 @@ declare module "@tanstack/react-table" {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface TableMeta<TData extends RowData> {
 		editScope?: string;
+		canMutateRows?: boolean;
+		rowMutationReason?: string;
 		focusedCell?: CellPosition | null;
 		editingCell?: CellPosition | null;
 		isScrolling?: boolean;
