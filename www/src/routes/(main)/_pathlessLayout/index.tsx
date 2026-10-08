@@ -11,11 +11,18 @@ import {
 import { FeaturesGrid } from "@/components/features";
 import { InfiniteSlider } from "@/components/infinite-slider";
 import { Highlighter } from "@/components/ui/highlighter";
+import { ClickhouseIcon } from "@/components/ui/svgs/clickhouseIcon";
+import { CockroachdbIcon } from "@/components/ui/svgs/cockroachdbIcon";
+import { DuckdbIcon } from "@/components/ui/svgs/duckdbIcon";
+import { MariadbIconDark } from "@/components/ui/svgs/mariadbIconDark";
 import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
 import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
+import { OracleIcon } from "@/components/ui/svgs/oracleIcon";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
 import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
+import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
+import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +38,16 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 });
 
 const EMAIL = "dbstudio@ql3.dev";
+
+/** Engines whose brand ships an icon only; the slider pairs each with its name. */
+const ICON_LOGOS = [
+	{ name: "MariaDB", Icon: MariadbIconDark },
+	{ name: "CockroachDB", Icon: CockroachdbIcon },
+	{ name: "TiDB", Icon: TidbIcon },
+	{ name: "DuckDB", Icon: DuckdbIcon },
+	{ name: "Oracle", Icon: OracleIcon },
+	{ name: "ClickHouse", Icon: ClickhouseIcon },
+];
 
 function EmailCopyButton() {
 	const [copied, setCopied] = useState(false);
@@ -249,6 +266,23 @@ function App() {
 						<div className="flex items-center justify-center h-10 px-2">
 							<SQLite className="h-10 w-auto" />
 						</div>
+
+						<div className="flex items-center justify-center h-10 px-2">
+							<TursoWordmarkDark className="h-8 w-auto" />
+						</div>
+
+						{ICON_LOGOS.map(({ name, Icon }) => (
+							<div
+								key={name}
+								className="flex items-center justify-center gap-2.5 h-10 px-2"
+							>
+								<Icon
+									aria-hidden="true"
+									className="h-7 w-auto"
+								/>
+								<span className="text-2xl font-semibold tracking-tight">{name}</span>
+							</div>
+						))}
 					</InfiniteSlider>
 
 					<PlusIcon
