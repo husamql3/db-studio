@@ -171,11 +171,15 @@ class DatabaseManager {
 	}
 
 	private async openSqliteClient(url: string): Promise<LibsqlClient> {
-		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL;
-		// libsql:// URLs keep their authToken and tls query params.
-		const libsqlUrl = url.startsWith("sqlite://")
-			? pathToFileURL(resolve(url.slice("sqlite://".length))).href
-			: url;
+		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
+		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
+		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
+		const libsqlUrl =
+			sqlitePath === null
+				? url
+				: sqlitePath === ":memory:"
+					? sqlitePath
+					: pathToFileURL(resolve(sqlitePath)).href;
 		const client = createLibsqlClient({ url: libsqlUrl, intMode: "bigint" });
 		if (client.protocol === "file") {
 			await client.execute("PRAGMA journal_mode = WAL");
