@@ -16,6 +16,73 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.16.0",
+		date: "2026-10-08",
+		title: "Oracle, DuckDB, ClickHouse, libSQL, and more",
+		features: [
+			{
+				text: "Connect to Oracle with oracle:// URLs through the Thin driver, no Instant Client needed: browse, edit, and query your own tables with exact numeric keys",
+				username: "husamql3",
+			},
+			{
+				text: "Open DuckDB files to browse and edit records, manage schemas, run SQL, and use Live mode",
+				username: "husamql3",
+			},
+			{
+				text: "Browse, sort, filter, export, insert into, and query ClickHouse over HTTP or TLS; grid edits and deletes are disabled because ClickHouse sorting keys are not unique",
+				username: "husamql3",
+			},
+			{
+				text: "Open remote libSQL and Turso databases with libsql:// URLs and an authToken, alongside local SQLite files",
+				username: "husamql3",
+			},
+			{
+				text: "Connect to MariaDB, CockroachDB, and TiDB with mariadb://, cockroachdb://, and tidb:// URLs",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Tables with a composite primary key can be created on PostgreSQL and SQLite, and editing a row now matches on every key column",
+				username: "husamql3",
+			},
+			{
+				text: "The SQLite query runner now accepts one statement per request and returns a clear error for multi-statement and transaction-control SQL",
+				username: "husamql3",
+			},
+			{
+				text: "The website's logo slider shows the newly supported databases",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed deletes on tables with a composite primary key removing every row that shared the first key column; these deletes are now refused until whole keys can be addressed",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed record updates sent with only part of a composite key rewriting every matching row",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the app opening the first database instead of the connected one on PostgreSQL",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed CSV and JSON bulk inserts failing on boolean columns in SQLite",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed PostgreSQL tables without a primary key skipping or repeating rows when paging through sorted data",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed MariaDB JSON columns showing as plain text",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.15.0",
 		date: "2026-10-05",
 		title: "Live mode for MySQL, SQL Server and SQLite",
