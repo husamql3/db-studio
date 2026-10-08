@@ -516,19 +516,22 @@ export class SqliteAdapter extends BaseAdapter {
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
 
+		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
 			// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
-			if (field.isPrimaryKey && field.isIdentity) {
+			if (primaryKey.length === 1 && field.isPrimaryKey && field.isIdentity) {
 				return `"${field.columnName}" INTEGER PRIMARY KEY AUTOINCREMENT`;
 			}
 			let def = `"${field.columnName}" ${field.columnType}`;
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
+			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 			if (field.defaultValue?.trim() && !field.isIdentity)
 				def += ` DEFAULT ${field.defaultValue.trim()}`;
 			return def;
 		});
+		if (primaryKey.length > 1)
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map(
@@ -953,6 +956,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const client = await getSqliteClient();
 
 		try {
+			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 			const result = await client.execute(
 				stmt(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`, pkValues),
 			);
@@ -990,6 +994,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 		try {
 			const client = await getSqliteClient();
+			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 			const fksByParent = await this.getForeignKeysByParent(client);
 			const deletes: InStatement[] = [];
 

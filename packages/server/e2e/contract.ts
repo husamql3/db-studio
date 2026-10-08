@@ -48,6 +48,12 @@ const OVERRIDES: Partial<Record<DatabaseTypeSchema, EngineOverrides>> = {
 
 const TABLE = "dbstudio_e2e";
 const RENAMED = "dbstudio_e2e_renamed";
+const PAIRS = "dbstudio_e2e_pairs";
+const PAIR_ROWS = [
+	{ tenant: 1, item: 1, name: "x1" },
+	{ tenant: 1, item: 2, name: "x2" },
+	{ tenant: 2, item: 1, name: "x3" },
+];
 const ROW_COUNT = 25;
 const PAGE = 10;
 const COLUMNS = ["id", "name", "active", "amount", "born", "meta"];
@@ -131,6 +137,12 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			name: "cleanup: delete leftover renamed table",
 			method: "DELETE",
 			path: `${t}/${RENAMED}`,
+			expect: [200, 404],
+		},
+		{
+			name: "cleanup: delete leftover composite key table",
+			method: "DELETE",
+			path: `${t}/${PAIRS}`,
 			expect: [200, 404],
 		},
 		{
@@ -511,6 +523,72 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 					"deletedCount",
 				);
 			},
+		},
+		{
+			name: "composite key: create table",
+			method: "POST",
+			path: t,
+			body: () => ({
+				tableName: PAIRS,
+				fields: [
+					{ columnName: "tenant", columnType: "int4", isPrimaryKey: true },
+					{ columnName: "item", columnType: "int4", isPrimaryKey: true },
+					{ columnName: "name", columnType: "text" },
+				],
+			}),
+		},
+		{
+			name: "composite key: insert rows sharing a tenant",
+			method: "POST",
+			path: `${records}/bulk`,
+			body: () => ({ tableName: PAIRS, records: PAIR_ROWS }),
+		},
+		{
+			name: "composite key: update one row by both keys",
+			method: "PATCH",
+			path: records,
+			body: () => ({
+				tableName: PAIRS,
+				primaryKeys: ["tenant", "item"],
+				updates: [{ rowData: PAIR_ROWS[1], columnName: "name", value: "x2-edited" }],
+			}),
+		},
+		{
+			name: "composite key: only the addressed row changed",
+			method: "GET",
+			path: `${t}/${PAIRS}/data`,
+			query: () => ({ limit: String(PAGE), sort: "name", order: "asc" }),
+			check: (body) => {
+				assertEqual(namesOf(pageOf(body)), ["x1", "x2-edited", "x3"], "names after update");
+			},
+		},
+		{
+			name: "composite key: delete is refused",
+			method: "DELETE",
+			path: records,
+			body: () => ({ tableName: PAIRS, primaryKeys: [{ columnName: "tenant", value: 1 }] }),
+			expect: 400,
+		},
+		{
+			name: "composite key: force delete is refused",
+			method: "DELETE",
+			path: `${records}/force`,
+			body: () => ({ tableName: PAIRS, primaryKeys: [{ columnName: "tenant", value: 1 }] }),
+			expect: 400,
+		},
+		{
+			name: "composite key: refused deletes kept every row",
+			method: "GET",
+			path: `${t}/${PAIRS}/data`,
+			query: () => ({ limit: String(PAGE), sort: "name", order: "asc" }),
+			check: (body) => {
+				assertEqual(namesOf(pageOf(body)), ["x1", "x2-edited", "x3"], "names after delete");
+			},
+		},
+		{
+			name: "composite key: delete table",
+			method: "DELETE",
+			path: `${t}/${PAIRS}`,
 		},
 		{
 			name: "list tables after delete",

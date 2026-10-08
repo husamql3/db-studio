@@ -681,6 +681,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		const values = primaryKeys.map((pk) => pk.value);
 
 		return this.withConnection(async (conn) => {
+			this.assertDeletableKey(await this.primaryKey(conn, tableName));
 			try {
 				const deletedCount = await execute(
 					conn,
