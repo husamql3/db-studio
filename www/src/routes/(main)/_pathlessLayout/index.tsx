@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import {
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 		seoHead({
 			title: "dbstudio – The modern pgAdmin alternative for every database",
 			description:
-				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis. Browse tables, edit records, and run queries from one UI.",
+				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and Turso. Browse tables, edit records, and run queries from one UI.",
 			path: "/",
 		}),
 });
@@ -40,13 +40,34 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 const EMAIL = "dbstudio@ql3.dev";
 
 /** Engines whose brand ships an icon only; the slider pairs each with its name. */
-const ICON_LOGOS = [
-	{ name: "MariaDB", Icon: MariadbIconDark },
-	{ name: "CockroachDB", Icon: CockroachdbIcon },
-	{ name: "TiDB", Icon: TidbIcon },
-	{ name: "DuckDB", Icon: DuckdbIcon },
-	{ name: "Oracle", Icon: OracleIcon },
-	{ name: "ClickHouse", Icon: ClickhouseIcon },
+const iconLogo = (name: string, Icon: typeof OracleIcon) => (
+	<>
+		<Icon
+			aria-hidden="true"
+			className="h-7 w-auto"
+		/>
+		<span className="text-2xl font-semibold tracking-tight">{name}</span>
+	</>
+);
+
+/** Slider logos, each linking to its section on /docs/databases. */
+const LOGOS = [
+	{
+		slug: "postgresql",
+		name: "PostgreSQL",
+		logo: <PostgresqlWordmarkDark className="h-10 w-auto" />,
+	},
+	{ slug: "mysql", name: "MySQL", logo: <MysqlWordmarkDark className="h-10 w-auto" /> },
+	{ slug: "mongodb", name: "MongoDB", logo: <MongodbWordmarkDark className="h-10 w-auto" /> },
+	{ slug: "sql-server", name: "SQL Server", logo: <SqlServer className="h-10 w-auto" /> },
+	{ slug: "sqlite", name: "SQLite", logo: <SQLite className="h-10 w-auto" /> },
+	{ slug: "turso", name: "Turso", logo: <TursoWordmarkDark className="h-8 w-auto" /> },
+	{ slug: "mariadb", name: "MariaDB", logo: iconLogo("MariaDB", MariadbIconDark) },
+	{ slug: "cockroachdb", name: "CockroachDB", logo: iconLogo("CockroachDB", CockroachdbIcon) },
+	{ slug: "tidb", name: "TiDB", logo: iconLogo("TiDB", TidbIcon) },
+	{ slug: "duckdb", name: "DuckDB", logo: iconLogo("DuckDB", DuckdbIcon) },
+	{ slug: "oracle", name: "Oracle", logo: iconLogo("Oracle", OracleIcon) },
+	{ slug: "clickhouse", name: "ClickHouse", logo: iconLogo("ClickHouse", ClickhouseIcon) },
 ];
 
 function EmailCopyButton() {
@@ -247,41 +268,17 @@ function App() {
 						speedOnHover={30}
 						className="py-8 border-t"
 					>
-						<div className="flex items-center justify-center h-10 px-2">
-							<PostgresqlWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<MysqlWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<MongodbWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<SqlServer className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<SQLite className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<TursoWordmarkDark className="h-8 w-auto" />
-						</div>
-
-						{ICON_LOGOS.map(({ name, Icon }) => (
-							<div
-								key={name}
-								className="flex items-center justify-center gap-2.5 h-10 px-2"
+						{LOGOS.map(({ slug, name, logo }) => (
+							<Link
+								key={slug}
+								to="/docs/$"
+								params={{ _splat: "databases" }}
+								hash={slug}
+								aria-label={`${name} docs`}
+								className="flex items-center justify-center gap-2.5 h-10 px-2 transition-opacity duration-200 hover:opacity-70"
 							>
-								<Icon
-									aria-hidden="true"
-									className="h-7 w-auto"
-								/>
-								<span className="text-2xl font-semibold tracking-tight">{name}</span>
-							</div>
+								{logo}
+							</Link>
 						))}
 					</InfiniteSlider>
 

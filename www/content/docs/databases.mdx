@@ -1,0 +1,135 @@
+---
+title: Supported Databases
+description: "Every database db-studio connects to, with the connection URL and limits for each: PostgreSQL, MySQL, MariaDB, CockroachDB, TiDB, SQL Server, MongoDB, SQLite, Turso, Redis, DuckDB, Oracle, and ClickHouse."
+---
+
+db-studio picks the database from the scheme of your connection URL. Pass it with `--database-url`, or set `DATABASE_URL` in your `.env` file and run `npx db-studio`.
+
+Unless a section below says otherwise, every database supports browsing, sorting, filtering, and paging through tables; editing cells, adding records, and bulk inserting from CSV, JSON, or Excel; creating tables and managing columns and foreign keys; running queries and exporting results; and Live mode, which refreshes the grid every second and highlights changed rows and cells.
+
+Rows in a table with a composite primary key can be edited but not yet deleted from the grid. Delete them with a query instead.
+
+## PostgreSQL
+
+```bash
+npx db-studio --database-url "postgresql://user:password@localhost:5432/mydb"
+```
+
+Both `postgresql://` and `postgres://` work. You can switch between databases on the same server and between schemas.
+
+## MySQL
+
+```bash
+npx db-studio --database-url "mysql://user:password@localhost:3306/mydb"
+```
+
+You can switch between databases on the same server.
+
+## MariaDB
+
+```bash
+npx db-studio --database-url "mariadb://user:password@localhost:3306/mydb"
+```
+
+Connects through the MySQL support, so everything MySQL supports works. JSON columns are reported as JSON, even though MariaDB stores them as text.
+
+## CockroachDB
+
+```bash
+npx db-studio --database-url "cockroachdb://root@localhost:26257/defaultdb"
+```
+
+Connects through the PostgreSQL support. Database size is not shown, because CockroachDB lacks the functions PostgreSQL uses for it.
+
+## TiDB
+
+```bash
+npx db-studio --database-url "tidb://root@localhost:4000/test"
+```
+
+Connects through the MySQL support, so everything MySQL supports works.
+
+## SQL Server
+
+```bash
+npx db-studio --database-url "mssql://sa:password@localhost:1433/mydb"
+```
+
+Both `mssql://` and `sqlserver://` work. Only tables in the `dbo` schema are listed.
+
+## MongoDB
+
+```bash
+npx db-studio --database-url "mongodb://localhost:27017/mydb"
+```
+
+Both `mongodb://` and `mongodb+srv://` work. Collections appear as tables and documents as rows, with columns inferred from the documents. The query editor takes a JSON object:
+
+```json
+{ "collection": "users", "operation": "find", "filter": { "active": true } }
+```
+
+Operations: `find`, `aggregate`, `insertOne`, `insertMany`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, and `count`. No foreign keys and no Live mode.
+
+## SQLite
+
+```bash
+npx db-studio --database-url "sqlite:///absolute/path/to/app.db"
+```
+
+Use three slashes for an absolute path, or `sqlite://./app.db` for a path relative to where you run the command. Rows and foreign keys are kept when a column change rebuilds the table. The query editor runs one statement per request and rejects `BEGIN`, `COMMIT`, and `ROLLBACK`.
+
+## Turso
+
+```bash
+npx db-studio --database-url "libsql://your-db-your-org.turso.io?authToken=YOUR_TOKEN"
+```
+
+Works with Turso and any libSQL server. For a local `sqld` server without TLS, add `?tls=0`. Everything SQLite supports works, with the same limits.
+
+## Redis
+
+```bash
+npx db-studio --database-url "redis://localhost:6379/0"
+```
+
+Use `rediss://` for TLS. Keys are grouped into six tables by type (strings, hashes, lists, sets, sorted sets, streams), one row per key, and logical databases (`0`, `1`, ...) appear as databases. Run commands the way you would in `redis-cli`.
+
+Paging is forward-only, with no sorting or filtering, because keys are read with `SCAN`. There is no schema to change, no Live mode, and Redis Cluster is not supported.
+
+## DuckDB
+
+```bash
+npx db-studio --database-url "duckdb:///absolute/path/to/data.duckdb"
+```
+
+Use `duckdb://./data.duckdb` for a relative path. NULLs sort last.
+
+- DuckDB allows one writing process per file; if another process has it open, db-studio cannot connect.
+- The query editor runs one statement per request and rejects `BEGIN`, `COMMIT`, and `ROLLBACK`.
+- Only the `main` schema is listed.
+- Deleting a record that other rows reference is refused rather than cascaded, and foreign keys with `CASCADE`, `SET NULL`, or `SET DEFAULT` cannot be created.
+
+## Oracle
+
+```bash
+npx db-studio --database-url "oracle://user:password@localhost:1521/FREEPDB1"
+```
+
+The URL path is the service name. The Thin driver is used, so you do not need Oracle Instant Client. Native `BOOLEAN` and `JSON` columns need Oracle 23ai or later.
+
+- Only tables owned by the connected user are listed.
+- In the query editor, select `DATE` and `TIMESTAMP` columns with `TO_CHAR` and an explicit format; the driver would otherwise cut them to milliseconds.
+- Array columns, `ON UPDATE` actions, and `ON DELETE SET DEFAULT` are not supported.
+
+## ClickHouse
+
+```bash
+npx db-studio --database-url "clickhouse://user:password@localhost:8123/default"
+```
+
+Use `clickhouses://` for TLS. Created tables use `MergeTree`, and 64-bit and wider integers and decimals keep their exact value.
+
+- Rows cannot be edited or deleted from the grid, because a sorting key does not identify one row. Use `ALTER TABLE ... UPDATE` or `DELETE` in the query editor.
+- Foreign keys and unique constraints do not exist in ClickHouse.
+- Live mode is not available.

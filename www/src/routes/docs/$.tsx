@@ -87,6 +87,7 @@ function Page() {
 		<DocsLayout
 			{...baseOptions()}
 			tree={pageTree}
+			containerProps={{ className: "[--fd-layout-width:100vw]" }}
 		>
 			<Content />
 		</DocsLayout>

@@ -1,5 +1,6 @@
 import rawDocs from "virtual:raw-docs";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
+import { supportedDatabases } from "@/lib/content/databases";
 import { roadmapItems } from "@/lib/content/roadmap";
 import { mdxToMarkdown } from "./mdx-to-markdown";
 
@@ -63,12 +64,17 @@ npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
 
 ## Works with your stack
 
-PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, and Oracle.
+${supportedDatabases
+	.map(
+		({ name, slug, scheme }) =>
+			`- [${name}](${SITE_URL}/docs/databases#${slug}) — \`${scheme}\``,
+	)
+	.join("\n")}
 
 ## Everything you need to manage your database
 
 - **Zero Installation** — Launch instantly with a single npx command. No setup required.
-- **Multi-Database** — First-class support for PostgreSQL and MySQL, with more coming.
+- **Multi-Database** — PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and more from one UI.
 - **Table Browser** — Browse, filter, sort, and paginate rows. Full CRUD without writing SQL.
 - **Query Editor** — Monaco-powered SQL editor with syntax highlighting built right in.
 

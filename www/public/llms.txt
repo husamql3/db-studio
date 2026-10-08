@@ -8,7 +8,7 @@ db-studio is a modern database management tool designed to work with multiple da
 
 ## Key Features
 
-- Multi-database support (PostgreSQL, MySQL, SQLite, DuckDB, Oracle, ClickHouse, and more)
+- Multi-database support: PostgreSQL, MySQL, MariaDB, CockroachDB, TiDB, SQL Server, MongoDB, SQLite, libSQL/Turso, Redis, DuckDB, Oracle, and ClickHouse
 - Modern, intuitive user interface
 - Cross-platform desktop application
 - Query editor with syntax highlighting
@@ -21,6 +21,7 @@ db-studio is a modern database management tool designed to work with multiple da
 - Documentation: https://dbstudio.sh/docs
 - Getting Started: https://dbstudio.sh/docs/getting-started
 - FAQ: https://dbstudio.sh/docs/faq
+- Supported databases: https://dbstudio.sh/docs/databases
 - Roadmap: https://dbstudio.sh/roadmap
 - Changelog: https://dbstudio.sh/changelog
 - OpenAPI spec (db-studio server API): https://dbstudio.sh/openapi.json
@@ -29,3 +30,21 @@ db-studio is a modern database management tool designed to work with multiple da
 ## About
 
 db-studio is built as a modern alternative to traditional database management tools like pgAdmin, offering a streamlined experience that works consistently across different database systems.
+
+## Supported Databases
+
+One page covers every database: https://dbstudio.sh/docs/databases. Each section gives the connection URL and the limits.
+
+- PostgreSQL (`postgresql://`): https://dbstudio.sh/docs/databases#postgresql
+- MySQL (`mysql://`): https://dbstudio.sh/docs/databases#mysql
+- MariaDB (`mariadb://`): https://dbstudio.sh/docs/databases#mariadb
+- CockroachDB (`cockroachdb://`): https://dbstudio.sh/docs/databases#cockroachdb
+- TiDB (`tidb://`): https://dbstudio.sh/docs/databases#tidb
+- SQL Server (`mssql://`): https://dbstudio.sh/docs/databases#sql-server
+- MongoDB (`mongodb://`): https://dbstudio.sh/docs/databases#mongodb
+- SQLite (`sqlite://`): https://dbstudio.sh/docs/databases#sqlite
+- Turso and libSQL (`libsql://`): https://dbstudio.sh/docs/databases#turso
+- Redis (`redis://`): https://dbstudio.sh/docs/databases#redis
+- DuckDB (`duckdb://`): https://dbstudio.sh/docs/databases#duckdb
+- Oracle (`oracle://`): https://dbstudio.sh/docs/databases#oracle
+- ClickHouse (`clickhouse://`): https://dbstudio.sh/docs/databases#clickhouse
