@@ -20,15 +20,19 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    name: Release db-studio
+    name: Build release
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -38,8 +42,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       - name: Install dependencies
         run: bun install --ignore-scripts
@@ -53,45 +58,79 @@ jobs:
 
       - name: Get package version
         id: get_version
-        if: |
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
         run: |
           VERSION=$(node -p "require('./packages/server/package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if [ -n "$(npm view "db-studio@$VERSION" version 2>/dev/null)" ]; then
-            echo "db-studio@$VERSION already published — skipping npm publish"
-            echo "published=true" >> $GITHUB_OUTPUT
-          else
-            echo "published=false" >> $GITHUB_OUTPUT
-          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to npm
-        if: steps.get_version.outputs.published == 'false'
-        run: npm publish --workspace=packages/server --access=public --ignore-scripts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Pack release
+        run: |
+          mkdir release
+          npm pack --workspace=packages/server --ignore-scripts --pack-destination release
 
       - name: Generate release notes
-        id: release_notes
-        if: |
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
-        run: |
-          bun scripts/generate-release-notes.js ${{ steps.get_version.outputs.version }} > release-notes.md
-          cat release-notes.md
-
-      - name: Create GitHub release
         if: |
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: bun scripts/generate-release-notes.js "$VERSION" > release/release-notes.md
+
+      - name: Upload release
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-release
+          path: release/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    runs-on: ubuntu-latest
+    name: Publish release
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Download release
+        uses: actions/download-artifact@v8
+        with:
+          name: npm-release
+          path: release/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Check published version
+        id: check_version
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
+          if [ -n "$(npm view "db-studio@$VERSION" version 2>/dev/null)" ]; then
+            echo "db-studio@$VERSION already published — skipping npm publish"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # npm must trust husamql3/db-studio's release.yml with direct publishing enabled.
+      - name: Publish to npm with OIDC
+        if: steps.check_version.outputs.published == 'false'
+        run: npm publish "release/db-studio-$VERSION.tgz" --access=public --ignore-scripts
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
           gh release view "v$VERSION" >/dev/null 2>&1 && exit 0
 
           gh release create "v$VERSION" \
             --title "v$VERSION" \
-            --notes-file release-notes.md \
+            --notes-file release/release-notes.md \
             --target "$GITHUB_SHA"
