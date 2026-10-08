@@ -11,6 +11,8 @@ DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bun run e2e 
 
 Prints PASS/FAIL per step and exits non-zero on any failure. Writes the normalized artifact to
 `e2e/artifacts/<label>.json`; rerunning from the same state must produce a byte-identical file.
+The scratch table names are fixed so the artifact stays repeatable, so run one contract at a time
+per database: two runs sharing a `DATABASE_URL` would drop each other's tables.
 MongoDB and Redis are out of scope. Dialect-specific SQL goes in `OVERRIDES` in `contract.ts`.
 
 ## Run the Oracle review probe
@@ -24,11 +26,8 @@ cd packages/server
 DATABASE_URL='oracle://user:pass@host:1521/SERVICE' bunx tsx e2e/oracle-review.ts
 ```
 
-The probe writes `packages/server/.e2e-output/oracle-review.json`. A native Oracle `DATE` or
+The probe writes `e2e/artifacts/oracle-review.json`. A native Oracle `DATE` or
 `TIMESTAMP` query-runner result returns 400. Use `TO_CHAR` with an explicit format in that query.
-
-Runtime verification for this probe is pending. Do not record a pass until the command exits 0
-against Oracle and writes the normalized artifact.
 
 ## ClickHouse regressions
 

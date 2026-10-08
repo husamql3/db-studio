@@ -467,7 +467,7 @@ const normalize = (value: unknown, key?: string): unknown => {
 	}
 	return value;
 };
-const outputDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".e2e-output");
+const outputDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
 await mkdir(outputDir, { recursive: true });
 await writeFile(
 	path.join(outputDir, "oracle-review.json"),
