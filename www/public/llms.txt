@@ -8,7 +8,7 @@ db-studio is a modern database management tool designed to work with multiple da
 
 ## Key Features
 
-- Multi-database support (PostgreSQL, MySQL, SQLite, DuckDB, and more)
+- Multi-database support (PostgreSQL, MySQL, SQLite, DuckDB, Oracle, and more)
 - Modern, intuitive user interface
 - Cross-platform desktop application
 - Query editor with syntax highlighting

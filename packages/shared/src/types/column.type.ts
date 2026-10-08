@@ -760,3 +760,66 @@ export function standardizeDuckdbDataTypeLabel(duckdbType: string): Standardized
 
 	return StandardizedDataType.text;
 }
+
+/**
+ * Maps Oracle column types (as formatted from `USER_TAB_COLUMNS`, e.g. `NUMBER(10)`,
+ * `TIMESTAMP(6) WITH TIME ZONE`) to generic DataTypes. Oracle DATE carries a time of day.
+ */
+export function mapOracleToDataType(oracleType: string): DataTypes {
+	const normalized = oracleType?.toLowerCase().trim() || "";
+
+	if (normalized === "boolean") return DataTypes.boolean;
+	if (normalized === "json") return DataTypes.json;
+	if (normalized === "date" || normalized.startsWith("timestamp")) return DataTypes.date;
+	if (
+		normalized.startsWith("number") ||
+		normalized.startsWith("float") ||
+		normalized === "integer" ||
+		normalized === "binary_float" ||
+		normalized === "binary_double"
+	) {
+		return DataTypes.number;
+	}
+
+	return DataTypes.text;
+}
+
+/**
+ * Maps Oracle column types to the standardized display labels used in ColumnInfoSchemaType.
+ */
+export function standardizeOracleDataTypeLabel(oracleType: string): StandardizedDataType {
+	const normalized = oracleType?.toLowerCase().trim() || "";
+
+	if (normalized === "boolean") return StandardizedDataType.boolean;
+	if (normalized === "json") return StandardizedDataType.json;
+	if (normalized === "xmltype") return StandardizedDataType.xml;
+
+	if (normalized === "integer") return StandardizedDataType.int;
+	const integer = normalized.match(/^number\((\d+)(?:,0)?\)$/);
+	if (integer) {
+		const precision = Number(integer[1]);
+		if (precision <= 4) return StandardizedDataType.smallint;
+		if (precision <= 10) return StandardizedDataType.int;
+		if (precision <= 19) return StandardizedDataType.bigint;
+	}
+	if (normalized.startsWith("number")) return StandardizedDataType.numeric;
+	if (normalized === "binary_float") return StandardizedDataType.float;
+	if (normalized === "binary_double" || normalized.startsWith("float"))
+		return StandardizedDataType.double;
+
+	if (normalized.startsWith("varchar") || normalized.startsWith("nvarchar"))
+		return StandardizedDataType.varchar;
+	if (normalized.startsWith("char") || normalized.startsWith("nchar"))
+		return StandardizedDataType.char;
+
+	if (normalized.startsWith("timestamp") && normalized.endsWith("time zone"))
+		return StandardizedDataType.timestamptz;
+	if (normalized === "date" || normalized.startsWith("timestamp"))
+		return StandardizedDataType.timestamp;
+	if (normalized.startsWith("interval")) return StandardizedDataType.interval;
+
+	if (normalized === "blob" || normalized === "long raw") return StandardizedDataType.blob;
+	if (normalized.startsWith("raw")) return StandardizedDataType.varbinary;
+
+	return StandardizedDataType.text;
+}

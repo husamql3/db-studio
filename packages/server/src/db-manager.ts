@@ -16,11 +16,12 @@ import type { ConnectionPool as MssqlPool } from "mssql";
 import mssql from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
+import oracledb from "oracledb";
 import { Pool, type PoolConfig } from "pg";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
- * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite / libSQL and Redis
+ * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, SQLite / libSQL, DuckDB and Redis
  */
 class DatabaseManager {
 	private pgPools: Map<string, Pool> = new Map();
@@ -31,6 +32,7 @@ class DatabaseManager {
 	private duckdb: Promise<{ instance: DuckDBInstance; connection: DuckDBConnection }> | null =
 		null;
 	private duckdbQueue: Promise<unknown> = Promise.resolve();
+	private oraclePool: Promise<oracledb.Pool> | null = null;
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
 	private baseConfig: {
@@ -235,6 +237,49 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Get or create the Oracle pool for the service in the URL (`oracle://user:pass@host:1521/SERVICE`).
+	 * One pool per process: an Oracle service is a single database, so `db` never selects another pool.
+	 */
+	getOraclePool(): Promise<oracledb.Pool> {
+		if (!this.baseConfig || this.baseConfig.dbType !== "oracle") {
+			throw new Error("DATABASE_URL is not an oracle:// connection");
+		}
+		const { url, host, port, user, password } = this.baseConfig;
+		const service = decodeURIComponent(new URL(url).pathname.slice(1));
+		this.oraclePool ??= oracledb
+			.createPool({
+				user: decodeURIComponent(user),
+				password: decodeURIComponent(password),
+				connectString: `${host}:${port}/${service}`,
+				poolMin: 0,
+				poolMax: 10,
+				connectTimeout: 5,
+				// LTZ values are projected in the session zone; pin it so pooled connections agree.
+				sessionCallback: (connection, _tag, done) => {
+					connection
+						.execute("ALTER SESSION SET TIME_ZONE = '+00:00'")
+						.then(() =>
+							connection.execute(
+								`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS' NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9' NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM' NLS_NUMERIC_CHARACTERS = '.,'`,
+							),
+						)
+						.then(() => done(), done);
+				},
+			})
+			.catch((error: unknown) => {
+				this.oraclePool = null;
+				throw error;
+			});
+		return this.oraclePool;
+	}
+
+	async closeOraclePool(): Promise<void> {
+		const pool = this.oraclePool;
+		this.oraclePool = null;
+		await (await pool?.catch(() => null))?.close(0);
+	}
+
+	/**
 	 * Get or create a PostgreSQL connection pool for the specified database
 	 */
 	getPgPool(database?: string): Pool {
@@ -435,6 +480,10 @@ class DatabaseManager {
 			await this.closeDuckdb();
 			return;
 		}
+		if (this.baseConfig?.dbType === "oracle") {
+			await this.closeOraclePool();
+			return;
+		}
 		await this.closePgPool(connectionString);
 		await this.closeMysqlPool(connectionString);
 		await this.closeMssqlPool(connectionString);
@@ -450,6 +499,10 @@ class DatabaseManager {
 		}
 		if (this.baseConfig?.dbType === "duckdb") {
 			await this.closeDuckdb();
+			return;
+		}
+		if (this.baseConfig?.dbType === "oracle") {
+			await this.closeOraclePool();
 			return;
 		}
 		const connectionString = this.buildConnectionString(database);
@@ -619,6 +672,7 @@ class DatabaseManager {
 		}
 		await this.closeSqliteClient();
 		await this.closeDuckdb();
+		await this.closeOraclePool();
 		const redisClosePromises = Array.from(this.redisClients.entries()).map(
 			async ([index, client]) => {
 				await client.quit().catch(() => {});
@@ -722,6 +776,13 @@ export const withDuckdbConnection = <T>(
 	fn: (connection: DuckDBConnection) => Promise<T>,
 ): Promise<T> => {
 	return databaseManager.withDuckdbConnection(fn);
+};
+
+/**
+ * Get or create the Oracle pool for the configured service
+ */
+export const getOraclePool = (): Promise<oracledb.Pool> => {
+	return databaseManager.getOraclePool();
 };
 
 /**

@@ -232,7 +232,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add full support for Oracle databases",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Add support for Redis and Valkey key-value databases",

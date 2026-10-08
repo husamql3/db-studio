@@ -78,6 +78,15 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		liveMode: true,
 		schemaSelector: false,
 	},
+	oracle: {
+		label: "Oracle",
+		protocols: ["oracle"],
+		defaultPort: 1521,
+		dataModel: "relational",
+		editorLanguage: "pgsql",
+		liveMode: true,
+		schemaSelector: false,
+	},
 };
 
 /** Maps a URL scheme without the trailing colon (e.g. `"postgresql"`) to its db type. */

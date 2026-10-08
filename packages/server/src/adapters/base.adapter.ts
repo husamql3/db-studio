@@ -142,6 +142,11 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
 				e.message.includes("Redis cluster mode is not supported") ||
 				e.message.includes("Could not set lock on file") || // DuckDB: file locked by another process
+				// Oracle: no listener, unknown service/SID, bad credentials, locked account,
+				// timeout or lost connection; NJS-5xx are the thin driver's network errors
+				/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/.test(
+					e.message,
+				) ||
 				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {

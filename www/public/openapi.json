@@ -2,7 +2,7 @@
 	"openapi": "3.1.0",
 	"info": {
 		"title": "db-studio API",
-		"description": "HTTP API of the db-studio server (`npx db-studio`), a modern pgAdmin alternative that works with PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, and DuckDB. All database-scoped endpoints live under `/{dbType}`, where `dbType` is one of `pg`, `mysql`, `mssql`, `mongodb`, `sqlite`, or `redis`. Responses are wrapped in a `{ \"data\": ... }` envelope.",
+		"description": "HTTP API of the db-studio server (`npx db-studio`), a modern pgAdmin alternative that works with PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, and Oracle. All database-scoped endpoints live under `/{dbType}`, where `dbType` is one of `pg`, `mysql`, `mssql`, `mongodb`, `sqlite`, `redis`, `duckdb`, or `oracle`. Responses are wrapped in a `{ \"data\": ... }` envelope.",
 		"version": "1.0.0",
 		"contact": {
 			"name": "db-studio",
@@ -346,7 +346,7 @@
 				"required": true,
 				"schema": {
 					"type": "string",
-					"enum": ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb"]
+					"enum": ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle"]
 				},
 				"description": "Database engine the request is scoped to"
 			},

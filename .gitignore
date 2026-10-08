@@ -32,3 +32,4 @@ dist-ssr
 .turbo
 .env
 db/
+packages/server/.e2e-output/
