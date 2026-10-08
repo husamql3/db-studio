@@ -909,7 +909,9 @@ export class SqliteAdapter extends BaseAdapter {
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		try {
-			const tx = await (await getSqliteClient()).transaction("write");
+			const client = await getSqliteClient();
+			this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
+			const tx = await client.transaction("write");
 			try {
 				let total = 0;
 				for (const { keyValues, rowUpdates } of groups) {

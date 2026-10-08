@@ -221,7 +221,17 @@ describe("composite primary key updates", () => {
 				rollback: vi.fn(),
 				request: () => request,
 			};
-			mocks.getMssqlPool.mockResolvedValue({ transaction: () => transaction });
+			// the primary-key lookup that guards against partial-key updates
+			const keyLookup = {
+				input: () => keyLookup,
+				query: async () => ({
+					recordset: [{ columnName: "tenant_id" }, { columnName: "user_id" }],
+				}),
+			};
+			mocks.getMssqlPool.mockResolvedValue({
+				transaction: () => transaction,
+				request: () => keyLookup,
+			});
 
 			const adapter = new MsSqlAdapter();
 			vi.spyOn(adapter, "getTableColumns").mockResolvedValue([]);

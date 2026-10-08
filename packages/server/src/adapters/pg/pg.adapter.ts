@@ -981,6 +981,7 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 
 		const keyColumns = this.resolveKeyColumns(params);
+		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		await pool.query("BEGIN");
