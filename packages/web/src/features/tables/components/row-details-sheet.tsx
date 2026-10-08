@@ -18,12 +18,12 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { AddRecordField, RecordReferenceSheet } from "@/features/records";
 import { useTableCols } from "@/features/schema";
-import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useDeleteCells } from "../hooks/use-delete-cell";
 import { useRowDetailsForm } from "../hooks/use-row-details-form";
+import { useRowMutation } from "../hooks/use-row-mutation";
 import { useUpdateRecord } from "../hooks/use-update-record";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import {
@@ -127,10 +127,7 @@ export const RowDetailsSheet = ({
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { rowIndex, selectRowDetails, clearRowDetails } = useRowDetailsStore();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
-	const engine = useDatabaseEngine();
-	const canMutateRows = engine?.rowMutation ?? true;
-	const rowMutationReason =
-		engine?.rowMutation === false ? engine.rowMutationReason : undefined;
+	const { canMutateRows, rowMutationReason } = useRowMutation();
 	const { updateRecord, isUpdatingRecord } = useUpdateRecord({ tableName });
 	const { deleteCells, isDeletingCells } = useDeleteCells({ tableName });
 

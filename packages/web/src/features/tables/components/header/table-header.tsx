@@ -2,6 +2,7 @@ import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import type { TableRecord } from "@/types/table.type";
+import { useRowMutation } from "../../hooks/use-row-mutation";
 import { AddRecordMenu } from "./add-record-menu";
 import { ClearBtn } from "./clear-btn";
 import { ColumnPreferencesMenu } from "./column-preferences-menu";
@@ -23,8 +24,7 @@ export const TableHeader = ({
 	const isSchemaless = useIsSchemaless();
 	const engine = useDatabaseEngine();
 	const canLiveMode = engine?.liveMode ?? false;
-	const rowMutationReason =
-		engine?.rowMutation === false ? engine.rowMutationReason : undefined;
+	const { rowMutationReason } = useRowMutation();
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background sticky top-0 left-0 right-0 z-0">
