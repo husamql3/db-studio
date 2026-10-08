@@ -16,6 +16,7 @@
     "init-db:mssql": "bash ./scripts/init-db-mssql.sh",
     "init-db:mongo": "bash ./scripts/init-db-mongo.sh",
     "init-db:sqlite": "bash ./scripts/init-db-sqlite.sh",
+    "init-db:libsql": "bash ./scripts/init-db-libsql.sh",
     "init-db:redis": "bash ./scripts/init-db-redis.sh",
     "init-db:mariadb": "bash ./scripts/init-db-mariadb.sh",
     "init-db:cockroach": "bash ./scripts/init-db-cockroach.sh",

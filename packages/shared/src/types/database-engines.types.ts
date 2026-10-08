@@ -52,8 +52,8 @@ export const DATABASE_ENGINES: Record<DatabaseTypeSchema, DatabaseEngine> = {
 		schemaSelector: false,
 	},
 	sqlite: {
-		label: "SQLite",
-		protocols: ["sqlite"],
+		label: "SQLite / libSQL",
+		protocols: ["sqlite", "libsql"],
 		defaultPort: null,
 		dataModel: "relational",
 		editorLanguage: "pgsql",

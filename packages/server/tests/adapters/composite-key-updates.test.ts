@@ -1,10 +1,15 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createClient as createLibsqlClient } from "@libsql/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
 	getDbPool: vi.fn(),
 	getMysqlPool: vi.fn(),
 	getMssqlPool: vi.fn(),
-	getSqliteDb: vi.fn(),
+	getSqliteClient: vi.fn(),
 	getMongoDb: vi.fn(),
 }));
 
@@ -12,7 +17,7 @@ vi.mock("@/adapters/connections.js", () => ({
 	getDbPool: mocks.getDbPool,
 	getMysqlPool: mocks.getMysqlPool,
 	getMssqlPool: mocks.getMssqlPool,
-	getSqliteDb: mocks.getSqliteDb,
+	getSqliteClient: mocks.getSqliteClient,
 	getMongoDb: mocks.getMongoDb,
 	getMongoClient: vi.fn(),
 	getMongoDbName: vi.fn(),
@@ -166,25 +171,33 @@ describe("composite primary key updates", () => {
 	});
 
 	describe("SqliteAdapter", () => {
-		it("matches on every key column", async () => {
-			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getSqliteDb.mockReturnValue({
-				transaction: (fn: () => number) => fn,
-				prepare: (sql: string) => ({
-					run: (...values: unknown[]) => {
-						statements.push({ sql, values });
-						return { changes: 1 };
-					},
-				}),
+		it("updates only the row matching every key column", async () => {
+			const dir = mkdtempSync(path.join(tmpdir(), "db-studio-composite-"));
+			const client = createLibsqlClient({
+				url: pathToFileURL(path.join(dir, "members.db")).href,
+				intMode: "bigint",
 			});
+			try {
+				await client.executeMultiple(`
+					CREATE TABLE members (tenant_id INTEGER, user_id INTEGER, name TEXT, PRIMARY KEY (tenant_id, user_id));
+					INSERT INTO members VALUES (7, 42, 'Ada'), (7, 43, 'Bob');
+				`);
+				mocks.getSqliteClient.mockResolvedValue(client);
 
-			const adapter = new SqliteAdapter();
-			await expect(
-				adapter.updateRecords({ db: "appdb", params: compositeParams } as never),
-			).resolves.toEqual({ updatedCount: 1 });
+				const adapter = new SqliteAdapter();
+				await expect(
+					adapter.updateRecords({ db: "main", params: compositeParams } as never),
+				).resolves.toEqual({ updatedCount: 1 });
 
-			expect(statements[0]?.sql).toContain('WHERE "tenant_id" = ? AND "user_id" = ?');
-			expect(statements[0]?.values).toEqual(["Grace", 7, 42]);
+				const { rows } = await client.execute("SELECT user_id, name FROM members ORDER BY user_id");
+				expect(rows.map((r) => [Number(r.user_id), r.name])).toEqual([
+					[42, "Grace"],
+					[43, "Bob"],
+				]);
+			} finally {
+				client.close();
+				rmSync(dir, { recursive: true, force: true });
+			}
 		});
 	});
 

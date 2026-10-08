@@ -29,6 +29,7 @@ bun run init-db:mysql   # MySQL
 bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
+bun run init-db:libsql  # libSQL server (sqld) in Docker
 bun run init-db:redis   # Redis
 ```
 
@@ -149,6 +150,7 @@ Three export paths:
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
 - **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. `src/dao/mongo/**` is dead code — it was kept alive only by a mock-heavy DAO test suite that has since been deleted, and nothing outside tests imports it. Do not add to it; it is pending removal.
+- **SQLite / libSQL specifics**: one `SqliteAdapter` on `@libsql/client` (`intMode: "bigint"`, rows normalized in `toRows`) serves `sqlite://` files (opened as `file:` URLs) and remote `libsql://` / Turso URLs (`?authToken=`, `?tls=0` for local sqld) under dbType `sqlite`; `PRAGMA foreign_keys` does not persist between requests on a remote server and is a no-op inside a transaction, so the table rebuild in `alterColumn` goes through `client.migrate()`.
 - **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
 
 ## Patterns
