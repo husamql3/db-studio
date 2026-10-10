@@ -123,7 +123,8 @@ describe("Error Handler Middleware", () => {
 			stderr.restore();
 
 			expect(findLog(stderr.lines, "request_failed")).toMatchObject({
-				level: "error",
+				level: "warn",
+				status: 404,
 				error_type: "HTTPException",
 			});
 		});

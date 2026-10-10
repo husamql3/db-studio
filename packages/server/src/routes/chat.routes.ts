@@ -4,6 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { RouteEnv } from "@/app.types.js";
+import { currentRequestId, errorFields, writeOperationalLog } from "@/operational-log.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 import { getDetailedSchema } from "@/utils/table-details-schema.js";
 
@@ -57,13 +58,18 @@ export const chatRoutes = new Hono<RouteEnv>()
 					"x-real-ip": c.req.header("x-real-ip") ?? "",
 					"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
 					"x-api-key": c.req.header("x-api-key") ?? "",
+					"x-request-id": currentRequestId() ?? "",
 				},
 			});
 			if (!proxyResponse.ok) {
+				writeOperationalLog("warn", "chat_limit_unavailable", {
+					proxy_status: proxyResponse.status,
+				});
 				return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 }, 200);
 			}
 			return c.json(await proxyResponse.json(), 200);
-		} catch {
+		} catch (error) {
+			writeOperationalLog("warn", "chat_limit_unavailable", errorFields(error));
 			return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 }, 200);
 		}
 	})
@@ -103,11 +109,17 @@ export const chatRoutes = new Hono<RouteEnv>()
 				"x-byok-anthropic": c.req.header("x-byok-anthropic") ?? "",
 				"x-byok-grok": c.req.header("x-byok-grok") ?? "",
 				"x-byok-openrouter": c.req.header("x-byok-openrouter") ?? "",
+				"x-request-id": currentRequestId() ?? "",
 			},
 			body: JSON.stringify(payload),
 		});
 
 		if (!proxyResponse.ok) {
+			writeOperationalLog("warn", "chat_proxy_rejected", {
+				proxy_status: proxyResponse.status,
+				provider,
+				model,
+			});
 			const errorData = await proxyResponse.json();
 			return c.json(
 				{ error: errorData.error || "Proxy request failed" },

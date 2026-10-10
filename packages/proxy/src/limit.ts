@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { BYOK_LIMIT, LIMIT, ONE_DAY } from "@db-studio/shared/constants";
 import type { Context, MiddlewareHandler } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
+import { writeLog } from "./log";
 import { getRedisStore } from "./redis";
 
 export const keyGenerator = (c: Context) => {
@@ -16,7 +17,7 @@ export const keyGenerator = (c: Context) => {
 export const createProxyLimiter = (): MiddlewareHandler => {
 	return async (c, next) => {
 		if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
-			console.warn("[proxy] Upstash Redis not configured — skipping rate limiter");
+			writeLog(c, "warn", "rate_limiter_disabled");
 			return next();
 		}
 

@@ -1,4 +1,5 @@
 import { DATABASE_ENGINES, dbTypeFromProtocol } from "@db-studio/shared/types";
+import { errorFields, writeOperationalLog } from "@/operational-log.js";
 
 /** Wire-compatible aliases the drivers don't understand, with the alias engine's own default port. */
 export const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort: number }> = {
@@ -48,7 +49,7 @@ export function parseDatabaseUrl(databaseUrl = process.env.DATABASE_URL): {
 			port: Number.parseInt(url.port, 10) || defaultPortFor(url),
 		};
 	} catch (error) {
-		console.error("Failed to parse DATABASE_URL:", error);
+		writeOperationalLog("error", "database_url_unparseable", errorFields(error));
 		return { host: "localhost", port: 5432 };
 	}
 }

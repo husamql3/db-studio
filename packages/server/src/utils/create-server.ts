@@ -17,11 +17,13 @@ import type { AppType } from "@/app.types.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import {
 	captureServerEvent,
+	databaseTypeForRequest,
 	durationBucket,
 	operationForRequest,
 	outcomeForStatus,
 	startServerSpan,
 } from "@/observability.js";
+import { resolveRequestId, runWithRequestContext } from "@/operational-log.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { keysRoutes } from "@/routes/keys.routes.js";
@@ -73,6 +75,26 @@ export const createServer = () => {
 
 	const app = new Hono<AppType>({ strict: false })
 		/**
+		 * Give every request one ID, reused from the caller when it sent one, so
+		 * the browser, this server's logs and error reports, and the AI proxy all
+		 * name the same request. Mounted first so nothing runs outside it.
+		 */
+		.use("/*", (c, next) => {
+			const requestId = resolveRequestId(c.req.header("x-request-id"));
+			return runWithRequestContext(
+				{
+					requestId,
+					operation: operationForRequest(c.req.method, c.req.path),
+					dbType: databaseTypeForRequest(c.req.path),
+				},
+				async () => {
+					await next();
+					c.header("X-Request-Id", requestId);
+				},
+			);
+		})
+
+		/**
 		 * Enable CORS.
 		 *
 		 * Same-origin by default: the SPA is served from the same origin as the
@@ -113,6 +135,7 @@ export const createServer = () => {
 				allowHeaders: [
 					"Content-Type",
 					"X-Run-Id",
+					"X-Request-Id",
 					"X-DB-Studio-GPC",
 					"x-byok-gemini",
 					"x-byok-openai",
@@ -120,6 +143,7 @@ export const createServer = () => {
 					"x-byok-grok",
 					"x-byok-openrouter",
 				],
+				exposeHeaders: ["X-Request-Id"],
 				maxAge: 600,
 			}),
 		)

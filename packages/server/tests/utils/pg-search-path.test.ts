@@ -82,12 +82,21 @@ describe("PostgreSQL pool search_path", () => {
 
 	it("leaves the connection usable when the statement fails", async () => {
 		const pool = await freshPool();
-		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-		const client = { query: vi.fn().mockRejectedValue(new Error("permission denied")) };
+		const lines: string[] = [];
+		const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		const client = {
+			query: vi.fn().mockRejectedValue(new Error("permission denied for secret-host")),
+		};
 
 		expect(() => pool.emit("connect", client)).not.toThrow();
-		await vi.waitFor(() => expect(consoleError).toHaveBeenCalled());
+		await vi.waitFor(() =>
+			expect(lines.join("")).toContain('"event":"db_search_path_widen_failed"'),
+		);
+		stderr.mockRestore();
 
-		consoleError.mockRestore();
+		expect(lines.join("")).not.toContain("secret-host");
 	});
 });

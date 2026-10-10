@@ -63,7 +63,7 @@ describe("observability privacy boundary", () => {
 		expect(reportedError).toBeInstanceOf(Error);
 		expect(reportedError).toMatchObject({
 			name: "DatabaseError",
-			message: "Server operation failed",
+			message: "get_tables failed with 503 42P01",
 		});
 		expect(reportedError.stack).toContain("observability.test.ts");
 		expect(reportedError.stack).not.toContain("customer_secrets");

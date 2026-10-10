@@ -23,6 +23,7 @@ import type { Pool as MysqlPool } from "mysql2/promise";
 import { createPool as createMysqlPool } from "mysql2/promise";
 import oracledb from "oracledb";
 import { Pool, type PoolConfig } from "pg";
+import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
@@ -56,7 +57,7 @@ class DatabaseManager {
 			this.initializeBaseConfig();
 		} catch (e) {
 			this.initError = e instanceof Error ? e : new Error(String(e));
-			console.error(`❌ Database configuration error: ${this.initError.message}`);
+			writeOperationalLog("error", "db_config_invalid", errorFields(this.initError));
 		}
 	}
 
@@ -333,18 +334,15 @@ class DatabaseManager {
 							AND nspname NOT LIKE 'pg_temp%';`,
 					)
 					.catch((err: Error) => {
-						console.error(
-							`Failed to widen search_path for "${connectionString}":`,
-							err.message,
-						);
+						writeOperationalLog("warn", "db_search_path_widen_failed", {
+							db_type: "pg",
+							...errorFields(err),
+						});
 					});
 			});
 
 			pool.on("error", (err) => {
-				console.error(
-					`Unexpected error on PostgreSQL pool for "${connectionString}":`,
-					err.message,
-				);
+				writeOperationalLog("error", "db_pool_error", { db_type: "pg", ...errorFields(err) });
 			});
 
 			this.pgPools.set(connectionString, pool);
@@ -423,10 +421,10 @@ class DatabaseManager {
 			const pool = await new mssql.ConnectionPool(config).connect();
 
 			pool.on("error", (err) => {
-				console.error(
-					`Unexpected error on SQL Server pool for "${connectionString}":`,
-					err.message,
-				);
+				writeOperationalLog("error", "db_pool_error", {
+					db_type: "mssql",
+					...errorFields(err),
+				});
 			});
 
 			this.mssqlPools.set(connectionString, pool);
@@ -480,7 +478,7 @@ class DatabaseManager {
 		if (pool) {
 			await pool.end();
 			this.pgPools.delete(connectionString);
-			console.log(`Closed PostgreSQL connection pool for: ${connectionString}`);
+			writeOperationalLog("info", "db_pool_closed", { db_type: "pg" });
 		}
 	}
 
@@ -492,7 +490,7 @@ class DatabaseManager {
 		if (pool) {
 			await pool.end();
 			this.mysqlPools.delete(connectionString);
-			console.log(`Closed MySQL connection pool for: ${connectionString}`);
+			writeOperationalLog("info", "db_pool_closed", { db_type: "mysql" });
 		}
 	}
 
@@ -504,7 +502,7 @@ class DatabaseManager {
 		if (pool) {
 			await pool.close();
 			this.mssqlPools.delete(connectionString);
-			console.log(`Closed SQL Server connection pool for: ${connectionString}`);
+			writeOperationalLog("info", "db_pool_closed", { db_type: "mssql" });
 		}
 	}
 
@@ -684,24 +682,18 @@ class DatabaseManager {
 	 * Close all database pools
 	 */
 	async closeAll(): Promise<void> {
-		const pgClosePromises = Array.from(this.pgPools.entries()).map(
-			async ([connectionString, pool]) => {
-				await pool.end();
-				console.log(`Closed PostgreSQL pool for: ${connectionString}`);
-			},
-		);
-		const mysqlClosePromises = Array.from(this.mysqlPools.entries()).map(
-			async ([connectionString, pool]) => {
-				await pool.end();
-				console.log(`Closed MySQL pool for: ${connectionString}`);
-			},
-		);
-		const mssqlClosePromises = Array.from(this.mssqlPools.entries()).map(
-			async ([connectionString, pool]) => {
-				await pool.close();
-				console.log(`Closed SQL Server pool for: ${connectionString}`);
-			},
-		);
+		const pgClosePromises = Array.from(this.pgPools.values()).map(async (pool) => {
+			await pool.end();
+			writeOperationalLog("info", "db_pool_closed", { db_type: "pg" });
+		});
+		const mysqlClosePromises = Array.from(this.mysqlPools.values()).map(async (pool) => {
+			await pool.end();
+			writeOperationalLog("info", "db_pool_closed", { db_type: "mysql" });
+		});
+		const mssqlClosePromises = Array.from(this.mssqlPools.values()).map(async (pool) => {
+			await pool.close();
+			writeOperationalLog("info", "db_pool_closed", { db_type: "mssql" });
+		});
 		await Promise.all([...pgClosePromises, ...mysqlClosePromises, ...mssqlClosePromises]);
 		this.pgPools.clear();
 		this.mysqlPools.clear();
@@ -713,12 +705,10 @@ class DatabaseManager {
 		await this.closeSqliteClient();
 		await this.closeDuckdb();
 		await this.closeOraclePool();
-		const redisClosePromises = Array.from(this.redisClients.entries()).map(
-			async ([index, client]) => {
-				await client.quit().catch(() => {});
-				console.log(`Closed Redis client for db=${index}`);
-			},
-		);
+		const redisClosePromises = Array.from(this.redisClients.values()).map(async (client) => {
+			await client.quit().catch(() => {});
+			writeOperationalLog("info", "db_pool_closed", { db_type: "redis" });
+		});
 		await Promise.all(redisClosePromises);
 		this.redisClients.clear();
 		this.redisClusterChecked = false;
