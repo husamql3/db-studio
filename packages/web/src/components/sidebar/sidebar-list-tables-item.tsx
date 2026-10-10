@@ -14,7 +14,11 @@ export const SidebarListTablesItem = ({
 	const table = params.table as string | undefined;
 	const isActive = table === tableName;
 
-	const basePath = pathname.startsWith("/schema") ? "/schema/$table" : "/table/$table";
+	const basePath = pathname.startsWith("/schema")
+		? "/schema/$table"
+		: pathname.startsWith("/indexes")
+			? "/indexes/$table"
+			: "/table/$table";
 
 	return (
 		<li className="relative group">

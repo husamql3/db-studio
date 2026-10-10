@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_pathlessLayout/indexes")({
+export const Route = createFileRoute("/_pathlessLayout/indexes/")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
 	return (
 		<main className="flex-1 flex items-center justify-center">
-			Indexes will be available soon!
+			Select a table to view its indexes
 		</main>
 	);
 }

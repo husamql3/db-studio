@@ -19,13 +19,13 @@ export const Sidebar = () => {
 			case "":
 			case "table":
 			case "schema":
+			case "indexes":
 				return <SidebarContentTablesList />;
 			case "runner":
 				return <SidebarContentQueriesList />;
 			default:
 				return <SidebarContentTablesList />;
 			// todo
-			// case "indexes":
 			// case "logs":
 			// case "visualizer":
 		}

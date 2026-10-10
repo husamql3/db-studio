@@ -5,6 +5,8 @@ export type OverlayId =
 	| `table-builder.add-foreign-key-${number}`
 	| "schema.add-column"
 	| "schema.edit-column"
+	| "indexes.create-index"
+	| "indexes.drop-index"
 	| "records.add-record"
 	| "records.bulk-insert"
 	| "records.bulk-insert-csv"
