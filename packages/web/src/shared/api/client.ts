@@ -8,9 +8,19 @@ import axios, {
 import { logger } from "@/lib/logger";
 import { Sentry } from "@/lib/sentry";
 
+/** `crypto.randomUUID` only exists on secure origins; db-studio is also served over plain LAN HTTP. */
+const newRequestId = (): string =>
+	crypto.randomUUID?.() ??
+	Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	).join("");
+
 const setupInterceptors = (instance: AxiosInstance) => {
 	instance.interceptors.request.use(
 		(config) => {
+			// The server adopts this ID, so its log line and error report name the same request.
+			const requestId = newRequestId();
+			config.headers.set("X-Request-Id", requestId);
 			(
 				config as InternalAxiosRequestConfig & {
 					metadata?: { startTime: number };
@@ -24,6 +34,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 				data: {
 					operation: apiOperationForRequest(config.method, config.url),
 					method: config.method?.toUpperCase(),
+					request_id: requestId,
 				},
 				level: "info",
 			});
@@ -60,23 +71,31 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const data = error.response?.data;
 			const message = data?.error ?? error.message ?? "An error occurred";
 			const details = data?.details;
-			const apiError = new Error(message);
-			(apiError as Error & { status: number; details?: unknown }).status = status;
-			(apiError as Error & { status: number; details?: unknown }).details = details;
+			const requestId: string | undefined = error.config?.headers
+				.get("X-Request-Id")
+				?.toString();
+			const apiError = Object.assign(new Error(message), { status, details, requestId });
 			if (!error.response) {
 				const operation = apiOperationForRequest(error.config?.method, error.config?.url);
 				const errorCode =
 					typeof error.code === "string" && /^[A-Z0-9_]{2,32}$/.test(error.code)
 						? error.code
 						: "unknown";
-				const reportedError = new Error("Network request failed");
+				const reportedMessage = `${operation} did not reach the server (${errorCode})`;
+				const reportedError = new Error(reportedMessage);
 				reportedError.name = "AxiosError";
 				if (error.stack) {
 					const frames = error.stack.split("\n").slice(1).filter(isStackFrame);
-					reportedError.stack = ["AxiosError: Network request failed", ...frames].join("\n");
+					reportedError.stack = [`AxiosError: ${reportedMessage}`, ...frames].join("\n");
 				}
 				Sentry.captureException(reportedError, {
-					tags: { source: "client", error_kind: "network", operation, error_code: errorCode },
+					tags: {
+						source: "client",
+						error_kind: "network",
+						operation,
+						error_code: errorCode,
+						...(requestId ? { request_id: requestId } : {}),
+					},
 					fingerprint: ["network", operation, errorCode],
 				});
 			}

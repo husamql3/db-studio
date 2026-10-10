@@ -9,6 +9,14 @@ const DB_SCOPED_API_PATH = new RegExp(
 const OFFICIAL_SENTRY_DSN =
 	"https://c1a01551ba00da0aee2c5e9c977906e7@o4509725125181440.ingest.de.sentry.io/4512040493318224";
 
+/** Family and major version only, e.g. `safari-18`; the full user agent is never sent. */
+const browserTag = (): string => {
+	const match = navigator.userAgent.match(/(Edg|OPR|Firefox|Chrome|Version)\/(\d+)/);
+	if (!match) return "other";
+	const family = { Edg: "edge", OPR: "opera", Firefox: "firefox", Chrome: "chrome" }[match[1]];
+	return `${family ?? "safari"}-${match[2]}`;
+};
+
 export const initSentry = (): void => {
 	const dsn = import.meta.env.VITE_SENTRY_DSN ?? OFFICIAL_SENTRY_DSN;
 	if (!dsn || import.meta.env.DEV) return;
@@ -26,6 +34,7 @@ export const initSentry = (): void => {
 			delete event.message;
 			delete event.contexts;
 			delete event.extra;
+			event.tags = { ...event.tags, browser: browserTag() };
 			event.breadcrumbs = event.breadcrumbs
 				?.filter((breadcrumb) => breadcrumb.category === "db_studio.http")
 				.map((breadcrumb) => ({
@@ -35,9 +44,15 @@ export const initSentry = (): void => {
 					data: {
 						operation: breadcrumb.data?.operation,
 						method: breadcrumb.data?.method,
+						request_id: breadcrumb.data?.request_id,
 					},
 				}));
-			for (const exception of event.exception?.values ?? []) exception.value = "Client error";
+			// Only the network report builds its message from fixed vocabulary; any
+			// other message may quote a table or database name.
+			if (event.tags?.error_kind !== "network") {
+				for (const exception of event.exception?.values ?? [])
+					exception.value = "Client error";
+			}
 			return event;
 		},
 		beforeSendSpan(span) {

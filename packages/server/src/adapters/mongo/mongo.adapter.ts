@@ -27,6 +27,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -445,7 +446,7 @@ export class MongoAdapter extends BaseAdapter {
 			try {
 				serverStatus = await admin.serverStatus();
 			} catch (error) {
-				console.warn("Failed to read MongoDB serverStatus:", error);
+				writeOperationalLog("warn", "db_server_status_failed", errorFields(error));
 			}
 			return {
 				host: urlDefaults.host,

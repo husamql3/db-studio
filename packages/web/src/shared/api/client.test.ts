@@ -57,7 +57,7 @@ describe("API error reporting", () => {
 		).toBe("get_tables");
 		expect(sentry.addBreadcrumb).toHaveBeenCalledWith({
 			category: "db_studio.http",
-			data: { operation: "get_tables", method: "GET" },
+			data: { operation: "get_tables", method: "GET", request_id: expect.any(String) },
 			level: "info",
 		});
 		expect(JSON.stringify(sentry.addBreadcrumb.mock.calls)).not.toContain("customer_secrets");
@@ -80,7 +80,10 @@ describe("API error reporting", () => {
 
 		expect(sentry.captureException).toHaveBeenCalledOnce();
 		const [error, context] = sentry.captureException.mock.calls[0];
-		expect(error).toMatchObject({ name: "AxiosError", message: "Network request failed" });
+		expect(error).toMatchObject({
+			name: "AxiosError",
+			message: "get_tables did not reach the server (ERR_NETWORK)",
+		});
 		expect(error.stack).not.toContain("private-host");
 		expect(context).toEqual({
 			tags: {
@@ -88,6 +91,7 @@ describe("API error reporting", () => {
 				error_kind: "network",
 				operation: "get_tables",
 				error_code: "ERR_NETWORK",
+				request_id: expect.any(String),
 			},
 			fingerprint: ["network", "get_tables", "ERR_NETWORK"],
 		});

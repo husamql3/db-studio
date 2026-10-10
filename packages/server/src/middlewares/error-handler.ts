@@ -7,14 +7,8 @@ import {
 	captureServerError,
 	databaseTypeForRequest,
 	operationForRequest,
-	writeOperationalLog,
 } from "@/observability.js";
-
-/** HTTPException leaves `name` as "Error", so it needs an explicit check. */
-const errorTypeName = (e: unknown): string => {
-	if (e instanceof HTTPException) return "HTTPException";
-	return e instanceof Error ? e.name : "UnknownError";
-};
+import { currentRequestId, errorFields, writeOperationalLog } from "@/operational-log.js";
 
 const isConnectionError = (e: Error): boolean => {
 	const mysqlError = e as Error & { code?: string; errno?: number };
@@ -53,19 +47,23 @@ const statusForError = (e: unknown): number => {
  */
 export function handleError(e: Error | unknown, c: Context) {
 	const operation = operationForRequest(c.req.method, c.req.path);
-	const errorType = errorTypeName(e);
 	const status = statusForError(e);
-	writeOperationalLog("error", "request_failed", { operation, error_type: errorType });
-	captureServerError(e, {
+	const dbType = databaseTypeForRequest(c.req.path);
+	const requestId = currentRequestId();
+	writeOperationalLog(status >= 500 ? "error" : "warn", "request_failed", {
 		operation,
+		db_type: dbType,
+		method: c.req.method,
 		status,
-		dbType: databaseTypeForRequest(c.req.path),
+		...errorFields(e),
 	});
+	captureServerError(e, { operation, status, dbType });
 
 	if (e instanceof HTTPException) {
 		return c.json<ApiError>(
 			{
 				error: e.message ?? "Internal server error",
+				requestId,
 			},
 			e.status,
 		);
@@ -77,6 +75,7 @@ export function handleError(e: Error | unknown, c: Context) {
 			{
 				error: "Validation error",
 				details: issue.message,
+				requestId,
 			},
 			400,
 		);
@@ -85,7 +84,7 @@ export function handleError(e: Error | unknown, c: Context) {
 	if (e instanceof Error) {
 		if (isConnectionError(e)) {
 			return c.json<ApiError>(
-				{ error: "Database connection failed", details: e.message },
+				{ error: "Database connection failed", details: e.message, requestId },
 				503,
 			);
 		}
@@ -94,6 +93,7 @@ export function handleError(e: Error | unknown, c: Context) {
 	return c.json<ApiError>(
 		{
 			error: e instanceof Error ? e.message : "Internal server error",
+			requestId,
 		},
 		500,
 	);

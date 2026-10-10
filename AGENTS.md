@@ -149,6 +149,7 @@ Three export paths:
 
 - **Commit format**: `<type>(<scope>): <message>` (e.g., `feat(back): add mysql row insert`)
 - **Branch format**: `<type>/<issue-number>/<description>` (e.g., `feat/123/support-mysql`)
+- **Logging**: server code never calls `console.*` outside `src/cmd/` (CLI output). Use `writeOperationalLog(level, event, fields)` from `src/operational-log.ts`: `event` is a fixed `snake_case` name, and anything variable goes in `fields` — never interpolated into the name. Pass errors as `errorFields(error)` (type + driver code); never log a message, connection string, table name or row. Each line already carries `instance_id` and, inside a request, `request_id`, `operation` and `db_type`. The request ID arrives as `X-Request-Id` (the web client sends one), is echoed on the response and in the `ApiError` body, tagged on Sentry reports, and forwarded to the proxy, whose logs go through `writeLog` in `packages/proxy/src/log.ts`.
 - **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
