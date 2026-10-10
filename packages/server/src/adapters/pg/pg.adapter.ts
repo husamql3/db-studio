@@ -464,18 +464,20 @@ export class PgAdapter extends BaseAdapter {
 		const countSelects: string[][] = Array.from({ length: COUNT_STATEMENTS }, () => []);
 		tables.forEach((t: { schemaName: string; tableName: string }, index: number) => {
 			countSelects[index % COUNT_STATEMENTS]?.push(
-				`SELECT ${index} AS index, COUNT(*)::integer AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
+				`SELECT ${index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
 			);
 		});
 		const countResults = await Promise.all(
 			countSelects
 				.filter((selects) => selects.length > 0)
 				.map((selects) =>
-					pool.query<{ index: number; count: number }>(selects.join(" UNION ALL ")),
+					pool.query<{ index: number; count: string }>(selects.join(" UNION ALL ")),
 				),
 		);
 		const countByIndex = new Map(
-			countResults.flatMap(({ rows }) => rows.map((row) => [row.index, row.count] as const)),
+			countResults.flatMap(({ rows }) =>
+				rows.map((row) => [row.index, Number(row.count)] as const),
+			),
 		);
 
 		return tables.map((t: { schemaName: string; tableName: string }, index: number) => ({

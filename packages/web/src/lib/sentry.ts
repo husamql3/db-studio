@@ -11,10 +11,19 @@ const OFFICIAL_SENTRY_DSN =
 
 /** Family and major version only, e.g. `safari-18`; the full user agent is never sent. */
 const browserTag = (): string => {
-	const match = navigator.userAgent.match(/(Edg|OPR|Firefox|Chrome|Version)\/(\d+)/);
-	if (!match) return "other";
-	const family = { Edg: "edge", OPR: "opera", Firefox: "firefox", Chrome: "chrome" }[match[1]];
-	return `${family ?? "safari"}-${match[2]}`;
+	// Edge and Opera also carry a Chrome token, so they are checked first.
+	const families = [
+		["Edg", "edge"],
+		["OPR", "opera"],
+		["Firefox", "firefox"],
+		["Chrome", "chrome"],
+		["Version", "safari"],
+	];
+	for (const [token, family] of families) {
+		const major = navigator.userAgent.match(new RegExp(`${token}/(\\d+)`))?.[1];
+		if (major) return `${family}-${major}`;
+	}
+	return "other";
 };
 
 export const initSentry = (): void => {

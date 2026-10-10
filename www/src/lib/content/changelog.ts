@@ -16,6 +16,27 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.16.1",
+		date: "2026-10-10",
+		title: "Query editor and PostgreSQL table list fixes",
+		improvements: [
+			{
+				text: "API errors now include a request ID, so a reported problem can be matched to its server log line and error report",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed the query editor throwing an error on the first keystroke because its background worker failed to load",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the PostgreSQL table list failing to load on databases with many tables",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.16.0",
 		date: "2026-10-08",
 		title: "Oracle, DuckDB, ClickHouse, libSQL, and more",
