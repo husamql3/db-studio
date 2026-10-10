@@ -54,6 +54,11 @@ export const schemaKeys = {
 	table: (tableName: string, db?: string | null) => tableKeys.schema(tableName, db),
 };
 
+export const indexKeys = {
+	byTable: (tableName: string) => ["table-indexes", tableName] as const,
+	table: (tableName: string, db?: string | null) => ["table-indexes", tableName, db] as const,
+};
+
 export const recordKeys = {
 	all: ["records"] as const,
 	byTable: (tableName: string, db?: string | null) => ["records", tableName, db] as const,

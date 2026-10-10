@@ -9,7 +9,8 @@ export const Route = createFileRoute("/_pathlessLayout")({
 });
 
 function RouteComponent() {
-	const isKeyValue = useDatabaseEngine()?.dataModel === "key-value";
+	const engine = useDatabaseEngine();
+	const isKeyValue = engine?.dataModel === "key-value";
 	const { pathname } = useLocation();
 	const section = pathname.split("/")[1];
 	const {
@@ -20,6 +21,9 @@ function RouteComponent() {
 	}
 	if (!isKeyValue && section === "browser") {
 		return <Navigate to="/" />;
+	}
+	if (engine && !engine.indexes && section === "indexes") {
+		return <Navigate to="/table" />;
 	}
 
 	return (
