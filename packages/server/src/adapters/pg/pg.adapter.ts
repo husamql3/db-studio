@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	CursorData,
 	DatabaseInfoSchemaType,
@@ -17,11 +18,13 @@ import type {
 	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyConstraint,
 	ForeignKeyConstraintRow,
 	ForeignKeyDataType,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -29,7 +32,11 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { mapPostgresToDataType, standardizeDataTypeLabel } from "@db-studio/shared/types";
+import {
+	DATABASE_ENGINES,
+	mapPostgresToDataType,
+	standardizeDataTypeLabel,
+} from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
@@ -40,6 +47,7 @@ import {
 	buildSortClause,
 	buildWhereClause,
 	resolvedSchemaFor,
+	SEARCH_PATH_SCHEMAS,
 } from "./pg.query-builder.js";
 
 type PgPool = ReturnType<typeof getDbPool>;
@@ -58,7 +66,7 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	protected quoteIdentifier(name: string): string {
-		return `"${name}"`;
+		return `"${name.replaceAll('"', '""')}"`;
 	}
 
 	mapToUniversalType(nativeType: string): DataTypes {
@@ -962,6 +970,84 @@ export class PgAdapter extends BaseAdapter {
 		);
 	}
 
+	// --- Indexes ---
+
+	async getTableIndexes({
+		tableName,
+		db,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			const indexes = await this.listIndexes(getDbPool(db), tableName);
+			return indexes.map(({ schemaName: _schemaName, ...index }) => index);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method = "btree", db } = params;
+		try {
+			const pool = getDbPool(db);
+			await this.assertTableExists(pool, tableName);
+
+			const { rows: columnRows } = await pool.query<{ columnName: string }>(
+				`SELECT column_name as "columnName" FROM information_schema.columns WHERE table_name = $1 AND table_schema = ${resolvedSchemaFor("$1")}`,
+				[tableName],
+			);
+			const existing = new Set(columnRows.map((row) => row.columnName));
+			const missing = columns.find((column) => !existing.has(column));
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+
+			if (!DATABASE_ENGINES.pg.indexes.methods.includes(method))
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			await pool.query(
+				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${this.quoteIdentifier(tableName)} USING ${method} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
+			);
+		} catch (e) {
+			// 42P07: the name is taken; 23505: existing rows break the new unique index.
+			// 0A000 and 42704: the method cannot index these columns (hash on two columns,
+			// gin on a type with no operator class).
+			const code = (e as { code?: string }).code;
+			if (e instanceof Error && (code === "42P07" || code === "23505"))
+				throw new HTTPException(409, { message: e.message, cause: e });
+			if (e instanceof Error && (code === "0A000" || code === "42704"))
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
+	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
+		try {
+			const pool = getDbPool(db);
+			const index = (await this.listIndexes(pool, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
+
+			// Qualified, because a bare name would resolve through search_path and could
+			// hit a same-named index that belongs to another schema's table.
+			await pool.query(
+				`DROP INDEX ${this.quoteIdentifier(index.schemaName)}.${this.quoteIdentifier(indexName)}`,
+			);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
 	// --- Records ---
 
 	async addRecord({
@@ -1220,6 +1306,49 @@ export class PgAdapter extends BaseAdapter {
 				throw e;
 			});
 		return this.databaseSizeSupport;
+	}
+
+	private async assertTableExists(pool: PgPool, tableName: string): Promise<void> {
+		const { rows } = await pool.query(
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ${SEARCH_PATH_SCHEMAS}) as exists;`,
+			[tableName],
+		);
+		if (!rows[0]?.exists)
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+	}
+
+	private async listIndexes(
+		pool: PgPool,
+		tableName: string,
+	): Promise<Array<IndexInfoSchemaType & { schemaName: string }>> {
+		await this.assertTableExists(pool, tableName);
+		const { rows } = await pool.query(
+			`SELECT
+				ic.relname AS "indexName",
+				n.nspname AS "schemaName",
+				ARRAY(
+					SELECT COALESCE(a.attname::text, pg_get_indexdef(i.indexrelid, k, true))
+					FROM generate_series(1, i.indnkeyatts) AS k
+					LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[k - 1] AND a.attnum > 0
+					ORDER BY k
+				) AS "columns",
+				i.indisunique AS "isUnique",
+				am.amname AS "method",
+				CASE
+					WHEN i.indisprimary THEN 'primary'
+					WHEN EXISTS (SELECT 1 FROM pg_constraint con WHERE con.conindid = i.indexrelid AND con.contype IN ('u', 'x')) THEN 'unique-constraint'
+					ELSE 'index'
+				END AS "kind",
+				CASE WHEN i.indpred IS NOT NULL OR i.indexprs IS NOT NULL THEN pg_get_indexdef(i.indexrelid) END AS "definition"
+			 FROM pg_index i
+			 JOIN pg_class ic ON ic.oid = i.indexrelid
+			 JOIN pg_namespace n ON n.oid = ic.relnamespace
+			 JOIN pg_am am ON am.oid = ic.relam
+			 WHERE i.indrelid = $1::regclass
+			 ORDER BY i.indisprimary DESC, ic.relname`,
+			[this.quoteIdentifier(tableName)],
+		);
+		return rows;
 	}
 
 	private async getPrimaryKeyColumns(pool: PgPool, tableName: string): Promise<string[]> {

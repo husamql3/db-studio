@@ -119,6 +119,8 @@ BEGIN
   END IF;
 END $$;
 
+CREATE INDEX IF NOT EXISTS contributions_project_id_idx ON public.contributions (project_id);
+
 SELECT setval(pg_get_serial_sequence('public.contributors', 'id'), COALESCE((SELECT MAX(id) FROM public.contributors), 1), true);
 SELECT setval(pg_get_serial_sequence('public.projects', 'id'), COALESCE((SELECT MAX(id) FROM public.projects), 1), true);
 SELECT setval(pg_get_serial_sequence('public.contributions', 'id'), COALESCE((SELECT MAX(id) FROM public.contributions), 1), true);

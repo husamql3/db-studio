@@ -36,6 +36,7 @@ export const useCommandPaletteCapabilities = () => {
 		canCreateTable: !isSchemaless,
 		canEditRecords: Boolean(activeTable) && onTableScreen,
 		recordsHint: !activeTable ? NO_TABLE_HINT : "Open the table data screen first",
+		hasIndexes: Boolean(engine?.indexes),
 		canEditSchema: Boolean(activeTable) && onSchemaScreen && !isSchemaless,
 		schemaHint: isSchemaless
 			? SCHEMALESS_HINT

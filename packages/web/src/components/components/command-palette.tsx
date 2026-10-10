@@ -22,6 +22,7 @@ import {
 	Download,
 	GitBranch,
 	KeyRound,
+	ListTree,
 	MessageSquare,
 	Moon,
 	Pin,
@@ -84,6 +85,7 @@ export function CommandPalette() {
 		recordsHint,
 		canEditSchema,
 		schemaHint,
+		hasIndexes,
 	} = useCommandPaletteCapabilities();
 
 	const isMac =
@@ -267,6 +269,31 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
+							{hasIndexes && (
+								<CommandItem
+									disabled={!activeTable}
+									onSelect={() => {
+										if (!activeTable) return;
+										const table = activeTable;
+										handleAction(() =>
+											navigate({
+												to: "/indexes/$table",
+												params: { table },
+												search: {},
+											}),
+										);
+									}}
+									keywords={["go", "navigate", "indexes", "index"]}
+								>
+									<ListTree className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Go to Indexes</span>
+										<span className="text-xs text-muted-foreground">
+											{activeTable ? `View the indexes of ${activeTable}` : NO_TABLE_HINT}
+										</span>
+									</div>
+								</CommandItem>
+							)}
 							{isKeyValue && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/browser" }))}
@@ -425,6 +452,34 @@ export function CommandPalette() {
 											</span>
 										</div>
 									</CommandItem>
+									{hasIndexes && (
+										<CommandItem
+											disabled={!activeTable}
+											onSelect={() => {
+												if (!activeTable) return;
+												const table = activeTable;
+												handleAction(() => {
+													if (!pathname.startsWith("/indexes/")) {
+														navigate({
+															to: "/indexes/$table",
+															params: { table },
+															search: {},
+														});
+													}
+													openOverlay("indexes.create-index");
+												});
+											}}
+											keywords={["create", "add", "new", "index", "indexes"]}
+										>
+											<ListTree className="mr-2 size-4" />
+											<div className="flex flex-col">
+												<span>Create Index</span>
+												<span className="text-xs text-muted-foreground">
+													{activeTable ? `Create an index on ${activeTable}` : NO_TABLE_HINT}
+												</span>
+											</div>
+										</CommandItem>
+									)}
 									<CommandItem
 										disabled={!activeTable || isExportingFile}
 										onSelect={() => {
