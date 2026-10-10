@@ -138,7 +138,6 @@ export const recordsRoutes = new Hono<RouteEnv>()
 			const dbType = c.get("dbType");
 			const dao = getAdapter(dbType);
 			const result = await dao.bulkInsertRecords({ tableName, records, db });
-			console.log("result", result);
 			return c.json({ data: result }, 200);
 		},
 	);

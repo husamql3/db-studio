@@ -9,6 +9,7 @@ import type {
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { getAdapter } from "@/adapters/adapter.registry.js";
 import { getDbType } from "@/db-manager.js";
+import { errorFields, writeOperationalLog } from "@/operational-log.js";
 
 function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	const column: Column = {
@@ -90,7 +91,7 @@ async function getSampleData(
 			),
 		);
 	} catch (error) {
-		console.warn(`Could not fetch sample data for table ${tableName}:`, error);
+		writeOperationalLog("warn", "schema_sample_rows_failed", errorFields(error));
 		return [];
 	}
 }
@@ -103,7 +104,7 @@ async function getTableColumns(
 	try {
 		return await adapter.getTableColumns({ tableName, db });
 	} catch (error) {
-		console.warn(`Could not fetch columns for table ${tableName}:`, error);
+		writeOperationalLog("warn", "schema_columns_failed", errorFields(error));
 		return [];
 	}
 }
@@ -147,7 +148,7 @@ async function getDatabaseSchema(
 
 		return { dbType, tables, relationships };
 	} catch (error) {
-		console.error("Error fetching database schema:", error);
+		writeOperationalLog("error", "schema_fetch_failed", errorFields(error));
 		throw new Error(
 			`Failed to fetch database schema: ${error instanceof Error ? error.message : "Unknown error"}`,
 		);

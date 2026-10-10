@@ -457,18 +457,34 @@ export class PgAdapter extends BaseAdapter {
 		`);
 		if (!tables[0]) return [];
 
-		return Promise.all(
-			tables.map(async (t: { schemaName: string; tableName: string }) => {
-				const { rows } = await pool.query(
-					`SELECT COUNT(*)::integer as count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
-				);
-				return {
-					schemaName: t.schemaName,
-					tableName: t.tableName,
-					rowCount: rows[0]?.count ?? 0,
-				};
-			}),
+		// A query per table queues behind the pool's 10 connections, and with enough
+		// tables the ones at the back wait past connectionTimeoutMillis and fail the
+		// whole list. Count in a few statements instead, fewer than the pool holds.
+		const COUNT_STATEMENTS = 4;
+		const countSelects: string[][] = Array.from({ length: COUNT_STATEMENTS }, () => []);
+		tables.forEach((t: { schemaName: string; tableName: string }, index: number) => {
+			countSelects[index % COUNT_STATEMENTS]?.push(
+				`SELECT ${index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
+			);
+		});
+		const countResults = await Promise.all(
+			countSelects
+				.filter((selects) => selects.length > 0)
+				.map((selects) =>
+					pool.query<{ index: number; count: string }>(selects.join(" UNION ALL ")),
+				),
 		);
+		const countByIndex = new Map(
+			countResults.flatMap(({ rows }) =>
+				rows.map((row) => [row.index, Number(row.count)] as const),
+			),
+		);
+
+		return tables.map((t: { schemaName: string; tableName: string }, index: number) => ({
+			schemaName: t.schemaName,
+			tableName: t.tableName,
+			rowCount: countByIndex.get(index) ?? 0,
+		}));
 	}
 
 	async createTable({
