@@ -10,6 +10,7 @@ import {
 	DATABASE_ENGINES,
 	type DatabaseTypeSchema,
 	databaseListSchema,
+	indexInfoSchema,
 	type TableDataResultSchemaType,
 	tableDataResultSchema,
 	tableInfoSchema,
@@ -27,6 +28,8 @@ type Step = {
 	name: string;
 	method: Method;
 	path: string;
+	/** Overrides `path` when it depends on an earlier response. */
+	resolvePath?: (ctx: Ctx) => string;
 	query?: (ctx: Ctx) => Record<string, string>;
 	body?: (ctx: Ctx) => unknown;
 	/** Accepted statuses; any 2xx when omitted. */
@@ -59,6 +62,9 @@ const PAIR_ROWS = [
 const ROW_COUNT = 25;
 const PAGE = 10;
 const COLUMNS = ["id", "name", "active", "amount", "born", "meta"];
+const INDEX = "dbstudio_e2e_born_name_idx";
+// Deliberately neither alphabetical nor table order, so a listing that loses key order fails.
+const INDEX_COLUMNS = ["born", "name"];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const rowName = (n: number) => `row-${pad(n)}`;
@@ -82,6 +88,7 @@ const pageOf = (body: unknown): TableDataResultSchemaType =>
 const columnsOf = (body: unknown): ColumnInfoSchemaType[] =>
 	dataOf(z.array(columnInfoSchema), body);
 const tablesOf = (body: unknown) => dataOf(z.array(tableInfoSchema), body);
+const indexesOf = (body: unknown) => dataOf(z.array(indexInfoSchema), body);
 
 const namesOf = (page: TableDataResultSchemaType) => page.data.map((row) => String(row.name));
 const range = (from: number, to: number) =>
@@ -128,6 +135,98 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 	const records = `/${dbType}/records`;
 	const dataOfTable = `${t}/${TABLE}/data`;
 	const canMutateRows = DATABASE_ENGINES[dbType].rowMutation;
+	const indexes = DATABASE_ENGINES[dbType].indexes;
+	const indexesPath = `${t}/${TABLE}/indexes`;
+
+	const indexSteps: Step[] = indexes
+		? [
+				{
+					name: "indexes: create two-column index",
+					method: "POST",
+					path: indexesPath,
+					body: () => ({ indexName: INDEX, columns: INDEX_COLUMNS, isUnique: false }),
+				},
+				{
+					name: "indexes: list has the new index and the primary key",
+					method: "GET",
+					path: indexesPath,
+					check: (body) => {
+						const list = indexesOf(body);
+						const created = list.find((i) => i.indexName === INDEX);
+						assert(created, `${INDEX} missing from indexes list`);
+						assertEqual(created.columns, INDEX_COLUMNS, "index columns");
+						assertEqual(created.isUnique, false, "isUnique");
+						assertEqual(created.kind, "index", "kind");
+						assertEqual(created.definition, null, "definition");
+						if (indexes.methods.length)
+							assertEqual(created.method, indexes.methods[0], "default method");
+						const primary = list.filter((i) => i.kind === "primary");
+						assertEqual(
+							primary.map((i) => ({ columns: i.columns, isUnique: i.isUnique })),
+							[{ columns: ["id"], isUnique: true }],
+							"primary key index",
+						);
+						assertEqual(list[0]?.kind, "primary", "first listed index");
+					},
+					record: indexesOf,
+				},
+				{
+					name: "indexes: duplicate name is refused",
+					method: "POST",
+					path: indexesPath,
+					body: () => ({ indexName: INDEX, columns: ["name"], isUnique: false }),
+					expect: 409,
+				},
+				{
+					name: "indexes: unknown column is refused",
+					method: "POST",
+					path: indexesPath,
+					body: () => ({
+						indexName: `${TABLE}_missing_idx`,
+						columns: ["name", "no_such_column"],
+						isUnique: false,
+					}),
+					expect: 400,
+				},
+				{
+					name: "indexes: dropping the primary key index is refused",
+					method: "DELETE",
+					path: indexesPath,
+					resolvePath: (ctx) => {
+						const primary = indexesOf(
+							prior(ctx, "indexes: list has the new index and the primary key"),
+						).find((i) => i.kind === "primary");
+						assert(primary, "no primary key index to try dropping");
+						return `${indexesPath}/${encodeURIComponent(primary.indexName)}`;
+					},
+					expect: 400,
+				},
+				{
+					name: "indexes: drop index",
+					method: "DELETE",
+					path: `${indexesPath}/${INDEX}`,
+				},
+				{
+					name: "indexes: list after drop keeps only the primary key",
+					method: "GET",
+					path: indexesPath,
+					check: (body) => {
+						assertEqual(
+							indexesOf(body).map((i) => i.kind),
+							["primary"],
+							"index kinds after drop",
+						);
+					},
+					record: indexesOf,
+				},
+				{
+					name: "indexes: dropping a missing index is 404",
+					method: "DELETE",
+					path: `${indexesPath}/${INDEX}`,
+					expect: 404,
+				},
+			]
+		: [];
 
 	return [
 		{
@@ -451,6 +550,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				);
 			},
 		},
+		...indexSteps,
 		{
 			name: "execute raw query",
 			method: "POST",
@@ -653,6 +753,7 @@ const REDACTED_KEYS = new Set([
 	"max_connections",
 	"nextCursor",
 	"prevCursor",
+	"requestId",
 ]);
 
 const normalize = (value: unknown, secrets: string[], key?: string): Json => {
@@ -710,11 +811,14 @@ const main = async () => {
 		try {
 			const query = new URLSearchParams({ db: ctx.db, ...step.query?.(ctx) });
 			const payload = step.body?.(ctx);
-			const res = await app.request(`${DEFAULTS.API_PREFIX}${step.path}?${query}`, {
-				method: step.method,
-				headers: payload === undefined ? {} : { "Content-Type": "application/json" },
-				body: payload === undefined ? undefined : JSON.stringify(payload),
-			});
+			const res = await app.request(
+				`${DEFAULTS.API_PREFIX}${step.resolvePath?.(ctx) ?? step.path}?${query}`,
+				{
+					method: step.method,
+					headers: payload === undefined ? {} : { "Content-Type": "application/json" },
+					body: payload === undefined ? undefined : JSON.stringify(payload),
+				},
+			);
 			status = res.status;
 			const text = await res.text();
 			try {
