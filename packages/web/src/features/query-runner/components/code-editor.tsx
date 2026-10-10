@@ -44,6 +44,18 @@ export const CodeEditor = ({
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const { isDark } = useTheme();
 	const { editor: editorPreferences } = usePersonalPreferencesStore();
+	// The editor is created once per query; reading callbacks through a ref keeps a new
+	// callback identity from disposing it mid-typing.
+	const callbacksRef = useRef({
+		onQueryChange,
+		onUnsavedChanges,
+		onExecuteQuery,
+		onSaveQuery,
+	});
+
+	useEffect(() => {
+		callbacksRef.current = { onQueryChange, onUnsavedChanges, onExecuteQuery, onSaveQuery };
+	});
 
 	useEffect(() => {
 		if (editorRef.current) {
@@ -298,7 +310,7 @@ export const CodeEditor = ({
 				toast.error("Query is empty!");
 				return;
 			}
-			onExecuteQuery(query);
+			callbacksRef.current.onExecuteQuery(query);
 		});
 
 		editorInstance.addCommand(
@@ -310,27 +322,27 @@ export const CodeEditor = ({
 		);
 
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-			onSaveQuery();
+			callbacksRef.current.onSaveQuery();
 		});
 
-		onQueryChange(editorInstance.getValue());
+		callbacksRef.current.onQueryChange(editorInstance.getValue());
 
 		if (queryId) {
 			const initialValue = editorInstance.getValue();
-			onUnsavedChanges(initialValue !== savedQuery);
+			callbacksRef.current.onUnsavedChanges(initialValue !== savedQuery);
 		} else {
-			onUnsavedChanges(false);
+			callbacksRef.current.onUnsavedChanges(false);
 		}
 
 		const disposable = editorInstance.onDidChangeModelContent(() => {
 			const currentValue = editorInstance.getValue();
-			onQueryChange(currentValue);
+			callbacksRef.current.onQueryChange(currentValue);
 
 			if (!queryId) {
-				onUnsavedChanges(false);
+				callbacksRef.current.onUnsavedChanges(false);
 				return;
 			}
-			onUnsavedChanges(currentValue !== savedQuery);
+			callbacksRef.current.onUnsavedChanges(currentValue !== savedQuery);
 		});
 
 		return () => {
@@ -338,15 +350,7 @@ export const CodeEditor = ({
 			disposable.dispose();
 			editorInstance.dispose();
 		};
-	}, [
-		initialQuery,
-		queryId,
-		savedQuery,
-		language,
-		onQueryChange,
-		onUnsavedChanges,
-		onExecuteQuery,
-	]);
+	}, [initialQuery, queryId, savedQuery, language]);
 
 	return (
 		<div
