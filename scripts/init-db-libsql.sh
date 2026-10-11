@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE INDEX IF NOT EXISTS employees_department_id_idx ON employees (department_id);
+
 INSERT OR IGNORE INTO departments (name, cost_center) VALUES
   ('Engineering', 'CC-100'),
   ('Design',      'CC-200'),

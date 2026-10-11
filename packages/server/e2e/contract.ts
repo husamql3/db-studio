@@ -43,12 +43,34 @@ type Step = {
 type EngineOverrides = {
 	selectOne?: string;
 	dbName?: (url: URL) => string;
+	/** `false` when the engine lists no index for the scenario table's primary key. */
+	primaryIndex?: false;
+	/** Replaces `INDEX_COLUMNS` when the engine cannot index one of them. */
+	indexColumns?: string[];
+	/** The part of a system-generated constraint index name that changes on every run. */
+	generatedIndexName?: RegExp;
+	/** What the engine reports as `method` for a plain index when it offers no method picker. */
+	indexMethod?: string;
 };
 
 const OVERRIDES: Partial<Record<DatabaseTypeSchema, EngineOverrides>> = {
-	sqlite: { dbName: () => "main" },
-	duckdb: { dbName: (url) => path.parse(url.pathname).name },
-	oracle: { selectOne: 'SELECT 1 AS "one" FROM dual' },
+	// `name` is TEXT here, which MySQL refuses to index without a prefix length.
+	mysql: { indexMethod: "btree", indexColumns: ["born", "amount"] },
+	// `name` is NVARCHAR(MAX) here, which SQL Server refuses as an index key.
+	mssql: {
+		indexMethod: "nonclustered",
+		indexColumns: ["born", "amount"],
+		generatedIndexName: /(?<=PK__\w+__)[0-9A-F]{16}/g,
+	},
+	// An INTEGER PRIMARY KEY is the rowid itself, so SQLite builds no index for it.
+	sqlite: { dbName: () => "main", primaryIndex: false },
+	// DuckDB does not list the indexes behind PRIMARY KEY and UNIQUE constraints.
+	duckdb: { dbName: (url) => path.parse(url.pathname).name, primaryIndex: false },
+	oracle: {
+		selectOne: 'SELECT 1 AS "one" FROM dual',
+		indexMethod: "normal",
+		generatedIndexName: /(?<=SYS_C)\d+/g,
+	},
 };
 
 const TABLE = "dbstudio_e2e";
@@ -137,6 +159,13 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 	const canMutateRows = DATABASE_ENGINES[dbType].rowMutation;
 	const indexes = DATABASE_ENGINES[dbType].indexes;
 	const indexesPath = `${t}/${TABLE}/indexes`;
+	const hasPrimaryIndex = overrides.primaryIndex !== false;
+	const indexColumns = overrides.indexColumns ?? INDEX_COLUMNS;
+	const maskGenerated = (body: unknown): unknown =>
+		overrides.generatedIndexName
+			? JSON.parse(JSON.stringify(body).replace(overrides.generatedIndexName, "<generated>"))
+			: body;
+	const recordIndexes = (body: unknown) => maskGenerated(indexesOf(body));
 
 	const indexSteps: Step[] = indexes
 		? [
@@ -144,7 +173,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 					name: "indexes: create two-column index",
 					method: "POST",
 					path: indexesPath,
-					body: () => ({ indexName: INDEX, columns: INDEX_COLUMNS, isUnique: false }),
+					body: () => ({ indexName: INDEX, columns: indexColumns, isUnique: false }),
 				},
 				{
 					name: "indexes: list has the new index and the primary key",
@@ -154,27 +183,34 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 						const list = indexesOf(body);
 						const created = list.find((i) => i.indexName === INDEX);
 						assert(created, `${INDEX} missing from indexes list`);
-						assertEqual(created.columns, INDEX_COLUMNS, "index columns");
+						assertEqual(created.columns, indexColumns, "index columns");
 						assertEqual(created.isUnique, false, "isUnique");
 						assertEqual(created.kind, "index", "kind");
 						assertEqual(created.definition, null, "definition");
-						if (indexes.methods.length)
-							assertEqual(created.method, indexes.methods[0], "default method");
+						assertEqual(
+							created.method,
+							indexes.methods[0] ?? overrides.indexMethod ?? null,
+							"method",
+						);
 						const primary = list.filter((i) => i.kind === "primary");
 						assertEqual(
 							primary.map((i) => ({ columns: i.columns, isUnique: i.isUnique })),
-							[{ columns: ["id"], isUnique: true }],
+							hasPrimaryIndex ? [{ columns: ["id"], isUnique: true }] : [],
 							"primary key index",
 						);
-						assertEqual(list[0]?.kind, "primary", "first listed index");
+						assertEqual(
+							list[0]?.kind,
+							hasPrimaryIndex ? "primary" : "index",
+							"first listed index",
+						);
 					},
-					record: indexesOf,
+					record: recordIndexes,
 				},
 				{
 					name: "indexes: duplicate name is refused",
 					method: "POST",
 					path: indexesPath,
-					body: () => ({ indexName: INDEX, columns: ["name"], isUnique: false }),
+					body: () => ({ indexName: INDEX, columns: indexColumns.slice(1), isUnique: false }),
 					expect: 409,
 				},
 				{
@@ -188,19 +224,24 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 					}),
 					expect: 400,
 				},
-				{
-					name: "indexes: dropping the primary key index is refused",
-					method: "DELETE",
-					path: indexesPath,
-					resolvePath: (ctx) => {
-						const primary = indexesOf(
-							prior(ctx, "indexes: list has the new index and the primary key"),
-						).find((i) => i.kind === "primary");
-						assert(primary, "no primary key index to try dropping");
-						return `${indexesPath}/${encodeURIComponent(primary.indexName)}`;
-					},
-					expect: 400,
-				},
+				...(hasPrimaryIndex
+					? [
+							{
+								name: "indexes: dropping the primary key index is refused",
+								method: "DELETE",
+								path: indexesPath,
+								resolvePath: (ctx) => {
+									const primary = indexesOf(
+										prior(ctx, "indexes: list has the new index and the primary key"),
+									).find((i) => i.kind === "primary");
+									assert(primary, "no primary key index to try dropping");
+									return `${indexesPath}/${encodeURIComponent(primary.indexName)}`;
+								},
+								expect: 400,
+								record: maskGenerated,
+							} satisfies Step,
+						]
+					: []),
 				{
 					name: "indexes: drop index",
 					method: "DELETE",
@@ -213,11 +254,11 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 					check: (body) => {
 						assertEqual(
 							indexesOf(body).map((i) => i.kind),
-							["primary"],
+							hasPrimaryIndex ? ["primary"] : [],
 							"index kinds after drop",
 						);
 					},
-					record: indexesOf,
+					record: recordIndexes,
 				},
 				{
 					name: "indexes: dropping a missing index is 404",

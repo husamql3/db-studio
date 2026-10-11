@@ -189,6 +189,10 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'contributions_project_id_idx' AND object_id = OBJECT_ID('dbo.contributions'))
+  CREATE INDEX contributions_project_id_idx ON dbo.contributions (project_id);
+GO
+
 -- ============================================================
 --  Seed data — all_types
 -- ============================================================

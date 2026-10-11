@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS projects (
   status ENUM('planning', 'active', 'archived') NOT NULL DEFAULT 'active',
   budget DECIMAL(10, 2) NOT NULL DEFAULT 0,
   owner_id INT,
+  INDEX projects_owner_id_idx (owner_id),
   CONSTRAINT fk_project_owner FOREIGN KEY (owner_id) REFERENCES contributors(id) ON DELETE SET NULL
 );
 
