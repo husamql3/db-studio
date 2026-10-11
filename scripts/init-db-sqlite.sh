@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE INDEX IF NOT EXISTS contributions_project_id_idx ON contributions (project_id);
+
 INSERT OR IGNORE INTO contributors (name, email, is_active, birth_date, joined_at) VALUES
   ('Mona Patel',   'mona@example.com',  1, '1994-04-19', '2024-01-15 09:00:00'),
   ('Diego Rivera', 'diego@example.com', 0, '1991-11-03', '2023-10-21 14:30:00');

@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS projects (
   owner_id INT REFERENCES contributors(id) ON DELETE SET NULL
 );
 
+CREATE INDEX IF NOT EXISTS projects_owner_id_idx ON projects (owner_id);
+
 INSERT INTO contributors (name, email, is_active, birth_date, profile, joined_at)
 VALUES
   ('Mona Patel', 'mona@example.com', TRUE, '1994-04-19', '{"team": "core"}', '2024-01-15T09:00:00Z'),
