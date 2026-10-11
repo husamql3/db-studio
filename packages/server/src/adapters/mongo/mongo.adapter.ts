@@ -95,6 +95,8 @@ const toIndexInfo = (index: IndexDescriptionInfo): IndexInfoSchemaType => {
 		indexName,
 		columns,
 		isUnique: isPrimary || index.unique === true,
+		isSparse: index.sparse,
+		expireAfterSeconds: index.expireAfterSeconds,
 		method: keyValues.find((value) => typeof value === "string") ?? null,
 		kind: isPrimary ? "primary" : "index",
 		// `key` always leads so the string reads on its own; its order is the index order.

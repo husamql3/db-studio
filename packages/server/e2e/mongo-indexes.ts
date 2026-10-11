@@ -226,13 +226,13 @@ try {
 	});
 
 	await step(
-		"driver-created sparse, TTL and descending indexes list a definition",
+		"driver-created sparse, TTL and descending indexes retain badge metadata and definitions",
 		async () => {
 			await mongoDb
 				.collection(collection)
 				.createIndex(
 					{ expires_at: 1 },
-					{ name: "e2e_ttl_sparse_idx", sparse: true, expireAfterSeconds: 3600 },
+					{ name: "e2e_ttl_sparse_idx", sparse: true, expireAfterSeconds: 0 },
 				);
 			await mongoDb
 				.collection(collection)
@@ -241,11 +241,13 @@ try {
 			const byName = (name: string) => indexes.find((index) => index.indexName === name);
 			assert.deepEqual(byName("e2e_ttl_sparse_idx"), {
 				indexName: "e2e_ttl_sparse_idx",
+				isSparse: true,
+				expireAfterSeconds: 0,
 				columns: ["expires_at"],
 				isUnique: false,
 				method: null,
 				kind: "index",
-				definition: '{"key":{"expires_at":1},"sparse":true,"expireAfterSeconds":3600}',
+				definition: '{"key":{"expires_at":1},"sparse":true,"expireAfterSeconds":0}',
 			});
 			assert.deepEqual(byName("e2e_desc_idx"), {
 				indexName: "e2e_desc_idx",
