@@ -1298,7 +1298,12 @@ export class MySqlAdapter extends BaseAdapter {
 					columns: [],
 					isUnique: Number(row.NON_UNIQUE) === 0,
 					method: row.INDEX_TYPE ? String(row.INDEX_TYPE).toLowerCase() : null,
-					kind: indexName === "PRIMARY" ? "primary" : "index",
+					kind:
+						indexName === "PRIMARY"
+							? "primary"
+							: Number(row.NON_UNIQUE) === 0
+								? "unique-constraint"
+								: "index",
 					definition: null,
 				},
 				parts: [],
