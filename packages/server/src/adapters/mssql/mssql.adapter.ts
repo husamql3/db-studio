@@ -1370,7 +1370,8 @@ export class MsSqlAdapter extends BaseAdapter {
 			};
 			byName.set(row.indexName, entry);
 			if (row.columnName === null) continue;
-			if (row.isIncluded) {
+			// SQL Server marks every columnstore column as included, not only B-tree INCLUDEs.
+			if (row.isIncluded && !row.typeDesc.endsWith("COLUMNSTORE")) {
 				entry.included.push(quote(row.columnName));
 			} else {
 				entry.index.columns.push(row.columnName);

@@ -101,6 +101,13 @@ const indexKeyParts = (sql: string): string[] => {
 		if (end) {
 			i = sql.indexOf(end, i + 1);
 			if (i === -1) break;
+		} else if (char === "-" && sql[i + 1] === "-") {
+			i = sql.indexOf("\n", i + 2);
+			if (i === -1) break;
+		} else if (char === "/" && sql[i + 1] === "*") {
+			const endComment = sql.indexOf("*/", i + 2);
+			if (endComment === -1) break;
+			i = endComment + 1;
 		} else if (char === "(") {
 			if (depth++ === 0) start = i + 1;
 		} else if (char === ")" && --depth === 0) {
