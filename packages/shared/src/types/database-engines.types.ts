@@ -56,7 +56,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
-		indexes: false,
+		indexes: { methods: [], createNote: null },
 	},
 	mssql: {
 		label: "SQL Server",
@@ -67,7 +67,10 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
-		indexes: false,
+		indexes: {
+			methods: [],
+			createNote: "Building an index blocks writes to this table until it finishes.",
+		},
 	},
 	mongodb: {
 		label: "MongoDB",
@@ -89,7 +92,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
-		indexes: false,
+		indexes: { methods: [], createNote: null },
 	},
 	redis: {
 		label: "Redis",
@@ -111,7 +114,11 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
-		indexes: false,
+		indexes: {
+			methods: [],
+			createNote:
+				"DuckDB cannot alter or rename a table that has an index, or alter or drop a column an index covers.",
+		},
 	},
 	oracle: {
 		label: "Oracle",
@@ -122,7 +129,10 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
-		indexes: false,
+		indexes: {
+			methods: [],
+			createNote: "Building an index blocks writes to this table until it finishes.",
+		},
 	},
 	clickhouse: {
 		label: "ClickHouse",

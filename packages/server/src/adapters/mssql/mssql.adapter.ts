@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -16,10 +17,12 @@ import type {
 	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyConstraint,
 	ForeignKeyDataType,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -45,6 +48,26 @@ import {
 
 const MSSQL_FK_VIOLATION = 547;
 const MSSQL_FK_DEPENDENCY = 3726;
+const MSSQL_DUP_INDEX_NAME = 1913;
+const MSSQL_DUP_KEY = 1505;
+/** The column type cannot be an index key (1919, 1978), e.g. NVARCHAR(MAX). */
+const MSSQL_CANNOT_INDEX = new Set([1919, 1978]);
+/** The index enforces a constraint, or a foreign key references it. */
+const MSSQL_INDEX_IN_USE = 3723;
+
+const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
+
+interface IndexColumnRow {
+	indexName: string;
+	isUnique: boolean;
+	typeDesc: string;
+	isPrimaryKey: boolean;
+	isUniqueConstraint: boolean;
+	filterDefinition: string | null;
+	columnName: string | null;
+	isDescending: boolean | null;
+	isIncluded: boolean | null;
+}
 
 interface FkConstraintRow {
 	constraint_name: string;
@@ -732,6 +755,85 @@ export class MsSqlAdapter extends BaseAdapter {
 			.query(`EXEC sp_rename '${tableName}.${columnName}', '${newColumnName}', 'COLUMN'`);
 	}
 
+	// --- Indexes ---
+
+	async getTableIndexes({
+		tableName,
+		db,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			return await this.listIndexes(await getMssqlPool(db), tableName);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method, db } = params;
+		try {
+			const pool = await getMssqlPool(db);
+			await this.assertTableExists(pool, tableName);
+
+			const columnRows = await pool
+				.request()
+				.input("tableName", tableName)
+				.query<{ columnName: string }>(`
+					SELECT COLUMN_NAME AS columnName FROM INFORMATION_SCHEMA.COLUMNS
+					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
+				`);
+			const existing = new Set(columnRows.recordset.map((row) => row.columnName));
+			const missing = columns.find((column) => !existing.has(column));
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+
+			if (method !== undefined)
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			await pool
+				.request()
+				.query(
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quote(indexName)} ON [dbo].${quote(tableName)} (${columns.map(quote).join(", ")})`,
+				);
+		} catch (e) {
+			const number = (e as { number?: number }).number;
+			if (e instanceof Error && (number === MSSQL_DUP_INDEX_NAME || number === MSSQL_DUP_KEY))
+				throw new HTTPException(409, { message: e.message, cause: e });
+			if (e instanceof Error && number !== undefined && MSSQL_CANNOT_INDEX.has(number))
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
+	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
+		try {
+			const pool = await getMssqlPool(db);
+			const index = (await this.listIndexes(pool, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
+
+			await pool
+				.request()
+				.query(`DROP INDEX ${quote(indexName)} ON [dbo].${quote(tableName)}`);
+		} catch (e) {
+			if (e instanceof Error && (e as { number?: number }).number === MSSQL_INDEX_IN_USE)
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
 	// --- Records ---
 
 	async addRecord({
@@ -1214,6 +1316,76 @@ export class MsSqlAdapter extends BaseAdapter {
 	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
 		const cols = await this.getTableColumns({ tableName, db });
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
+	}
+
+	private async listIndexes(
+		pool: MssqlPool,
+		tableName: string,
+	): Promise<IndexInfoSchemaType[]> {
+		await this.assertTableExists(pool, tableName);
+		// type 0 is the heap, which is the table itself rather than an index.
+		const result = await pool
+			.request()
+			.input("tableName", tableName)
+			.query<IndexColumnRow>(`
+				SELECT
+					i.name AS indexName,
+					i.is_unique AS isUnique,
+					i.type_desc AS typeDesc,
+					i.is_primary_key AS isPrimaryKey,
+					i.is_unique_constraint AS isUniqueConstraint,
+					CASE WHEN i.has_filter = 1 THEN i.filter_definition END AS filterDefinition,
+					c.name AS columnName,
+					ic.is_descending_key AS isDescending,
+					ic.is_included_column AS isIncluded
+				FROM sys.indexes i
+				LEFT JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+				LEFT JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+				WHERE i.object_id = OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(@tableName))
+				  AND i.type > 0 AND i.is_hypothetical = 0
+				ORDER BY i.is_primary_key DESC, i.name, ic.is_included_column, ic.key_ordinal, ic.index_column_id
+			`);
+
+		const byName = new Map<
+			string,
+			{ index: IndexInfoSchemaType; row: IndexColumnRow; keys: string[]; included: string[] }
+		>();
+		for (const row of result.recordset) {
+			const entry = byName.get(row.indexName) ?? {
+				index: {
+					indexName: row.indexName,
+					columns: [],
+					isUnique: row.isUnique,
+					method: row.typeDesc.toLowerCase(),
+					kind: row.isPrimaryKey
+						? "primary"
+						: row.isUniqueConstraint
+							? "unique-constraint"
+							: "index",
+					definition: null,
+				},
+				row,
+				keys: [],
+				included: [],
+			};
+			byName.set(row.indexName, entry);
+			if (row.columnName === null) continue;
+			if (row.isIncluded) {
+				entry.included.push(quote(row.columnName));
+			} else {
+				entry.index.columns.push(row.columnName);
+				entry.keys.push(`${quote(row.columnName)}${row.isDescending ? " DESC" : ""}`);
+			}
+		}
+
+		// SQL Server stores no CREATE INDEX text; a filtered index is rebuilt from its catalog rows.
+		return [...byName.values()].map(({ index, row, keys, included }) => ({
+			...index,
+			definition:
+				row.filterDefinition === null
+					? null
+					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quote(row.indexName)} ON ${quote(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
+		}));
 	}
 
 	private async assertTableExists(pool: MssqlPool, tableName: string): Promise<void> {
