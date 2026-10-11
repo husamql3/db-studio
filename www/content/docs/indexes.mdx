@@ -23,14 +23,14 @@ On PostgreSQL, SQL Server, and Oracle, creating an index blocks writes to the ta
 
 Select the trash icon at the end of a row, then confirm.
 
-A primary-key index cannot be dropped from the tab. On PostgreSQL, SQL Server, SQLite, and Oracle the same applies to an index that backs a unique constraint; drop the constraint instead.
+A primary-key index cannot be dropped from the tab. On PostgreSQL, MySQL, SQL Server, SQLite, and Oracle the same applies to an index that backs a unique constraint; drop the constraint instead.
 
 ## By database
 
 | Database | Notes |
 | --- | --- |
 | PostgreSQL | The only database with a method picker: choose the access method when creating the index. Primary-key and unique-constraint indexes cannot be dropped. |
-| MySQL | A `UNIQUE` constraint and a unique index are one object, so unique indexes can be dropped. The primary-key index cannot. |
+| MySQL | A `UNIQUE` constraint and a unique index are one object, so all unique indexes and the primary-key index are protected from drops here. Use the query runner to remove uniqueness with explicit SQL. |
 | SQL Server | Primary-key and unique-constraint indexes cannot be dropped. |
 | SQLite and libSQL | Rowid tables list no primary-key index. Primary-key and unique-constraint indexes cannot be dropped. |
 | DuckDB | No primary-key index is listed. DuckDB cannot alter or rename a table that has an index; drop the index, make the change, then create the index again. |
