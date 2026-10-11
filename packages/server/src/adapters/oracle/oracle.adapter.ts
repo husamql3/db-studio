@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -15,7 +16,9 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -168,6 +171,29 @@ const LIMITATIONS: Array<[code: string, reason: string]> = [
 	["ORA-01830", "Dates must be written as YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS."],
 	["ORA-01843", "Dates must be written as YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS."],
 ];
+
+type IndexKeyRow = {
+	INDEX_NAME: string;
+	INDEX_TYPE: string;
+	UNIQUENESS: string;
+	CONSTRAINT_TYPE: string | null;
+	COLUMN_NAME: string;
+	DESCEND: string;
+	COLUMN_EXPRESSION: string | null;
+};
+
+/** The new index repeats an existing one: name taken, same column list, or duplicate keys. */
+const INDEX_CONFLICTS = ["ORA-00955", "ORA-01408", "ORA-01452"];
+/**
+ * The column or name cannot be indexed: identifier too long (ORA-00972), key too long
+ * (ORA-01450), LOB or JSON column (ORA-02327), type that cannot be unique (ORA-02329).
+ */
+const CANNOT_INDEX = ["ORA-00972", "ORA-01450", "ORA-02327", "ORA-02329"];
+/** The index enforces a primary key or unique constraint. */
+const INDEX_IN_USE = "ORA-02429";
+
+const startsWithAny = (e: unknown, codes: string[]): e is Error =>
+	e instanceof Error && codes.some((code) => e.message.startsWith(code));
 
 /** ON UPDATE actions do not exist in Oracle, and ON DELETE has no SET DEFAULT. */
 const FK_DELETE_ACTIONS: Record<string, string> = {
@@ -648,6 +674,63 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	// =========================================================
+	// Indexes
+	// =========================================================
+
+	async getTableIndexes({ tableName }: { tableName: string }): Promise<IndexInfoSchemaType[]> {
+		return this.withConnection((conn) => this.listIndexes(conn, tableName));
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method } = params;
+		await this.withConnection(async (conn) => {
+			const existing = await this.requireColumns(conn, tableName);
+			const missing = columns.find((c) => !existing.some((e) => e.COLUMN_NAME === c));
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+			if (method !== undefined)
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			const sql = `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${ident(indexName)} ON ${ident(tableName)} (${columns.map((c) => ident(c)).join(", ")})`;
+			try {
+				await conn.execute(sql);
+			} catch (e) {
+				if (startsWithAny(e, INDEX_CONFLICTS))
+					throw new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
+				if (startsWithAny(e, CANNOT_INDEX))
+					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
+				throw e;
+			}
+		});
+	}
+
+	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
+		await this.withConnection(async (conn) => {
+			const index = (await this.listIndexes(conn, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
+
+			try {
+				await conn.execute(`DROP INDEX ${ident(indexName)}`);
+			} catch (e) {
+				if (startsWithAny(e, [INDEX_IN_USE]))
+					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
+				throw e;
+			}
+		});
+	}
+
+	// =========================================================
 	// Records
 	// =========================================================
 
@@ -1036,6 +1119,79 @@ export class OracleAdapter extends BaseAdapter {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
 		return columns;
+	}
+
+	private async listIndexes(
+		conn: Connection,
+		tableName: string,
+	): Promise<IndexInfoSchemaType[]> {
+		await this.requireColumns(conn, tableName);
+		// LOB indexes are the storage of a CLOB, BLOB or JSON column: Oracle creates them with
+		// the column and refuses to drop them, so they are not listed.
+		const rows = await this.query<IndexKeyRow>(
+			conn,
+			`SELECT i.index_name, i.index_type, i.uniqueness, ic.column_name, ic.descend, ie.column_expression,
+				(SELECT MIN(c.constraint_type) FROM user_constraints c
+				 WHERE c.index_name = i.index_name AND c.table_name = i.table_name AND c.constraint_type IN ('P', 'U')) AS constraint_type
+			FROM user_indexes i
+			JOIN user_ind_columns ic ON ic.index_name = i.index_name
+			LEFT JOIN user_ind_expressions ie ON ie.index_name = ic.index_name AND ie.column_position = ic.column_position
+			WHERE i.table_name = :1 AND i.table_owner = USER AND i.index_type <> 'LOB'
+			ORDER BY i.index_name, ic.column_position`,
+			[tableName],
+		);
+
+		const byName = new Map<
+			string,
+			{ index: IndexInfoSchemaType; row: IndexKeyRow; keys: string[]; hasExpression: boolean }
+		>();
+		for (const row of rows) {
+			const entry = byName.get(row.INDEX_NAME) ?? {
+				index: {
+					indexName: row.INDEX_NAME,
+					columns: [],
+					isUnique: row.UNIQUENESS === "UNIQUE",
+					method: row.INDEX_TYPE.toLowerCase(),
+					kind:
+						row.CONSTRAINT_TYPE === "P"
+							? "primary"
+							: row.CONSTRAINT_TYPE === "U"
+								? "unique-constraint"
+								: "index",
+					definition: null,
+				},
+				row,
+				keys: [],
+				hasExpression: false,
+			};
+			byName.set(row.INDEX_NAME, entry);
+
+			const direction = row.DESCEND === "DESC" ? " DESC" : "";
+			// A descending key is stored as a hidden expression column holding the quoted column name.
+			const plainColumn =
+				row.COLUMN_EXPRESSION === null
+					? row.COLUMN_NAME
+					: (/^"([^"]+)"$/.exec(row.COLUMN_EXPRESSION.trim())?.[1] ?? null);
+			if (plainColumn !== null) {
+				entry.index.columns.push(plainColumn);
+				entry.keys.push(`${ident(plainColumn)}${direction}`);
+			} else {
+				const expression = (row.COLUMN_EXPRESSION ?? "").trim();
+				entry.index.columns.push(expression);
+				entry.keys.push(`${expression}${direction}`);
+				entry.hasExpression = true;
+			}
+		}
+
+		// Oracle stores no CREATE INDEX text; a function-based index is rebuilt from its catalog rows.
+		return [...byName.values()]
+			.map(({ index, row, keys, hasExpression }) => ({
+				...index,
+				definition: hasExpression
+					? `CREATE ${index.isUnique ? "UNIQUE " : ""}${row.INDEX_TYPE.includes("BITMAP") ? "BITMAP " : ""}INDEX ${ident(index.indexName)} ON ${ident(tableName)} (${keys.join(", ")})`
+					: null,
+			}))
+			.sort((a, b) => Number(b.kind === "primary") - Number(a.kind === "primary"));
 	}
 
 	private async primaryKey(conn: Connection, tableName: string): Promise<string[]> {

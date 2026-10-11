@@ -7,6 +7,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	CursorData,
 	DatabaseInfoSchemaType,
@@ -17,10 +18,12 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyConstraint,
 	ForeignKeyDataType,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -68,6 +71,48 @@ interface ForeignKeyEdge {
 	childColumns: string[];
 	parentColumns: (string | null)[];
 }
+
+interface IndexKeyRow {
+	indexName: string;
+	isUnique: number;
+	/** c: CREATE INDEX, u: UNIQUE constraint, pk: PRIMARY KEY */
+	origin: string;
+	partial: number;
+	sql: string | null;
+	seqno: number;
+	/** -2 marks an expression key, which has no column name */
+	cid: number;
+	columnName: string | null;
+}
+
+const QUOTE_END: Record<string, string> = { "'": "'", '"': '"', "`": "`", "[": "]" };
+
+/**
+ * The key list of a CREATE INDEX statement, split at its top-level commas. PRAGMA index_xinfo
+ * names no expression keys, so their text has to come from the statement itself.
+ */
+const indexKeyParts = (sql: string): string[] => {
+	const parts: string[] = [];
+	let depth = 0;
+	let start = -1;
+	for (let i = 0; i < sql.length; i++) {
+		const char = sql[i] ?? "";
+		const end = QUOTE_END[char];
+		if (end) {
+			i = sql.indexOf(end, i + 1);
+			if (i === -1) break;
+		} else if (char === "(") {
+			if (depth++ === 0) start = i + 1;
+		} else if (char === ")" && --depth === 0) {
+			parts.push(sql.slice(start, i).trim());
+			break;
+		} else if (char === "," && depth === 1) {
+			parts.push(sql.slice(start, i).trim());
+			start = i + 1;
+		}
+	}
+	return parts;
+};
 
 const allNamed = (columns: (string | null)[]): columns is string[] =>
 	columns.every((c) => c !== null);
@@ -862,6 +907,85 @@ export class SqliteAdapter extends BaseAdapter {
 	}
 
 	// =========================================================
+	// IDbAdapter — Indexes
+	// =========================================================
+
+	async getTableIndexes({
+		tableName,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			return await this.listIndexes(await getSqliteClient(), tableName);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		// Serialized with column changes: alterColumn rebuilds the table from the indexes it read.
+		return this.serializeSchemaChange(async () => {
+			const { tableName, indexName, columns, isUnique, method } = params;
+			try {
+				const client = await getSqliteClient();
+				if (!(await this.tableExists(client, tableName)))
+					throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
+				const colInfo = await all<TableInfoRow>(
+					client,
+					`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+				);
+				const missing = columns.find((column) => !colInfo.some((c) => c.name === column));
+				if (missing !== undefined)
+					throw new HTTPException(400, {
+						message: `Column "${missing}" does not exist in table "${tableName}"`,
+					});
+
+				if (method !== undefined)
+					throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+				await client.execute(
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${this.quoteIdentifier(tableName)} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
+				);
+			} catch (e) {
+				// Indexes share one namespace with tables, so either can already hold the name.
+				if (
+					e instanceof Error &&
+					/already exists|there is already|UNIQUE constraint failed/.test(e.message)
+				)
+					throw new HTTPException(409, { message: e.message, cause: e });
+				if (e instanceof Error && e.message.includes("reserved for internal use"))
+					throw new HTTPException(400, { message: e.message, cause: e });
+				throw this.wrapError(e);
+			}
+		});
+	}
+
+	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
+		return this.serializeSchemaChange(async () => {
+			try {
+				const client = await getSqliteClient();
+				const index = (await this.listIndexes(client, tableName)).find(
+					(candidate) => candidate.indexName === indexName,
+				);
+				if (!index)
+					throw new HTTPException(404, {
+						message: `Index "${indexName}" does not exist on table "${tableName}"`,
+					});
+				if (index.kind !== "index")
+					throw new HTTPException(400, {
+						message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+					});
+
+				await client.execute(`DROP INDEX ${this.quoteIdentifier(indexName)}`);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
+		});
+	}
+
+	// =========================================================
 	// IDbAdapter — Records
 	// =========================================================
 
@@ -1125,6 +1249,47 @@ export class SqliteAdapter extends BaseAdapter {
 			[tableName],
 		);
 		return rows.length > 0;
+	}
+
+	private async listIndexes(
+		client: SqlExecutor,
+		tableName: string,
+	): Promise<IndexInfoSchemaType[]> {
+		if (!(await this.tableExists(client, tableName)))
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
+		// A rowid table's INTEGER PRIMARY KEY is the rowid itself, so it has no index to list.
+		const rows = await all<IndexKeyRow>(
+			client,
+			`SELECT il.name AS indexName, il."unique" AS isUnique, il.origin, il.partial, m.sql,
+				xi.seqno, xi.cid, xi.name AS columnName
+			 FROM pragma_index_list(?) il
+			 JOIN pragma_index_xinfo(il.name) xi ON xi.key = 1
+			 LEFT JOIN sqlite_master m ON m.type = 'index' AND m.name = il.name
+			 ORDER BY il.origin = 'pk' DESC, il.name, xi.seqno`,
+			[tableName],
+		);
+
+		const byName = new Map<string, IndexInfoSchemaType>();
+		for (const row of rows) {
+			const index = byName.get(row.indexName) ?? {
+				indexName: row.indexName,
+				columns: [],
+				isUnique: row.isUnique === 1,
+				method: null,
+				kind:
+					row.origin === "pk" ? "primary" : row.origin === "u" ? "unique-constraint" : "index",
+				definition: row.partial === 1 ? row.sql : null,
+			};
+			byName.set(row.indexName, index);
+			if (row.columnName !== null) {
+				index.columns.push(row.columnName);
+			} else {
+				index.columns.push(indexKeyParts(row.sql ?? "")[row.seqno] ?? "");
+				index.definition = row.sql;
+			}
+		}
+		return [...byName.values()];
 	}
 
 	private async getPrimaryKeyColumns(client: SqlExecutor, tableName: string) {
