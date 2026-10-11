@@ -18,7 +18,19 @@ type RowMutationCapability =
 	| { rowMutation: true; rowMutationReason?: never }
 	| { rowMutation: false; rowMutationReason: string };
 
-export type DatabaseEngine = DatabaseEngineBase & RowMutationCapability;
+/** `false` hides the Indexes tab and makes the index routes answer 400. */
+type IndexCapability = {
+	indexes:
+		| false
+		| {
+				/** Access methods offered when creating an index; empty means no method picker. */
+				methods: readonly string[];
+				/** One line shown in the create form, or `null`. */
+				createNote: string | null;
+		  };
+};
+
+export type DatabaseEngine = DatabaseEngineBase & RowMutationCapability & IndexCapability;
 
 export const DATABASE_ENGINES = {
 	pg: {
@@ -30,6 +42,10 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: true,
 		rowMutation: true,
+		indexes: {
+			methods: ["btree", "hash", "gin", "gist", "spgist", "brin"],
+			createNote: "Building an index blocks writes to this table until it finishes.",
+		},
 	},
 	mysql: {
 		label: "MySQL",
@@ -40,6 +56,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: { methods: [], createNote: null },
 	},
 	mssql: {
 		label: "SQL Server",
@@ -50,6 +67,10 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: {
+			methods: [],
+			createNote: "Building an index blocks writes to this table until it finishes.",
+		},
 	},
 	mongodb: {
 		label: "MongoDB",
@@ -60,6 +81,7 @@ export const DATABASE_ENGINES = {
 		liveMode: false,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: { methods: [], createNote: null },
 	},
 	sqlite: {
 		label: "SQLite / libSQL",
@@ -70,6 +92,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: { methods: [], createNote: null },
 	},
 	redis: {
 		label: "Redis",
@@ -80,6 +103,7 @@ export const DATABASE_ENGINES = {
 		liveMode: false,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: false,
 	},
 	duckdb: {
 		label: "DuckDB",
@@ -90,6 +114,11 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: {
+			methods: [],
+			createNote:
+				"DuckDB cannot alter or rename a table that has an index, or alter or drop a column an index covers.",
+		},
 	},
 	oracle: {
 		label: "Oracle",
@@ -100,6 +129,10 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		rowMutation: true,
+		indexes: {
+			methods: [],
+			createNote: "Building an index blocks writes to this table until it finishes.",
+		},
 	},
 	clickhouse: {
 		label: "ClickHouse",
@@ -109,6 +142,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: false,
 		schemaSelector: false,
+		indexes: false,
 		rowMutation: false,
 		rowMutationReason:
 			"Use a SQL query to update or delete ClickHouse rows; sorting keys are not unique.",

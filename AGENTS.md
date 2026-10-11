@@ -420,7 +420,7 @@ export class PgAdapter extends BaseAdapter {
 3. Add connection handling in `src/db-manager.ts` and expose adapter-facing helpers through `src/adapters/connections.ts`.
 4. Register the adapter in `src/adapters/register.ts`: `adapterRegistry.register("<dbname>", new MyAdapter())`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
-6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols, default port, data model, editor language, Live mode support and schema selector. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols, default port, data model, editor language, Live mode support, schema selector and Indexes tab support (`indexes`). The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 

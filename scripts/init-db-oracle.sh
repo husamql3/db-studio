@@ -86,6 +86,7 @@ const statements = [
     owner_id NUMBER(10),
     CONSTRAINT fk_project_owner FOREIGN KEY (owner_id) REFERENCES contributors(id) ON DELETE SET NULL
   )`,
+  `CREATE INDEX projects_owner_id_idx ON projects (owner_id)`,
   `INSERT INTO contributors (name, email, is_active, birth_date, profile, joined_at) VALUES
     ('Mona Patel', 'mona@example.com', TRUE, DATE '1994-04-19', '{"team": "core"}', TIMESTAMP '2024-01-15 09:00:00'),
     ('Diego Rivera', 'diego@example.com', FALSE, DATE '1991-11-03', NULL, TIMESTAMP '2023-10-21 14:30:00')`,

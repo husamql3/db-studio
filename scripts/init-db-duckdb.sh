@@ -92,6 +92,8 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at      TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
 
+CREATE INDEX IF NOT EXISTS contributions_project_id_idx ON contributions (project_id);
+
 INSERT INTO contributors (name, email, is_active, birth_date, joined_at)
 SELECT * FROM (VALUES
   ('Mona Patel',   'mona@example.com',  true,  DATE '1994-04-19', TIMESTAMP '2024-01-15 09:00:00'),

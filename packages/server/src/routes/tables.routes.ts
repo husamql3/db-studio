@@ -2,13 +2,16 @@ import {
 	addColumnSchema,
 	alterColumnSchema,
 	type ColumnInfoSchemaType,
+	createIndexSchema,
 	createTableSchema,
 	type DeleteTableResult,
 	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	deleteTableQuerySchema,
+	dropIndexParamSchema,
 	exportTableSchema,
+	type IndexInfoSchemaType,
 	renameColumnSchema,
 	renameTableSchema,
 	type TableDataResultSchemaType,
@@ -227,6 +230,74 @@ export const tablesRoutes = new Hono<RouteEnv>()
 			const dao = getAdapter(dbType);
 			const columns = await dao.getTableColumns({ tableName, db });
 			return c.json({ data: columns }, 200);
+		},
+	)
+
+	/**
+	 * GET /tables/:tableName/indexes
+	 * Returns list of all indexes on a table
+	 */
+	.get(
+		"/:tableName/indexes",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		async (c): ApiHandler<IndexInfoSchemaType[]> => {
+			const { db } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const dbType = c.get("dbType");
+			const dao = getAdapter(dbType);
+			const indexes = await dao.getTableIndexes({ tableName, db });
+			return c.json({ data: indexes }, 200);
+		},
+	)
+
+	/**
+	 * POST /tables/:tableName/indexes
+	 * Creates an index on a table
+	 */
+	.post(
+		"/:tableName/indexes",
+		zValidator("query", databaseSchema),
+		zValidator("param", tableNameSchema),
+		zValidator("json", createIndexSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName } = c.req.valid("param");
+			const body = c.req.valid("json");
+			const dbType = c.get("dbType");
+
+			const dao = getAdapter(dbType);
+			await dao.createIndex({ tableName, db, ...body });
+
+			return c.json(
+				{
+					data: `Index "${body.indexName}" created successfully on table "${tableName}"`,
+				},
+				200,
+			);
+		},
+	)
+
+	/**
+	 * DELETE /tables/:tableName/indexes/:indexName
+	 * Drops an index from a table
+	 */
+	.delete(
+		"/:tableName/indexes/:indexName",
+		zValidator("query", databaseSchema),
+		zValidator("param", dropIndexParamSchema),
+		async (c): ApiHandler<string> => {
+			const { db } = c.req.valid("query");
+			const { tableName, indexName } = c.req.valid("param");
+			const dbType = c.get("dbType");
+			const dao = getAdapter(dbType);
+			await dao.dropIndex({ tableName, indexName, db });
+			return c.json(
+				{
+					data: `Index "${indexName}" dropped successfully from table "${tableName}"`,
+				},
+				200,
+			);
 		},
 	)
 
