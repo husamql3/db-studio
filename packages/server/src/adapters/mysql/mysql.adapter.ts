@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	CursorData,
 	DatabaseInfoSchemaType,
@@ -17,11 +18,13 @@ import type {
 	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyConstraint,
 	ForeignKeyConstraintRow,
 	ForeignKeyDataType,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -47,6 +50,17 @@ type MysqlPool = ReturnType<typeof getMysqlPool>;
 
 const MYSQL_FK_VIOLATION = 1451;
 const MYSQL_FK_DEPENDENCY = 1217;
+const MYSQL_DUP_KEYNAME = 1061;
+const MYSQL_DUP_ENTRY = 1062;
+const MYSQL_DROP_INDEX_FK = 1553;
+/**
+ * The column or name cannot be indexed: identifier too long (1059), key too long (1071),
+ * engine cannot index the column (1167), TEXT/BLOB without a prefix length (1170),
+ * bad index name (1280), JSON column (3152).
+ */
+const MYSQL_CANNOT_INDEX = new Set([1059, 1071, 1167, 1170, 1280, 3152]);
+
+const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
 export class MySqlAdapter extends BaseAdapter {
 	private mariaDb?: Promise<boolean>;
@@ -734,6 +748,78 @@ export class MySqlAdapter extends BaseAdapter {
 		);
 	}
 
+	// --- Indexes ---
+
+	async getTableIndexes({
+		tableName,
+		db,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			return await this.listIndexes(getMysqlPool(db), tableName);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method, db } = params;
+		try {
+			const pool = getMysqlPool(db);
+			await this.assertTableExists(pool, tableName);
+
+			const [columnRows] = await pool.execute<RowDataPacket[]>(
+				`SELECT COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+				[tableName],
+			);
+			const existing = new Set(columnRows.map((row) => String(row.columnName)));
+			const missing = columns.find((column) => !existing.has(column));
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+
+			if (method !== undefined)
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			await pool.query(
+				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quote(indexName)} ON ${quote(tableName)} (${columns.map(quote).join(", ")})`,
+			);
+		} catch (e) {
+			const errno = (e as { errno?: number }).errno;
+			if (e instanceof Error && (errno === MYSQL_DUP_KEYNAME || errno === MYSQL_DUP_ENTRY))
+				throw new HTTPException(409, { message: e.message, cause: e });
+			if (e instanceof Error && errno !== undefined && MYSQL_CANNOT_INDEX.has(errno))
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
+	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
+		try {
+			const pool = getMysqlPool(db);
+			const index = (await this.listIndexes(pool, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
+
+			await pool.query(`DROP INDEX ${quote(indexName)} ON ${quote(tableName)}`);
+		} catch (e) {
+			if (e instanceof Error && (e as { errno?: number }).errno === MYSQL_DROP_INDEX_FK)
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
 	// --- Records ---
 
 	async addRecord({
@@ -1187,6 +1273,65 @@ export class MySqlAdapter extends BaseAdapter {
 	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
 		const cols = await this.getTableColumns({ tableName, db });
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
+	}
+
+	private async listIndexes(
+		pool: MysqlPool,
+		tableName: string,
+	): Promise<IndexInfoSchemaType[]> {
+		await this.assertTableExists(pool, tableName);
+		// SELECT *, because EXPRESSION (a functional key part) exists only on MySQL 8.0.13+ and TiDB.
+		const [rows] = await pool.execute<RowDataPacket[]>(
+			`SELECT * FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
+			[tableName],
+		);
+
+		const byName = new Map<
+			string,
+			{ index: IndexInfoSchemaType; parts: string[]; hasExpression: boolean }
+		>();
+		for (const row of rows) {
+			const indexName = String(row.INDEX_NAME);
+			const entry = byName.get(indexName) ?? {
+				index: {
+					indexName,
+					columns: [],
+					isUnique: Number(row.NON_UNIQUE) === 0,
+					method: row.INDEX_TYPE ? String(row.INDEX_TYPE).toLowerCase() : null,
+					kind: indexName === "PRIMARY" ? "primary" : "index",
+					definition: null,
+				},
+				parts: [],
+				hasExpression: false,
+			};
+			byName.set(indexName, entry);
+
+			const expression: string | null = row.EXPRESSION ?? null;
+			if (row.COLUMN_NAME === null && expression !== null) {
+				entry.index.columns.push(expression);
+				entry.parts.push(`(${expression})${row.COLLATION === "D" ? " DESC" : ""}`);
+				entry.hasExpression = true;
+			} else {
+				entry.index.columns.push(String(row.COLUMN_NAME));
+				entry.parts.push(
+					`${quote(String(row.COLUMN_NAME))}${row.SUB_PART === null ? "" : `(${row.SUB_PART})`}${row.COLLATION === "D" ? " DESC" : ""}`,
+				);
+			}
+		}
+
+		return [...byName.values()]
+			.map(({ index, parts, hasExpression }) => ({
+				...index,
+				// MySQL has no stored CREATE INDEX text; this rebuilds it from the catalog rows.
+				definition: !hasExpression
+					? null
+					: `CREATE ${index.isUnique ? "UNIQUE " : ""}INDEX ${quote(index.indexName)} ON ${quote(tableName)} (${parts.join(", ")})`,
+			}))
+			.sort(
+				(a, b) =>
+					Number(b.kind === "primary") - Number(a.kind === "primary") ||
+					(a.indexName < b.indexName ? -1 : 1),
+			);
 	}
 
 	private async assertTableExists(pool: MysqlPool, tableName: string): Promise<void> {

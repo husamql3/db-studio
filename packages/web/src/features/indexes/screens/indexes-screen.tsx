@@ -7,7 +7,6 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { useMemo } from "react";
 import { CellCopyButton } from "@/features/tables";
-import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CreateIndexForm } from "../components/create-index-form";
 import { DropIndexDialog } from "../components/drop-index-dialog";
@@ -30,8 +29,7 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 		refetchTableIndexes,
 	} = useTableIndexes({ tableName });
 	const { openOverlay } = useOverlayStore();
-	const engine = useDatabaseEngine();
-	const hasMethods = Boolean(engine?.indexes && engine.indexes.methods.length > 0);
+	const hasMethods = Boolean(tableIndexes?.some((index) => index.method !== null));
 
 	const columns = useMemo<ColumnDef<IndexInfoSchemaType>[]>(
 		() => [
