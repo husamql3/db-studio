@@ -1,0 +1,40 @@
+---
+title: Indexes
+description: "View, create, and drop table indexes from the Indexes tab in db-studio, with the limits for PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, Oracle, and MongoDB."
+---
+
+The Indexes tab lists the indexes of the selected table. Open a table, then switch to **Indexes** in the top bar; the tab keeps the table you had selected.
+
+Each row shows the index name, its columns in index order, whether it is unique, and a definition when the index is more than a plain list of columns, such as a partial or expression index. Indexes that back a primary key or a unique constraint are labeled.
+
+## Create an index
+
+1. Select **Create Index**.
+2. Tick the columns in the order the index should use them. The number next to each column is its position.
+3. Keep the suggested name or type your own.
+4. Tick **Unique** to reject duplicate values.
+5. Select **Create index**.
+
+Creating a unique index fails when existing rows already hold duplicate values, and a name that is already taken is rejected.
+
+On PostgreSQL, SQL Server, and Oracle, creating an index blocks writes to the table until it finishes.
+
+## Drop an index
+
+Select the trash icon at the end of a row, then confirm.
+
+A primary-key index cannot be dropped from the tab. On PostgreSQL, SQL Server, SQLite, and Oracle the same applies to an index that backs a unique constraint; drop the constraint instead.
+
+## By database
+
+| Database | Notes |
+| --- | --- |
+| PostgreSQL | The only database with a method picker: choose the access method when creating the index. Primary-key and unique-constraint indexes cannot be dropped. |
+| MySQL | A `UNIQUE` constraint and a unique index are one object, so unique indexes can be dropped. The primary-key index cannot. |
+| SQL Server | Primary-key and unique-constraint indexes cannot be dropped. |
+| SQLite and libSQL | Rowid tables list no primary-key index. Primary-key and unique-constraint indexes cannot be dropped. |
+| DuckDB | No primary-key index is listed. DuckDB cannot alter or rename a table that has an index; drop the index, make the change, then create the index again. |
+| Oracle | Primary-key and unique-constraint indexes cannot be dropped. |
+| MongoDB | Besides the listed fields, you can add a nested field path such as `address.city`; the field does not have to exist in any document. Indexes created from the tab are ascending. The `_id_` index cannot be dropped. Sparse, TTL, partial, and descending indexes show their options in the Definition column. |
+
+Redis and ClickHouse have no Indexes tab.

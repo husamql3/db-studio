@@ -62,8 +62,8 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Indexes section to view, add, edit, remove, and understand indexes",
-				status: "planned",
+				title: "Indexes section to view, add and remove indexes",
+				status: "completed",
 			},
 			{
 				title: "Interactive ER diagram with relationship navigation and join query generation",
