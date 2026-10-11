@@ -8,6 +8,9 @@ export const indexInfoSchema = z.object({
 	/** Key columns in index order; an expression key is its SQL text. */
 	columns: z.array(z.string()),
 	isUnique: z.boolean(),
+	/** Document-index options; absent when the engine or index does not use them. */
+	isSparse: z.boolean().optional(),
+	expireAfterSeconds: z.number().nonnegative().optional(),
 	/** Access method, e.g. "btree"; `null` when the engine has no such notion. */
 	method: z.string().nullable(),
 	/** Only "index" can be dropped on its own; the others back a constraint. */

@@ -239,6 +239,7 @@ db.projects.createIndex({ public_id: 1 }, { unique: true });
 
 // ─── contributions ─────────────────────────────────────────────────────────────
 db.contributions.createIndex({ contributor_id: 1, project_id: 1 }, { unique: true });
+db.contributions.createIndex({ project_id: 1 });
 
 const mona   = db.contributors.findOne({ email: "mona@example.com" });
 const diego  = db.contributors.findOne({ email: "diego@example.com" });

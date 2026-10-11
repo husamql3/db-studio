@@ -81,7 +81,7 @@ export const DATABASE_ENGINES = {
 		liveMode: false,
 		schemaSelector: false,
 		rowMutation: true,
-		indexes: false,
+		indexes: { methods: [], createNote: null },
 	},
 	sqlite: {
 		label: "SQLite / libSQL",

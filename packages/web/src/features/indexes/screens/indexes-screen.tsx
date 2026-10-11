@@ -52,6 +52,22 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 									{kindLabel}
 								</Badge>
 							)}
+							{row.original.isSparse && (
+								<Badge
+									variant="secondary"
+									className="text-[0.6rem] px-1.5 shrink-0"
+								>
+									Sparse
+								</Badge>
+							)}
+							{row.original.expireAfterSeconds !== undefined && (
+								<Badge
+									variant="secondary"
+									className="text-[0.6rem] px-1.5 shrink-0"
+								>
+									TTL ({row.original.expireAfterSeconds}s)
+								</Badge>
+							)}
 						</div>
 					);
 				},
@@ -75,7 +91,12 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 				header: "Unique",
 				cell: ({ row }) =>
 					row.original.isUnique ? (
-						<span className="text-xs text-muted-foreground">yes</span>
+						<Badge
+							variant="secondary"
+							className="text-[0.6rem] px-1.5"
+						>
+							Unique
+						</Badge>
 					) : (
 						<span className="text-xs text-muted-foreground/50">no</span>
 					),
