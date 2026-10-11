@@ -57,3 +57,16 @@ DATABASE_URL=sqlite:///tmp/dbstudio-index-review.sqlite bunx tsx e2e/index-listi
 ```
 
 Writes `e2e/artifacts/<engine>-index-listing.json` (`sqlite`, `mssql`, or `mysql`).
+
+## MongoDB indexes
+
+MongoDB is outside the contract, so the Indexes routes have their own probe. It works on a
+scratch collection `dbstudio_e2e_indexes` that it creates and drops, then records the indexes
+of the seeded `contributors`, `projects` and `contributions` collections (`null` when absent).
+
+```bash
+cd packages/server
+DATABASE_URL='mongodb://127.0.0.1:27017/dbstudio' bunx tsx e2e/mongo-indexes.ts
+```
+
+It writes `e2e/artifacts/mongo-indexes.json`.
