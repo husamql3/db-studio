@@ -76,7 +76,11 @@ export const SidebarListTablesMenu = ({
 			handleRenameDialogChange(false);
 			const activeTable = (params as { table?: string }).table;
 			if (activeTable === tableName) {
-				const basePath = pathname.startsWith("/schema") ? "/schema/$table" : "/table/$table";
+				const basePath = pathname.startsWith("/schema")
+					? "/schema/$table"
+					: pathname.startsWith("/indexes")
+						? "/indexes/$table"
+						: "/table/$table";
 				navigate({ to: basePath, params: { table: trimmed } });
 			}
 		} catch {

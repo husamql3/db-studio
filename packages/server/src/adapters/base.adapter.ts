@@ -7,6 +7,7 @@ import type {
 	CellValue,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	CursorData,
 	DatabaseInfoSchemaType,
@@ -17,7 +18,9 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
+	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	SortDirection,
@@ -51,6 +54,12 @@ export type NormalizedRow = Record<string, CellValue>;
 function notImplemented(method: string): never {
 	throw new HTTPException(501, {
 		message: `${method} is not implemented for this database type`,
+	});
+}
+
+function indexesNotSupported(): never {
+	throw new HTTPException(400, {
+		message: "Indexes are not supported for this database type",
 	});
 }
 
@@ -389,6 +398,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	renameColumn(_params: RenameColumnParamsSchemaType): Promise<void> {
 		return notImplemented("renameColumn");
+	}
+	getTableIndexes(_params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		return indexesNotSupported();
+	}
+	createIndex(_params: CreateIndexParamsSchemaType): Promise<void> {
+		return indexesNotSupported();
+	}
+	dropIndex(_params: DropIndexParamsSchemaType): Promise<void> {
+		return indexesNotSupported();
 	}
 	addRecord(_params: {
 		db: DatabaseSchemaType["db"];

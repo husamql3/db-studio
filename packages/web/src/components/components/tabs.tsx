@@ -9,17 +9,21 @@ export const Tabs = () => {
 	const params = useParams({ strict: false });
 	const currentRoute = pathname.split("/")[1] || "table";
 	const engine = useDatabaseEngine();
-	const routes = engine?.dataModel === "key-value" ? (["browser", "runner"] as const) : TABS;
+	const routes =
+		engine?.dataModel === "key-value"
+			? (["browser", "runner"] as const)
+			: TABS.filter((route) => route !== "indexes" || engine?.indexes);
 	const activeTable = (params as { table?: string }).table;
 
 	return (
 		<div className="flex h-full items-center">
 			{routes.map((route) => {
-				// Keep the selected table when switching between the table data
-				// view and the schema (edit table) view, so exiting edit mode
-				// doesn't lose context (previously this went to /table with no
-				// selection, leaving users stuck in schema mode).
-				const keepTable = (route === "table" || route === "schema") && activeTable;
+				// Keep the selected table when switching between the per-table
+				// views (data, schema, indexes), so exiting edit mode doesn't lose
+				// context (previously this went to /table with no selection,
+				// leaving users stuck in schema mode).
+				const keepTable =
+					(route === "table" || route === "schema" || route === "indexes") && activeTable;
 
 				return (
 					<Link
