@@ -42,3 +42,16 @@ DATABASE_URL=clickhouse://dbstudio:dbstudio@127.0.0.1:8123/dbstudio \
 
 It writes `e2e/artifacts/clickhouse-regressions-<label>.json`. Use a new label for each run so
 before and after evidence can be compared directly.
+
+## MongoDB indexes
+
+MongoDB is outside the contract, so the Indexes routes have their own probe. It works on a
+scratch collection `dbstudio_e2e_indexes` that it creates and drops, then records the indexes
+of the seeded `contributors`, `projects` and `contributions` collections (`null` when absent).
+
+```bash
+cd packages/server
+DATABASE_URL='mongodb://127.0.0.1:27017/dbstudio' bunx tsx e2e/mongo-indexes.ts
+```
+
+It writes `e2e/artifacts/mongo-indexes.json`.

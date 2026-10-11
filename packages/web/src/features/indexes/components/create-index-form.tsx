@@ -14,6 +14,7 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { cn } from "@db-studio/ui/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/features/schema";
@@ -44,6 +45,14 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 		resolver: zodResolver(createIndexSchema),
 	});
 	const selectedColumns = watch("columns");
+	// Document engines list only the fields found in sampled documents, so any other
+	// path has to be typed in.
+	const allowsFieldPaths = engine?.dataModel === "document";
+	const [addedPaths, setAddedPaths] = useState<string[]>([]);
+	const [fieldPath, setFieldPath] = useState("");
+	const columnNames = [
+		...new Set([...(tableCols?.map(({ columnName }) => columnName) ?? []), ...addedPaths]),
+	];
 
 	const toggleColumn = (columnName: string) => {
 		const next = selectedColumns.includes(columnName)
@@ -52,10 +61,20 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 		setValue("columns", next, { shouldValidate: isSubmitted });
 		// The suggested name follows the columns until the user types their own.
 		if (!dirtyFields.indexName) {
-			setValue("indexName", next.length ? `${tableName}_${next.join("_")}_idx` : "", {
-				shouldValidate: isSubmitted,
-			});
+			setValue(
+				"indexName",
+				next.length ? `${tableName}_${next.join("_").replaceAll(".", "_")}_idx` : "",
+				{ shouldValidate: isSubmitted },
+			);
 		}
+	};
+
+	const addFieldPath = () => {
+		const path = fieldPath.trim();
+		if (!path) return;
+		if (!columnNames.includes(path)) setAddedPaths([...addedPaths, path]);
+		if (!selectedColumns.includes(path)) toggleColumn(path);
+		setFieldPath("");
 	};
 
 	return (
@@ -69,7 +88,7 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 					<Spinner size="size-5" />
 				) : (
 					<div className="space-y-1">
-						{tableCols?.map(({ columnName }) => {
+						{columnNames.map((columnName) => {
 							const position = selectedColumns.indexOf(columnName);
 							const id = `create-index-column-${columnName}`;
 							return (
@@ -94,6 +113,31 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 								</div>
 							);
 						})}
+					</div>
+				)}
+				{allowsFieldPaths && (
+					<div className="flex items-center gap-2">
+						<Input
+							value={fieldPath}
+							onChange={(event) => setFieldPath(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter") return;
+								// Enter adds the path instead of submitting the form.
+								event.preventDefault();
+								addFieldPath();
+							}}
+							placeholder="Add field path, e.g. address.city"
+							aria-label="Add field path"
+							className="font-mono"
+						/>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={addFieldPath}
+							disabled={!fieldPath.trim()}
+						>
+							Add
+						</Button>
 					</div>
 				)}
 				{errors.columns && (

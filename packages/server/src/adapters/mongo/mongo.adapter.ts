@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -15,7 +16,9 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
+	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
@@ -23,6 +26,7 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { HTTPException } from "hono/http-exception";
+import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
@@ -58,6 +62,48 @@ const normalizeValue = (value: unknown): unknown => {
 
 const normalizeDoc = (doc: unknown): Record<string, unknown> =>
 	normalizeValue(doc) as Record<string, unknown>;
+
+const INDEX_DEFINITION_OPTIONS = [
+	"sparse",
+	"expireAfterSeconds",
+	"partialFilterExpression",
+	"collation",
+] as const;
+
+const toIndexInfo = (index: IndexDescriptionInfo): IndexInfoSchemaType => {
+	const indexName = index.name ?? "";
+	const isPrimary = indexName === "_id_";
+	const keyValues = Object.values(index.key);
+	const weights = index.weights;
+	// A text index stores its text part as `_fts`/`_ftsx`; the indexed fields are in `weights`.
+	const columns = weights
+		? Object.keys(index.key).flatMap((field) =>
+				field === "_fts" ? Object.keys(weights) : field === "_ftsx" ? [] : [field],
+			)
+		: Object.keys(index.key);
+
+	const options: Record<string, unknown> = {};
+	if (weights) options.weights = weights;
+	for (const option of INDEX_DEFINITION_OPTIONS) {
+		const value = index[option];
+		if (value !== undefined && value !== null && value !== false)
+			options[option] = normalizeValue(value);
+	}
+	const isPlain = keyValues.every((value) => value === 1) && Object.keys(options).length === 0;
+
+	return {
+		indexName,
+		columns,
+		isUnique: isPrimary || index.unique === true,
+		method: keyValues.find((value) => typeof value === "string") ?? null,
+		kind: isPrimary ? "primary" : "index",
+		// `key` always leads so the string reads on its own; its order is the index order.
+		definition: isPlain ? null : JSON.stringify({ key: index.key, ...options }),
+	};
+};
+
+/** 85 IndexOptionsConflict, 86 IndexKeySpecsConflict, 11000 duplicate key on a unique build. */
+const INDEX_CONFLICT_CODES = new Set([85, 86, 11000]);
 
 const inferValueType = (value: unknown): DataTypes => {
 	if (value instanceof Date) return "date";
@@ -902,6 +948,100 @@ export class MongoAdapter extends BaseAdapter {
 					{ [columnName]: { $exists: true } },
 					{ $rename: { [columnName]: newColumnName } },
 				);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Indexes
+	// -----------------------------------------------------------------------
+
+	private async listIndexes(mongoDb: Db, tableName: string): Promise<IndexInfoSchemaType[]> {
+		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
+		if (collections.length === 0) {
+			throw new HTTPException(404, {
+				message: `Collection "${tableName}" does not exist`,
+			});
+		}
+		const indexes = (await mongoDb.collection(tableName).listIndexes().toArray()).map(
+			toIndexInfo,
+		);
+		return indexes.sort(
+			(a, b) =>
+				Number(b.kind === "primary") - Number(a.kind === "primary") ||
+				(a.indexName < b.indexName ? -1 : a.indexName > b.indexName ? 1 : 0),
+		);
+	}
+
+	override async getTableIndexes({
+		tableName,
+		db,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			return await this.listIndexes(await getMongoDb(db), tableName);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	override async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method, db } = params;
+		try {
+			if (method !== undefined)
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+			const invalid = columns.find((path) =>
+				path.split(".").some((segment) => segment === "" || segment.startsWith("$")),
+			);
+			if (invalid !== undefined)
+				throw new HTTPException(400, { message: `Invalid field path "${invalid}"` });
+			if (new Set(columns).size !== columns.length)
+				throw new HTTPException(400, { message: "A field can appear only once in an index" });
+
+			const mongoDb = await getMongoDb(db);
+			// MongoDB answers ok when the name and spec both match an existing index.
+			const existing = await this.listIndexes(mongoDb, tableName);
+			if (existing.some((index) => index.indexName === indexName))
+				throw new HTTPException(409, {
+					message: `Index "${indexName}" already exists on collection "${tableName}"`,
+				});
+
+			await mongoDb
+				.collection(tableName)
+				.createIndex(new Map(columns.map((path) => [path, 1])), {
+					name: indexName,
+					unique: isUnique,
+				});
+		} catch (e) {
+			const code = (e as { code?: unknown }).code;
+			if (e instanceof Error && typeof code === "number" && INDEX_CONFLICT_CODES.has(code))
+				throw new HTTPException(409, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
+	override async dropIndex({
+		tableName,
+		indexName,
+		db,
+	}: DropIndexParamsSchemaType): Promise<void> {
+		try {
+			const mongoDb = await getMongoDb(db);
+			const index = (await this.listIndexes(mongoDb, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on collection "${tableName}"`,
+				});
+			if (index.kind === "primary")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs the primary key and cannot be dropped`,
+				});
+			await mongoDb.collection(tableName).dropIndex(indexName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
