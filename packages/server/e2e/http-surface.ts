@@ -1,10 +1,13 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
  * Pins the HTTP layer (routing, validation, errors, CORS, request IDs, static files, SPA
- * fallback) of a running server so a framework swap can be diffed old-vs-new.
+ * fallback, chat streaming) of a running server so a framework swap can be diffed old-vs-new.
+ * Start the server with DB_STUDIO_PROXY_URL=http://127.0.0.1:4998 and
+ * ALLOWED_ORIGINS=https://allowed.example; this script serves the fake AI proxy on 4998.
  * Usage: tsx e2e/http-surface.ts <baseUrl> <label>
  */
 
@@ -49,6 +52,43 @@ const shape = (value: unknown): unknown => {
 		return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shape(v)]));
 	return typeof value;
 };
+
+const STREAM_GAP_MS = 300;
+const fakeProxy = createServer(async (req, res) => {
+	if (req.url === "/chat/limit") {
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end(
+			JSON.stringify({
+				limit: 10,
+				used: 1,
+				remaining: 9,
+				requestId: req.headers["x-request-id"],
+			}),
+		);
+		return;
+	}
+	let raw = "";
+	for await (const chunk of req) raw += chunk;
+	const payload = JSON.parse(raw);
+	if (payload.messages[0]?.content === "reject") {
+		res.writeHead(401, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "bad key" }));
+		return;
+	}
+	res.writeHead(200, { "content-type": "text/event-stream" });
+	res.write(
+		`data: ${JSON.stringify({ provider: payload.provider, model: payload.model, conversationId: payload.conversationId, hasSystemPrompt: typeof payload.systemPrompt === "string", byok: req.headers["x-byok-openai"] })}\n\n`,
+	);
+	await new Promise((r) => setTimeout(r, STREAM_GAP_MS));
+	res.end("data: [DONE]\n\n");
+});
+await new Promise<void>((resolve) => fakeProxy.listen(4998, "127.0.0.1", resolve));
+
+const chatBody = (content: string) => ({
+	provider: "openai",
+	messages: [{ id: "m1", role: "user", content }],
+	data: { db: DB, conversationId: "c1", includeSchema: false },
+});
 
 const probes: Probe[] = [
 	{ name: "databases list", path: "/api/databases", shapeOnly: true },
@@ -138,6 +178,20 @@ const probes: Probe[] = [
 	},
 	{ name: "keys on sql engine", path: `/api/pg/keys?db=${DB}` },
 	{ name: "chat body invalid", method: "POST", path: "/api/chat", body: { nope: true } },
+	{ name: "chat limit", path: "/api/chat/limit" },
+	{
+		name: "chat stream",
+		method: "POST",
+		path: "/api/chat",
+		headers: { "x-byok-openai": "sk-test" },
+		body: chatBody("hi"),
+	},
+	{
+		name: "chat proxy rejection",
+		method: "POST",
+		path: "/api/chat",
+		body: chatBody("reject"),
+	},
 	{ name: "telemetry config", path: "/api/telemetry/config", shapeOnly: true },
 	{
 		name: "telemetry preference invalid",
@@ -217,7 +271,17 @@ for (const probe of probes) {
 		body: probe.rawBody ?? (probe.body === undefined ? undefined : JSON.stringify(probe.body)),
 		redirect: "manual",
 	});
-	const text = await res.text();
+	const startedAt = performance.now();
+	let firstChunkAt = 0;
+	let text = "";
+	const decoder = new TextDecoder();
+	for await (const chunk of res.body ?? []) {
+		firstChunkAt ||= performance.now();
+		text += decoder.decode(chunk, { stream: true });
+	}
+	const streamed =
+		firstChunkAt - startedAt < STREAM_GAP_MS &&
+		performance.now() - firstChunkAt >= STREAM_GAP_MS - 50;
 	let body: unknown;
 	try {
 		const json = JSON.parse(text);
@@ -227,7 +291,9 @@ for (const probe of probes) {
 			(body as { requestId: string }).requestId = normalizeRequestId(requestId, sentId) ?? "";
 		}
 	} catch {
-		body = text.startsWith("<!") ? `<html ${text.length > 0 ? "non-empty" : "empty"}>` : text.slice(0, 80);
+		body = text.startsWith("<!")
+			? `<html ${text.length > 0 ? "non-empty" : "empty"}>`
+			: text.slice(0, 400);
 	}
 	results.push({
 		name: probe.name,
@@ -236,10 +302,13 @@ for (const probe of probes) {
 		headers: Object.fromEntries(
 			RECORDED_HEADERS.flatMap((h) => {
 				const v = res.headers.get(h);
-				return v === null ? [] : [[h, h === "content-disposition" || h === "content-type" ? v : v.toLowerCase()]];
+				return v === null
+					? []
+					: [[h, h === "content-disposition" || h === "content-type" ? v : v.toLowerCase()]];
 			}),
 		),
 		body,
+		...(probe.name === "chat stream" ? { streamed } : {}),
 	});
 	console.log(`${res.status}  ${probe.name}`);
 }
@@ -249,3 +318,4 @@ await mkdir(outDir, { recursive: true });
 const out = path.join(outDir, `http-surface-${label}.json`);
 await writeFile(out, `${JSON.stringify(results, null, 2)}\n`);
 console.log(`wrote ${path.relative(process.cwd(), out)}`);
+fakeProxy.close();
