@@ -24,11 +24,11 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import oracledb, { type Connection, type Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getOraclePool } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	bindOracleValue,

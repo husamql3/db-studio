@@ -3,8 +3,8 @@ import type {
 	ExecuteQueryParams,
 	ExecuteQueryResult,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import { getMongoDb } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 import { buildMongoSort, normalizeMongoDocument, toMongoId } from "./mongo.utils.js";
 
 type MongoQueryPayload = {

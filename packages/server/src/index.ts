@@ -1,6 +1,5 @@
 import { intro, log, outro, spinner } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
-import { serve } from "@hono/node-server";
 import color from "picocolors";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
@@ -84,11 +83,7 @@ export const main = async () => {
 
 	const { createServer } = await import("./utils/create-server.js");
 	const { app } = createServer();
-	serve({
-		fetch: app.fetch,
-		hostname: HOST,
-		port: PORT,
-	});
+	app.listen({ hostname: HOST, port: PORT });
 
 	const serverUrl =
 		process.env.DB_STUDIO_SERVER_URL ?? process.env.PORTLESS_URL ?? `http://localhost:${PORT}`;

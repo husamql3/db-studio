@@ -1,9 +1,7 @@
 import {
 	addColumnSchema,
 	alterColumnSchema,
-	type ColumnInfoSchemaType,
 	createTableSchema,
-	type DeleteTableResult,
 	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
@@ -11,39 +9,29 @@ import {
 	exportTableSchema,
 	renameColumnSchema,
 	renameTableSchema,
-	type TableDataResultSchemaType,
-	type TableInfoSchemaType,
-	type TableSchemaResult,
 	tableDataQuerySchema,
 	tableNameSchema,
 } from "@db-studio/shared/types";
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
-import { getAdapter } from "@/adapters/adapter.registry.js";
-import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { Elysia } from "elysia";
+import { adapterPlugin } from "@/routes/adapter.plugin.js";
 import { getExportFile } from "@/utils/get-export-file.js";
 
-export const tablesRoutes = new Hono<RouteEnv>()
-	/**
-	 * Base path for the endpoints, /:dbType/tables/...
-	 */
-	.basePath("/tables")
+const EXPORT_CONTENT_TYPES = {
+	csv: "text/csv",
+	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	json: "application/json",
+} as const;
+
+export const tablesRoutes = new Elysia({ prefix: "/tables" })
+	.use(adapterPlugin)
 
 	/**
 	 * GET /tables
 	 * Returns list of all tables in the currently connected database
 	 */
-	.get(
-		"/",
-		zValidator("query", databaseSchema),
-		async (c): ApiHandler<TableInfoSchemaType[]> => {
-			const { db } = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const tablesList = await dao.getTablesList(db);
-			return c.json({ data: tablesList }, 200);
-		},
-	)
+	.get("/", async ({ adapter, query }) => ({ data: await adapter.getTablesList(query.db) }), {
+		query: databaseSchema,
+	})
 
 	/**
 	 * POST /tables
@@ -51,16 +39,11 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.post(
 		"/",
-		zValidator("query", databaseSchema),
-		zValidator("json", createTableSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			await dao.createTable({ tableData: body, db });
-			return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
+		async ({ adapter, query, body }) => {
+			await adapter.createTable({ tableData: body, db: query.db });
+			return { data: `Table ${body.tableName} created successfully` };
 		},
+		{ query: databaseSchema, body: createTableSchema },
 	)
 
 	/**
@@ -69,16 +52,10 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.delete(
 		"/:tableName",
-		zValidator("query", deleteTableQuerySchema),
-		zValidator("param", tableNameSchema),
-		async (c): ApiHandler<DeleteTableResult> => {
-			const { db, cascade } = c.req.valid("query");
-			const { tableName } = c.req.valid("param");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const result = await dao.deleteTable({ tableName, db, cascade });
-			return c.json({ data: result }, 200);
-		},
+		async ({ adapter, query: { db, cascade }, params: { tableName } }) => ({
+			data: await adapter.deleteTable({ tableName, db, cascade }),
+		}),
+		{ query: deleteTableQuerySchema, params: tableNameSchema },
 	)
 
 	/**
@@ -87,25 +64,11 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.patch(
 		"/:tableName/rename",
-		zValidator("query", databaseSchema),
-		zValidator("param", tableNameSchema),
-		zValidator("json", renameTableSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const { tableName } = c.req.valid("param");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-
-			const dao = getAdapter(dbType);
-			await dao.renameTable({ tableName, db, ...body });
-
-			return c.json(
-				{
-					data: `Table "${tableName}" renamed to "${body.newTableName}"`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db }, params: { tableName }, body }) => {
+			await adapter.renameTable({ tableName, db, ...body });
+			return { data: `Table "${tableName}" renamed to "${body.newTableName}"` };
 		},
+		{ query: databaseSchema, params: tableNameSchema, body: renameTableSchema },
 	)
 
 	/**
@@ -114,21 +77,18 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.delete(
 		"/:tableName/columns/:columnName",
-		zValidator("query", deleteColumnQuerySchema),
-		zValidator("param", deleteColumnParamSchema),
-		async (c): ApiHandler<string> => {
-			const { db, cascade } = c.req.valid("query");
-			const { tableName, columnName } = c.req.valid("param");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const { deletedCount } = await dao.deleteColumn({ tableName, columnName, cascade, db });
-			return c.json(
-				{
-					data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db, cascade }, params: { tableName, columnName } }) => {
+			const { deletedCount } = await adapter.deleteColumn({
+				tableName,
+				columnName,
+				cascade,
+				db,
+			});
+			return {
+				data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
+			};
 		},
+		{ query: deleteColumnQuerySchema, params: deleteColumnParamSchema },
 	)
 
 	/**
@@ -137,25 +97,13 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.post(
 		"/:tableName/columns",
-		zValidator("query", databaseSchema),
-		zValidator("param", tableNameSchema),
-		zValidator("json", addColumnSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const { tableName } = c.req.valid("param");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-
-			const dao = getAdapter(dbType);
-			await dao.addColumn({ tableName, db, ...body });
-
-			return c.json(
-				{
-					data: `Column "${body.columnName}" added successfully to table "${tableName}"`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db }, params: { tableName }, body }) => {
+			await adapter.addColumn({ tableName, db, ...body });
+			return {
+				data: `Column "${body.columnName}" added successfully to table "${tableName}"`,
+			};
 		},
+		{ query: databaseSchema, params: tableNameSchema, body: addColumnSchema },
 	)
 
 	/**
@@ -164,25 +112,13 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.patch(
 		"/:tableName/columns/:columnName/rename",
-		zValidator("query", databaseSchema),
-		zValidator("param", deleteColumnParamSchema),
-		zValidator("json", renameColumnSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const { tableName, columnName } = c.req.valid("param");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-
-			const dao = getAdapter(dbType);
-			await dao.renameColumn({ tableName, columnName, db, ...body });
-
-			return c.json(
-				{
-					data: `Column "${columnName}" renamed to "${body.newColumnName}" in table "${tableName}"`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db }, params: { tableName, columnName }, body }) => {
+			await adapter.renameColumn({ tableName, columnName, db, ...body });
+			return {
+				data: `Column "${columnName}" renamed to "${body.newColumnName}" in table "${tableName}"`,
+			};
 		},
+		{ query: databaseSchema, params: deleteColumnParamSchema, body: renameColumnSchema },
 	)
 
 	/**
@@ -191,25 +127,13 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.patch(
 		"/:tableName/columns/:columnName",
-		zValidator("query", databaseSchema),
-		zValidator("param", deleteColumnParamSchema),
-		zValidator("json", alterColumnSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const { tableName, columnName } = c.req.valid("param");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-
-			const dao = getAdapter(dbType);
-			await dao.alterColumn({ tableName, columnName, db, ...body });
-
-			return c.json(
-				{
-					data: `Column "${columnName}" updated successfully in table "${tableName}"`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db }, params: { tableName, columnName }, body }) => {
+			await adapter.alterColumn({ tableName, columnName, db, ...body });
+			return {
+				data: `Column "${columnName}" updated successfully in table "${tableName}"`,
+			};
 		},
+		{ query: databaseSchema, params: deleteColumnParamSchema, body: alterColumnSchema },
 	)
 
 	/**
@@ -218,16 +142,10 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.get(
 		"/:tableName/columns",
-		zValidator("query", databaseSchema),
-		zValidator("param", tableNameSchema),
-		async (c): ApiHandler<ColumnInfoSchemaType[]> => {
-			const { db } = c.req.valid("query");
-			const { tableName } = c.req.valid("param");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const columns = await dao.getTableColumns({ tableName, db });
-			return c.json({ data: columns }, 200);
-		},
+		async ({ adapter, query: { db }, params: { tableName } }) => ({
+			data: await adapter.getTableColumns({ tableName, db }),
+		}),
+		{ query: databaseSchema, params: tableNameSchema },
 	)
 
 	/**
@@ -236,16 +154,10 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.get(
 		"/:tableName/schema",
-		zValidator("query", databaseSchema),
-		zValidator("param", tableNameSchema),
-		async (c): ApiHandler<TableSchemaResult> => {
-			const { db } = c.req.valid("query");
-			const { tableName } = c.req.valid("param");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const schema = await dao.getTableSchema({ tableName, db });
-			return c.json({ data: { schema } }, 200);
-		},
+		async ({ adapter, query: { db }, params: { tableName } }) => ({
+			data: { schema: await adapter.getTableSchema({ tableName, db }) },
+		}),
+		{ query: databaseSchema, params: tableNameSchema },
 	)
 
 	/**
@@ -254,25 +166,10 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.get(
 		"/:tableName/data",
-		zValidator("param", tableNameSchema),
-		zValidator("query", tableDataQuerySchema),
-		async (c): ApiHandler<TableDataResultSchemaType> => {
-			const { tableName } = c.req.valid("param");
-			const { cursor, limit, direction, sort, order, filters, db } = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const tableData = await dao.getTableData({
-				tableName,
-				cursor,
-				limit,
-				direction,
-				sort,
-				order,
-				filters,
-				db,
-			});
-			return c.json({ data: tableData }, 200);
-		},
+		async ({ adapter, query, params: { tableName } }) => ({
+			data: await adapter.getTableData({ tableName, ...query }),
+		}),
+		{ query: tableDataQuerySchema, params: tableNameSchema },
 	)
 
 	/**
@@ -281,37 +178,14 @@ export const tablesRoutes = new Hono<RouteEnv>()
 	 */
 	.get(
 		"/:tableName/export",
-		zValidator("param", tableNameSchema),
-		zValidator("query", exportTableSchema),
-		async (c) => {
-			const { tableName } = c.req.valid("param");
-			const { db, format } = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-
-			const { cols, rows } = await dao.exportTableData({ tableName, db });
-			const fileContent = getExportFile({ cols, rows, format, tableName });
-			let contentType: string | undefined;
-
-			switch (format) {
-				case "csv":
-					contentType = "text/csv";
-					break;
-				case "xlsx":
-					contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-					break;
-				case "json":
-					contentType = "application/json";
-					break;
-			}
-
-			return new Response(fileContent, {
+		async ({ adapter, query: { db, format }, params: { tableName } }) => {
+			const { cols, rows } = await adapter.exportTableData({ tableName, db });
+			return new Response(getExportFile({ cols, rows, format, tableName }), {
 				headers: {
-					"Content-Type": contentType ?? "",
+					"Content-Type": EXPORT_CONTENT_TYPES[format],
 					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
 				},
 			});
 		},
+		{ query: exportTableSchema, params: tableNameSchema },
 	);
-
-export type TablesRoutes = typeof tablesRoutes.routes;

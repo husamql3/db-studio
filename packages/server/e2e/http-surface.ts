@@ -23,6 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const RECORDED_HEADERS = [
 	"content-type",
 	"content-disposition",
+	"cache-control",
 	"vary",
 	"access-control-allow-origin",
 	"access-control-allow-methods",
@@ -75,7 +76,11 @@ const fakeProxy = createServer(async (req, res) => {
 		res.end(JSON.stringify({ error: "bad key" }));
 		return;
 	}
-	res.writeHead(200, { "content-type": "text/event-stream" });
+	res.writeHead(200, {
+		"content-type": "text/event-stream",
+		"cache-control": "no-cache",
+		connection: "keep-alive",
+	});
 	res.write(
 		`data: ${JSON.stringify({ provider: payload.provider, model: payload.model, conversationId: payload.conversationId, hasSystemPrompt: typeof payload.systemPrompt === "string", byok: req.headers["x-byok-openai"] })}\n\n`,
 	);
@@ -121,6 +126,10 @@ const probes: Probe[] = [
 	{
 		name: "table data with filters",
 		path: `/api/pg/tables/http_pin/data?db=${DB}&filters=${encodeURIComponent(JSON.stringify([{ columnName: "name", operator: "=", value: "b" }]))}&sort=id&order=desc`,
+	},
+	{
+		name: "table data sort with comma",
+		path: `/api/pg/tables/http_pin/data?db=${DB}&sort=name,id`,
 	},
 	{ name: "export csv", path: `/api/pg/tables/http_pin/export?db=${DB}&format=csv` },
 	{ name: "export json", path: `/api/pg/tables/http_pin/export?db=${DB}&format=json` },

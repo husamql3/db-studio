@@ -711,11 +711,16 @@ const main = async () => {
 		try {
 			const query = new URLSearchParams({ db: ctx.db, ...step.query?.(ctx) });
 			const payload = step.body?.(ctx);
-			const res = await app.request(`${DEFAULTS.API_PREFIX}${step.path}?${query}`, {
-				method: step.method,
-				headers: payload === undefined ? {} : { "Content-Type": "application/json" },
-				body: payload === undefined ? undefined : JSON.stringify(payload),
-			});
+			const res = await app.handle(
+				new Request(
+					new URL(`${DEFAULTS.API_PREFIX}${step.path}?${query}`, "http://localhost"),
+					{
+						method: step.method,
+						headers: payload === undefined ? {} : { "Content-Type": "application/json" },
+						body: payload === undefined ? undefined : JSON.stringify(payload),
+					},
+				),
+			);
 			status = res.status;
 			const text = await res.text();
 			try {

@@ -37,33 +37,33 @@ describe("Records Routes", () => {
 	});
 
 	it("should return 400 when database query param is missing on POST", async () => {
-		const res = await app.request("/api/pg/records", {
+		const res = await app.handle(new Request(new URL("/api/pg/records", "http://localhost"), {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ tableName: "users", data: { name: "Test" } }),
-		});
+		}));
 
 		expect(res.status).toBe(400);
 		expect(mockDao.addRecord).not.toHaveBeenCalled();
 	});
 
 	it("should return 400 when updates array is empty on PATCH", async () => {
-		const res = await app.request("/api/pg/records?db=testdb", {
+		const res = await app.handle(new Request(new URL("/api/pg/records?db=testdb", "http://localhost"), {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ tableName: "users", primaryKey: "id", updates: [] }),
-		});
+		}));
 
 		expect(res.status).toBe(400);
 		expect(mockDao.updateRecords).not.toHaveBeenCalled();
 	});
 
 	it("should return 400 when primaryKeys is empty on DELETE", async () => {
-		const res = await app.request("/api/pg/records?db=testdb", {
+		const res = await app.handle(new Request(new URL("/api/pg/records?db=testdb", "http://localhost"), {
 			method: "DELETE",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ tableName: "users", primaryKeys: [] }),
-		});
+		}));
 
 		expect(res.status).toBe(400);
 		expect(mockDao.deleteRecords).not.toHaveBeenCalled();

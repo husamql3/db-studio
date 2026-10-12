@@ -1,5 +1,5 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types/database.types.js";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 import type { IDbAdapter } from "./adapter.interface.js";
 import type { IKeyValueAdapter } from "./key-value-adapter.interface.js";
 

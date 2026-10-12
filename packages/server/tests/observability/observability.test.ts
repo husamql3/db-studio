@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
 	databaseTypeForRequest,

@@ -25,9 +25,9 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
+import { HTTPException } from "@/http-exception.js";
 
 /** One record's pending updates, addressed by every one of its key columns. */
 export interface RecordUpdateGroup {

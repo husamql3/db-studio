@@ -40,7 +40,7 @@ A modern, universal (pgAdmin alternative) database management studio for any dat
 ## Tech Stack
 
 - **Frontend**: React 19, TanStack React Router, TanStack React Query, TanStack React Table, TanStack React Virtual, shadcn/ui, sonner, react-day-picker, react-hook-form, zustand
-- **Backend**: Hono with Node, zod-validator, zod
+- **Backend**: Elysia on Node, zod
 - **Tooling**: Bun, Vite, TypeScript, Biome, Vitest, Wrangler (Cloudflare)
 
 ## Quick Start with npx

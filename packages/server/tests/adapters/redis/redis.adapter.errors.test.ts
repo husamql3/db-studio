@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 import { RedisAdapter } from "@/adapters/redis/redis.adapter.js";
 
 const wrap = (adapter: RedisAdapter, error: unknown): HTTPException =>

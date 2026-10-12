@@ -1,11 +1,5 @@
-import type {
-	ConnectionInfoSchemaType,
-	CurrentDatabaseSchemaType,
-	DatabaseListSchemaType,
-} from "@db-studio/shared/types";
-import { Hono } from "hono";
+import { Elysia } from "elysia";
 import { getAdapter } from "@/adapters/adapter.registry.js";
-import type { ApiHandler } from "@/app.types.js";
 import { getDbType } from "@/db-manager.js";
 
 /**
@@ -17,43 +11,32 @@ import { getDbType } from "@/db-manager.js";
  * GET /databases/current - Get the name of the database we are currently connected to
  * GET /databases/connection - Get connection details and server information
  */
-export const databasesRoutes = new Hono()
-	/**
-	 * Base path for the endpoints, /databases/...
-	 */
-	.basePath("/databases")
+export const databasesRoutes = new Elysia({ prefix: "/databases" })
+	.derive(() => {
+		const dbType = getDbType();
+		return { dbType, adapter: getAdapter(dbType) };
+	})
 
 	/**
 	 * GET /databases
 	 * Returns list of user-visible databases on the server (name, size, owner, encoding) and the database type
 	 */
-	.get("/", async (c): ApiHandler<DatabaseListSchemaType> => {
-		const dbType = getDbType();
-		const dao = getAdapter(dbType);
-		const databases = await dao.getDatabasesList();
-		return c.json({ data: { databases, dbType } }, 200);
-	})
+	.get("/", async ({ adapter, dbType }) => ({
+		data: { databases: await adapter.getDatabasesList(), dbType },
+	}))
 
 	/**
 	 * GET /databases/current
 	 * Returns the name of the database we are currently connected to and the database type
 	 */
-	.get("/current", async (c): ApiHandler<CurrentDatabaseSchemaType> => {
-		const dbType = getDbType();
-		const dao = getAdapter(dbType);
-		const current = await dao.getCurrentDatabase();
-		return c.json({ data: { db: current.db, dbType } }, 200);
-	})
+	.get("/current", async ({ adapter, dbType }) => ({
+		data: { db: (await adapter.getCurrentDatabase()).db, dbType },
+	}))
 
 	/**
 	 * GET /databases/connection
 	 * Returns connection details and server information
 	 */
-	.get("/connection", async (c): ApiHandler<ConnectionInfoSchemaType> => {
-		const dbType = getDbType();
-		const dao = getAdapter(dbType);
-		const info = await dao.getDatabaseConnectionInfo();
-		return c.json({ data: info }, 200);
-	});
-
-export type DatabasesRoutes = typeof databasesRoutes.routes;
+	.get("/connection", async ({ adapter }) => ({
+		data: await adapter.getDatabaseConnectionInfo(),
+	}));

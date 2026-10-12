@@ -17,18 +17,22 @@ const evidence: Record<string, unknown> = {};
 const pageSchema = z.object({ data: tableDataResultSchema });
 
 const query = async (sql: string) => {
-	const response = await app.request(`/api/pg/query?db=${encodeURIComponent(db)}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ query: sql }),
-	});
+	const response = await app.handle(
+		new Request(new URL(`/api/pg/query?db=${encodeURIComponent(db)}`, "http://localhost"), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ query: sql }),
+		}),
+	);
 	assert.equal(response.status, 200, await response.text());
 };
 
 const page = async (name: string, order: string, cursor?: string, direction = "asc") => {
 	const params = new URLSearchParams({ db, limit: "2", sort: "label", order, direction });
 	if (cursor) params.set("cursor", cursor);
-	const response = await app.request(`/api/pg/tables/${table}/data?${params}`);
+	const response = await app.handle(
+		new Request(new URL(`/api/pg/tables/${table}/data?${params}`, "http://localhost")),
+	);
 	const body: unknown = await response.json();
 	// Cursor values contain physical tuple locations; retain visible rows and flags only.
 	if (response.status !== 200) {

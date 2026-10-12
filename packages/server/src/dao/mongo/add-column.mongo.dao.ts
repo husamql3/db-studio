@@ -1,6 +1,6 @@
 import type { AddColumnParamsSchemaType } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import { getMongoDb } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 
 /**
  * Adds a field to all documents in a MongoDB collection.

@@ -3,8 +3,8 @@ import type {
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import { getMongoClient, getMongoDbName } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 

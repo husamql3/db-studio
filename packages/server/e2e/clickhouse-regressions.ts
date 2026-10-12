@@ -42,11 +42,16 @@ const request = async (
 ): Promise<ApiResponse> => {
 	const url = new URL(`${DEFAULTS.API_PREFIX}/clickhouse${route}`, "http://db-studio.local");
 	url.searchParams.set("db", db);
-	const response = await app.request(`${url.pathname}?${url.searchParams.toString()}`, {
-		method,
-		headers: body === undefined ? {} : { "Content-Type": "application/json" },
-		body: body === undefined ? undefined : JSON.stringify(body),
-	});
+	const response = await app.handle(
+		new Request(
+			new URL(`${url.pathname}?${url.searchParams.toString()}`, "http://localhost"),
+			{
+				method,
+				headers: body === undefined ? {} : { "Content-Type": "application/json" },
+				body: body === undefined ? undefined : JSON.stringify(body),
+			},
+		),
+	);
 	const text = await response.text();
 	let parsed: unknown = text;
 	try {

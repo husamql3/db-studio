@@ -34,10 +34,10 @@ import {
 	ResultReturnType,
 	StatementType,
 } from "@duckdb/node-api";
-import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { withDuckdbConnection } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 import {
 	buildFilterConditions,
 	buildKeysetPredicate,

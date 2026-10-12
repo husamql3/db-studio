@@ -21,7 +21,6 @@
     "@db-studio/shared": "workspace:*",
     "@db-studio/ui": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
-    "@hono/client": "^0.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-checkbox": "^1.1.15",

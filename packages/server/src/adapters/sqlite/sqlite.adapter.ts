@@ -30,10 +30,10 @@ import type {
 } from "@db-studio/shared/types";
 import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/shared/types";
 import type { InStatement, InValue, ResultSet, Value } from "@libsql/client";
-import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getSqliteClient } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 import {
 	buildCursorWhereClause,
 	buildSortClause,
