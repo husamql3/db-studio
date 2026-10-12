@@ -32,10 +32,7 @@ esac
 
 DATABASE_URL="${DATABASE_URL:-sqlite://${DB_URL_PATH}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 mkdir -p "${DB_DIR}"
 

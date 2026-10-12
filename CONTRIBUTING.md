@@ -35,6 +35,7 @@ Before starting, install the following tools:
 - [Bun](https://bun.sh/) (version 1.2.19 or higher): db-studio uses Bun as its package manager and runtime across the monorepo.
 - [Node.js](https://nodejs.org/) (version 20 or higher): required by certain toolchains and CLI utilities.
 - Git: for version control.
+- [OrbStack](https://docs.orbstack.dev/) (macOS): runs the containers behind the `init-db:*` seed scripts. On Linux and Windows, any Docker engine works.
 
 ## Monorepo Overview
 
@@ -135,7 +136,7 @@ bun run init-db:mysql   # MySQL
 bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
-bun run init-db:libsql  # libSQL server (sqld) in Docker
+bun run init-db:libsql  # libSQL server (sqld) in a container
 bun run init-db:redis   # Redis
 bun run init-db:mariadb # MariaDB
 bun run init-db:cockroach # CockroachDB
@@ -144,6 +145,8 @@ bun run init-db:duckdb  # DuckDB
 bun run init-db:oracle  # Oracle
 bun run init-db:clickhouse # ClickHouse
 ```
+
+On macOS the scripts run their containers on OrbStack: they start it if it is stopped and use its `orbstack` Docker context without changing your global one. DuckDB needs no container.
 
 Running one of these commands loads database-specific sample data — for SQL engines this generally includes contributors/projects/contributions tables plus engine-specific data, while MongoDB seeds collections and Redis seeds keys — so you can test features with real data immediately.
 
