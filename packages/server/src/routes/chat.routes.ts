@@ -69,7 +69,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 				});
 				return { limit: LIMIT, used: LIMIT, remaining: 0 };
 			}
-			return proxyResponse.json();
+			return await proxyResponse.json();
 		} catch (error) {
 			writeOperationalLog("warn", "chat_limit_unavailable", errorFields(error));
 			return { limit: LIMIT, used: LIMIT, remaining: 0 };

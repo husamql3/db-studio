@@ -185,6 +185,20 @@ const probes: Probe[] = [
 		headers: { "content-type": "application/json" },
 		rawBody: "{not json",
 	},
+	{
+		name: "query via form body",
+		method: "POST",
+		path: `/api/pg/query?db=${DB}`,
+		headers: { "content-type": "application/x-www-form-urlencoded" },
+		rawBody: "query=SELECT+1",
+	},
+	{
+		name: "query via text/plain body",
+		method: "POST",
+		path: `/api/pg/query?db=${DB}`,
+		headers: { "content-type": "text/plain" },
+		rawBody: JSON.stringify({ query: "SELECT 1" }),
+	},
 	{ name: "keys on sql engine", path: `/api/pg/keys?db=${DB}` },
 	{ name: "chat body invalid", method: "POST", path: "/api/chat", body: { nope: true } },
 	{ name: "chat limit", path: "/api/chat/limit" },
@@ -321,6 +335,23 @@ for (const probe of probes) {
 	});
 	console.log(`${res.status}  ${probe.name}`);
 }
+
+const CONCURRENT = 40;
+const concurrent = await Promise.all(
+	Array.from({ length: CONCURRENT }, async (_, i) => {
+		const id = `pin-concurrent-${String(i).padStart(4, "0")}`;
+		const res = await fetch(`${baseUrl}/api/pg/tables/http_pin_missing_${i}/data?db=${DB}`, {
+			headers: { "x-request-id": id },
+		});
+		const body = (await res.json()) as { requestId?: string };
+		return body.requestId === id && res.headers.get("x-request-id") === id;
+	}),
+);
+results.push({
+	name: "concurrent requests keep their own request id",
+	requests: CONCURRENT,
+	mismatches: concurrent.filter((ok) => !ok).length,
+});
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
 await mkdir(outDir, { recursive: true });

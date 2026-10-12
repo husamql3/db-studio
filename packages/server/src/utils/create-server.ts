@@ -8,6 +8,7 @@ import { node } from "@elysiajs/node";
 import { Elysia } from "elysia";
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
 import { registerAdapters } from "@/adapters/register.js";
+import { HTTPException } from "@/http-exception.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import {
 	captureServerEvent,
@@ -188,12 +189,19 @@ export const createServer = () => {
 			}),
 		)
 		/**
-		 * For Zod schemas Elysia JSON-parses query values that look like `[...]` or `{...}` and
-		 * splits any value containing a comma, so `filters=[...]` or a search for `a,b` would fail
-		 * validation. Validate the raw strings instead.
+		 * Validate query strings as sent: for Zod schemas Elysia JSON-parses values that look like
+		 * `[...]` or `{...}` and splits any value containing a comma, so `filters=[...]` or a search
+		 * for `a,b` would fail validation.
+		 *
+		 * Accept only JSON bodies. Form and text bodies are CORS "simple requests" that any website
+		 * can send without a preflight, which would let a page run SQL against a local db-studio.
 		 */
 		.onTransform((context) => {
 			context.query = Object.fromEntries(new URL(context.request.url).searchParams);
+			const contentType = context.request.headers.get("content-type") ?? "";
+			if (context.body !== undefined && !/^application\/([\w.-]+\+)?json/.test(contentType)) {
+				throw new HTTPException(400, { message: "Request body must be JSON" });
+			}
 		})
 		.onError(({ error, request }) => handleError(error, request))
 
