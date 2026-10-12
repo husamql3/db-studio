@@ -14,10 +14,7 @@ READY_TIMEOUT="${READY_TIMEOUT:-300}"
 
 DATABASE_URL="${DATABASE_URL:-oracle://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_SERVICE}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-oracle] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if ! command -v bun >/dev/null 2>&1; then
   echo "[init-db-oracle] bun is not installed or not in PATH"

@@ -12,10 +12,7 @@ DB_IMAGE="${DB_IMAGE:-clickhouse/clickhouse-server:latest}"
 DATABASE_URL="${DATABASE_URL:-clickhouse://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}}"
 HTTP_URL="http://${DB_HOST}:${DB_PORT}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-clickhouse] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then

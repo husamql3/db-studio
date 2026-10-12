@@ -29,7 +29,7 @@ bun run init-db:mysql   # MySQL
 bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
-bun run init-db:libsql  # libSQL server (sqld) in Docker
+bun run init-db:libsql  # libSQL server (sqld) on OrbStack
 bun run init-db:redis   # Redis
 bun run init-db:duckdb  # DuckDB
 bun run init-db:oracle  # Oracle
