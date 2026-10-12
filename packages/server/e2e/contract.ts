@@ -653,6 +653,7 @@ const REDACTED_KEYS = new Set([
 	"max_connections",
 	"nextCursor",
 	"prevCursor",
+	"requestId",
 ]);
 
 const normalize = (value: unknown, secrets: string[], key?: string): Json => {
