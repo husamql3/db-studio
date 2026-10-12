@@ -7,6 +7,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -16,7 +17,9 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -65,6 +68,14 @@ type ColumnRow = {
 	data_type: string;
 	is_nullable: boolean;
 	column_default: string | null;
+};
+
+type IndexRow = {
+	index_name: string;
+	is_unique: boolean;
+	/** Each key as SQL: a bare or quoted column name, or a parenthesised expression. */
+	keys: string[];
+	sql: string;
 };
 
 const IN_CURRENT_SCHEMA =
@@ -607,6 +618,52 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	// =========================================================
+	// Indexes
+	// =========================================================
+
+	async getTableIndexes({ tableName }: { tableName: string }): Promise<IndexInfoSchemaType[]> {
+		return this.withConnection((conn) => this.listIndexes(conn, tableName));
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method } = params;
+		await this.withConnection(async (conn) => {
+			const existing = await this.requireColumns(conn, tableName);
+			const missing = columns.find((c) => !existing.some((e) => e.column_name === c));
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+			if (method !== undefined)
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			try {
+				await conn.run(
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${ident(indexName)} ON ${ident(tableName)} (${columns.map(ident).join(", ")})`,
+				);
+			} catch (e) {
+				// The name is taken, or existing rows break the new unique index.
+				if (e instanceof Error && /already exists|Data contains duplicates/.test(e.message))
+					throw new HTTPException(409, { message: e.message, cause: e });
+				throw e;
+			}
+		});
+	}
+
+	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
+		await this.withConnection(async (conn) => {
+			// The indexes behind PRIMARY KEY and UNIQUE constraints are never listed, so
+			// everything found here was made by CREATE INDEX and can be dropped.
+			const indexes = await this.listIndexes(conn, tableName);
+			if (!indexes.some((index) => index.indexName === indexName))
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+			await conn.run(`DROP INDEX ${ident(indexName)}`);
+		});
+	}
+
+	// =========================================================
 	// Records
 	// =========================================================
 
@@ -838,6 +895,32 @@ export class DuckDbAdapter extends BaseAdapter {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
 		return columns;
+	}
+
+	private async listIndexes(
+		conn: DuckDBConnection,
+		tableName: string,
+	): Promise<IndexInfoSchemaType[]> {
+		await this.requireColumns(conn, tableName);
+		const rows = await query<IndexRow>(
+			conn,
+			`SELECT index_name, is_unique, expressions::VARCHAR[] AS keys, sql FROM duckdb_indexes() WHERE ${IN_CURRENT_SCHEMA} AND table_name = ? ORDER BY index_name`,
+			[tableName],
+		);
+		return rows.map((row) => ({
+			indexName: row.index_name,
+			columns: row.keys.map((key) =>
+				key.startsWith('"')
+					? key.slice(1, -1).replaceAll('""', '"')
+					: key.startsWith("(")
+						? key.slice(1, -1)
+						: key,
+			),
+			isUnique: row.is_unique,
+			method: null,
+			kind: "index",
+			definition: row.keys.some((key) => key.startsWith("(")) ? row.sql : null,
+		}));
 	}
 
 	private async primaryKey(conn: DuckDBConnection, tableName: string): Promise<string[]> {

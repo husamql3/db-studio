@@ -13,10 +13,7 @@ DB_IMAGE="${DB_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}"
 
 DATABASE_URL="${DATABASE_URL:-mssql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-mssql] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
@@ -187,6 +184,10 @@ BEGIN
       REFERENCES dbo.projects(id)     ON DELETE CASCADE
   );
 END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'contributions_project_id_idx' AND object_id = OBJECT_ID('dbo.contributions'))
+  CREATE INDEX contributions_project_id_idx ON dbo.contributions (project_id);
 GO
 
 -- ============================================================

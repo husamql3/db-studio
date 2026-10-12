@@ -10,6 +10,7 @@ import {
 	DATABASE_ENGINES,
 	type DatabaseTypeSchema,
 	databaseListSchema,
+	indexInfoSchema,
 	type TableDataResultSchemaType,
 	tableDataResultSchema,
 	tableInfoSchema,
@@ -27,6 +28,8 @@ type Step = {
 	name: string;
 	method: Method;
 	path: string;
+	/** Overrides `path` when it depends on an earlier response. */
+	resolvePath?: (ctx: Ctx) => string;
 	query?: (ctx: Ctx) => Record<string, string>;
 	body?: (ctx: Ctx) => unknown;
 	/** Accepted statuses; any 2xx when omitted. */
@@ -40,12 +43,34 @@ type Step = {
 type EngineOverrides = {
 	selectOne?: string;
 	dbName?: (url: URL) => string;
+	/** `false` when the engine lists no index for the scenario table's primary key. */
+	primaryIndex?: false;
+	/** Replaces `INDEX_COLUMNS` when the engine cannot index one of them. */
+	indexColumns?: string[];
+	/** The part of a system-generated constraint index name that changes on every run. */
+	generatedIndexName?: RegExp;
+	/** What the engine reports as `method` for a plain index when it offers no method picker. */
+	indexMethod?: string;
 };
 
 const OVERRIDES: Partial<Record<DatabaseTypeSchema, EngineOverrides>> = {
-	sqlite: { dbName: () => "main" },
-	duckdb: { dbName: (url) => path.parse(url.pathname).name },
-	oracle: { selectOne: 'SELECT 1 AS "one" FROM dual' },
+	// `name` is TEXT here, which MySQL refuses to index without a prefix length.
+	mysql: { indexMethod: "btree", indexColumns: ["born", "amount"] },
+	// `name` is NVARCHAR(MAX) here, which SQL Server refuses as an index key.
+	mssql: {
+		indexMethod: "nonclustered",
+		indexColumns: ["born", "amount"],
+		generatedIndexName: /(?<=PK__\w+__)[0-9A-F]{16}/g,
+	},
+	// An INTEGER PRIMARY KEY is the rowid itself, so SQLite builds no index for it.
+	sqlite: { dbName: () => "main", primaryIndex: false },
+	// DuckDB does not list the indexes behind PRIMARY KEY and UNIQUE constraints.
+	duckdb: { dbName: (url) => path.parse(url.pathname).name, primaryIndex: false },
+	oracle: {
+		selectOne: 'SELECT 1 AS "one" FROM dual',
+		indexMethod: "normal",
+		generatedIndexName: /(?<=SYS_C)\d+/g,
+	},
 };
 
 const TABLE = "dbstudio_e2e";
@@ -59,6 +84,9 @@ const PAIR_ROWS = [
 const ROW_COUNT = 25;
 const PAGE = 10;
 const COLUMNS = ["id", "name", "active", "amount", "born", "meta"];
+const INDEX = "dbstudio_e2e_born_name_idx";
+// Deliberately neither alphabetical nor table order, so a listing that loses key order fails.
+const INDEX_COLUMNS = ["born", "name"];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const rowName = (n: number) => `row-${pad(n)}`;
@@ -82,6 +110,7 @@ const pageOf = (body: unknown): TableDataResultSchemaType =>
 const columnsOf = (body: unknown): ColumnInfoSchemaType[] =>
 	dataOf(z.array(columnInfoSchema), body);
 const tablesOf = (body: unknown) => dataOf(z.array(tableInfoSchema), body);
+const indexesOf = (body: unknown) => dataOf(z.array(indexInfoSchema), body);
 
 const namesOf = (page: TableDataResultSchemaType) => page.data.map((row) => String(row.name));
 const range = (from: number, to: number) =>
@@ -128,6 +157,117 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 	const records = `/${dbType}/records`;
 	const dataOfTable = `${t}/${TABLE}/data`;
 	const canMutateRows = DATABASE_ENGINES[dbType].rowMutation;
+	const indexes = DATABASE_ENGINES[dbType].indexes;
+	const indexesPath = `${t}/${TABLE}/indexes`;
+	const hasPrimaryIndex = overrides.primaryIndex !== false;
+	const indexColumns = overrides.indexColumns ?? INDEX_COLUMNS;
+	const maskGenerated = (body: unknown): unknown =>
+		overrides.generatedIndexName
+			? JSON.parse(JSON.stringify(body).replace(overrides.generatedIndexName, "<generated>"))
+			: body;
+	const recordIndexes = (body: unknown) => maskGenerated(indexesOf(body));
+
+	const indexSteps: Step[] = indexes
+		? [
+				{
+					name: "indexes: create two-column index",
+					method: "POST",
+					path: indexesPath,
+					body: () => ({ indexName: INDEX, columns: indexColumns, isUnique: false }),
+				},
+				{
+					name: "indexes: list has the new index and the primary key",
+					method: "GET",
+					path: indexesPath,
+					check: (body) => {
+						const list = indexesOf(body);
+						const created = list.find((i) => i.indexName === INDEX);
+						assert(created, `${INDEX} missing from indexes list`);
+						assertEqual(created.columns, indexColumns, "index columns");
+						assertEqual(created.isUnique, false, "isUnique");
+						assertEqual(created.kind, "index", "kind");
+						assertEqual(created.definition, null, "definition");
+						assertEqual(
+							created.method,
+							indexes.methods[0] ?? overrides.indexMethod ?? null,
+							"method",
+						);
+						const primary = list.filter((i) => i.kind === "primary");
+						assertEqual(
+							primary.map((i) => ({ columns: i.columns, isUnique: i.isUnique })),
+							hasPrimaryIndex ? [{ columns: ["id"], isUnique: true }] : [],
+							"primary key index",
+						);
+						assertEqual(
+							list[0]?.kind,
+							hasPrimaryIndex ? "primary" : "index",
+							"first listed index",
+						);
+					},
+					record: recordIndexes,
+				},
+				{
+					name: "indexes: duplicate name is refused",
+					method: "POST",
+					path: indexesPath,
+					body: () => ({ indexName: INDEX, columns: indexColumns.slice(1), isUnique: false }),
+					expect: 409,
+				},
+				{
+					name: "indexes: unknown column is refused",
+					method: "POST",
+					path: indexesPath,
+					body: () => ({
+						indexName: `${TABLE}_missing_idx`,
+						columns: ["name", "no_such_column"],
+						isUnique: false,
+					}),
+					expect: 400,
+				},
+				...(hasPrimaryIndex
+					? [
+							{
+								name: "indexes: dropping the primary key index is refused",
+								method: "DELETE",
+								path: indexesPath,
+								resolvePath: (ctx) => {
+									const primary = indexesOf(
+										prior(ctx, "indexes: list has the new index and the primary key"),
+									).find((i) => i.kind === "primary");
+									assert(primary, "no primary key index to try dropping");
+									return `${indexesPath}/${encodeURIComponent(primary.indexName)}`;
+								},
+								expect: 400,
+								record: maskGenerated,
+							} satisfies Step,
+						]
+					: []),
+				{
+					name: "indexes: drop index",
+					method: "DELETE",
+					path: `${indexesPath}/${INDEX}`,
+				},
+				{
+					name: "indexes: list after drop keeps only the primary key",
+					method: "GET",
+					path: indexesPath,
+					check: (body) => {
+						assertEqual(
+							indexesOf(body).map((i) => i.kind),
+							hasPrimaryIndex ? ["primary"] : [],
+							"index kinds after drop",
+						);
+					},
+					record: recordIndexes,
+				},
+				{
+					name: "indexes: dropping a missing index is 404",
+					method: "DELETE",
+					path: `${indexesPath}/${INDEX}`,
+					expect: 404,
+				},
+			]
+		: [];
 
 	return [
 		{
@@ -451,6 +591,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				);
 			},
 		},
+		...indexSteps,
 		{
 			name: "execute raw query",
 			method: "POST",
@@ -713,7 +854,10 @@ const main = async () => {
 			const payload = step.body?.(ctx);
 			const res = await app.handle(
 				new Request(
-					new URL(`${DEFAULTS.API_PREFIX}${step.path}?${query}`, "http://localhost"),
+					new URL(
+						`${DEFAULTS.API_PREFIX}${step.resolvePath?.(ctx) ?? step.path}?${query}`,
+						"http://localhost",
+					),
 					{
 						method: step.method,
 						headers: payload === undefined ? {} : { "Content-Type": "application/json" },

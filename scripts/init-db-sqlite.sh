@@ -32,10 +32,7 @@ esac
 
 DATABASE_URL="${DATABASE_URL:-sqlite://${DB_URL_PATH}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 mkdir -p "${DB_DIR}"
 
@@ -111,6 +108,8 @@ CREATE TABLE IF NOT EXISTS employees (
   is_active       INTEGER NOT NULL DEFAULT 1,
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS contributions_project_id_idx ON contributions (project_id);
 
 INSERT OR IGNORE INTO contributors (name, email, is_active, birth_date, joined_at) VALUES
   ('Mona Patel',   'mona@example.com',  1, '1994-04-19', '2024-01-15 09:00:00'),

@@ -57,3 +57,31 @@ DATABASE_URL=clickhouse://dbstudio:dbstudio@127.0.0.1:8123/dbstudio \
 
 It writes `e2e/artifacts/clickhouse-regressions-<label>.json`. Use a new label for each run so
 before and after evidence can be compared directly.
+
+## Index listing regressions
+
+Checks SQL Server columnstore columns separately from B-tree INCLUDE columns, and SQLite
+expression keys containing SQL comments and quoted comment markers. On MySQL, checks that
+primary keys and both forms of unique index refuse drops, uniqueness remains enforced, and
+ordinary indexes can still be dropped. Uses and removes only
+the `dbstudio_e2e_index_listing` scratch table in a disposable database.
+
+```bash
+DATABASE_URL=sqlite:///tmp/dbstudio-index-review.sqlite bunx tsx e2e/index-listing.ts
+# Or set DATABASE_URL to a disposable SQL Server or MySQL database.
+```
+
+Writes `e2e/artifacts/<engine>-index-listing.json` (`sqlite`, `mssql`, or `mysql`).
+
+## MongoDB indexes
+
+MongoDB is outside the contract, so the Indexes routes have their own probe. It works on a
+scratch collection `dbstudio_e2e_indexes` that it creates and drops, then records the indexes
+of the seeded `contributors`, `projects` and `contributions` collections (`null` when absent).
+
+```bash
+cd packages/server
+DATABASE_URL='mongodb://127.0.0.1:27017/dbstudio' bunx tsx e2e/mongo-indexes.ts
+```
+
+It writes `e2e/artifacts/mongo-indexes.json`.

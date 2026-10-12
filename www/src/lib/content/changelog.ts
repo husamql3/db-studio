@@ -16,6 +16,36 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.17.0",
+		date: "2026-10-11",
+		title: "Manage table indexes",
+		features: [
+			{
+				text: "View and manage indexes in a dedicated tab for PostgreSQL, MySQL, SQL Server, SQLite/libSQL, DuckDB, Oracle, and MongoDB",
+				username: "husamql3",
+			},
+			{
+				text: "Create indexes with ordered columns and a unique option, choose a PostgreSQL index method, or enter nested MongoDB field paths; drop indexes with confirmation while primary keys and constraint-backed indexes stay protected",
+				username: "husamql3",
+			},
+			{
+				text: "Inspect index columns, uniqueness, methods, and definitions, including expression and filtered indexes, plus MongoDB sparse and TTL badges",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.16.2",
+		date: "2026-10-11",
+		title: "Query editor typing fix",
+		bugsFixed: [
+			{
+				text: "Fixed the query editor losing focus and resetting to the placeholder on every keystroke, which made it impossible to type a query",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.16.1",
 		date: "2026-10-10",
 		title: "Query editor and PostgreSQL table list fixes",

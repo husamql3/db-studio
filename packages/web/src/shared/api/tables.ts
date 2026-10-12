@@ -3,10 +3,12 @@ import type {
 	AlterColumnSchemaType,
 	BaseResponse,
 	ColumnInfoSchemaType,
+	CreateIndexSchemaType,
 	CreateTableSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteTableResult,
 	FormatType,
+	IndexInfoSchemaType,
 	RenameColumnSchemaType,
 	RenameTableSchemaType,
 	TableDataResultSchemaType,
@@ -147,6 +149,39 @@ export const deleteColumn = ({
 	api.delete<BaseResponse<string>>(
 		`/tables/${encodeURIComponent(tableName)}/columns/${encodeURIComponent(columnName)}`,
 		{ params: { db: db ?? "", cascade: cascade ? "true" : "false" } },
+	);
+
+export const getTableIndexes = (tableName: string, db?: string | null) =>
+	api.get<BaseResponse<IndexInfoSchemaType[]>>(
+		`/tables/${encodeURIComponent(tableName)}/indexes`,
+		{ params: { db: db ?? "" } },
+	);
+
+export const createIndex = ({
+	tableName,
+	data,
+	db,
+}: {
+	tableName: string;
+	data: CreateIndexSchemaType;
+	db?: string | null;
+}) =>
+	api.post<BaseResponse<string>>(`/tables/${encodeURIComponent(tableName)}/indexes`, data, {
+		params: { db: db ?? "" },
+	});
+
+export const dropIndex = ({
+	tableName,
+	indexName,
+	db,
+}: {
+	tableName: string;
+	indexName: string;
+	db?: string | null;
+}) =>
+	api.delete<BaseResponse<string>>(
+		`/tables/${encodeURIComponent(tableName)}/indexes/${encodeURIComponent(indexName)}`,
+		{ params: { db: db ?? "" } },
 	);
 
 export const getTableSchema = (tableName: string, db?: string | null) =>

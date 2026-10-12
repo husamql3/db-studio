@@ -11,10 +11,7 @@ DB_IMAGE="${DB_IMAGE:-mariadb:11}"
 
 DATABASE_URL="${DATABASE_URL:-mariadb://root@${DB_HOST}:${DB_PORT}/${DB_NAME}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-mariadb] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
@@ -56,6 +53,7 @@ CREATE TABLE IF NOT EXISTS projects (
   status ENUM('planning', 'active', 'archived') NOT NULL DEFAULT 'active',
   budget DECIMAL(10, 2) NOT NULL DEFAULT 0,
   owner_id INT,
+  INDEX projects_owner_id_idx (owner_id),
   CONSTRAINT fk_project_owner FOREIGN KEY (owner_id) REFERENCES contributors(id) ON DELETE SET NULL
 );
 

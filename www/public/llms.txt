@@ -22,6 +22,7 @@ db-studio is a modern database management tool designed to work with multiple da
 - Getting Started: https://dbstudio.sh/docs/getting-started
 - FAQ: https://dbstudio.sh/docs/faq
 - Supported databases: https://dbstudio.sh/docs/databases
+- Indexes: https://dbstudio.sh/docs/indexes
 - Roadmap: https://dbstudio.sh/roadmap
 - Changelog: https://dbstudio.sh/changelog
 - OpenAPI spec (db-studio server API): https://dbstudio.sh/openapi.json

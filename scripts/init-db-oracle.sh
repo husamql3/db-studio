@@ -14,10 +14,7 @@ READY_TIMEOUT="${READY_TIMEOUT:-300}"
 
 DATABASE_URL="${DATABASE_URL:-oracle://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_SERVICE}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-oracle] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if ! command -v bun >/dev/null 2>&1; then
   echo "[init-db-oracle] bun is not installed or not in PATH"
@@ -86,6 +83,7 @@ const statements = [
     owner_id NUMBER(10),
     CONSTRAINT fk_project_owner FOREIGN KEY (owner_id) REFERENCES contributors(id) ON DELETE SET NULL
   )`,
+  `CREATE INDEX projects_owner_id_idx ON projects (owner_id)`,
   `INSERT INTO contributors (name, email, is_active, birth_date, profile, joined_at) VALUES
     ('Mona Patel', 'mona@example.com', TRUE, DATE '1994-04-19', '{"team": "core"}', TIMESTAMP '2024-01-15 09:00:00'),
     ('Diego Rivera', 'diego@example.com', FALSE, DATE '1991-11-03', NULL, TIMESTAMP '2023-10-21 14:30:00')`,

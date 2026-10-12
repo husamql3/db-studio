@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -15,8 +16,10 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FilterType,
+	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	SortDirection,
@@ -62,6 +65,14 @@ export interface IDbAdapter {
 	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }>;
 	alterColumn(params: AlterColumnParamsSchemaType): Promise<void>;
 	renameColumn(params: RenameColumnParamsSchemaType): Promise<void>;
+
+	// --- Indexes ---
+	getTableIndexes(params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]>;
+	createIndex(params: CreateIndexParamsSchemaType): Promise<void>;
+	dropIndex(params: DropIndexParamsSchemaType): Promise<void>;
 
 	// --- Records ---
 	getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;

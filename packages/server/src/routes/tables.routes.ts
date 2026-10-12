@@ -1,11 +1,13 @@
 import {
 	addColumnSchema,
 	alterColumnSchema,
+	createIndexSchema,
 	createTableSchema,
 	databaseSchema,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	deleteTableQuerySchema,
+	dropIndexParamSchema,
 	exportTableSchema,
 	renameColumnSchema,
 	renameTableSchema,
@@ -146,6 +148,48 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			data: await adapter.getTableColumns({ tableName, db }),
 		}),
 		{ query: databaseSchema, params: tableNameSchema },
+	)
+
+	/**
+	 * GET /tables/:tableName/indexes
+	 * Returns list of all indexes on a table
+	 */
+	.get(
+		"/:tableName/indexes",
+		async ({ adapter, query: { db }, params: { tableName } }) => ({
+			data: await adapter.getTableIndexes({ tableName, db }),
+		}),
+		{ query: databaseSchema, params: tableNameSchema },
+	)
+
+	/**
+	 * POST /tables/:tableName/indexes
+	 * Creates an index on a table
+	 */
+	.post(
+		"/:tableName/indexes",
+		async ({ adapter, query: { db }, params: { tableName }, body }) => {
+			await adapter.createIndex({ tableName, db, ...body });
+			return {
+				data: `Index "${body.indexName}" created successfully on table "${tableName}"`,
+			};
+		},
+		{ query: databaseSchema, params: tableNameSchema, body: createIndexSchema },
+	)
+
+	/**
+	 * DELETE /tables/:tableName/indexes/:indexName
+	 * Drops an index from a table
+	 */
+	.delete(
+		"/:tableName/indexes/:indexName",
+		async ({ adapter, query: { db }, params: { tableName, indexName } }) => {
+			await adapter.dropIndex({ tableName, indexName, db });
+			return {
+				data: `Index "${indexName}" dropped successfully from table "${tableName}"`,
+			};
+		},
+		{ query: databaseSchema, params: dropIndexParamSchema },
 	)
 
 	/**
