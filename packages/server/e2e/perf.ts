@@ -217,21 +217,34 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_THROTTLE });
 			await cdp.send("Performance.enable");
 			/**
-			 * CPU time of the page's main thread. Unlike wall time it does not grow while other
-			 * processes hold the CPU, so it compares builds even on a busy machine.
+			 * Chrome's counters for the page. ThreadTime is main-thread CPU time, which grows less
+			 * than wall time while other processes hold the CPU. LayoutCount and RecalcStyleCount
+			 * count layouts and style recalculations, which no amount of machine load changes.
 			 */
-			const threadMs = async () =>
-				((await cdp.send("Performance.getMetrics")).metrics.find(
-					(metric) => metric.name === "ThreadTime",
-				)?.value ?? 0) * 1000;
-			/** Repeats a step and keeps its fastest wall time and main-thread CPU time. */
+			const counters = async () => {
+				const { metrics: list } = await cdp.send("Performance.getMetrics");
+				const value = (name: string) =>
+					list.find((metric) => metric.name === name)?.value ?? 0;
+				return {
+					cpuMs: value("ThreadTime") * 1000,
+					layouts: value("LayoutCount"),
+					styleRecalcs: value("RecalcStyleCount"),
+				};
+			};
+			/**
+			 * Repeats a step, keeping its fastest wall and CPU time, and the layouts and style
+			 * recalculations of its last attempt.
+			 */
 			const bestOf = async (name: string, times: number, step: () => Promise<number>) => {
 				let wall = Number.POSITIVE_INFINITY;
 				let cpu = Number.POSITIVE_INFINITY;
 				for (let attempt = 0; attempt < times; attempt++) {
-					const before = await threadMs();
+					const before = await counters();
 					wall = Math.min(wall, await step());
-					cpu = Math.min(cpu, (await threadMs()) - before);
+					const after = await counters();
+					cpu = Math.min(cpu, after.cpuMs - before.cpuMs);
+					metrics[`${name}Layouts`] = after.layouts - before.layouts;
+					metrics[`${name}StyleRecalcs`] = after.styleRecalcs - before.styleRecalcs;
 				}
 				metrics[`${name}Ms`] = wall;
 				metrics[`${name}CpuMs`] = cpu;
@@ -255,7 +268,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			// gets a fresh renderer, so its thread time so far is the cold start's.
 			await page.goto(`${BASE}/`, { waitUntil: "commit" });
 			metrics.coldLoadMs = await sidebarReady();
-			metrics.coldLoadCpuMs = await threadMs();
+			metrics.coldLoadCpuMs = (await counters()).cpuMs;
 			metrics.coldScriptKB = await scriptKB(page);
 
 			// Warm start: same browser cache, reload.
@@ -289,9 +302,11 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			await page.evaluate(() =>
 				window.__perf.waitFor(() => window.__perf.gridShows("customer_id")),
 			);
-			const scrollStart = await threadMs();
+			const scrollStart = await counters();
 			const frames = await page.evaluate(() => window.__perf.scrollGrid());
-			metrics.scrollCpuMs = (await threadMs()) - scrollStart;
+			const scrollEnd = await counters();
+			metrics.scrollCpuMs = scrollEnd.cpuMs - scrollStart.cpuMs;
+			metrics.scrollLayouts = scrollEnd.layouts - scrollStart.layouts;
 			const sorted = [...frames].sort((a, b) => a - b);
 			metrics.scrollMeanFrameMs = frames.reduce((a, b) => a + b, 0) / frames.length;
 			metrics.scrollP95FrameMs = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
@@ -354,11 +369,37 @@ const summarize = (pick: (values: number[]) => number) =>
 	);
 const best = summarize((values) => Math.round(Math.min(...values) * 10) / 10);
 const medians = summarize(median);
+/**
+ * Paired change of each build against the build listed before it: the % difference between
+ * the two passes of the same run, which ran back to back, then the median over runs.
+ */
+const pairedChange = Object.fromEntries(
+	builds.slice(1).map((build, index) => {
+		const before = samples.get(builds[index] ?? "") ?? [];
+		const after = samples.get(build) ?? [];
+		const names = Object.keys(after[0] ?? {});
+		return [
+			`${build} vs ${builds[index]} (%)`,
+			Object.fromEntries(
+				names.map((name) => [
+					name,
+					median(
+						after.map((run, i) => {
+							const base = before[i]?.[name] ?? 0;
+							return base === 0 ? 0 : (((run[name] ?? 0) - base) / base) * 100;
+						}),
+					),
+				]),
+			),
+		];
+	}),
+);
 const results = {
 	runs: RUNS,
 	cpuThrottle: CPU_THROTTLE,
 	best,
 	medians,
+	pairedChange,
 	samples: Object.fromEntries(samples),
 	pageErrors: [...pageErrors],
 };
@@ -378,4 +419,17 @@ console.log("Best of", RUNS);
 console.table(transpose(best));
 console.log("Median of", RUNS);
 console.table(transpose(medians));
+if (builds.length > 1) {
+	console.log("Paired change, median over runs (%)");
+	console.table(
+		Object.fromEntries(
+			Object.keys(Object.values(pairedChange)[0] ?? {}).map((name) => [
+				name,
+				Object.fromEntries(
+					Object.entries(pairedChange).map(([pair, values]) => [pair, values[name]]),
+				),
+			]),
+		),
+	);
+}
 if (pageErrors.size > 0) console.error("Page errors:", [...pageErrors]);
