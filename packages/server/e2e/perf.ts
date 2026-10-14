@@ -121,7 +121,7 @@ const processCpuMs = (pid: number) => {
 };
 
 const stopServer = async (child: ChildProcess) => {
-	// SIGTERM waits up to 30s for open keep-alive connections; shutdown is not measured here.
+	// Shutdown is not measured here; SIGKILL skips waiting for open requests.
 	child.kill("SIGKILL");
 	if (child.exitCode === null) await once(child, "exit");
 };

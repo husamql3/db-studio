@@ -10,6 +10,7 @@ vi.mock("@/db-manager.js", () => ({
 	getMysqlPool: vi.fn(),
 	getMssqlPool: vi.fn(),
 	getDbType: vi.fn(),
+	closeAllDbPools: vi.fn(),
 	getMongoClient: vi.fn(),
 	getMongoDbName: vi.fn(),
 	getMongoDb: vi.fn(),

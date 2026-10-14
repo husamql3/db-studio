@@ -187,6 +187,10 @@ export const initServerObservability = (): void => {
 	}
 };
 
+/** Sends the events and errors still queued, before the process exits. */
+export const flushServerObservability = () =>
+	Promise.allSettled([posthog?.shutdown(2_000), Sentry.close(2_000)]);
+
 export const captureServerEvent = (event: ServerEvent): void => {
 	if (!isTelemetryEnabled() || !posthog) return;
 	posthog.capture({

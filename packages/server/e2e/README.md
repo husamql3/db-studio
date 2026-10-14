@@ -30,6 +30,19 @@ DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio sh e2e/http-
 It writes `e2e/artifacts/http-surface-<label>.json`. Two runs against the same server produce the
 same file, so diff the files from the two versions.
 
+## Stop the server
+
+Starts the built CLI, sends Ctrl+C (SIGINT) and then SIGTERM while a one-second query is in
+flight, and checks that the query is answered and the process exits within 5 s with code 0.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/shutdown.ts
+```
+
+Writes `e2e/artifacts/shutdown-<build>.json`; pass a snapshot name from `e2e/artifacts/builds/` to
+check another build.
+
 ## Run the Oracle review probe
 
 The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp

@@ -794,7 +794,7 @@ const _closeDbPoolByConnectionString = async (connectionString: string): Promise
 /**
  * Close all database pools
  */
-const _closeAllDbPools = async (): Promise<void> => {
+export const closeAllDbPools = async (): Promise<void> => {
 	return databaseManager.closeAll();
 };
 
