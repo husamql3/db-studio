@@ -575,3 +575,12 @@ this test fail?* If the answer is no, delete it. In particular, never write:
   `vitest.config.ts`.
 - Naming: `[file-name].test.ts`, colocated with the source in `packages/web` and `www`;
   under `packages/server/tests/[area]/` for the server.
+
+#### Performance
+
+Benchmark a performance change with `packages/server/e2e/perf.ts` before claiming it; its
+header explains the seed database and build snapshots. Compare builds in one interleaved run,
+never two separate runs: wall time swings 20–40% between identical builds on a busy machine.
+Judge by the layout and style-recalculation counts, best-of-N and the paired change, and run
+an identical build against itself first if you need the noise floor. Changes that save database
+round trips only show with `PERF_DB_LATENCY_MS` set.
