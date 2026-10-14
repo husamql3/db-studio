@@ -21,6 +21,8 @@ import {
 	type KeyboardEvent,
 	lazy,
 	memo,
+	type ReactElement,
+	type ReactNode,
 	Suspense,
 	useCallback,
 	useEffect,
@@ -40,6 +42,38 @@ import { TableCellWrapper } from "./table-cell-wrapper";
 const JsonEditor = lazy(() =>
 	import("./json-editor").then((module) => ({ default: module.JsonEditor })),
 );
+
+/**
+ * A cell's editor popover, mounted the first time the cell is edited. Until then only the anchor
+ * renders: a page holds hundreds of cells, and an idle Radix popover in each was a large share
+ * of the grid's render time. Once mounted it stays, so closing still animates.
+ */
+const CellPopover = ({
+	active,
+	open,
+	onOpenChange,
+	anchor,
+	children,
+}: {
+	active: boolean;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	anchor: ReactElement;
+	children: ReactNode;
+}) => {
+	const [mounted, setMounted] = useState(active);
+	if (active && !mounted) setMounted(true);
+	if (!mounted) return anchor;
+	return (
+		<Popover
+			open={open}
+			onOpenChange={onOpenChange}
+		>
+			<PopoverAnchor asChild>{anchor}</PopoverAnchor>
+			{children}
+		</Popover>
+	);
+};
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -216,11 +250,11 @@ export const TableTextCell = memo(
 		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
-			<Popover
+			<CellPopover
+				active={open || isEditing}
 				open={open}
 				onOpenChange={onOpenChange}
-			>
-				<PopoverAnchor asChild>
+				anchor={
 					<TableCellWrapper
 						ref={containerRef}
 						cell={cell}
@@ -234,7 +268,8 @@ export const TableTextCell = memo(
 					>
 						<span data-slot="grid-cell-content">{displayValue}</span>
 					</TableCellWrapper>
-				</PopoverAnchor>
+				}
+			>
 				<PopoverContent
 					data-grid-cell-editor=""
 					align="start"
@@ -272,7 +307,7 @@ export const TableTextCell = memo(
 						</Button>
 					</div>
 				</PopoverContent>
-			</Popover>
+			</CellPopover>
 		);
 	},
 );
@@ -1075,11 +1110,11 @@ export const TableJsonCell = memo(
 		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
-			<Popover
+			<CellPopover
+				active={open || isEditing}
 				open={open}
 				onOpenChange={onOpenChange}
-			>
-				<PopoverAnchor asChild>
+				anchor={
 					<TableCellWrapper
 						ref={containerRef}
 						cell={cell}
@@ -1093,7 +1128,8 @@ export const TableJsonCell = memo(
 					>
 						<span data-slot="grid-cell-content">{displayValue}</span>
 					</TableCellWrapper>
-				</PopoverAnchor>
+				}
+			>
 				<PopoverContent
 					data-grid-cell-editor=""
 					align="start"
@@ -1139,7 +1175,7 @@ export const TableJsonCell = memo(
 						</Button>
 					</div>
 				</PopoverContent>
-			</Popover>
+			</CellPopover>
 		);
 	},
 );
@@ -1163,6 +1199,9 @@ export const TableForeignKeyCell = memo(
 		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
 		const [open, setOpen] = useState(false);
 		const [drawerOpen, setDrawerOpen] = useState(false);
+		// Like CellPopover: no idle drawer per cell; mount it on first open and keep it.
+		const [drawerMounted, setDrawerMounted] = useState(false);
+		if (drawerOpen && !drawerMounted) setDrawerMounted(true);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
@@ -1291,11 +1330,11 @@ export const TableForeignKeyCell = memo(
 
 		return (
 			<>
-				<Popover
+				<CellPopover
+					active={open || isEditing}
 					open={open}
 					onOpenChange={onOpenChange}
-				>
-					<PopoverAnchor asChild>
+					anchor={
 						<TableCellWrapper
 							ref={containerRef}
 							cell={cell}
@@ -1325,7 +1364,8 @@ export const TableForeignKeyCell = memo(
 								</span>
 							)}
 						</TableCellWrapper>
-					</PopoverAnchor>
+					}
+				>
 					<PopoverContent
 						data-grid-cell-editor=""
 						align="start"
@@ -1362,21 +1402,23 @@ export const TableForeignKeyCell = memo(
 							</Button>
 						</div>
 					</PopoverContent>
-				</Popover>
-				<Drawer
-					open={drawerOpen}
-					onOpenChange={setDrawerOpen}
-				>
-					<DrawerContent className="h-[70vh]">
-						{referencedTable && (
-							<FkDrawerContent
-								referencedTable={referencedTable}
-								referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
-								fkValue={displayValue}
-							/>
-						)}
-					</DrawerContent>
-				</Drawer>
+				</CellPopover>
+				{drawerMounted && (
+					<Drawer
+						open={drawerOpen}
+						onOpenChange={setDrawerOpen}
+					>
+						<DrawerContent className="h-[70vh]">
+							{referencedTable && (
+								<FkDrawerContent
+									referencedTable={referencedTable}
+									referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
+									fkValue={displayValue}
+								/>
+							)}
+						</DrawerContent>
+					</Drawer>
+				)}
 			</>
 		);
 	},
