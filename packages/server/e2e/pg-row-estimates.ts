@@ -28,7 +28,7 @@ const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
 const { getDbPool } = await import("../src/db-manager.js");
 const { app } = createServer();
-const pool = getDbPool(db);
+const pool = await getDbPool(db);
 
 const LARGE = "dbstudio_estimate_Large"; // mixed case, so it must be quoted
 const SMALL = "dbstudio_estimate_small";

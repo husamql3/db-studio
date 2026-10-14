@@ -28,8 +28,8 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { DatabaseError } from "pg";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
+import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
 /** One record's pending updates, addressed by every one of its key columns. */
@@ -159,7 +159,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				) ||
 				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
 				e.message === "Timeout error." || // @clickhouse/client request timeout
-				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
+				(isPgDatabaseError(e) && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {
 				return new HTTPException(503, { message: e.message, cause: e });

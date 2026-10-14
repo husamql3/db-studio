@@ -28,18 +28,17 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapDuckdbToDataType, standardizeDuckdbDataTypeLabel } from "@db-studio/shared/types";
-import {
-	type DuckDBConnection,
-	type DuckDBResultReader,
+import type {
+	DuckDBConnection,
+	DuckDBResultReader,
 	DuckDBTypeId,
-	type DuckDBValue,
-	type Json,
-	ResultReturnType,
-	StatementType,
+	DuckDBValue,
+	Json,
 } from "@duckdb/node-api";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { withDuckdbConnection } from "@/adapters/connections.js";
+import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	buildFilterConditions,
@@ -81,12 +80,15 @@ type IndexRow = {
 const IN_CURRENT_SCHEMA =
 	"database_name = current_database() AND schema_name = current_schema()";
 
-const BIG_INTEGER_TYPES = new Set<DuckDBTypeId>([
-	DuckDBTypeId.BIGINT,
-	DuckDBTypeId.UBIGINT,
-	DuckDBTypeId.HUGEINT,
-	DuckDBTypeId.UHUGEINT,
-]);
+const isBigInteger = (typeId: DuckDBTypeId) => {
+	const { DuckDBTypeId } = loadedDriver("duckdb");
+	return (
+		typeId === DuckDBTypeId.BIGINT ||
+		typeId === DuckDBTypeId.UBIGINT ||
+		typeId === DuckDBTypeId.HUGEINT ||
+		typeId === DuckDBTypeId.UHUGEINT
+	);
+};
 
 /**
  * The driver boundary for reads. `getRowObjectsJson()` already renders every DuckDB value
@@ -95,9 +97,7 @@ const BIG_INTEGER_TYPES = new Set<DuckDBTypeId>([
  */
 const toRows = (reader: DuckDBResultReader): Row[] => {
 	const types = reader.columnTypes();
-	const bigColumns = reader
-		.columnNames()
-		.filter((_, i) => BIG_INTEGER_TYPES.has(types[i].typeId));
+	const bigColumns = reader.columnNames().filter((_, i) => isBigInteger(types[i].typeId));
 	const rows = reader.getRowObjectsJson();
 	for (const row of rows) {
 		for (const column of bigColumns) {
@@ -806,6 +806,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		if (!sql?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
 		return this.withConnection(async (conn) => {
+			const { ResultReturnType, StatementType } = loadedDriver("duckdb");
 			const start = performance.now();
 			const statements = await conn.extractStatements(sql);
 			if (statements.count !== 1) {

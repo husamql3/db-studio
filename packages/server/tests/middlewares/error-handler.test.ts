@@ -1,15 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
 import { z } from "zod";
 import { DatabaseError } from "pg";
 
+import { loadDriver } from "@/drivers.js";
 import { handleError } from "@/middlewares/error-handler.js";
 
 const createApp = () => new Elysia().onError(({ error, request }) => handleError(error, request));
 
 describe("Error Handler Middleware", () => {
 	let app: ReturnType<typeof createApp>;
+
+	// A PostgreSQL error only exists once a connection has loaded pg.
+	beforeAll(() => loadDriver("pg"));
 
 	beforeEach(() => {
 		app = createApp();

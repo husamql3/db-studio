@@ -50,7 +50,7 @@ import {
 	SEARCH_PATH_SCHEMAS,
 } from "./pg.query-builder.js";
 
-type PgPool = ReturnType<typeof getDbPool>;
+type PgPool = Awaited<ReturnType<typeof getDbPool>>;
 
 /**
  * Tables the planner estimates at this many rows or more report their estimate instead of an
@@ -66,7 +66,7 @@ export class PgAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const result = await pool.query(sql, values);
 		return result.rows as T;
 	}
@@ -103,9 +103,6 @@ export class PgAdapter extends BaseAdapter {
 			filters = [],
 			db,
 		} = params;
-
-		const pool = getDbPool(db);
-		void pool; // just to keep reference — actual pool used in runQuery
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
@@ -242,7 +239,7 @@ export class PgAdapter extends BaseAdapter {
 			cursor,
 			filters = [],
 		} = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
@@ -419,7 +416,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const pool = getDbPool();
+			const pool = await getDbPool();
 			const size = (await this.supportsDatabaseSize(pool))
 				? "pg_size_pretty(pg_database_size(d.datname))"
 				: "'unknown'";
@@ -443,7 +440,7 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const pool = getDbPool();
+		const pool = await getDbPool();
 		const { rows } = await pool.query<DatabaseSchemaType>("SELECT current_database() AS db;");
 		if (!rows[0])
 			throw new HTTPException(500, { message: "No current database returned from database" });
@@ -451,7 +448,7 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = getDbPool();
+		const pool = await getDbPool();
 		const { rows } = await pool.query(`
 			SELECT
 				version() as version,
@@ -485,7 +482,7 @@ export class PgAdapter extends BaseAdapter {
 	// --- Tables ---
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const escapeChar = (s: string) => s.replaceAll('"', '""');
 
 		// reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
@@ -555,7 +552,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
@@ -584,7 +581,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, db, cascade } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -626,7 +623,7 @@ export class PgAdapter extends BaseAdapter {
 		try {
 			const { tableName, newTableName, schemaName: requestedSchema, db } = params;
 			this.assertDifferentTableName(tableName, newTableName);
-			const pool = getDbPool(db);
+			const pool = await getDbPool(db);
 
 			// Tables are listed from every user schema, so resolve the actual schema
 			// instead of assuming "public".
@@ -672,7 +669,7 @@ export class PgAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: existsRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = ANY(current_schemas(false)) AND table_name = $1) as exists`,
@@ -822,7 +819,7 @@ export class PgAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const { rows } = await pool.query(
 			`SELECT
 				c.column_name as "columnName", c.data_type as "dataType", c.udt_name as "udtName",
@@ -890,7 +887,7 @@ export class PgAdapter extends BaseAdapter {
 			isArray,
 			db,
 		} = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -921,7 +918,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		const { tableName, columnName, cascade, db } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -947,7 +944,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -994,7 +991,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, newColumnName, db } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`;
 
@@ -1032,7 +1029,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			const indexes = await this.listIndexes(getDbPool(db), tableName);
+			const indexes = await this.listIndexes(await getDbPool(db), tableName);
 			return indexes.map(({ schemaName: _schemaName, ...index }) => index);
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1042,7 +1039,7 @@ export class PgAdapter extends BaseAdapter {
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
 		const { tableName, indexName, columns, isUnique, method = "btree", db } = params;
 		try {
-			const pool = getDbPool(db);
+			const pool = await getDbPool(db);
 			await this.assertTableExists(pool, tableName);
 
 			const { rows: columnRows } = await pool.query<{ columnName: string }>(
@@ -1077,7 +1074,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
 		try {
-			const pool = getDbPool(db);
+			const pool = await getDbPool(db);
 			const index = (await this.listIndexes(pool, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
 			);
@@ -1110,7 +1107,7 @@ export class PgAdapter extends BaseAdapter {
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const columns = Object.keys(data);
 		const values = Object.values(data);
 		const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
@@ -1132,7 +1129,7 @@ export class PgAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const keyColumns = this.resolveKeyColumns(params);
 		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
@@ -1174,7 +1171,7 @@ export class PgAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
@@ -1210,7 +1207,7 @@ export class PgAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
@@ -1278,7 +1275,7 @@ export class PgAdapter extends BaseAdapter {
 		if (!records || records.length === 0)
 			throw new HTTPException(400, { message: "At least one record is required" });
 
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const client = await pool.connect();
 
 		try {
@@ -1329,7 +1326,7 @@ export class PgAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 		const cleaned = query.trim().replace(/;+$/, "");
 		const start = performance.now();

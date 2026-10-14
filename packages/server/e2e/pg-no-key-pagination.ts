@@ -75,5 +75,5 @@ try {
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
 	await query(`DROP TABLE IF EXISTS ${table}`);
-	await getDbPool(db).end();
+	await (await getDbPool(db)).end();
 }

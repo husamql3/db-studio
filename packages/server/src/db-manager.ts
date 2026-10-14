@@ -1,28 +1,20 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-	type ClickHouseClient,
-	ClickHouseLogLevel,
-	createClient as createClickhouseClient,
-} from "@clickhouse/client";
+import type { ClickHouseClient } from "@clickhouse/client";
 import {
 	DATABASE_ENGINES,
 	type DatabaseTypeSchema,
 	dbTypeFromProtocol,
 } from "@db-studio/shared/types";
-import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
-import {
-	createClient as createLibsqlClient,
-	type Client as LibsqlClient,
-} from "@libsql/client";
-import { Redis, type RedisOptions } from "ioredis";
-import { MongoClient, ObjectId } from "mongodb";
-import type { ConnectionPool as MssqlPool } from "mssql";
-import mssql from "mssql";
+import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
+import type { Client as LibsqlClient } from "@libsql/client";
+import type { Redis, RedisOptions } from "ioredis";
+import type { MongoClient } from "mongodb";
+import type { config as MssqlConfig, ConnectionPool as MssqlPool } from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
-import { createPool as createMysqlPool } from "mysql2/promise";
-import oracledb from "oracledb";
-import { Pool, type PoolConfig } from "pg";
+import type { Pool as OraclePool } from "oracledb";
+import type { Pool, PoolConfig } from "pg";
+import { loadDriver, loadedDriver } from "@/drivers.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
@@ -38,7 +30,7 @@ class DatabaseManager {
 	private duckdb: Promise<{ instance: DuckDBInstance; connection: DuckDBConnection }> | null =
 		null;
 	private duckdbQueue: Promise<unknown> = Promise.resolve();
-	private oraclePool: Promise<oracledb.Pool> | null = null;
+	private oraclePool: Promise<OraclePool> | null = null;
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
 	private clickhouseClients: Map<string, ClickHouseClient> = new Map();
@@ -181,7 +173,8 @@ class DatabaseManager {
 				: sqlitePath === ":memory:"
 					? sqlitePath
 					: pathToFileURL(resolve(sqlitePath)).href;
-		const client = createLibsqlClient({ url: libsqlUrl, intMode: "bigint" });
+		const { createClient } = await loadDriver("sqlite");
+		const client = createClient({ url: libsqlUrl, intMode: "bigint" });
 		if (client.protocol === "file") {
 			await client.execute("PRAGMA journal_mode = WAL");
 			await client.execute("PRAGMA foreign_keys = ON");
@@ -220,6 +213,7 @@ class DatabaseManager {
 					// Checkpoint on every commit. DuckDB (1.4 and 1.5) cannot replay an ALTER TABLE on a
 					// table with a nextval() default from the WAL, so a process that exits before the
 					// next checkpoint leaves a file that no longer opens.
+					const { DuckDBInstance } = await loadDriver("duckdb");
 					const instance = await DuckDBInstance.create(filePath, {
 						checkpoint_threshold: "0b",
 					});
@@ -251,32 +245,34 @@ class DatabaseManager {
 	 * Get or create the Oracle pool for the service in the URL (`oracle://user:pass@host:1521/SERVICE`).
 	 * One pool per process: an Oracle service is a single database, so `db` never selects another pool.
 	 */
-	getOraclePool(): Promise<oracledb.Pool> {
+	getOraclePool(): Promise<OraclePool> {
 		if (!this.baseConfig || this.baseConfig.dbType !== "oracle") {
 			throw new Error("DATABASE_URL is not an oracle:// connection");
 		}
 		const { url, host, port, user, password } = this.baseConfig;
 		const service = decodeURIComponent(new URL(url).pathname.slice(1));
-		this.oraclePool ??= oracledb
-			.createPool({
-				user: decodeURIComponent(user),
-				password: decodeURIComponent(password),
-				connectString: `${host}:${port}/${service}`,
-				poolMin: 0,
-				poolMax: 10,
-				connectTimeout: 5,
-				// LTZ values are projected in the session zone; pin it so pooled connections agree.
-				sessionCallback: (connection, _tag, done) => {
-					connection
-						.execute("ALTER SESSION SET TIME_ZONE = '+00:00'")
-						.then(() =>
-							connection.execute(
-								`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS' NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9' NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM' NLS_NUMERIC_CHARACTERS = '.,'`,
-							),
-						)
-						.then(() => done(), done);
-				},
-			})
+		this.oraclePool ??= loadDriver("oracle")
+			.then((oracledb) =>
+				oracledb.createPool({
+					user: decodeURIComponent(user),
+					password: decodeURIComponent(password),
+					connectString: `${host}:${port}/${service}`,
+					poolMin: 0,
+					poolMax: 10,
+					connectTimeout: 5,
+					// LTZ values are projected in the session zone; pin it so pooled connections agree.
+					sessionCallback: (connection, _tag, done) => {
+						connection
+							.execute("ALTER SESSION SET TIME_ZONE = '+00:00'")
+							.then(() =>
+								connection.execute(
+									`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS' NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9' NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM' NLS_NUMERIC_CHARACTERS = '.,'`,
+								),
+							)
+							.then(() => done(), done);
+					},
+				}),
+			)
 			.catch((error: unknown) => {
 				this.oraclePool = null;
 				throw error;
@@ -293,8 +289,9 @@ class DatabaseManager {
 	/**
 	 * Get or create a PostgreSQL connection pool for the specified database
 	 */
-	getPgPool(database?: string): Pool {
+	async getPgPool(database?: string): Promise<Pool> {
 		const connectionString = this.buildConnectionString(database);
+		const { Pool } = await loadDriver("pg");
 
 		if (!this.pgPools.has(connectionString)) {
 			const poolConfig: PoolConfig = {
@@ -348,24 +345,25 @@ class DatabaseManager {
 			this.pgPools.set(connectionString, pool);
 		}
 
-		return this.pgPools.get(connectionString) ?? new Pool({ connectionString });
+		return this.pgPools.get(connectionString) as Pool;
 	}
 
 	/**
 	 * Get or create a MySQL connection pool for the specified database
 	 */
-	getMysqlPool(database?: string): MysqlPool {
+	async getMysqlPool(database?: string): Promise<MysqlPool> {
 		if (!this.baseConfig) {
 			throw new Error("Base configuration not initialized");
 		}
 
 		const connectionString = this.buildConnectionString(database);
+		const { createPool } = await loadDriver("mysql");
 
 		if (!this.mysqlPools.has(connectionString)) {
 			const url = new URL(connectionString);
 			const dbName = url.pathname.slice(1);
 
-			const pool = createMysqlPool({
+			const pool = createPool({
 				host: this.baseConfig.host,
 				port: this.baseConfig.port,
 				user: this.baseConfig.user,
@@ -394,12 +392,13 @@ class DatabaseManager {
 		}
 
 		const connectionString = this.buildConnectionString(database);
+		const mssql = await loadDriver("mssql");
 
 		if (!this.mssqlPools.has(connectionString)) {
 			const url = new URL(connectionString);
 			const dbName = url.pathname.slice(1);
 
-			const config: mssql.config = {
+			const config: MssqlConfig = {
 				server: this.baseConfig.host,
 				port: this.baseConfig.port,
 				user: this.baseConfig.user,
@@ -437,15 +436,16 @@ class DatabaseManager {
 	 * Get or create a ClickHouse HTTP client for the specified database.
 	 * `clickhouse://` maps to http, `clickhouses://` to https (default port 8443).
 	 */
-	getClickhouseClient(database?: string): ClickHouseClient {
+	async getClickhouseClient(database?: string): Promise<ClickHouseClient> {
 		const url = new URL(this.buildConnectionString(database));
 		const dbName = decodeURIComponent(url.pathname.slice(1)) || "default";
+		const { ClickHouseLogLevel, createClient } = await loadDriver("clickhouse");
 
 		const existing = this.clickhouseClients.get(dbName);
 		if (existing) return existing;
 
 		const tls = url.protocol === "clickhouses:";
-		const client = createClickhouseClient({
+		const client = createClient({
 			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
 			username: decodeURIComponent(url.username) || "default",
 			password: decodeURIComponent(url.password),
@@ -466,7 +466,7 @@ class DatabaseManager {
 	/**
 	 * Get the appropriate pool based on database type (legacy/PG-only helper)
 	 */
-	getPool(database?: string): Pool {
+	getPool(database?: string): Promise<Pool> {
 		return this.getPgPool(database);
 	}
 
@@ -555,6 +555,7 @@ class DatabaseManager {
 			if (!this.baseConfig) {
 				throw new Error("Base configuration not initialized");
 			}
+			const { MongoClient } = await loadDriver("mongodb");
 			const nextClient = new MongoClient(this.baseConfig.url);
 			try {
 				await nextClient.connect();
@@ -626,6 +627,7 @@ class DatabaseManager {
 			options.password = decodeURIComponent(this.baseConfig.password);
 		if (url.protocol === "rediss:") options.tls = {};
 
+		const { Redis } = await loadDriver("redis");
 		const client = new Redis(options);
 		try {
 			await client.connect();
@@ -736,14 +738,14 @@ const databaseManager = new DatabaseManager();
 /**
  * Get a PostgreSQL pool for the specified database
  */
-export const getDbPool = (database?: string): Pool => {
+export const getDbPool = (database?: string): Promise<Pool> => {
 	return databaseManager.getPgPool(database);
 };
 
 /**
  * Get a MySQL pool for the specified database
  */
-export const getMysqlPool = (database?: string): MysqlPool => {
+export const getMysqlPool = (database?: string): Promise<MysqlPool> => {
 	return databaseManager.getMysqlPool(database);
 };
 
@@ -757,7 +759,7 @@ export const getMssqlPool = async (database?: string): Promise<MssqlPool> => {
 /**
  * Get a ClickHouse client for the specified database
  */
-export const getClickhouseClient = (database?: string): ClickHouseClient => {
+export const getClickhouseClient = (database?: string): Promise<ClickHouseClient> => {
 	return databaseManager.getClickhouseClient(database);
 };
 
@@ -822,7 +824,7 @@ export const withDuckdbConnection = <T>(
 /**
  * Get or create the Oracle pool for the configured service
  */
-export const getOraclePool = (): Promise<oracledb.Pool> => {
+export const getOraclePool = (): Promise<OraclePool> => {
 	return databaseManager.getOraclePool();
 };
 
@@ -866,10 +868,11 @@ export const getRedisDefaultDb = (): number => {
 };
 
 export const isValidObjectId = (value: unknown): value is string => {
-	return typeof value === "string" && ObjectId.isValid(value);
+	return typeof value === "string" && loadedDriver("mongodb").ObjectId.isValid(value);
 };
 
 export const coerceObjectId = (value: unknown): unknown => {
+	const { ObjectId } = loadedDriver("mongodb");
 	if (typeof value === "string" && ObjectId.isValid(value)) {
 		return new ObjectId(value);
 	}
