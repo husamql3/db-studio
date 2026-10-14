@@ -48,8 +48,9 @@ export default defineConfig(({ mode }) => {
       output: {
         // Smarter chunk splitting strategy
         manualChunks(id) {
-          // No manual chunk for Monaco: Vite's preload helper was bundled into it, so the
-          // entry imported all of Monaco at startup. Left alone, Monaco stays in lazy chunks.
+          // No manual chunks for Monaco, Sentry or PostHog: a manual chunk can receive code the
+          // entry needs (Vite's preload helper landed in Monaco's), and then the entry imports
+          // the whole chunk at startup. Left alone, lazily imported libraries stay lazy.
           // Radix UI primitives - group all radix packages together
           if (id.includes('@radix-ui') || id.includes('node_modules/radix-ui')) {
             return 'radix-ui';
@@ -70,10 +71,6 @@ export default defineConfig(({ mode }) => {
           // React core
           if (id.includes('react-dom')) {
             return 'react-dom';
-          }
-          // Monitoring & analytics
-          if (id.includes('@sentry') || id.includes('posthog')) {
-            return 'monitoring';
           }
         },
       },

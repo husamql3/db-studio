@@ -1,5 +1,10 @@
 import { DATABASE_TYPES } from "@db-studio/shared/types";
-import * as Sentry from "@sentry/react";
+
+/**
+ * The Sentry SDK, set once telemetry is enabled. Loading it then instead of with the app keeps
+ * it off the startup path; breadcrumbs and reports before that are dropped, as before init.
+ */
+export let sentry: typeof import("@sentry/react") | undefined;
 
 const DB_SCOPED_API_PATH = new RegExp(
 	`/api/(?:${DATABASE_TYPES.join("|")})/(databases|tables|records|query|keys|chat)(?:/\\S*)?`,
@@ -26,15 +31,16 @@ const browserTag = (): string => {
 	return "other";
 };
 
-export const initSentry = (): void => {
+export const initSentry = async (): Promise<void> => {
 	const dsn = import.meta.env.VITE_SENTRY_DSN ?? OFFICIAL_SENTRY_DSN;
 	if (!dsn || import.meta.env.DEV) return;
 
-	Sentry.init({
+	sentry ??= await import("@sentry/react");
+	sentry.init({
 		dsn,
 		environment: import.meta.env.MODE,
 		release: `db-studio@${import.meta.env.VITE_APP_VERSION}`,
-		integrations: [Sentry.browserTracingIntegration()],
+		integrations: [sentry.browserTracingIntegration()],
 		tracesSampleRate: 0.1,
 		sendDefaultPii: false,
 		beforeSend(event) {
@@ -82,5 +88,3 @@ export const initSentry = (): void => {
 		},
 	});
 };
-
-export { Sentry };
