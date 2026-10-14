@@ -52,6 +52,9 @@ import {
 
 type PgPool = ReturnType<typeof getDbPool>;
 
+/** Tables the planner estimates at this many rows or more list their estimate, not a count. */
+const EXACT_COUNT_LIMIT = 50_000;
+
 export class PgAdapter extends BaseAdapter {
 	private databaseSizeSupport?: Promise<boolean>;
 
@@ -454,24 +457,39 @@ export class PgAdapter extends BaseAdapter {
 		const pool = getDbPool(db);
 		const escapeChar = (s: string) => s.replaceAll('"', '""');
 
-		const { rows: tables } = await pool.query(`
-			SELECT table_schema as "schemaName", table_name as "tableName"
-			FROM information_schema.tables
-			WHERE table_type = 'BASE TABLE'
-				AND table_schema NOT IN ('pg_catalog', 'information_schema')
-				AND table_schema NOT LIKE 'pg_toast%'
-			ORDER BY table_schema, table_name;
+		// reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
+		// before PostgreSQL 14) for a table never analyzed.
+		const { rows: tables } = await pool.query<{
+			schemaName: string;
+			tableName: string;
+			estimate: number;
+		}>(`
+			SELECT t.table_schema as "schemaName", t.table_name as "tableName", c.reltuples as "estimate"
+			FROM information_schema.tables t
+			JOIN pg_catalog.pg_namespace n ON n.nspname = t.table_schema
+			JOIN pg_catalog.pg_class c ON c.relnamespace = n.oid AND c.relname = t.table_name
+			WHERE t.table_type = 'BASE TABLE'
+				AND t.table_schema NOT IN ('pg_catalog', 'information_schema')
+				AND t.table_schema NOT LIKE 'pg_toast%'
+			ORDER BY t.table_schema, t.table_name;
 		`);
 		if (!tables[0]) return [];
+
+		// Counting a table reads all of it, so counting every table on each listing scanned the
+		// whole database. Only tables estimated below EXACT_COUNT_LIMIT rows are counted; larger
+		// ones report their estimate.
+		const counted = tables.flatMap((t, index) =>
+			t.estimate < EXACT_COUNT_LIMIT ? [{ ...t, index }] : [],
+		);
 
 		// A query per table queues behind the pool's 10 connections, and with enough
 		// tables the ones at the back wait past connectionTimeoutMillis and fail the
 		// whole list. Count in a few statements instead, fewer than the pool holds.
 		const COUNT_STATEMENTS = 4;
 		const countSelects: string[][] = Array.from({ length: COUNT_STATEMENTS }, () => []);
-		tables.forEach((t: { schemaName: string; tableName: string }, index: number) => {
-			countSelects[index % COUNT_STATEMENTS]?.push(
-				`SELECT ${index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
+		counted.forEach((t, position) => {
+			countSelects[position % COUNT_STATEMENTS]?.push(
+				`SELECT ${t.index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
 			);
 		});
 		const countResults = await Promise.all(
@@ -487,11 +505,15 @@ export class PgAdapter extends BaseAdapter {
 			),
 		);
 
-		return tables.map((t: { schemaName: string; tableName: string }, index: number) => ({
-			schemaName: t.schemaName,
-			tableName: t.tableName,
-			rowCount: countByIndex.get(index) ?? 0,
-		}));
+		return tables.map((t, index) => {
+			const count = countByIndex.get(index);
+			return {
+				schemaName: t.schemaName,
+				tableName: t.tableName,
+				rowCount: count ?? Math.round(t.estimate),
+				...(count === undefined && { rowCountEstimated: true }),
+			};
+		});
 	}
 
 	async createTable({

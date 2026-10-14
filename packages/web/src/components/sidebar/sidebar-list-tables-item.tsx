@@ -7,6 +7,7 @@ import { SidebarListTablesMenu } from "@/components/sidebar/sidebar-list-tables-
 export const SidebarListTablesItem = ({
 	tableName,
 	rowCount,
+	rowCountEstimated,
 	schemaName,
 }: TableInfoSchemaType) => {
 	const params = useParams({ strict: false });
@@ -56,7 +57,10 @@ export const SidebarListTablesItem = ({
 							schemaName={schemaName}
 						/>
 					</div>
-					<Kbd>{rowCount}</Kbd>
+					<Kbd>
+						{rowCountEstimated && "~"}
+						{rowCount}
+					</Kbd>
 				</div>
 			</div>
 		</li>

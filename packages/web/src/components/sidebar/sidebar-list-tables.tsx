@@ -72,6 +72,7 @@ export const SidebarListTables = () => {
 							schemaName={table.schemaName}
 							tableName={table.tableName}
 							rowCount={table.rowCount}
+							rowCountEstimated={table.rowCountEstimated}
 						/>
 					))}
 				</ul>
