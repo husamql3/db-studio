@@ -214,9 +214,21 @@ const scriptKB = (page: Page) =>
 /** One full pass over a build: server start, API latency, then the browser flows. */
 const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) => {
 	const metrics: Record<string, number> = {};
+	// Starting takes half a second, so a few extra starts per pass are cheap and steady the best.
+	metrics.serverStartupMs = Number.POSITIVE_INFINITY;
+	metrics.serverStartupCpuMs = Number.POSITIVE_INFINITY;
+	for (let start = 0; start < 4; start++) {
+		const extra = await startServer(cli);
+		metrics.serverStartupMs = Math.min(metrics.serverStartupMs, extra.startupMs);
+		const cpu = extra.child.pid ? processCpuMs(extra.child.pid) : 0;
+		metrics.serverStartupCpuMs = Math.min(metrics.serverStartupCpuMs, cpu);
+		await stopServer(extra.child);
+	}
 	const { child, startupMs } = await startServer(cli);
-	metrics.serverStartupMs = startupMs;
-	metrics.serverStartupCpuMs = child.pid ? processCpuMs(child.pid) : 0;
+	metrics.serverStartupMs = Math.min(metrics.serverStartupMs, startupMs);
+	if (child.pid) {
+		metrics.serverStartupCpuMs = Math.min(metrics.serverStartupCpuMs, processCpuMs(child.pid));
+	}
 	try {
 		// API latency without the browser; the first request warms the connection pool.
 		await timeFetch(`/api/pg/tables?db=${db}`);
