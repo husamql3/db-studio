@@ -87,11 +87,17 @@ const startServer = async (cli: string) => {
 				DB_STUDIO_TELEMETRY: "0",
 				HOST: "127.0.0.1",
 			},
-			stdio: "ignore",
+			stdio: ["ignore", "ignore", "pipe"],
 		},
 	);
+	let stderr = "";
+	child.stderr?.on("data", (chunk) => {
+		stderr += chunk;
+	});
 	for (;;) {
-		if (child.exitCode !== null) throw new Error(`server exited with ${child.exitCode}`);
+		if (child.exitCode !== null) {
+			throw new Error(`server exited with ${child.exitCode}: ${stderr.slice(-2000)}`);
+		}
 		const ready = await fetch(`${BASE}/api/databases`)
 			.then((response) => response.ok)
 			.catch(() => false);
@@ -466,7 +472,7 @@ const results = {
 await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
 await writeFile(
 	new URL(
-		`./artifacts/perf-${builds.join("-vs-")}${DB_LATENCY_MS ? `-${DB_LATENCY_MS}ms-db` : ""}.json`,
+		`./artifacts/perf-${builds.join("-vs-")}${CPU_THROTTLE > 1 ? `-${CPU_THROTTLE}x-cpu` : ""}${DB_LATENCY_MS ? `-${DB_LATENCY_MS}ms-db` : ""}.json`,
 		import.meta.url,
 	),
 	`${JSON.stringify(results, null, 2)}\n`,
