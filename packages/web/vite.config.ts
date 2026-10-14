@@ -58,8 +58,13 @@ export default defineConfig(({ mode }) => {
           if (id.includes('lucide-react')) {
             return 'icons';
           }
-          // TanStack libraries (excluding devtools)
-          if (id.includes('@tanstack') && !devtoolsPackages.some(pkg => id.includes(pkg))) {
+          // TanStack libraries (excluding devtools, and the AI packages, which the assistant loads
+          // when it first opens)
+          if (
+            id.includes('@tanstack') &&
+            !id.includes('@tanstack/ai') &&
+            !devtoolsPackages.some(pkg => id.includes(pkg))
+          ) {
             return 'tanstack';
           }
           // React core
