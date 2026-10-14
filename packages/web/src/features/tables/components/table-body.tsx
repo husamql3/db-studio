@@ -35,6 +35,7 @@ export const TableBody = ({
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
+	const virtualColumns = columnVirtualizer.getVirtualItems();
 
 	return (
 		<tbody
@@ -49,10 +50,12 @@ export const TableBody = ({
 
 				return (
 					<TableBodyRow
-						columnVirtualizer={columnVirtualizer}
 						key={row.id}
 						row={row}
 						tableName={tableName}
+						tableState={table.getState()}
+						tableMeta={table.options.meta}
+						virtualColumns={virtualColumns}
 						virtualPaddingLeft={virtualPaddingLeft}
 						virtualPaddingRight={virtualPaddingRight}
 						virtualRow={virtualRow}

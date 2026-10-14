@@ -8,6 +8,7 @@
  * - Escape on one cell discards edits pending in other cells (every cell used to listen for it);
  * - the JSON editor, now loaded on demand, never appears;
  * - the foreign-key drawer, now mounted on first open, never opens;
+ * - a row's checkbox, or a focused cell, does not update because rows are memoized;
  * - hovering "next page" does not load it, or the click fetches it again;
  * - a page that was already loaded opens at the previous page's scroll position.
  *
@@ -149,6 +150,36 @@ try {
 	};
 	await shot(page, "4-foreign-key-drawer");
 
+	// Selection and focus reach memoized rows, also after the rows scroll out and back.
+	await page.goto(`${BASE}/table/orders?limit=500`);
+	await page.waitForSelector("tbody tr[data-index]");
+	const firstRowCheckbox = 'tbody tr[data-index="0"] button[role="checkbox"]';
+	await page.click(firstRowCheckbox);
+	const scrollGrid = (top: number) =>
+		page.evaluate((top) => {
+			const grid = document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto");
+			if (grid) grid.scrollTop = top;
+		}, top);
+	await scrollGrid(5_000);
+	await page.waitForSelector('tbody tr[data-index="0"]', { state: "detached" });
+	await scrollGrid(0);
+	const status = await cellSelector(page, "status");
+	await page.click(status);
+	summary.selectionAndFocus = {
+		firstRowChecked: await page.getAttribute(firstRowCheckbox, "aria-checked"),
+		secondRowChecked: await page.getAttribute(
+			'tbody tr[data-index="1"] button[role="checkbox"]',
+			"aria-checked",
+		),
+		clickedCellFocused: (await page.getAttribute(status, "data-focused")) !== null,
+	};
+	assert.deepEqual(summary.selectionAndFocus, {
+		firstRowChecked: "true",
+		secondRowChecked: "false",
+		clickedCellFocused: true,
+	});
+	await shot(page, "5-selection-and-focus");
+
 	// Paging: hovering "next page" loads it, and the click shows it from the top without
 	// fetching it again, even though the grid stays mounted.
 	await page.goto(`${BASE}/table/orders`);
@@ -181,7 +212,7 @@ try {
 		firstRowId: await page.locator(firstRowIdInput).first().inputValue(),
 	};
 	assert.deepEqual(summary.paging, { requestsAfterClick: 0, scrollTop: 0, firstRowId: "51" });
-	await shot(page, "5-next-page");
+	await shot(page, "6-next-page");
 
 	summary.pageErrors = pageErrors;
 	assert.deepEqual(pageErrors, []);
