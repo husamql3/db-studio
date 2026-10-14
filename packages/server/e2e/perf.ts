@@ -10,11 +10,14 @@
  *
  * PERF_RUNS (default 5) sets the runs per build; PERF_CPU_THROTTLE (default 1) slows the
  * browser's CPU so the numbers resemble a mid-range laptop rather than a fast dev machine.
+ * PERF_DB_LATENCY_MS (default 0) delays every packet between server and database by that much
+ * each way, standing in for a database across a network.
  */
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { connect, createServer, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium, type Page } from "playwright-core";
@@ -32,6 +35,32 @@ for (const build of builds) {
 	if (!existsSync(cliFor(build))) throw new Error(`Missing ${cliFor(build)}`);
 }
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
+const DB_LATENCY_MS = Number(process.env.PERF_DB_LATENCY_MS ?? 0);
+
+/** Relays connections to the database, holding each chunk for DB_LATENCY_MS in each direction. */
+const startLatencyRelay = async (target: URL) => {
+	const relay = (from: Socket, to: Socket) => {
+		// Equal delays fire in arrival order, so the stream stays in order.
+		from.on("data", (chunk) => setTimeout(() => to.write(chunk), DB_LATENCY_MS));
+		from.on("close", () => setTimeout(() => to.destroy(), DB_LATENCY_MS));
+		from.on("error", () => to.destroy());
+	};
+	const server = createServer((client) => {
+		const upstream = connect(Number(target.port || 5432), target.hostname);
+		relay(client, upstream);
+		relay(upstream, client);
+	});
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	server.unref();
+	const address = server.address();
+	if (!address || typeof address === "string") throw new Error("relay has no port");
+	const relayed = new URL(target);
+	relayed.hostname = "127.0.0.1";
+	relayed.port = String(address.port);
+	return relayed.toString();
+};
+const serverDatabaseUrl =
+	DB_LATENCY_MS > 0 ? await startLatencyRelay(new URL(databaseUrl)) : databaseUrl;
 const CPU_THROTTLE = Number(process.env.PERF_CPU_THROTTLE ?? 1);
 const PORT = 4517;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -47,16 +76,20 @@ const median = (values: number[]) => {
 const startServer = async (cli: string) => {
 	const startedAt = performance.now();
 	// A temporary cwd keeps the CLI from picking up a developer's .env.
-	const child = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-		cwd: tmpdir(),
-		env: {
-			...process.env,
-			NODE_ENV: "production",
-			DB_STUDIO_TELEMETRY: "0",
-			HOST: "127.0.0.1",
+	const child = spawn(
+		"node",
+		[cli, "--no-open", "-p", String(PORT), "-d", serverDatabaseUrl],
+		{
+			cwd: tmpdir(),
+			env: {
+				...process.env,
+				NODE_ENV: "production",
+				DB_STUDIO_TELEMETRY: "0",
+				HOST: "127.0.0.1",
+			},
+			stdio: "ignore",
 		},
-		stdio: "ignore",
-	});
+	);
 	for (;;) {
 		if (child.exitCode !== null) throw new Error(`server exited with ${child.exitCode}`);
 		const ready = await fetch(`${BASE}/api/databases`)
@@ -397,6 +430,7 @@ const pairedChange = Object.fromEntries(
 const results = {
 	runs: RUNS,
 	cpuThrottle: CPU_THROTTLE,
+	dbLatencyMs: DB_LATENCY_MS,
 	best,
 	medians,
 	pairedChange,
@@ -405,7 +439,10 @@ const results = {
 };
 await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
 await writeFile(
-	new URL(`./artifacts/perf-${builds.join("-vs-")}.json`, import.meta.url),
+	new URL(
+		`./artifacts/perf-${builds.join("-vs-")}${DB_LATENCY_MS ? `-${DB_LATENCY_MS}ms-db` : ""}.json`,
+		import.meta.url,
+	),
 	`${JSON.stringify(results, null, 2)}\n`,
 );
 const transpose = (table: Record<string, Record<string, number>>) =>
