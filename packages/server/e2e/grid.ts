@@ -1,19 +1,22 @@
 /**
- * Grid editing against a production build: cell editors mount only when a cell is first edited,
- * so this drives each editor kind and records what the user would see.
+ * The table grid against a production build. Cell editors mount only when a cell is first
+ * edited and neighbouring pages load while the pointer is on their button, so this drives each
+ * editor kind and a page change, and records what the user would see.
  *
  * Failure modes it covers:
  * - a text cell's popover never opens, or its saved value is lost when the popover closes;
  * - Escape on one cell discards edits pending in other cells (every cell used to listen for it);
  * - the JSON editor, now loaded on demand, never appears;
- * - the foreign-key drawer, now mounted on first open, never opens.
+ * - the foreign-key drawer, now mounted on first open, never opens;
+ * - hovering "next page" does not load it, or the click fetches it again;
+ * - a page that was already loaded opens at the previous page's scroll position.
  *
  *   DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio_perf \
- *     bun run --cwd packages/server e2e:grid-editing [build]
+ *     bun run --cwd packages/server e2e:grid [build]
  *
  * [build] names a snapshot in e2e/artifacts/builds/ and defaults to dist/. The database is the
  * one e2e/perf-seed.sql creates; nothing is written to it. Screenshots and a JSON summary go to
- * e2e/artifacts/grid-editing-<build>/.
+ * e2e/artifacts/grid-<build>/.
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -33,7 +36,7 @@ const cli = fileURLToPath(
 		import.meta.url,
 	),
 );
-const outDir = new URL(`./artifacts/grid-editing-${build ?? "dist"}/`, import.meta.url);
+const outDir = new URL(`./artifacts/grid-${build ?? "dist"}/`, import.meta.url);
 const PORT = 4524;
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -53,20 +56,19 @@ for (;;) {
 
 /** The grid cell wrapper for a column of the first row, found through the header position. */
 const cellSelector = async (page: Page, column: string) => {
-	// Columns are virtualized, so after a horizontal scroll the header may not be rendered yet.
-	const index = await page
+	// Columns are virtualized, so after a horizontal scroll the header may not be rendered yet;
+	// the position is 0, which keeps the wait going, until it is.
+	const position = await page
 		.waitForFunction(
-			(column) => {
-				const found = [...document.querySelectorAll("thead tr th")].findIndex((th) =>
+			(column) =>
+				[...document.querySelectorAll("thead tr th")].findIndex((th) =>
 					th.textContent?.trim().startsWith(column),
-				);
-				return found >= 0 ? found : false;
-			},
+				) + 1,
 			column,
 			{ timeout: 5_000 },
 		)
 		.then((handle) => handle.jsonValue());
-	return `tbody tr[data-index="0"] td:nth-child(${index + 1}) > [role="button"]`;
+	return `tbody tr[data-index="0"] td:nth-child(${position}) > [role="button"]`;
 };
 
 const summary: Record<string, unknown> = {};
@@ -147,9 +149,43 @@ try {
 	};
 	await shot(page, "4-foreign-key-drawer");
 
+	// Paging: hovering "next page" loads it, and the click shows it from the top without
+	// fetching it again, even though the grid stays mounted.
+	await page.goto(`${BASE}/table/orders`);
+	await page.waitForSelector("tbody tr[data-index]");
+	await page.evaluate(() => {
+		const grid = document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto");
+		if (grid) grid.scrollTop = grid.scrollHeight;
+	});
+	const isPageRequest = (url: string) =>
+		url.includes("/tables/orders/data") && url.includes("cursor=");
+	const prefetched = page.waitForResponse((response) => isPageRequest(response.url()));
+	await page.hover('button[aria-label="Go to next page"]');
+	await prefetched;
+	let requestsAfterClick = 0;
+	page.on("request", (request) => {
+		if (isPageRequest(request.url())) requestsAfterClick++;
+	});
+	await page.click('button[aria-label="Go to next page"]');
+	// Number cells are inputs, so the first row's id is its first input's value.
+	const firstRowIdInput = 'tbody tr[data-index="0"] input[type="number"]';
+	await page.waitForFunction(
+		(selector) => document.querySelector<HTMLInputElement>(selector)?.value === "51",
+		firstRowIdInput,
+	);
+	summary.paging = {
+		requestsAfterClick,
+		scrollTop: await page.evaluate(
+			() => document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto")?.scrollTop,
+		),
+		firstRowId: await page.locator(firstRowIdInput).first().inputValue(),
+	};
+	assert.deepEqual(summary.paging, { requestsAfterClick: 0, scrollTop: 0, firstRowId: "51" });
+	await shot(page, "5-next-page");
+
 	summary.pageErrors = pageErrors;
 	assert.deepEqual(pageErrors, []);
-	console.log("PASS grid editing", JSON.stringify(summary));
+	console.log("PASS grid", JSON.stringify(summary));
 } catch (error) {
 	await shot(page, "failure");
 	throw error;

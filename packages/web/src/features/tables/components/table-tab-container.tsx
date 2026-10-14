@@ -17,9 +17,8 @@ import { UnsavedRowGuardDialog } from "./unsaved-row-guard-dialog";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const engine = useDatabaseEngine();
-	const { tableData, isLoadingTableData, errorTableData, refetchTableData } = useTableData({
-		tableName,
-	});
+	const { tableData, pageKey, isLoadingTableData, errorTableData, refetchTableData } =
+		useTableData({ tableName });
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
 		tableName,
 	});
@@ -104,6 +103,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 			<TableGrid
 				table={table}
 				tableName={tableName}
+				pageKey={pageKey}
 				selectedRows={selectedRows}
 				setRowSelection={setRowSelection}
 			/>

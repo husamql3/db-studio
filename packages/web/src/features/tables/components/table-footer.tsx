@@ -27,7 +27,7 @@ export const TableFooter = ({
 	const [limit, setLimit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
-	const { tableData } = useTableData({ tableName });
+	const { tableData, prefetchPage } = useTableData({ tableName });
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
@@ -59,6 +59,14 @@ export const TableFooter = ({
 			setCursor(tableData.meta.prevCursor);
 			setDirection("desc");
 		}
+	};
+
+	const prefetchPrevPage = () => {
+		if (tableData?.meta?.prevCursor) prefetchPage(tableData.meta.prevCursor, "desc");
+	};
+
+	const prefetchNextPage = () => {
+		if (tableData?.meta?.nextCursor) prefetchPage(tableData.meta.nextCursor, "asc");
 	};
 
 	const handleFirstPage = () => {
@@ -157,6 +165,8 @@ export const TableFooter = ({
 								variant="ghost"
 								className="size-6 disabled:opacity-30"
 								onClick={handlePrevPage}
+								onPointerEnter={prefetchPrevPage}
+								onFocus={prefetchPrevPage}
 								disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 								aria-label="Go to previous page"
 							>
@@ -169,6 +179,8 @@ export const TableFooter = ({
 								variant="ghost"
 								className="size-6 disabled:opacity-30"
 								onClick={handleNextPage}
+								onPointerEnter={prefetchNextPage}
+								onFocus={prefetchNextPage}
 								disabled={!tableData?.meta?.hasNextPage || totalRows === 0}
 								aria-label="Go to next page"
 							>
