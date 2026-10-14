@@ -224,7 +224,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/export",
 		async ({ adapter, query: { db, format }, params: { tableName } }) => {
 			const { cols, rows } = await adapter.exportTableData({ tableName, db });
-			return new Response(getExportFile({ cols, rows, format, tableName }), {
+			return new Response(await getExportFile({ cols, rows, format, tableName }), {
 				headers: {
 					"Content-Type": EXPORT_CONTENT_TYPES[format],
 					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
