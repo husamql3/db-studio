@@ -86,12 +86,16 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 
 	getUpdates: () => Array.from(get().updates.values()),
 
+	// Every visible cell asks on every render; skip building its key while nothing is pending.
 	getUpdate: (rowData, columnName, scope) => {
-		return get().updates.get(getCellKey(rowData, columnName, scope)) ?? null;
+		const { updates } = get();
+		if (updates.size === 0) return null;
+		return updates.get(getCellKey(rowData, columnName, scope)) ?? null;
 	},
 
 	hasUpdate: (rowData, columnName, scope) => {
-		return get().updates.has(getCellKey(rowData, columnName, scope));
+		const { updates } = get();
+		return updates.size > 0 && updates.has(getCellKey(rowData, columnName, scope));
 	},
 
 	hasAnyUpdates: () => get().updates.size > 0,

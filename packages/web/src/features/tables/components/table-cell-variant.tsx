@@ -212,8 +212,8 @@ export const TableTextCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		useHotkeys("enter", () => onSave());
-		useHotkeys("esc", () => onCancel());
+		useHotkeys("enter", () => onSave(), { enabled: open });
+		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<Popover
@@ -409,8 +409,8 @@ export const TableNumberCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		useHotkeys("enter", () => onSave());
-		useHotkeys("esc", () => onCancel());
+		useHotkeys("enter", () => onSave(), { enabled: open });
+		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<TableCellWrapper

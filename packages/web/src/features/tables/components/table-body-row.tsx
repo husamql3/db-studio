@@ -12,7 +12,6 @@ interface TableBodyRowProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
 	row: Row<TableRecord>;
 	tableName: string;
-	rowVirtualizer: Virtualizer<HTMLDivElement, HTMLTableRowElement>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
 	virtualRow: VirtualItem;
@@ -22,7 +21,6 @@ export const TableBodyRow = ({
 	columnVirtualizer,
 	row,
 	tableName,
-	rowVirtualizer,
 	virtualPaddingLeft,
 	virtualPaddingRight,
 	virtualRow,
@@ -40,8 +38,7 @@ export const TableBodyRow = ({
 
 	return (
 		<tr
-			data-index={virtualRow.index} //needed for dynamic row height measurement
-			ref={(node) => rowVirtualizer.measureElement(node)} //measure dynamic row height
+			data-index={virtualRow.index}
 			key={row.id}
 			className={cn(
 				"flex absolute w-fit border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",

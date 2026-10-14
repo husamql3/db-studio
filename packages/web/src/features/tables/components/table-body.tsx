@@ -4,6 +4,8 @@ import type { RefObject } from "react";
 import type { TableRecord } from "@/types/table.type";
 import { TableBodyRow } from "./table-body-row";
 
+const ROW_HEIGHT = 33;
+
 interface TableBodyProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
 	table: Table<TableRecord>;
@@ -23,16 +25,12 @@ export const TableBody = ({
 }: TableBodyProps) => {
 	const { rows } = table.getRowModel();
 
-	//dynamic row height virtualization - alternatively you could use a simpler fixed row height strategy without the need for `measureElement`
+	// Every row is one h-8 line plus a 1px border, so rows are never measured: measuring each
+	// mounted row forced a synchronous layout per row on every render and scroll.
 	const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
 		count: rows.length,
-		estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
+		estimateSize: () => ROW_HEIGHT,
 		getScrollElement: () => tableContainerRef.current,
-		//measure dynamic row height, except in firefox because it measures table border height incorrectly
-		measureElement:
-			typeof window !== "undefined" && navigator.userAgent.indexOf("Firefox") === -1
-				? (element) => element?.getBoundingClientRect().height
-				: undefined,
 		overscan: 5,
 	});
 
@@ -55,7 +53,6 @@ export const TableBody = ({
 						key={row.id}
 						row={row}
 						tableName={tableName}
-						rowVirtualizer={rowVirtualizer}
 						virtualPaddingLeft={virtualPaddingLeft}
 						virtualPaddingRight={virtualPaddingRight}
 						virtualRow={virtualRow}
