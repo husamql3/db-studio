@@ -324,6 +324,20 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 				}),
 			);
 
+			// The same with the pointer resting on the button first, as it does before a click.
+			await bestOf("nextPageAfterHover", 5, async () => {
+				await page.hover('button[aria-label="Go to next page"]');
+				await page.waitForTimeout(150);
+				return page.evaluate(() => {
+					const before = window.__perf.firstRowText();
+					return window.__perf.clickAndWait('button[aria-label="Go to next page"]', () => {
+						const now = window.__perf.firstRowText();
+						return now !== undefined && now !== before;
+					});
+				});
+			});
+			await page.mouse.move(0, 0);
+
 			// Leave for another table, then come back to one already seen.
 			await bestOf("revisitTable", 5, async () => {
 				await showTable("customers", "email");
