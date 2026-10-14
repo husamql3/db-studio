@@ -19,7 +19,9 @@ import {
 	type ChangeEvent,
 	type ComponentProps,
 	type KeyboardEvent,
+	lazy,
 	memo,
+	Suspense,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -32,8 +34,12 @@ import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";
-import { JsonEditor } from "./json-editor";
 import { TableCellWrapper } from "./table-cell-wrapper";
+
+// Monaco is several megabytes; load it when a JSON cell is first edited, not with the grid.
+const JsonEditor = lazy(() =>
+	import("./json-editor").then((module) => ({ default: module.JsonEditor })),
+);
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -1096,13 +1102,15 @@ export const TableJsonCell = memo(
 					className="w-[440px] rounded-none p-0 gap-0"
 					onOpenAutoFocus={onOpenAutoFocus}
 				>
-					<JsonEditor
-						value={editorValue}
-						onChange={setEditorValue}
-						onSave={onSave}
-						onCancel={onCancel}
-						className="h-[240px]"
-					/>
+					<Suspense fallback={<div className="h-[240px]" />}>
+						<JsonEditor
+							value={editorValue}
+							onChange={setEditorValue}
+							onSave={onSave}
+							onCancel={onCancel}
+							className="h-[240px]"
+						/>
+					</Suspense>
 					{parseError && (
 						<p className="border-t px-2 py-1.5 text-xs text-destructive truncate">
 							{parseError}

@@ -48,10 +48,8 @@ export default defineConfig(({ mode }) => {
       output: {
         // Smarter chunk splitting strategy
         manualChunks(id) {
-          // Monaco editor - large, lazy-loaded anyway
-          if (id.includes('monaco-editor')) {
-            return 'monaco-editor';
-          }
+          // No manual chunk for Monaco: Vite's preload helper was bundled into it, so the
+          // entry imported all of Monaco at startup. Left alone, Monaco stays in lazy chunks.
           // Radix UI primitives - group all radix packages together
           if (id.includes('@radix-ui') || id.includes('node_modules/radix-ui')) {
             return 'radix-ui';
