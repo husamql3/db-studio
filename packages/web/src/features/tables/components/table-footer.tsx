@@ -129,7 +129,11 @@ export const TableFooter = ({
 					aria-live="polite"
 				>
 					Showing <span className="text-foreground font-medium">{dataLength}</span> of{" "}
-					<span className="text-foreground font-medium">{totalRows}</span> {itemLabel}
+					<span className="text-foreground font-medium">
+						{tableData?.meta?.totalEstimated && "~"}
+						{totalRows}
+					</span>{" "}
+					{itemLabel}
 				</p>
 			</div>
 

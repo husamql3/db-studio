@@ -22,6 +22,8 @@ export type SortType = z.infer<typeof sortSchema>;
 export const tableDataMetaSchema = z.object({
 	limit: z.number(),
 	total: z.number(),
+	/** True when total is the database's statistics estimate instead of an exact count. */
+	totalEstimated: z.boolean().optional(),
 	hasNextPage: z.boolean(),
 	hasPreviousPage: z.boolean(),
 	nextCursor: z.string().nullable(),

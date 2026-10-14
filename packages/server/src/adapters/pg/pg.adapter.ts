@@ -52,7 +52,10 @@ import {
 
 type PgPool = ReturnType<typeof getDbPool>;
 
-/** Tables the planner estimates at this many rows or more list their estimate, not a count. */
+/**
+ * Tables the planner estimates at this many rows or more report their estimate instead of an
+ * exact count, in the table list and as an unfiltered page total.
+ */
 const EXACT_COUNT_LIMIT = 50_000;
 
 export class PgAdapter extends BaseAdapter {
@@ -244,11 +247,9 @@ export class PgAdapter extends BaseAdapter {
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
 		// on the page, so it is counted at the same time instead of after.
-		const [pkColumns, total] = await Promise.all([
+		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, tableName),
-			pool
-				.query(`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`, filterValues)
-				.then((result) => Number(result.rows[0].total)),
+			this.countRows(pool, tableName, filterWhere, filterValues),
 		]);
 
 		let sortColumns: string[] = [];
@@ -372,12 +373,42 @@ export class PgAdapter extends BaseAdapter {
 			meta: {
 				limit,
 				total,
+				...(estimated && { totalEstimated: true }),
 				hasNextPage: direction === "asc" ? hasMore : !!cursor,
 				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
 				nextCursor,
 				prevCursor,
 			},
 		};
+	}
+
+	/**
+	 * Rows matching the filters. Unfiltered, a table the planner estimates at EXACT_COUNT_LIMIT
+	 * rows or more reports that estimate, because an exact count reads the whole table and the
+	 * total is fetched with every page.
+	 */
+	private async countRows(
+		pool: PgPool,
+		tableName: string,
+		filterWhere: string,
+		filterValues: unknown[],
+	): Promise<{ total: number; estimated: boolean }> {
+		if (filterWhere) {
+			const { rows } = await pool.query(
+				`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
+				filterValues,
+			);
+			return { total: Number(rows[0].total), estimated: false };
+		}
+		// The COUNT(*) subquery only runs when the CASE reaches it.
+		const { rows } = await pool.query(
+			`SELECT CASE WHEN reltuples >= $1 THEN reltuples::bigint
+					ELSE (SELECT COUNT(*) FROM "${tableName}") END as total,
+				reltuples >= $1 as estimated
+			FROM pg_catalog.pg_class WHERE oid = $2::regclass`,
+			[EXACT_COUNT_LIMIT, `"${tableName.replaceAll('"', '""')}"`],
+		);
+		return { total: Number(rows[0].total), estimated: rows[0].estimated === true };
 	}
 
 	// =========================================================
