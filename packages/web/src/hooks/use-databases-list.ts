@@ -68,7 +68,7 @@ export const useInitializeDatabase = () => {
 		staleTime: 1000 * 60 * 5,
 	});
 
-	// Then fetch current database (only after databases list is loaded)
+	// The current database comes from its own endpoint, so it loads alongside the list.
 	const {
 		data: currentDatabase,
 		isLoading: isLoadingCurrentDatabase,
@@ -87,7 +87,6 @@ export const useInitializeDatabase = () => {
 			return res.data.data;
 		},
 		staleTime: 1000 * 60 * 5,
-		enabled: !!databasesData, // Only run after databases are loaded
 	});
 
 	// Initialize once requests settle so UI does not get stuck on the loading screen.
