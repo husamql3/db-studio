@@ -72,6 +72,9 @@ const CONTENT_TYPES: Record<string, string> = {
  * Serves a file from the web build, or index.html for anything that is not one, so a refresh on
  * a client route like `/table/:name` loads the SPA. Paths that escape the build directory get
  * index.html too.
+ *
+ * Vite names every file in assets/ after a hash of its content, so the browser may keep those
+ * for good and reuse its compiled code; anything else, index.html above all, is revalidated.
  */
 const serveWebFile = async (webDist: string, pathname: string): Promise<Response> => {
 	let filePath = path.join(webDist, "index.html");
@@ -81,9 +84,11 @@ const serveWebFile = async (webDist: string, pathname: string): Promise<Response
 			filePath = requested;
 		}
 	} catch {}
+	const hashed = filePath.startsWith(path.join(webDist, "assets", path.sep));
 	return new Response(await readFile(filePath), {
 		headers: {
 			"Content-Type": CONTENT_TYPES[path.extname(filePath)] ?? "application/octet-stream",
+			"Cache-Control": hashed ? "public, max-age=31536000, immutable" : "no-cache",
 		},
 	});
 };
