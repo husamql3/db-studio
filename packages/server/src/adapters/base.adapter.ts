@@ -289,18 +289,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 			const { db, limit = 50, direction = "asc" } = params;
 			const bundle = this.buildTableDataQuery(params);
 
-			// Total count with active filters only (no cursor)
-			const countRes = await this.runQuery<Record<string, unknown>[]>(
-				db,
-				bundle.countSql,
-				bundle.countValues,
-			);
+			// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
+			// next page exists) are independent, so a page costs the slower query, not both.
+			const [countRes, pageRows] = await Promise.all([
+				this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
+				this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
+			]);
 			const total = Number(countRes[0]?.total ?? 0);
 
-			// Fetch limit+1 rows to determine whether a next page exists
-			let rawRows = await this.runQuery<unknown[]>(db, bundle.sql, bundle.values);
-			const hasMore = rawRows.length > limit;
-			if (hasMore) rawRows = rawRows.slice(0, limit);
+			const hasMore = pageRows.length > limit;
+			const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
 
 			let rows = this.normalizeRows(rawRows);
 			if (direction === "desc") rows = rows.reverse();

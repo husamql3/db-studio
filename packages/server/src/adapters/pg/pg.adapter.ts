@@ -237,9 +237,16 @@ export class PgAdapter extends BaseAdapter {
 			filters = [],
 		} = params;
 		const pool = getDbPool(db);
+		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
-		// Primary key columns for stable cursor pagination
-		const pkColumns = await this.getPrimaryKeyColumns(pool, tableName);
+		// Primary key columns keep cursor pagination stable. The total does not depend on them or
+		// on the page, so it is counted at the same time instead of after.
+		const [pkColumns, total] = await Promise.all([
+			this.getPrimaryKeyColumns(pool, tableName),
+			pool
+				.query(`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`, filterValues)
+				.then((result) => Number(result.rows[0].total)),
+		]);
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
@@ -255,8 +262,6 @@ export class PgAdapter extends BaseAdapter {
 			...sortColumns,
 			...keyColumns.filter((key) => !sortColumns.includes(key)),
 		];
-
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];
@@ -313,12 +318,6 @@ export class PgAdapter extends BaseAdapter {
 				effectiveSortClause += `, ${tieBreakers.map((key) => `${this.quoteIdentifier(key)} ${tieDirection}`).join(", ")}`;
 			}
 		}
-
-		const countRes = await pool.query(
-			`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
-			filterValues,
-		);
-		const total = Number(countRes.rows[0].total);
 
 		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
 		// selected explicitly; ctid is a reserved system column name, so selecting it by name
