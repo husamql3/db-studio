@@ -1,4 +1,5 @@
 import { DATABASE_TYPES } from "@db-studio/shared/types";
+import { getTelemetryConfig } from "@/lib/posthog";
 
 /**
  * The Sentry SDK, set once telemetry is enabled. Loading it then instead of with the app keeps
@@ -45,7 +46,10 @@ export const initSentry = async (): Promise<void> => {
 		sendDefaultPii: false,
 		beforeSend(event) {
 			delete event.request;
-			delete event.user;
+			// The random, resettable installation ID PostHog already uses, so Sentry
+			// can count affected installations without knowing who they are.
+			const installationId = getTelemetryConfig()?.installationId;
+			event.user = installationId ? { id: installationId } : undefined;
 			delete event.message;
 			delete event.contexts;
 			delete event.extra;

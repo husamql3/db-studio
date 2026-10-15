@@ -298,7 +298,10 @@ class DatabaseManager {
 				connectionString,
 				max: 10,
 				idleTimeoutMillis: 30000,
-				connectionTimeoutMillis: 2000,
+				// A serverless database waking from idle (Neon, Supabase) or a distant
+				// region with TLS can take several seconds to accept a connection; at 2s
+				// those users saw every request fail with CONNECT_TIMEOUT.
+				connectionTimeoutMillis: 10_000,
 			};
 
 			const pool = new Pool(poolConfig);

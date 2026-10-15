@@ -45,6 +45,7 @@ import {
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import { getDbPool } from "@/adapters/connections.js";
+import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -242,11 +243,16 @@ export class PgAdapter extends BaseAdapter {
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
-		// on the page, so it is counted at the same time instead of after.
+		// on the page, so it is counted at the same time instead of after. These are the first
+		// queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, tableName),
 			this.countRows(pool, tableName, filterWhere, filterValues),
-		]);
+		]).catch((e: unknown) => {
+			if (isPgDatabaseError(e) && e.code === "42P01")
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.wrapError(e);
+		});
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;

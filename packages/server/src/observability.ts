@@ -159,7 +159,9 @@ export const initServerObservability = (): void => {
 			defaultIntegrations: false,
 			beforeSend(event) {
 				delete event.request;
-				delete event.user;
+				// The random, resettable installation ID PostHog already uses, so Sentry
+				// can count affected installations without knowing who they are.
+				event.user = { id: currentState().installationId };
 				delete event.breadcrumbs;
 				// Defaults to the machine's hostname, which is often its owner's name.
 				delete event.server_name;
@@ -223,10 +225,13 @@ const sanitizedError = (error: unknown, errorType: string, message: string): Err
 	const sanitized = new Error(message);
 	sanitized.name = errorType;
 	if (error instanceof Error && error.stack) {
+		// npx installs under the home directory, whose path names the account.
+		const home = homedir();
 		const frames = error.stack
 			.split("\n")
 			.slice(1)
-			.filter((line) => /^\s*at\s/.test(line));
+			.filter((line) => /^\s*at\s/.test(line))
+			.map((line) => line.replaceAll(home, "~"));
 		sanitized.stack = [`${errorType}: ${message}`, ...frames].join("\n");
 	}
 	return sanitized;
