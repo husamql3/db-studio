@@ -8,6 +8,9 @@
  * - Escape on one cell discards edits pending in other cells (every cell used to listen for it);
  * - the JSON editor, now loaded on demand, never appears;
  * - the foreign-key drawer, now mounted on first open, never opens;
+ * - a number cell's input, now mounted on edit, does not take focus with the caret after the
+ *   value, keeps the edit when it closes, or keeps it after Escape;
+ * - a date cell's calendar, now mounted on edit, does not open, or the picked day is not shown;
  * - a row's checkbox, or a focused cell, does not update because rows are memoized;
  * - hovering "next page" does not load it, or the click fetches it again;
  * - a page that was already loaded opens at the previous page's scroll position.
@@ -57,19 +60,24 @@ for (;;) {
 
 /** The grid cell wrapper for a column of the first row, found through the header position. */
 const cellSelector = async (page: Page, column: string) => {
-	// Columns are virtualized, so after a horizontal scroll the header may not be rendered yet;
-	// the position is 0, which keeps the wait going, until it is.
-	const position = await page
-		.waitForFunction(
+	// Columns are virtualized: after a horizontal scroll the header may not be rendered yet, and
+	// the rendered range shifts again when scrolling settles. Wait for a position that holds.
+	const positionOf = () =>
+		page.evaluate(
 			(column) =>
 				[...document.querySelectorAll("thead tr th")].findIndex((th) =>
 					th.textContent?.trim().startsWith(column),
 				) + 1,
 			column,
-			{ timeout: 5_000 },
-		)
-		.then((handle) => handle.jsonValue());
-	return `tbody tr[data-index="0"] td:nth-child(${position}) > [role="button"]`;
+		);
+	for (let attempt = 0; attempt < 50; attempt++) {
+		const position = await positionOf();
+		await page.waitForTimeout(200);
+		if (position > 0 && position === (await positionOf())) {
+			return `tbody tr[data-index="0"] td:nth-child(${position}) > [role="button"]`;
+		}
+	}
+	throw new Error(`column ${column} not found`);
 };
 
 const summary: Record<string, unknown> = {};
@@ -150,6 +158,60 @@ try {
 	};
 	await shot(page, "4-foreign-key-drawer");
 
+	// Number cell: double-click mounts the input with the caret after the value; leaving keeps
+	// the edit pending, Escape in a new edit restores the server value.
+	await page.goto(`${BASE}/table/orders`);
+	await page.waitForSelector("tbody tr[data-index]");
+	const quantity = await cellSelector(page, "total");
+	await page.dblclick(quantity);
+	const quantityInput = page.locator(`${quantity} input[type="number"]`);
+	await quantityInput.waitFor();
+	await page.keyboard.type("5");
+	const typed = await quantityInput.inputValue();
+	const focusedInput = await quantityInput.evaluate(
+		(input) => input === document.activeElement,
+	);
+	await page.keyboard.press("Tab");
+	await quantityInput.waitFor({ state: "detached" });
+	summary.numberCell = {
+		focusedInput,
+		typed,
+		shown: await page.locator(quantity).textContent(),
+		pending: (await page.locator(quantity).getAttribute("data-has-update")) !== null,
+	};
+	await page.dblclick(quantity);
+	await quantityInput.waitFor();
+	await page.keyboard.press("Escape");
+	await quantityInput.waitFor({ state: "detached" });
+	(summary.numberCell as Record<string, unknown>).afterEscape = {
+		shown: await page.locator(quantity).textContent(),
+		pending: (await page.locator(quantity).getAttribute("data-has-update")) !== null,
+	};
+	assert.deepEqual(summary.numberCell, {
+		focusedInput: true,
+		typed: "79.195",
+		shown: "79.195",
+		pending: true,
+		afterEscape: { shown: "79.19", pending: false },
+	});
+	await shot(page, "5-number-cell");
+
+	// Date cell: double-click opens the calendar on the cell's month; a picked day is shown.
+	const shipDate = await cellSelector(page, "ship_date");
+	await page.dblclick(shipDate);
+	const calendar = page.locator("[data-radix-popper-content-wrapper]");
+	await calendar.waitFor();
+	await calendar.getByRole("button", { name: /January 15th, 2021/ }).click();
+	await calendar.waitFor({ state: "detached" });
+	// Opening the calendar scrolled the grid, which moves the virtualized columns.
+	const pickedDate = await cellSelector(page, "ship_date");
+	summary.dateCell = {
+		shown: await page.locator(pickedDate).textContent(),
+		pending: (await page.locator(pickedDate).getAttribute("data-has-update")) !== null,
+	};
+	assert.deepEqual(summary.dateCell, { shown: "2021-01-15", pending: true });
+	await shot(page, "6-date-cell");
+
 	// Selection and focus reach memoized rows, also after the rows scroll out and back.
 	await page.goto(`${BASE}/table/orders?limit=500`);
 	await page.waitForSelector("tbody tr[data-index]");
@@ -178,7 +240,7 @@ try {
 		secondRowChecked: "false",
 		clickedCellFocused: true,
 	});
-	await shot(page, "5-selection-and-focus");
+	await shot(page, "7-selection-and-focus");
 
 	// Paging: hovering "next page" loads it, and the click shows it from the top without
 	// fetching it again, even though the grid stays mounted.
@@ -198,21 +260,21 @@ try {
 		if (isPageRequest(request.url())) requestsAfterClick++;
 	});
 	await page.click('button[aria-label="Go to next page"]');
-	// Number cells are inputs, so the first row's id is its first input's value.
-	const firstRowIdInput = 'tbody tr[data-index="0"] input[type="number"]';
+	const firstRowId =
+		'tbody tr[data-index="0"] td:nth-child(2) [data-slot="grid-cell-content"]';
 	await page.waitForFunction(
-		(selector) => document.querySelector<HTMLInputElement>(selector)?.value === "51",
-		firstRowIdInput,
+		(selector) => document.querySelector(selector)?.textContent === "51",
+		firstRowId,
 	);
 	summary.paging = {
 		requestsAfterClick,
 		scrollTop: await page.evaluate(
 			() => document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto")?.scrollTop,
 		),
-		firstRowId: await page.locator(firstRowIdInput).first().inputValue(),
+		firstRowId: await page.locator(firstRowId).textContent(),
 	};
 	assert.deepEqual(summary.paging, { requestsAfterClick: 0, scrollTop: 0, firstRowId: "51" });
-	await shot(page, "6-next-page");
+	await shot(page, "8-next-page");
 
 	summary.pageErrors = pageErrors;
 	assert.deepEqual(pageErrors, []);

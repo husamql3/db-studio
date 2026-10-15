@@ -14,7 +14,9 @@ import {
 	SelectValue,
 } from "@db-studio/ui/select";
 import { Textarea } from "@db-studio/ui/textarea";
+import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
+import { format } from "date-fns";
 import {
 	type ChangeEvent,
 	type ComponentProps,
@@ -326,30 +328,32 @@ export const TableNumberCell = memo(
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue() as number;
-
-		// Initialize state with initialValue
-		const [value, setValue] = useState(() => initialValue);
-		const [syncedValue, setSyncedValue] = useState(initialValue);
-		const [open, setOpen] = useState(false);
-		const inputRef = useRef<HTMLInputElement>(null);
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
 		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
-		// A refetch (e.g. Live mode) replaced the server value; keep any unsaved edit.
-		if (initialValue !== syncedValue) {
-			setSyncedValue(initialValue);
-			if (!getUpdate(rowData, columnName, meta?.editScope)) setValue(initialValue);
+		// A pending edit wins over the server value, also after a refetch (e.g. Live mode).
+		const pendingUpdate = getUpdate(rowData, columnName, meta?.editScope);
+		const displayValue = pendingUpdate ? (pendingUpdate.newValue as number) : initialValue;
+
+		// The input exists only while the cell is edited; a page holds hundreds of number cells.
+		const [value, setValue] = useState(displayValue);
+		const [open, setOpen] = useState(false);
+		const containerRef = useRef<HTMLDivElement>(null);
+
+		// Follow the grid's editing state, starting each edit from the value the cell shows.
+		if (isEditing !== open) {
+			if (isEditing) setValue(displayValue);
+			setOpen(isEditing);
 		}
 
 		const onSave = useCallback(() => {
 			// Update the store with the final value
 			setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
 
-			// Close the popover
+			// Close the editor
 			setOpen(false);
 			meta?.onCellEditingStop?.();
 		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
@@ -382,33 +386,6 @@ export const TableNumberCell = memo(
 			[columnName, value, initialValue, rowData, setUpdate],
 		);
 
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !open) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						// Update store when tabbing away
-						if (value !== initialValue) {
-							setUpdate(
-								rowData,
-								columnName,
-								value,
-								initialValue,
-								table.options.meta?.editScope,
-							);
-						}
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, open, meta, value, initialValue, columnName, rowData, setUpdate],
-		);
-
 		const onTextInputKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLInputElement>) => {
 				if (event.key === "Escape") {
@@ -433,10 +410,15 @@ export const TableNumberCell = memo(
 			meta?.onCellEditingStop?.();
 		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
-		// Sync open state with isEditing prop
-		if (isEditing && !open) {
-			setOpen(true);
-		}
+		// Focus the input as it mounts, with the caret after the current value.
+		const focusInput = useCallback((input: HTMLInputElement | null) => {
+			if (!input) return;
+			input.focus();
+			// Number inputs have no selection API; resetting the value moves the caret to the end.
+			const current = input.value;
+			input.value = "";
+			input.value = current;
+		}, []);
 
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
@@ -457,18 +439,21 @@ export const TableNumberCell = memo(
 				isEditing={isEditing}
 				isFocused={isFocused}
 				isSelected={isSelected}
-				onKeyDown={onWrapperKeyDown}
 			>
-				<Input
-					type="number"
-					variant="outline"
-					ref={inputRef}
-					value={value || ""}
-					onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
-					onKeyDown={(event) => onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)}
-					onBlur={onTextInputBlur}
-					className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-				/>
+				{open ? (
+					<Input
+						type="number"
+						variant="outline"
+						ref={focusInput}
+						value={value ?? ""}
+						onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
+						onKeyDown={(event) => onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)}
+						onBlur={onTextInputBlur}
+						className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					/>
+				) : (
+					<span data-slot="grid-cell-content">{formatCellValue(displayValue)}</span>
+				)}
 			</TableCellWrapper>
 		);
 	},
@@ -912,11 +897,20 @@ export const TableDateCell = memo(
 			[isEditing, onCancel],
 		);
 
+		const onPickerOpenChange = useCallback(
+			(open: boolean) => {
+				if (!open) meta?.onCellEditingStop?.();
+			},
+			[meta],
+		);
+
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
+
+		const date = currentValue ? new Date(currentValue) : undefined;
 
 		return (
 			<TableCellWrapper
@@ -929,16 +923,32 @@ export const TableDateCell = memo(
 				isFocused={isFocused}
 				isSelected={isSelected}
 				onKeyDown={onWrapperKeyDown}
-				className="p-0!"
+				className={isEditing ? "p-0!" : undefined}
 			>
-				<DatePicker
-					isFormatted={false}
-					icon={false}
-					value={currentValue ? new Date(currentValue) : undefined}
-					onChange={onDateChange}
-					placeholder="Pick a date"
-					className="size-full px-2! py-1.5! rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
-				/>
+				{/* The picker exists only while the cell is edited; a page holds hundreds of date
+				cells, and a single click only focuses a cell, as everywhere else. */}
+				{isEditing ? (
+					<DatePicker
+						isFormatted={false}
+						icon={false}
+						value={date}
+						onChange={onDateChange}
+						open
+						onOpenChange={onPickerOpenChange}
+						placeholder="Pick a date"
+						className="size-full px-2! py-1.5! rounded-none border-none p-0 text-sm shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
+					/>
+				) : (
+					// The text the picker's button shows.
+					<span
+						data-slot="grid-cell-content"
+						className={cn(!date && "text-muted-foreground")}
+					>
+						{date && !Number.isNaN(date.getTime())
+							? format(date, "yyyy-MM-dd")
+							: "Pick a date"}
+					</span>
+				)}
 			</TableCellWrapper>
 		);
 	},
