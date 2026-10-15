@@ -43,6 +43,19 @@ DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e
 Writes `e2e/artifacts/shutdown-<build>.json`; pass a snapshot name from `e2e/artifacts/builds/` to
 check another build.
 
+## MySQL row estimates
+
+Creates a 100,000-row table, a 100-row table and a table emptied after MySQL cached its size,
+then checks the table list and page totals: the large table reports InnoDB's estimate, the others
+and every filtered total an exact count.
+
+```bash
+cd packages/server
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/mysql-row-estimates.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/mysql-row-estimates.json`.
+
 ## Run the Oracle review probe
 
 The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp

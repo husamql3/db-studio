@@ -38,7 +38,12 @@ import {
 	standardizeDataTypeLabel,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	EXACT_COUNT_LIMIT,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import { getDbPool } from "@/adapters/connections.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
@@ -51,12 +56,6 @@ import {
 } from "./pg.query-builder.js";
 
 type PgPool = Awaited<ReturnType<typeof getDbPool>>;
-
-/**
- * Tables the planner estimates at this many rows or more report their estimate instead of an
- * exact count, in the table list and as an unfiltered page total.
- */
-const EXACT_COUNT_LIMIT = 50_000;
 
 export class PgAdapter extends BaseAdapter {
 	private databaseSizeSupport?: Promise<boolean>;

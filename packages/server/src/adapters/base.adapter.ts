@@ -32,6 +32,12 @@ import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interfac
 import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
+/**
+ * Tables the database estimates at this many rows or more report their estimate instead of an
+ * exact count, in the table list and as an unfiltered page total: counting reads the whole table.
+ */
+export const EXACT_COUNT_LIMIT = 50_000;
+
 /** One record's pending updates, addressed by every one of its key columns. */
 export interface RecordUpdateGroup {
 	keyValues: unknown[];

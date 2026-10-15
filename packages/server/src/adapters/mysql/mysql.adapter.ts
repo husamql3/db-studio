@@ -35,7 +35,12 @@ import type {
 import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
 import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	EXACT_COUNT_LIMIT,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import { getMysqlPool } from "@/adapters/connections.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
@@ -218,8 +223,12 @@ export class MySqlAdapter extends BaseAdapter {
 			filters = [],
 		} = params;
 		const pool = await getMysqlPool(db);
+		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
-		const pkColumns = await this.getPrimaryKeyColumns(pool, tableName);
+		const [pkColumns, { total, estimated }] = await Promise.all([
+			this.getPrimaryKeyColumns(pool, tableName),
+			this.countRows(pool, tableName, filterWhere, filterValues),
+		]);
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
@@ -234,8 +243,6 @@ export class MySqlAdapter extends BaseAdapter {
 			...sortColumns,
 			...pkColumns.filter((pk) => !sortColumns.includes(pk)),
 		];
-
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];
@@ -279,12 +286,6 @@ export class MySqlAdapter extends BaseAdapter {
 			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
-		const [countRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as total FROM \`${tableName}\` ${filterWhere}`,
-			filterValues as any,
-		);
-		const total = Number((countRows as Array<{ total: number }>)[0]?.total ?? 0);
-
 		const [dataRows] = await pool.execute<RowDataPacket[]>(
 			`SELECT * FROM \`${tableName}\` ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
 			[...filterValues, ...cursorValues] as any,
@@ -320,6 +321,7 @@ export class MySqlAdapter extends BaseAdapter {
 			meta: {
 				limit,
 				total,
+				...(estimated && { totalEstimated: true }),
 				hasNextPage: direction === "asc" ? hasMore : !!cursor,
 				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
 				nextCursor,
@@ -402,22 +404,21 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const pool = await getMysqlPool(db);
-		const [tables] = await pool.execute<RowDataPacket[]>(`
-			SELECT table_name as tableName
-			FROM information_schema.tables
-			WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
-			ORDER BY table_name
-		`);
-		if (!tables || tables.length === 0) return [];
+		const estimates = await this.rowEstimates(pool);
 
+		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
+		// are counted; larger ones report their estimate.
 		return Promise.all(
-			(tables as Array<{ tableName: string }>).map(async (table) => {
+			[...estimates].map(async ([tableName, estimate]) => {
+				if (estimate >= EXACT_COUNT_LIMIT) {
+					return { tableName, rowCount: estimate, rowCountEstimated: true };
+				}
 				const [countRows] = await pool.execute<RowDataPacket[]>(
-					`SELECT COUNT(*) as count FROM \`${table.tableName}\``,
+					`SELECT COUNT(*) as count FROM ${quote(tableName)}`,
 				);
 				return {
-					tableName: table.tableName,
-					rowCount: (countRows as Array<{ count: number }>)[0]?.count ?? 0,
+					tableName,
+					rowCount: Number((countRows as Array<{ count: number }>)[0]?.count ?? 0),
 				};
 			}),
 		);
@@ -1142,6 +1143,65 @@ export class MySqlAdapter extends BaseAdapter {
 	// =========================================================
 	// Private helpers
 	// =========================================================
+
+	/**
+	 * InnoDB's row estimate for each base table of the database (or only `tableName`), in name
+	 * order. MySQL 8 serves these from a cache refreshed once a day, so a table emptied this
+	 * morning would still report its old size; the session reads them fresh instead. MariaDB and
+	 * TiDB keep no such cache and reject the variable, which is harmless.
+	 */
+	private async rowEstimates(
+		pool: MysqlPool,
+		tableName?: string,
+	): Promise<Map<string, number>> {
+		const connection = await pool.getConnection();
+		try {
+			await connection
+				.query("SET SESSION information_schema_stats_expiry = 0")
+				.catch(() => {});
+			const [rows] = await connection.query<RowDataPacket[]>(
+				`SELECT table_name AS tableName, table_rows AS estimate
+				FROM information_schema.tables
+				WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
+					${tableName === undefined ? "" : "AND table_name = ?"}
+				ORDER BY table_name`,
+				tableName === undefined ? [] : [tableName],
+			);
+			return new Map(
+				(rows as Array<{ tableName: string; estimate: number | null }>).map((row) => [
+					row.tableName,
+					Number(row.estimate ?? 0),
+				]),
+			);
+		} finally {
+			connection.release();
+		}
+	}
+
+	/**
+	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
+	 * reports that estimate, because an exact count reads the whole table and the total is
+	 * fetched with every page.
+	 */
+	private async countRows(
+		pool: MysqlPool,
+		tableName: string,
+		filterWhere: string,
+		filterValues: unknown[],
+	): Promise<{ total: number; estimated: boolean }> {
+		if (!filterWhere) {
+			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
+		}
+		const [rows] = await pool.execute<RowDataPacket[]>(
+			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
+			filterValues as any,
+		);
+		return {
+			total: Number((rows as Array<{ total: number }>)[0]?.total ?? 0),
+			estimated: false,
+		};
+	}
 
 	private isMariaDb(pool: MysqlPool): Promise<boolean> {
 		this.mariaDb ??= pool
