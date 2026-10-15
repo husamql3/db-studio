@@ -33,7 +33,12 @@ import type {
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	EXACT_COUNT_LIMIT,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import { getMssqlPool } from "@/adapters/connections.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
@@ -165,24 +170,17 @@ export class MsSqlAdapter extends BaseAdapter {
 			} = params;
 			const pool = await getMssqlPool(db);
 
-			const pkColumns = await this.getPrimaryKeyColumns(pool, tableName);
-
 			const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 			const {
 				clause: filterWhere,
 				values: filterValues,
 				nextIdx,
 			} = buildWhereClause(filters, 0);
+			const [pkColumns, { total, estimated }] = await Promise.all([
+				this.getPrimaryKeyColumns(pool, tableName),
+				this.countRows(pool, tableName, filterWhere, filterValues),
+			]);
 			const sortClause = buildOrderByClause(sort, order, pkColumns);
-
-			const countRequest = pool.request();
-			filterValues.forEach((val, idx) => {
-				countRequest.input(`p${idx}`, val);
-			});
-			const countResult = await countRequest.query(
-				`SELECT COUNT(*) as total FROM [${tableName}] ${filterWhere}`,
-			);
-			const total = Number(countResult.recordset[0]?.total ?? 0);
 
 			const dataRequest = pool.request();
 			filterValues.forEach((val, idx) => {
@@ -204,6 +202,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				meta: {
 					limit,
 					total,
+					...(estimated && { totalEstimated: true }),
 					hasNextPage: hasMore,
 					hasPreviousPage: currentOffset > 0,
 					nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
@@ -289,25 +288,19 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const pool = await getMssqlPool(db);
-		const result = await pool.request().query(`
-			SELECT table_name AS tableName
-			FROM information_schema.tables
-			WHERE table_catalog = DB_NAME()
-			  AND table_type = 'BASE TABLE'
-			  AND table_schema = 'dbo'
-			ORDER BY table_name
-		`);
-		if (!result.recordset || result.recordset.length === 0) return [];
+		const estimates = await this.rowEstimates(pool);
 
+		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
+		// are counted; larger ones report their estimate.
 		return Promise.all(
-			(result.recordset as Array<{ tableName: string }>).map(async (table) => {
+			[...estimates].map(async ([tableName, estimate]) => {
+				if (estimate >= EXACT_COUNT_LIMIT) {
+					return { tableName, rowCount: estimate, rowCountEstimated: true };
+				}
 				const countResult = await pool
 					.request()
-					.query(`SELECT COUNT(*) as count FROM [${table.tableName}]`);
-				return {
-					tableName: table.tableName,
-					rowCount: (countResult.recordset[0] as { count: number })?.count ?? 0,
-				};
+					.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
+				return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
 			}),
 		);
 	}
@@ -1286,6 +1279,53 @@ export class MsSqlAdapter extends BaseAdapter {
 			}
 		}
 		return results;
+	}
+
+	/**
+	 * The row count SQL Server keeps for each dbo table (or only `tableName`), in name order. It
+	 * is maintained with every write but documented as approximate.
+	 */
+	private async rowEstimates(
+		pool: MssqlPool,
+		tableName?: string,
+	): Promise<Map<string, number>> {
+		const request = pool.request();
+		if (tableName !== undefined) request.input("tableName", tableName);
+		const result = await request.query<{ tableName: string; estimate: string | number }>(`
+			SELECT t.name AS tableName, SUM(p.rows) AS estimate
+			FROM sys.tables t
+			JOIN sys.partitions p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
+			WHERE t.schema_id = SCHEMA_ID('dbo')
+				${tableName === undefined ? "" : "AND t.name = @tableName"}
+			GROUP BY t.name
+			ORDER BY t.name
+		`);
+		return new Map(result.recordset.map((row) => [row.tableName, Number(row.estimate)]));
+	}
+
+	/**
+	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
+	 * reports that estimate, because an exact count reads the whole table and the total is
+	 * fetched with every page.
+	 */
+	private async countRows(
+		pool: MssqlPool,
+		tableName: string,
+		filterWhere: string,
+		filterValues: unknown[],
+	): Promise<{ total: number; estimated: boolean }> {
+		if (!filterWhere) {
+			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
+		}
+		const request = pool.request();
+		filterValues.forEach((val, idx) => {
+			request.input(`p${idx}`, val);
+		});
+		const result = await request.query(
+			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
+		);
+		return { total: Number(result.recordset[0]?.total ?? 0), estimated: false };
 	}
 
 	private async getTableRowCount(tableName: string, db: string): Promise<number> {
