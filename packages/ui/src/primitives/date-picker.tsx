@@ -21,6 +21,9 @@ interface DatePickerProps {
 	isFormatted?: boolean;
 	showTime?: boolean;
 	modal?: boolean;
+	/** Controls the calendar; leave unset to let the trigger open and close it. */
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }
 
 export function DatePicker({
@@ -35,8 +38,15 @@ export function DatePicker({
 	isFormatted = true,
 	showTime = false,
 	modal,
+	open: openProp,
+	onOpenChange,
 }: DatePickerProps) {
-	const [open, setOpen] = useState(false);
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+	const open = openProp ?? uncontrolledOpen;
+	const setOpen = (next: boolean) => {
+		setUncontrolledOpen(next);
+		onOpenChange?.(next);
+	};
 	const [today] = useState<Date>(() => new Date());
 
 	const hours = value ? value.getHours() : 0;
@@ -120,7 +130,7 @@ export function DatePicker({
 				<Button
 					variant="outline"
 					className={cn(
-						"w-[280px] justify-start text-left font-normal",
+						"w-full justify-start text-left font-normal",
 						!value && "text-muted-foreground",
 						className,
 					)}

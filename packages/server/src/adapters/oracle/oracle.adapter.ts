@@ -27,11 +27,12 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
-import oracledb, { type Connection, type Metadata } from "oracledb";
+import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getOraclePool } from "@/adapters/connections.js";
+import { loadedDriver } from "@/drivers.js";
+import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	bindOracleValue,
@@ -74,6 +75,7 @@ const toHex = (value: unknown) => (Buffer.isBuffer(value) ? value.toString("hex"
 
 /** Thin mode converts native timestamps to millisecond-only Date, so adapter reads use TO_CHAR. */
 const fetchTypeHandler = (meta: Metadata<unknown>) => {
+	const oracledb = loadedDriver("oracle");
 	switch (meta.dbType) {
 		case oracledb.DB_TYPE_NUMBER:
 			return { type: oracledb.STRING, converter: toJsonNumber };
@@ -148,11 +150,15 @@ const matchesAny = (
 		)
 		.join(" OR ")})`;
 
-const isTemporalMetadata = <T>(meta: Metadata<T>) =>
-	meta.dbType === oracledb.DB_TYPE_DATE ||
-	meta.dbType === oracledb.DB_TYPE_TIMESTAMP ||
-	meta.dbType === oracledb.DB_TYPE_TIMESTAMP_TZ ||
-	meta.dbType === oracledb.DB_TYPE_TIMESTAMP_LTZ;
+const isTemporalMetadata = <T>(meta: Metadata<T>) => {
+	const oracledb = loadedDriver("oracle");
+	return (
+		meta.dbType === oracledb.DB_TYPE_DATE ||
+		meta.dbType === oracledb.DB_TYPE_TIMESTAMP ||
+		meta.dbType === oracledb.DB_TYPE_TIMESTAMP_TZ ||
+		meta.dbType === oracledb.DB_TYPE_TIMESTAMP_LTZ
+	);
+};
 
 /** Oracle errors that are the user's to fix; each maps to a 400 with a readable reason. */
 const LIMITATIONS: Array<[code: string, reason: string]> = [
@@ -290,7 +296,7 @@ export class OracleAdapter extends BaseAdapter {
 
 	private async query<T = Row>(conn: Connection, sql: string, values: unknown[] = []) {
 		const result = await conn.execute<T>(sql, values, {
-			outFormat: oracledb.OUT_FORMAT_OBJECT,
+			outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
 			fetchTypeHandler,
 		});
 		return result.rows ?? [];
@@ -1001,7 +1007,7 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			const start = performance.now();
 			const result = await conn.execute<Row>(statement, [], {
-				outFormat: oracledb.OUT_FORMAT_OBJECT,
+				outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
 				fetchTypeHandler,
 				autoCommit: true,
 				resultSet: true,

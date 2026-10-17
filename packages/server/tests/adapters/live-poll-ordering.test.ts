@@ -46,6 +46,7 @@ import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { OracleAdapter } from "@/adapters/oracle/oracle.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { loadDriver } from "@/drivers.js";
 
 const TABLE = "live_poll_items";
 const INSERT_ORDER = [3, 1, 5, 2, 4];
@@ -96,6 +97,8 @@ const engines: Engine[] = [
 		url: ":memory:",
 		adapter: new DuckDbAdapter(),
 		connect: async (url) => {
+			// The adapter reads DuckDB's type ids from the driver that db-manager loads.
+			await loadDriver("duckdb");
 			duckdbInstance = await DuckDBInstance.create(url);
 			const connection = await duckdbInstance.connect();
 			duckdb = connection;
@@ -165,6 +168,8 @@ const engines: Engine[] = [
 		adapter: new OracleAdapter(),
 		connect: async (url) => {
 			const { username, password, hostname, port, pathname } = new URL(url);
+			// The adapter reads Oracle's type constants from the driver that db-manager loads.
+			await loadDriver("oracle");
 			oraclePool = await oracledb.createPool({
 				user: decodeURIComponent(username),
 				password: decodeURIComponent(password),

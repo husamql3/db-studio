@@ -54,11 +54,13 @@ const api = async (
 ) => {
 	const url = new URL(`${DEFAULTS.API_PREFIX}${path}`, "http://db-studio.local");
 	url.searchParams.set("db", db);
-	const response = await app.request(`${url.pathname}${url.search}`, {
-		method,
-		headers: body === undefined ? {} : { "Content-Type": "application/json" },
-		body: body === undefined ? undefined : JSON.stringify(body),
-	});
+	const response = await app.handle(
+		new Request(new URL(`${url.pathname}${url.search}`, "http://localhost"), {
+			method,
+			headers: body === undefined ? {} : { "Content-Type": "application/json" },
+			body: body === undefined ? undefined : JSON.stringify(body),
+		}),
+	);
 	const text = await response.text();
 	let parsed: unknown = text;
 	try {

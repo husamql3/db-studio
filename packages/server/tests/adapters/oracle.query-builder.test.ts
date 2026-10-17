@@ -16,7 +16,7 @@
  * 7. Temporal LIKE patterns sent through timestamp normalization are rejected as invalid values
  *    instead of matching the canonical string returned by table reads.
  */
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 import { describe, expect, it } from "vitest";
 import {
 	bindOracleValue,

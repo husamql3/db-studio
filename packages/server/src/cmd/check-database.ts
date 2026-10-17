@@ -55,10 +55,10 @@ export const getDatabaseConnectionDetails = (
 export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise<void> => {
 	switch (type) {
 		case "pg":
-			await withStartupTimeout(getDbPool().query("SELECT 1"));
+			await withStartupTimeout(getDbPool().then((pool) => pool.query("SELECT 1")));
 			return;
 		case "mysql":
-			await getMysqlPool().query("SELECT 1");
+			await (await getMysqlPool()).query("SELECT 1");
 			return;
 		case "mssql":
 			await (await getMssqlPool()).request().query("SELECT 1");
@@ -84,6 +84,8 @@ export const checkDatabaseConnection = async (type: DatabaseTypeSchema): Promise
 		}
 
 		case "clickhouse":
-			await withStartupTimeout(getClickhouseClient().query({ query: "SELECT 1" }));
+			await withStartupTimeout(
+				getClickhouseClient().then((client) => client.query({ query: "SELECT 1" })),
+			);
 	}
 };

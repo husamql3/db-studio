@@ -1,5 +1,5 @@
 import type { FilterType, SortType } from "@db-studio/shared/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
 import { getTableData } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
@@ -61,6 +61,28 @@ export const useTableData = ({
 			: regularSort;
 	const serializedFilters = filters?.length > 0 ? JSON.stringify(filters) : undefined;
 
+	const page = {
+		tableName: activeTableName,
+		cursor,
+		limit,
+		direction,
+		sort: serializedSort,
+		order,
+		filters: serializedFilters,
+		db: selectedDatabase,
+	};
+	const fetchPage = (target: typeof page) =>
+		getTableData({
+			tableName: target.tableName,
+			limit: target.limit?.toString() || CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString(),
+			db: target.db ?? undefined,
+			cursor: target.cursor,
+			direction: target.direction,
+			sort: target.sort ?? undefined,
+			order: target.order,
+			filters: target.filters,
+		});
+
 	const {
 		data: tableData,
 		isLoading: isLoadingTableData,
@@ -68,35 +90,30 @@ export const useTableData = ({
 		refetch: refetchTableData,
 		error: errorTableData,
 	} = useQuery({
-		queryKey: tableKeys.data({
-			tableName: activeTableName,
-			cursor,
-			limit,
-			direction,
-			sort: serializedSort,
-			order,
-			filters: serializedFilters,
-			db: selectedDatabase,
-		}),
-		queryFn: async () => {
-			const defaultLimit = CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString();
-			return getTableData({
-				tableName: activeTableName,
-				limit: limit?.toString() || defaultLimit,
-				db: selectedDatabase ?? undefined,
-				cursor,
-				direction,
-				sort: serializedSort ?? undefined,
-				order,
-				filters: serializedFilters,
-			});
-		},
+		queryKey: tableKeys.data(page),
+		queryFn: () => fetchPage(page),
 		select: (res) => res.data.data,
 		enabled: !!activeTableName,
 	});
 
+	const queryClient = useQueryClient();
+	/**
+	 * Loads a neighbouring page into the cache, e.g. while the pointer is on its button, so the
+	 * page shows without waiting on the database once it is clicked.
+	 */
+	const prefetchPage = (pageCursor: string, pageDirection: "asc" | "desc") => {
+		const target = { ...page, cursor: pageCursor, direction: pageDirection };
+		void queryClient.prefetchQuery({
+			queryKey: tableKeys.data(target),
+			queryFn: () => fetchPage(target),
+		});
+	};
+
 	return {
 		tableData,
+		prefetchPage,
+		/** Changes whenever the grid shows a different page, sort or filter. */
+		pageKey: JSON.stringify(tableKeys.data(page)),
 		isLoadingTableData,
 		isRefetchingTableData,
 		errorTableData,

@@ -54,7 +54,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 | Package | Role |
 |---------|------|
-| `packages/server` | Hono API server + CLI (`npx db-studio`) |
+| `packages/server` | Elysia API server on Node (`@elysiajs/node`) + CLI (`npx db-studio`) |
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
@@ -63,15 +63,15 @@ This is a **Bun + Turbo monorepo** with these packages:
 ### Server (`packages/server`)
 
 - **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
-- **Hono app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, validates `/:dbType`, and serves the frontend build.
+- **Elysia app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
 - **DB connections**: `src/db-manager.ts` owns connection creation and URL parsing; adapters import connection helpers through `src/adapters/connections.ts`.
 - **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse all route through registered adapters.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
 - **Adapter registry**: `src/adapters/adapter.registry.ts` exports `adapterRegistry` and `getAdapter(dbType)`. `src/adapters/register.ts` registers each adapter before routes mount.
-- **Routes**: `src/routes/` — each route file uses `new Hono<RouteEnv>()` (not `AppType`) to avoid circular imports and to access `c.get("dbType")`
-- **Middleware**: `create-server.ts` validates `/:dbType` against `adapterRegistry.getSupportedTypes()` and sets `c.set("dbType", ...)`
+- **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against the adapter registry and adds `dbType` and `adapter` to the context.
+- **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts`. It has no framework dependency; never import Elysia into adapters.
 
-**Multi-database routing pattern**: requests under `/:dbType/*` are validated against the adapter registry, then routes call `getAdapter(c.get("dbType"))`. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
+**Multi-database routing pattern**: requests under `/:dbType/*` resolve their adapter through `adapterPlugin`, then handlers call methods on the `adapter` from the context. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
 
 ### Frontend (`packages/web`)
 
@@ -135,7 +135,6 @@ Three export paths:
 
 - `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]` in `database.types.ts`
 - `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, protocols, default port, data model, editor language, Live mode, schema selector); web reads it via `useDatabaseEngine()`
-- `RouteEnv` — Hono env type that provides `c.get("dbType")`
 - `CellVariant` / `DataTypes` — used for table cell rendering
 
 ## Tooling
@@ -153,7 +152,7 @@ Three export paths:
 - **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
-- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. `src/dao/mongo/**` is dead code — it was kept alive only by a mock-heavy DAO test suite that has since been deleted, and nothing outside tests imports it. Do not add to it; it is pending removal.
+- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`.
 - **SQLite / libSQL specifics**: one `SqliteAdapter` on `@libsql/client` (`intMode: "bigint"`, rows normalized in `toRows`) serves `sqlite://` files (opened as `file:` URLs) and remote `libsql://` / Turso URLs (`?authToken=`, `?tls=0` for local sqld) under dbType `sqlite`; `PRAGMA foreign_keys` does not persist between requests on a remote server and is a no-op inside a transaction, so the table rebuild in `alterColumn` goes through `client.migrate()`.
 - **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
 - **DuckDB specifics**: file-based like SQLite (`duckdb:///abs/path.duckdb` or `duckdb://./rel.duckdb`); one `DuckDBInstance` + connection per file via `@duckdb/node-api`, and every call goes through `withDuckdbConnection()`, which serializes access so transactions cannot interleave; the instance checkpoints on every commit (`checkpoint_threshold: "0b"`) because DuckDB cannot replay an `ALTER TABLE` on a table with a `nextval()` default from the WAL; a file locked by another process surfaces as 503; `"ident"` quoting, `?` placeholders; rows go through one boundary (`getRowObjectsJson()`, then safe-range BIGINT/HUGEINT to numbers); keyset pagination sorts NULLS LAST in both directions and builds a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …` honouring each column's direction and NULLs (`buildKeysetPredicate`), never a row-value tuple comparison; only the current schema (`main`) is listed; identity/serial columns become a `<table>_<column>_seq` sequence default; FK actions CASCADE/SET NULL/SET DEFAULT, ADD COLUMN with UNIQUE/PRIMARY KEY, and ALTER on tables other tables reference return 400; `forceDeleteRecords` uses the ordinary single-statement delete and refuses 400 when dependent rows exist, because DuckDB cannot delete a parent and its children in one atomic transaction; implemented in `DuckDbAdapter`.
@@ -331,36 +330,37 @@ isOverlayOpen("records.add-record");
 To add a new overlay: add its ID to the `OverlayId` union in `overlay.store.ts`, then
 render the overlay component wherever it belongs (route screen or app shell).
 
-### Server Routes (Hono)
+### Server Routes (Elysia)
 
 Location: `packages/server/src/routes/[resource].routes.ts`
 
 **Pattern**:
 ```ts
-export const tablesRoutes = new Hono<RouteEnv>()   // NOT AppType
-  .basePath("/tables")
+export const tablesRoutes = new Elysia({ prefix: "/tables" })
+  .use(adapterPlugin)
 
-  .get("/", zValidator("query", databaseSchema), async (c): ApiHandler<TableInfoSchemaType[]> => {
-    const { db } = c.req.valid("query");
-    const adapter = getAdapter(c.get("dbType"));
-    return c.json({ data: await adapter.getTablesList(db) }, 200);
+  .get("/", async ({ adapter, query }) => ({ data: await adapter.getTablesList(query.db) }), {
+    query: databaseSchema,
   })
 
-  .post("/", zValidator("query", databaseSchema), zValidator("json", createTableSchema), async (c): ApiHandler<string> => {
-    const body = c.req.valid("json");
-    const adapter = getAdapter(c.get("dbType"));
-    await adapter.createTable({ tableData: body, db: c.req.valid("query").db });
-    return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
-  });
-
-export type TablesRoutes = typeof tablesRoutes.routes;
+  .post(
+    "/",
+    async ({ adapter, query, body }) => {
+      await adapter.createTable({ tableData: body, db: query.db });
+      return { data: `Table ${body.tableName} created successfully` };
+    },
+    { query: databaseSchema, body: createTableSchema },
+  );
 ```
 
 **Rules**:
-- Always `new Hono<RouteEnv>()` — never `AppType` (causes circular imports)
-- Validation via `zValidator("query"|"json"|"param", schema)`
-- DB dispatch via `getAdapter(c.get("dbType"))` — never switch/if-else on dbType in routes
-- Return type annotation `ApiHandler<T>` on every handler
+- Chain every call on the instance; Elysia infers context and response types through the chain.
+- Validation via the route's `query` / `params` / `body` options with the Zod schemas from `@db-studio/shared/types`. A failure reaches `handleError` and answers 400 `{ error: "Validation error", details }`.
+- Query values reach the schema as raw strings: `create-server.ts` replaces Elysia's query parser, which JSON-parses `[...]`/`{...}` values and splits on commas.
+- DB dispatch via the `adapter` that `adapterPlugin` adds — never switch/if-else on dbType in routes.
+- Return the `{ data }` envelope; use `status(409, { data })` for a non-200 success body and throw `HTTPException` for failures.
+- Return a stream as its body and put its headers on `set.headers`: Elysia on Node drops the headers of a returned chunked `Response`.
+- Do not use Elysia's `file()` on Node: it sends `Content-Length` together with chunked encoding.
 
 ### Adapter Pattern
 
@@ -378,7 +378,7 @@ export type TablesRoutes = typeof tablesRoutes.routes;
 
 **Request flow**:
 ```
-Request → create-server validates and sets dbType → route calls getAdapter(dbType)
+Request → adapterPlugin validates dbType → getAdapter(dbType)
   → adapterRegistry.get(dbType) returns the adapter
   → route calls adapter.someMethod(params)
 ```
@@ -575,3 +575,12 @@ this test fail?* If the answer is no, delete it. In particular, never write:
   `vitest.config.ts`.
 - Naming: `[file-name].test.ts`, colocated with the source in `packages/web` and `www`;
   under `packages/server/tests/[area]/` for the server.
+
+#### Performance
+
+Benchmark a performance change with `packages/server/e2e/perf.ts` before claiming it; its
+header explains the seed database and build snapshots. Compare builds in one interleaved run,
+never two separate runs: wall time swings 20–40% between identical builds on a busy machine.
+Judge by the layout and style-recalculation counts, best-of-N and the paired change, and run
+an identical build against itself first if you need the noise floor. Changes that save database
+round trips only show with `PERF_DB_LATENCY_MS` set.

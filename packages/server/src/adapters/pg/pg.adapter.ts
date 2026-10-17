@@ -37,10 +37,16 @@ import {
 	mapPostgresToDataType,
 	standardizeDataTypeLabel,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	EXACT_COUNT_LIMIT,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import { getDbPool } from "@/adapters/connections.js";
+import { isPgDatabaseError } from "@/drivers.js";
+import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildCursorWhereClause,
@@ -50,7 +56,7 @@ import {
 	SEARCH_PATH_SCHEMAS,
 } from "./pg.query-builder.js";
 
-type PgPool = ReturnType<typeof getDbPool>;
+type PgPool = Awaited<ReturnType<typeof getDbPool>>;
 
 export class PgAdapter extends BaseAdapter {
 	private databaseSizeSupport?: Promise<boolean>;
@@ -60,7 +66,7 @@ export class PgAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const result = await pool.query(sql, values);
 		return result.rows as T;
 	}
@@ -97,9 +103,6 @@ export class PgAdapter extends BaseAdapter {
 			filters = [],
 			db,
 		} = params;
-
-		const pool = getDbPool(db);
-		void pool; // just to keep reference — actual pool used in runQuery
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
@@ -236,10 +239,20 @@ export class PgAdapter extends BaseAdapter {
 			cursor,
 			filters = [],
 		} = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
+		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
-		// Primary key columns for stable cursor pagination
-		const pkColumns = await this.getPrimaryKeyColumns(pool, tableName);
+		// Primary key columns keep cursor pagination stable. The total does not depend on them or
+		// on the page, so it is counted at the same time instead of after. These are the first
+		// queries to touch the table, so a dropped table or a stale URL fails here.
+		const [pkColumns, { total, estimated }] = await Promise.all([
+			this.getPrimaryKeyColumns(pool, tableName),
+			this.countRows(pool, tableName, filterWhere, filterValues),
+		]).catch((e: unknown) => {
+			if (isPgDatabaseError(e) && e.code === "42P01")
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.wrapError(e);
+		});
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
@@ -255,8 +268,6 @@ export class PgAdapter extends BaseAdapter {
 			...sortColumns,
 			...keyColumns.filter((key) => !sortColumns.includes(key)),
 		];
-
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];
@@ -314,12 +325,6 @@ export class PgAdapter extends BaseAdapter {
 			}
 		}
 
-		const countRes = await pool.query(
-			`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
-			filterValues,
-		);
-		const total = Number(countRes.rows[0].total);
-
 		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
 		// selected explicitly; ctid is a reserved system column name, so selecting it by name
 		// cannot shadow a user column.
@@ -370,12 +375,42 @@ export class PgAdapter extends BaseAdapter {
 			meta: {
 				limit,
 				total,
+				...(estimated && { totalEstimated: true }),
 				hasNextPage: direction === "asc" ? hasMore : !!cursor,
 				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
 				nextCursor,
 				prevCursor,
 			},
 		};
+	}
+
+	/**
+	 * Rows matching the filters. Unfiltered, a table the planner estimates at EXACT_COUNT_LIMIT
+	 * rows or more reports that estimate, because an exact count reads the whole table and the
+	 * total is fetched with every page.
+	 */
+	private async countRows(
+		pool: PgPool,
+		tableName: string,
+		filterWhere: string,
+		filterValues: unknown[],
+	): Promise<{ total: number; estimated: boolean }> {
+		if (filterWhere) {
+			const { rows } = await pool.query(
+				`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
+				filterValues,
+			);
+			return { total: Number(rows[0].total), estimated: false };
+		}
+		// The COUNT(*) subquery only runs when the CASE reaches it.
+		const { rows } = await pool.query(
+			`SELECT CASE WHEN reltuples >= $1 THEN reltuples::bigint
+					ELSE (SELECT COUNT(*) FROM "${tableName}") END as total,
+				reltuples >= $1 as estimated
+			FROM pg_catalog.pg_class WHERE oid = $2::regclass`,
+			[EXACT_COUNT_LIMIT, `"${tableName.replaceAll('"', '""')}"`],
+		);
+		return { total: Number(rows[0].total), estimated: rows[0].estimated === true };
 	}
 
 	// =========================================================
@@ -386,7 +421,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const pool = getDbPool();
+			const pool = await getDbPool();
 			const size = (await this.supportsDatabaseSize(pool))
 				? "pg_size_pretty(pg_database_size(d.datname))"
 				: "'unknown'";
@@ -410,7 +445,7 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const pool = getDbPool();
+		const pool = await getDbPool();
 		const { rows } = await pool.query<DatabaseSchemaType>("SELECT current_database() AS db;");
 		if (!rows[0])
 			throw new HTTPException(500, { message: "No current database returned from database" });
@@ -418,7 +453,7 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = getDbPool();
+		const pool = await getDbPool();
 		const { rows } = await pool.query(`
 			SELECT
 				version() as version,
@@ -452,27 +487,42 @@ export class PgAdapter extends BaseAdapter {
 	// --- Tables ---
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const escapeChar = (s: string) => s.replaceAll('"', '""');
 
-		const { rows: tables } = await pool.query(`
-			SELECT table_schema as "schemaName", table_name as "tableName"
-			FROM information_schema.tables
-			WHERE table_type = 'BASE TABLE'
-				AND table_schema NOT IN ('pg_catalog', 'information_schema')
-				AND table_schema NOT LIKE 'pg_toast%'
-			ORDER BY table_schema, table_name;
+		// reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
+		// before PostgreSQL 14) for a table never analyzed.
+		const { rows: tables } = await pool.query<{
+			schemaName: string;
+			tableName: string;
+			estimate: number;
+		}>(`
+			SELECT t.table_schema as "schemaName", t.table_name as "tableName", c.reltuples as "estimate"
+			FROM information_schema.tables t
+			JOIN pg_catalog.pg_namespace n ON n.nspname = t.table_schema
+			JOIN pg_catalog.pg_class c ON c.relnamespace = n.oid AND c.relname = t.table_name
+			WHERE t.table_type = 'BASE TABLE'
+				AND t.table_schema NOT IN ('pg_catalog', 'information_schema')
+				AND t.table_schema NOT LIKE 'pg_toast%'
+			ORDER BY t.table_schema, t.table_name;
 		`);
 		if (!tables[0]) return [];
+
+		// Counting a table reads all of it, so counting every table on each listing scanned the
+		// whole database. Only tables estimated below EXACT_COUNT_LIMIT rows are counted; larger
+		// ones report their estimate.
+		const counted = tables.flatMap((t, index) =>
+			t.estimate < EXACT_COUNT_LIMIT ? [{ ...t, index }] : [],
+		);
 
 		// A query per table queues behind the pool's 10 connections, and with enough
 		// tables the ones at the back wait past connectionTimeoutMillis and fail the
 		// whole list. Count in a few statements instead, fewer than the pool holds.
 		const COUNT_STATEMENTS = 4;
 		const countSelects: string[][] = Array.from({ length: COUNT_STATEMENTS }, () => []);
-		tables.forEach((t: { schemaName: string; tableName: string }, index: number) => {
-			countSelects[index % COUNT_STATEMENTS]?.push(
-				`SELECT ${index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
+		counted.forEach((t, position) => {
+			countSelects[position % COUNT_STATEMENTS]?.push(
+				`SELECT ${t.index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
 			);
 		});
 		const countResults = await Promise.all(
@@ -488,11 +538,15 @@ export class PgAdapter extends BaseAdapter {
 			),
 		);
 
-		return tables.map((t: { schemaName: string; tableName: string }, index: number) => ({
-			schemaName: t.schemaName,
-			tableName: t.tableName,
-			rowCount: countByIndex.get(index) ?? 0,
-		}));
+		return tables.map((t, index) => {
+			const count = countByIndex.get(index);
+			return {
+				schemaName: t.schemaName,
+				tableName: t.tableName,
+				rowCount: count ?? Math.round(t.estimate),
+				...(count === undefined && { rowCountEstimated: true }),
+			};
+		});
 	}
 
 	async createTable({
@@ -503,7 +557,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
@@ -532,7 +586,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, db, cascade } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -574,7 +628,7 @@ export class PgAdapter extends BaseAdapter {
 		try {
 			const { tableName, newTableName, schemaName: requestedSchema, db } = params;
 			this.assertDifferentTableName(tableName, newTableName);
-			const pool = getDbPool(db);
+			const pool = await getDbPool(db);
 
 			// Tables are listed from every user schema, so resolve the actual schema
 			// instead of assuming "public".
@@ -620,7 +674,7 @@ export class PgAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: existsRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = ANY(current_schemas(false)) AND table_name = $1) as exists`,
@@ -770,7 +824,7 @@ export class PgAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const { rows } = await pool.query(
 			`SELECT
 				c.column_name as "columnName", c.data_type as "dataType", c.udt_name as "udtName",
@@ -838,7 +892,7 @@ export class PgAdapter extends BaseAdapter {
 			isArray,
 			db,
 		} = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -869,7 +923,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		const { tableName, columnName, cascade, db } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -895,7 +949,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const { rows: tableRows } = await pool.query(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
@@ -942,7 +996,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, newColumnName, db } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`;
 
@@ -980,7 +1034,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			const indexes = await this.listIndexes(getDbPool(db), tableName);
+			const indexes = await this.listIndexes(await getDbPool(db), tableName);
 			return indexes.map(({ schemaName: _schemaName, ...index }) => index);
 		} catch (e) {
 			throw this.wrapError(e);
@@ -990,7 +1044,7 @@ export class PgAdapter extends BaseAdapter {
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
 		const { tableName, indexName, columns, isUnique, method = "btree", db } = params;
 		try {
-			const pool = getDbPool(db);
+			const pool = await getDbPool(db);
 			await this.assertTableExists(pool, tableName);
 
 			const { rows: columnRows } = await pool.query<{ columnName: string }>(
@@ -1025,7 +1079,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
 		try {
-			const pool = getDbPool(db);
+			const pool = await getDbPool(db);
 			const index = (await this.listIndexes(pool, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
 			);
@@ -1058,7 +1112,7 @@ export class PgAdapter extends BaseAdapter {
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const columns = Object.keys(data);
 		const values = Object.values(data);
 		const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
@@ -1080,7 +1134,7 @@ export class PgAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 
 		const keyColumns = this.resolveKeyColumns(params);
 		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
@@ -1122,7 +1176,7 @@ export class PgAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
@@ -1158,7 +1212,7 @@ export class PgAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
@@ -1226,7 +1280,7 @@ export class PgAdapter extends BaseAdapter {
 		if (!records || records.length === 0)
 			throw new HTTPException(400, { message: "At least one record is required" });
 
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		const client = await pool.connect();
 
 		try {
@@ -1277,7 +1331,7 @@ export class PgAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		const pool = getDbPool(db);
+		const pool = await getDbPool(db);
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 		const cleaned = query.trim().replace(/;+$/, "");
 		const start = performance.now();

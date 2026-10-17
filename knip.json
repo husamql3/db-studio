@@ -1,25 +1,32 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
-  "workspaces": {
-    "packages/web": {
-      "entry": ["src/main.tsx"],
-      "project": ["src/**/*.{ts,tsx}"]
-    },
-    "packages/server": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/proxy": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/shared": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "www": {
-      "entry": ["src/router.tsx"],
-      "project": ["src/**/*.{ts,tsx}"]
-    }
-  }
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"ignoreFiles": [".claude/**"],
+	"ignoreIssues": {
+		"packages/web/src/components/ai-elements/**": ["exports", "types"],
+		"www/src/components/ui/**": ["exports", "types"]
+	},
+	"workspaces": {
+		".": {
+			"ignoreDependencies": ["@biomejs/biome"]
+		},
+		"packages/web": {
+			"project": ["src/**/*.{ts,tsx}"],
+			"ignoreDependencies": ["@tanstack/ai-devtools-core"]
+		},
+		"packages/server": {
+			"project": ["src/**/*.ts"]
+		},
+		"packages/proxy": {
+			"project": ["src/**/*.ts"],
+			"ignoreDependencies": ["cloudflare"]
+		},
+		"packages/shared": {
+			"project": ["src/**/*.ts"]
+		},
+		"www": {
+			"entry": ["src/router.tsx"],
+			"project": ["src/**/*.{ts,tsx}"],
+			"ignoreDependencies": ["tailwindcss", "tw-animate-css"]
+		}
+	}
 }

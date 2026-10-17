@@ -1,5 +1,5 @@
 import type { FilterType, SortDirection } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 
 /**
  * Quote an identifier exactly as stored. Oracle folds unquoted names to uppercase, so every

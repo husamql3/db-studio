@@ -25,12 +25,12 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { HTTPException } from "@/http-exception.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";

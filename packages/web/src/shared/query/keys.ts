@@ -49,24 +49,9 @@ export const tableKeys = {
 	schema: (tableName: string, db?: string | null) => ["table-schema", tableName, db] as const,
 };
 
-export const schemaKeys = {
-	all: ["schema"] as const,
-	table: (tableName: string, db?: string | null) => tableKeys.schema(tableName, db),
-};
-
 export const indexKeys = {
 	byTable: (tableName: string) => ["table-indexes", tableName] as const,
 	table: (tableName: string, db?: string | null) => ["table-indexes", tableName, db] as const,
-};
-
-export const recordKeys = {
-	all: ["records"] as const,
-	byTable: (tableName: string, db?: string | null) => ["records", tableName, db] as const,
-};
-
-export const queryRunnerKeys = {
-	all: ["query-runner"] as const,
-	execution: (db?: string | null) => ["query-runner", "execution", db] as const,
 };
 
 export const redisKeyBrowserKeys = {

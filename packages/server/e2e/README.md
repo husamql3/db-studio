@@ -1,6 +1,6 @@
 # API contract E2E
 
-Drives the real Hono app in-process (`app.request`, no port) against the SQL database in
+Drives the real Elysia app in-process (`app.handle`, no port) against the SQL database in
 `DATABASE_URL`, through the same routes the web app calls, using a scratch table `dbstudio_e2e`.
 
 ```bash
@@ -14,6 +14,48 @@ Prints PASS/FAIL per step and exits non-zero on any failure. Writes the normaliz
 The scratch table names are fixed so the artifact stays repeatable, so run one contract at a time
 per database: two runs sharing a `DATABASE_URL` would drop each other's tables.
 MongoDB and Redis are out of scope. Dialect-specific SQL goes in `OVERRIDES` in `contract.ts`.
+
+## Pin the HTTP surface
+
+The surface probe boots the real CLI on port 4999 and records status, headers, and bodies for
+routing, validation, error, CORS, request ID, static file, SPA fallback, and chat streaming cases.
+It serves a fake AI proxy on port 4998 for the chat cases. Use it to compare old and new versions
+of the HTTP layer, such as a framework upgrade.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio sh e2e/http-surface.sh <label>
+```
+
+It writes `e2e/artifacts/http-surface-<label>.json`. Two runs against the same server produce the
+same file, so diff the files from the two versions.
+
+## Stop the server
+
+Starts the built CLI, sends Ctrl+C (SIGINT) and then SIGTERM while a one-second query is in
+flight, and checks that the query is answered and the process exits within 5 s with code 0.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/shutdown.ts
+```
+
+Writes `e2e/artifacts/shutdown-<build>.json`; pass a snapshot name from `e2e/artifacts/builds/` to
+check another build.
+
+## MySQL and SQL Server row estimates
+
+Creates a 100,000-row table, a 100-row table and a table emptied after the database reported its
+size, then checks the table list and page totals: the large table reports the database's
+estimate, the others and every filtered total an exact count.
+
+```bash
+cd packages/server
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/row-estimates.ts
+DATABASE_URL='mssql://sa:DbStudio1!@127.0.0.1:1433/dbstudio' bunx tsx e2e/row-estimates.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/row-estimates-<mysql|mssql>.json`.
 
 ## Run the Oracle review probe
 

@@ -13,20 +13,22 @@ vi.mock("@/db-manager.js", () => ({
 
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 
-function makeRequest(recordset: unknown[]) {
-	const req = { input: vi.fn(), query: vi.fn() };
-	req.input.mockReturnValue(req);
-	req.query.mockResolvedValue({ recordset, rowsAffected: [recordset.length] });
-	return req;
-}
-
-function makePool(countRecordset: unknown[], dataRecordset: unknown[]) {
-	const pool = { request: vi.fn() };
-	pool.request
-		.mockReturnValueOnce(makeRequest([]))
-		.mockReturnValueOnce(makeRequest(countRecordset))
-		.mockReturnValueOnce(makeRequest(dataRecordset));
-	return pool;
+/** A pool whose queries return no rows; `queries` records their SQL in order. */
+function makePool() {
+	const queries: string[] = [];
+	const pool = {
+		request: () => {
+			const req = {
+				input: () => req,
+				query: async (sql: string) => {
+					queries.push(sql);
+					return { recordset: [], rowsAffected: [0] };
+				},
+			};
+			return req;
+		},
+	};
+	return { pool, queries };
 }
 
 describe("MsSqlAdapter.getTableData()", () => {
@@ -39,16 +41,13 @@ describe("MsSqlAdapter.getTableData()", () => {
 
 	describe("SQL query structure", () => {
 		it("issues a COUNT query and a data SELECT query", async () => {
-			const pool = makePool([{ total: 2 }], [{ id: 1 }, { id: 2 }]);
+			const { pool, queries } = makePool();
 			mockMssqlPool.mockResolvedValue(pool);
 
 			await adapter.getTableData({ tableName: "orders", db: "db" });
 
-			const countReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[1]?.value;
-			const dataReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[2]?.value;
-
-			const countSql: string = (countReq.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
-			const dataSql: string = (dataReq.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+			const countSql = queries.find((sql) => sql.includes("COUNT(*)"));
+			const dataSql = queries.find((sql) => sql.includes("OFFSET"));
 
 			expect(countSql).toContain("COUNT(*)");
 			expect(countSql).toContain("[orders]");
@@ -59,14 +58,12 @@ describe("MsSqlAdapter.getTableData()", () => {
 		});
 
 		it("uses bracket-quoted table name", async () => {
-			const pool = makePool([{ total: 0 }], []);
+			const { pool, queries } = makePool();
 			mockMssqlPool.mockResolvedValue(pool);
 
 			await adapter.getTableData({ tableName: "my table", db: "db" });
 
-			const dataReq = (pool.request as ReturnType<typeof vi.fn>).mock.results[2]?.value;
-			const sql: string = (dataReq.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
-			expect(sql).toContain("[my table]");
+			expect(queries.find((sql) => sql.includes("OFFSET"))).toContain("[my table]");
 		});
 	});
 });

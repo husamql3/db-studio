@@ -48,7 +48,7 @@ describe("database startup check", () => {
 	it("bounds the PostgreSQL startup query", async () => {
 		vi.useFakeTimers();
 		const query = vi.fn().mockReturnValue(new Promise(() => undefined));
-		mocks.getDbPool.mockReturnValue({ query });
+		mocks.getDbPool.mockResolvedValue({ query });
 
 		try {
 			const result = expect(checkDatabaseConnection("pg")).rejects.toThrow(

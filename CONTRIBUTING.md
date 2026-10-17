@@ -43,7 +43,7 @@ db-studio is organized as a Bun and Turborepo monorepo with the following struct
 
 | Package | Location | Description |
 |---|---|---|
-| `db-studio` | `packages/server` | Hono API server and the CLI tool |
+| `db-studio` | `packages/server` | Elysia API server and the CLI tool |
 | `@db-studio/web` | `packages/web` | React 19 web application (Vite, TanStack Router, TanStack Table) |
 | `@db-studio/shared` | `packages/shared` | Shared TypeScript types, Zod schemas, and constants |
 | `@db-studio/ui` | `packages/ui` | Reusable UI components and design tokens |
@@ -202,7 +202,7 @@ If you only need to work on one part of the codebase, you do not have to run the
 
 ```bash
 bun run dev:web     # React frontend only
-bun run dev:server  # Hono API server only
+bun run dev:server  # Elysia API server only
 bun run dev:proxy   # Cloudflare AI proxy only
 bun run dev:www     # Documentation site only
 ```

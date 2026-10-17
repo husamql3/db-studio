@@ -1,10 +1,12 @@
 import { create } from "zustand";
 
-export type OverlayId =
+type OverlayId =
 	| "table-builder.create-table"
 	| `table-builder.add-foreign-key-${number}`
 	| "schema.add-column"
 	| "schema.edit-column"
+	| "schema.edit-table"
+	| "schema.edit-table-discard-changes"
 	| "indexes.create-index"
 	| "indexes.drop-index"
 	| "records.add-record"

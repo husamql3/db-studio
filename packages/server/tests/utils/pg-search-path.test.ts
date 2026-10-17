@@ -27,7 +27,7 @@ const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
 	const { getDbPool } = await import("@/db-manager.js");
-	getDbPool();
+	await getDbPool();
 	const pool = FakePool.instances[0];
 	expect(pool).toBeDefined();
 	return pool as FakePool;

@@ -15,10 +15,12 @@ import {
 import { useMemo, useRef, useState } from "react";
 import { useTableCols } from "@/features/schema";
 import { useColumnPreferences } from "../../hooks/use-column-preferences";
+import { reorderColumns } from "../../stores/column-preferences.store";
 
 export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 	const [search, setSearch] = useState("");
-	const [dragIndex, setDragIndex] = useState<number | null>(null);
+	// while dragging, rows render in this preview order so the drop position is visible
+	const [drag, setDrag] = useState<{ name: string; order: string[] } | null>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
 
 	const { tableCols } = useTableCols({ tableName });
@@ -39,6 +41,15 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 		if (!q) return orderedColumns;
 		return orderedColumns.filter((name) => name.toLowerCase().includes(q));
 	}, [orderedColumns, search]);
+
+	const rows = drag?.order ?? filtered;
+
+	const commitDrag = () => {
+		if (!drag) return;
+		const index = drag.order.indexOf(drag.name);
+		if (index > 0) reorderColumn(drag.name, drag.order[index - 1], "after");
+		else if (drag.order.length > 1) reorderColumn(drag.name, drag.order[1], "before");
+	};
 
 	const visibleSet = useMemo(() => new Set(visibleColumns), [visibleColumns]);
 	const totalCount = tableCols?.length ?? 0;
@@ -71,53 +82,64 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 					searchRef.current?.focus();
 				}}
 			>
-				<div
-					className="flex items-center justify-between px-2 py-1.5 text-sm font-medium"
-					role="heading"
-					aria-level={2}
-				>
-					<span>Columns</span>
-					<span className="text-xs font-normal text-muted-foreground">
-						{visibleColumns.length}/{totalCount} shown
+				<div className="flex items-center gap-2 p-2">
+					<div className="relative flex-1">
+						<Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+						<input
+							ref={searchRef}
+							type="text"
+							placeholder="Search columns..."
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							className="w-full h-8 pl-7 pr-2 text-sm bg-transparent rounded-md border border-border focus:outline-none focus:ring-1 focus:ring-ring"
+							aria-label="Search columns"
+						/>
+					</div>
+					<span
+						className="text-xs text-muted-foreground tabular-nums whitespace-nowrap"
+						title={`${visibleColumns.length} of ${totalCount} columns shown`}
+					>
+						{visibleColumns.length}/{totalCount}
 					</span>
-				</div>
-				<div className="relative px-2 pb-2">
-					<Search className="absolute left-4 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-					<input
-						ref={searchRef}
-						type="text"
-						placeholder="Search columns..."
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						className="w-full h-8 pl-7 pr-2 text-sm bg-transparent rounded-md border border-border focus:outline-none focus:ring-1 focus:ring-ring"
-						aria-label="Search columns"
-					/>
 				</div>
 				<Separator className="my-0" />
 				<div
 					className="max-h-72 overflow-y-auto py-1"
 					role="list"
 					aria-label="Database columns"
+					onDragOver={(e) => {
+						if (!drag) return;
+						e.preventDefault();
+						e.dataTransfer.dropEffect = "move";
+					}}
+					onDrop={(e) => {
+						e.preventDefault();
+						commitDrag();
+					}}
 				>
-					{filtered.map((name, i) => {
+					{rows.map((name, i) => {
 						const isVisible = visibleSet.has(name);
 						return (
 							<div
 								key={name}
 								role="listitem"
 								draggable
-								onDragStart={() => setDragIndex(i)}
-								onDragEnd={() => setDragIndex(null)}
-								onDragOver={(e) => e.preventDefault()}
-								onDrop={() => {
-									if (dragIndex !== null && dragIndex !== i) {
-										reorderColumn(filtered[dragIndex], filtered[i]);
-									}
-									setDragIndex(null);
+								onDragStart={(e) => {
+									e.dataTransfer.effectAllowed = "move";
+									e.dataTransfer.setData("text/plain", name);
+									setDrag({ name, order: filtered });
 								}}
+								onDragEnter={() =>
+									setDrag((d) =>
+										d && d.name !== name
+											? { ...d, order: reorderColumns(d.order, d.name, name) }
+											: d,
+									)
+								}
+								onDragEnd={() => setDrag(null)}
 								className={cn(
 									"group flex items-center gap-1.5 px-2 py-1 rounded-md",
-									dragIndex === i && "opacity-40",
+									drag?.name === name && "bg-muted text-muted-foreground",
 								)}
 							>
 								<span
@@ -166,7 +188,7 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 									<button
 										type="button"
 										tabIndex={0}
-										disabled={i === filtered.length - 1}
+										disabled={i === rows.length - 1}
 										aria-label={`Move ${name} down`}
 										className="text-muted-foreground/70 hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
 										onClick={() => moveColumn(name, 1, filtered)}

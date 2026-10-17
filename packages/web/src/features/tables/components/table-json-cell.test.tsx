@@ -54,10 +54,10 @@ describe("TableJsonCell", () => {
 		expect(getUpdate()).toBeNull();
 	});
 
-	it("records the parsed value when saving an edited value", () => {
+	it("records the parsed value when saving an edited value", async () => {
 		renderJsonCell();
 
-		fireEvent.change(screen.getByLabelText("json editor"), {
+		fireEvent.change(await screen.findByLabelText("json editor"), {
 			target: { value: '{"status": 404}' },
 		});
 		fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -65,10 +65,10 @@ describe("TableJsonCell", () => {
 		expect(getUpdate()?.newValue).toEqual({ status: 404 });
 	});
 
-	it("blocks saving invalid JSON and explains why", () => {
+	it("blocks saving invalid JSON and explains why", async () => {
 		renderJsonCell();
 
-		fireEvent.change(screen.getByLabelText("json editor"), {
+		fireEvent.change(await screen.findByLabelText("json editor"), {
 			target: { value: "{oops" },
 		});
 

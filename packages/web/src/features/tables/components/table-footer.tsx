@@ -27,7 +27,7 @@ export const TableFooter = ({
 	const [limit, setLimit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
-	const { tableData } = useTableData({ tableName });
+	const { tableData, prefetchPage } = useTableData({ tableName });
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
@@ -61,6 +61,14 @@ export const TableFooter = ({
 		}
 	};
 
+	const prefetchPrevPage = () => {
+		if (tableData?.meta?.prevCursor) prefetchPage(tableData.meta.prevCursor, "desc");
+	};
+
+	const prefetchNextPage = () => {
+		if (tableData?.meta?.nextCursor) prefetchPage(tableData.meta.nextCursor, "asc");
+	};
+
 	const handleFirstPage = () => {
 		// Reset to first page by clearing cursor
 		setCursor(null);
@@ -92,7 +100,7 @@ export const TableFooter = ({
 								inputRef.current?.blur();
 							}
 						}}
-						className="w-10 h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+						className="w-12 min-w-8 px-1 field-sizing-content supports-[field-sizing:content]:w-auto h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					/>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -129,7 +137,11 @@ export const TableFooter = ({
 					aria-live="polite"
 				>
 					Showing <span className="text-foreground font-medium">{dataLength}</span> of{" "}
-					<span className="text-foreground font-medium">{totalRows}</span> {itemLabel}
+					<span className="text-foreground font-medium">
+						{tableData?.meta?.totalEstimated && "~"}
+						{totalRows}
+					</span>{" "}
+					{itemLabel}
 				</p>
 			</div>
 
@@ -153,6 +165,8 @@ export const TableFooter = ({
 								variant="ghost"
 								className="size-6 disabled:opacity-30"
 								onClick={handlePrevPage}
+								onPointerEnter={prefetchPrevPage}
+								onFocus={prefetchPrevPage}
 								disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 								aria-label="Go to previous page"
 							>
@@ -165,6 +179,8 @@ export const TableFooter = ({
 								variant="ghost"
 								className="size-6 disabled:opacity-30"
 								onClick={handleNextPage}
+								onPointerEnter={prefetchNextPage}
+								onFocus={prefetchNextPage}
 								disabled={!tableData?.meta?.hasNextPage || totalRows === 0}
 								aria-label="Go to next page"
 							>

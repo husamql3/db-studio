@@ -1,5 +1,6 @@
+import { homedir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
 	databaseTypeForRequest,
@@ -77,6 +78,26 @@ describe("observability privacy boundary", () => {
 			},
 			fingerprint: ["get_tables", "503", "DatabaseError", "42P01"],
 		});
+	});
+
+	it("strips the home directory, and the account name in it, from reported stack paths", () => {
+		// npx installs under the home directory, so every frame named the account
+		// (/Users/<name>/.npm/_npx/…) in DB-STUDIO-SERVER-C and -E.
+		const error = new Error("timeout expired");
+		error.stack = [
+			"Error: timeout expired",
+			`    at getDatabaseConnectionInfo (${homedir()}/.npm/_npx/abc/node_modules/db-studio/dist/index.js:328:368)`,
+			"    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+		].join("\n");
+
+		captureServerError(error, { operation: "get_databases", status: 503, dbType: "pg" });
+
+		const [reportedError] = sentry.captureException.mock.calls[0];
+		expect(reportedError.stack).not.toContain(homedir());
+		expect(reportedError.stack).toContain(
+			"at getDatabaseConnectionInfo (~/.npm/_npx/abc/node_modules/db-studio/dist/index.js:328:368)",
+		);
+		expect(reportedError.stack).toContain("node:internal/process/task_queues:104:5");
 	});
 
 	it("does not report expected client errors", () => {

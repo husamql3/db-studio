@@ -137,40 +137,26 @@ npm run db:studio -- --var-name STAGING_DB_URL
 
 ### From Prisma Studio
 
-Replace this:
+Update your scripts:
 
-```json title="package.json"
-"scripts": {
-  "studio": "npx prisma studio"
-}
-```
-
-With this:
-
-```json title="package.json"
-"scripts": {
-  "db:studio": "npx db-studio"
-}
+```diff title="package.json"
+ "scripts": {
+-  "studio": "npx prisma studio"
++  "db:studio": "npx db-studio"
+ }
 ```
 
 db-studio uses the same `DATABASE_URL` from your `.env` file. No extra config needed!
 
 ### From Drizzle Studio
 
-Replace this:
+Update your scripts:
 
-```json title="package.json"
-"scripts": {
-  "db:studio": "npx drizzle-kit studio"
-}
-```
-
-With this:
-
-```json title="package.json"
-"scripts": {
-  "db:studio": "npx db-studio"
-}
+```diff title="package.json"
+ "scripts": {
+-  "db:studio": "npx drizzle-kit studio"
++  "db:studio": "npx db-studio"
+ }
 ```
 
 Works the same way - just uses your existing `DATABASE_URL`.

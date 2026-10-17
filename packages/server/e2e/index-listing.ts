@@ -23,11 +23,16 @@ const evidence: Record<string, unknown> = {};
 const listSchema = z.object({ data: z.array(indexInfoSchema) });
 
 const query = async (sql: string) => {
-	const response = await app.request(`/api/${engine}/query?db=${encodeURIComponent(db)}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ query: sql }),
-	});
+	const response = await app.handle(
+		new Request(
+			new URL(`/api/${engine}/query?db=${encodeURIComponent(db)}`, "http://localhost"),
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ query: sql }),
+			},
+		),
+	);
 	assert.equal(response.status, 200, await response.text());
 };
 
@@ -49,8 +54,13 @@ try {
 		await query(`CREATE INDEX e2e_line_comment ON ${table} (a -- comma, ) here\n, abs(b))`);
 		await query(`CREATE INDEX e2e_quoted_marker ON ${table} (a, instr('it''s /* , ) --', b))`);
 	}
-	const response = await app.request(
-		`/api/${engine}/tables/${table}/indexes?db=${encodeURIComponent(db)}`,
+	const response = await app.handle(
+		new Request(
+			new URL(
+				`/api/${engine}/tables/${table}/indexes?db=${encodeURIComponent(db)}`,
+				"http://localhost",
+			),
+		),
 	);
 	assert.equal(response.status, 200);
 	const indexes = listSchema.parse(await response.json()).data;
@@ -61,9 +71,14 @@ try {
 		assert.deepEqual(columns("e2e_covering"), ["b"]);
 	} else if (engine === "mysql") {
 		for (const indexName of ["PRIMARY", "e2e_unique_key", "e2e_unique_index"]) {
-			const drop = await app.request(
-				`/api/${engine}/tables/${table}/indexes/${indexName}?db=${encodeURIComponent(db)}`,
-				{ method: "DELETE" },
+			const drop = await app.handle(
+				new Request(
+					new URL(
+						`/api/${engine}/tables/${table}/indexes/${indexName}?db=${encodeURIComponent(db)}`,
+						"http://localhost",
+					),
+					{ method: "DELETE" },
+				),
 			);
 			evidence[`drop_${indexName}`] = drop.status;
 			assert.equal(drop.status, 400, `${indexName} must be protected`);
@@ -72,17 +87,27 @@ try {
 				indexName === "PRIMARY" ? "primary" : "unique-constraint",
 			);
 		}
-		const drop = await app.request(
-			`/api/${engine}/tables/${table}/indexes/e2e_ordinary?db=${encodeURIComponent(db)}`,
-			{ method: "DELETE" },
+		const drop = await app.handle(
+			new Request(
+				new URL(
+					`/api/${engine}/tables/${table}/indexes/e2e_ordinary?db=${encodeURIComponent(db)}`,
+					"http://localhost",
+				),
+				{ method: "DELETE" },
+			),
 		);
 		assert.equal(drop.status, 200);
 		await query(`INSERT INTO ${table} VALUES (1, 7)`);
-		const duplicate = await app.request(`/api/${engine}/query?db=${encodeURIComponent(db)}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ query: `INSERT INTO ${table} VALUES (2, 7)` }),
-		});
+		const duplicate = await app.handle(
+			new Request(
+				new URL(`/api/${engine}/query?db=${encodeURIComponent(db)}`, "http://localhost"),
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ query: `INSERT INTO ${table} VALUES (2, 7)` }),
+				},
+			),
+		);
 		assert.ok(duplicate.status >= 400, "uniqueness must still be enforced");
 		evidence.uniquenessPreserved = true;
 		evidence.ordinaryDropStatus = drop.status;

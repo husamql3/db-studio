@@ -13,11 +13,13 @@ const rowsSchema = z.object({
 const evidence: Record<string, unknown> = {};
 
 const request = async (resource: string, body: unknown) => {
-	const response = await app.request(`/api/duckdb/${resource}?db=memory`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(body),
-	});
+	const response = await app.handle(
+		new Request(new URL(`/api/duckdb/${resource}?db=memory`, "http://localhost"), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		}),
+	);
 	const result: unknown = await response.json();
 	return { status: response.status, body: result };
 };

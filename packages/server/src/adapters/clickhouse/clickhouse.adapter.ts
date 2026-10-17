@@ -28,10 +28,10 @@ import {
 	standardizeClickhouseDataTypeLabel,
 	unwrapClickhouseType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getClickhouseClient } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildClickhouseColumnDefinition,
@@ -531,7 +531,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 		const start = performance.now();
 		try {
-			const client = getClickhouseClient(db);
+			const client = await getClickhouseClient(db);
 			const firstKeyword = cleaned
 				.replace(/^(\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/))*/, "")
 				.match(/^\s*(\w+)/)?.[1]
@@ -580,7 +580,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		query: string,
 		queryParams: Params = {},
 	): Promise<T[]> {
-		const result = await getClickhouseClient(db).query({
+		const result = await (await getClickhouseClient(db)).query({
 			query,
 			query_params: queryParams,
 			format: "JSONEachRow",
@@ -594,7 +594,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		queryParams: Params = {},
 		settings: Record<string, string> = {},
 	): Promise<void> {
-		await getClickhouseClient(db).command({
+		await (await getClickhouseClient(db)).command({
 			query,
 			query_params: queryParams,
 			clickhouse_settings: settings,
@@ -679,7 +679,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 					}),
 				),
 			);
-			await getClickhouseClient(db).insert({
+			await (await getClickhouseClient(db)).insert({
 				table: q(tableName),
 				values,
 				format: "JSONEachRow",

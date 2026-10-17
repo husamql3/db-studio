@@ -1,17 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { Elysia } from "elysia";
+import { HTTPException } from "@/http-exception.js";
 import { z } from "zod";
 import { DatabaseError } from "pg";
 
+import { loadDriver } from "@/drivers.js";
 import { handleError } from "@/middlewares/error-handler.js";
 
+const createApp = () => new Elysia().onError(({ error, request }) => handleError(error, request));
+
 describe("Error Handler Middleware", () => {
-	let app: Hono;
+	let app: ReturnType<typeof createApp>;
+
+	// A PostgreSQL error only exists once a connection has loaded pg.
+	beforeAll(() => loadDriver("pg"));
 
 	beforeEach(() => {
-		app = new Hono();
-		app.onError(handleError);
+		app = createApp();
 	});
 
 	describe("ZodError handling", () => {
@@ -22,7 +27,7 @@ describe("Error Handler Middleware", () => {
 				schema.parse({ name: "" });
 			});
 
-			const res = await app.request("/test");
+			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
 
 			expect(res.status).toBe(400);
 			const json = await res.json();
@@ -37,7 +42,7 @@ describe("Error Handler Middleware", () => {
 				throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
 			});
 
-			const res = await app.request("/test");
+			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -52,7 +57,7 @@ describe("Error Handler Middleware", () => {
 				throw dbError;
 			});
 
-			const res = await app.request("/test");
+			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
@@ -66,7 +71,7 @@ describe("Error Handler Middleware", () => {
 				throw dbError;
 			});
 
-			const res = await app.request("/test");
+			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
 
 			expect(res.status).toBe(500);
 			const json = await res.json();
@@ -103,7 +108,7 @@ describe("Error Handler Middleware", () => {
 				throw new Error("Test error for logging");
 			});
 
-			await app.request("/test");
+			await app.handle(new Request(new URL("/test", "http://localhost")));
 			stderr.restore();
 
 			const entry = findLog(stderr.lines, "request_failed");
@@ -119,7 +124,7 @@ describe("Error Handler Middleware", () => {
 				throw new HTTPException(404, { message: "Not found" });
 			});
 
-			await app.request("/test");
+			await app.handle(new Request(new URL("/test", "http://localhost")));
 			stderr.restore();
 
 			expect(findLog(stderr.lines, "request_failed")).toMatchObject({
@@ -136,7 +141,7 @@ describe("Error Handler Middleware", () => {
 				throw new Error("connection to user@secret-host failed");
 			});
 
-			await app.request("/test");
+			await app.handle(new Request(new URL("/test", "http://localhost")));
 			stderr.restore();
 
 			expect(stderr.lines.join("")).not.toContain("secret-host");
