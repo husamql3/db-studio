@@ -15,13 +15,13 @@ const cellFor = (row: TableRecord) =>
 
 const table = { options: { meta: {} } } as unknown as Table<TableRecord>;
 
-const numberCell = (row: TableRecord) => (
+const numberCell = (row: TableRecord, isEditing = false) => (
 	<TableNumberCell
 		cell={cellFor(row)}
 		table={table}
 		rowIndex={0}
 		columnId="qty"
-		isEditing={false}
+		isEditing={isEditing}
 		isFocused={false}
 		isSelected={false}
 	/>
@@ -37,15 +37,17 @@ describe("TableNumberCell", () => {
 
 		rerender(numberCell({ id: 1, qty: 42 }));
 
-		expect(screen.getByRole("spinbutton")).toHaveValue(42);
+		expect(screen.getByRole("button")).toHaveTextContent("42");
 	});
 
 	it("keeps an unsaved edit when the row is refetched", () => {
-		const { rerender } = render(numberCell({ id: 1, qty: 8 }));
+		const { rerender } = render(numberCell({ id: 1, qty: 8 }, true));
 		fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "15" } });
 
-		rerender(numberCell({ id: 1, qty: 42 }));
-
+		rerender(numberCell({ id: 1, qty: 42 }, true));
 		expect(screen.getByRole("spinbutton")).toHaveValue(15);
+
+		rerender(numberCell({ id: 1, qty: 42 }));
+		expect(screen.getByRole("button")).toHaveTextContent("15");
 	});
 });

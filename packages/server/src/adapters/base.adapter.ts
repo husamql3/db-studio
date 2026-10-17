@@ -28,9 +28,15 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { DatabaseError } from "pg";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
+import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
+
+/**
+ * Tables the database estimates at this many rows or more report their estimate instead of an
+ * exact count, in the table list and as an unfiltered page total: counting reads the whole table.
+ */
+export const EXACT_COUNT_LIMIT = 50_000;
 
 /** One record's pending updates, addressed by every one of its key columns. */
 export interface RecordUpdateGroup {
@@ -159,7 +165,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				) ||
 				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
 				e.message === "Timeout error." || // @clickhouse/client request timeout
-				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
+				(isPgDatabaseError(e) && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {
 				return new HTTPException(503, { message: e.message, cause: e });
@@ -289,18 +295,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 			const { db, limit = 50, direction = "asc" } = params;
 			const bundle = this.buildTableDataQuery(params);
 
-			// Total count with active filters only (no cursor)
-			const countRes = await this.runQuery<Record<string, unknown>[]>(
-				db,
-				bundle.countSql,
-				bundle.countValues,
-			);
+			// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
+			// next page exists) are independent, so a page costs the slower query, not both.
+			const [countRes, pageRows] = await Promise.all([
+				this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
+				this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
+			]);
 			const total = Number(countRes[0]?.total ?? 0);
 
-			// Fetch limit+1 rows to determine whether a next page exists
-			let rawRows = await this.runQuery<unknown[]>(db, bundle.sql, bundle.values);
-			const hasMore = rawRows.length > limit;
-			if (hasMore) rawRows = rawRows.slice(0, limit);
+			const hasMore = pageRows.length > limit;
+			const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
 
 			let rows = this.normalizeRows(rawRows);
 			if (direction === "desc") rows = rows.reverse();

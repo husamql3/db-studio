@@ -1,7 +1,7 @@
 import type { ApiError } from "@db-studio/shared/types/api-response.types.js";
 import { NotFoundError, ParseError, ValidationError } from "elysia";
-import { DatabaseError } from "pg";
 import { ZodError } from "zod";
+import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
@@ -31,7 +31,7 @@ const isConnectionError = (e: Error): boolean => {
 		e.message.includes("Connection terminated") ||
 		e.message.includes("MongoNetworkError") ||
 		e.message.includes("MongoServerSelectionError") ||
-		(e instanceof DatabaseError && e.code?.startsWith("08") === true)
+		(isPgDatabaseError(e) && e.code?.startsWith("08") === true)
 	);
 };
 

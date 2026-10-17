@@ -33,6 +33,8 @@
 	--sidebar-accent-foreground: oklch(0.97 0.014 254.604);
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
+	--scrollbar-thumb: oklch(0 0 0 / 15%);
+	--scrollbar-thumb-hover: oklch(0 0 0 / 25%);
 }
 
 .dark {
@@ -67,6 +69,8 @@
 	--sidebar-accent-foreground: oklch(0.97 0.014 254.604);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.552 0.016 285.938);
+	--scrollbar-thumb: oklch(1 0 0 / 12%);
+	--scrollbar-thumb-hover: oklch(1 0 0 / 20%);
 }
 
 @theme inline {

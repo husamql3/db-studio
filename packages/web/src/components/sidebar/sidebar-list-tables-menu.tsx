@@ -33,8 +33,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useSchemaEditStore } from "@/features/schema";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
 import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
+import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const SidebarListTablesMenu = ({
@@ -52,6 +54,8 @@ export const SidebarListTablesMenu = ({
 	const { deleteTable, forceDeleteTable, isDeletingTable } = useDeleteTable();
 	const { renameTable, isRenamingTable } = useRenameTable({ tableName, schemaName });
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
+	const { setEditingTable } = useSchemaEditStore();
+	const isSchemaless = useIsSchemaless();
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
@@ -158,17 +162,17 @@ export const SidebarListTablesMenu = ({
 							<Type className="size-4" />
 							Rename table
 						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() =>
-								navigate({
-									to: "/schema/$table",
-									params: { table: tableName },
-								})
-							}
-						>
-							<Pencil className="size-4" />
-							Edit table
-						</DropdownMenuItem>
+						{!isSchemaless && (
+							<DropdownMenuItem
+								onClick={() => {
+									setEditingTable(tableName);
+									openOverlay("schema.edit-table");
+								}}
+							>
+								<Pencil className="size-4" />
+								Edit table
+							</DropdownMenuItem>
+						)}
 						<DropdownMenuSub>
 							<DropdownMenuSubTrigger>
 								<Download className="size-4" />

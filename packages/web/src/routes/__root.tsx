@@ -68,7 +68,7 @@ export const Route = createRootRoute({
 			const noticeKey = "db-studio-telemetry-notice-shown";
 			void initPosthog().then((telemetry) => {
 				if (!telemetry?.enabled) return;
-				initSentry();
+				void initSentry();
 				if (!localStorage.getItem(noticeKey)) {
 					localStorage.setItem(noticeKey, "1");
 					toast.info("Anonymous usage and reliability data helps improve DB Studio.", {

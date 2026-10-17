@@ -6,7 +6,7 @@ import axios, {
 	type InternalAxiosRequestConfig,
 } from "axios";
 import { logger } from "@/lib/logger";
-import { Sentry } from "@/lib/sentry";
+import { sentry } from "@/lib/sentry";
 
 /** `crypto.randomUUID` only exists on secure origins; db-studio is also served over plain LAN HTTP. */
 const newRequestId = (): string =>
@@ -29,7 +29,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 				startTime: performance.now(),
 			};
 			logger.request(config);
-			Sentry.addBreadcrumb({
+			sentry?.addBreadcrumb({
 				category: "db_studio.http",
 				data: {
 					operation: apiOperationForRequest(config.method, config.url),
@@ -88,7 +88,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 					const frames = error.stack.split("\n").slice(1).filter(isStackFrame);
 					reportedError.stack = [`AxiosError: ${reportedMessage}`, ...frames].join("\n");
 				}
-				Sentry.captureException(reportedError, {
+				sentry?.captureException(reportedError, {
 					tags: {
 						source: "client",
 						error_kind: "network",

@@ -30,6 +30,33 @@ DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio sh e2e/http-
 It writes `e2e/artifacts/http-surface-<label>.json`. Two runs against the same server produce the
 same file, so diff the files from the two versions.
 
+## Stop the server
+
+Starts the built CLI, sends Ctrl+C (SIGINT) and then SIGTERM while a one-second query is in
+flight, and checks that the query is answered and the process exits within 5 s with code 0.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/shutdown.ts
+```
+
+Writes `e2e/artifacts/shutdown-<build>.json`; pass a snapshot name from `e2e/artifacts/builds/` to
+check another build.
+
+## MySQL and SQL Server row estimates
+
+Creates a 100,000-row table, a 100-row table and a table emptied after the database reported its
+size, then checks the table list and page totals: the large table reports the database's
+estimate, the others and every filtered total an exact count.
+
+```bash
+cd packages/server
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/row-estimates.ts
+DATABASE_URL='mssql://sa:DbStudio1!@127.0.0.1:1433/dbstudio' bunx tsx e2e/row-estimates.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/row-estimates-<mysql|mssql>.json`.
+
 ## Run the Oracle review probe
 
 The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp

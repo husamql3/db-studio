@@ -8,11 +8,13 @@ import { TableFooter } from "./table-footer";
 export const TableGrid = ({
 	table,
 	tableName,
+	pageKey,
 	selectedRows,
 	setRowSelection,
 }: {
 	table: Table<TableRecord>;
 	tableName: string;
+	pageKey: string;
 	selectedRows: Row<TableRecord>[];
 	setRowSelection: OnChangeFn<RowSelectionState>;
 }) => (
@@ -25,6 +27,7 @@ export const TableGrid = ({
 		<TableContainer
 			table={table}
 			tableName={tableName}
+			pageKey={pageKey}
 		/>
 		<TableFooter tableName={tableName} />
 	</div>

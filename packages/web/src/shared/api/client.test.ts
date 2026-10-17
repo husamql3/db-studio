@@ -7,7 +7,7 @@ const sentry = vi.hoisted(() => ({
 	captureException: vi.fn(),
 }));
 
-vi.mock("@/lib/sentry", () => ({ Sentry: sentry }));
+vi.mock("@/lib/sentry", () => ({ sentry }));
 vi.mock("@/lib/logger", () => ({
 	logger: { request: vi.fn(), response: vi.fn(), error: vi.fn() },
 }));

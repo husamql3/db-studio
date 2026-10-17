@@ -183,14 +183,12 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 						tabIndex={0}
 						onMouseDown={handleMouseDown}
 						className={cn(
-							"absolute top-0 right-0 w-2 h-full cursor-col-resize z-50",
-							"hover:bg-blue-500/50 transition-colors group",
+							"absolute inset-y-0 -right-1.5 w-3 cursor-col-resize z-50 outline-none",
+							"after:absolute after:inset-y-0 after:left-1/2 after:w-px after:transition-colors",
+							"hover:after:bg-blue-400/70 active:after:bg-blue-400/70 focus-visible:after:bg-blue-400/70",
 						)}
-						title="Drag to resize"
-					>
-						{/* Visual indicator on hover */}
-						<div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-12 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-full" />
-					</div>
+						title="Drag to resize sidebar"
+					/>
 				</div>
 			</SheetContent>
 		</Sheet>
