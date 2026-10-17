@@ -100,7 +100,7 @@ export const TableFooter = ({
 								inputRef.current?.blur();
 							}
 						}}
-						className="w-10 h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+						className="w-12 min-w-8 px-1 field-sizing-content supports-[field-sizing:content]:w-auto h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					/>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
