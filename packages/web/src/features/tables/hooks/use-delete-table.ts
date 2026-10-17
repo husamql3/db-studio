@@ -1,4 +1,4 @@
-import type { DeleteTableResult, RelatedRecord } from "@db-studio/shared/types";
+import type { DeleteTableResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { deleteTable as deleteTableRequest } from "@/shared/api";
@@ -66,5 +66,3 @@ export const useDeleteTable = () => {
 		resetDeleteResult,
 	};
 };
-
-export type { RelatedRecord };

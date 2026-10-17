@@ -1,6 +1,5 @@
 import { intro, log, outro, spinner } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
-import { serve } from "@hono/node-server";
 import color from "picocolors";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
@@ -64,7 +63,9 @@ export const main = async () => {
 	// This ensures the db pool is initialized with the correct connection string
 	process.env.DATABASE_URL = DATABASE_URL;
 
-	const { initServerObservability } = await import("@/observability.js");
+	const { flushServerObservability, initServerObservability } = await import(
+		"@/observability.js"
+	);
 	initServerObservability();
 
 	// Import database modules dynamically after setting DATABASE_URL.
@@ -83,12 +84,24 @@ export const main = async () => {
 	}
 
 	const { createServer } = await import("./utils/create-server.js");
+	const { closeAllDbPools } = await import("@/db-manager.js");
 	const { app } = createServer();
-	serve({
-		fetch: app.fetch,
-		hostname: HOST,
-		port: PORT,
-	});
+
+	// Ctrl+C or SIGTERM: let open requests finish, then close the database connections, whose
+	// idle timeout would otherwise keep the process alive for 30 s. Registered before listen()
+	// so it runs before srvx's own handler, which would stop the server without waiting.
+	const stop = async () => {
+		const deadline = new Promise((resolve) => setTimeout(resolve, 5_000));
+		await Promise.race([app.server?.stop(), deadline]);
+		await Promise.race([
+			Promise.allSettled([closeAllDbPools(), flushServerObservability()]),
+			deadline,
+		]);
+		process.exit(0);
+	};
+	process.once("SIGINT", stop);
+	process.once("SIGTERM", stop);
+	app.listen({ hostname: HOST, port: PORT });
 
 	const serverUrl =
 		process.env.DB_STUDIO_SERVER_URL ?? process.env.PORTLESS_URL ?? `http://localhost:${PORT}`;

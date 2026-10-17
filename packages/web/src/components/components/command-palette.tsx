@@ -38,8 +38,8 @@ import {
 	Upload,
 } from "lucide-react";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile, useTablesList } from "@/features/tables";
-import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";
@@ -164,6 +164,7 @@ export function CommandPalette() {
 									<div className="flex flex-1 items-center justify-between">
 										<span className="font-medium">{table.tableName}</span>
 										<span className="text-xs text-muted-foreground">
+											{table.rowCountEstimated && "~"}
 											{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
 										</span>
 									</div>
@@ -641,6 +642,7 @@ export function CommandPalette() {
 												<div className="flex flex-col">
 													<span>{table.tableName}</span>
 													<span className="text-xs text-muted-foreground">
+														{table.rowCountEstimated && "~"}
 														{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
 													</span>
 												</div>

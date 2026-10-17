@@ -10,7 +10,7 @@ on:
       - main
 
 jobs:
-  format:
+  check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -32,42 +32,18 @@ jobs:
       - name: Build project
         run: bun run build
 
-      - name: Run Biome checks
-        run: bun run format
+      - parallel:
+          - name: Biome checks
+            run: bunx biome ci .
 
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
+          - name: Type check
+            run: bun run typecheck
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+          - name: Knip
+            run: bun run knip
 
-      - name: Install dependencies
-        run: bun install --ignore-scripts
+          - name: Web tests
+            run: bun run test --filter=@db-studio/web
 
-      - name: Type check
-        run: bun run typecheck
-
-  test-server:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --ignore-scripts
-
-      - name: Run Web Tests
-        run: bun run test --filter=@db-studio/web
-
-      - name: Run Server Tests with Coverage
-        run: bun run --cwd packages/server test:coverage
+          - name: Server tests with coverage
+            run: bun run --cwd packages/server test:coverage

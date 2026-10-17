@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 import type { DataTypes } from "@db-studio/shared/types";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";

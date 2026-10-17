@@ -39,7 +39,7 @@ export const addTableSchema = z.object({
 	}, z.array(foreignKeySchema).optional()),
 });
 
-export type FieldData = z.infer<typeof fieldSchema>;
+type FieldData = z.infer<typeof fieldSchema>;
 export type AddTableFormData = z.infer<typeof addTableSchema>;
 export type ForeignKeyData = z.infer<typeof foreignKeySchema>;
 

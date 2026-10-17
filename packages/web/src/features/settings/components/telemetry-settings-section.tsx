@@ -9,7 +9,7 @@ import {
 	resetTelemetryIdentifier,
 	setTelemetryPreference,
 } from "@/lib/posthog";
-import { initSentry, Sentry } from "@/lib/sentry";
+import { initSentry, sentry } from "@/lib/sentry";
 
 export const TelemetrySettingsSection = () => {
 	const [enabled, setEnabled] = useState(getTelemetryConfig()?.enabled ?? false);
@@ -24,8 +24,8 @@ export const TelemetrySettingsSection = () => {
 		try {
 			const value = await setTelemetryPreference(nextEnabled);
 			setEnabled(value.enabled);
-			if (value.enabled) initSentry();
-			else await Sentry.close(500);
+			if (value.enabled) await initSentry();
+			else await sentry?.close(500);
 			toast.success(value.enabled ? "Analytics enabled" : "Analytics disabled");
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Could not update analytics");

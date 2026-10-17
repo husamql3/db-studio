@@ -47,11 +47,11 @@ describe("Tables Routes", () => {
 
 	describe("POST /pg/tables", () => {
 		it("should return 400 when fields array is empty", async () => {
-			const res = await app.request("/api/pg/tables?db=testdb", {
+			const res = await app.handle(new Request(new URL("/api/pg/tables?db=testdb", "http://localhost"), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableName: "empty_fields_table", fields: [] }),
-			});
+			}));
 
 			expect(res.status).toBe(400);
 			expect(mockDao.createTable).not.toHaveBeenCalled();
@@ -75,11 +75,11 @@ describe("Tables Routes", () => {
 				],
 			};
 
-			const res = await app.request("/api/pg/tables?db=testdb", {
+			const res = await app.handle(new Request(new URL("/api/pg/tables?db=testdb", "http://localhost"), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
-			});
+			}));
 
 			expect(res.status).toBe(400);
 			expect(mockDao.createTable).not.toHaveBeenCalled();
@@ -88,14 +88,14 @@ describe("Tables Routes", () => {
 
 	describe("GET /pg/tables/:tableName/data", () => {
 		it("should return 400 for invalid direction parameter", async () => {
-			const res = await app.request("/api/pg/tables/users/data?db=testdb&direction=invalid");
+			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&direction=invalid", "http://localhost")));
 
 			expect(res.status).toBe(400);
 			expect(mockDao.getTableData).not.toHaveBeenCalled();
 		});
 
 		it("should return 400 for invalid order parameter", async () => {
-			const res = await app.request("/api/pg/tables/users/data?db=testdb&order=invalid");
+			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&order=invalid", "http://localhost")));
 
 			expect(res.status).toBe(400);
 			expect(mockDao.getTableData).not.toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe("Tables Routes", () => {
 		it("should handle invalid JSON in filters gracefully", async () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request("/api/pg/tables/users/data?db=testdb&filters=invalid-json");
+			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&filters=invalid-json", "http://localhost")));
 
 			expect(res.status).toBe(200);
 			// Invalid JSON should be parsed as empty array
@@ -116,7 +116,7 @@ describe("Tables Routes", () => {
 		it("should handle invalid JSON in sort gracefully", async () => {
 			mockDao.getTableData.mockResolvedValue(mockDataResponse);
 
-			const res = await app.request("/api/pg/tables/users/data?db=testdb&sort=invalid-json");
+			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&sort=invalid-json", "http://localhost")));
 
 			expect(res.status).toBe(200);
 			// Invalid JSON should be kept as a single-column sort string

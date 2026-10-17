@@ -1,21 +1,15 @@
 import {
 	addRecordSchema,
 	bulkInsertRecordsSchema,
-	type DeleteRecordResult,
 	databaseSchema,
 	deleteRecordSchema,
 	updateRecordsSchema,
 } from "@db-studio/shared/types";
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
-import { getAdapter } from "@/adapters/adapter.registry.js";
-import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { Elysia } from "elysia";
+import { adapterPlugin } from "@/routes/adapter.plugin.js";
 
-export const recordsRoutes = new Hono<RouteEnv>()
-	/**
-	 * Base path for the endpoints, /:dbType/records/...
-	 */
-	.basePath("/records")
+export const recordsRoutes = new Elysia({ prefix: "/records" })
+	.use(adapterPlugin)
 
 	/**
 	 * POST /records
@@ -23,21 +17,13 @@ export const recordsRoutes = new Hono<RouteEnv>()
 	 */
 	.post(
 		"/",
-		zValidator("query", databaseSchema),
-		zValidator("json", addRecordSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const { tableName, data } = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const { insertedCount } = await dao.addRecord({ db, params: { tableName, data } });
-			return c.json(
-				{
-					data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db }, body: { tableName, data } }) => {
+			const { insertedCount } = await adapter.addRecord({ db, params: { tableName, data } });
+			return {
+				data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
+			};
 		},
+		{ query: databaseSchema, body: addRecordSchema },
 	)
 
 	/**
@@ -46,21 +32,11 @@ export const recordsRoutes = new Hono<RouteEnv>()
 	 */
 	.patch(
 		"/",
-		zValidator("query", databaseSchema),
-		zValidator("json", updateRecordsSchema),
-		async (c): ApiHandler<string> => {
-			const { db } = c.req.valid("query");
-			const params = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const { updatedCount } = await dao.updateRecords({ params, db });
-			return c.json(
-				{
-					data: `Updated ${updatedCount} records in "${params.tableName}"`,
-				},
-				200,
-			);
+		async ({ adapter, query: { db }, body }) => {
+			const { updatedCount } = await adapter.updateRecords({ params: body, db });
+			return { data: `Updated ${updatedCount} records in "${body.tableName}"` };
 		},
+		{ query: databaseSchema, body: updateRecordsSchema },
 	)
 
 	/**
@@ -69,41 +45,18 @@ export const recordsRoutes = new Hono<RouteEnv>()
 	 */
 	.delete(
 		"/",
-		zValidator("query", databaseSchema),
-		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<DeleteRecordResult, 409 | 200> => {
-			const { db } = c.req.valid("query");
-			const { tableName, primaryKeys } = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const { deletedCount, fkViolation, relatedRecords } = await dao.deleteRecords({
+		async ({ adapter, query: { db }, body: { tableName, primaryKeys }, status }) => {
+			const { deletedCount, fkViolation, relatedRecords } = await adapter.deleteRecords({
 				tableName,
 				primaryKeys,
 				db,
 			});
 			if (fkViolation) {
-				return c.json(
-					{
-						data: {
-							deletedCount: 0,
-							fkViolation: true,
-							relatedRecords,
-						},
-					},
-					409,
-				);
+				return status(409, { data: { deletedCount: 0, fkViolation: true, relatedRecords } });
 			}
-			return c.json(
-				{
-					data: {
-						deletedCount,
-						fkViolation: false,
-						relatedRecords: [],
-					},
-				},
-				200,
-			);
+			return { data: { deletedCount, fkViolation: false, relatedRecords: [] } };
 		},
+		{ query: databaseSchema, body: deleteRecordSchema },
 	)
 
 	/**
@@ -112,16 +65,10 @@ export const recordsRoutes = new Hono<RouteEnv>()
 	 */
 	.delete(
 		"/force",
-		zValidator("query", databaseSchema),
-		zValidator("json", deleteRecordSchema),
-		async (c): ApiHandler<{ deletedCount: number }> => {
-			const { db } = c.req.valid("query");
-			const { tableName, primaryKeys } = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const deletedCount = await dao.forceDeleteRecords({ tableName, primaryKeys, db });
-			return c.json({ data: deletedCount }, 200);
-		},
+		async ({ adapter, query: { db }, body: { tableName, primaryKeys } }) => ({
+			data: await adapter.forceDeleteRecords({ tableName, primaryKeys, db }),
+		}),
+		{ query: databaseSchema, body: deleteRecordSchema },
 	)
 
 	/**
@@ -130,16 +77,8 @@ export const recordsRoutes = new Hono<RouteEnv>()
 	 */
 	.post(
 		"/bulk",
-		zValidator("query", databaseSchema),
-		zValidator("json", bulkInsertRecordsSchema),
-		async (c): ApiHandler<object> => {
-			const { db } = c.req.valid("query");
-			const { tableName, records } = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const dao = getAdapter(dbType);
-			const result = await dao.bulkInsertRecords({ tableName, records, db });
-			return c.json({ data: result }, 200);
-		},
+		async ({ adapter, query: { db }, body: { tableName, records } }) => ({
+			data: await adapter.bulkInsertRecords({ tableName, records, db }),
+		}),
+		{ query: databaseSchema, body: bulkInsertRecordsSchema },
 	);
-
-export type RecordsRoutes = typeof recordsRoutes;

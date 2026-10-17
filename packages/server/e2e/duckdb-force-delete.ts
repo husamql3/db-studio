@@ -12,25 +12,29 @@ const rowsSchema = z.object({
 });
 
 const query = async (sql: string) => {
-	const response = await app.request("/api/duckdb/query?db=memory", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ query: sql }),
-	});
+	const response = await app.handle(
+		new Request(new URL("/api/duckdb/query?db=memory", "http://localhost"), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ query: sql }),
+		}),
+	);
 	const body: unknown = await response.json();
 	assert.equal(response.status, 200, JSON.stringify(body));
 	return rowsSchema.parse(body).data.rows;
 };
 
 const forceDelete = async (id: number) => {
-	const response = await app.request("/api/duckdb/records/force?db=memory", {
-		method: "DELETE",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			tableName: "dbstudio_force_parent",
-			primaryKeys: [{ columnName: "id", value: id }],
+	const response = await app.handle(
+		new Request(new URL("/api/duckdb/records/force?db=memory", "http://localhost"), {
+			method: "DELETE",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				tableName: "dbstudio_force_parent",
+				primaryKeys: [{ columnName: "id", value: id }],
+			}),
 		}),
-	});
+	);
 	const body: unknown = await response.json();
 	return { status: response.status, body };
 };

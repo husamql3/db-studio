@@ -35,7 +35,6 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
@@ -46,6 +45,7 @@ import {
 	getRedisDefaultDb,
 } from "@/adapters/connections.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
+import { HTTPException } from "@/http-exception.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
 
 // ---------------------------------------------------------------------------

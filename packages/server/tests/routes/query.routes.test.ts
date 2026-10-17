@@ -34,22 +34,22 @@ describe("Query Routes", () => {
 
 	describe("POST /pg/query", () => {
 		it("should return 400 when database query param is missing", async () => {
-			const res = await app.request("/api/pg/query", {
+			const res = await app.handle(new Request(new URL("/api/pg/query", "http://localhost"), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ query: "SELECT * FROM users" }),
-			});
+			}));
 
 			expect(res.status).toBe(400);
 			expect(mockDao.executeQuery).not.toHaveBeenCalled();
 		});
 
 		it("should return 400 when query is missing from body", async () => {
-			const res = await app.request("/api/pg/query?db=testdb", {
+			const res = await app.handle(new Request(new URL("/api/pg/query?db=testdb", "http://localhost"), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({}),
-			});
+			}));
 
 			expect(res.status).toBe(400);
 			expect(mockDao.executeQuery).not.toHaveBeenCalled();

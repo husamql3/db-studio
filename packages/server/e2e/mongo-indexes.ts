@@ -37,13 +37,15 @@ const normalize = (value: unknown, key?: string): unknown => {
 };
 
 const call = async (method: string, path: string, body?: unknown) => {
-	const response = await app.request(
-		`/api/mongodb/tables/${path}?db=${encodeURIComponent(db)}`,
-		{
-			method,
-			headers: { "Content-Type": "application/json" },
-			body: body === undefined ? undefined : JSON.stringify(body),
-		},
+	const response = await app.handle(
+		new Request(
+			new URL(`/api/mongodb/tables/${path}?db=${encodeURIComponent(db)}`, "http://localhost"),
+			{
+				method,
+				headers: { "Content-Type": "application/json" },
+				body: body === undefined ? undefined : JSON.stringify(body),
+			},
+		),
 	);
 	const json: unknown = await response.json();
 	return { status: response.status, json };

@@ -48,10 +48,9 @@ export default defineConfig(({ mode }) => {
       output: {
         // Smarter chunk splitting strategy
         manualChunks(id) {
-          // Monaco editor - large, lazy-loaded anyway
-          if (id.includes('monaco-editor')) {
-            return 'monaco-editor';
-          }
+          // No manual chunks for Monaco, Sentry or PostHog: a manual chunk can receive code the
+          // entry needs (Vite's preload helper landed in Monaco's), and then the entry imports
+          // the whole chunk at startup. Left alone, lazily imported libraries stay lazy.
           // Radix UI primitives - group all radix packages together
           if (id.includes('@radix-ui') || id.includes('node_modules/radix-ui')) {
             return 'radix-ui';
@@ -60,17 +59,18 @@ export default defineConfig(({ mode }) => {
           if (id.includes('lucide-react')) {
             return 'icons';
           }
-          // TanStack libraries (excluding devtools)
-          if (id.includes('@tanstack') && !devtoolsPackages.some(pkg => id.includes(pkg))) {
+          // TanStack libraries (excluding devtools, and the AI packages, which the assistant loads
+          // when it first opens)
+          if (
+            id.includes('@tanstack') &&
+            !id.includes('@tanstack/ai') &&
+            !devtoolsPackages.some(pkg => id.includes(pkg))
+          ) {
             return 'tanstack';
           }
           // React core
           if (id.includes('react-dom')) {
             return 'react-dom';
-          }
-          // Monitoring & analytics
-          if (id.includes('@sentry') || id.includes('posthog')) {
-            return 'monitoring';
           }
         },
       },

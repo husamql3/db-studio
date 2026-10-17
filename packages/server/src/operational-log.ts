@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
+import { HTTPException } from "@/http-exception.js";
 
 type RequestContext = {
 	requestId: string;

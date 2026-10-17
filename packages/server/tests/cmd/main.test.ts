@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 	openBrowser: vi.fn(),
 	shouldOpenBrowser: vi.fn(),
 	createServer: vi.fn(),
-	serve: vi.fn(),
+	listen: vi.fn(),
 	intro: vi.fn(),
 	outro: vi.fn(),
 	log: {
@@ -28,10 +28,6 @@ vi.mock("@clack/prompts", () => ({
 	outro: mocks.outro,
 	log: mocks.log,
 	spinner: mocks.spinner,
-}));
-
-vi.mock("@hono/node-server", () => ({
-	serve: mocks.serve,
 }));
 
 vi.mock("@/cmd/args.js", () => ({
@@ -90,7 +86,7 @@ describe("main configuration resolution", () => {
 		});
 		mocks.checkDatabaseConnection.mockResolvedValue(undefined);
 		mocks.shouldOpenBrowser.mockReturnValue(false);
-		mocks.createServer.mockReturnValue({ app: { fetch: vi.fn() } });
+		mocks.createServer.mockReturnValue({ app: { listen: mocks.listen } });
 	});
 
 	afterEach(() => {
@@ -105,7 +101,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: 8080,
 				hostname: "127.0.0.1",
@@ -126,7 +122,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: 9000,
 			}),
@@ -144,7 +140,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: 7000,
 				hostname: "0.0.0.0",
@@ -157,7 +153,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: DEFAULTS.PORT,
 				hostname: undefined,

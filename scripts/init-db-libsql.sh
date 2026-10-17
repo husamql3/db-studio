@@ -9,10 +9,7 @@ DB_IMAGE="${DB_IMAGE:-ghcr.io/tursodatabase/libsql-server:latest}"
 DATABASE_URL="${DATABASE_URL:-libsql://${DB_HOST}:${DB_PORT}?tls=0}"
 HTTP_URL="http://${DB_HOST}:${DB_PORT}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-libsql] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then

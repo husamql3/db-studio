@@ -27,6 +27,7 @@ const connections = vi.hoisted(() => ({ withDuckdbConnection: vi.fn() }));
 vi.mock("@/adapters/connections.js", () => connections);
 
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
+import { loadDriver } from "@/drivers.js";
 import {
 	buildKeysetPredicate,
 	buildOrderBy,
@@ -40,6 +41,8 @@ const ids = async (sql: string, values: unknown[] = []) =>
 	(await conn.runAndReadAll(sql, values as DuckDBValue[])).getRowObjectsJson().map((r) => Number(r.id));
 
 beforeAll(async () => {
+	// The adapter reads DuckDB's type ids from the driver that db-manager loads.
+	await loadDriver("duckdb");
 	instance = await DuckDBInstance.create(":memory:");
 	conn = await instance.connect();
 	connections.withDuckdbConnection.mockImplementation(

@@ -1,12 +1,19 @@
 import { DEFAULTS, LIMIT } from "@db-studio/shared/constants";
 import { chatSchema } from "@db-studio/shared/types";
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception";
-import type { RouteEnv } from "@/app.types.js";
+import { Elysia } from "elysia";
+import { HTTPException } from "@/http-exception.js";
 import { currentRequestId, errorFields, writeOperationalLog } from "@/operational-log.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 import { getDetailedSchema } from "@/utils/table-details-schema.js";
+
+/** The body is re-framed for the browser, so the upstream framing headers do not apply. */
+const HOP_BY_HOP_HEADERS = new Set([
+	"connection",
+	"keep-alive",
+	"transfer-encoding",
+	"content-length",
+	"content-encoding",
+]);
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -37,16 +44,11 @@ const resolveProxyUrl = (): string => {
 	return url.origin;
 };
 
-export const chatRoutes = new Hono<RouteEnv>()
-	/**
-	 * Base path for the endpoints, /:dbType/chat/...
-	 */
-	.basePath("/chat")
-
+export const chatRoutes = new Elysia({ prefix: "/chat" })
 	/**
 	 * GET /chat/limit - Proxy rate limit check to Cloudflare Worker
 	 */
-	.get("/limit", async (c) => {
+	.get("/limit", async ({ headers }) => {
 		// Outside the try: a misconfigured proxy URL is a server error, not an
 		// exhausted quota, so it must not be masked by the fallback below.
 		const proxyUrl = resolveProxyUrl();
@@ -54,10 +56,10 @@ export const chatRoutes = new Hono<RouteEnv>()
 		try {
 			const proxyResponse = await fetch(`${proxyUrl}/chat/limit`, {
 				headers: {
-					"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
-					"x-real-ip": c.req.header("x-real-ip") ?? "",
-					"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
-					"x-api-key": c.req.header("x-api-key") ?? "",
+					"cf-connecting-ip": headers["cf-connecting-ip"] ?? "",
+					"x-real-ip": headers["x-real-ip"] ?? "",
+					"x-forwarded-for": headers["x-forwarded-for"] ?? "",
+					"x-api-key": headers["x-api-key"] ?? "",
 					"x-request-id": currentRequestId() ?? "",
 				},
 			});
@@ -65,12 +67,12 @@ export const chatRoutes = new Hono<RouteEnv>()
 				writeOperationalLog("warn", "chat_limit_unavailable", {
 					proxy_status: proxyResponse.status,
 				});
-				return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 }, 200);
+				return { limit: LIMIT, used: LIMIT, remaining: 0 };
 			}
-			return c.json(await proxyResponse.json(), 200);
+			return await proxyResponse.json();
 		} catch (error) {
 			writeOperationalLog("warn", "chat_limit_unavailable", errorFields(error));
-			return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 }, 200);
+			return { limit: LIMIT, used: LIMIT, remaining: 0 };
 		}
 	})
 
@@ -78,61 +80,64 @@ export const chatRoutes = new Hono<RouteEnv>()
 	 * POST /chat - Handle AI chat requests with streaming
 	 * Proxies to the Cloudflare Worker which has the Gemini API key
 	 */
-	.post("/", zValidator("json", chatSchema), async (c) => {
-		const { messages, data, provider, model } = c.req.valid("json");
-		const { db, conversationId, includeSchema } = data;
+	.post(
+		"/",
+		async ({ body: { messages, data, provider, model }, headers, set }) => {
+			const { db, conversationId, includeSchema } = data;
 
-		// Get the database schema and generate system prompt
-		const schema = includeSchema ? await getDetailedSchema(db) : null;
-		const systemPrompt = generateSystemPrompt(schema);
+			// Get the database schema and generate system prompt
+			const schema = includeSchema ? await getDetailedSchema(db) : null;
+			const systemPrompt = generateSystemPrompt(schema);
 
-		const payload = {
-			messages,
-			conversationId,
-			systemPrompt,
-			provider,
-			model,
-		};
-
-		// Forward request to the proxy with the system prompt.
-		// Pass through IP headers so the proxy rate-limiter keys on the real user IP.
-		const proxyResponse = await fetch(`${resolveProxyUrl()}/chat`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"cf-connecting-ip": c.req.header("cf-connecting-ip") ?? "",
-				"x-real-ip": c.req.header("x-real-ip") ?? "",
-				"x-forwarded-for": c.req.header("x-forwarded-for") ?? "",
-				"x-api-key": c.req.header("x-api-key") ?? "",
-				"x-byok-gemini": c.req.header("x-byok-gemini") ?? "",
-				"x-byok-openai": c.req.header("x-byok-openai") ?? "",
-				"x-byok-anthropic": c.req.header("x-byok-anthropic") ?? "",
-				"x-byok-grok": c.req.header("x-byok-grok") ?? "",
-				"x-byok-openrouter": c.req.header("x-byok-openrouter") ?? "",
-				"x-request-id": currentRequestId() ?? "",
-			},
-			body: JSON.stringify(payload),
-		});
-
-		if (!proxyResponse.ok) {
-			writeOperationalLog("warn", "chat_proxy_rejected", {
-				proxy_status: proxyResponse.status,
+			const payload = {
+				messages,
+				conversationId,
+				systemPrompt,
 				provider,
 				model,
+			};
+
+			// Forward request to the proxy with the system prompt.
+			// Pass through IP headers so the proxy rate-limiter keys on the real user IP.
+			const proxyResponse = await fetch(`${resolveProxyUrl()}/chat`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"cf-connecting-ip": headers["cf-connecting-ip"] ?? "",
+					"x-real-ip": headers["x-real-ip"] ?? "",
+					"x-forwarded-for": headers["x-forwarded-for"] ?? "",
+					"x-api-key": headers["x-api-key"] ?? "",
+					"x-byok-gemini": headers["x-byok-gemini"] ?? "",
+					"x-byok-openai": headers["x-byok-openai"] ?? "",
+					"x-byok-anthropic": headers["x-byok-anthropic"] ?? "",
+					"x-byok-grok": headers["x-byok-grok"] ?? "",
+					"x-byok-openrouter": headers["x-byok-openrouter"] ?? "",
+					"x-request-id": currentRequestId() ?? "",
+				},
+				body: JSON.stringify(payload),
 			});
-			const errorData = await proxyResponse.json();
-			return c.json(
-				{ error: errorData.error || "Proxy request failed" },
-				proxyResponse.status as 400 | 401 | 500,
-			);
-		}
 
-		// Relay the original stream directly. A detached pipe can reject after this
-		// handler returns, which makes the browser see only a generic body-read error.
-		return new Response(proxyResponse.body, {
-			status: proxyResponse.status,
-			headers: proxyResponse.headers,
-		});
-	});
+			if (!proxyResponse.ok) {
+				writeOperationalLog("warn", "chat_proxy_rejected", {
+					proxy_status: proxyResponse.status,
+					provider,
+					model,
+				});
+				const errorData = await proxyResponse.json();
+				return Response.json(
+					{ error: errorData.error || "Proxy request failed" },
+					{ status: proxyResponse.status },
+				);
+			}
 
-export type ChatRoutes = typeof chatRoutes;
+			// Relay the original stream directly. A detached pipe can reject after this
+			// handler returns, which makes the browser see only a generic body-read error.
+			// The headers go through `set`: Elysia on Node drops the headers of a returned
+			// chunked Response, which would turn the event stream into text/plain.
+			for (const [key, value] of proxyResponse.headers) {
+				if (!HOP_BY_HOP_HEADERS.has(key)) set.headers[key] = value;
+			}
+			return proxyResponse.body;
+		},
+		{ body: chatSchema },
+	);

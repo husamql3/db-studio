@@ -12,7 +12,3 @@ export function getResolvedTheme(theme: Theme): ResolvedTheme {
 	}
 	return theme;
 }
-
-export function isDarkTheme(theme: Theme): boolean {
-	return getResolvedTheme(theme) === "dark";
-}

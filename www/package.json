@@ -37,7 +37,6 @@
     "fumadocs-core": "^16.4.1",
     "fumadocs-mdx": "^15.0.3",
     "fumadocs-ui": "^16.4.1",
-    "lightningcss": "^1.29.1",
     "lucide-react": "^1.8.0",
     "motion": "^13.1.0",
     "react": "^19.2.0",

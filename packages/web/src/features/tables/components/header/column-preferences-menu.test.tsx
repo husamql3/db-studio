@@ -38,7 +38,7 @@ vi.mock("@/stores/database.store", () => ({
 
 const openMenu = async () => {
 	fireEvent.click(screen.getByRole("button", { name: "Manage columns" }));
-	await screen.findByText("Columns");
+	await screen.findByLabelText("Search columns");
 };
 
 beforeEach(() => {
