@@ -151,14 +151,9 @@ export class ApiClient {
 		this.dbType = type;
 		this.api.defaults.baseURL = `${this.resolveBaseUrl()}${DEFAULTS.API_PREFIX}/${type}`;
 	}
-
-	getDbType(): DatabaseTypeSchema | null {
-		return this.dbType;
-	}
 }
 
-export const apiClient = new ApiClient();
+const apiClient = new ApiClient();
 export const rootApi = apiClient.rootApi;
 export const api = apiClient.api;
 export const setDbType = (type: DatabaseTypeSchema): void => apiClient.setDbType(type);
-export const getDbType = (): DatabaseTypeSchema | null => apiClient.getDbType();

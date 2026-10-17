@@ -3,7 +3,7 @@ import { HTTPException } from "@/http-exception.js";
 import type { IDbAdapter } from "./adapter.interface.js";
 import type { IKeyValueAdapter } from "./key-value-adapter.interface.js";
 
-export class AdapterRegistry {
+class AdapterRegistry {
 	private adapters = new Map<DatabaseTypeSchema, IDbAdapter>();
 
 	register(type: DatabaseTypeSchema, adapter: IDbAdapter): void {
@@ -52,8 +52,4 @@ export function assertKeyValueAdapter(
 		});
 	}
 	return adapter;
-}
-
-export function getKeyValueAdapter(dbType: DatabaseTypeSchema): IKeyValueAdapter {
-	return assertKeyValueAdapter(adapterRegistry.get(dbType), dbType);
 }

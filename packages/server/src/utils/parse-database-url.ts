@@ -8,7 +8,7 @@ export const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort:
 	tidb: { driverScheme: "mysql", defaultPort: 4000 },
 };
 
-export const defaultPortFor = (url: URL): number => {
+const defaultPortFor = (url: URL): number => {
 	const scheme = url.protocol.replace(":", "");
 	const dbType = dbTypeFromProtocol(scheme);
 	return (

@@ -81,7 +81,7 @@ export function buildOrderByClause(
 }
 
 /** Postgres types (from the web form) to ClickHouse. Unknown names pass through as native ClickHouse types. */
-export function mapColumnTypeToClickhouse(
+function mapColumnTypeToClickhouse(
 	columnType: string,
 	isArray: boolean,
 	supportsJsonType: boolean,

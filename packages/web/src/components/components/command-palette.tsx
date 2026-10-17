@@ -38,8 +38,8 @@ import {
 	Upload,
 } from "lucide-react";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile, useTablesList } from "@/features/tables";
-import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";

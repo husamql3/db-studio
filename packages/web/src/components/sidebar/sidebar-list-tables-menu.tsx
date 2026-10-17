@@ -34,8 +34,8 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSchemaEditStore } from "@/features/schema";
+import { useCopyTableSchema } from "@/features/table-builder";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
-import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useOverlayStore } from "@/stores/overlay.store";
 

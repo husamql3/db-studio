@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type LiveModeStatus = "idle" | "healthy" | "disconnected" | "paused";
+type LiveModeStatus = "idle" | "healthy" | "disconnected" | "paused";
 
 interface LiveModeStore {
 	isLive: boolean;

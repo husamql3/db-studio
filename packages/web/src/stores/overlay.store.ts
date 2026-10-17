@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type OverlayId =
+type OverlayId =
 	| "table-builder.create-table"
 	| `table-builder.add-foreign-key-${number}`
 	| "schema.add-column"

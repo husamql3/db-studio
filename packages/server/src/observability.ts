@@ -84,7 +84,7 @@ const OFFICIAL_SENTRY_DSN =
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
 const currentState = (): TelemetryState => (state ??= readState());
 
-export const isTelemetryEnabled = (): boolean =>
+const isTelemetryEnabled = (): boolean =>
 	!isTestOrDevelopment() && process.env.DB_STUDIO_TELEMETRY !== "0" && currentState().enabled;
 
 export const getTelemetryConfig = () => ({

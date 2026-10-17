@@ -38,8 +38,6 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:server": "turbo run test --filter=db-studio",
-    "changeset": "changeset",
-    "version": "changeset version",
     "prepare": "husky",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist www/node_modules www/dist bun.lockb .turbo",
     "knip": "knip"
