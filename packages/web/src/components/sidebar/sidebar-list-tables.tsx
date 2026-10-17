@@ -2,6 +2,7 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
+import { EditTableSheet } from "@/features/schema";
 import { useTablesList } from "@/features/tables";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { CONSTANTS } from "@/utils/constants";
@@ -61,30 +62,33 @@ export const SidebarListTables = () => {
 	}
 
 	return (
-		<div className="flex-1 overflow-y-auto pb-3">
-			{filteredTables && filteredTables.length > 0 ? (
-				<ul>
-					{filteredTables?.map((table) => (
-						<SidebarListTablesItem
-							key={
-								table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
-							}
-							schemaName={table.schemaName}
-							tableName={table.tableName}
-							rowCount={table.rowCount}
-							rowCountEstimated={table.rowCountEstimated}
-						/>
-					))}
-				</ul>
-			) : searchTerm ? (
-				<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
-					No tables found matching
-				</div>
-			) : (
-				<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
-					No tables available
-				</div>
-			)}
-		</div>
+		<>
+			<div className="flex-1 overflow-y-auto pb-3">
+				{filteredTables && filteredTables.length > 0 ? (
+					<ul>
+						{filteredTables?.map((table) => (
+							<SidebarListTablesItem
+								key={
+									table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
+								}
+								schemaName={table.schemaName}
+								tableName={table.tableName}
+								rowCount={table.rowCount}
+								rowCountEstimated={table.rowCountEstimated}
+							/>
+						))}
+					</ul>
+				) : searchTerm ? (
+					<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
+						No tables found matching
+					</div>
+				) : (
+					<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
+						No tables available
+					</div>
+				)}
+			</div>
+			<EditTableSheet />
+		</>
 	);
 };
