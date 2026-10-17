@@ -16,6 +16,53 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.18.0",
+		date: "2026-10-17",
+		title: "Edit columns from the sidebar and a faster app",
+		features: [
+			{
+				text: "Edit a table's column names and types from the sidebar's Edit table sheet; only changed columns are saved, and a failed edit stays in the form to fix and retry",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Faster startup and reloads: the query editor, AI assistant, spreadsheet export, and telemetry load only when first used, and the browser caches the app between visits",
+				username: "husamql3",
+			},
+			{
+				text: "Smoother scrolling and paging in the table grid: only visible rows render, cell editors mount on first edit, and the next page starts loading when you hover its button",
+				username: "husamql3",
+			},
+			{
+				text: "Large PostgreSQL, MySQL, and SQL Server tables list and open faster by using row estimates instead of full counts",
+				username: "husamql3",
+			},
+			{
+				text: "Polished the sidebar resizer, scrollbars, and column menu, which now reorders live while you drag",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed Escape on one grid cell discarding unsaved edits in other cells",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed PostgreSQL connections timing out on serverless databases waking from idle and on distant regions",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a PostgreSQL table that no longer exists now shows a clear not-found error instead of a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed db-studio taking up to 30 seconds to exit after Ctrl+C",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.17.0",
 		date: "2026-10-11",
 		title: "Manage table indexes",
