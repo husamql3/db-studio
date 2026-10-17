@@ -32,3 +32,6 @@ dist-ssr
 .turbo
 .env
 db/
+
+# Claude Code local config
+.claude/
