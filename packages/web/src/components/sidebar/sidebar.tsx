@@ -8,7 +8,9 @@ import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 import { RedisKeySidebar } from "@/features/redis-browser/components/redis-key-sidebar";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 
-export const Sidebar = () => {
+// PROTOTYPE(nav-rail): `offset` shifts the sidebar right of the icon rail, whose toggle
+// replaces the pin button.
+export const Sidebar = ({ offset = 0 }: { offset?: number }) => {
 	const { pathname } = useLocation();
 	const path = pathname.split("/")[1];
 	const isKeyValue = useDatabaseEngine()?.dataModel === "key-value";
@@ -32,8 +34,8 @@ export const Sidebar = () => {
 	}, [isKeyValue, path]);
 
 	return (
-		<SidebarWrapper>
-			<SidebarHeader />
+		<SidebarWrapper offset={offset}>
+			{offset === 0 && <SidebarHeader />}
 			{renderContent}
 			<SidebarFooter />
 		</SidebarWrapper>

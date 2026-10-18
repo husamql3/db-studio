@@ -15,124 +15,128 @@ import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
 import { useTheme } from "@/hooks/use-theme";
 import { useOverlayStore } from "@/stores/overlay.store";
 
-export const Header = () => {
+export const Header = () => (
+	<div className="border-b border-border w-full flex items-center justify-between bg-background text-foreground h-12">
+		<div className="flex items-center h-full">
+			<SidebarToggleButton />
+			<Tabs />
+		</div>
+
+		<HeaderActions />
+	</div>
+);
+
+export const HeaderActions = () => {
 	const { theme, isDark, setTheme } = useTheme();
 	const { openOverlay } = useOverlayStore();
 
 	return (
-		<div className="border-b border-border w-full flex items-center justify-between bg-background text-foreground h-12">
-			<div className="flex items-center h-full">
-				<SidebarToggleButton />
-				<Tabs />
-			</div>
+		<div className="flex items-center h-full">
+			<Chat />
 
-			<div className="flex items-center h-full">
-				<Chat />
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						type="button"
+						variant="ghost"
+						className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+						aria-label="Open settings"
+						onClick={() => openOverlay("settings.app")}
+					>
+						<Settings className="size-5" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Settings</p>
+				</TooltipContent>
+			</Tooltip>
 
+			<DropdownMenu>
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-							aria-label="Open settings"
-							onClick={() => openOverlay("settings.app")}
-						>
-							<Settings className="size-5" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>
-						<p>Settings</p>
-					</TooltipContent>
-				</Tooltip>
-
-				<DropdownMenu>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<DropdownMenuTrigger asChild>
-								<Button
-									variant="ghost"
-									className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-									aria-label={`Theme: ${theme}, switch theme`}
-								>
-									{theme === "light" ? (
-										<Sun className="size-5" />
-									) : theme === "dark" ? (
-										<Moon className="size-5" />
-									) : (
-										<Monitor className="size-5" />
-									)}
-								</Button>
-							</DropdownMenuTrigger>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p>{isDark ? "Switch to light mode" : "Switch to dark mode"}</p>
-						</TooltipContent>
-					</Tooltip>
-
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onClick={() => setTheme("light")}>
-							<Sun />
-							Light
-							{theme === "light" && <Check className="ml-auto" />}
-						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => setTheme("dark")}>
-							<Moon />
-							Dark
-							{theme === "dark" && <Check className="ml-auto" />}
-						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => setTheme("system")}>
-							<Monitor />
-							System
-							{theme === "system" && <Check className="ml-auto" />}
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							variant="ghost"
-							className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-							asChild
-						>
-							<a
-								href={META.SITE_GITHUB_NEW_ISSUE_LINK}
-								target="_blank"
-								rel="noopener noreferrer"
-								aria-label="Create a new GitHub issue"
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+								aria-label={`Theme: ${theme}, switch theme`}
 							>
-								<Bug className="size-5" />
-							</a>
-						</Button>
+								{theme === "light" ? (
+									<Sun className="size-5" />
+								) : theme === "dark" ? (
+									<Moon className="size-5" />
+								) : (
+									<Monitor className="size-5" />
+								)}
+							</Button>
+						</DropdownMenuTrigger>
 					</TooltipTrigger>
 					<TooltipContent>
-						<p>Report a bug</p>
+						<p>{isDark ? "Switch to light mode" : "Switch to dark mode"}</p>
 					</TooltipContent>
 				</Tooltip>
 
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							variant="ghost"
-							className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-							asChild
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onClick={() => setTheme("light")}>
+						<Sun />
+						Light
+						{theme === "light" && <Check className="ml-auto" />}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setTheme("dark")}>
+						<Moon />
+						Dark
+						{theme === "dark" && <Check className="ml-auto" />}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setTheme("system")}>
+						<Monitor />
+						System
+						{theme === "system" && <Check className="ml-auto" />}
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+						asChild
+					>
+						<a
+							href={META.SITE_GITHUB_NEW_ISSUE_LINK}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="Create a new GitHub issue"
 						>
-							<a
-								href={META.SITE_GITHUB_LINK}
-								target="_blank"
-								rel="noopener noreferrer"
-								aria-label="View the db-studio GitHub repository"
-							>
-								<LuGithub className="size-5" />
-							</a>
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>
-						<p>View on GitHub</p>
-					</TooltipContent>
-				</Tooltip>
-			</div>
+							<Bug className="size-5" />
+						</a>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Report a bug</p>
+				</TooltipContent>
+			</Tooltip>
+
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						className="border-r-0 border-y-0 border-l border-border rounded-none h-full w-12 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+						asChild
+					>
+						<a
+							href={META.SITE_GITHUB_LINK}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="View the db-studio GitHub repository"
+						>
+							<LuGithub className="size-5" />
+						</a>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>View on GitHub</p>
+				</TooltipContent>
+			</Tooltip>
 		</div>
 	);
 };

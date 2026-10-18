@@ -66,3 +66,62 @@
 		animation: shimmer var(--duration, 2s) linear infinite;
 	}
 }
+
+/* PROTOTYPE(nav-rail): Codex-style push. The sidebar slides out from behind the icon rail
+   while the content's left margin moves with it on the same curve, so the two edges travel
+   together. The clip moves with the translate, so nothing paints over the rail. Unlayered
+   so it overrides the sheet's slide/fade utilities. */
+:root {
+	--rail-sidebar-ease: cubic-bezier(0.2, 0, 0, 1);
+	--rail-sidebar-duration: 250ms;
+}
+
+.sidebar-behind-rail[data-state="open"] {
+	animation: sidebar-behind-rail-in var(--rail-sidebar-duration) var(--rail-sidebar-ease);
+}
+
+.sidebar-behind-rail[data-state="closed"] {
+	animation: sidebar-behind-rail-out var(--rail-sidebar-duration) var(--rail-sidebar-ease)
+		forwards;
+}
+
+.rail-content {
+	transition: margin-left var(--rail-sidebar-duration) var(--rail-sidebar-ease);
+}
+
+/* Follow the pointer instantly while the sidebar is being resized. */
+body:has(#resize-overlay) .rail-content {
+	transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sidebar-behind-rail[data-state] {
+		animation-duration: 1ms;
+	}
+
+	.rail-content {
+		transition: none;
+	}
+}
+
+@keyframes sidebar-behind-rail-in {
+	from {
+		transform: translateX(-100%);
+		clip-path: inset(0 0 0 100%);
+	}
+	to {
+		transform: translateX(0);
+		clip-path: inset(0);
+	}
+}
+
+@keyframes sidebar-behind-rail-out {
+	from {
+		transform: translateX(0);
+		clip-path: inset(0);
+	}
+	to {
+		transform: translateX(-100%);
+		clip-path: inset(0 0 0 100%);
+	}
+}
