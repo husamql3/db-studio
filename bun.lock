@@ -38,7 +38,7 @@
     },
     "packages/server": {
       "name": "db-studio",
-      "version": "1.17.0",
+      "version": "1.18.0",
       "bin": {
         "db-studio": "./dist/index.js",
       },
@@ -59,7 +59,7 @@
         "mysql2": "^3.18.2",
         "open": "^11.0.0",
         "oracledb": "^7.0.1",
-        "pg": "^8.13.1",
+        "pg": "^8.20.0",
         "picocolors": "^1.1.1",
         "posthog-node": "^5.20.0",
         "xlsx": "^0.18.5",
