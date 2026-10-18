@@ -4,7 +4,13 @@ import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
+export const SidebarWrapper = ({
+	children,
+	offset,
+}: {
+	children: ReactNode;
+	offset: number;
+}) => {
 	const {
 		sidebar: { width, isOpen, isPinned },
 		setSidebarWidth,
@@ -81,10 +87,13 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	// Edge hover detection - opens sidebar when mouse is near left edge
 	const handleEdgeHover = useCallback(
 		(e: MouseEvent) => {
-			// Don't trigger if sidebar is already pinned or open, or if resizing
-			if (isPinned || isOpen || isResizingRef.current) return;
+			// Don't trigger if sidebar is already pinned or open, or if resizing.
+			// PROTOTYPE(nav-rail): with the icon rail (offset > 0) the hover strip sits right
+			// beside it, so every trip back to the rail opened the sidebar; the rail's toggle
+			// is the only way in there.
+			if (offset > 0 || isPinned || isOpen || isResizingRef.current) return;
 
-			if (e.clientX <= CONSTANTS.HOVER_ZONE) {
+			if (e.clientX >= offset && e.clientX <= offset + CONSTANTS.HOVER_ZONE) {
 				// Clear any existing timeout
 				if (hoverTimeoutRef.current) {
 					clearTimeout(hoverTimeoutRef.current);
@@ -94,14 +103,14 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 				hoverTimeoutRef.current = window.setTimeout(() => {
 					setSidebarOpen(true);
 				}, CONSTANTS.HOVER_DELAY);
-			} else if (e.clientX > CONSTANTS.HOVER_ZONE + 50) {
+			} else if (e.clientX > offset + CONSTANTS.HOVER_ZONE + 50) {
 				// Clear timeout if mouse moves away before delay completes
 				if (hoverTimeoutRef.current) {
 					clearTimeout(hoverTimeoutRef.current);
 				}
 			}
 		},
-		[isPinned, isOpen, setSidebarOpen],
+		[isPinned, isOpen, setSidebarOpen, offset],
 	);
 
 	// Keep handler refs current every render so stable listeners always use the latest handler
@@ -170,8 +179,9 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 				className={cn(
 					"bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0",
 					"transition-transform duration-300 ease-out",
+					offset > 0 && "sidebar-behind-rail",
 				)}
-				style={{ width: `${width}px` }}
+				style={{ width: `${width}px`, left: `${offset}px` }}
 				onOpenAutoFocus={(e) => e.preventDefault()}
 			>
 				<div className="relative h-full flex flex-col">

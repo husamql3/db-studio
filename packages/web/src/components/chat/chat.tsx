@@ -19,7 +19,7 @@ const ChatSidebar = lazy(() =>
 	loadChatSidebar().then((module) => ({ default: module.ChatSidebar })),
 );
 
-export const Chat = () => {
+export const Chat = ({ tooltipSide = "bottom" }: { tooltipSide?: "bottom" | "right" }) => {
 	const { openOverlay, isOverlayOpen } = useOverlayStore();
 	// Once opened, the assistant stays mounted so it can animate closed and keep the conversation.
 	const [assistantMounted, setAssistantMounted] = useState(false);
@@ -72,7 +72,7 @@ export const Chat = () => {
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent
-					side="bottom"
+					side={tooltipSide}
 					className="text-xs"
 				>
 					{hasPersonalKey ? (
