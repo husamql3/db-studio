@@ -508,7 +508,9 @@ export class SqliteAdapter extends BaseAdapter {
 			const client = await getSqliteClient();
 			const tables = await all<{ name: string }>(
 				client,
-				`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+				`SELECT name FROM sqlite_master
+				WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*'
+				ORDER BY name`,
 			);
 			if (!tables.length) return [];
 
@@ -1304,7 +1306,7 @@ export class SqliteAdapter extends BaseAdapter {
 			client,
 			`SELECT m.name AS child, f.id, f."table" AS parent, f."from", f."to"
 			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
-			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%'
+			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
 			ORDER BY m.name, f.id, f.seq`,
 		);
 		const byConstraint = new Map<string, ForeignKeyEdge>();
@@ -1331,7 +1333,8 @@ export class SqliteAdapter extends BaseAdapter {
 			client,
 			`SELECT m.name AS child, f."from", f."to"
 			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
-			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name != ? AND f."table" = ?`,
+			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
+				AND m.name != ? AND f."table" = ?`,
 			[tableName, tableName],
 		);
 		return fks.map((fk) => ({

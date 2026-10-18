@@ -13,6 +13,7 @@ import type { config as MssqlConfig, ConnectionPool as MssqlPool } from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import type { Pool as OraclePool } from "oracledb";
 import type { Pool, PoolConfig } from "pg";
+import { createD1Client, parseD1Url } from "@/d1-client.js";
 import { loadDriver, loadedDriver } from "@/drivers.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
@@ -149,11 +150,12 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Get or create the libSQL client for a local SQLite file or a remote libSQL / Turso database
+	 * Get or create the client for a local SQLite file, a remote libSQL / Turso database or a
+	 * Cloudflare D1 database
 	 */
 	getSqliteClient(): Promise<SqliteClient> {
 		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
-			throw new Error("DATABASE_URL is not a sqlite:// or libsql:// connection");
+			throw new Error("DATABASE_URL is not a sqlite://, libsql:// or d1:// connection");
 		}
 		const { url } = this.baseConfig;
 		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
@@ -164,6 +166,7 @@ class DatabaseManager {
 	}
 
 	private async openSqliteClient(url: string): Promise<SqliteClient> {
+		if (url.startsWith("d1://")) return createD1Client(parseD1Url(url));
 		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
 		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
 		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
@@ -809,7 +812,7 @@ const _getActivePools = (): string[] => {
 };
 
 /**
- * Get the libSQL client for the configured SQLite file or libSQL / Turso database
+ * Get the client for the configured SQLite file, libSQL / Turso or Cloudflare D1 database
  */
 export const getSqliteClient = (): Promise<SqliteClient> => {
 	return databaseManager.getSqliteClient();
