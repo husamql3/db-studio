@@ -112,3 +112,19 @@ DATABASE_URL='mongodb://127.0.0.1:27017/dbstudio' bunx tsx e2e/mongo-indexes.ts
 ```
 
 It writes `e2e/artifacts/mongo-indexes.json`.
+
+## SQLite and Cloudflare D1 specifics
+
+Checks what the contract does not reach: an update naming one missing key answers 404 and rolls
+back the rows it did match, altering a table with mixed-case child references or self-references
+keeps the rows (SQLite rebuilds it; D1 refuses with 400 because it cannot suspend foreign keys),
+internal `_cf_*` tables stay hidden, and the returned blob bytes match the inserted bytes. It
+creates and drops `dbstudio_d1_Parent`, `dbstudio_d1_child`, and `dbstudio_d1_Self`.
+
+```bash
+cd packages/server
+DATABASE_URL=sqlite:///tmp/scratch.sqlite bunx tsx e2e/d1-specifics.ts sqlite
+DATABASE_URL='d1://<account id>/<database id>?authToken=<api token>' bunx tsx e2e/d1-specifics.ts d1
+```
+
+It writes `e2e/artifacts/d1-specifics-<label>.json`.

@@ -18,7 +18,7 @@ vi.unmock("@/db-manager.js");
 
 const dir = mkdtempSync(path.join(tmpdir(), "db-studio-sqlite-"));
 let adapter: SqliteAdapter;
-let exec: (sql: string) => Promise<void>;
+let exec: (...statements: string[]) => Promise<void>;
 
 beforeAll(async () => {
 	process.env.DATABASE_URL = `sqlite://${path.join(dir, "my db.sqlite")}`;
@@ -26,17 +26,17 @@ beforeAll(async () => {
 	const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
 	const { getSqliteClient } = await import("@/db-manager.js");
 	const client = await getSqliteClient();
-	exec = async (sql) => {
-		await client.executeMultiple(sql);
+	exec = async (...statements) => {
+		await client.batch(statements, "write");
 	};
 	adapter = new SqliteAdapter();
 
-	await exec(`
-		CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
-		CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id));
-		INSERT INTO users VALUES (1, 'Ada'), (2, 'Linus');
-		INSERT INTO orders VALUES (10, 1);
-	`);
+	await exec(
+		"CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)",
+		"CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id))",
+		"INSERT INTO users VALUES (1, 'Ada'), (2, 'Linus')",
+		"INSERT INTO orders VALUES (10, 1)",
+	);
 });
 
 afterAll(async () => {

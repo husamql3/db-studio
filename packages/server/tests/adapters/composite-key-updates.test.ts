@@ -31,6 +31,7 @@ import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { fromLibsql } from "@/sqlite-client.js";
 
 /**
  * A `(tenant_id, user_id)` row where only the first key column is shared with
@@ -182,7 +183,7 @@ describe("composite primary key updates", () => {
 					CREATE TABLE members (tenant_id INTEGER, user_id INTEGER, name TEXT, PRIMARY KEY (tenant_id, user_id));
 					INSERT INTO members VALUES (7, 42, 'Ada'), (7, 43, 'Bob');
 				`);
-				mocks.getSqliteClient.mockResolvedValue(client);
+				mocks.getSqliteClient.mockResolvedValue(fromLibsql(client));
 
 				const adapter = new SqliteAdapter();
 				await expect(

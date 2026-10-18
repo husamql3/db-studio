@@ -84,8 +84,8 @@ export const DATABASE_ENGINES = {
 		indexes: { methods: [], createNote: null },
 	},
 	sqlite: {
-		label: "SQLite / libSQL",
-		protocols: ["sqlite", "libsql"],
+		label: "SQLite / libSQL / D1",
+		protocols: ["sqlite", "libsql", "d1"],
 		defaultPort: null,
 		dataModel: "relational",
 		editorLanguage: "pgsql",
