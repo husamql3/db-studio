@@ -7,7 +7,6 @@ import {
 	dbTypeFromProtocol,
 } from "@db-studio/shared/types";
 import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
-import type { Client as LibsqlClient } from "@libsql/client";
 import type { Redis, RedisOptions } from "ioredis";
 import type { MongoClient } from "mongodb";
 import type { config as MssqlConfig, ConnectionPool as MssqlPool } from "mssql";
@@ -16,6 +15,7 @@ import type { Pool as OraclePool } from "oracledb";
 import type { Pool, PoolConfig } from "pg";
 import { loadDriver, loadedDriver } from "@/drivers.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
@@ -26,7 +26,7 @@ class DatabaseManager {
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
-	private sqliteClient: Promise<LibsqlClient> | null = null;
+	private sqliteClient: Promise<SqliteClient> | null = null;
 	private duckdb: Promise<{ instance: DuckDBInstance; connection: DuckDBConnection }> | null =
 		null;
 	private duckdbQueue: Promise<unknown> = Promise.resolve();
@@ -151,7 +151,7 @@ class DatabaseManager {
 	/**
 	 * Get or create the libSQL client for a local SQLite file or a remote libSQL / Turso database
 	 */
-	getSqliteClient(): Promise<LibsqlClient> {
+	getSqliteClient(): Promise<SqliteClient> {
 		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
 			throw new Error("DATABASE_URL is not a sqlite:// or libsql:// connection");
 		}
@@ -163,7 +163,7 @@ class DatabaseManager {
 		return this.sqliteClient;
 	}
 
-	private async openSqliteClient(url: string): Promise<LibsqlClient> {
+	private async openSqliteClient(url: string): Promise<SqliteClient> {
 		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
 		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
 		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
@@ -179,7 +179,7 @@ class DatabaseManager {
 			await client.execute("PRAGMA journal_mode = WAL");
 			await client.execute("PRAGMA foreign_keys = ON");
 		}
-		return client;
+		return fromLibsql(client);
 	}
 
 	/**
@@ -811,7 +811,7 @@ const _getActivePools = (): string[] => {
 /**
  * Get the libSQL client for the configured SQLite file or libSQL / Turso database
  */
-export const getSqliteClient = (): Promise<LibsqlClient> => {
+export const getSqliteClient = (): Promise<SqliteClient> => {
 	return databaseManager.getSqliteClient();
 };
 
