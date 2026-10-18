@@ -116,10 +116,10 @@ It writes `e2e/artifacts/mongo-indexes.json`.
 ## SQLite and Cloudflare D1 specifics
 
 Checks what the contract does not reach: an update naming one missing key answers 404 and rolls
-back the rows it did match, altering a table another table references keeps the child rows
-(SQLite rebuilds it; D1 refuses with 400 because it cannot suspend foreign keys), internal `_cf_*`
-tables stay hidden, and a blob round-trips byte for byte. It creates and drops
-`dbstudio_d1_parent` and `dbstudio_d1_child`.
+back the rows it did match, altering a table with mixed-case child references or self-references
+keeps the rows (SQLite rebuilds it; D1 refuses with 400 because it cannot suspend foreign keys),
+internal `_cf_*` tables stay hidden, and the returned blob bytes match the inserted bytes. It
+creates and drops `dbstudio_d1_Parent`, `dbstudio_d1_child`, and `dbstudio_d1_Self`.
 
 ```bash
 cd packages/server

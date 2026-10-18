@@ -832,11 +832,10 @@ export class SqliteAdapter extends BaseAdapter {
 			// table that references this one, including itself: the new table's self-references
 			// point at the old name until the RENAME.
 			const referencedBy = new Set(
-				(await this.getFkReferencesForTable(client, tableName)).map(
+				(await this.getFkReferencesForTable(client, tableName, { includeSelf: true })).map(
 					(fk) => fk.referencingTable,
 				),
 			);
-			if (fks.some((fk) => fk.table === tableName)) referencedBy.add(tableName);
 			try {
 				await client.rebuildTable(
 					[
@@ -1328,14 +1327,15 @@ export class SqliteAdapter extends BaseAdapter {
 	private async getFkReferencesForTable(
 		client: SqliteClient,
 		tableName: string,
+		{ includeSelf = false }: { includeSelf?: boolean } = {},
 	): Promise<ForeignKeyConstraint[]> {
 		const fks = await all<{ child: string; from: string; to: string | null }>(
 			client,
 			`SELECT m.name AS child, f."from", f."to"
 			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
 			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
-				AND m.name != ? AND f."table" = ?`,
-			[tableName, tableName],
+				AND (m.name != ? COLLATE NOCASE OR ?) AND f."table" = ? COLLATE NOCASE`,
+			[tableName, includeSelf ? 1 : 0, tableName],
 		);
 		return fks.map((fk) => ({
 			constraintName: `fk_${fk.child}_${fk.from}_${tableName}_${fk.to}`,
