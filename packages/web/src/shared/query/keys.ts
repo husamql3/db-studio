@@ -11,6 +11,8 @@ export const tableKeys = {
 	all: ["tables"] as const,
 	lists: () => [CONSTANTS.CACHE_KEYS.TABLES_LIST] as const,
 	list: (db?: string | null) => [CONSTANTS.CACHE_KEYS.TABLES_LIST, db] as const,
+	// Under the list key, so invalidating the tables list refreshes the visualizer too.
+	graph: (db?: string | null) => [CONSTANTS.CACHE_KEYS.TABLES_LIST, db, "graph"] as const,
 	columnsByTable: (tableName: string) =>
 		[CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName] as const,
 	columns: (tableName?: string, db?: string | null) =>

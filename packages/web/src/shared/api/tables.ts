@@ -33,6 +33,13 @@ export const getTables = (db?: string | null) =>
 		params: { db: db ?? "" },
 	});
 
+export type SchemaGraphTable = TableInfoSchemaType & { columns: ColumnInfoSchemaType[] };
+
+export const getSchemaGraph = (db?: string | null) =>
+	api.get<BaseResponse<SchemaGraphTable[]>>("/tables/graph", {
+		params: { db: db ?? "" },
+	});
+
 export const getTableColumns = (tableName: string, db?: string | null) =>
 	api.get<BaseResponse<ColumnInfoSchemaType[]>>(
 		`/tables/${encodeURIComponent(tableName)}/columns`,

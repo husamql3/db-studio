@@ -36,6 +36,26 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	})
 
 	/**
+	 * GET /tables/graph
+	 * Returns every table with its columns, so the visualizer draws the schema in one request
+	 */
+	.get(
+		"/graph",
+		async ({ adapter, query: { db } }) => {
+			const tables = await adapter.getTablesList(db);
+			return {
+				data: await Promise.all(
+					tables.map(async (table) => ({
+						...table,
+						columns: await adapter.getTableColumns({ tableName: table.tableName, db }),
+					})),
+				),
+			};
+		},
+		{ query: databaseSchema },
+	)
+
+	/**
 	 * POST /tables
 	 * Creates a new table in the currently connected database
 	 */

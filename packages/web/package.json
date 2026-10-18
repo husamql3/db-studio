@@ -18,6 +18,7 @@
     "script": "dev:app"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
     "@db-studio/shared": "workspace:*",
     "@db-studio/ui": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
@@ -34,6 +35,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.13",
     "@uiw/react-json-view": "^2.0.0-alpha.40",
+    "@xyflow/react": "^12.12.0",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.8.0",
