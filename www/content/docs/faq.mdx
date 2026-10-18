@@ -9,14 +9,28 @@ index: 3
 
 <Accordion id="security" title="Is my database connection safe? Do you store or track it?">
 
-**Yes, completely safe!** db-studio runs entirely on your computer and is fully open source.
+db-studio runs on your computer and connects to your database directly. Your connection string is never sent anywhere or stored by us.
 
-- No tracking or data collection
-- Nothing is sent to the internet
-- Everything runs locally on your machine
-- You can review all the code: [github.com/husamql3/db-studio](https://github.com/husamql3/db-studio)
+Two things do leave your machine:
 
-Feel free to check the code yourself to be sure.
+- **Anonymous usage data**, unless you opt out. See [Does db-studio collect any data?](#telemetry)
+- **AI assistant messages**, only when you use the assistant. See [How does the AI assistant work?](#ai-assistant)
+
+All the code is open source, so you can check for yourself: [github.com/husamql3/db-studio](https://github.com/husamql3/db-studio)
+
+</Accordion>
+
+<Accordion id="telemetry" title="Does db-studio collect any data?">
+
+db-studio sends anonymous usage and reliability data: which features you use, the database engine, response times, and errors with sensitive details removed. Queries, schemas, table and column names, and values are never collected.
+
+To opt out, set `DB_STUDIO_TELEMETRY=0` when you start db-studio:
+
+```bash
+DB_STUDIO_TELEMETRY=0 npx db-studio
+```
+
+Browsers that send a Global Privacy Control signal are opted out automatically.
 
 </Accordion>
 
@@ -122,11 +136,11 @@ You can, but we recommend using db-studio only for:
 
 <Accordion id="ai-assistant" title="How does the AI assistant work?">
 
-The AI assistant helps you ask questions about your data in plain English. It:
+The AI assistant answers questions about your data in plain English. In the query editor it can also generate a query, optimize one, or suggest a fix for a failed one.
 
-- Uses your database schema to understand your tables
-- Gives you helpful answers about your data
-- Limited to 5 messages per day
+- It uses your table structure to understand your database. You can turn schema sharing off in Settings.
+- Without a key, it uses our hosted Gemini model, limited to 3 messages per day.
+- Add your own key for Gemini, OpenAI, Anthropic, Grok, or OpenRouter in Settings to raise the limit to 120 messages per day.
 
 </Accordion>
 
