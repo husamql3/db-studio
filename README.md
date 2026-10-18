@@ -1,61 +1,37 @@
-<div align="center">
+# db-studio
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png">
-  <img src="assets/logo-light.png" alt="db-studio logo" width="100">
-</picture>
+<p align="center">
+  <img src="assets/icon.png" alt="db-studio icon" width="128" height="128">
+</p>
 
-<br>
+<p align="center">
+  <a href="https://www.npmjs.com/package/db-studio"><img src="https://img.shields.io/npm/v/db-studio" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/db-studio"><img src="https://img.shields.io/npm/dm/db-studio" alt="npm downloads"></a>
+  <a href="https://github.com/husamql3/db-studio/stargazers"><img src="https://img.shields.io/github/stars/husamql3/db-studio" alt="GitHub stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://deepwiki.com/husamql3/db-studio"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+</p>
 
-<div align="center">
-A modern, universal (pgAdmin alternative) database management studio for any database.
-</div>
+<p align="center">
+A modern, universal database studio (the pgAdmin alternative) for every database.<br>
+Browse tables, edit records, design schemas, and run queries from one UI, launched with a single <code>npx</code> command.
+</p>
 
-<br>
+<p align="center">
+  <img src="assets/screenshot.png" alt="db-studio screenshot" width="800">
+</p>
 
-<div align="center">
-  <a href="https://github.com/husamql3/db-studio/stargazers">
-    <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/husamql3/db-studio">
-  </a>
-  <a href="https://www.npmjs.com/package/db-studio">
-    <img src="https://img.shields.io/npm/v/db-studio?style=flat-rounded" />
-  </a>
-  <a href="https://www.npmjs.com/package/db-studio">
-    <img src="https://img.shields.io/npm/dm/db-studio?style=flat-rounded" />
-  </a>
-  <a href="https://github.com/husamql3/db-studio/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/husamql3/db-studio">
-  </a>
-  <a href="https://deepwiki.com/husamql3/db-studio">
-    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
-  </a>
-</div>
+## Installation
 
-<br>
-
-<img src="assets/screenshot.png" alt="db-studio screenshot" width="1000" />
-</div>
-
-## Tech Stack
-
-- **Frontend**: React 19, TanStack React Router, TanStack React Query, TanStack React Table, TanStack React Virtual, shadcn/ui, sonner, react-day-picker, react-hook-form, zustand
-- **Backend**: Elysia on Node, zod
-- **Tooling**: Bun, Vite, TypeScript, Biome, Vitest, Wrangler (Cloudflare)
-
-## Quick Start with npx
-
-No installation required. Just run:
+No installation required. Run it from a directory that has a `.env` with `DATABASE_URL`:
 
 ```bash
 npx db-studio
 ```
 
-This runs the latest published version and uses the **current directory** as the project context. db-studio looks for a `.env` file in the current working directory and, if not found, searches parent directories until one is found. It reads `DATABASE_URL` from that file (or use `--var-name <name>` for a different variable). If `DATABASE_URL` is not in the .env file, it is also read from **process.env** (e.g. when set in the shell or in a package.json script). To point to a specific env file, use `--env <path>` (e.g. `npx db-studio --env .env.local`).
+db-studio searches the current directory, then its parents, for a `.env` file. If `DATABASE_URL` is not there, it reads it from the environment.
 
-### Recommended base script (add to package.json)
-
-You can run db-studio from npm/bun scripts. Useful when you want a dedicated script, a different env file, or to pass the connection via the environment:
+**As a project script:**
 
 ```json
 {
@@ -65,112 +41,66 @@ You can run db-studio from npm/bun scripts. Useful when you want a dedicated scr
 }
 ```
 
-Now you can simply run:
+**Flags:**
 
-```Bash
-npm run db:studio
-```
+| Flag                   | Description                                    | Example                                                  |
+|------------------------|------------------------------------------------|----------------------------------------------------------|
+| `--env <path>`         | Use a specific `.env` file                     | `npx db-studio --env .env.local`                         |
+| `--var-name <name>`    | Read a different environment variable          | `npx db-studio --var-name MY_DB_URL`                     |
+| `--port <number>`      | Change the server port (default: 3333)         | `npx db-studio --port 4000`                              |
+| `--database-url <url>` | Pass the connection string directly            | `npx db-studio --database-url "postgresql://localhost/mydb"` |
+| `--open`               | Open db-studio in your browser once it starts  | `npx db-studio --open`                                   |
+| `--no-open`            | Do not open the browser (the default)          | `npx db-studio --no-open`                                |
+| `--status`             | Check the connection only, without the UI      | `npx db-studio --status`                                 |
+| `--version`            | Show the installed version                     | `npx db-studio --version`                                |
+| `--help`               | Show all options                               | `npx db-studio --help`                                   |
 
-### Customize with flags
+Full documentation: [dbstudio.sh](https://dbstudio.sh)
 
-Modify the run command (or override in your script) using any of these flags:
+## Features
 
-| Flag                        | Description                                      | Example command / override                                                  |
-|-----------------------------|--------------------------------------------------|-----------------------------------------------------------------------------|
-| `--env <path>`              | Use a specific `.env` file                       | `npx db-studio --env .env.local` <br>or `--env .env.production`             |
-| `--var-name <name>`         | Use a different environment variable name        | `npx db-studio --var-name MY_DB_URL`                                        |
-| `--port <number>`           | Change the server port (default: 3333)           | `npx db-studio --port 4000`                                                 |
-| `--database-url <url>`      | Provide connection string directly (no `.env`)   | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
-| `--status`                  | Only check & show connection status (no UI)      | `npx db-studio --status`                                                    |
-| `--help`                    | Show all available options                       | `npx db-studio --help`                                                      |
+### Databases
+- 🐘 PostgreSQL, CockroachDB, MySQL, MariaDB, TiDB, SQL Server, Oracle
+- 🪶 SQLite, Turso / libSQL, Cloudflare D1, DuckDB
+- 🍃 MongoDB, Redis, ClickHouse
+- 🔌 Connect with a single connection URL
 
-#### Examples of combined / overridden usage
+### Table Browser
+- 📋 Spreadsheet-like grid with inline cell editing
+- 🔎 Filter, sort, and paginate rows
+- 🔴 Live mode refreshes the grid and highlights changed rows and cells
+- 🧾 Row details sheet with keyboard navigation between rows
+- 🙈 Hide and reorder columns, saved per table
+- 📤 Export tables as CSV, Excel, or JSON
 
-```bash
+### Records
+- ➕ Add records with type-aware forms
+- 📥 Bulk insert from CSV, Excel, or JSON
+- 🔗 Pick foreign key values from the referenced table
+- 🗑️ Delete rows, with force delete for dependent rows
 
-# Local dev with custom env file
-npm run db:studio -- --env .env.local
+### Schema
+- 🏗️ Create and rename tables, with foreign keys
+- ✏️ Add and edit columns
+- 📇 Create and drop indexes
 
-# Production with custom port
-bun run db:studio -- --env .env.production --port 4444
+### Query Runner
+- ⌨️ Monaco-powered editor with syntax highlighting and autocomplete
+- ✨ Generate, optimize, or fix queries with AI
 
-# Direct connection (great for one-off or CI)
-npx db-studio --database-url "postgresql://user:pass@host:5432/prod"
+### AI Assistant
+- 💬 Ask questions about your data in plain English
+- 🔑 Bring your own key for Gemini, OpenAI, Anthropic, Grok, or OpenRouter
 
-# Custom variable name + env file
-npm run db:studio -- --env .env.staging --var-name STAGING_DB_URL
+### Everywhere
+- ⌘ Command palette to jump to tables and run actions
+- 🌗 Light and dark themes
+- 📊 Anonymous usage data, off with `DB_STUDIO_TELEMETRY=0`
 
-# Just verify connection
-npm run db:studio -- --status
-```
+## Contributing
 
-> **Tip**: When passing flags through `npm run` or `bun run`, use `--` to separate script args from command flags (as shown above).
-
-For full documentation and more examples: [dbstudio.sh](https://dbstudio.sh)
-
-## Development Setup
-
-**Using the CLI (installed or npx):** Run `npx db-studio` from a directory that contains your `.env` (or from a subfolder; db-studio will search upward for `.env`). Alternatively use `--env <path>` to specify the env file.
-
-**Developing from source:**
-
-```bash
-# Install dependencies (root and workspaces)
-bun install
-
-# Initialize the database with required tables and schema
-bun run init-db
-
-# Configure your PostgreSQL connection in packages/server/.env (for local dev)
-# DATABASE_URL=postgres://user:password@localhost:5432/database
-
-# Start development services through Portless
-bun run dev
-```
-
-At your first contribution, you should add your name and email to the `AUTHORS` file
-
-```bash
-your-name <your-email>
-```
-
-Development services run through [Portless](https://portless.sh/) with stable local HTTPS URLs instead of fixed port numbers:
-
-| Service | URL |
-|---------|-----|
-| Web app | `https://web.db-studio.localhost` |
-| API server | `https://api.db-studio.localhost` |
-| AI proxy | `https://proxy.db-studio.localhost` |
-| Docs/marketing site | `https://www.db-studio.localhost` |
-
-On first run, Portless may ask to trust its local certificate authority. You can also run:
-
-```bash
-bunx portless trust
-```
-
-> [!NOTE]
-> Production-style local serving runs through `https://db-studio.localhost` via the server package `start` script.
-
-## Roadmap
-
-For the latest features, planned updates, and development progress, see the full roadmap here:
-
-[📍 roadmap](https://dbstudio.sh/roadmap)
-
-Contributions that align with roadmap priorities are especially welcome!
-
-## Changelog
-
-See what's new, fixed, or improved in each release:
-
-[📜 Changelog](https://dbstudio.sh/changelog)
-
-# Contributing
-
-Extremely welcome! This is early-stage — PRs for new drivers, bug fixes, or even a better logo will be merged lightning-fast.
-Check out [CONTRIBUTING.md](/CONTRIBUTING.md) and the open issues.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup. Check the [roadmap](https://dbstudio.sh/roadmap) and [changelog](https://dbstudio.sh/changelog) for what's planned and what shipped.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](/LICENSE)
+Apache License 2.0 - see [LICENSE](LICENSE).

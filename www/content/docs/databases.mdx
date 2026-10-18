@@ -1,6 +1,6 @@
 ---
 title: Supported Databases
-description: "Every database db-studio connects to, with the connection URL and limits for each: PostgreSQL, MySQL, MariaDB, CockroachDB, TiDB, SQL Server, MongoDB, SQLite, Turso, Redis, DuckDB, Oracle, and ClickHouse."
+description: "Every database db-studio connects to, with the connection URL and limits for each: PostgreSQL, MySQL, MariaDB, CockroachDB, TiDB, SQL Server, MongoDB, SQLite, Turso, Cloudflare D1, Redis, DuckDB, Oracle, and ClickHouse."
 ---
 
 db-studio picks the database from the scheme of your connection URL. Pass it with `--database-url`, or set `DATABASE_URL` in your `.env` file and run `npx db-studio`.
@@ -88,6 +88,18 @@ npx db-studio --database-url "libsql://your-db-your-org.turso.io?authToken=YOUR_
 ```
 
 Works with Turso and any libSQL server. For a local `sqld` server without TLS, add `?tls=0`. Everything SQLite supports works, with the same limits.
+
+## Cloudflare D1
+
+```bash
+npx db-studio --database-url "d1://ACCOUNT_ID/DATABASE_ID?authToken=YOUR_API_TOKEN"
+```
+
+Put your Cloudflare account ID where the host goes and the D1 database ID where the path goes. Instead of `authToken`, you can set the `CLOUDFLARE_API_TOKEN` environment variable. The token needs access to D1. db-studio talks to D1 over the Cloudflare API, so everything SQLite supports works, with these limits:
+
+- D1 always enforces foreign keys, so a column on a table that other tables (or the table itself) reference cannot be changed.
+- Integers larger than 2^53 come back rounded. To read one exactly, select it with `CAST(column AS TEXT)`.
+- D1's internal `_cf_*` tables are hidden.
 
 ## Redis
 

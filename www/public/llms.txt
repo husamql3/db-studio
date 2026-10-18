@@ -8,12 +8,13 @@ db-studio is a modern database management tool designed to work with multiple da
 
 ## Key Features
 
-- Multi-database support: PostgreSQL, MySQL, MariaDB, CockroachDB, TiDB, SQL Server, MongoDB, SQLite, libSQL/Turso, Redis, DuckDB, Oracle, and ClickHouse
-- Modern, intuitive user interface
-- Cross-platform desktop application
-- Query editor with syntax highlighting
-- Table data browsing and editing
-- Database schema visualization
+- Multi-database support: PostgreSQL, MySQL, MariaDB, CockroachDB, TiDB, SQL Server, MongoDB, SQLite, libSQL/Turso, Cloudflare D1, Redis, DuckDB, Oracle, and ClickHouse
+- Runs locally with one command: `npx db-studio`
+- Spreadsheet-like table browser with inline editing, filtering, sorting, and Live mode
+- Add records and bulk insert from CSV, Excel, or JSON; export tables to CSV, Excel, or JSON
+- Create tables, edit columns and foreign keys, and manage indexes
+- Query editor with syntax highlighting and autocomplete
+- AI assistant with Gemini, OpenAI, Anthropic, Grok, or OpenRouter
 
 ## Links
 
@@ -45,6 +46,7 @@ One page covers every database: https://dbstudio.sh/docs/databases. Each section
 - MongoDB (`mongodb://`): https://dbstudio.sh/docs/databases#mongodb
 - SQLite (`sqlite://`): https://dbstudio.sh/docs/databases#sqlite
 - Turso and libSQL (`libsql://`): https://dbstudio.sh/docs/databases#turso
+- Cloudflare D1 (`d1://`): https://dbstudio.sh/docs/databases#cloudflare-d1
 - Redis (`redis://`): https://dbstudio.sh/docs/databases#redis
 - DuckDB (`duckdb://`): https://dbstudio.sh/docs/databases#duckdb
 - Oracle (`oracle://`): https://dbstudio.sh/docs/databases#oracle
