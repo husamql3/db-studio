@@ -47,7 +47,11 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 				data: await Promise.all(
 					tables.map(async (table) => ({
 						...table,
-						columns: await adapter.getTableColumns({ tableName: table.tableName, db }),
+						columns: await adapter.getTableColumns({
+							tableName: table.tableName,
+							schemaName: table.schemaName,
+							db,
+						}),
 					})),
 				),
 			};

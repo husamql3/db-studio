@@ -60,6 +60,8 @@ export interface IDbAdapter {
 	getTableColumns(params: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
+		/** Defaults to the first schema on the search path that holds the table. */
+		schemaName?: string;
 	}): Promise<ColumnInfoSchemaType[]>;
 	addColumn(params: AddColumnParamsSchemaType): Promise<void>;
 	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }>;

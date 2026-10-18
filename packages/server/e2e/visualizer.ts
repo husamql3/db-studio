@@ -44,8 +44,12 @@ const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databa
 	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
 	stdio: "ignore",
 });
+// Also covers a setup step failing before the `try` below.
+process.on("exit", () => server.kill("SIGKILL"));
+const deadline = Date.now() + 30_000;
 for (;;) {
 	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
+	if (Date.now() > deadline) throw new Error("server not ready after 30s");
 	const ready = await fetch(`${BASE}/api/databases`)
 		.then((response) => response.ok)
 		.catch(() => false);
