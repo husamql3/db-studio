@@ -65,6 +65,15 @@ type VariantKey = (typeof VARIANTS)[number]["key"];
 const STORAGE_KEY = "dbstudio-prototype-nav-rail";
 const findVariant = (key: string | null) => VARIANTS.find((v) => v.key === key)?.key;
 
+// localStorage throws when the browser denies storage; this store loads in production too.
+const readStoredVariant = () => {
+	try {
+		return findVariant(localStorage.getItem(STORAGE_KEY));
+	} catch {
+		return undefined;
+	}
+};
+
 // URL wins on load; localStorage keeps the choice when in-app links drop the search param.
 export const useNavRailVariant = create<{
 	variant: VariantKey;
@@ -82,10 +91,14 @@ export const useNavRailVariant = create<{
 	markChangelogSeen: () => set({ changelogSeen: true }),
 	variant:
 		findVariant(new URLSearchParams(window.location.search).get("variant")) ??
-		findVariant(localStorage.getItem(STORAGE_KEY)) ??
+		readStoredVariant() ??
 		"A",
 	setVariant: (variant) => {
-		localStorage.setItem(STORAGE_KEY, variant);
+		try {
+			localStorage.setItem(STORAGE_KEY, variant);
+		} catch {
+			// Storage denied: the URL still carries the variant.
+		}
 		const url = new URL(window.location.href);
 		url.searchParams.set("variant", variant);
 		window.history.replaceState(window.history.state, "", url);
@@ -157,12 +170,13 @@ const RailNav = () => {
 
 const RailSidebarToggle = () => {
 	const {
-		sidebar: { isOpen, isPinned },
+		sidebar: { isOpen },
 		setSidebarOpen,
 		setSidebarPinned,
 	} = usePersonalPreferencesStore();
-	// Flip both flags from one value so they can never end up out of step.
-	const isVisible = isOpen && isPinned;
+	// Flip both flags from one value so they can never end up out of step. The command
+	// palette can unpin an open sidebar, so read visibility from isOpen alone.
+	const isVisible = isOpen;
 
 	return (
 		<RailTip label={isVisible ? "Hide sidebar" : "Show sidebar"}>
@@ -424,7 +438,7 @@ const VariantA = () => {
 			</nav>
 			<Sidebar offset={RAIL_WIDTH} />
 			<div
-				className="flex-1 flex flex-col h-full overflow-hidden"
+				className="relative flex-1 flex flex-col h-full overflow-hidden"
 				style={{ marginLeft: isPinned ? `${width}px` : "0" }}
 			>
 				<SlimHeader />
@@ -486,7 +500,7 @@ const VariantC = () => {
 			</nav>
 			<Sidebar offset={RAIL_WIDTH} />
 			<div
-				className="flex-1 flex flex-col overflow-hidden my-2 mr-2 rounded-xl border border-border bg-background shadow-sm"
+				className="relative flex-1 flex flex-col overflow-hidden my-2 mr-2 rounded-xl border border-border bg-background shadow-sm"
 				style={{ marginLeft: isPinned ? `${width + 8}px` : "0" }}
 			>
 				<SlimHeader />
@@ -509,7 +523,10 @@ export const PrototypeSwitcher = () => {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
 			const target = e.target as HTMLElement;
-			if (target.closest("input, textarea, [contenteditable], [role=grid], table")) return;
+			if (
+				target.closest("input, textarea, [contenteditable], [role=grid], [role=menu], table")
+			)
+				return;
 			cycle(e.key === "ArrowLeft" ? -1 : 1);
 		};
 		window.addEventListener("keydown", onKeyDown);
