@@ -19,7 +19,7 @@ export type VisualizerTableNode = Node<
 	"table"
 >;
 
-export const ColumnIcon = ({ column }: { column: ColumnInfoSchemaType }) => (
+const ColumnIcon = ({ column }: { column: ColumnInfoSchemaType }) => (
 	<span className="flex w-8 shrink-0 items-center gap-1">
 		{column.isPrimaryKey ? (
 			<KeyRound
