@@ -16,7 +16,7 @@ export interface SqlResult {
 	rowsAffected: number;
 }
 
-export interface SqliteInfo {
+interface SqliteInfo {
 	name: string;
 	size: string;
 	version: string;
