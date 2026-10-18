@@ -846,7 +846,7 @@ const main = async () => {
 		databaseUrl,
 		databaseUrl.replace(/^[a-z0-9+]+:\/\//i, ""),
 		...url.searchParams.getAll("authToken"),
-	];
+	].filter(Boolean);
 
 	const { createServer } = await import("../src/utils/create-server.js");
 	const { app } = createServer();

@@ -82,6 +82,7 @@ export const createD1Client = ({ accountId, databaseId, token }: D1Target): Sqli
 			method: body === undefined ? "GET" : "POST",
 			headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
 			body: body === undefined ? undefined : JSON.stringify(body),
+			signal: AbortSignal.timeout(30_000),
 		});
 		const text = await res.text();
 		let parsed: D1Response<T> | undefined;
