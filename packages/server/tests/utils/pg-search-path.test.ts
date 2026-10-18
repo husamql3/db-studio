@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // db-manager is globally mocked in tests/setup.ts; this suite exercises the real one.
 vi.unmock("@/db-manager.js");
 
+type FakeClient = { query: (sql: string) => Promise<unknown> };
+
 class FakePool extends EventEmitter {
 	static instances: FakePool[] = [];
-	constructor(public config: unknown) {
+	constructor(public config: { onConnect: (client: FakeClient) => Promise<void> }) {
 		super();
 		FakePool.instances.push(this);
 	}
@@ -42,37 +44,39 @@ describe("PostgreSQL pool search_path", () => {
 		const pool = await freshPool();
 		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
 
-		pool.emit("connect", client);
+		await pool.config.onConnect(client);
 
 		expect(client.query).toHaveBeenCalledTimes(1);
 		expect(client.query.mock.calls[0][0]).toMatch(/set_config\(\s*'search_path'/);
 	});
 
-	it("enqueues the statement synchronously so no query can overtake it", async () => {
-		// pg hands the client to the caller as soon as the synchronous "connect"
-		// emit returns. Looking the schemas up first and only then issuing SET
-		// would let the caller's query run against the default search_path.
+	it("holds the client back until the statement finishes", async () => {
+		// pg-pool hands the client to the caller once onConnect settles. Settling
+		// before the SET completes would let the caller's query overlap it on a
+		// busy client (deprecated by pg) or run against the default search_path.
 		const pool = await freshPool();
-		const order: string[] = [];
+		let finishSet = () => {};
 		const client = {
-			query: vi.fn((sql: string) => {
-				order.push(sql.includes("search_path") ? "set" : "caller");
-				return Promise.resolve({ rows: [] });
-			}),
+			query: vi.fn(() => new Promise<void>((resolve) => (finishSet = resolve))),
 		};
+		let settled = false;
 
-		pool.emit("connect", client);
-		// Whatever the caller does the instant it receives the client:
-		client.query("SELECT * FROM daily_summarie");
+		const hook = pool.config.onConnect(client).then(() => {
+			settled = true;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(settled).toBe(false);
 
-		expect(order).toEqual(["set", "caller"]);
+		finishSet();
+		await hook;
+		expect(settled).toBe(true);
 	});
 
 	it("keeps public first so an ambiguous table name still resolves to public", async () => {
 		const pool = await freshPool();
 		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
 
-		pool.emit("connect", client);
+		await pool.config.onConnect(client);
 
 		const sql = client.query.mock.calls[0][0] as string;
 		expect(sql).toContain("'public, ' || string_agg");
@@ -81,6 +85,7 @@ describe("PostgreSQL pool search_path", () => {
 	});
 
 	it("leaves the connection usable when the statement fails", async () => {
+		// A rejected onConnect makes pg-pool end the client and fail the checkout.
 		const pool = await freshPool();
 		const lines: string[] = [];
 		const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
@@ -91,12 +96,10 @@ describe("PostgreSQL pool search_path", () => {
 			query: vi.fn().mockRejectedValue(new Error("permission denied for secret-host")),
 		};
 
-		expect(() => pool.emit("connect", client)).not.toThrow();
-		await vi.waitFor(() =>
-			expect(lines.join("")).toContain('"event":"db_search_path_widen_failed"'),
-		);
+		await expect(pool.config.onConnect(client)).resolves.toBeUndefined();
 		stderr.mockRestore();
 
+		expect(lines.join("")).toContain('"event":"db_search_path_widen_failed"');
 		expect(lines.join("")).not.toContain("secret-host");
 	});
 });

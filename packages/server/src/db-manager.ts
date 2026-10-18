@@ -304,41 +304,43 @@ class DatabaseManager {
 				connectionTimeoutMillis: 10_000,
 			};
 
-			const pool = new Pool(poolConfig);
-
 			// The tables list spans every user schema, but the SQL the adapters
 			// build refers to tables by bare name, so a table outside "public" is
 			// listed yet every query against it fails with "relation does not
 			// exist". Widen search_path on each new connection.
 			//
-			// pg emits "connect" synchronously and hands the client straight to
-			// the caller, so this must enqueue in one shot: awaiting a lookup
-			// first would let the caller's query jump ahead of the SET. "public"
-			// stays first so it keeps winning a name collision, as before. A
-			// single set_config() rather than a DO block, because CockroachDB
-			// does not run PL/pgSQL.
-			pool.on("connect", (client) => {
-				client
-					.query(
-						`SELECT set_config(
-							'search_path',
-							COALESCE(
-								'public, ' || string_agg(quote_ident(nspname), ', ' ORDER BY nspname),
-								current_setting('search_path')
-							),
-							false
+			// The pool awaits onConnect before handing the client out, so the
+			// caller's first query cannot overlap the SET (pg deprecates queuing a
+			// query on a busy client). "public" stays first so it keeps winning a
+			// name collision, as before. A single set_config() rather than a DO
+			// block, because CockroachDB does not run PL/pgSQL.
+			const pool = new Pool({
+				...poolConfig,
+				onConnect: (client) =>
+					client
+						.query(
+							`SELECT set_config(
+								'search_path',
+								COALESCE(
+									'public, ' || string_agg(quote_ident(nspname), ', ' ORDER BY nspname),
+									current_setting('search_path')
+								),
+								false
+							)
+							FROM pg_namespace
+							WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public', 'crdb_internal', 'pg_extension')
+								AND nspname NOT LIKE 'pg_toast%'
+								AND nspname NOT LIKE 'pg_temp%';`,
 						)
-						FROM pg_namespace
-						WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public', 'crdb_internal', 'pg_extension')
-							AND nspname NOT LIKE 'pg_toast%'
-							AND nspname NOT LIKE 'pg_temp%';`,
-					)
-					.catch((err: Error) => {
-						writeOperationalLog("warn", "db_search_path_widen_failed", {
-							db_type: "pg",
-							...errorFields(err),
-						});
-					});
+						.then(
+							() => {},
+							(err: Error) => {
+								writeOperationalLog("warn", "db_search_path_widen_failed", {
+									db_type: "pg",
+									...errorFields(err),
+								});
+							},
+						),
 			});
 
 			pool.on("error", (err) => {
