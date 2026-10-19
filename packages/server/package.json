@@ -52,7 +52,9 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "tsx e2e/contract.ts",
     "e2e:perf": "tsx e2e/perf.ts",
-    "e2e:grid": "tsx e2e/grid.ts"
+    "e2e:grid": "tsx e2e/grid.ts",
+    "e2e:schema-routing": "tsx e2e/schema-routing.ts",
+    "e2e:visualizer": "tsx e2e/visualizer.ts"
   },
   "portless": {
     "name": "api.db-studio",

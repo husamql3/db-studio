@@ -14,9 +14,15 @@ export const useDeleteColumn = () => {
 		Error,
 		DeleteColumnParamsSchemaType
 	>({
-		mutationFn: async ({ tableName, columnName, cascade }: DeleteColumnParamsSchemaType) => {
+		mutationFn: async ({
+			tableName,
+			schemaName,
+			columnName,
+			cascade,
+		}: DeleteColumnParamsSchemaType) => {
 			const res = await deleteColumnRequest({
 				tableName,
+				schemaName,
 				columnName,
 				cascade,
 				db: selectedDatabase ?? "",
@@ -43,14 +49,20 @@ export const useDeleteColumn = () => {
 
 	const deleteColumn = async ({
 		tableName,
+		schemaName,
 		columnName,
 		cascade,
-	}: DeleteColumnParamsSchemaType) => {
-		return toast.promise(deleteColumnAsync({ tableName, columnName, cascade, db: "" }), {
-			loading: "Deleting column...",
-			success: (message) => message || "Column deleted successfully",
-			error: (error: Error) => error.message || "Failed to delete column",
-		});
+	}: Omit<DeleteColumnParamsSchemaType, "schemaName"> & {
+		schemaName: string | undefined;
+	}) => {
+		return toast.promise(
+			deleteColumnAsync({ tableName, schemaName, columnName, cascade, db: "" }),
+			{
+				loading: "Deleting column...",
+				success: (message) => message || "Column deleted successfully",
+				error: (error: Error) => error.message || "Failed to delete column",
+			},
+		);
 	};
 
 	return {

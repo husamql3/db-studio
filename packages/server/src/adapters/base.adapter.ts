@@ -339,6 +339,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 		db,
 	}: {
 		tableName: string;
+		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {

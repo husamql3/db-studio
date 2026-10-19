@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
 import { updateRecords } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
@@ -11,9 +12,13 @@ import { getIdentityColumnNames } from "../utils/row-details-utils";
 export const useUpdateCell = () => {
 	const queryClient = useQueryClient();
 	const { table } = Route.useParams();
+	const schemaName = useTableSchemaName();
 	const { clearUpdates, getUpdateCount } = useUpdateCellStore();
 	const { selectedDatabase } = useDatabaseStore();
-	const { tableCols } = useTableCols({ tableName: table });
+	const { tableCols } = useTableCols({
+		tableName: table,
+		schemaName: schemaName ?? undefined,
+	});
 
 	const { mutateAsync: updateCellMutation, isPending: isUpdatingCell } = useMutation({
 		mutationFn: async (updates: CellUpdate[]) => {
@@ -36,7 +41,11 @@ export const useUpdateCell = () => {
 					: {}),
 			};
 
-			const res = await updateRecords({ ...payload, db: selectedDatabase });
+			const res = await updateRecords({
+				...payload,
+				schemaName,
+				db: selectedDatabase,
+			});
 			return res.data.data;
 		},
 		onSuccess: async () => {

@@ -613,6 +613,8 @@ export class MySqlAdapter extends BaseAdapter {
 			  (c.COLUMN_KEY = 'PRI')   AS isPrimaryKey,
 			  (kcu.REFERENCED_TABLE_NAME IS NOT NULL) AS isForeignKey,
 			  kcu.REFERENCED_TABLE_NAME  AS referencedTable,
+			  -- Tables of this database are listed without a schema: only another database's is named.
+			  NULLIF(kcu.REFERENCED_TABLE_SCHEMA, DATABASE()) AS referencedSchema,
 			  kcu.REFERENCED_COLUMN_NAME AS referencedColumn
 			FROM information_schema.COLUMNS c
 			LEFT JOIN information_schema.KEY_COLUMN_USAGE kcu
@@ -641,6 +643,7 @@ export class MySqlAdapter extends BaseAdapter {
 				isPrimaryKey: number | boolean;
 				isForeignKey: number | boolean;
 				referencedTable: string | null;
+				referencedSchema: string | null;
 				referencedColumn: string | null;
 			}>
 		).map((r) => {
@@ -657,6 +660,7 @@ export class MySqlAdapter extends BaseAdapter {
 				isPrimaryKey: Boolean(r.isPrimaryKey),
 				isForeignKey: Boolean(r.isForeignKey),
 				referencedTable: r.referencedTable ?? null,
+				...(r.referencedSchema && { referencedSchema: r.referencedSchema }),
 				referencedColumn: r.referencedColumn ?? null,
 				enumValues: isEnum ? this.parseMysqlEnumValues(r.columnType) : null,
 			};

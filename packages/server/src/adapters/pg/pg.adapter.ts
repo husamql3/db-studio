@@ -55,8 +55,8 @@ import {
 	buildCursorWhereClause,
 	buildSortClause,
 	buildWhereClause,
-	resolvedSchemaFor,
-	SEARCH_PATH_SCHEMAS,
+	qualifiedTable,
+	schemaOf,
 } from "./pg.query-builder.js";
 
 type PgPool = Awaited<ReturnType<typeof getDbPool>>;
@@ -101,6 +101,7 @@ export class PgAdapter extends BaseAdapter {
 	protected buildTableDataQuery(params: GetTableDataParams): QueryBundle {
 		const {
 			tableName,
+			schemaName,
 			cursor = "",
 			limit = 50,
 			direction = "asc",
@@ -176,10 +177,11 @@ export class PgAdapter extends BaseAdapter {
 		}
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
-		const sql = `SELECT * FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`;
+		const table = qualifiedTable(tableName, schemaName);
+		const sql = `SELECT * FROM ${table} ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`;
 		const values = [...filterValues, ...cursorValues, limit + 1];
 
-		const countSql = `SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${table} ${filterWhere}`;
 		const countValues = filterValues;
 
 		return { sql, values, countSql, countValues };
@@ -237,6 +239,7 @@ export class PgAdapter extends BaseAdapter {
 	override async getTableData(params: GetTableDataParams) {
 		const {
 			tableName,
+			schemaName,
 			db,
 			limit = 50,
 			direction = "asc",
@@ -246,14 +249,15 @@ export class PgAdapter extends BaseAdapter {
 			filters = [],
 		} = params;
 		const pool = await getDbPool(db);
+		const table = qualifiedTable(tableName, schemaName);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
 		// on the page, so it is counted at the same time instead of after. These are the first
 		// queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
-			this.getPrimaryKeyColumns(pool, tableName),
-			this.countRows(pool, tableName, filterWhere, filterValues),
+			this.getPrimaryKeyColumns(pool, table),
+			this.countRows(pool, table, filterWhere, filterValues),
 		]).catch((e: unknown) => {
 			if (isPgDatabaseError(e) && e.code === "42P01")
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -339,7 +343,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
-			`SELECT ${["*", ...extraSelect].join(", ")} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
+			`SELECT ${["*", ...extraSelect].join(", ")} FROM ${table} ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
 			[...filterValues, ...cursorValues, limit + 1],
 		);
 
@@ -397,13 +401,13 @@ export class PgAdapter extends BaseAdapter {
 	 */
 	private async countRows(
 		pool: PgPool,
-		tableName: string,
+		table: string,
 		filterWhere: string,
 		filterValues: unknown[],
 	): Promise<{ total: number; estimated: boolean }> {
 		if (filterWhere) {
 			const { rows } = await pool.query(
-				`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
+				`SELECT COUNT(*) as total FROM ${table} ${filterWhere}`,
 				filterValues,
 			);
 			return { total: Number(rows[0].total), estimated: false };
@@ -411,10 +415,10 @@ export class PgAdapter extends BaseAdapter {
 		// The COUNT(*) subquery only runs when the CASE reaches it.
 		const { rows } = await pool.query(
 			`SELECT CASE WHEN reltuples >= $1 THEN reltuples::bigint
-					ELSE (SELECT COUNT(*) FROM "${tableName}") END as total,
+					ELSE (SELECT COUNT(*) FROM ${table}) END as total,
 				reltuples >= $1 as estimated
 			FROM pg_catalog.pg_class WHERE oid = $2::regclass`,
-			[EXACT_COUNT_LIMIT, `"${tableName.replaceAll('"', '""')}"`],
+			[EXACT_COUNT_LIMIT, table],
 		);
 		return { total: Number(rows[0].total), estimated: rows[0].estimated === true };
 	}
@@ -591,30 +595,26 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
-		const { tableName, db, cascade } = params;
+		const { tableName, schemaName, db, cascade } = params;
 		const pool = await getDbPool(db);
+		const table = qualifiedTable(tableName, schemaName);
 
-		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
-			[tableName],
-		);
-		if (!tableRows[0]?.exists)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.assertTableExists(pool, tableName, schemaName);
 
-		const rowCount = await this.getTableRowCount(pool, tableName);
+		const rowCount = await this.getTableRowCount(pool, table);
 
 		if (!cascade) {
-			const related = await this.getFkReferencesForTable(pool, tableName);
+			const related = await this.getFkConstraints(pool, tableName, schemaName);
 			if (related.length > 0)
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName),
+					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName, schemaName),
 				};
 		}
 
 		try {
-			await pool.query(`DROP TABLE "${tableName}" ${cascade ? "CASCADE" : "RESTRICT"}`);
+			await pool.query(`DROP TABLE ${table} ${cascade ? "CASCADE" : "RESTRICT"}`);
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
 			const pgErr = error as { code?: string };
@@ -622,7 +622,7 @@ export class PgAdapter extends BaseAdapter {
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName),
+					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName, schemaName),
 				};
 			}
 			if (error instanceof HTTPException) throw error;
@@ -675,18 +675,23 @@ export class PgAdapter extends BaseAdapter {
 
 	async getTableSchema({
 		tableName,
+		schemaName,
 		db,
 	}: {
 		tableName: string;
+		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
 		const pool = await getDbPool(db);
+		const schema = schemaOf("$1", "$2");
+		const values = [tableName, schemaName ?? null];
 
-		const { rows: existsRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = ANY(current_schemas(false)) AND table_name = $1) as exists`,
-			[tableName],
+		const { rows: tableRows } = await pool.query<{ schemaName: string }>(
+			`SELECT table_schema as "schemaName" FROM information_schema.tables WHERE table_schema = ${schema} AND table_name = $1`,
+			values,
 		);
-		if (!existsRows[0]?.exists)
+		const tableSchema = tableRows[0]?.schemaName;
+		if (!tableSchema)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
 		interface ColumnInfo {
@@ -713,8 +718,8 @@ export class PgAdapter extends BaseAdapter {
 
 		const { rows: columns } = await pool.query<ColumnInfo>(
 			`SELECT column_name, data_type, udt_name, is_nullable, column_default, character_maximum_length, numeric_precision, numeric_scale
-			 FROM information_schema.columns WHERE table_schema = ${resolvedSchemaFor("$1")} AND table_name = $1 ORDER BY ordinal_position`,
-			[tableName],
+			 FROM information_schema.columns WHERE table_schema = ${schema} AND table_name = $1 ORDER BY ordinal_position`,
+			values,
 		);
 
 		const { rows: constraints } = await pool.query<ConstraintInfo>(
@@ -722,14 +727,14 @@ export class PgAdapter extends BaseAdapter {
 			 FROM information_schema.table_constraints tc
 			 JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
 			 LEFT JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema AND tc.constraint_type = 'FOREIGN KEY'
-			 WHERE tc.table_schema = ${resolvedSchemaFor("$1")} AND tc.table_name = $1 ORDER BY tc.constraint_type, tc.constraint_name`,
-			[tableName],
+			 WHERE tc.table_schema = ${schema} AND tc.table_name = $1 ORDER BY tc.constraint_type, tc.constraint_name`,
+			values,
 		);
 
 		const { rows: indexes } = await pool.query<IndexInfo>(
-			`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = ${resolvedSchemaFor("$1")} AND tablename = $1
-			 AND indexname NOT IN (SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = ${resolvedSchemaFor("$1")} AND table_name = $1 AND constraint_type = 'PRIMARY KEY')`,
-			[tableName],
+			`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = ${schema} AND tablename = $1
+			 AND indexname NOT IN (SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = ${schema} AND table_name = $1 AND constraint_type = 'PRIMARY KEY')`,
+			values,
 		);
 
 		const formatType = (col: ColumnInfo): string => {
@@ -775,7 +780,7 @@ export class PgAdapter extends BaseAdapter {
 			return typeMap[data_type] || data_type;
 		};
 
-		const lines: string[] = [`create table public.${tableName} (`];
+		const lines: string[] = [`create table ${tableSchema}.${tableName} (`];
 		const colDefs = columns.map((col) => {
 			let def = `  ${col.column_name} ${formatType(col)}`;
 			if (col.is_nullable === "NO") def += " not null";
@@ -826,18 +831,22 @@ export class PgAdapter extends BaseAdapter {
 	async getTableColumns({
 		tableName,
 		db,
+		schemaName,
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
+		schemaName?: string;
 	}): Promise<ColumnInfoSchemaType[]> {
 		const pool = await getDbPool(db);
+		const schema = schemaOf("$1", "$2");
 		const { rows } = await pool.query(
 			`SELECT
 				c.column_name as "columnName", c.data_type as "dataType", c.udt_name as "udtName",
 				c.is_nullable = 'YES' as "isNullable", c.column_default as "columnDefault",
 				CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as "isPrimaryKey",
 				CASE WHEN fk.column_name IS NOT NULL THEN true ELSE false END as "isForeignKey",
-				fk.referenced_table as "referencedTable", fk.referenced_column as "referencedColumn",
+				fk.referenced_schema as "referencedSchema", fk.referenced_table as "referencedTable",
+				fk.referenced_column as "referencedColumn",
 				CASE WHEN c.data_type = 'USER-DEFINED' THEN
 					(SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = c.udt_name)
 				ELSE NULL END as "enumValues"
@@ -845,17 +854,17 @@ export class PgAdapter extends BaseAdapter {
 			LEFT JOIN (
 				SELECT ku.column_name FROM information_schema.table_constraints tc
 				JOIN information_schema.key_column_usage ku ON tc.constraint_name = ku.constraint_name AND tc.table_schema = ku.table_schema
-				WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = ${resolvedSchemaFor("$1")} AND tc.table_name = $1
+				WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = ${schema} AND tc.table_name = $1
 			) pk ON c.column_name = pk.column_name
 			LEFT JOIN (
-				SELECT kcu.column_name, ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
+				SELECT kcu.column_name, ccu.table_schema AS referenced_schema, ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
 				FROM information_schema.table_constraints tc
 				JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
 				JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
-				WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = ${resolvedSchemaFor("$1")} AND tc.table_name = $1
+				WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = ${schema} AND tc.table_name = $1
 			) fk ON c.column_name = fk.column_name
-			WHERE c.table_schema = ${resolvedSchemaFor("$1")} AND c.table_name = $1 ORDER BY c.ordinal_position;`,
-			[tableName],
+			WHERE c.table_schema = ${schema} AND c.table_name = $1 ORDER BY c.ordinal_position;`,
+			[tableName, schemaName ?? null],
 		);
 
 		if (!rows || rows.length === 0)
@@ -879,6 +888,7 @@ export class PgAdapter extends BaseAdapter {
 				isPrimaryKey: r.isPrimaryKey,
 				isForeignKey: r.isForeignKey,
 				referencedTable: r.referencedTable,
+				...(r.referencedSchema && { referencedSchema: r.referencedSchema }),
 				referencedColumn: r.referencedColumn,
 				enumValues: parsedEnumValues,
 			};
@@ -896,20 +906,17 @@ export class PgAdapter extends BaseAdapter {
 			isUnique,
 			isIdentity,
 			isArray,
+			schemaName,
 			db,
 		} = params;
 		const pool = await getDbPool(db);
 
-		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
-			[tableName],
-		);
-		if (!tableRows[0]?.exists)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.assertTableExists(pool, tableName, schemaName);
+		const table = qualifiedTable(tableName, schemaName);
 
 		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`,
-			[tableName, columnName],
+			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`,
+			[tableName, columnName, schemaName ?? null],
 		);
 		if (colRows[0]?.exists)
 			throw new HTTPException(409, {
@@ -924,23 +931,19 @@ export class PgAdapter extends BaseAdapter {
 		if (isIdentity) def += " GENERATED ALWAYS AS IDENTITY";
 		if (defaultValue?.trim() && !isIdentity) def += ` DEFAULT ${defaultValue.trim()}`;
 
-		await pool.query(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
+		await pool.query(`ALTER TABLE ${table} ADD COLUMN ${def}`);
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, columnName, cascade, db } = params;
+		const { tableName, schemaName, columnName, cascade, db } = params;
 		const pool = await getDbPool(db);
 
-		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
-			[tableName],
-		);
-		if (!tableRows[0]?.exists)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.assertTableExists(pool, tableName, schemaName);
+		const table = qualifiedTable(tableName, schemaName);
 
 		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`,
-			[tableName, columnName],
+			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`,
+			[tableName, columnName, schemaName ?? null],
 		);
 		if (!colRows[0]?.exists)
 			throw new HTTPException(404, {
@@ -948,25 +951,22 @@ export class PgAdapter extends BaseAdapter {
 			});
 
 		const { rowCount } = await pool.query(
-			`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}" ${cascade ? "CASCADE" : "RESTRICT"}`,
+			`ALTER TABLE ${table} DROP COLUMN "${columnName}" ${cascade ? "CASCADE" : "RESTRICT"}`,
 		);
 		return { deletedCount: rowCount ?? 0 };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
+		const { tableName, schemaName, columnName, columnType, isNullable, defaultValue, db } =
+			params;
 		const pool = await getDbPool(db);
 
-		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
-			[tableName],
-		);
-		if (!tableRows[0]?.exists)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.assertTableExists(pool, tableName, schemaName);
+		const table = qualifiedTable(tableName, schemaName);
 
 		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`,
-			[tableName, columnName],
+			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`,
+			[tableName, columnName, schemaName ?? null],
 		);
 		if (!colRows[0]?.exists)
 			throw new HTTPException(404, {
@@ -977,19 +977,17 @@ export class PgAdapter extends BaseAdapter {
 		try {
 			await client.query("BEGIN");
 			await client.query(
-				`ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" TYPE ${columnType}`,
+				`ALTER TABLE ${table} ALTER COLUMN "${columnName}" TYPE ${columnType}`,
 			);
 			await client.query(
-				`ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" ${isNullable ? "DROP" : "SET"} NOT NULL`,
+				`ALTER TABLE ${table} ALTER COLUMN "${columnName}" ${isNullable ? "DROP" : "SET"} NOT NULL`,
 			);
 			if (defaultValue?.trim()) {
 				await client.query(
-					`ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" SET DEFAULT ${defaultValue.trim()}`,
+					`ALTER TABLE ${table} ALTER COLUMN "${columnName}" SET DEFAULT ${defaultValue.trim()}`,
 				);
 			} else {
-				await client.query(
-					`ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" DROP DEFAULT`,
-				);
+				await client.query(`ALTER TABLE ${table} ALTER COLUMN "${columnName}" DROP DEFAULT`);
 			}
 			await client.query("COMMIT");
 		} catch (error) {
@@ -1001,32 +999,36 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, newColumnName, db } = params;
+		const { tableName, schemaName, columnName, newColumnName, db } = params;
 		const pool = await getDbPool(db);
 
-		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${resolvedSchemaFor("$1")}) as exists;`;
+		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`;
 
-		const { rows: tableRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ANY(current_schemas(false))) as exists;`,
-			[tableName],
-		);
-		if (!tableRows[0]?.exists)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.assertTableExists(pool, tableName, schemaName);
+		const table = qualifiedTable(tableName, schemaName);
 
-		const { rows: curRows } = await pool.query(colExistsQuery, [tableName, columnName]);
+		const { rows: curRows } = await pool.query(colExistsQuery, [
+			tableName,
+			columnName,
+			schemaName ?? null,
+		]);
 		if (!curRows[0]?.exists)
 			throw new HTTPException(404, {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
 
-		const { rows: nextRows } = await pool.query(colExistsQuery, [tableName, newColumnName]);
+		const { rows: nextRows } = await pool.query(colExistsQuery, [
+			tableName,
+			newColumnName,
+			schemaName ?? null,
+		]);
 		if (nextRows[0]?.exists)
 			throw new HTTPException(409, {
 				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
 			});
 
 		await pool.query(
-			`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
+			`ALTER TABLE ${table} RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
 		);
 	}
 
@@ -1098,13 +1100,15 @@ export class PgAdapter extends BaseAdapter {
 
 	async getTableIndexes({
 		tableName,
+		schemaName,
 		db,
 	}: {
 		tableName: string;
+		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			const indexes = await this.listIndexes(await getDbPool(db), tableName);
+			const indexes = await this.listIndexes(await getDbPool(db), tableName, schemaName);
 			return indexes.map(({ schemaName: _schemaName, ...index }) => index);
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1112,14 +1116,22 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method = "btree", db } = params;
+		const {
+			tableName,
+			schemaName,
+			indexName,
+			columns,
+			isUnique,
+			method = "btree",
+			db,
+		} = params;
 		try {
 			const pool = await getDbPool(db);
-			await this.assertTableExists(pool, tableName);
+			await this.assertTableExists(pool, tableName, schemaName);
 
 			const { rows: columnRows } = await pool.query<{ columnName: string }>(
-				`SELECT column_name as "columnName" FROM information_schema.columns WHERE table_name = $1 AND table_schema = ${resolvedSchemaFor("$1")}`,
-				[tableName],
+				`SELECT column_name as "columnName" FROM information_schema.columns WHERE table_name = $1 AND table_schema = ${schemaOf("$1", "$2")}`,
+				[tableName, schemaName ?? null],
 			);
 			const existing = new Set(columnRows.map((row) => row.columnName));
 			const missing = columns.find((column) => !existing.has(column));
@@ -1132,7 +1144,7 @@ export class PgAdapter extends BaseAdapter {
 				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
 
 			await pool.query(
-				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${this.quoteIdentifier(tableName)} USING ${method} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
+				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${qualifiedTable(tableName, schemaName)} USING ${method} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
 			);
 		} catch (e) {
 			// 42P07: the name is taken; 23505: existing rows break the new unique index.
@@ -1147,10 +1159,15 @@ export class PgAdapter extends BaseAdapter {
 		}
 	}
 
-	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
+	async dropIndex({
+		tableName,
+		schemaName,
+		indexName,
+		db,
+	}: DropIndexParamsSchemaType): Promise<void> {
 		try {
 			const pool = await getDbPool(db);
-			const index = (await this.listIndexes(pool, tableName)).find(
+			const index = (await this.listIndexes(pool, tableName, schemaName)).find(
 				(candidate) => candidate.indexName === indexName,
 			);
 			if (!index)
@@ -1176,9 +1193,11 @@ export class PgAdapter extends BaseAdapter {
 
 	async addRecord({
 		db,
+		schemaName,
 		params,
 	}: {
 		db: DatabaseSchemaType["db"];
+		schemaName?: string;
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
@@ -1188,7 +1207,7 @@ export class PgAdapter extends BaseAdapter {
 		const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 		const colNames = columns.map((c) => `"${c}"`).join(", ");
 		const result = await pool.query(
-			`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders}) RETURNING *`,
+			`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
 			values,
 		);
 		if (result.rowCount === 0)
@@ -1198,16 +1217,19 @@ export class PgAdapter extends BaseAdapter {
 
 	async updateRecords({
 		params,
+		schemaName,
 		db,
 	}: {
 		db: DatabaseSchemaType["db"];
+		schemaName?: string;
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
 		const pool = await getDbPool(db);
+		const table = qualifiedTable(tableName, schemaName);
 
 		const keyColumns = this.resolveKeyColumns(params);
-		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
+		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, table), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		await pool.query("BEGIN");
@@ -1223,7 +1245,7 @@ export class PgAdapter extends BaseAdapter {
 				);
 				values.push(...keyValues);
 				const result = await pool.query(
-					`UPDATE "${tableName}" SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
+					`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
 					values,
 				);
 				if (result.rowCount === 0)
@@ -1243,14 +1265,16 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteRecords({
 		tableName,
+		schemaName,
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
 		const pool = await getDbPool(db);
+		const table = qualifiedTable(tableName, schemaName);
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, table));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
@@ -1258,7 +1282,7 @@ export class PgAdapter extends BaseAdapter {
 		try {
 			await pool.query("BEGIN");
 			const result = await pool.query(
-				`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders}) RETURNING *`,
+				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${placeholders}) RETURNING *`,
 				pkValues,
 			);
 			await pool.query("COMMIT");
@@ -1267,7 +1291,12 @@ export class PgAdapter extends BaseAdapter {
 			await pool.query("ROLLBACK");
 			const pgErr = error as { code?: string };
 			if (pgErr.code === "23503") {
-				const relatedRecords = await this.getRelatedRecords(pool, tableName, primaryKeys, db);
+				const relatedRecords = await this.getRelatedRecords(
+					pool,
+					tableName,
+					schemaName,
+					primaryKeys,
+				);
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 			if (error instanceof HTTPException) throw error;
@@ -1279,56 +1308,70 @@ export class PgAdapter extends BaseAdapter {
 
 	async forceDeleteRecords({
 		tableName,
+		schemaName,
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const pool = await getDbPool(db);
+		const table = qualifiedTable(tableName, schemaName);
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, table));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		await pool.query("BEGIN");
 
 		try {
-			const fkConstraints = await this.getFkConstraints(pool, tableName);
+			const fkConstraints = await this.getFkConstraints(pool, tableName, schemaName);
 			let totalRelated = 0;
 			const deletedTables = new Set<string>();
 
 			const deleteRelated = async (
 				targetTable: string,
+				targetSchema: string,
 				targetColumn: string,
 				values: unknown[],
 			) => {
-				const nested = await this.getFkConstraints(pool, targetTable);
+				const target = qualifiedTable(targetTable, targetSchema);
+				const nested = await this.getFkConstraints(pool, targetTable, targetSchema);
 				for (const nfk of nested) {
 					const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
 					const { rows } = await pool.query(
-						`SELECT "${nfk.referencedColumn}" FROM "${targetTable}" WHERE "${targetColumn}" IN (${placeholders})`,
+						`SELECT "${nfk.referencedColumn}" FROM ${target} WHERE "${targetColumn}" IN (${placeholders})`,
 						values,
 					);
 					const nestedVals = rows.map((r: Record<string, unknown>) => r[nfk.referencedColumn]);
 					if (nestedVals.length > 0)
-						await deleteRelated(nfk.referencingTable, nfk.referencingColumn, nestedVals);
+						await deleteRelated(
+							nfk.referencingTable,
+							nfk.referencingSchema,
+							nfk.referencingColumn,
+							nestedVals,
+						);
 				}
 				const ph = values.map((_, i) => `$${i + 1}`).join(", ");
 				const res = await pool.query(
-					`DELETE FROM "${targetTable}" WHERE "${targetColumn}" IN (${ph})`,
+					`DELETE FROM ${target} WHERE "${targetColumn}" IN (${ph})`,
 					values,
 				);
 				totalRelated += res.rowCount ?? 0;
-				deletedTables.add(targetTable);
+				deletedTables.add(target);
 			};
 
 			for (const c of fkConstraints) {
-				if (!deletedTables.has(c.referencingTable))
-					await deleteRelated(c.referencingTable, c.referencingColumn, pkValues);
+				if (!deletedTables.has(qualifiedTable(c.referencingTable, c.referencingSchema)))
+					await deleteRelated(
+						c.referencingTable,
+						c.referencingSchema,
+						c.referencingColumn,
+						pkValues,
+					);
 			}
 
 			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
 			const result = await pool.query(
-				`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
+				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
 				pkValues,
 			);
 			await pool.query("COMMIT");
@@ -1344,6 +1387,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async bulkInsertRecords({
 		tableName,
+		schemaName,
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
@@ -1364,7 +1408,7 @@ export class PgAdapter extends BaseAdapter {
 				const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 				try {
 					await client.query(
-						`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders}) RETURNING *`,
+						`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
 						values,
 					);
 					successCount++;
@@ -1389,6 +1433,30 @@ export class PgAdapter extends BaseAdapter {
 			});
 		} finally {
 			client.release();
+		}
+	}
+
+	override async exportTableData({
+		tableName,
+		schemaName,
+		db,
+	}: {
+		tableName: string;
+		schemaName?: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
+		try {
+			const pool = await getDbPool(db);
+			const { rows } = await pool.query<Record<string, unknown>>(
+				`SELECT * FROM ${qualifiedTable(tableName, schemaName)}`,
+			);
+			if (rows.length === 0)
+				throw new HTTPException(404, {
+					message: `Table "${tableName}" does not exist or has no data`,
+				});
+			return { cols: Object.keys(rows[0]), rows };
+		} catch (e) {
+			throw this.wrapError(e);
 		}
 	}
 
@@ -1432,10 +1500,14 @@ export class PgAdapter extends BaseAdapter {
 		return this.databaseSizeSupport;
 	}
 
-	private async assertTableExists(pool: PgPool, tableName: string): Promise<void> {
+	private async assertTableExists(
+		pool: PgPool,
+		tableName: string,
+		schemaName: string | undefined,
+	): Promise<void> {
 		const { rows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ${SEARCH_PATH_SCHEMAS}) as exists;`,
-			[tableName],
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ${schemaOf("$1", "$2")}) as exists;`,
+			[tableName, schemaName ?? null],
 		);
 		if (!rows[0]?.exists)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -1444,8 +1516,9 @@ export class PgAdapter extends BaseAdapter {
 	private async listIndexes(
 		pool: PgPool,
 		tableName: string,
+		schemaName: string | undefined,
 	): Promise<Array<IndexInfoSchemaType & { schemaName: string }>> {
-		await this.assertTableExists(pool, tableName);
+		await this.assertTableExists(pool, tableName, schemaName);
 		const { rows } = await pool.query(
 			`SELECT
 				ic.relname AS "indexName",
@@ -1470,38 +1543,42 @@ export class PgAdapter extends BaseAdapter {
 			 JOIN pg_am am ON am.oid = ic.relam
 			 WHERE i.indrelid = $1::regclass
 			 ORDER BY i.indisprimary DESC, ic.relname`,
-			[this.quoteIdentifier(tableName)],
+			[qualifiedTable(tableName, schemaName)],
 		);
 		return rows;
 	}
 
-	private async getPrimaryKeyColumns(pool: PgPool, tableName: string): Promise<string[]> {
+	/** `table` is a quoted, optionally schema-qualified name from `qualifiedTable`. */
+	private async getPrimaryKeyColumns(pool: PgPool, table: string): Promise<string[]> {
 		const result = await pool.query(
 			`SELECT a.attname as column_name
 			 FROM pg_index i
 			 JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
 			 WHERE i.indrelid = $1::regclass AND i.indisprimary
 			 ORDER BY array_position(i.indkey, a.attnum)`,
-			[`"${tableName}"`],
+			[table],
 		);
 		return result.rows.map((row) => row.column_name);
 	}
 
+	/** The FKs that reference `tableName`, each with the schema of its referencing table. */
 	private async getFkConstraints(
 		pool: PgPool,
 		tableName: string,
-	): Promise<ForeignKeyConstraint[]> {
+		schemaName: string | undefined,
+	): Promise<Array<ForeignKeyConstraint & { referencingSchema: string }>> {
 		const { rows } = await pool.query(
-			`SELECT tc.constraint_name, tc.table_name as referencing_table, kcu.column_name as referencing_column,
+			`SELECT tc.constraint_name, tc.table_schema as referencing_schema, tc.table_name as referencing_table, kcu.column_name as referencing_column,
 				ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
 			 FROM information_schema.table_constraints AS tc
 			 JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
 			 JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
-			 WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name = $1`,
-			[tableName],
+			 WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name = $1 AND ccu.table_schema = ${schemaOf("$1", "$2")}`,
+			[tableName, schemaName ?? null],
 		);
-		return rows.map((row: ForeignKeyConstraintRow) => ({
+		return rows.map((row: ForeignKeyConstraintRow & { referencing_schema: string }) => ({
 			constraintName: row.constraint_name,
+			referencingSchema: row.referencing_schema,
 			referencingTable: row.referencing_table,
 			referencingColumn: row.referencing_column,
 			referencedTable: row.referenced_table,
@@ -1509,22 +1586,18 @@ export class PgAdapter extends BaseAdapter {
 		}));
 	}
 
-	private async getFkReferencesForTable(
-		pool: PgPool,
-		tableName: string,
-	): Promise<ForeignKeyConstraint[]> {
-		return this.getFkConstraints(pool, tableName);
-	}
-
 	private async getRelatedRecordsForTable(
 		pool: PgPool,
 		tableName: string,
+		schemaName: string | undefined,
 	): Promise<RelatedRecord[]> {
-		const fks = await this.getFkReferencesForTable(pool, tableName);
+		const fks = await this.getFkConstraints(pool, tableName, schemaName);
 		if (fks.length === 0) return [];
 		const results: RelatedRecord[] = [];
 		for (const fk of fks) {
-			const { rows } = await pool.query(`SELECT * FROM "${fk.referencingTable}" LIMIT 100`);
+			const { rows } = await pool.query(
+				`SELECT * FROM ${qualifiedTable(fk.referencingTable, fk.referencingSchema)} LIMIT 100`,
+			);
 			if (rows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,
@@ -1540,17 +1613,17 @@ export class PgAdapter extends BaseAdapter {
 	private async getRelatedRecords(
 		pool: PgPool,
 		tableName: string,
+		schemaName: string | undefined,
 		primaryKeys: DeleteRecordSchemaType["primaryKeys"],
-		db: DatabaseSchemaType["db"],
 	): Promise<RelatedRecord[]> {
-		const fks = await this.getFkConstraints(pool, tableName);
+		const fks = await this.getFkConstraints(pool, tableName, schemaName);
 		if (fks.length === 0) return [];
 
 		const results: RelatedRecord[] = [];
 		const pkValues = primaryKeys.map((pk) => pk.value);
-		const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
+		const constraintsByTable = new Map<string, typeof fks>();
 		for (const fk of fks) {
-			const key = `${fk.referencingTable}.${fk.referencingColumn}`;
+			const key = `${fk.referencingSchema}.${fk.referencingTable}.${fk.referencingColumn}`;
 			const arr = constraintsByTable.get(key) ?? [];
 			arr.push(fk);
 			constraintsByTable.set(key, arr);
@@ -1563,7 +1636,7 @@ export class PgAdapter extends BaseAdapter {
 			if (!matchingPk) continue;
 			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
 			const { rows } = await pool.query(
-				`SELECT * FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
+				`SELECT * FROM ${qualifiedTable(fk.referencingTable, fk.referencingSchema)} WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
 				pkValues,
 			);
 			if (rows.length > 0) {
@@ -1575,12 +1648,11 @@ export class PgAdapter extends BaseAdapter {
 				});
 			}
 		}
-		void db;
 		return results;
 	}
 
-	private async getTableRowCount(pool: PgPool, tableName: string): Promise<number> {
-		const { rows } = await pool.query(`SELECT COUNT(*) as count FROM "${tableName}"`);
+	private async getTableRowCount(pool: PgPool, table: string): Promise<number> {
+		const { rows } = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
 		return Number.parseInt(rows[0]?.count ?? "0", 10);
 	}
 }

@@ -2,15 +2,13 @@ import { Button } from "@db-studio/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useCallback } from "react";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTableData } from "../../hooks/use-table-data";
 
 export const RefetchBtn = ({ tableName }: { tableName: string }) => {
-	const { refetchTableData, isRefetchingTableData } = useTableData({
-		tableName,
-	});
-	const { refetchTableCols, isRefetchingTableCols } = useTableCols({
-		tableName,
-	});
+	const schemaName = useTableSchemaName();
+	const { refetchTableData, isRefetchingTableData } = useTableData({ tableName, schemaName });
+	const { refetchTableCols, isRefetchingTableCols } = useTableCols({ tableName, schemaName });
 
 	const handleRefetch = useCallback(() => {
 		Promise.all([refetchTableData(), refetchTableCols()]);

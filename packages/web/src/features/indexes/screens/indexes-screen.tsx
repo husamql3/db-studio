@@ -7,6 +7,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { useMemo } from "react";
 import { CellCopyButton } from "@/features/tables";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CreateIndexForm } from "../components/create-index-form";
 import { DropIndexDialog } from "../components/drop-index-dialog";
@@ -27,7 +28,7 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 		isRefetchingTableIndexes,
 		errorTableIndexes,
 		refetchTableIndexes,
-	} = useTableIndexes({ tableName });
+	} = useTableIndexes({ tableName, schemaName: useTableSchemaName() });
 	const { openOverlay } = useOverlayStore();
 	const hasMethods = Boolean(tableIndexes?.some((index) => index.method !== null));
 

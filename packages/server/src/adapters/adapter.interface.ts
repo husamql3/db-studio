@@ -32,6 +32,7 @@ import type {
 
 export interface GetTableDataParams {
 	tableName: string;
+	schemaName?: string;
 	db: DatabaseSchemaType["db"];
 	cursor?: string;
 	limit?: number;
@@ -55,12 +56,17 @@ export interface IDbAdapter {
 	}): Promise<void>;
 	deleteTable(params: DeleteTableParams): Promise<DeleteTableResult>;
 	renameTable(params: RenameTableParamsSchemaType): Promise<void>;
-	getTableSchema(params: { tableName: string; db: DatabaseSchemaType["db"] }): Promise<string>;
+	getTableSchema(params: {
+		tableName: string;
+		schemaName?: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<string>;
 
 	// --- Columns ---
 	getTableColumns(params: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
+		schemaName?: string;
 	}): Promise<ColumnInfoSchemaType[]>;
 	addColumn(params: AddColumnParamsSchemaType): Promise<void>;
 	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }>;
@@ -70,6 +76,7 @@ export interface IDbAdapter {
 	// --- Indexes ---
 	getTableIndexes(params: {
 		tableName: string;
+		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]>;
 	createIndex(params: CreateIndexParamsSchemaType): Promise<void>;
@@ -79,10 +86,12 @@ export interface IDbAdapter {
 	getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;
 	addRecord(params: {
 		db: DatabaseSchemaType["db"];
+		schemaName?: string;
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }>;
 	updateRecords(params: {
 		db: DatabaseSchemaType["db"];
+		schemaName?: string;
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }>;
 	deleteRecords(params: DeleteRecordParams): Promise<DeleteRecordResult>;
@@ -90,6 +99,7 @@ export interface IDbAdapter {
 	bulkInsertRecords(params: BulkInsertRecordsParams): Promise<BulkInsertResult>;
 	exportTableData(params: {
 		tableName: string;
+		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 

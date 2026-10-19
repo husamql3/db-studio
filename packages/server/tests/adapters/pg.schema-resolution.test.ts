@@ -56,8 +56,8 @@ describe("PgAdapter schema resolution", () => {
 	it("accepts a table living in any schema on the search path", async () => {
 		await adapter.getTableSchema({ db: "appdb", tableName: "daily_summarie" }).catch(() => {});
 
-		const existsQuery = catalogSql().find((s) => s.includes("as exists"));
-		expect(existsQuery).toContain("ANY(current_schemas(false))");
+		const tableQuery = catalogSql().find((s) => s.includes("information_schema.tables"));
+		expect(tableQuery).toContain("unnest(current_schemas(false))");
 	});
 
 	it("scopes a column check to the table the DDL will actually alter", async () => {

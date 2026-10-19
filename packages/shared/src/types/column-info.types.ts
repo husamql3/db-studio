@@ -88,6 +88,11 @@ export const columnInfoSchema = z.object({
 	isPrimaryKey: z.boolean(),
 	isForeignKey: z.boolean(),
 	referencedTable: z.string().nullable(),
+	/**
+	 * The schema holding the referenced table, in the terms of `TableInfo.schemaName`. Absent
+	 * when that table is listed without a schema.
+	 */
+	referencedSchema: z.string().optional(),
 	referencedColumn: z.string().nullable(),
 	enumValues: z.array(z.string()).nullable(),
 });

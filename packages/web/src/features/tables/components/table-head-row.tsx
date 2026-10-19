@@ -42,6 +42,7 @@ import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
 import { useDeleteColumn } from "@/features/schema";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
@@ -69,6 +70,7 @@ export const TableHeadRow = ({
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
 	const [cascadeDelete, setCascadeDelete] = useState(false);
 	const { deleteColumn } = useDeleteColumn();
+	const schemaName = useTableSchemaName();
 
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
@@ -119,6 +121,7 @@ export const TableHeadRow = ({
 		await deleteColumn({
 			db: activeTableName,
 			tableName: activeTableName,
+			schemaName,
 			columnName: columnToDelete,
 			cascade: cascadeDelete,
 		});

@@ -2,7 +2,8 @@ import { Button } from "@db-studio/ui/button";
 import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
-import { TABS } from "@/utils/constants";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { CONSTANTS, TABS } from "@/utils/constants";
 
 export const Tabs = () => {
 	const { pathname } = useLocation();
@@ -18,6 +19,7 @@ export const Tabs = () => {
 						(route !== "logs" || engine?.serverLogs),
 				);
 	const activeTable = (params as { table?: string }).table;
+	const openSchema = useTableSchemaName();
 
 	return (
 		<div className="flex h-full items-center">
@@ -34,6 +36,7 @@ export const Tabs = () => {
 						key={route}
 						to={keepTable ? `/${route}/$table` : `/${route}`}
 						params={keepTable ? { table: activeTable as string } : undefined}
+						search={keepTable ? { [CONSTANTS.TABLE_SCHEMA]: openSchema } : undefined}
 						className="h-full flex items-center"
 					>
 						<Button

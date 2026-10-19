@@ -19,6 +19,7 @@ import { Controller, useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/features/schema";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useCreateIndex } from "../hooks/use-create-index";
 
@@ -26,8 +27,9 @@ import { useCreateIndex } from "../hooks/use-create-index";
 // from a blank form.
 const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay } = useOverlayStore();
-	const { createIndex, isCreatingIndex } = useCreateIndex({ tableName });
-	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
+	const schemaName = useTableSchemaName();
+	const { createIndex, isCreatingIndex } = useCreateIndex({ tableName, schemaName });
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 	const engine = useDatabaseEngine();
 	const indexes = engine?.indexes || null;
 	const methods = indexes?.methods ?? [];
