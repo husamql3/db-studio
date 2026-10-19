@@ -28,16 +28,13 @@ export const buildSchemaGraph = (tables: SchemaGraphTable[], schema: string) => 
 		schema === "all" ? tables : tables.filter((table) => table.schemaName === schema)
 	).map((table) => ({ ...table, id: tableId(table) }));
 
-	// Adapters report the referenced table without its schema: prefer the FK's own schema.
-	const resolve = (tableName: string, schemaName?: string) =>
-		visible.find((t) => t.tableName === tableName && t.schemaName === schemaName) ??
-		visible.find((t) => t.tableName === tableName);
-
 	const edges: GraphEdge[] = visible.flatMap((table) =>
 		table.columns.flatMap((column) => {
-			const { referencedTable, referencedColumn } = column;
+			const { referencedTable, referencedSchema, referencedColumn } = column;
 			if (!referencedTable || !referencedColumn) return [];
-			const target = resolve(referencedTable, table.schemaName);
+			const target = visible.find(
+				(t) => t.tableName === referencedTable && t.schemaName === referencedSchema,
+			);
 			if (!target) return [];
 			return {
 				id: `${table.id}.${column.columnName}->${target.id}`,
