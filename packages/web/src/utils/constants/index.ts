@@ -60,8 +60,7 @@ export const CONSTANTS = {
 	},
 
 	//* other constants
-	HOVER_ZONE: 20, // pixels from left edge
-	HOVER_DELAY: 100, // ms delay before opening
+	RAIL_WIDTH: 48, // px, the left navigation rail
 };
 
 export const PRESET_SIZES = [5, 10, 25, 50, 100, 500];
