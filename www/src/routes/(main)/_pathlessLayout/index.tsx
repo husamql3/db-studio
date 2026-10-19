@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -91,6 +91,32 @@ function EmailCopyButton() {
 				{copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
 			</span>
 		</button>
+	);
+}
+
+// Plays from an effect, not autoPlay, so reduced-motion users keep the still poster.
+function DemoVideo() {
+	const videoRef = useRef<HTMLVideoElement>(null);
+
+	useEffect(() => {
+		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		videoRef.current?.play().catch(() => {});
+	}, []);
+
+	return (
+		<video
+			ref={videoRef}
+			src="/demo.mp4"
+			poster="/demo-poster.jpg"
+			width={1920}
+			height={1080}
+			muted
+			loop
+			playsInline
+			preload="metadata"
+			aria-label="db-studio feature tour"
+			className="w-full h-full object-contain"
+		/>
 	);
 }
 
@@ -231,13 +257,7 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<img
-						src="/studio.png"
-						alt="db-studio"
-						width={1000}
-						height={1000}
-						className="w-full h-full object-contain"
-					/>
+					<DemoVideo />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
