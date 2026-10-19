@@ -3,14 +3,11 @@ import { useMemo } from "react";
 import { SidebarContentQueriesList } from "@/components/sidebar/sidebar-content-queries-list";
 import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-tables-list";
 import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
-import { SidebarHeader } from "@/components/sidebar/sidebar-tables-header";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 import { RedisKeySidebar } from "@/features/redis-browser/components/redis-key-sidebar";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 
-// PROTOTYPE(nav-rail): `offset` shifts the sidebar right of the icon rail, whose toggle
-// replaces the pin button.
-export const Sidebar = ({ offset = 0 }: { offset?: number }) => {
+export const Sidebar = () => {
 	const { pathname } = useLocation();
 	const path = pathname.split("/")[1];
 	const isKeyValue = useDatabaseEngine()?.dataModel === "key-value";
@@ -34,8 +31,7 @@ export const Sidebar = ({ offset = 0 }: { offset?: number }) => {
 	}, [isKeyValue, path]);
 
 	return (
-		<SidebarWrapper offset={offset}>
-			{offset === 0 && <SidebarHeader />}
+		<SidebarWrapper>
 			{renderContent}
 			<SidebarFooter />
 		</SidebarWrapper>
