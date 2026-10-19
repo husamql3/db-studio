@@ -22,6 +22,7 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogsResult,
 	SortDirection,
 	SortType,
 	TableDataResultSchemaType,
@@ -97,6 +98,10 @@ export interface IDbAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult>;
+
+	// --- Server logs ---
+	/** The newest entries of the server's own log, or why the server keeps it out of reach. */
+	getServerLogs(params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult>;
 
 	// --- Type system ---
 	/**

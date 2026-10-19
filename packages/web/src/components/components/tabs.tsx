@@ -11,8 +11,12 @@ export const Tabs = () => {
 	const engine = useDatabaseEngine();
 	const routes =
 		engine?.dataModel === "key-value"
-			? (["browser", "runner"] as const)
-			: TABS.filter((route) => route !== "indexes" || engine?.indexes);
+			? (["browser", "runner", "logs"] as const)
+			: TABS.filter(
+					(route) =>
+						(route !== "indexes" || engine?.indexes) &&
+						(route !== "logs" || engine?.serverLogs),
+				);
 	const activeTable = (params as { table?: string }).table;
 
 	return (

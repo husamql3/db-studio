@@ -23,6 +23,7 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogsResult,
 	SortDirection,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
@@ -60,6 +61,12 @@ export type NormalizedRow = Record<string, CellValue>;
 function notImplemented(method: string): never {
 	throw new HTTPException(501, {
 		message: `${method} is not implemented for this database type`,
+	});
+}
+
+function serverLogsNotSupported(): never {
+	throw new HTTPException(400, {
+		message: "Server logs are not supported for this database type",
 	});
 }
 
@@ -414,6 +421,9 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	dropIndex(_params: DropIndexParamsSchemaType): Promise<void> {
 		return indexesNotSupported();
+	}
+	getServerLogs(_params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		return serverLogsNotSupported();
 	}
 	addRecord(_params: {
 		db: DatabaseSchemaType["db"];

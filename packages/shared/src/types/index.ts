@@ -23,6 +23,7 @@ export * from "./key-browser.types.js";
 export * from "./rate-limit-response.type.js";
 export * from "./rename-column.types.js";
 export * from "./rename-table.types.js";
+export * from "./server-logs.types.js";
 export * from "./table-data.types.js"; // done
 export * from "./table-info.type.js"; // done
 export * from "./table-schema.types.js"; // done

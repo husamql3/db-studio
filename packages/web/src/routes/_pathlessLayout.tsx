@@ -22,13 +22,16 @@ function RouteComponent() {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
 	const { variant } = useNavRailVariant();
-	if (isKeyValue && section !== "browser" && section !== "runner") {
+	if (isKeyValue && section !== "browser" && section !== "runner" && section !== "logs") {
 		return <Navigate to="/browser" />;
 	}
 	if (!isKeyValue && section === "browser") {
 		return <Navigate to="/" />;
 	}
 	if (engine && !engine.indexes && section === "indexes") {
+		return <Navigate to="/table" />;
+	}
+	if (engine && !engine.serverLogs && section === "logs") {
 		return <Navigate to="/table" />;
 	}
 
