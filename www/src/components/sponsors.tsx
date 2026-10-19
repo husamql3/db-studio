@@ -1,5 +1,5 @@
 import { PlusIcon } from "lucide-react";
-import { Silk } from "@/components/silk";
+import { lazy, Suspense } from "react";
 import {
 	SPONSOR_EMAIL,
 	type SponsorTierId,
@@ -7,6 +7,9 @@ import {
 	sponsorTiers,
 } from "@/lib/content/sponsors";
 import { cn } from "@/lib/utils";
+
+// three.js is most of Silk's weight; loading it lazily keeps it out of the homepage bundle.
+const Silk = lazy(() => import("@/components/silk").then((m) => ({ default: m.Silk })));
 
 const CELL_HEIGHTS: Record<SponsorTierId, string> = {
 	mythic: "h-40",
@@ -20,13 +23,15 @@ export function SponsorsSection() {
 		<>
 			{/* Same Silk settings as the roadmap header; the canvas paints behind this box. */}
 			<div className="relative overflow-hidden">
-				<Silk
-					speed={4}
-					scale={1}
-					color="#222222"
-					noiseIntensity={0.4}
-					rotation={0}
-				/>
+				<Suspense>
+					<Silk
+						speed={4}
+						scale={1}
+						color="#222222"
+						noiseIntensity={0.4}
+						rotation={0}
+					/>
+				</Suspense>
 				<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
 					Open for <span className="text-foreground">sponsorship</span>
 				</h2>
