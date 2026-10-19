@@ -1,3 +1,4 @@
+import { ClickHouseError } from "@clickhouse/client";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -119,9 +120,6 @@ const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	Error: "error",
 	Warning: "warning",
 };
-
-/** A ClickHouse server error's name, e.g. "UNKNOWN_TABLE". */
-const clickhouseErrorType = (e: unknown) => (e as { type?: string }).type;
 
 export class ClickhouseAdapter extends BaseAdapter {
 	private serverVersion: number[] | null = null;
@@ -631,7 +629,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				});
 				return await result.json<T>();
 			} catch (e) {
-				if (clickhouseErrorType(e) === "UNKNOWN_TABLE") return null;
+				if (e instanceof ClickHouseError && e.type === "UNKNOWN_TABLE") return null;
 				throw e;
 			}
 		};
@@ -694,7 +692,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				entries: newestEntries(entries),
 			};
 		} catch (e) {
-			if (clickhouseErrorType(e) === "ACCESS_DENIED") {
+			if (e instanceof ClickHouseError && e.type === "ACCESS_DENIED") {
 				return logsUnavailable(
 					"Reading the server log needs: GRANT SELECT ON system.query_log TO <user>; and the same on system.text_log.",
 				);
