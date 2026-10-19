@@ -10,7 +10,13 @@ export type RowFieldUpdate = {
 	value: unknown;
 };
 
-export const useUpdateRecord = ({ tableName }: { tableName: string }) => {
+export const useUpdateRecord = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
@@ -34,6 +40,7 @@ export const useUpdateRecord = ({ tableName }: { tableName: string }) => {
 			}
 			const res = await updateRecords({
 				tableName,
+				schemaName,
 				updates: updates.map((update) => ({ rowData, ...update })),
 				...(primaryKey ? { primaryKey } : {}),
 				...(primaryKeys?.length ? { primaryKeys } : {}),

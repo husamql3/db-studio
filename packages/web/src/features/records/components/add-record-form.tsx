@@ -4,6 +4,7 @@ import { SheetClose } from "@db-studio/ui/sheet";
 import { FormProvider, useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
 import { AddRecordField } from "./add-record-field";
@@ -11,8 +12,9 @@ import { RecordReferenceSheet } from "./record-reference-sheet";
 
 export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
-	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
-	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName });
+	const schemaName = useTableSchemaName();
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
+	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName, schemaName });
 	const methods = useForm<AddRecordFormData>();
 
 	const onSubmit = async (data: AddRecordFormData) => {

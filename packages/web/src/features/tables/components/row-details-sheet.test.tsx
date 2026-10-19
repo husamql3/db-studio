@@ -121,6 +121,7 @@ const fixtures = vi.hoisted(() => ({
 	deleteCells: vi.fn(async () => ({ deletedCount: 1 })),
 }));
 
+vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 vi.mock("@/features/schema", () => ({
 	useTableCols: () => ({ tableCols: fixtures.cols, isLoadingTableCols: false }),
 }));

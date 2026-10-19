@@ -5,6 +5,7 @@ import { Link, useLocation, useParams } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
 import { SidebarListTablesMenu } from "@/components/sidebar/sidebar-list-tables-menu";
 import { tableId } from "@/features/visualizer";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarListTablesItem = ({
@@ -20,7 +21,11 @@ export const SidebarListTablesItem = ({
 	const [focusedTable, setFocusedTable] = useQueryState(CONSTANTS.ACTIVE_TABLE);
 	const isVisualizer = pathname.startsWith("/visualizer");
 	const id = tableId({ schemaName, tableName });
-	const isActive = isVisualizer ? focusedTable === id : table === tableName;
+	// A link without a schema predates it and matches every same-named table.
+	const openSchema = useTableSchemaName();
+	const isActive = isVisualizer
+		? focusedTable === id
+		: table === tableName && (openSchema === undefined || openSchema === schemaName);
 
 	const basePath = pathname.startsWith("/schema")
 		? "/schema/$table"
@@ -60,6 +65,7 @@ export const SidebarListTablesItem = ({
 						params={{
 							table: tableName,
 						}}
+						search={{ [CONSTANTS.TABLE_SCHEMA]: schemaName }}
 						className="flex-1 flex items-center gap-1 min-w-0 focus:outline-none"
 					>
 						{label}

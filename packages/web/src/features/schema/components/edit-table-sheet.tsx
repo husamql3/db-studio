@@ -63,16 +63,23 @@ export const EditTableSheet = () => {
 	// Remount per table so one table's form values never render against another's columns.
 	return (
 		<EditTableSheetContent
-			key={editingTable ?? ""}
-			tableName={editingTable ?? ""}
+			key={editingTable ? `${editingTable.schemaName}.${editingTable.tableName}` : ""}
+			tableName={editingTable?.tableName ?? ""}
+			schemaName={editingTable?.schemaName}
 		/>
 	);
 };
 
-const EditTableSheetContent = ({ tableName }: { tableName: string }) => {
+const EditTableSheetContent = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
-	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
-	const { editTable, isEditingTable } = useEditTable({ tableName });
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
+	const { editTable, isEditingTable } = useEditTable({ tableName, schemaName });
 
 	const methods = useForm<EditTableFormValues>({
 		mode: "onSubmit",

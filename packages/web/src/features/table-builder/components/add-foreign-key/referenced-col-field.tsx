@@ -16,7 +16,8 @@ export const ReferencedColField = ({
 	index: number;
 	tableName: string;
 }) => {
-	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
+	// CREATE TABLE names the referenced table bare, so its columns resolve the same way.
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName: undefined });
 	const { control } = useFormContext<AddTableFormData>();
 	const foreignKeyData = useWatch({
 		control,

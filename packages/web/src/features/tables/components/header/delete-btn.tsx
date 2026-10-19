@@ -11,6 +11,7 @@ import {
 import { Button } from "@db-studio/ui/button";
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import type { TableRecord } from "@/types/table.type";
 import { type RelatedRecord, useDeleteCells } from "../../hooks/use-delete-cell";
 import { ForceDeleteDialog } from "./force-delete-dialog";
@@ -27,7 +28,10 @@ export const DeleteBtn = ({
 	disabledReason?: string;
 }) => {
 	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } = useDeleteCells(
-		{ tableName },
+		{
+			tableName,
+			schemaName: useTableSchemaName(),
+		},
 	);
 	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);

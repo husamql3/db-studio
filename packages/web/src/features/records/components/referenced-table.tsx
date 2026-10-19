@@ -15,6 +15,7 @@ import { useEffect, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 import { useTableCols } from "@/features/schema";
 import { useTableData } from "@/features/tables/hooks/use-table-data";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 import { formatCellValue } from "@/utils/format-cell-value";
@@ -33,12 +34,15 @@ export const ReferencedTable = ({
 }) => {
 	const { setValue } = useFormContext<AddRecordFormData>();
 	const { closeOverlay } = useOverlayStore();
-	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
+	// An FK references a table in its own schema, the open table's.
+	const schemaName = useTableSchemaName();
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 	const [referencedActiveTable, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
 	const { tableData, isLoadingTableData } = useTableData({
 		tableName,
+		schemaName,
 		isReferencedTable: true,
 	});
 	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);

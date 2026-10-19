@@ -21,6 +21,7 @@ import { Input } from "@db-studio/ui/input";
 import { Label } from "@db-studio/ui/label";
 import { EllipsisVertical, Pencil, Trash2, Type } from "lucide-react";
 import { useState } from "react";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useDeleteColumn } from "../hooks/use-delete-column";
 import { useRenameColumn } from "../hooks/use-rename-column";
@@ -35,8 +36,10 @@ export const SchemaRowActions = ({
 }) => {
 	const { openOverlay } = useOverlayStore();
 	const { setEditingColumn } = useSchemaEditStore();
+	const schemaName = useTableSchemaName();
 	const { renameColumn, isRenamingColumn } = useRenameColumn({
 		tableName,
+		schemaName,
 		columnName: col.columnName,
 	});
 	const { deleteColumn, isDeletingColumn } = useDeleteColumn();
@@ -73,6 +76,7 @@ export const SchemaRowActions = ({
 		await deleteColumn({
 			db: "",
 			tableName,
+			schemaName,
 			columnName: col.columnName,
 			cascade: cascadeDelete,
 		});

@@ -3,7 +3,13 @@ import { getTableIndexes } from "@/shared/api";
 import { indexKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
-export const useTableIndexes = ({ tableName }: { tableName: string }) => {
+export const useTableIndexes = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const { selectedDatabase } = useDatabaseStore();
 
 	const {
@@ -13,8 +19,8 @@ export const useTableIndexes = ({ tableName }: { tableName: string }) => {
 		error: errorTableIndexes,
 		refetch: refetchTableIndexes,
 	} = useQuery({
-		queryKey: indexKeys.table(tableName, selectedDatabase),
-		queryFn: () => getTableIndexes(tableName, selectedDatabase),
+		queryKey: indexKeys.table(tableName, selectedDatabase, schemaName),
+		queryFn: () => getTableIndexes(tableName, selectedDatabase, schemaName),
 		select: (res) => res.data.data,
 		enabled: !!tableName && !!selectedDatabase,
 	});

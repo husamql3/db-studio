@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useTableCols } from "@/features/schema";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { useLiveTable } from "../hooks/use-live-table";
@@ -17,10 +18,12 @@ import { UnsavedRowGuardDialog } from "./unsaved-row-guard-dialog";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const engine = useDatabaseEngine();
+	const schemaName = useTableSchemaName();
 	const { tableData, pageKey, isLoadingTableData, errorTableData, refetchTableData } =
-		useTableData({ tableName });
+		useTableData({ tableName, schemaName });
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
 		tableName,
+		schemaName,
 	});
 
 	const tableDataRows = useMemo<TableRecord[]>(() => tableData?.data || [], [tableData?.data]);

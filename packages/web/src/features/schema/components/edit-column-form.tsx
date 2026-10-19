@@ -10,6 +10,7 @@ import { SheetSidebar } from "@/components/sheet-sidebar";
 import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
 import { DefaultValueField } from "@/features/table-builder/components/fields/default-value-field";
 import { FormActions } from "@/features/table-builder/components/fields/form-actions";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useAlterColumn } from "../hooks/use-alter-column";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
@@ -56,6 +57,7 @@ export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 	});
 	const { alterColumn, isAlteringColumn } = useAlterColumn({
 		tableName,
+		schemaName: useTableSchemaName(),
 		columnName: editingColumn?.columnName ?? "",
 	});
 

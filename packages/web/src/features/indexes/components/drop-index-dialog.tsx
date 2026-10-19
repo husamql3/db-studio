@@ -7,6 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@db-studio/ui/dialog";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useDropIndex } from "../hooks/use-drop-index";
 import { useIndexDropStore } from "../stores/index-drop.store";
@@ -14,7 +15,8 @@ import { useIndexDropStore } from "../stores/index-drop.store";
 export const DropIndexDialog = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { droppingIndex } = useIndexDropStore();
-	const { dropIndex, isDroppingIndex } = useDropIndex({ tableName });
+	const schemaName = useTableSchemaName();
+	const { dropIndex, isDroppingIndex } = useDropIndex({ tableName, schemaName });
 
 	if (!droppingIndex) return null;
 

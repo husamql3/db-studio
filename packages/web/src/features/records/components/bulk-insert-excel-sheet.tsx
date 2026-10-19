@@ -6,13 +6,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@db-studio/ui/tabs";
 import { Textarea } from "@db-studio/ui/textarea";
 import { useCallback, useRef, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { parseBulkData } from "@/utils/parse-bulk-data";
 import { useBulkInsertRecords } from "../hooks/use-bulk-insert-records";
 
 export const BulkInsertExcelSheet = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
-	const { bulkInsertRecords, isInserting } = useBulkInsertRecords({ tableName });
+	const { bulkInsertRecords, isInserting } = useBulkInsertRecords({
+		tableName,
+		schemaName: useTableSchemaName(),
+	});
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [textValue, setTextValue] = useState("");

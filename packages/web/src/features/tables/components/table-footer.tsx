@@ -10,6 +10,7 @@ import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pag
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
 import { useTableData } from "../hooks/use-table-data";
 
@@ -23,7 +24,10 @@ export const TableFooter = ({
 	const [limit, setLimit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
-	const { tableData, prefetchPage } = useTableData({ tableName });
+	const { tableData, prefetchPage } = useTableData({
+		tableName,
+		schemaName: useTableSchemaName(),
+	});
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;

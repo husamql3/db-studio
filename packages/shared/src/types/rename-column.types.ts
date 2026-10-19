@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema } from "./database.types";
+import { databaseSchema, tableQuerySchema } from "./database.types";
 import { deleteColumnParamSchema } from "./delete-column.types";
 
 export const renameColumnSchema = z.object({
@@ -15,6 +15,7 @@ export type RenameColumnParamSchemaType = z.infer<typeof renameColumnParamSchema
 export const renameColumnParamsSchema = z.object({
 	db: databaseSchema.shape.db,
 	tableName: deleteColumnParamSchema.shape.tableName,
+	schemaName: tableQuerySchema.shape.schemaName,
 	columnName: deleteColumnParamSchema.shape.columnName,
 	newColumnName: renameColumnSchema.shape.newColumnName,
 });
