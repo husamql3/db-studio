@@ -16,7 +16,13 @@ const normalizeAddColumnPayload = (data: AddColumnSchemaType): AddColumnSchemaTy
 	defaultValue: data.defaultValue?.trim() ? data.defaultValue.trim() : undefined,
 });
 
-export const useAddColumn = ({ tableName }: { tableName: string }) => {
+export const useAddColumn = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { closeOverlay } = useOverlayStore();
 	const { selectedDatabase, dbType } = useDatabaseStore();
@@ -29,6 +35,7 @@ export const useAddColumn = ({ tableName }: { tableName: string }) => {
 		mutationFn: async (data) => {
 			const res = await addColumnRequest({
 				tableName,
+				schemaName,
 				data: normalizeAddColumnPayload(data),
 				db: selectedDatabase,
 			});

@@ -1,8 +1,8 @@
 import {
 	addRecordSchema,
 	bulkInsertRecordsSchema,
-	databaseSchema,
 	deleteRecordSchema,
+	tableQuerySchema,
 	updateRecordsSchema,
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
@@ -17,13 +17,17 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 	 */
 	.post(
 		"/",
-		async ({ adapter, query: { db }, body: { tableName, data } }) => {
-			const { insertedCount } = await adapter.addRecord({ db, params: { tableName, data } });
+		async ({ adapter, query: { db, schemaName }, body: { tableName, data } }) => {
+			const { insertedCount } = await adapter.addRecord({
+				db,
+				schemaName,
+				params: { tableName, data },
+			});
 			return {
 				data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
 			};
 		},
-		{ query: databaseSchema, body: addRecordSchema },
+		{ query: tableQuerySchema, body: addRecordSchema },
 	)
 
 	/**
@@ -32,11 +36,11 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 	 */
 	.patch(
 		"/",
-		async ({ adapter, query: { db }, body }) => {
-			const { updatedCount } = await adapter.updateRecords({ params: body, db });
+		async ({ adapter, query: { db, schemaName }, body }) => {
+			const { updatedCount } = await adapter.updateRecords({ params: body, schemaName, db });
 			return { data: `Updated ${updatedCount} records in "${body.tableName}"` };
 		},
-		{ query: databaseSchema, body: updateRecordsSchema },
+		{ query: tableQuerySchema, body: updateRecordsSchema },
 	)
 
 	/**
@@ -45,9 +49,15 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 	 */
 	.delete(
 		"/",
-		async ({ adapter, query: { db }, body: { tableName, primaryKeys }, status }) => {
+		async ({
+			adapter,
+			query: { db, schemaName },
+			body: { tableName, primaryKeys },
+			status,
+		}) => {
 			const { deletedCount, fkViolation, relatedRecords } = await adapter.deleteRecords({
 				tableName,
+				schemaName,
 				primaryKeys,
 				db,
 			});
@@ -56,7 +66,7 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 			}
 			return { data: { deletedCount, fkViolation: false, relatedRecords: [] } };
 		},
-		{ query: databaseSchema, body: deleteRecordSchema },
+		{ query: tableQuerySchema, body: deleteRecordSchema },
 	)
 
 	/**
@@ -65,10 +75,10 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 	 */
 	.delete(
 		"/force",
-		async ({ adapter, query: { db }, body: { tableName, primaryKeys } }) => ({
-			data: await adapter.forceDeleteRecords({ tableName, primaryKeys, db }),
+		async ({ adapter, query: { db, schemaName }, body: { tableName, primaryKeys } }) => ({
+			data: await adapter.forceDeleteRecords({ tableName, schemaName, primaryKeys, db }),
 		}),
-		{ query: databaseSchema, body: deleteRecordSchema },
+		{ query: tableQuerySchema, body: deleteRecordSchema },
 	)
 
 	/**
@@ -77,8 +87,8 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 	 */
 	.post(
 		"/bulk",
-		async ({ adapter, query: { db }, body: { tableName, records } }) => ({
-			data: await adapter.bulkInsertRecords({ tableName, records, db }),
+		async ({ adapter, query: { db, schemaName }, body: { tableName, records } }) => ({
+			data: await adapter.bulkInsertRecords({ tableName, schemaName, records, db }),
 		}),
-		{ query: databaseSchema, body: bulkInsertRecordsSchema },
+		{ query: tableQuerySchema, body: bulkInsertRecordsSchema },
 	);

@@ -26,6 +26,8 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogEntrySchemaType,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -40,6 +42,7 @@ import {
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import { getMssqlPool } from "@/adapters/connections.js";
+import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -52,6 +55,12 @@ import {
 } from "./mssql.query-builder.js";
 
 const MSSQL_FK_VIOLATION = 547;
+/** sp_readerrorlog is limited to the securityadmin role. */
+const MSSQL_NOT_SECURITYADMIN = 15003;
+/** Azure SQL Database has no sp_readerrorlog. */
+const MSSQL_NO_SUCH_PROCEDURE = 2812;
+/** The header line the error log writes above the message of every raised error. */
+const ERRORLOG_HEADER = /^Error: (\d+), Severity: (\d+), State: (\d+)\.?$/;
 const MSSQL_FK_DEPENDENCY = 3726;
 const MSSQL_DUP_INDEX_NAME = 1913;
 const MSSQL_DUP_KEY = 1505;
@@ -746,6 +755,65 @@ export class MsSqlAdapter extends BaseAdapter {
 		await pool
 			.request()
 			.query(`EXEC sp_rename '${tableName}.${columnName}', '${newColumnName}', 'COLUMN'`);
+	}
+
+	// --- Server logs ---
+
+	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		const pool = await getMssqlPool(db);
+		try {
+			const result = await pool
+				.request()
+				.query(
+					"EXEC sp_readerrorlog 0, 1; SELECT DATEDIFF(MINUTE, GETUTCDATE(), GETDATE()) AS offset",
+				);
+			const [log, [{ offset }]] = result.recordsets as unknown as [
+				{ LogDate: Date; ProcessInfo: string; Text: string }[],
+				{ offset: number }[],
+			];
+
+			// LogDate is server-local wall time, which the driver reads as if it were UTC.
+			const entries: ServerLogEntrySchemaType[] = [];
+			let header: { code: string; severity: number; process: string } | null = null;
+			for (const row of log) {
+				const match = ERRORLOG_HEADER.exec(row.Text);
+				if (match) {
+					header = { code: match[1], severity: Number(match[2]), process: row.ProcessInfo };
+					continue;
+				}
+				const error = header?.process === row.ProcessInfo ? header : null;
+				header = null;
+				entries.push({
+					ts: new Date(row.LogDate.getTime() - offset * 60_000).toISOString(),
+					level: !error
+						? "info"
+						: error.severity >= 20
+							? "fatal"
+							: error.severity >= 11
+								? "error"
+								: "warning",
+					rawLevel: error ? `Severity ${error.severity}` : "Info",
+					source: row.ProcessInfo,
+					code: error?.code,
+					message: row.Text,
+					detail: {},
+				});
+			}
+			return { available: true, source: "sp_readerrorlog", entries: newestEntries(entries) };
+		} catch (e) {
+			const number = (e as { number?: number }).number;
+			if (number === MSSQL_NOT_SECURITYADMIN) {
+				return logsUnavailable(
+					"Reading the error log needs the securityadmin server role: ALTER SERVER ROLE securityadmin ADD MEMBER <login>;",
+				);
+			}
+			if (number === MSSQL_NO_SUCH_PROCEDURE) {
+				return logsUnavailable(
+					"This server has no error log to read. Azure SQL Database keeps its logs in Azure Monitor.",
+				);
+			}
+			throw this.wrapError(e);
+		}
 	}
 
 	// --- Indexes ---

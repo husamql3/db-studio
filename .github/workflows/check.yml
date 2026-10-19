@@ -9,8 +9,14 @@ on:
       - stage
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
+    # The stage → main PR tests the commit the push to stage already checked.
+    if: github.event_name == 'push' || github.head_ref != 'stage'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

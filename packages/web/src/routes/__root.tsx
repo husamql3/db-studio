@@ -72,8 +72,7 @@ export const Route = createRootRoute({
 				if (!localStorage.getItem(noticeKey)) {
 					localStorage.setItem(noticeKey, "1");
 					toast.info("Anonymous usage and reliability data helps improve DB Studio.", {
-						description:
-							"Queries, schemas, names, and values are never collected. Disable it in Settings.",
+						description: "Queries, schemas, names, and values are never collected.",
 						duration: 8_000,
 					});
 				}
@@ -126,10 +125,11 @@ export const Route = createRootRoute({
 					) : (
 						<Outlet />
 					)}
+					{/* Inside the adapter: it reads the open table's schema from the URL. */}
+					<CommandPalette />
 				</NuqsAdapter>
 				<Toaster position="top-right" />
 				{/* Global overlays */}
-				<CommandPalette />
 				<TableBuilderOverlay />
 				<SettingsOverlay />
 				{/* Devtools */}

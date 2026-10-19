@@ -7,15 +7,16 @@ import {
 	dbTypeFromProtocol,
 } from "@db-studio/shared/types";
 import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
-import type { Client as LibsqlClient } from "@libsql/client";
 import type { Redis, RedisOptions } from "ioredis";
 import type { MongoClient } from "mongodb";
 import type { config as MssqlConfig, ConnectionPool as MssqlPool } from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import type { Pool as OraclePool } from "oracledb";
 import type { Pool, PoolConfig } from "pg";
+import { createD1Client, parseD1Url } from "@/d1-client.js";
 import { loadDriver, loadedDriver } from "@/drivers.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
@@ -26,7 +27,7 @@ class DatabaseManager {
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
 	private mongoClient: MongoClient | null = null;
-	private sqliteClient: Promise<LibsqlClient> | null = null;
+	private sqliteClient: Promise<SqliteClient> | null = null;
 	private duckdb: Promise<{ instance: DuckDBInstance; connection: DuckDBConnection }> | null =
 		null;
 	private duckdbQueue: Promise<unknown> = Promise.resolve();
@@ -149,11 +150,12 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Get or create the libSQL client for a local SQLite file or a remote libSQL / Turso database
+	 * Get or create the client for a local SQLite file, a remote libSQL / Turso database or a
+	 * Cloudflare D1 database
 	 */
-	getSqliteClient(): Promise<LibsqlClient> {
+	getSqliteClient(): Promise<SqliteClient> {
 		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
-			throw new Error("DATABASE_URL is not a sqlite:// or libsql:// connection");
+			throw new Error("DATABASE_URL is not a sqlite://, libsql:// or d1:// connection");
 		}
 		const { url } = this.baseConfig;
 		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
@@ -163,7 +165,8 @@ class DatabaseManager {
 		return this.sqliteClient;
 	}
 
-	private async openSqliteClient(url: string): Promise<LibsqlClient> {
+	private async openSqliteClient(url: string): Promise<SqliteClient> {
+		if (url.startsWith("d1://")) return createD1Client(parseD1Url(url));
 		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
 		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
 		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
@@ -179,7 +182,7 @@ class DatabaseManager {
 			await client.execute("PRAGMA journal_mode = WAL");
 			await client.execute("PRAGMA foreign_keys = ON");
 		}
-		return client;
+		return fromLibsql(client);
 	}
 
 	/**
@@ -304,41 +307,43 @@ class DatabaseManager {
 				connectionTimeoutMillis: 10_000,
 			};
 
-			const pool = new Pool(poolConfig);
-
 			// The tables list spans every user schema, but the SQL the adapters
 			// build refers to tables by bare name, so a table outside "public" is
 			// listed yet every query against it fails with "relation does not
 			// exist". Widen search_path on each new connection.
 			//
-			// pg emits "connect" synchronously and hands the client straight to
-			// the caller, so this must enqueue in one shot: awaiting a lookup
-			// first would let the caller's query jump ahead of the SET. "public"
-			// stays first so it keeps winning a name collision, as before. A
-			// single set_config() rather than a DO block, because CockroachDB
-			// does not run PL/pgSQL.
-			pool.on("connect", (client) => {
-				client
-					.query(
-						`SELECT set_config(
-							'search_path',
-							COALESCE(
-								'public, ' || string_agg(quote_ident(nspname), ', ' ORDER BY nspname),
-								current_setting('search_path')
-							),
-							false
+			// The pool awaits onConnect before handing the client out, so the
+			// caller's first query cannot overlap the SET (pg deprecates queuing a
+			// query on a busy client). "public" stays first so it keeps winning a
+			// name collision, as before. A single set_config() rather than a DO
+			// block, because CockroachDB does not run PL/pgSQL.
+			const pool = new Pool({
+				...poolConfig,
+				onConnect: (client) =>
+					client
+						.query(
+							`SELECT set_config(
+								'search_path',
+								COALESCE(
+									'public, ' || string_agg(quote_ident(nspname), ', ' ORDER BY nspname),
+									current_setting('search_path')
+								),
+								false
+							)
+							FROM pg_namespace
+							WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public', 'crdb_internal', 'pg_extension')
+								AND nspname NOT LIKE 'pg_toast%'
+								AND nspname NOT LIKE 'pg_temp%';`,
 						)
-						FROM pg_namespace
-						WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'public', 'crdb_internal', 'pg_extension')
-							AND nspname NOT LIKE 'pg_toast%'
-							AND nspname NOT LIKE 'pg_temp%';`,
-					)
-					.catch((err: Error) => {
-						writeOperationalLog("warn", "db_search_path_widen_failed", {
-							db_type: "pg",
-							...errorFields(err),
-						});
-					});
+						.then(
+							() => {},
+							(err: Error) => {
+								writeOperationalLog("warn", "db_search_path_widen_failed", {
+									db_type: "pg",
+									...errorFields(err),
+								});
+							},
+						),
 			});
 
 			pool.on("error", (err) => {
@@ -809,9 +814,9 @@ const _getActivePools = (): string[] => {
 };
 
 /**
- * Get the libSQL client for the configured SQLite file or libSQL / Turso database
+ * Get the client for the configured SQLite file, libSQL / Turso or Cloudflare D1 database
  */
-export const getSqliteClient = (): Promise<LibsqlClient> => {
+export const getSqliteClient = (): Promise<SqliteClient> => {
 	return databaseManager.getSqliteClient();
 };
 

@@ -94,35 +94,6 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	return config;
 };
 
-export const setTelemetryPreference = async (enabled: boolean): Promise<TelemetryConfig> => {
-	const response = await fetch("/api/telemetry/preference", {
-		method: "PUT",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ enabled }),
-	});
-	if (!response.ok) throw new Error("Could not update telemetry preference");
-	const body = (await response.json()) as { data: TelemetryConfig };
-	config = body.data;
-	if (!enabled) {
-		posthog?.opt_out_capturing();
-		initialized = false;
-	} else if (!globalPrivacyControlEnabled()) {
-		await initPosthog();
-	}
-	return body.data;
-};
-
-export const resetTelemetryIdentifier = async (): Promise<void> => {
-	const response = await fetch("/api/telemetry/reset", { method: "POST" });
-	if (!response.ok) throw new Error("Could not reset analytics identifier");
-	const body = (await response.json()) as { data: { installationId: string } };
-	if (config) config = { ...config, installationId: body.data.installationId };
-	if (initialized) {
-		posthog?.reset();
-		posthog?.identify(body.data.installationId);
-	}
-};
-
 export const posthogAnalytics = {
 	capture<E extends AnalyticsEvent["event"]>(
 		event: E,

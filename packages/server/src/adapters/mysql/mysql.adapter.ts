@@ -28,6 +28,8 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogLevel,
+	ServerLogsResult,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -42,6 +44,13 @@ import {
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import { getMysqlPool } from "@/adapters/connections.js";
+import {
+	logDetail,
+	logsUnavailable,
+	newestEntries,
+	SERVER_LOGS_LIMIT,
+	SERVER_LOGS_MARKER,
+} from "@/adapters/server-logs.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -64,6 +73,15 @@ const MYSQL_DROP_INDEX_FK = 1553;
  * bad index name (1280), JSON column (3152).
  */
 const MYSQL_CANNOT_INDEX = new Set([1059, 1071, 1167, 1170, 1280, 3152]);
+const MYSQL_TABLE_ACCESS_DENIED = 1142;
+const MYSQL_NO_SUCH_TABLE = 1146;
+
+const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
+	System: "info",
+	Error: "error",
+	Warning: "warning",
+	Note: "info",
+};
 
 const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
@@ -595,6 +613,8 @@ export class MySqlAdapter extends BaseAdapter {
 			  (c.COLUMN_KEY = 'PRI')   AS isPrimaryKey,
 			  (kcu.REFERENCED_TABLE_NAME IS NOT NULL) AS isForeignKey,
 			  kcu.REFERENCED_TABLE_NAME  AS referencedTable,
+			  -- Tables of this database are listed without a schema: only another database's is named.
+			  NULLIF(kcu.REFERENCED_TABLE_SCHEMA, DATABASE()) AS referencedSchema,
 			  kcu.REFERENCED_COLUMN_NAME AS referencedColumn
 			FROM information_schema.COLUMNS c
 			LEFT JOIN information_schema.KEY_COLUMN_USAGE kcu
@@ -623,6 +643,7 @@ export class MySqlAdapter extends BaseAdapter {
 				isPrimaryKey: number | boolean;
 				isForeignKey: number | boolean;
 				referencedTable: string | null;
+				referencedSchema: string | null;
 				referencedColumn: string | null;
 			}>
 		).map((r) => {
@@ -639,6 +660,7 @@ export class MySqlAdapter extends BaseAdapter {
 				isPrimaryKey: Boolean(r.isPrimaryKey),
 				isForeignKey: Boolean(r.isForeignKey),
 				referencedTable: r.referencedTable ?? null,
+				...(r.referencedSchema && { referencedSchema: r.referencedSchema }),
 				referencedColumn: r.referencedColumn ?? null,
 				enumValues: isEnum ? this.parseMysqlEnumValues(r.columnType) : null,
 			};
@@ -747,6 +769,48 @@ export class MySqlAdapter extends BaseAdapter {
 		await pool.execute<ResultSetHeader>(
 			`ALTER TABLE \`${tableName}\` RENAME COLUMN \`${columnName}\` TO \`${newColumnName}\``,
 		);
+	}
+
+	// --- Server logs ---
+
+	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		const pool = await getMysqlPool(db);
+		try {
+			// UNIX_TIMESTAMP reads LOGGED independently of the session time zone.
+			const [rows] = await pool.query<RowDataPacket[]>(
+				`${SERVER_LOGS_MARKER} SELECT UNIX_TIMESTAMP(LOGGED) AS epoch, THREAD_ID, PRIO,
+					ERROR_CODE, SUBSYSTEM, DATA
+				FROM performance_schema.error_log ORDER BY LOGGED DESC LIMIT ${SERVER_LOGS_LIMIT}`,
+			);
+			return {
+				available: true,
+				source: "performance_schema.error_log",
+				entries: newestEntries(
+					rows.reverse().map((row) => ({
+						ts: new Date(Number(row.epoch) * 1000).toISOString(),
+						level: MYSQL_LOG_LEVELS[row.PRIO as string] ?? "info",
+						rawLevel: String(row.PRIO),
+						source: row.SUBSYSTEM ? String(row.SUBSYSTEM) : undefined,
+						code: row.ERROR_CODE ? String(row.ERROR_CODE) : undefined,
+						message: String(row.DATA),
+						detail: logDetail({ thread: row.THREAD_ID }),
+					})),
+				),
+			};
+		} catch (e) {
+			const errno = (e as { errno?: number }).errno;
+			if (errno === MYSQL_TABLE_ACCESS_DENIED) {
+				return logsUnavailable(
+					"Reading the server log needs: GRANT SELECT ON performance_schema.error_log TO <user>;",
+				);
+			}
+			if (errno === MYSQL_NO_SUCH_TABLE) {
+				return logsUnavailable(
+					"The server keeps no error_log table. It needs MySQL 8.0.22 or later; MariaDB has no equivalent.",
+				);
+			}
+			throw this.wrapError(e);
+		}
 	}
 
 	// --- Indexes ---

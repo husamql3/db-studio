@@ -7,6 +7,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 
 type ExportFileParams = {
 	tableName: string;
+	schemaName: string | undefined;
 	format: FormatType;
 };
 
@@ -14,8 +15,13 @@ export const useExportFile = () => {
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const { mutateAsync: exportFileMutation, isPending: isExportingFile } = useMutation({
-		mutationFn: async ({ tableName, format }: ExportFileParams) => {
-			const response = await exportTable({ tableName, format, db: selectedDatabase });
+		mutationFn: async ({ tableName, schemaName, format }: ExportFileParams) => {
+			const response = await exportTable({
+				tableName,
+				schemaName,
+				format,
+				db: selectedDatabase,
+			});
 
 			const contentDispositionHeader = response.headers["content-disposition"];
 			const contentDisposition =
@@ -42,8 +48,8 @@ export const useExportFile = () => {
 		},
 	});
 
-	const exportFile = async ({ tableName, format }: ExportFileParams) => {
-		return toast.promise(exportFileMutation({ tableName, format }), {
+	const exportFile = async (params: ExportFileParams) => {
+		return toast.promise(exportFileMutation(params), {
 			loading: "Exporting file...",
 			success: "File exported successfully",
 			error: (error: Error) => error.message || "Failed to export file",

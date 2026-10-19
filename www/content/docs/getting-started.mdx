@@ -66,7 +66,9 @@ npx db-studio
 db-studio will:
 1. Find and read your `.env` file
 2. Start a server on port `3333`
-3. Open your browser to `http://localhost:3333`
+3. Print the address, `http://localhost:3333`, for you to open in your browser
+
+Add `--open` to open it in your browser automatically.
 
 ## Command Options
 
@@ -78,7 +80,10 @@ You can customize how db-studio runs with these options:
 | `--var-name <name>` | Use a different variable name instead of `DATABASE_URL` | `npx db-studio --var-name MY_DB_URL` |
 | `--port <number>` | Change the server port (default is 3333) | `npx db-studio --port 4000` |
 | `--database-url <url>` | Provide connection string directly without `.env` file | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
+| `--open` | Open db-studio in your browser once it starts | `npx db-studio --open` |
+| `--no-open` | Do not open the browser (the default) | `npx db-studio --no-open` |
 | `--status` | Only check if connection works (doesn't open the UI) | `npx db-studio --status` |
+| `--version` | Show the installed version | `npx db-studio --version` |
 | `--help` | Show all available options | `npx db-studio --help` |
 
 ### Real Examples

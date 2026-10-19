@@ -7,6 +7,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Link as LinkIcon } from "lucide-react";
 import { useMemo } from "react";
 import { CellCopyButton } from "@/features/tables/components/cell-copy-button";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { AddColumnForm } from "../components/add-column-form";
 import { EditColumnForm } from "../components/edit-column-form";
 import { SchemaRowActions } from "../components/schema-row-actions";
@@ -21,7 +22,7 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 		isRefetchingTableCols,
 		errorTableCols,
 		refetchTableCols,
-	} = useTableCols({ tableName });
+	} = useTableCols({ tableName, schemaName: useTableSchemaName() });
 
 	const columns = useMemo<ColumnDef<ColumnInfoSchemaType>[]>(
 		() => [

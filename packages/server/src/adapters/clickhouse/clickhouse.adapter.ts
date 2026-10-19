@@ -1,3 +1,4 @@
+import { ClickHouseError } from "@clickhouse/client";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -18,6 +19,9 @@ import type {
 	ExecuteQueryResult,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogEntrySchemaType,
+	ServerLogLevel,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -31,6 +35,13 @@ import {
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getClickhouseClient } from "@/adapters/connections.js";
+import {
+	logDetail,
+	logsUnavailable,
+	newestEntries,
+	SERVER_LOGS_LIMIT,
+	SERVER_LOGS_MARKER,
+} from "@/adapters/server-logs.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -80,6 +91,34 @@ const toClickhouseValue = (value: unknown, type: string): unknown => {
 	}
 	if (typeof value === "object" && base === "String") return JSON.stringify(value);
 	return value;
+};
+
+interface QueryLogRow {
+	ms: string;
+	type: string;
+	query_duration_ms: string;
+	query: string;
+	exception: string;
+	exception_code: number;
+	user: string;
+	query_id: string;
+	read_rows: string;
+	memory: string;
+}
+
+interface TextLogRow {
+	ms: string;
+	level: string;
+	logger_name: string;
+	message: string;
+	query_id: string;
+}
+
+const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
+	Fatal: "fatal",
+	Critical: "fatal",
+	Error: "error",
+	Warning: "warning",
 };
 
 export class ClickhouseAdapter extends BaseAdapter {
@@ -567,6 +606,97 @@ export class ClickhouseAdapter extends BaseAdapter {
 				message: `OK (${rowCount} rows affected)`,
 			};
 		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	// --- Server logs ---
+
+	/**
+	 * Queries come from system.query_log, which is on by default, and the server's own warnings
+	 * and errors from system.text_log when the server config enables it. text_log lines from
+	 * the query handlers are left out: they repeat the query_log exceptions.
+	 */
+	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		const client = await getClickhouseClient(db);
+		// log_queries = 0 keeps these reads out of the query_log they read.
+		const read = async <T>(query: string): Promise<T[] | null> => {
+			try {
+				const result = await client.query({
+					query: `${SERVER_LOGS_MARKER} ${query}`,
+					format: "JSONEachRow",
+					clickhouse_settings: { log_queries: 0 },
+				});
+				return await result.json<T>();
+			} catch (e) {
+				if (e instanceof ClickHouseError && e.type === "UNKNOWN_TABLE") return null;
+				throw e;
+			}
+		};
+
+		try {
+			const queries = await read<QueryLogRow>(
+				`SELECT toUnixTimestamp64Milli(event_time_microseconds) AS ms, type, query_duration_ms,
+					query, exception, exception_code, user, query_id, read_rows,
+					formatReadableSize(memory_usage) AS memory
+				FROM system.query_log
+				WHERE event_date >= yesterday() AND type != 'QueryStart' AND is_initial_query
+				ORDER BY event_time_microseconds DESC LIMIT ${SERVER_LOGS_LIMIT}`,
+			);
+			const events = await read<TextLogRow>(
+				`SELECT toUnixTimestamp64Milli(event_time_microseconds) AS ms, level, logger_name,
+					message, query_id
+				FROM system.text_log
+				WHERE event_date >= yesterday()
+					AND level IN ('Fatal', 'Critical', 'Error', 'Warning')
+					AND logger_name NOT IN ('executeQuery', 'TCPHandler', 'HTTPHandler')
+				ORDER BY event_time_microseconds DESC LIMIT ${SERVER_LOGS_LIMIT}`,
+			);
+			if (!queries && !events) {
+				return logsUnavailable("query_log and text_log are both off in the server config.");
+			}
+
+			const entries: ServerLogEntrySchemaType[] = [
+				...(queries ?? []).reverse().map((row): ServerLogEntrySchemaType => {
+					const failed = row.type !== "QueryFinish";
+					return {
+						ts: new Date(Number(row.ms)).toISOString(),
+						level: failed ? "error" : "info",
+						rawLevel: row.type,
+						code: failed ? String(row.exception_code) : undefined,
+						message: failed ? row.exception : row.query,
+						durationMs: Number(row.query_duration_ms),
+						statement: failed ? row.query : undefined,
+						detail: logDetail({
+							user: row.user,
+							query_id: row.query_id,
+							read_rows: row.read_rows,
+							memory: row.memory,
+						}),
+					};
+				}),
+				...(events ?? []).reverse().map(
+					(row): ServerLogEntrySchemaType => ({
+						ts: new Date(Number(row.ms)).toISOString(),
+						level: TEXT_LOG_LEVELS[row.level] ?? "info",
+						rawLevel: row.level,
+						source: row.logger_name,
+						message: row.message,
+						detail: logDetail({ query_id: row.query_id }),
+					}),
+				),
+			];
+			return {
+				available: true,
+				source: events ? "system.query_log + system.text_log" : "system.query_log",
+				entries: newestEntries(entries),
+			};
+		} catch (e) {
+			if (e instanceof ClickHouseError && e.type === "ACCESS_DENIED") {
+				return logsUnavailable(
+					"Reading the server log needs: GRANT SELECT ON system.query_log TO <user>; and the same on system.text_log.",
+				);
+			}
 			throw this.wrapError(e);
 		}
 	}

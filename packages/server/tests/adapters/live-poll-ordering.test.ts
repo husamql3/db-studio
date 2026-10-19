@@ -47,6 +47,7 @@ import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { OracleAdapter } from "@/adapters/oracle/oracle.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 import { loadDriver } from "@/drivers.js";
+import { fromLibsql } from "@/sqlite-client.js";
 
 const TABLE = "live_poll_items";
 const INSERT_ORDER = [3, 1, 5, 2, 4];
@@ -77,7 +78,7 @@ const engines: Engine[] = [
 		adapter: new SqliteAdapter(),
 		connect: async (url) => {
 			sqliteClient = createLibsqlClient({ url, intMode: "bigint" });
-			connections.getSqliteClient.mockResolvedValue(sqliteClient);
+			connections.getSqliteClient.mockResolvedValue(fromLibsql(sqliteClient));
 		},
 		exec: async (statement) => {
 			await sqliteClient?.execute(statement);

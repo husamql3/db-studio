@@ -1,4 +1,3 @@
-import { statSync } from "node:fs";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -32,11 +31,12 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/shared/types";
-import type { InStatement, InValue, ResultSet, Value } from "@libsql/client";
+import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getSqliteClient } from "@/adapters/connections.js";
 import { HTTPException } from "@/http-exception.js";
+import type { SqliteClient, SqlParam, SqlResult, SqlStatement } from "@/sqlite-client.js";
 import {
 	buildCursorWhereClause,
 	buildSortClause,
@@ -124,12 +124,7 @@ const indexKeyParts = (sql: string): string[] => {
 const allNamed = (columns: (string | null)[]): columns is string[] =>
 	columns.every((c) => c !== null);
 
-/** A client or an open transaction. */
-interface SqlExecutor {
-	execute(stmt: InStatement): Promise<ResultSet>;
-}
-
-const toSqliteValue = (value: unknown): InValue => {
+const toSqliteValue = (value: unknown): SqlParam => {
 	if (value === null || value === undefined) return null;
 	if (typeof value === "boolean") return value ? 1 : 0;
 	if (typeof value === "string" || typeof value === "number" || typeof value === "bigint")
@@ -138,7 +133,7 @@ const toSqliteValue = (value: unknown): InValue => {
 	return JSON.stringify(value);
 };
 
-const stmt = (sql: string, values: unknown[] = []): InStatement => ({
+const stmt = (sql: string, values: unknown[] = []): SqlStatement => ({
 	sql,
 	args: values.map(toSqliteValue),
 });
@@ -155,16 +150,16 @@ const fromSqliteValue = (value: Value): unknown => {
 	return value;
 };
 
-const toRows = <T = Record<string, unknown>>({ columns, rows }: ResultSet): T[] =>
+const toRows = <T = Record<string, unknown>>({ columns, rows }: SqlResult): T[] =>
 	rows.map(
 		(row) => Object.fromEntries(columns.map((col, i) => [col, fromSqliteValue(row[i])])) as T,
 	);
 
 const all = async <T = Record<string, unknown>>(
-	executor: SqlExecutor,
+	client: SqliteClient,
 	sql: string,
 	values: unknown[] = [],
-): Promise<T[]> => toRows<T>(await executor.execute(stmt(sql, values)));
+): Promise<T[]> => toRows<T>(await client.execute(stmt(sql, values)));
 
 // The client returns the connection to its pool after every call, which rolls back
 // anything left open, so a lone BEGIN would leave the next query autocommitting.
@@ -472,40 +467,16 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const client = await getSqliteClient();
-			const rows = await all<{ seq: number; name: string; file: string }>(
-				client,
-				"PRAGMA database_list",
-			);
-
-			if (!rows.length)
-				throw new HTTPException(500, { message: "No databases returned from SQLite" });
-
-			// Hide SQLite's internal temp database. `PRAGMA database_list` always
-			// reports `main`, so filtering can never empty the list.
-			return rows
-				.filter((row) => row.name !== "temp")
-				.map((row) => ({
-					name: row.name,
-					// A remote server reports its own filesystem path; there is nothing local to stat.
-					size: client.protocol === "file" ? this.getFileSize(row.file) : "N/A",
-					owner: "",
-					encoding: "UTF-8",
-				}));
+			const { name, size } = await (await getSqliteClient()).info();
+			return [{ name, size, owner: "", encoding: "UTF-8" }];
 		} catch (e) {
-			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);
 		}
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		try {
-			const rows = await all<{ name: string }>(
-				await getSqliteClient(),
-				"PRAGMA database_list",
-			);
-			const main = rows.find((r) => r.name === "main");
-			return { db: main?.name ?? "main" };
+			return { db: (await (await getSqliteClient()).info()).name };
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -513,17 +484,13 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 		try {
-			const [versionRow] = await all<{ version: string }>(
-				await getSqliteClient(),
-				"SELECT sqlite_version() as version",
-			);
-
+			const { name, version } = await (await getSqliteClient()).info();
 			return {
 				host: null,
 				port: null,
 				user: "",
-				database: "main",
-				version: `SQLite ${versionRow.version}`,
+				database: name,
+				version,
 				active_connections: 1,
 				max_connections: 1,
 			};
@@ -541,7 +508,9 @@ export class SqliteAdapter extends BaseAdapter {
 			const client = await getSqliteClient();
 			const tables = await all<{ name: string }>(
 				client,
-				`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+				`SELECT name FROM sqlite_master
+				WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*'
+				ORDER BY name`,
 			);
 			if (!tables.length) return [];
 
@@ -859,20 +828,26 @@ export class SqliteAdapter extends BaseAdapter {
 				[tableName],
 			);
 
-			// DROP TABLE runs an implicit DELETE, which would fire ON DELETE CASCADE on child
-			// tables, so foreign keys must be off. That PRAGMA is a no-op inside a transaction
-			// and does not outlive one request on a remote server; migrate() turns it off,
-			// runs the statements in one transaction on one connection, and turns it back on
-			// even when a statement fails.
+			// DROP TABLE runs an implicit DELETE, which fires the foreign key actions of every
+			// table that references this one, including itself: the new table's self-references
+			// point at the old name until the RENAME.
+			const referencedBy = new Set(
+				(await this.getFkReferencesForTable(client, tableName, { includeSelf: true })).map(
+					(fk) => fk.referencingTable,
+				),
+			);
 			try {
-				await client.migrate([
-					`CREATE TABLE ${q(tempName)} (${[...newColDefs, ...fkDefs].join(", ")})`,
-					`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
-					`DROP TABLE ${q(tableName)}`,
-					`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
-					...existingIndexes.map(({ sql }) => sql),
-					...existingTriggers.map(({ sql }) => sql),
-				]);
+				await client.rebuildTable(
+					[
+						`CREATE TABLE ${q(tempName)} (${[...newColDefs, ...fkDefs].join(", ")})`,
+						`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
+						`DROP TABLE ${q(tableName)}`,
+						`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
+						...existingIndexes.map(({ sql }) => sql),
+						...existingTriggers.map(({ sql }) => sql),
+					],
+					[...referencedBy],
+				);
 			} catch (e) {
 				throw this.wrapError(e);
 			}
@@ -1039,36 +1014,42 @@ export class SqliteAdapter extends BaseAdapter {
 		const keyColumns = this.resolveKeyColumns(params);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
+		const where = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
 		try {
 			const client = await getSqliteClient();
 			this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
-			const tx = await client.transaction("write");
+			// A batch is one transaction, and the guard after each UPDATE fails it with an integer
+			// overflow when that UPDATE matched no row, rolling back every earlier UPDATE. RAISE()
+			// would name the row but only works inside a trigger.
+			const statements = groups.flatMap(({ keyValues, rowUpdates }) => [
+				stmt(
+					`UPDATE "${tableName}" SET ${rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ")} WHERE ${where}`,
+					[...rowUpdates.map((u) => u.value), ...keyValues],
+				),
+				"SELECT CASE WHEN changes() = 0 THEN abs(-9223372036854775808) END",
+			]);
 			try {
-				let total = 0;
-				for (const { keyValues, rowUpdates } of groups) {
-					const setClauses = rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ");
-					const whereClauses = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
-					const result = await tx.execute(
-						stmt(`UPDATE "${tableName}" SET ${setClauses} WHERE ${whereClauses}`, [
-							...rowUpdates.map((u) => u.value),
-							...keyValues,
-						]),
-					);
-					if (result.rowsAffected === 0) {
-						throw new HTTPException(404, {
-							message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-						});
-					}
-					total += result.rowsAffected;
-				}
-				await tx.commit();
+				const results = await client.batch(statements, "write");
 				void db;
-				return { updatedCount: total };
+				return {
+					updatedCount: results.reduce(
+						(total, result, i) => (i % 2 === 0 ? total + result.rowsAffected : total),
+						0,
+					),
+				};
 			} catch (e) {
-				await tx.rollback();
-				throw e;
-			} finally {
-				tx.close();
+				if (!(e instanceof Error && e.message.includes("integer overflow"))) throw e;
+				const found = await client.batch(
+					groups.map(({ keyValues }) =>
+						stmt(`SELECT 1 FROM "${tableName}" WHERE ${where} LIMIT 1`, keyValues),
+					),
+					"read",
+				);
+				const missing = groups.find((_, i) => found[i].rows.length === 0);
+				if (!missing) throw e;
+				throw new HTTPException(404, {
+					message: `Record with ${this.describeKey(keyColumns, missing.keyValues)} not found in table "${tableName}"`,
+				});
 			}
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1129,7 +1110,7 @@ export class SqliteAdapter extends BaseAdapter {
 			const client = await getSqliteClient();
 			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 			const fksByParent = await this.getForeignKeysByParent(client);
-			const deletes: InStatement[] = [];
+			const deletes: SqlStatement[] = [];
 
 			const plan = async (table: string, predicate: string, path: string[]) => {
 				for (const fk of fksByParent.get(table) ?? []) {
@@ -1249,7 +1230,7 @@ export class SqliteAdapter extends BaseAdapter {
 	// Private helpers
 	// =========================================================
 
-	private async tableExists(client: SqlExecutor, tableName: string): Promise<boolean> {
+	private async tableExists(client: SqliteClient, tableName: string): Promise<boolean> {
 		const rows = await all(
 			client,
 			`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
@@ -1259,7 +1240,7 @@ export class SqliteAdapter extends BaseAdapter {
 	}
 
 	private async listIndexes(
-		client: SqlExecutor,
+		client: SqliteClient,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
 		if (!(await this.tableExists(client, tableName)))
@@ -1299,7 +1280,7 @@ export class SqliteAdapter extends BaseAdapter {
 		return [...byName.values()];
 	}
 
-	private async getPrimaryKeyColumns(client: SqlExecutor, tableName: string) {
+	private async getPrimaryKeyColumns(client: SqliteClient, tableName: string) {
 		const cols = await all<TableInfoRow>(
 			client,
 			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
@@ -1312,7 +1293,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	/** Every foreign key in the database, keyed by the table it references. */
 	private async getForeignKeysByParent(
-		client: SqlExecutor,
+		client: SqliteClient,
 	): Promise<Map<string, ForeignKeyEdge[]>> {
 		const rows = await all<{
 			child: string;
@@ -1324,7 +1305,7 @@ export class SqliteAdapter extends BaseAdapter {
 			client,
 			`SELECT m.name AS child, f.id, f."table" AS parent, f."from", f."to"
 			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
-			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%'
+			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
 			ORDER BY m.name, f.id, f.seq`,
 		);
 		const byConstraint = new Map<string, ForeignKeyEdge>();
@@ -1343,29 +1324,18 @@ export class SqliteAdapter extends BaseAdapter {
 		return byParent;
 	}
 
-	private getFileSize(filePath: string): string {
-		if (!filePath) return "in-memory";
-		try {
-			const stats = statSync(filePath);
-			const bytes = stats.size;
-			if (bytes < 1024) return `${bytes} B`;
-			if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-			return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-		} catch {
-			return "N/A";
-		}
-	}
-
 	private async getFkReferencesForTable(
-		client: SqlExecutor,
+		client: SqliteClient,
 		tableName: string,
+		{ includeSelf = false }: { includeSelf?: boolean } = {},
 	): Promise<ForeignKeyConstraint[]> {
 		const fks = await all<{ child: string; from: string; to: string | null }>(
 			client,
 			`SELECT m.name AS child, f."from", f."to"
 			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
-			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name != ? AND f."table" = ?`,
-			[tableName, tableName],
+			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
+				AND (m.name != ? COLLATE NOCASE OR ?) AND f."table" = ? COLLATE NOCASE`,
+			[tableName, includeSelf ? 1 : 0, tableName],
 		);
 		return fks.map((fk) => ({
 			constraintName: `fk_${fk.child}_${fk.from}_${tableName}_${fk.to}`,
@@ -1377,7 +1347,7 @@ export class SqliteAdapter extends BaseAdapter {
 	}
 
 	private async getRelatedRecordsForTable(
-		client: SqlExecutor,
+		client: SqliteClient,
 		tableName: string,
 	): Promise<RelatedRecord[]> {
 		const fks = await this.getFkReferencesForTable(client, tableName);
@@ -1397,7 +1367,7 @@ export class SqliteAdapter extends BaseAdapter {
 	}
 
 	private async getRelatedRecords(
-		client: SqlExecutor,
+		client: SqliteClient,
 		tableName: string,
 		primaryKeys: DeleteRecordParams["primaryKeys"],
 	): Promise<RelatedRecord[]> {

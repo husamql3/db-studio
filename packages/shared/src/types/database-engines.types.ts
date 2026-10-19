@@ -30,7 +30,13 @@ type IndexCapability = {
 		  };
 };
 
-export type DatabaseEngine = DatabaseEngineBase & RowMutationCapability & IndexCapability;
+/** `false` hides the Logs tab: the engine runs inside DB Studio, so no server writes a log. */
+type ServerLogsCapability = { serverLogs: boolean };
+
+export type DatabaseEngine = DatabaseEngineBase &
+	RowMutationCapability &
+	IndexCapability &
+	ServerLogsCapability;
 
 export const DATABASE_ENGINES = {
 	pg: {
@@ -46,6 +52,7 @@ export const DATABASE_ENGINES = {
 			methods: ["btree", "hash", "gin", "gist", "spgist", "brin"],
 			createNote: "Building an index blocks writes to this table until it finishes.",
 		},
+		serverLogs: true,
 	},
 	mysql: {
 		label: "MySQL",
@@ -57,6 +64,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
+		serverLogs: true,
 	},
 	mssql: {
 		label: "SQL Server",
@@ -71,6 +79,7 @@ export const DATABASE_ENGINES = {
 			methods: [],
 			createNote: "Building an index blocks writes to this table until it finishes.",
 		},
+		serverLogs: true,
 	},
 	mongodb: {
 		label: "MongoDB",
@@ -82,10 +91,11 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
+		serverLogs: true,
 	},
 	sqlite: {
-		label: "SQLite / libSQL",
-		protocols: ["sqlite", "libsql"],
+		label: "SQLite / libSQL / D1",
+		protocols: ["sqlite", "libsql", "d1"],
 		defaultPort: null,
 		dataModel: "relational",
 		editorLanguage: "pgsql",
@@ -93,6 +103,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
+		serverLogs: false,
 	},
 	redis: {
 		label: "Redis",
@@ -104,6 +115,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		rowMutation: true,
 		indexes: false,
+		serverLogs: true,
 	},
 	duckdb: {
 		label: "DuckDB",
@@ -119,6 +131,7 @@ export const DATABASE_ENGINES = {
 			createNote:
 				"DuckDB cannot alter or rename a table that has an index, or alter or drop a column an index covers.",
 		},
+		serverLogs: false,
 	},
 	oracle: {
 		label: "Oracle",
@@ -133,6 +146,7 @@ export const DATABASE_ENGINES = {
 			methods: [],
 			createNote: "Building an index blocks writes to this table until it finishes.",
 		},
+		serverLogs: true,
 	},
 	clickhouse: {
 		label: "ClickHouse",
@@ -146,6 +160,7 @@ export const DATABASE_ENGINES = {
 		rowMutation: false,
 		rowMutationReason:
 			"Use a SQL query to update or delete ClickHouse rows; sorting keys are not unique.",
+		serverLogs: true,
 	},
 } satisfies Record<DatabaseTypeSchema, DatabaseEngine>;
 

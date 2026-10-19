@@ -26,6 +26,7 @@ import {
 import { chatRoutes } from "@/routes/chat.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { keysRoutes } from "@/routes/keys.routes.js";
+import { logsRoutes } from "@/routes/logs.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
@@ -222,7 +223,12 @@ export const createServer = () => {
 				.use(chatRoutes)
 				.use(telemetryRoutes)
 				.group("/:dbType", (scoped) =>
-					scoped.use(tablesRoutes).use(recordsRoutes).use(queryRoutes).use(keysRoutes),
+					scoped
+						.use(tablesRoutes)
+						.use(recordsRoutes)
+						.use(queryRoutes)
+						.use(keysRoutes)
+						.use(logsRoutes),
 				),
 		);
 

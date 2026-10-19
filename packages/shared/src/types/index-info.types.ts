@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableNameSchema } from "./database.types.js";
+import { databaseSchema, tableNameSchema, tableQuerySchema } from "./database.types.js";
 
 export const INDEX_KINDS = ["primary", "unique-constraint", "index"] as const;
 
@@ -33,6 +33,7 @@ export type CreateIndexSchemaType = z.infer<typeof createIndexSchema>;
 export const createIndexParamsSchema = createIndexSchema.extend({
 	db: databaseSchema.shape.db,
 	tableName: tableNameSchema.shape.tableName,
+	schemaName: tableQuerySchema.shape.schemaName,
 });
 
 export type CreateIndexParamsSchemaType = z.infer<typeof createIndexParamsSchema>;
@@ -44,6 +45,7 @@ export const dropIndexParamSchema = z.object({
 
 export const dropIndexParamsSchema = dropIndexParamSchema.extend({
 	db: databaseSchema.shape.db,
+	schemaName: tableQuerySchema.shape.schemaName,
 });
 
 export type DropIndexParamsSchemaType = z.infer<typeof dropIndexParamsSchema>;

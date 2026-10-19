@@ -8,9 +8,11 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const useTableData = ({
 	tableName,
+	schemaName,
 	isReferencedTable = false,
 }: {
 	tableName: string;
+	schemaName: string | undefined;
 	isReferencedTable?: boolean;
 }) => {
 	const { selectedDatabase } = useDatabaseStore();
@@ -70,10 +72,12 @@ export const useTableData = ({
 		order,
 		filters: serializedFilters,
 		db: selectedDatabase,
+		schemaName,
 	};
 	const fetchPage = (target: typeof page) =>
 		getTableData({
 			tableName: target.tableName,
+			schemaName: target.schemaName,
 			limit: target.limit?.toString() || CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString(),
 			db: target.db ?? undefined,
 			cursor: target.cursor,

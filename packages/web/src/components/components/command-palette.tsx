@@ -40,10 +40,13 @@ import {
 import { useAssistantRequestStore } from "@/features/ai-assistant";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile, useTablesList } from "@/features/tables";
+import { tableId } from "@/features/visualizer";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { CONSTANTS } from "@/utils/constants";
 import {
 	NO_TABLE_HINT,
 	SCHEMALESS_HINT,
@@ -53,6 +56,7 @@ import { useCommandPaletteState } from "./use-command-palette-state";
 
 export function CommandPalette() {
 	const navigate = useNavigate();
+	const openSchema = useTableSchemaName();
 	const { openOverlay } = useOverlayStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
 	const { toggleTheme, isDark } = useTheme();
@@ -91,14 +95,18 @@ export function CommandPalette() {
 	const isMac =
 		typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
 
-	const handleNavigateToTable = (tableName: string) => {
+	const handleNavigateToTable = (tableName: string, schemaName: string | undefined) => {
 		handleAction(() => {
 			if (dbType) {
 				posthogAnalytics.capture("table_viewed", { db_type: dbType });
 			}
 			// Reset search params: sort/filter/cursor keys from the previous
 			// table must not leak into the newly opened one.
-			navigate({ to: "/table/$table", params: { table: tableName }, search: {} });
+			navigate({
+				to: "/table/$table",
+				params: { table: tableName },
+				search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
+			});
 		});
 	};
 
@@ -156,9 +164,9 @@ export function CommandPalette() {
 						) : (
 							tablesList.map((table) => (
 								<CommandItem
-									key={table.tableName}
-									value={table.tableName}
-									onSelect={() => handleNavigateToTable(table.tableName)}
+									key={tableId(table)}
+									value={tableId(table)}
+									onSelect={() => handleNavigateToTable(table.tableName, table.schemaName)}
 								>
 									<Database className="mr-2 size-4 text-primary" />
 									<div className="flex flex-1 items-center justify-between">
@@ -251,7 +259,7 @@ export function CommandPalette() {
 											navigate({
 												to: "/schema/$table",
 												params: { table },
-												search: {},
+												search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
 											}),
 										);
 									}}
@@ -280,7 +288,7 @@ export function CommandPalette() {
 											navigate({
 												to: "/indexes/$table",
 												params: { table },
-												search: {},
+												search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
 											}),
 										);
 									}}
@@ -464,7 +472,7 @@ export function CommandPalette() {
 														navigate({
 															to: "/indexes/$table",
 															params: { table },
-															search: {},
+															search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
 														});
 													}
 													openOverlay("indexes.create-index");
@@ -487,7 +495,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({ tableName, format: "csv" }).catch(() => undefined);
+												void exportFile({
+													tableName,
+													schemaName: openSchema,
+													format: "csv",
+												}).catch(() => undefined);
 											});
 										}}
 										keywords={["export", "download", "csv"]}
@@ -506,7 +518,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({ tableName, format: "json" }).catch(() => undefined);
+												void exportFile({
+													tableName,
+													schemaName: openSchema,
+													format: "json",
+												}).catch(() => undefined);
 											});
 										}}
 										keywords={["export", "download", "json"]}
@@ -527,7 +543,7 @@ export function CommandPalette() {
 											if (!activeTable || isSchemaless) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void copyTableSchema(tableName).catch(() => undefined);
+												void copyTableSchema(tableName, openSchema).catch(() => undefined);
 											});
 										}}
 										keywords={["copy", "schema", "ddl", "clipboard"]}
@@ -633,10 +649,12 @@ export function CommandPalette() {
 									<CommandGroup heading="Recent Tables">
 										{tablesList.slice(0, 5).map((table) => (
 											<CommandItem
-												key={table.tableName}
-												value={table.tableName}
+												key={tableId(table)}
+												value={tableId(table)}
 												keywords={["table", "recent", table.tableName]}
-												onSelect={() => handleNavigateToTable(table.tableName)}
+												onSelect={() =>
+													handleNavigateToTable(table.tableName, table.schemaName)
+												}
 											>
 												<Database className="mr-2 size-4" />
 												<div className="flex flex-col">

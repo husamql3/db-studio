@@ -62,8 +62,13 @@ const OVERRIDES: Partial<Record<DatabaseTypeSchema, EngineOverrides>> = {
 		indexColumns: ["born", "amount"],
 		generatedIndexName: /(?<=PK__\w+__)[0-9A-F]{16}/g,
 	},
-	// An INTEGER PRIMARY KEY is the rowid itself, so SQLite builds no index for it.
-	sqlite: { dbName: () => "main", primaryIndex: false },
+	// An INTEGER PRIMARY KEY is the rowid itself, so SQLite builds no index for it. A D1
+	// database is named in Cloudflare, not in the URL; scripts/init-db-d1.sh seeds this one.
+	sqlite: {
+		dbName: (url) =>
+			url.protocol === "d1:" ? (process.env.D1_DATABASE ?? "db-studio-e2e") : "main",
+		primaryIndex: false,
+	},
 	// DuckDB does not list the indexes behind PRIMARY KEY and UNIQUE constraints.
 	duckdb: { dbName: (url) => path.parse(url.pathname).name, primaryIndex: false },
 	oracle: {
@@ -837,7 +842,11 @@ const main = async () => {
 		db: overrides.dbName?.(url) ?? decodeURIComponent(url.pathname.slice(1)),
 		bodies: new Map(),
 	};
-	const secrets = [databaseUrl, databaseUrl.replace(/^[a-z0-9+]+:\/\//i, "")];
+	const secrets = [
+		databaseUrl,
+		databaseUrl.replace(/^[a-z0-9+]+:\/\//i, ""),
+		...url.searchParams.getAll("authToken"),
+	].filter(Boolean);
 
 	const { createServer } = await import("../src/utils/create-server.js");
 	const { app } = createServer();

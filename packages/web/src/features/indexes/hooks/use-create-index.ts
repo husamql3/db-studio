@@ -10,7 +10,13 @@ type MutationError = Error & {
 	details?: unknown;
 };
 
-export const useCreateIndex = ({ tableName }: { tableName: string }) => {
+export const useCreateIndex = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { closeOverlay } = useOverlayStore();
 	const { selectedDatabase } = useDatabaseStore();
@@ -21,7 +27,12 @@ export const useCreateIndex = ({ tableName }: { tableName: string }) => {
 		CreateIndexSchemaType
 	>({
 		mutationFn: async (data) => {
-			const res = await createIndexRequest({ tableName, data, db: selectedDatabase });
+			const res = await createIndexRequest({
+				tableName,
+				schemaName,
+				data,
+				db: selectedDatabase,
+			});
 			return res.data.data;
 		},
 		onSuccess: async () => {

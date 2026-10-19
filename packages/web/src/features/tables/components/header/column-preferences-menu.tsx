@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useColumnPreferences } from "../../hooks/use-column-preferences";
 import { reorderColumns } from "../../stores/column-preferences.store";
 
@@ -23,7 +24,7 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 	const [drag, setDrag] = useState<{ name: string; order: string[] } | null>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const { tableCols } = useTableCols({ tableName });
+	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
 
 	const {
 		orderedColumns,

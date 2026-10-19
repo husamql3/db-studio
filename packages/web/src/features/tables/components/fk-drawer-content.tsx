@@ -13,9 +13,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { api } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { TableRecord } from "@/types/table.type";
+import { CONSTANTS } from "@/utils/constants";
 import { CellCopyButton } from "./cell-copy-button";
 
 export const FkDrawerContent = ({
@@ -29,7 +31,9 @@ export const FkDrawerContent = ({
 }) => {
 	const { selectedDatabase } = useDatabaseStore();
 
-	const { tableCols } = useTableCols({ tableName: referencedTable });
+	// An FK references a table in its own schema, the open table's.
+	const schemaName = useTableSchemaName();
+	const { tableCols } = useTableCols({ tableName: referencedTable, schemaName });
 
 	const filter: FilterType = useMemo(
 		() => ({ columnName: referencedColumn, operator: "=", value: fkValue }),
@@ -81,7 +85,7 @@ export const FkDrawerContent = ({
 		navigate({
 			to: "/table/$table",
 			params: { table: referencedTable },
-			search: { filters: [filter] },
+			search: { filters: [filter], [CONSTANTS.TABLE_SCHEMA]: schemaName },
 		});
 	};
 

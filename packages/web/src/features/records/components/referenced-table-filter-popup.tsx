@@ -14,6 +14,7 @@ import { Filter, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 
 export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string }) => {
@@ -25,7 +26,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 	);
 	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
-	const { tableCols } = useTableCols({ tableName });
+	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [localFilters, setLocalFilters] = useState<FilterSchemaType[]>([]);

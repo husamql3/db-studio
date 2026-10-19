@@ -52,7 +52,9 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "tsx e2e/contract.ts",
     "e2e:perf": "tsx e2e/perf.ts",
-    "e2e:grid": "tsx e2e/grid.ts"
+    "e2e:grid": "tsx e2e/grid.ts",
+    "e2e:schema-routing": "tsx e2e/schema-routing.ts",
+    "e2e:visualizer": "tsx e2e/visualizer.ts"
   },
   "portless": {
     "name": "api.db-studio",
@@ -75,7 +77,7 @@
     "mysql2": "^3.18.2",
     "open": "^11.0.0",
     "oracledb": "^7.0.1",
-    "pg": "^8.13.1",
+    "pg": "^8.20.0",
     "picocolors": "^1.1.1",
     "posthog-node": "^5.20.0",
     "xlsx": "^0.18.5",

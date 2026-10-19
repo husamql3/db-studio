@@ -45,6 +45,7 @@ export const getDatabaseConnectionDetails = (
 	const type = getDbType();
 	const { label: name, defaultPort } = DATABASE_ENGINES[type];
 	if (databaseUrl.startsWith("sqlite://")) return { type, name, destination: "local file" };
+	if (databaseUrl.startsWith("d1://")) return { type, name, destination: "Cloudflare D1" };
 
 	if (defaultPort === null) return { type, name, destination: new URL(databaseUrl).host };
 
