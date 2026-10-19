@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -91,6 +91,49 @@ function EmailCopyButton() {
 				{copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
 			</span>
 		</button>
+	);
+}
+
+// Plays from an effect, not autoPlay, so reduced-motion users keep the first frame.
+function DemoVideo() {
+	const videoRef = useRef<HTMLVideoElement>(null);
+	const [loaded, setLoaded] = useState(false);
+
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+		// A cached video can load before hydration attaches onLoadedData.
+		if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) setLoaded(true);
+		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		video.play().catch(() => {});
+	}, []);
+
+	return (
+		<div className="relative aspect-video w-full">
+			<video
+				ref={videoRef}
+				src="/demo.mp4"
+				width={1920}
+				height={1080}
+				muted
+				loop
+				playsInline
+				preload="auto"
+				aria-label="db-studio feature tour"
+				onLoadedData={() => setLoaded(true)}
+				className="w-full h-full object-contain"
+			/>
+			{/* The pulse animates opacity, so the fade-out lives on the wrapper. */}
+			<div
+				aria-hidden
+				className={cn(
+					"absolute inset-0 transition-opacity duration-500",
+					loaded && "opacity-0 pointer-events-none",
+				)}
+			>
+				<div className="size-full bg-muted animate-pulse" />
+			</div>
+		</div>
 	);
 }
 
@@ -231,13 +274,7 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<img
-						src="/studio.png"
-						alt="db-studio"
-						width={1000}
-						height={1000}
-						className="w-full h-full object-contain"
-					/>
+					<DemoVideo />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
