@@ -4,13 +4,7 @@ import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const SidebarWrapper = ({
-	children,
-	offset,
-}: {
-	children: ReactNode;
-	offset: number;
-}) => {
+export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	const {
 		sidebar: { width, isOpen, isPinned },
 		setSidebarWidth,
@@ -20,13 +14,11 @@ export const SidebarWrapper = ({
 	const isResizingRef = useRef(false);
 	const startXRef = useRef(0);
 	const startWidthRef = useRef(0);
-	const hoverTimeoutRef = useRef<number | null>(null);
 	const sheetContentRef = useRef<HTMLDivElement>(null);
 
 	// Handler refs — updated every render so the stable listeners always call the latest handler
 	const handleMouseMoveRef = useRef((_e: MouseEvent) => {});
 	const handleMouseUpRef = useRef(() => {});
-	const handleEdgeHoverRef = useRef((_e: MouseEvent) => {});
 	const handleMouseEnterRef = useRef(() => {});
 	const handleMouseLeaveRef = useRef(() => {});
 
@@ -84,39 +76,9 @@ export const SidebarWrapper = ({
 		}
 	}, [isPinned, setSidebarOpen]);
 
-	// Edge hover detection - opens sidebar when mouse is near left edge
-	const handleEdgeHover = useCallback(
-		(e: MouseEvent) => {
-			// Don't trigger if sidebar is already pinned or open, or if resizing.
-			// PROTOTYPE(nav-rail): with the icon rail (offset > 0) the hover strip sits right
-			// beside it, so every trip back to the rail opened the sidebar; the rail's toggle
-			// is the only way in there.
-			if (offset > 0 || isPinned || isOpen || isResizingRef.current) return;
-
-			if (e.clientX >= offset && e.clientX <= offset + CONSTANTS.HOVER_ZONE) {
-				// Clear any existing timeout
-				if (hoverTimeoutRef.current) {
-					clearTimeout(hoverTimeoutRef.current);
-				}
-
-				// Set a small delay to avoid accidental triggers
-				hoverTimeoutRef.current = window.setTimeout(() => {
-					setSidebarOpen(true);
-				}, CONSTANTS.HOVER_DELAY);
-			} else if (e.clientX > offset + CONSTANTS.HOVER_ZONE + 50) {
-				// Clear timeout if mouse moves away before delay completes
-				if (hoverTimeoutRef.current) {
-					clearTimeout(hoverTimeoutRef.current);
-				}
-			}
-		},
-		[isPinned, isOpen, setSidebarOpen, offset],
-	);
-
 	// Keep handler refs current every render so stable listeners always use the latest handler
 	handleMouseMoveRef.current = handleMouseMove;
 	handleMouseUpRef.current = handleMouseUp;
-	handleEdgeHoverRef.current = handleEdgeHover;
 	handleMouseEnterRef.current = handleMouseEnter;
 	handleMouseLeaveRef.current = handleMouseLeave;
 
@@ -129,21 +91,13 @@ export const SidebarWrapper = ({
 	useEffect(() => {
 		const onMouseMove = (e: MouseEvent) => handleMouseMoveRef.current(e);
 		const onMouseUp = () => handleMouseUpRef.current();
-		const onEdgeHover = (e: MouseEvent) => handleEdgeHoverRef.current(e);
 
 		document.addEventListener("mousemove", onMouseMove);
 		document.addEventListener("mouseup", onMouseUp);
-		document.addEventListener("mousemove", onEdgeHover);
 
 		return () => {
 			document.removeEventListener("mousemove", onMouseMove);
 			document.removeEventListener("mouseup", onMouseUp);
-			document.removeEventListener("mousemove", onEdgeHover);
-
-			// Clear timeout on cleanup
-			if (hoverTimeoutRef.current) {
-				clearTimeout(hoverTimeoutRef.current);
-			}
 		};
 	}, []); // empty deps — listeners are stable, handlers updated via refs
 
@@ -176,12 +130,8 @@ export const SidebarWrapper = ({
 				side="left"
 				showCloseButton={false}
 				isPinned={isPinned}
-				className={cn(
-					"bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0",
-					"transition-transform duration-300 ease-out",
-					offset > 0 && "sidebar-behind-rail",
-				)}
-				style={{ width: `${width}px`, left: `${offset}px` }}
+				className="sidebar-behind-rail bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0"
+				style={{ width: `${width}px`, left: `${CONSTANTS.RAIL_WIDTH}px` }}
 				onOpenAutoFocus={(e) => e.preventDefault()}
 			>
 				<div className="relative h-full flex flex-col">

@@ -44,6 +44,7 @@ function RouteComponent() {
 	return (
 		<main className="flex-1 mx-auto border-x max-w-2xl w-full">
 			<div className="relative px-6 max-w-xl mx-auto py-6 md:py-12">
+				<h1 className="sr-only">Changelog</h1>
 				<div className="relative">
 					<div className="absolute left-[123px] top-0 bottom-0 w-px bg-border hidden md:block" />
 
@@ -81,7 +82,7 @@ function RouteComponent() {
 								{/* Content Card */}
 								<div className="space-y-3">
 									<div className="flex flex-col-reverse gap-3">
-										<h3 className="text-base font-semibold">{item.title}</h3>
+										<h2 className="text-base font-semibold">{item.title}</h2>
 
 										<div className="flex gap-1">
 											{item.tags &&
@@ -114,9 +115,9 @@ function RouteComponent() {
 									<div className="space-y-4 text-xs text-muted-foreground">
 										{item.features && item.features.length > 0 && (
 											<div className="space-y-1.5">
-												<h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
+												<h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
 													🚀 Features
-												</h4>
+												</h3>
 												<ul className="space-y-1">
 													{item.features.map((feature, featureIndex: number) => (
 														<li
@@ -135,9 +136,9 @@ function RouteComponent() {
 
 										{item.improvements && item.improvements.length > 0 && (
 											<div className="space-y-1.5">
-												<h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
+												<h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
 													🔧 Improvements
-												</h4>
+												</h3>
 												<ul className="space-y-1">
 													{item.improvements.map((improvement, improvementIndex: number) => (
 														<li
@@ -156,9 +157,9 @@ function RouteComponent() {
 
 										{item.bugsFixed && item.bugsFixed.length > 0 && (
 											<div className="space-y-1.5">
-												<h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
+												<h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
 													🐛 Bug Fixes
-												</h4>
+												</h3>
 												<ul className="space-y-1">
 													{item.bugsFixed.map((bug, bugIndex: number) => (
 														<li

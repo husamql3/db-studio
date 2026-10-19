@@ -67,9 +67,8 @@
 	}
 }
 
-/* PROTOTYPE(nav-rail): Codex-style push. The sidebar slides out from behind the icon rail
-   while the content's left margin moves with it on the same curve, so the two edges travel
-   together. The clip moves with the translate, so nothing paints over the rail. Unlayered
+/* The sidebar slides out from behind the icon rail while the content's left margin moves
+   with it on the same curve, so the two edges travel together. The clip moves with the translate, so nothing paints over the rail. Unlayered
    so it overrides the sheet's slide/fade utilities. */
 :root {
 	--rail-sidebar-ease: cubic-bezier(0.2, 0, 0, 1);

@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.19.0",
+		date: "2026-10-19",
+		title: "A navigation rail",
+		improvements: [
+			{
+				text: "A slim navigation rail on the left replaces the top header: switch tabs, toggle the sidebar, change the theme, and open settings or the AI assistant from one place",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.18.0",
 		date: "2026-10-17",
 		title: "Edit columns from the sidebar and a faster app",
