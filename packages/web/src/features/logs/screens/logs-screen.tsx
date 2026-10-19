@@ -7,8 +7,20 @@ import { LogLine } from "../components/log-line";
 import { LogsToolbar } from "../components/logs-toolbar";
 import { useServerLogs } from "../hooks/use-server-logs";
 
-/** Entries carry no id, and live polling shifts their positions, so a line is its content. */
-const entryKey = (entry: ServerLogEntrySchemaType) => `${entry.ts}|${entry.message}`;
+/**
+ * Entries carry no id, and live polling shifts their positions, so a line is its content: every
+ * field, so engine ids in `detail` (a Redis slowlog id) tell apart a command repeated within one
+ * timestamp. Entries identical in every field are told apart by their order.
+ */
+const keyEntries = (entries: ServerLogEntrySchemaType[]) => {
+	const seen = new Map<string, number>();
+	return entries.map((entry) => {
+		const content = JSON.stringify(entry);
+		const n = seen.get(content) ?? 0;
+		seen.set(content, n + 1);
+		return { entry, key: `${content}#${n}` };
+	});
+};
 
 const matchesSearch = (entry: ServerLogEntrySchemaType, search: string) =>
 	!search ||
@@ -40,8 +52,8 @@ export const LogsScreen = () => {
 	} = useServerLogs({ live });
 
 	const entries = serverLogs?.available ? serverLogs.entries : [];
-	const visible = entries.filter(
-		(entry) => !hiddenLevels.has(entry.level) && matchesSearch(entry, search),
+	const visible = keyEntries(entries).filter(
+		({ entry }) => !hiddenLevels.has(entry.level) && matchesSearch(entry, search),
 	);
 	const levelCounts = new Map<ServerLogLevel, number>();
 	for (const entry of entries) {
@@ -49,8 +61,7 @@ export const LogsScreen = () => {
 	}
 
 	// While live, stay on the newest line as entries arrive.
-	const newest = visible.at(-1);
-	const newestKey = newest && entryKey(newest);
+	const newestKey = visible.at(-1)?.key;
 	useEffect(() => {
 		if (live && newestKey) scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
 	}, [live, newestKey]);
@@ -111,18 +122,15 @@ export const LogsScreen = () => {
 				onWheel={(e) => e.deltaY < 0 && live && setLive(false)}
 				className="size-full overflow-auto py-3 text-sm leading-7"
 			>
-				{visible.map((entry) => {
-					const key = entryKey(entry);
-					return (
-						<LogLine
-							key={key}
-							entry={entry}
-							wrap={wrap}
-							isOpen={expanded === key}
-							onToggle={() => setExpanded(expanded === key ? null : key)}
-						/>
-					);
-				})}
+				{visible.map(({ entry, key }) => (
+					<LogLine
+						key={key}
+						entry={entry}
+						wrap={wrap}
+						isOpen={expanded === key}
+						onToggle={() => setExpanded(expanded === key ? null : key)}
+					/>
+				))}
 			</div>
 		);
 	};
