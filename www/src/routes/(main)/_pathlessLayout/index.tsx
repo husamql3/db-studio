@@ -234,8 +234,8 @@ function App() {
 					<img
 						src="/studio.png"
 						alt="db-studio"
-						width={1000}
-						height={1000}
+						width={2000}
+						height={1184}
 						className="w-full h-full object-contain"
 					/>
 

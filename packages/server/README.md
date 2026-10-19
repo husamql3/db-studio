@@ -18,7 +18,7 @@ Browse tables, edit records, design schemas, and run queries from one UI, launch
 </p>
 
 <p align="center">
-  <img src="https://dbstudio.sh/og-image.png" alt="db-studio screenshot" width="800">
+  <img src="https://raw.githubusercontent.com/husamql3/db-studio/main/assets/screenshot.png" alt="db-studio screenshot" width="800">
 </p>
 
 ## Installation
