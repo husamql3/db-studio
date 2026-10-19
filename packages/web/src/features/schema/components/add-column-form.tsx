@@ -10,6 +10,7 @@ import { ColumnTypeField } from "@/features/table-builder/components/fields/colu
 import { DefaultValueField } from "@/features/table-builder/components/fields/default-value-field";
 import { FormActions } from "@/features/table-builder/components/fields/form-actions";
 import { PrimaryField } from "@/features/table-builder/components/fields/primary-field";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useAddColumn } from "../hooks/use-add-column";
 
@@ -87,7 +88,10 @@ const AddColumnFormContent = () => {
 
 export const AddColumnForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
-	const { addColumn, isAddingColumn } = useAddColumn({ tableName });
+	const { addColumn, isAddingColumn } = useAddColumn({
+		tableName,
+		schemaName: useTableSchemaName(),
+	});
 
 	const methods = useForm<AddColumnFormValues>({
 		mode: "onSubmit",

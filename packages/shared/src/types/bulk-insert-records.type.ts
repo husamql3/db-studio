@@ -3,6 +3,7 @@ import type { DatabaseSchemaType } from "./database.types";
 
 export type BulkInsertRecordsParams = {
 	tableName: string;
+	schemaName?: string;
 	records: Record<string, unknown>[];
 	db: DatabaseSchemaType["db"];
 };

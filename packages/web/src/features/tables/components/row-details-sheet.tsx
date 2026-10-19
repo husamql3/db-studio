@@ -18,6 +18,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { AddRecordField, RecordReferenceSheet } from "@/features/records";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
@@ -126,10 +127,11 @@ export const RowDetailsSheet = ({
 }) => {
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { rowIndex, selectRowDetails, clearRowDetails } = useRowDetailsStore();
-	const { tableCols, isLoadingTableCols } = useTableCols({ tableName });
+	const schemaName = useTableSchemaName();
+	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 	const { canMutateRows, rowMutationReason } = useRowMutation();
-	const { updateRecord, isUpdatingRecord } = useUpdateRecord({ tableName });
-	const { deleteCells, isDeletingCells } = useDeleteCells({ tableName });
+	const { updateRecord, isUpdatingRecord } = useUpdateRecord({ tableName, schemaName });
+	const { deleteCells, isDeletingCells } = useDeleteCells({ tableName, schemaName });
 
 	// Confirmation dialogs go through the overlay registry; the local state below
 	// is the payload each one acts on, never its open flag.

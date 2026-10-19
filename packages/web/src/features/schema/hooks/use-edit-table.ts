@@ -37,7 +37,13 @@ export const planColumnChanges = (
 			: [];
 	});
 
-export const useEditTable = ({ tableName }: { tableName: string }) => {
+export const useEditTable = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
 
@@ -49,11 +55,18 @@ export const useEditTable = ({ tableName }: { tableName: string }) => {
 		mutationFn: async (changes) => {
 			for (const { columnName, alter, newColumnName } of changes) {
 				if (alter) {
-					await alterColumn({ tableName, columnName, data: alter, db: selectedDatabase });
+					await alterColumn({
+						tableName,
+						schemaName,
+						columnName,
+						data: alter,
+						db: selectedDatabase,
+					});
 				}
 				if (newColumnName !== undefined) {
 					await renameColumn({
 						tableName,
+						schemaName,
 						columnName,
 						data: { newColumnName },
 						db: selectedDatabase,

@@ -23,6 +23,7 @@ const makeCol = (columnName: string, isPrimaryKey = false): ColumnInfoSchemaType
 	enumValues: null,
 });
 
+vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 vi.mock("@/features/schema", () => ({
 	useTableCols: ({ tableName }: { tableName: string }) => ({
 		tableCols:

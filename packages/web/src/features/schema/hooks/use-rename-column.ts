@@ -11,9 +11,11 @@ type MutationError = Error & {
 
 export const useRenameColumn = ({
 	tableName,
+	schemaName,
 	columnName,
 }: {
 	tableName: string;
+	schemaName: string | undefined;
 	columnName: string;
 }) => {
 	const queryClient = useQueryClient();
@@ -27,6 +29,7 @@ export const useRenameColumn = ({
 		mutationFn: async (data) => {
 			const res = await renameColumnRequest({
 				tableName,
+				schemaName,
 				columnName,
 				data,
 				db: selectedDatabase,

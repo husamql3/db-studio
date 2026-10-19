@@ -125,10 +125,11 @@ export const Route = createRootRoute({
 					) : (
 						<Outlet />
 					)}
+					{/* Inside the adapter: it reads the open table's schema from the URL. */}
+					<CommandPalette />
 				</NuqsAdapter>
 				<Toaster position="top-right" />
 				{/* Global overlays */}
-				<CommandPalette />
 				<TableBuilderOverlay />
 				<SettingsOverlay />
 				{/* Devtools */}

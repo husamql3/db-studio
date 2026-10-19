@@ -3,7 +3,13 @@ import { getTableColumns } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
-export const useTableCols = ({ tableName }: { tableName: string }) => {
+export const useTableCols = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const { selectedDatabase } = useDatabaseStore();
 
 	const {
@@ -13,8 +19,8 @@ export const useTableCols = ({ tableName }: { tableName: string }) => {
 		error: errorTableCols,
 		refetch: refetchTableCols,
 	} = useQuery({
-		queryKey: tableKeys.columns(tableName, selectedDatabase),
-		queryFn: () => getTableColumns(tableName, selectedDatabase),
+		queryKey: tableKeys.columns(tableName, selectedDatabase, schemaName),
+		queryFn: () => getTableColumns(tableName, selectedDatabase, schemaName),
 		select: (res) => res.data.data,
 		enabled: !!tableName && !!selectedDatabase,
 	});

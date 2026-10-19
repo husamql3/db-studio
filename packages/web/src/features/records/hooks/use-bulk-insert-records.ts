@@ -6,7 +6,13 @@ import { bulkInsertRecords as bulkInsertRecordsRequest } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
-export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
+export const useBulkInsertRecords = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
@@ -14,6 +20,7 @@ export const useBulkInsertRecords = ({ tableName }: { tableName: string }) => {
 		mutationFn: async (records: Record<string, unknown>[]) => {
 			const res = await bulkInsertRecordsRequest({
 				tableName,
+				schemaName,
 				records,
 				db: selectedDatabase,
 			});

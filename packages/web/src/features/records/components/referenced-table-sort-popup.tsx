@@ -15,10 +15,11 @@ import { ArrowUpDown, X } from "lucide-react";
 import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 
 export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) => {
-	const { tableCols } = useTableCols({ tableName });
+	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
 	const [sorts, setSorts] = useQueryState<Sort[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT,
 		parseAsJson((value) => value as Sort[])

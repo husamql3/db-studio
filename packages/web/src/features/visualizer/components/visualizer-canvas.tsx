@@ -137,7 +137,11 @@ const Canvas = ({ tables, edges }: CanvasProps) => {
 			onNodeMouseLeave={() => setHovered(null)}
 			onNodeClick={(_, node) => focusFromCanvas(node.id === focused ? "" : node.id)}
 			onNodeDoubleClick={(_, node) =>
-				void navigate({ to: "/table/$table", params: { table: node.data.table.tableName } })
+				void navigate({
+					to: "/table/$table",
+					params: { table: node.data.table.tableName },
+					search: { [CONSTANTS.TABLE_SCHEMA]: node.data.table.schemaName },
+				})
 			}
 			onPaneClick={() => focusFromCanvas("")}
 			nodesConnectable={false}

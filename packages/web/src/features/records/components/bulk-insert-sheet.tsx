@@ -6,13 +6,17 @@ import { Textarea } from "@db-studio/ui/textarea";
 import { cn } from "@db-studio/ui/utils";
 import { useCallback, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { parseBulkData } from "@/utils/parse-bulk-data";
 import { useBulkInsertRecords } from "../hooks/use-bulk-insert-records";
 
 export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
-	const { bulkInsertRecords, isInserting } = useBulkInsertRecords({ tableName });
+	const { bulkInsertRecords, isInserting } = useBulkInsertRecords({
+		tableName,
+		schemaName: useTableSchemaName(),
+	});
 
 	const [inputValue, setInputValue] = useState("");
 	const [parsedRecords, setParsedRecords] = useState<Record<string, unknown>[]>([]);

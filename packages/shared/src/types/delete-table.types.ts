@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { databaseSchema } from "./database.types";
+import { tableQuerySchema } from "./database.types";
 import type { RelatedRecord } from "./delete-record.types";
 
-export const deleteTableQuerySchema = databaseSchema.extend({
+export const deleteTableQuerySchema = tableQuerySchema.extend({
 	cascade: z
 		.string()
 		.optional()
@@ -13,6 +13,7 @@ export type DeleteTableQuerySchemaType = z.infer<typeof deleteTableQuerySchema>;
 
 export type DeleteTableParams = {
 	tableName: string;
+	schemaName?: string;
 	db: string;
 	cascade?: boolean;
 };

@@ -9,7 +9,13 @@ type MutationError = Error & {
 	details?: unknown;
 };
 
-export const useDropIndex = ({ tableName }: { tableName: string }) => {
+export const useDropIndex = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { closeOverlay } = useOverlayStore();
 	const { selectedDatabase } = useDatabaseStore();
@@ -20,7 +26,12 @@ export const useDropIndex = ({ tableName }: { tableName: string }) => {
 		string
 	>({
 		mutationFn: async (indexName) => {
-			const res = await dropIndexRequest({ tableName, indexName, db: selectedDatabase });
+			const res = await dropIndexRequest({
+				tableName,
+				schemaName,
+				indexName,
+				db: selectedDatabase,
+			});
 			return res.data.data;
 		},
 		onSuccess: async () => {

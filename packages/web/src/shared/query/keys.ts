@@ -15,8 +15,8 @@ export const tableKeys = {
 	graph: (db?: string | null) => [CONSTANTS.CACHE_KEYS.TABLES_LIST, db, "graph"] as const,
 	columnsByTable: (tableName: string) =>
 		[CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName] as const,
-	columns: (tableName?: string, db?: string | null) =>
-		[CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName, db] as const,
+	columns: (tableName?: string, db?: string | null, schemaName?: string) =>
+		[CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName, db, schemaName] as const,
 	dataByTable: (tableName: string) => [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName] as const,
 	data: ({
 		tableName,
@@ -27,8 +27,10 @@ export const tableKeys = {
 		order,
 		filters,
 		db,
+		schemaName,
 	}: {
 		tableName: string;
+		schemaName?: string;
 		cursor?: string | null;
 		limit?: string | null;
 		direction?: string | null;
@@ -47,13 +49,16 @@ export const tableKeys = {
 			order,
 			filters,
 			db,
+			schemaName,
 		] as const,
-	schema: (tableName: string, db?: string | null) => ["table-schema", tableName, db] as const,
+	schema: (tableName: string, db?: string | null, schemaName?: string) =>
+		["table-schema", tableName, db, schemaName] as const,
 };
 
 export const indexKeys = {
 	byTable: (tableName: string) => ["table-indexes", tableName] as const,
-	table: (tableName: string, db?: string | null) => ["table-indexes", tableName, db] as const,
+	table: (tableName: string, db?: string | null, schemaName?: string) =>
+		["table-indexes", tableName, db, schemaName] as const,
 };
 
 export const redisKeyBrowserKeys = {
