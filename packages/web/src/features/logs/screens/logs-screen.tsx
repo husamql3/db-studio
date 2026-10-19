@@ -117,9 +117,12 @@ export const LogsScreen = () => {
 		return (
 			<div
 				ref={scroller}
-				// Scrolling back through history pauses the live tail, so new lines don't pull
-				// the view away.
-				onWheel={(e) => e.deltaY < 0 && live && setLive(false)}
+				// Scrolling back through history, by any means, pauses the live tail, so new lines
+				// don't pull the view away. Live's own follow ends on the newest line and keeps it on.
+				onScroll={(e) => {
+					const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
+					if (live && scrollHeight - scrollTop - clientHeight > 1) setLive(false);
+				}}
 				className="size-full overflow-auto py-3 text-sm leading-7"
 			>
 				{visible.map(({ entry, key }) => (
