@@ -834,7 +834,8 @@ export class PgAdapter extends BaseAdapter {
 				c.is_nullable = 'YES' as "isNullable", c.column_default as "columnDefault",
 				CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as "isPrimaryKey",
 				CASE WHEN fk.column_name IS NOT NULL THEN true ELSE false END as "isForeignKey",
-				fk.referenced_table as "referencedTable", fk.referenced_column as "referencedColumn",
+				fk.referenced_schema as "referencedSchema", fk.referenced_table as "referencedTable",
+				fk.referenced_column as "referencedColumn",
 				CASE WHEN c.data_type = 'USER-DEFINED' THEN
 					(SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = c.udt_name)
 				ELSE NULL END as "enumValues"
@@ -845,7 +846,7 @@ export class PgAdapter extends BaseAdapter {
 				WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = ${schema} AND tc.table_name = $1
 			) pk ON c.column_name = pk.column_name
 			LEFT JOIN (
-				SELECT kcu.column_name, ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
+				SELECT kcu.column_name, ccu.table_schema AS referenced_schema, ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
 				FROM information_schema.table_constraints tc
 				JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
 				JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
@@ -876,6 +877,7 @@ export class PgAdapter extends BaseAdapter {
 				isPrimaryKey: r.isPrimaryKey,
 				isForeignKey: r.isForeignKey,
 				referencedTable: r.referencedTable,
+				...(r.referencedSchema && { referencedSchema: r.referencedSchema }),
 				referencedColumn: r.referencedColumn,
 				enumValues: parsedEnumValues,
 			};
