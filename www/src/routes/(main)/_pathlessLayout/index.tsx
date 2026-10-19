@@ -94,29 +94,46 @@ function EmailCopyButton() {
 	);
 }
 
-// Plays from an effect, not autoPlay, so reduced-motion users keep the still poster.
+// Plays from an effect, not autoPlay, so reduced-motion users keep the first frame.
 function DemoVideo() {
 	const videoRef = useRef<HTMLVideoElement>(null);
+	const [loaded, setLoaded] = useState(false);
 
 	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+		// A cached video can load before hydration attaches onLoadedData.
+		if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) setLoaded(true);
 		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-		videoRef.current?.play().catch(() => {});
+		video.play().catch(() => {});
 	}, []);
 
 	return (
-		<video
-			ref={videoRef}
-			src="/demo.mp4"
-			poster="/demo-poster.jpg"
-			width={1920}
-			height={1080}
-			muted
-			loop
-			playsInline
-			preload="metadata"
-			aria-label="db-studio feature tour"
-			className="w-full h-full object-contain"
-		/>
+		<div className="relative aspect-video w-full">
+			<video
+				ref={videoRef}
+				src="/demo.mp4"
+				width={1920}
+				height={1080}
+				muted
+				loop
+				playsInline
+				preload="auto"
+				aria-label="db-studio feature tour"
+				onLoadedData={() => setLoaded(true)}
+				className="w-full h-full object-contain"
+			/>
+			{/* The pulse animates opacity, so the fade-out lives on the wrapper. */}
+			<div
+				aria-hidden
+				className={cn(
+					"absolute inset-0 transition-opacity duration-500",
+					loaded && "opacity-0 pointer-events-none",
+				)}
+			>
+				<div className="size-full bg-muted animate-pulse" />
+			</div>
+		</div>
 	);
 }
 
