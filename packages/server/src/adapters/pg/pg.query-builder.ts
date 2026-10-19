@@ -122,7 +122,7 @@ export function buildCursorWhereClause(
  * The single schema a bare table name resolves to, honouring search_path order
  * so a name present in several schemas picks the same one Postgres would.
  */
-export const resolvedSchemaFor = (tableParam: string): string =>
+const resolvedSchemaFor = (tableParam: string): string =>
 	`(SELECT sp.schema_name FROM unnest(current_schemas(false)) WITH ORDINALITY AS sp(schema_name, position)
 	  JOIN information_schema.tables it
 	    ON it.table_schema = sp.schema_name AND it.table_name = ${tableParam}
