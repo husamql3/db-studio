@@ -118,7 +118,7 @@ function App() {
 					</div>
 
 					<div className="w-full max-w-xl mx-auto flex flex-col items-center gap-5">
-						<p className="text-center md:text-xl font-bold">
+						<h1 className="text-center md:text-xl font-bold">
 							A modern (pgAdmin alternative but good)
 							<Highlighter
 								action="highlight"
@@ -127,12 +127,12 @@ function App() {
 								database management studio
 							</Highlighter>
 							for any database
-						</p>
+						</h1>
 					</div>
 
 					<div className="flex flex-col mx-auto max-w-md sm:max-w-lg w-full">
 						<div className="flex flex-col gap-1 text-center md:text-left">
-							<h1 className="font-semibold">Getting Started</h1>
+							<h2 className="font-semibold">Getting Started</h2>
 							<p className="text-xs text-muted-foreground">
 								Launch instantly from your terminal, no installation needed.
 							</p>

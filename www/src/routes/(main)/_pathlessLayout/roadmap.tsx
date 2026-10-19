@@ -95,7 +95,7 @@ function RouteComponent() {
 								{/* Content Card */}
 								<div className="space-y-3 md:space-y-6">
 									<div className="flex flex-col-reverse sm:flex-row sm:items-center gap-1">
-										<h3 className="text-lg font-semibold">{item.title}</h3>
+										<h2 className="text-lg font-semibold">{item.title}</h2>
 
 										<span
 											className={cn(

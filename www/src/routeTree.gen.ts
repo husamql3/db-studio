@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as mainPathlessLayoutRouteImport } from './routes/(main)/_pathlessLayout'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
@@ -16,6 +17,11 @@ import { Route as mainPathlessLayoutIndexRouteImport } from './routes/(main)/_pa
 import { Route as mainPathlessLayoutChangelogRouteImport } from './routes/(main)/_pathlessLayout/changelog'
 import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const mainPathlessLayoutRoute = mainPathlessLayoutRouteImport.update({
   id: '/(main)/_pathlessLayout',
   getParentRoute: () => rootRouteImport,
@@ -49,6 +55,7 @@ const mainPathlessLayoutRoadmapRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
@@ -56,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof mainPathlessLayoutIndexRoute
 }
 export interface FileRoutesByTo {
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
@@ -64,6 +72,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/(main)/_pathlessLayout': typeof mainPathlessLayoutRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
@@ -73,11 +82,14 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
+  fullPaths:
+    '/sitemap.xml' | '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
+  to:
+    '/sitemap.xml' | '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
   id:
     | '__root__'
+    | '/sitemap.xml'
     | '/(main)/_pathlessLayout'
     | '/api/search'
     | '/docs/$'
@@ -87,6 +99,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   mainPathlessLayoutRoute: typeof mainPathlessLayoutRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
   DocsSplatRoute: typeof DocsSplatRoute
@@ -94,6 +107,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(main)/_pathlessLayout': {
       id: '/(main)/_pathlessLayout'
       path: ''
@@ -155,6 +175,7 @@ const mainPathlessLayoutRouteWithChildren =
   mainPathlessLayoutRoute._addFileChildren(mainPathlessLayoutRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   mainPathlessLayoutRoute: mainPathlessLayoutRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
   DocsSplatRoute: DocsSplatRoute,
