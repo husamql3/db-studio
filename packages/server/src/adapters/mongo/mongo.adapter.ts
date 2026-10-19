@@ -21,6 +21,9 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogEntrySchemaType,
+	ServerLogLevel,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -29,6 +32,7 @@ import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
+import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
 import { HTTPException } from "@/http-exception.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
@@ -298,6 +302,65 @@ type MongoQueryPayload = {
 // ---------------------------------------------------------------------------
 // MongoAdapter
 // ---------------------------------------------------------------------------
+
+const MONGO_UNAUTHORIZED = 13;
+const MONGO_ATLAS_ERROR = 8000;
+/** The log id MongoDB gives to a slow operation. */
+const MONGO_SLOW_QUERY = 51803;
+
+const MONGO_LOG_LEVELS: Record<string, ServerLogLevel> = {
+	F: "fatal",
+	E: "error",
+	W: "warning",
+	I: "info",
+};
+
+interface MongoLogLine {
+	t: { $date: string };
+	s: string;
+	c: string;
+	id: number;
+	ctx: string;
+	msg: string;
+	attr?: Record<string, unknown>;
+}
+
+const toServerLogEntry = ({
+	t,
+	s,
+	c,
+	id,
+	ctx,
+	msg,
+	attr = {},
+}: MongoLogLine): ServerLogEntrySchemaType => {
+	if (id === MONGO_SLOW_QUERY) {
+		const { ns, command, durationMillis, ...rest } = attr;
+		// Driver bookkeeping such as $db, lsid and $clusterTime says nothing about the query.
+		const query = Object.fromEntries(
+			Object.entries((command ?? {}) as Record<string, unknown>).filter(
+				([key]) => !key.startsWith("$") && key !== "lsid",
+			),
+		);
+		return {
+			ts: new Date(t.$date).toISOString(),
+			level: MONGO_LOG_LEVELS[s] ?? "debug",
+			rawLevel: s,
+			source: c,
+			message: `${ns} ${JSON.stringify(query)}`,
+			durationMs: Number(durationMillis),
+			detail: logDetail({ id, ctx, ...rest }),
+		};
+	}
+	return {
+		ts: new Date(t.$date).toISOString(),
+		level: MONGO_LOG_LEVELS[s] ?? "debug",
+		rawLevel: s,
+		source: c,
+		message: msg,
+		detail: logDetail({ id, ctx, ...attr }),
+	};
+};
 
 export class MongoAdapter extends BaseAdapter {
 	// -----------------------------------------------------------------------
@@ -958,6 +1021,39 @@ export class MongoAdapter extends BaseAdapter {
 	// -----------------------------------------------------------------------
 	// Indexes
 	// -----------------------------------------------------------------------
+
+	override async getServerLogs(): Promise<ServerLogsResult> {
+		try {
+			const client = await getMongoClient();
+			const { log } = (await client.db("admin").command({ getLog: "global" })) as {
+				log: string[];
+			};
+			const entries = log.flatMap((line) => {
+				try {
+					return [toServerLogEntry(JSON.parse(line) as MongoLogLine)];
+				} catch {
+					// MongoDB before 4.4 writes plain-text lines, which carry no structure to read.
+					return [];
+				}
+			});
+			return {
+				available: true,
+				source: "getLog: 'global' (the server keeps the newest 1024 entries)",
+				entries: newestEntries(entries),
+			};
+		} catch (e) {
+			const code = (e as { code?: unknown }).code;
+			if (code === MONGO_UNAUTHORIZED) {
+				return logsUnavailable(
+					"Reading the server log needs the getLog action, which the clusterMonitor role grants.",
+				);
+			}
+			if (code === MONGO_ATLAS_ERROR) {
+				return logsUnavailable("This Atlas tier does not allow getLog.");
+			}
+			throw this.wrapError(e);
+		}
+	}
 
 	private async listIndexes(mongoDb: Db, tableName: string): Promise<IndexInfoSchemaType[]> {
 		const collections = await mongoDb.listCollections({ name: tableName }).toArray();

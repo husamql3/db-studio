@@ -31,6 +31,8 @@ import type {
 	RedisKeyTypeSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogEntrySchemaType,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -45,6 +47,7 @@ import {
 	getRedisDefaultDb,
 } from "@/adapters/connections.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
+import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { HTTPException } from "@/http-exception.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
 
@@ -94,6 +97,15 @@ const assertRedisTable = (tableName: string): RedisTable => {
 	}
 	return tableName;
 };
+
+/** One SLOWLOG GET reply: id, unix seconds, microseconds, argv, client address, client name. */
+type SlowlogEntry = [number, number, number, string[], string?, string?];
+/** One LATENCY LATEST reply: event, unix seconds, latest ms, max ms. */
+type LatencyEntry = [string, number, number, number];
+
+/** Quotes an argument the way redis-cli would need it typed back. */
+const quoteArg = (arg: string) =>
+	/[\s"']/.test(arg) || arg === "" ? JSON.stringify(arg) : arg;
 
 const parseDbIndex = (db: string): number => {
 	if (db === "") return getRedisDefaultDb();
@@ -1563,6 +1575,64 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				await client.xadd(key, "*", ...(flat as [string, ...string[]]));
 				return;
 			}
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Server logs
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Redis serves no log over its protocol, so the slow log and the latency monitor's latest
+	 * spikes stand in for it.
+	 */
+	override async getServerLogs({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<ServerLogsResult> {
+		try {
+			const client = await getRedisClient(parseDbIndex(db));
+			const slowlog = (await client.call("SLOWLOG", "GET", "128")) as SlowlogEntry[];
+			// The latency monitor is optional; a server that refuses it still has a slow log.
+			const latency = ((await client.call("LATENCY", "LATEST").catch(() => [])) ??
+				[]) as LatencyEntry[];
+
+			const entries: ServerLogEntrySchemaType[] = [
+				// SLOWLOG GET answers newest first.
+				...slowlog.reverse().map(([id, seconds, micros, args, clientAddr, clientName]) => ({
+					ts: new Date(Number(seconds) * 1000).toISOString(),
+					level: "info" as const,
+					rawLevel: "slowlog",
+					message: args.map(quoteArg).join(" "),
+					durationMs: Number(micros) / 1000,
+					detail: logDetail({ id, client: clientAddr, client_name: clientName }),
+				})),
+				...latency.map(([event, seconds, latestMs, maxMs]) => ({
+					ts: new Date(Number(seconds) * 1000).toISOString(),
+					level: "warning" as const,
+					rawLevel: "latency",
+					source: event,
+					message: `latency spike: ${event}`,
+					durationMs: Number(latestMs),
+					detail: logDetail({ max_ms: maxMs }),
+				})),
+			];
+			return {
+				available: true,
+				source: "SLOWLOG GET + LATENCY LATEST",
+				entries: newestEntries(entries),
+			};
+		} catch (e) {
+			if (e instanceof Error && e.message.startsWith("NOPERM")) {
+				return logsUnavailable(
+					"Reading the slow log needs the +slowlog command, and +latency for latency spikes.",
+				);
+			}
+			if (e instanceof Error && e.message.startsWith("ERR unknown command")) {
+				return logsUnavailable("This Redis server has SLOWLOG turned off.");
+			}
+			throw this.wrapError(e);
 		}
 	}
 

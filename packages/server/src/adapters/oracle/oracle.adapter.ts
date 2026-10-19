@@ -22,6 +22,8 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogLevel,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -31,6 +33,13 @@ import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { getOraclePool } from "@/adapters/connections.js";
+import {
+	logDetail,
+	logsUnavailable,
+	newestEntries,
+	SERVER_LOGS_LIMIT,
+	SERVER_LOGS_MARKER,
+} from "@/adapters/server-logs.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
@@ -207,6 +216,14 @@ const FK_DELETE_ACTIONS: Record<string, string> = {
 	"SET NULL": " ON DELETE SET NULL",
 	RESTRICT: "",
 	"NO ACTION": "",
+};
+
+/** MESSAGE_LEVEL of the alert log: 1 critical, 2 severe, 8 important, 16 normal. */
+const ORACLE_LOG_LEVELS: Record<number, ServerLogLevel> = {
+	1: "fatal",
+	2: "error",
+	8: "warning",
+	16: "info",
 };
 
 export class OracleAdapter extends BaseAdapter {
@@ -676,6 +693,54 @@ export class OracleAdapter extends BaseAdapter {
 			await conn.execute(
 				`ALTER TABLE ${ident(tableName)} RENAME COLUMN ${ident(columnName)} TO ${ident(newColumnName)}`,
 			);
+		});
+	}
+
+	// =========================================================
+	// Server logs
+	// =========================================================
+
+	async getServerLogs(): Promise<ServerLogsResult> {
+		return this.withConnection(async (conn) => {
+			try {
+				const rows = await this.query<{
+					TS: string;
+					MESSAGE_LEVEL: number;
+					COMPONENT_ID: string | null;
+					PROCESS_ID: string | null;
+					MODULE_ID: string | null;
+					MESSAGE_TEXT: string;
+				}>(
+					conn,
+					`${SERVER_LOGS_MARKER} SELECT TO_CHAR(SYS_EXTRACT_UTC(ORIGINATING_TIMESTAMP),
+						'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"') AS TS, MESSAGE_LEVEL, COMPONENT_ID, PROCESS_ID,
+						MODULE_ID, MESSAGE_TEXT
+					FROM V$DIAG_ALERT_EXT
+					ORDER BY ORIGINATING_TIMESTAMP DESC FETCH FIRST ${SERVER_LOGS_LIMIT} ROWS ONLY`,
+				);
+				return {
+					available: true,
+					source: "V$DIAG_ALERT_EXT (alert log)",
+					entries: newestEntries(
+						rows.reverse().map((row) => ({
+							ts: row.TS,
+							level: ORACLE_LOG_LEVELS[row.MESSAGE_LEVEL] ?? "debug",
+							rawLevel: String(row.MESSAGE_LEVEL),
+							source: row.COMPONENT_ID ?? undefined,
+							code: /ORA-\d+/.exec(row.MESSAGE_TEXT)?.[0],
+							message: row.MESSAGE_TEXT.trim(),
+							detail: logDetail({ process: row.PROCESS_ID, module: row.MODULE_ID }),
+						})),
+					),
+				};
+			} catch (e) {
+				if (e instanceof Error && e.message.startsWith("ORA-00942:")) {
+					return logsUnavailable(
+						"Reading the alert log needs: GRANT SELECT ON V_$DIAG_ALERT_EXT TO <user>; or SELECT ANY DICTIONARY.",
+					);
+				}
+				throw e;
+			}
 		});
 	}
 

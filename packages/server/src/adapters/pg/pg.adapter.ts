@@ -28,6 +28,7 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogsResult,
 	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -45,9 +46,11 @@ import {
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import { getDbPool } from "@/adapters/connections.js";
+import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
+import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
 	buildCursorWhereClause,
 	buildSortClause,
@@ -57,6 +60,9 @@ import {
 } from "./pg.query-builder.js";
 
 type PgPool = Awaited<ReturnType<typeof getDbPool>>;
+
+/** Bytes read from the end of the log file; enough for several hundred entries. */
+const LOG_TAIL_BYTES = 1024 * 1024;
 
 export class PgAdapter extends BaseAdapter {
 	private databaseSizeSupport?: Promise<boolean>;
@@ -1022,6 +1028,70 @@ export class PgAdapter extends BaseAdapter {
 		await pool.query(
 			`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
 		);
+	}
+
+	// --- Server logs ---
+
+	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		const pool = await getDbPool(db);
+		try {
+			const {
+				rows: [settings],
+			} = await pool.query<{ collector: string; destination: string; offset: string }>(
+				`${SERVER_LOGS_MARKER} SELECT current_setting('logging_collector') AS collector,
+					current_setting('log_destination') AS destination,
+					EXTRACT(EPOCH FROM (now() AT TIME ZONE current_setting('log_timezone'))
+						- (now() AT TIME ZONE 'UTC')) / 60 AS offset`,
+			);
+			if (settings.collector !== "on") {
+				return logsUnavailable(
+					"logging_collector is off, so PostgreSQL writes its log to stderr, outside the database. Turn it on to read the log here.",
+				);
+			}
+
+			// jsonlog and csvlog carry the SQLSTATE and backend type that stderr leaves out.
+			const destinations = settings.destination.split(",").map((d) => d.trim());
+			const format: PgLogFormat =
+				(["jsonlog", "csvlog"] as const).find((f) => destinations.includes(f)) ?? "stderr";
+
+			const {
+				rows: [file],
+			} = await pool.query<{ path: string | null; size: string | null }>(
+				`${SERVER_LOGS_MARKER} SELECT path, (pg_stat_file(path)).size AS size
+					FROM pg_current_logfile($1) AS path`,
+				[format],
+			);
+			if (!file.path || file.size === null) {
+				return logsUnavailable("PostgreSQL has not opened a log file yet.");
+			}
+
+			const size = Number(file.size);
+			const offset = Math.max(0, size - LOG_TAIL_BYTES);
+			const {
+				rows: [chunk],
+			} = await pool.query<{ data: Buffer }>(
+				`${SERVER_LOGS_MARKER} SELECT pg_read_binary_file($1, $2, $3) AS data`,
+				[file.path, offset, size - offset],
+			);
+
+			return {
+				available: true,
+				source: `${file.path} (${format})`,
+				entries: newestEntries(
+					parsePgLog(chunk.data.toString("utf8"), format, {
+						logUtcOffsetMinutes: Number(settings.offset),
+						truncatedStart: offset > 0,
+					}),
+				),
+			};
+		} catch (e) {
+			if (isPgDatabaseError(e) && e.code === "42501") {
+				return logsUnavailable(
+					"Reading the server log needs superuser, or: GRANT pg_monitor, pg_read_server_files TO <user>;",
+				);
+			}
+			throw this.wrapError(e);
+		}
 	}
 
 	// --- Indexes ---
