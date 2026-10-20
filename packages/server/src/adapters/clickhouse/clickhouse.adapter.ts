@@ -34,7 +34,7 @@ import {
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getClickhouseClient } from "@/adapters/connections.js";
+import { getClickhouseClient, getConnectionUrl } from "@/adapters/connections.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -265,7 +265,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 			if (!info) {
 				throw new HTTPException(500, { message: "No connection information returned" });
 			}
-			const { host, port } = parseDatabaseUrl();
+			const { host, port } = parseDatabaseUrl(getConnectionUrl());
 			return {
 				host,
 				port,

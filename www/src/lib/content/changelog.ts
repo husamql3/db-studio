@@ -16,6 +16,31 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.20.0",
+		date: "2026-10-20",
+		title: "Connect and switch databases from the app",
+		features: [
+			{
+				text: "Start db-studio without a database URL and connect from the new Connect page by pasting one; a URL that fails to connect leaves the current connection open",
+				username: "husamql3",
+			},
+			{
+				text: "Saved connections: every database you open is remembered, and you can filter, rename, color and delete them from the Connect page",
+				username: "husamql3",
+			},
+			{
+				text: "Switch connections from the sidebar footer, which now shows the current connection and database",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "db-studio now accepts requests only from this machine; set HOST to reach it from another machine or a container",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.19.0",
 		date: "2026-10-19",
 		title: "A navigation rail",

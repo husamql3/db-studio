@@ -37,3 +37,6 @@ export const getRedisDefaultDb: typeof dbManager.getRedisDefaultDb = () =>
 
 export const getClickhouseClient: typeof dbManager.getClickhouseClient = (database) =>
 	dbManager.getClickhouseClient(database);
+
+export const getConnectionUrl: typeof dbManager.getConnectionUrl = () =>
+	dbManager.getConnectionUrl();

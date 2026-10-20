@@ -157,3 +157,9 @@ const apiClient = new ApiClient();
 export const rootApi = apiClient.rootApi;
 export const api = apiClient.api;
 export const setDbType = (type: DatabaseTypeSchema): void => apiClient.setDbType(type);
+
+/** Database requests name the connection this tab shows; the server refuses one it replaced. */
+export const setConnectionId = (id: string | null): void => {
+	if (id) api.defaults.headers.common["X-Connection-Id"] = id;
+	else delete api.defaults.headers.common["X-Connection-Id"];
+};

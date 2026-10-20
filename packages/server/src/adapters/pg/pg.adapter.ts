@@ -45,7 +45,7 @@ import {
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
-import { getDbPool } from "@/adapters/connections.js";
+import { getConnectionUrl, getDbPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import { isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
@@ -481,7 +481,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const { connectionInfoSchema } = await import("@db-studio/shared/types");
 		const result = connectionInfoSchema.parse(rows[0]);
-		const urlDefaults = parseDatabaseUrl();
+		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
 
 		return {
 			host: result.host || urlDefaults.host,

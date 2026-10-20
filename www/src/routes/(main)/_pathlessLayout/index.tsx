@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
 	CodeBlock,
@@ -9,7 +9,9 @@ import {
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
 import { FeaturesGrid } from "@/components/features";
+import { BuiltInPublic } from "@/components/home-stats";
 import { InfiniteSlider } from "@/components/infinite-slider";
+import { SponsorsSection } from "@/components/sponsors";
 import { Highlighter } from "@/components/ui/highlighter";
 import { ClickhouseIcon } from "@/components/ui/svgs/clickhouseIcon";
 import { CockroachdbIcon } from "@/components/ui/svgs/cockroachdbIcon";
@@ -25,9 +27,11 @@ import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
 import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
+import { getHomeStats } from "@/utils/get-home-stats";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
+	loader: () => getHomeStats(),
 	head: () =>
 		seoHead({
 			title: "dbstudio – The modern pgAdmin alternative for every database",
@@ -36,8 +40,6 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 			path: "/",
 		}),
 });
-
-const EMAIL = "dbstudio@ql3.dev";
 
 /** Engines whose brand ships an icon only; the slider pairs each with its name. */
 const iconLogo = (name: string, Icon: typeof OracleIcon) => (
@@ -69,30 +71,6 @@ const LOGOS = [
 	{ slug: "oracle", name: "Oracle", logo: iconLogo("Oracle", OracleIcon) },
 	{ slug: "clickhouse", name: "ClickHouse", logo: iconLogo("ClickHouse", ClickhouseIcon) },
 ];
-
-function EmailCopyButton() {
-	const [copied, setCopied] = useState(false);
-
-	const copy = () => {
-		navigator.clipboard.writeText(EMAIL);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
-	};
-
-	return (
-		<button
-			type="button"
-			onClick={copy}
-			className="mt-1 group flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer"
-			aria-label="Copy email"
-		>
-			<span className="text-xs underline underline-offset-4">{EMAIL}</span>
-			<span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-				{copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
-			</span>
-		</button>
-	);
-}
 
 // Plays from an effect, not autoPlay, so reduced-motion users keep the first frame.
 function DemoVideo() {
@@ -138,6 +116,7 @@ function DemoVideo() {
 }
 
 function App() {
+	const stats = Route.useLoaderData();
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
@@ -364,17 +343,28 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Open for <span className="text-foreground">sponsorship</span>
-					</h2>
+					{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
+					<BuiltInPublic stats={stats} />
+					<PlusIcon
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+				</div>
 
-					<div className="flex flex-col items-center gap-3 px-4 py-8 md:px-8 text-center border-t">
-						<p className="text-xs text-muted-foreground max-w-sm">
-							Help us keep db-studio free and actively maintained. If you or your company find
-							it useful, consider supporting the project.
-						</p>
-						<EmailCopyButton />
-					</div>
+				<div className="relative w-full flex flex-col border-y">
+					<SponsorsSection />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
