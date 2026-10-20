@@ -9,7 +9,7 @@ import {
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
 import { FeaturesGrid } from "@/components/features";
-import { HomeStats } from "@/components/home-stats";
+import { BuiltInPublic } from "@/components/home-stats";
 import { InfiniteSlider } from "@/components/infinite-slider";
 import { SponsorsSection } from "@/components/sponsors";
 import { Highlighter } from "@/components/ui/highlighter";
@@ -317,7 +317,8 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<HomeStats stats={stats} />
+					{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
+					<BuiltInPublic stats={stats} />
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}

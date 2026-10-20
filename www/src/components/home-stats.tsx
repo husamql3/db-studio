@@ -1,4 +1,4 @@
-import { ArrowUpRightIcon } from "lucide-react";
+import { ArrowUpRightIcon, StarIcon } from "lucide-react";
 import { useState } from "react";
 import { IoLogoGithub } from "react-icons/io";
 import { IoLogoNpm } from "react-icons/io5";
@@ -9,7 +9,6 @@ import type { getHomeStats, Week } from "@/utils/get-home-stats";
 type HomeStatsData = Awaited<ReturnType<typeof getHomeStats>>;
 
 const BRAND = "oklch(0.488 0.243 264.376)";
-const NPM_RED = "#CB3837";
 const REPO = "https://github.com/husamql3/db-studio";
 const NPM = "https://www.npmjs.com/package/db-studio";
 
@@ -136,13 +135,57 @@ function DownloadsChart({ weeks }: { weeks: Week[] }) {
 const cardClass = "flex flex-col gap-1 p-4";
 const cardLabel = "flex items-center gap-1.5 whitespace-nowrap text-muted-foreground";
 
-export function HomeStats({ stats }: { stats: HomeStatsData }) {
-	const { analytics } = stats;
-	const referrers = analytics?.referrers.slice(0, 3) ?? [];
-	const maxReferrer = referrers[0]?.views ?? 1;
-
+function LinkBadge({
+	href,
+	label,
+	icon,
+	iconClassName,
+	children,
+}: {
+	href: string;
+	label: string;
+	icon: React.ReactNode;
+	iconClassName: string;
+	children: React.ReactNode;
+}) {
 	return (
-		<div className="flex flex-col">
+		<a
+			href={href}
+			target="_blank"
+			rel="noreferrer"
+			aria-label={label}
+			className="group flex items-stretch text-xs"
+		>
+			<span className={cn("flex items-center px-2", iconClassName)}>{icon}</span>
+			<span className="flex items-center gap-1.5 border border-l-0 px-2.5 py-1.5 tabular-nums group-hover:bg-muted">
+				{children}
+				<ArrowUpRightIcon className="size-3 text-muted-foreground" />
+			</span>
+		</a>
+	);
+}
+
+const NpmBadge = () => (
+	<LinkBadge
+		href={NPM}
+		label={`db-studio v${changelog[0].version} on npm`}
+		icon={<IoLogoNpm className="size-5" />}
+		iconClassName="bg-[#CB3837] text-white"
+	>
+		v{changelog[0].version}
+	</LinkBadge>
+);
+
+/** The big download count with its weekly chart, and badges on the right. */
+function DownloadsOverview({
+	stats,
+	badges,
+}: {
+	stats: HomeStatsData;
+	badges: React.ReactNode;
+}) {
+	return (
+		<>
 			<div className="flex flex-col gap-3 px-4 pt-6 md:px-8">
 				<p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
 					Built in public
@@ -156,30 +199,56 @@ export function HomeStats({ stats }: { stats: HomeStatsData }) {
 							npm downloads in the last 12 months
 						</p>
 					</div>
-					<a
-						href={NPM}
-						target="_blank"
-						rel="noreferrer"
-						aria-label={`db-studio v${changelog[0].version} on npm`}
-						className="group flex items-stretch text-xs"
-					>
-						<span
-							className="flex items-center px-2 text-white"
-							style={{ background: NPM_RED }}
-						>
-							<IoLogoNpm className="size-5" />
-						</span>
-						<span className="flex items-center gap-1.5 border border-l-0 px-2.5 py-1.5 tabular-nums group-hover:bg-muted">
-							v{changelog[0].version}
-							<ArrowUpRightIcon className="size-3 text-muted-foreground" />
-						</span>
-					</a>
+					<div className="flex flex-wrap gap-2">{badges}</div>
 				</div>
 			</div>
 
 			<div className="px-4 pt-10 md:px-8">
 				<DownloadsChart weeks={stats.npmWeeks} />
 			</div>
+		</>
+	);
+}
+
+export function BuiltInPublic({ stats }: { stats: HomeStatsData }) {
+	return (
+		<div className="flex flex-col pb-4">
+			<DownloadsOverview
+				stats={stats}
+				badges={
+					<>
+						<LinkBadge
+							href={REPO}
+							label={`${stats.stars} GitHub stars`}
+							icon={<IoLogoGithub className="size-4" />}
+							iconClassName="bg-foreground text-background"
+						>
+							<StarIcon className="size-3" />
+							{stats.stars.toLocaleString()}
+						</LinkBadge>
+						<NpmBadge />
+					</>
+				}
+			/>
+		</div>
+	);
+}
+
+/**
+ * The full section, with stars and forks, page views and top referrers as cards under the chart.
+ * Not rendered yet: swap it in for BuiltInPublic on the homepage once traffic is worth showing.
+ */
+export function HomeStats({ stats }: { stats: HomeStatsData }) {
+	const { analytics } = stats;
+	const referrers = analytics?.referrers.slice(0, 3) ?? [];
+	const maxReferrer = referrers[0]?.views ?? 1;
+
+	return (
+		<div className="flex flex-col">
+			<DownloadsOverview
+				stats={stats}
+				badges={<NpmBadge />}
+			/>
 
 			<div
 				className={cn(
