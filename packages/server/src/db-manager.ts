@@ -23,7 +23,7 @@ import { toDriverUrl } from "@/utils/parse-database-url.js";
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, SQLite / libSQL, DuckDB and Redis
  */
-class DatabaseManager {
+export class DatabaseManager {
 	private pgPools: Map<string, Pool> = new Map();
 	private mysqlPools: Map<string, MysqlPool> = new Map();
 	private mssqlPools: Map<string, MssqlPool> = new Map();
@@ -36,14 +36,20 @@ class DatabaseManager {
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
 	private clickhouseClients: Map<string, ClickHouseClient> = new Map();
-	private baseConfig: {
+	private readonly baseConfig: {
 		url: string;
 		host: string;
 		port: number;
 		user: string;
 		password: string;
 		dbType: DatabaseTypeSchema;
-	} | null = null;
+	} | null;
+
+	/** Throws when `databaseUrl` is malformed or names an unsupported engine; connects lazily. */
+	constructor(databaseUrl: string | null = null) {
+		this.baseConfig = databaseUrl ? this.parseConfig(databaseUrl) : null;
+	}
+
 	/**
 	 * Detect database type from URL protocol
 	 */
@@ -93,15 +99,6 @@ class DatabaseManager {
 		};
 	}
 
-	/**
-	 * Close every open connection, then use `databaseUrl` for the next ones (`null`: none).
-	 */
-	async setConnectionUrl(databaseUrl: string | null): Promise<void> {
-		const next = databaseUrl ? this.parseConfig(databaseUrl) : null;
-		await this.closeAll();
-		this.baseConfig = next;
-	}
-
 	private config(): NonNullable<DatabaseManager["baseConfig"]> {
 		if (!this.baseConfig) {
 			throw new HTTPException(409, { message: "No database is connected" });
@@ -114,6 +111,11 @@ class DatabaseManager {
 	 */
 	getDbType(): DatabaseTypeSchema {
 		return this.config().dbType;
+	}
+
+	/** The connection URL, with a wire-compatible alias rewritten to its driver's scheme */
+	getConnectionUrl(): string {
+		return this.config().url;
 	}
 
 	/**
@@ -721,8 +723,18 @@ class DatabaseManager {
 	}
 }
 
-// Singleton instance
-const databaseManager = new DatabaseManager();
+// The open connection; replaced as a whole when the user switches databases
+let databaseManager = new DatabaseManager();
+
+/**
+ * Make `next` the open connection, then close the previous one's clients. A request that already
+ * holds one of those clients fails; every later call reaches `next`.
+ */
+export const replaceDatabaseManager = async (next: DatabaseManager): Promise<void> => {
+	const previous = databaseManager;
+	databaseManager = next;
+	await previous.closeAll();
+};
 
 /**
  * Get a PostgreSQL pool for the specified database
@@ -760,11 +772,10 @@ export const getDbType = (): DatabaseTypeSchema => {
 };
 
 /**
- * Close every open connection and use `databaseUrl` for the next ones (`null` disconnects).
- * Throws when the URL is malformed or names an unsupported engine; it does not test the URL.
+ * Get the URL of the open connection. Throws a 409 HTTPException when none is connected.
  */
-export const setConnectionUrl = (databaseUrl: string | null): Promise<void> => {
-	return databaseManager.setConnectionUrl(databaseUrl);
+export const getConnectionUrl = (): string => {
+	return databaseManager.getConnectionUrl();
 };
 
 /**

@@ -32,7 +32,7 @@ import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getOraclePool } from "@/adapters/connections.js";
+import { getConnectionUrl, getOraclePool } from "@/adapters/connections.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -442,7 +442,7 @@ export class OracleAdapter extends BaseAdapter {
 		});
 		return this.withConnection(async (conn) => {
 			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");
-			const { host, port } = parseDatabaseUrl();
+			const { host, port } = parseDatabaseUrl(getConnectionUrl());
 			return {
 				host,
 				port,

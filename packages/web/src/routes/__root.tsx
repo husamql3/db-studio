@@ -155,7 +155,7 @@ export const Route = createRootRoute({
 		) : !active ? (
 			<Navigate to="/connect" />
 		) : (
-			<ConnectedApp key={active.connectedAt} />
+			<ConnectedApp key={active.connectionId} />
 		);
 
 		return (

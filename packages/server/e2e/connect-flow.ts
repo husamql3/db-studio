@@ -9,6 +9,8 @@
  * - a relative SQLite path is saved relative, so it breaks from another directory;
  * - after connecting, the app still shows the previous database's tables;
  * - a failed switch drops the working connection;
+ * - a tab opened on the previous connection still reaches the new one (same engine);
+ * - an unsaved cell edit survives a switch and can be saved into the wrong database;
  * - the saved file is readable by other users, or the browser receives a password;
  * - a request with a foreign Host header (DNS rebinding) is answered.
  *
@@ -16,7 +18,8 @@
  *   bunx tsx packages/server/e2e/connect-flow.ts
  *
  * Nothing outside a temporary directory is touched. Screenshots and summary.json go to
- * e2e/artifacts/connect-flow/; summary.json is identical across runs.
+ * e2e/artifacts/connect-flow/; summary.json is identical across runs, and screenshots draw the
+ * scratch directory as `<tmp>`.
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -91,17 +94,65 @@ const realDir = await realpath(dir);
 const normalize = (text: string) => text.replaceAll(realDir, "<tmp>").replaceAll(dir, "<tmp>");
 const summary: Record<string, unknown> = {};
 await mkdir(outDir, { recursive: true });
-const shot = (page: Page, name: string) =>
-	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
+/** Screenshots show file paths; `<tmp>` replaces the scratch directory while the shot is taken. */
+const shot = async (page: Page, name: string) => {
+	await page.evaluate(
+		(paths) => {
+			const swap = (text: string) =>
+				paths.reduce((t, path) => t.replaceAll(path, "<tmp>"), text);
+			const undo: (() => void)[] = [];
+			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				const text = node.nodeValue ?? "";
+				if (swap(text) === text) continue;
+				const textNode = node;
+				textNode.nodeValue = swap(text);
+				undo.push(() => {
+					textNode.nodeValue = text;
+				});
+			}
+			for (const input of document.querySelectorAll("input")) {
+				const value = input.value;
+				if (swap(value) === value) continue;
+				input.value = swap(value);
+				undo.push(() => {
+					input.value = value;
+				});
+			}
+			Object.assign(window, {
+				undoShot: () => {
+					for (const restore of undo) restore();
+				},
+			});
+		},
+		[realDir, dir],
+	);
+	await page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
+	await page.evaluate(() => (window as unknown as { undoShot: () => void }).undoShot());
+};
+
+const connectionId = async () => {
+	const state = (await (await fetch(`${BASE}/api/connections`)).json()) as {
+		data: { active: { connectionId: string } };
+	};
+	return state.data.active.connectionId;
+};
+/** Status of a database request from a tab that last saw connection `id`. */
+const tablesStatusFrom = async (id: string) =>
+	(await fetch(`${BASE}/api/sqlite/tables?db=main`, { headers: { "X-Connection-Id": id } }))
+		.status;
 
 const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+// tsx wraps named functions in `__name(...)`, which the page does not define.
+await page.addInitScript("globalThis.__name = (fn) => fn;");
 const urlField = page.getByRole("textbox", { name: "Connection URL" });
 const footerConnection = (name: string) =>
 	page.getByRole("button", { name, exact: true }).last();
+const saveButton = () => page.getByRole("button", { name: "Save changes to the table" });
 
 try {
 	const pageErrors: string[] = [];
@@ -134,6 +185,16 @@ try {
 	await page.waitForURL(`${BASE}/`);
 	await page.getByRole("link", { name: "customers" }).waitFor();
 	await shot(page, "3-connected");
+	const shopConnection = await connectionId();
+
+	// An edit left unsaved before switching away.
+	await page.getByRole("link", { name: "customers" }).click();
+	await page.locator("tbody tr[data-index] td", { hasText: /^Ada$/ }).dblclick();
+	const editor = page.locator("[data-grid-cell-editor] textarea");
+	await editor.fill("Draft");
+	await editor.press("ControlOrMeta+Enter");
+	await saveButton().waitFor();
+	await shot(page, "3b-unsaved-edit");
 
 	// Switch through the Connect page.
 	await footerConnection("shop.sqlite").click();
@@ -146,11 +207,24 @@ try {
 	};
 	await shot(page, "4-switched");
 
+	// A tab that still shows shop.sqlite is refused, not answered from blog.sqlite.
+	summary.staleTab = {
+		previousConnection: await tablesStatusFrom(shopConnection),
+		currentConnection: await tablesStatusFrom(await connectionId()),
+	};
+
 	// Switch back from the footer menu.
 	await footerConnection("blog.sqlite").click();
 	await page.getByRole("menuitem", { name: /shop\.sqlite/ }).click();
 	await page.getByText("Connected to shop.sqlite").waitFor();
-	await page.getByRole("link", { name: "customers" }).waitFor();
+	await page.getByRole("link", { name: "customers" }).click();
+	await page.locator("tbody tr[data-index]").first().waitFor();
+	summary.unsavedEditAfterSwitch = {
+		saveButtonShown: await saveButton().isVisible(),
+		names: await page
+			.locator("tbody tr[data-index] td", { hasText: /^(Ada|Draft)$/ })
+			.allTextContents(),
+	};
 	await shot(page, "5-switched-from-menu");
 
 	// A failed switch keeps the working connection.
@@ -197,6 +271,8 @@ try {
 		firstRun: { path: "/connect" },
 		missingFile: { message: "No database file at <tmp>/shpo.sqlite", created: false },
 		afterSwitch: { tables: ["posts"] },
+		staleTab: { previousConnection: 409, currentConnection: 200 },
+		unsavedEditAfterSwitch: { saveButtonShown: false, names: ["Ada"] },
 		failedSwitch: {
 			toast: "No database file at <tmp>/blog.sqlite. Still on the previous connection.",
 			stillShowing: true,

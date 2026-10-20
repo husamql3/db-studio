@@ -13,6 +13,8 @@
  * 7. A default name is unreadable: not `host/database` for a server, not the file name for a file.
  * 8. Two connections recorded at the same moment overwrite each other, losing one.
  * 9. Renaming or deleting an unknown id silently succeeds.
+ * 10. A percent-encoded parameter name (`%61uthToken`) slips past the mask, though the driver
+ *     decodes it and reads the token.
  */
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -62,6 +64,15 @@ describe("maskConnectionUrl", () => {
 		);
 		expect(maskConnectionUrl("mssql://sa@host:1433/db?password=P@ss;word")).toBe(
 			"mssql://sa@host:1433/db?password=••••",
+		);
+	});
+
+	it("hides a secret whose parameter name is percent-encoded", () => {
+		expect(maskConnectionUrl("d1://acc/db-id?%61uthToken=cf_token&x=1")).toBe(
+			"d1://acc/db-id?%61uthToken=••••&x=1",
+		);
+		expect(maskConnectionUrl("libsql://db.turso.io?tls=0&%54OKEN=abc")).toBe(
+			"libsql://db.turso.io?tls=0&%54OKEN=••••",
 		);
 	});
 

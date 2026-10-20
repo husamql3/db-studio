@@ -23,8 +23,12 @@ let exec: (...statements: string[]) => Promise<void>;
 beforeAll(async () => {
 	vi.resetModules();
 	const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
-	const { getSqliteClient, setConnectionUrl } = await import("@/db-manager.js");
-	await setConnectionUrl(`sqlite://${path.join(dir, "my db.sqlite")}`);
+	const { DatabaseManager, getSqliteClient, replaceDatabaseManager } = await import(
+		"@/db-manager.js"
+	);
+	await replaceDatabaseManager(
+		new DatabaseManager(`sqlite://${path.join(dir, "my db.sqlite")}`),
+	);
 	const client = await getSqliteClient();
 	exec = async (...statements) => {
 		await client.batch(statements, "write");

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import {
 	type ConnectionSummarySchemaType,
@@ -14,16 +15,18 @@ import {
 	recordConnection,
 	type SavedConnection,
 } from "@/connections-store.js";
-import { getDbType, setConnectionUrl } from "@/db-manager.js";
+import { DatabaseManager, getDbType, replaceDatabaseManager } from "@/db-manager.js";
 import { HTTPException } from "@/http-exception.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 
 /**
  * The one open connection: which URL the database layer uses, and switching it. A new URL is
- * tested before it replaces the current one; when the test fails the previous connection stays.
+ * tested on its own clients before it replaces the current one; when the test fails the
+ * current connection is never touched.
  */
 let activeUrl: string | null = null;
-let connectedAt = 0;
+/** Changes on every switch; browser tabs send it back so a stale tab cannot reach the new one. */
+let connectionId: string | null = null;
 let switching: Promise<unknown> = Promise.resolve();
 
 const FILE_URL = /^(?:sqlite|duckdb):\/\/(.+)$/;
@@ -31,24 +34,29 @@ const FILE_URL = /^(?:sqlite|duckdb):\/\/(.+)$/;
 const message = (error: unknown) =>
 	sanitizeErrorMessage(error instanceof Error ? error.message : String(error));
 
+export const getConnectionId = () => connectionId;
+
 const switchTo = async (url: string): Promise<void> => {
-	const previous = activeUrl;
+	// Already open: a second client on the same DuckDB file would fail to lock it.
+	if (url === activeUrl) return;
+	let candidate: DatabaseManager;
 	try {
-		await setConnectionUrl(url);
+		candidate = new DatabaseManager(url);
 	} catch (error) {
 		throw new HTTPException(400, { message: message(error), cause: error });
 	}
 	try {
-		await checkDatabaseConnection(getDbType());
+		await checkDatabaseConnection(candidate);
 	} catch (error) {
-		await setConnectionUrl(previous).catch(() => {});
+		await candidate.closeAll().catch(() => {});
 		throw new HTTPException(400, {
 			message: `Could not connect: ${message(error)}`,
 			cause: error,
 		});
 	}
+	await replaceDatabaseManager(candidate);
 	activeUrl = url;
-	connectedAt = Date.now();
+	connectionId = randomUUID();
 };
 
 /**
@@ -102,15 +110,16 @@ export const getConnectionsState = async (): Promise<ConnectionsStateSchemaType>
 	const current = activeUrl;
 	return {
 		connections,
-		active: current
-			? {
-					id:
-						saved.find((c) => maskConnectionUrl(c.url) === maskConnectionUrl(current))?.id ??
-						null,
-					dbType: getDbType(),
-					connectedAt,
-				}
-			: null,
+		active:
+			current && connectionId
+				? {
+						id:
+							saved.find((c) => maskConnectionUrl(c.url) === maskConnectionUrl(current))?.id ??
+							null,
+						dbType: getDbType(),
+						connectionId,
+					}
+				: null,
 	};
 };
 

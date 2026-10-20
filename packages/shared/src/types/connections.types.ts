@@ -31,13 +31,14 @@ export const connectionsStateSchema = z.object({
 	/**
 	 * The database the server is connected to, or `null` before the first connection. `id` is
 	 * `null` when the user deleted the saved entry of the connection that is still open.
-	 * `connectedAt` changes on every switch, so a browser tab can tell it missed one.
+	 * `connectionId` changes on every switch, so a browser tab can tell it missed one. Tabs send it
+	 * as `X-Connection-Id`, and the server refuses a database request that carries an old one.
 	 */
 	active: z
 		.object({
 			id: z.string().nullable(),
 			dbType: databaseTypeSchema,
-			connectedAt: z.number(),
+			connectionId: z.string(),
 		})
 		.nullable(),
 });

@@ -201,6 +201,7 @@ export const createServer = () => {
 					"Content-Type",
 					"X-Run-Id",
 					"X-Request-Id",
+					"X-Connection-Id",
 					"X-DB-Studio-GPC",
 					"x-byok-gemini",
 					"x-byok-openai",

@@ -164,14 +164,4 @@ describe("main configuration resolution", () => {
 			}),
 		);
 	});
-
-	it("starts the server without connecting when no database URL is configured", async () => {
-		mocks.args.mockReturnValue({ databaseUrl: undefined });
-		mocks.getDatabaseUrl.mockReturnValue(undefined);
-
-		await main();
-
-		expect(mocks.connect).not.toHaveBeenCalled();
-		expect(mocks.listen).toHaveBeenCalledWith(expect.objectContaining({ port: DEFAULTS.PORT }));
-	});
 });

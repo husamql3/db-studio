@@ -43,7 +43,7 @@ import {
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
-import { getMysqlPool } from "@/adapters/connections.js";
+import { getConnectionUrl, getMysqlPool } from "@/adapters/connections.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -405,7 +405,7 @@ export class MySqlAdapter extends BaseAdapter {
 			});
 
 		const info = (infoRows as Array<Record<string, string | number>>)[0];
-		const urlDefaults = parseDatabaseUrl();
+		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
 
 		return {
 			host: String(info.host || urlDefaults.host),

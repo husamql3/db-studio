@@ -1,31 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-	getDbPool: vi.fn(),
-	getDbType: vi.fn(),
-	getMongoClient: vi.fn(),
-	getMongoDbName: vi.fn(),
-	getMssqlPool: vi.fn(),
-	getMysqlPool: vi.fn(),
-	getRedisClient: vi.fn(),
-	getSqliteClient: vi.fn(),
-}));
-
-vi.mock("@/db-manager.js", () => mocks);
-
+import type { DatabaseManager } from "@/db-manager.js";
 import {
 	checkDatabaseConnection,
 	getDatabaseConnectionDetails,
 } from "@/cmd/check-database.js";
 
 describe("database startup check", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
 	it("reports a safe PostgreSQL destination without credentials", () => {
-		mocks.getDbType.mockReturnValue("pg");
-
 		expect(
 			getDatabaseConnectionDetails("postgresql://admin:secret@database.internal/app"),
 		).toEqual({
@@ -39,19 +21,20 @@ describe("database startup check", () => {
 		["pg", "cockroachdb://root@database.internal/app", "database.internal:26257"],
 		["mysql", "mariadb://root@database.internal/app", "database.internal:3306"],
 		["mysql", "tidb://root@database.internal/app", "database.internal:4000"],
-	])("uses the %s alias default port for %s", (type, url, destination) => {
-		mocks.getDbType.mockReturnValue(type);
-
-		expect(getDatabaseConnectionDetails(url).destination).toBe(destination);
+	])("uses the %s alias default port for %s", (_type, url, destination) => {
+		expect(getDatabaseConnectionDetails(url)?.destination).toBe(destination);
 	});
 
 	it("bounds the PostgreSQL startup query", async () => {
 		vi.useFakeTimers();
 		const query = vi.fn().mockReturnValue(new Promise(() => undefined));
-		mocks.getDbPool.mockResolvedValue({ query });
+		const manager = {
+			getDbType: () => "pg",
+			getPgPool: async () => ({ query }),
+		} as unknown as DatabaseManager;
 
 		try {
-			const result = expect(checkDatabaseConnection("pg")).rejects.toThrow(
+			const result = expect(checkDatabaseConnection(manager)).rejects.toThrow(
 				"Database startup check timed out",
 			);
 			await vi.advanceTimersByTimeAsync(2_000);

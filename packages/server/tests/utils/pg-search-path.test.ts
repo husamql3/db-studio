@@ -28,8 +28,12 @@ vi.mock("mysql2/promise", () => ({ createPool: vi.fn() }));
 const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
-	const { getDbPool, setConnectionUrl } = await import("@/db-manager.js");
-	await setConnectionUrl("postgresql://test:test@localhost:5432/testdb");
+	const { DatabaseManager, getDbPool, replaceDatabaseManager } = await import(
+		"@/db-manager.js"
+	);
+	await replaceDatabaseManager(
+		new DatabaseManager("postgresql://test:test@localhost:5432/testdb"),
+	);
 	await getDbPool();
 	const pool = FakePool.instances[0];
 	expect(pool).toBeDefined();

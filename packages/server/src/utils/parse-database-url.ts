@@ -32,16 +32,12 @@ export const toDriverUrl = (databaseUrl: string): string => {
 };
 
 /**
- * Parse DATABASE_URL to extract host and port
+ * Extract the host and port of a connection URL
  */
-export function parseDatabaseUrl(databaseUrl = process.env.DATABASE_URL): {
+export function parseDatabaseUrl(databaseUrl: string): {
 	host: string;
 	port: number;
 } {
-	if (!databaseUrl) {
-		return { host: "localhost", port: 5432 };
-	}
-
 	try {
 		const url = new URL(databaseUrl);
 		return {

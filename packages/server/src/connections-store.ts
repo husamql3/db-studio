@@ -34,11 +34,24 @@ const connectionsFile = () => join(configDir(), "connections.json");
 const SECRET = "••••";
 const FILE_URL = /^(sqlite|duckdb):\/\/(.*)$/;
 
+const SECRET_PARAMS = new Set(["authtoken", "password", "token"]);
+
+/** A query parameter name as the driver reads it: `%61uthToken` is `authToken`. */
+const decodeParamName = (name: string) => {
+	try {
+		return decodeURIComponent(name.replaceAll("+", " ")).toLowerCase();
+	} catch {
+		return name.toLowerCase();
+	}
+};
+
 /** Replaces the password and any auth token or password query parameter with `••••`. */
 export const maskConnectionUrl = (url: string): string =>
 	url
 		.replace(/^([a-z][a-z0-9+.-]*:\/\/[^:/@?#]*:)[^@]*@/i, `$1${SECRET}@`)
-		.replace(/([?&](?:authToken|password|token)=)[^&#]*/gi, `$1${SECRET}`);
+		.replace(/([?&])([^=&#]*)=[^&#]*/g, (param, separator: string, name: string) =>
+			SECRET_PARAMS.has(decodeParamName(name)) ? `${separator}${name}=${SECRET}` : param,
+		);
 
 /** Trims the URL and makes a relative SQLite or DuckDB path absolute against `cwd`. */
 export const normalizeConnectionUrl = (url: string, cwd = process.cwd()): string => {
