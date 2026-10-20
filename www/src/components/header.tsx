@@ -8,7 +8,7 @@ import { IoMenuOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/btn";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 
-export const Header = ({ stars }: { stars: string | null }) => {
+export const Header = () => {
 	const [open, setOpen] = useState(false);
 
 	return (
@@ -88,15 +88,13 @@ export const Header = ({ stars }: { stars: string | null }) => {
 						href={META.SITE_GITHUB_LINK}
 						target="_blank"
 						rel="noopener noreferrer"
+						aria-label="GitHub"
 					>
 						<Button
 							variant="ghost"
 							className="gap-2 items-center"
 						>
 							<IoLogoGithub className="size-4" />
-							{stars && (
-								<span className="leading-none text-xs">{stars.replace(".0k", "k")}</span>
-							)}
 						</Button>
 					</a>
 
