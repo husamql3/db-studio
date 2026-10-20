@@ -15,6 +15,7 @@ import type { Pool as OraclePool } from "oracledb";
 import type { Pool, PoolConfig } from "pg";
 import { createD1Client, parseD1Url } from "@/d1-client.js";
 import { loadDriver, loadedDriver } from "@/drivers.js";
+import { HTTPException } from "@/http-exception.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
@@ -43,17 +44,6 @@ class DatabaseManager {
 		password: string;
 		dbType: DatabaseTypeSchema;
 	} | null = null;
-	private initError: Error | null = null;
-
-	constructor() {
-		try {
-			this.initializeBaseConfig();
-		} catch (e) {
-			this.initError = e instanceof Error ? e : new Error(String(e));
-			writeOperationalLog("error", "db_config_invalid", errorFields(this.initError));
-		}
-	}
-
 	/**
 	 * Detect database type from URL protocol
 	 */
@@ -68,18 +58,13 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Parse DATABASE_URL and extract connection details
+	 * Parse a connection URL into connection details. Throws on an unsupported or malformed URL.
 	 */
-	private initializeBaseConfig() {
-		const databaseUrl = process.env.DATABASE_URL;
-		if (!databaseUrl) {
-			throw new Error("DATABASE_URL is not set. Please provide a database connection string.");
-		}
-
+	private parseConfig(databaseUrl: string): NonNullable<DatabaseManager["baseConfig"]> {
 		// File-based engines (sqlite://, duckdb://) carry a file path that doesn't parse well as a standard URL
 		const fileDbType = dbTypeFromProtocol(databaseUrl.split("://")[0]);
 		if (fileDbType && DATABASE_ENGINES[fileDbType].defaultPort === null) {
-			this.baseConfig = {
+			return {
 				url: databaseUrl,
 				host: "localhost",
 				port: 0,
@@ -87,59 +72,68 @@ class DatabaseManager {
 				password: "",
 				dbType: fileDbType,
 			};
-			return;
 		}
 
+		let driverUrl: string;
+		let url: URL;
 		try {
-			const driverUrl = toDriverUrl(databaseUrl);
-			const url = new URL(driverUrl);
-			const detectedType = this.detectDbType(url);
-			this.baseConfig = {
-				url: driverUrl,
-				host: url.hostname,
-				port:
-					Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
-				user: url.username,
-				password: url.password,
-				dbType: detectedType,
-			};
-		} catch (error) {
-			throw new Error(error instanceof Error ? error.message : String(error));
+			driverUrl = toDriverUrl(databaseUrl);
+			url = new URL(driverUrl);
+		} catch {
+			throw new Error("The connection URL is not a valid URL");
 		}
+		const detectedType = this.detectDbType(url);
+		return {
+			url: driverUrl,
+			host: url.hostname,
+			port: Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
+			user: url.username,
+			password: url.password,
+			dbType: detectedType,
+		};
+	}
+
+	/**
+	 * Close every open connection, then use `databaseUrl` for the next ones (`null`: none).
+	 */
+	async setConnectionUrl(databaseUrl: string | null): Promise<void> {
+		const next = databaseUrl ? this.parseConfig(databaseUrl) : null;
+		await this.closeAll();
+		this.baseConfig = next;
+	}
+
+	private config(): NonNullable<DatabaseManager["baseConfig"]> {
+		if (!this.baseConfig) {
+			throw new HTTPException(409, { message: "No database is connected" });
+		}
+		return this.baseConfig;
 	}
 
 	/**
 	 * Get the detected database type
 	 */
 	getDbType(): DatabaseTypeSchema {
-		if (this.initError) throw this.initError;
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
-		return this.baseConfig.dbType;
+		return this.config().dbType;
 	}
 
 	/**
 	 * Build a connection string for the specified database
 	 */
 	buildConnectionString(database?: string): string {
-		if (this.initError) throw this.initError;
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
+		const config = this.config();
 
 		// File-based databases: the URL is already the full connection string
-		if (DATABASE_ENGINES[this.baseConfig.dbType].defaultPort === null) {
-			return this.baseConfig.url;
+		if (DATABASE_ENGINES[config.dbType].defaultPort === null) {
+			return config.url;
 		}
 
 		if (!database) {
-			const url = new URL(this.baseConfig.url);
+			const url = new URL(config.url);
 			database = url.pathname.slice(1);
 		}
 
 		try {
-			const url = new URL(this.baseConfig.url);
+			const url = new URL(config.url);
 			url.pathname = `/${database}`;
 			return url.toString();
 		} catch (error) {
@@ -154,10 +148,10 @@ class DatabaseManager {
 	 * Cloudflare D1 database
 	 */
 	getSqliteClient(): Promise<SqliteClient> {
-		if (!this.baseConfig || this.baseConfig.dbType !== "sqlite") {
-			throw new Error("DATABASE_URL is not a sqlite://, libsql:// or d1:// connection");
+		const { url, dbType } = this.config();
+		if (dbType !== "sqlite") {
+			throw new Error("The connection is not a sqlite://, libsql:// or d1:// connection");
 		}
-		const { url } = this.baseConfig;
 		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
 			this.sqliteClient = null;
 			throw error;
@@ -206,11 +200,12 @@ class DatabaseManager {
 	}
 
 	private openDuckdb() {
-		if (!this.baseConfig || this.baseConfig.dbType !== "duckdb") {
-			throw new Error("DATABASE_URL is not a duckdb:// connection");
+		const config = this.config();
+		if (config.dbType !== "duckdb") {
+			throw new Error("The connection is not a duckdb:// connection");
 		}
 		if (!this.duckdb) {
-			const filePath = this.baseConfig.url.replace(/^duckdb:\/\//, "");
+			const filePath = config.url.replace(/^duckdb:\/\//, "");
 			this.duckdb = (async () => {
 				try {
 					// Checkpoint on every commit. DuckDB (1.4 and 1.5) cannot replay an ALTER TABLE on a
@@ -249,10 +244,10 @@ class DatabaseManager {
 	 * One pool per process: an Oracle service is a single database, so `db` never selects another pool.
 	 */
 	getOraclePool(): Promise<OraclePool> {
-		if (!this.baseConfig || this.baseConfig.dbType !== "oracle") {
-			throw new Error("DATABASE_URL is not an oracle:// connection");
+		const { url, host, port, user, password, dbType } = this.config();
+		if (dbType !== "oracle") {
+			throw new Error("The connection is not an oracle:// connection");
 		}
-		const { url, host, port, user, password } = this.baseConfig;
 		const service = decodeURIComponent(new URL(url).pathname.slice(1));
 		this.oraclePool ??= loadDriver("oracle")
 			.then((oracledb) =>
@@ -360,10 +355,7 @@ class DatabaseManager {
 	 * Get or create a MySQL connection pool for the specified database
 	 */
 	async getMysqlPool(database?: string): Promise<MysqlPool> {
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
-
+		const config = this.config();
 		const connectionString = this.buildConnectionString(database);
 		const { createPool } = await loadDriver("mysql");
 
@@ -372,10 +364,10 @@ class DatabaseManager {
 			const dbName = url.pathname.slice(1);
 
 			const pool = createPool({
-				host: this.baseConfig.host,
-				port: this.baseConfig.port,
-				user: this.baseConfig.user,
-				password: this.baseConfig.password,
+				host: config.host,
+				port: config.port,
+				user: config.user,
+				password: config.password,
 				database: dbName || undefined,
 				waitForConnections: true,
 				connectionLimit: 10,
@@ -395,10 +387,7 @@ class DatabaseManager {
 	 * Get or create a SQL Server connection pool for the specified database
 	 */
 	async getMssqlPool(database?: string): Promise<MssqlPool> {
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
-
+		const config = this.config();
 		const connectionString = this.buildConnectionString(database);
 		const mssql = await loadDriver("mssql");
 
@@ -406,11 +395,11 @@ class DatabaseManager {
 			const url = new URL(connectionString);
 			const dbName = url.pathname.slice(1);
 
-			const config: MssqlConfig = {
-				server: this.baseConfig.host,
-				port: this.baseConfig.port,
-				user: this.baseConfig.user,
-				password: this.baseConfig.password,
+			const poolConfig: MssqlConfig = {
+				server: config.host,
+				port: config.port,
+				user: config.user,
+				password: config.password,
 				database: dbName || undefined,
 				options: {
 					encrypt: false, // Use true for Azure
@@ -425,7 +414,7 @@ class DatabaseManager {
 				},
 			};
 
-			const pool = await new mssql.ConnectionPool(config).connect();
+			const pool = await new mssql.ConnectionPool(poolConfig).connect();
 
 			pool.on("error", (err) => {
 				writeOperationalLog("error", "db_pool_error", {
@@ -560,11 +549,9 @@ class DatabaseManager {
 	 */
 	async getMongoClient(): Promise<MongoClient> {
 		if (!this.mongoClient) {
-			if (!this.baseConfig) {
-				throw new Error("Base configuration not initialized");
-			}
+			const { url } = this.config();
 			const { MongoClient } = await loadDriver("mongodb");
-			const nextClient = new MongoClient(this.baseConfig.url);
+			const nextClient = new MongoClient(url);
 			try {
 				await nextClient.connect();
 				this.mongoClient = nextClient;
@@ -584,10 +571,7 @@ class DatabaseManager {
 	 * Get the MongoDB database name from the connection URL
 	 */
 	getMongoDbName(): string {
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
-		const raw = new URL(this.baseConfig.url).pathname.replace(/^\/+|\/+$/g, "");
+		const raw = new URL(this.config().url).pathname.replace(/^\/+|\/+$/g, "");
 		try {
 			return decodeURIComponent(raw) || "admin";
 		} catch {
@@ -608,11 +592,9 @@ class DatabaseManager {
 	 * Get or create a Redis client for the specified logical DB index (0-15 by default)
 	 */
 	async getRedisClient(dbIndex?: number): Promise<Redis> {
-		if (!this.baseConfig) {
-			throw new Error("Base configuration not initialized");
-		}
-		if (this.baseConfig.dbType !== "redis") {
-			throw new Error("DATABASE_URL is not a redis:// connection");
+		const config = this.config();
+		if (config.dbType !== "redis") {
+			throw new Error("The connection is not a redis:// connection");
 		}
 
 		const index = dbIndex ?? this.getRedisDefaultDb();
@@ -620,19 +602,18 @@ class DatabaseManager {
 		const existing = this.redisClients.get(index);
 		if (existing) return existing;
 
-		const url = new URL(this.baseConfig.url);
+		const url = new URL(config.url);
 		const options: RedisOptions = {
-			host: this.baseConfig.host,
-			port: this.baseConfig.port,
+			host: config.host,
+			port: config.port,
 			db: index,
 			lazyConnect: true,
 			maxRetriesPerRequest: 1,
 			enableReadyCheck: true,
 			connectTimeout: 2000,
 		};
-		if (this.baseConfig.user) options.username = decodeURIComponent(this.baseConfig.user);
-		if (this.baseConfig.password)
-			options.password = decodeURIComponent(this.baseConfig.password);
+		if (config.user) options.username = decodeURIComponent(config.user);
+		if (config.password) options.password = decodeURIComponent(config.password);
 		if (url.protocol === "rediss:") options.tls = {};
 
 		const { Redis } = await loadDriver("redis");
@@ -772,10 +753,18 @@ export const getClickhouseClient = (database?: string): Promise<ClickHouseClient
 };
 
 /**
- * Get the detected database type from DATABASE_URL
+ * Get the type of the connected database. Throws a 409 HTTPException when none is connected.
  */
 export const getDbType = (): DatabaseTypeSchema => {
 	return databaseManager.getDbType();
+};
+
+/**
+ * Close every open connection and use `databaseUrl` for the next ones (`null` disconnects).
+ * Throws when the URL is malformed or names an unsupported engine; it does not test the URL.
+ */
+export const setConnectionUrl = (databaseUrl: string | null): Promise<void> => {
+	return databaseManager.setConnectionUrl(databaseUrl);
 };
 
 /**

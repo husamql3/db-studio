@@ -1,8 +1,11 @@
-import { DATABASE_ENGINES, type DatabaseTypeSchema } from "@db-studio/shared/types";
+import {
+	DATABASE_ENGINES,
+	type DatabaseTypeSchema,
+	dbTypeFromProtocol,
+} from "@db-studio/shared/types";
 import {
 	getClickhouseClient,
 	getDbPool,
-	getDbType,
 	getMongoClient,
 	getMongoDbName,
 	getMssqlPool,
@@ -41,8 +44,9 @@ export type DatabaseConnectionDetails = {
 
 export const getDatabaseConnectionDetails = (
 	databaseUrl: string,
-): DatabaseConnectionDetails => {
-	const type = getDbType();
+): DatabaseConnectionDetails | null => {
+	const type = dbTypeFromProtocol(databaseUrl.split("://")[0]?.toLowerCase() ?? "");
+	if (!type) return null;
 	const { label: name, defaultPort } = DATABASE_ENGINES[type];
 	if (databaseUrl.startsWith("sqlite://")) return { type, name, destination: "local file" };
 	if (databaseUrl.startsWith("d1://")) return { type, name, destination: "Cloudflare D1" };

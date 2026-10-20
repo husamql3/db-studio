@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
 	args: vi.fn(),
 	loadEnv: vi.fn(),
 	getDatabaseUrl: vi.fn(),
-	checkDatabaseConnection: vi.fn(),
+	connect: vi.fn(),
 	getDatabaseConnectionDetails: vi.fn(),
 	openBrowser: vi.fn(),
 	shouldOpenBrowser: vi.fn(),
@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 	log: {
 		success: vi.fn(),
 		warn: vi.fn(),
+		info: vi.fn(),
 	},
 	spinner: vi.fn(() => ({
 		start: vi.fn(),
@@ -43,8 +44,11 @@ vi.mock("@/cmd/get-db-url.js", () => ({
 }));
 
 vi.mock("@/cmd/check-database.js", () => ({
-	checkDatabaseConnection: mocks.checkDatabaseConnection,
 	getDatabaseConnectionDetails: mocks.getDatabaseConnectionDetails,
+}));
+
+vi.mock("@/connection.js", () => ({
+	connect: mocks.connect,
 }));
 
 vi.mock("@/cmd/open-browser.js", () => ({
@@ -78,13 +82,13 @@ describe("main configuration resolution", () => {
 			version: false,
 		});
 		mocks.loadEnv.mockResolvedValue({});
-		mocks.getDatabaseUrl.mockResolvedValue("postgresql://localhost:5432/test");
+		mocks.getDatabaseUrl.mockReturnValue("postgresql://localhost:5432/test");
 		mocks.getDatabaseConnectionDetails.mockReturnValue({
 			type: "pg",
 			name: "PostgreSQL",
 			destination: "localhost:5432",
 		});
-		mocks.checkDatabaseConnection.mockResolvedValue(undefined);
+		mocks.connect.mockResolvedValue(null);
 		mocks.shouldOpenBrowser.mockReturnValue(false);
 		mocks.createServer.mockReturnValue({ app: { listen: mocks.listen } });
 	});
@@ -148,7 +152,7 @@ describe("main configuration resolution", () => {
 		);
 	});
 
-	it("falls back to default PORT and undefined HOST when not configured", async () => {
+	it("falls back to the default PORT and the loopback HOST when not configured", async () => {
 		mocks.loadEnv.mockResolvedValue({});
 
 		await main();
@@ -156,8 +160,18 @@ describe("main configuration resolution", () => {
 		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: DEFAULTS.PORT,
-				hostname: undefined,
+				hostname: "127.0.0.1",
 			}),
 		);
+	});
+
+	it("starts the server without connecting when no database URL is configured", async () => {
+		mocks.args.mockReturnValue({ databaseUrl: undefined });
+		mocks.getDatabaseUrl.mockReturnValue(undefined);
+
+		await main();
+
+		expect(mocks.connect).not.toHaveBeenCalled();
+		expect(mocks.listen).toHaveBeenCalledWith(expect.objectContaining({ port: DEFAULTS.PORT }));
 	});
 });

@@ -9,21 +9,21 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, Database, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { ConnectionMenu } from "@/features/connections";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
-import { useDatabaseConnectionInfo, useDatabasesList } from "@/hooks/use-databases-list";
+import { useDatabasesList } from "@/hooks/use-databases-list";
 import { useDatabaseStore } from "@/stores/database.store";
 
+/** One line: `● connection / database ⌄ ⟳`. The connection opens the switch menu. */
 export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
-	const { connectionInfo, isLoadingConnectionInfo } = useDatabaseConnectionInfo();
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const engine = useDatabaseEngine();
 	const navigate = useNavigate();
-	const [showDetails, setShowDetails] = useState(false);
+	const busy = isLoadingDatabases || isRefetchingDatabases;
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
@@ -36,113 +36,52 @@ export function SidebarFooter() {
 	};
 
 	return (
-		<div className="mt-auto border-t border-sidebar-border bg-sidebar text-sidebar-foreground">
-			<div className="p-4 space-y-2">
-				{/* Database Selector - Primary Action */}
-				<div className="space-y-2">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<Database className="size-4 text-muted-foreground" />
-							<span className="text-sm font-medium">Database</span>
-						</div>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="size-6 hover:bg-accent"
-									onClick={handleRefresh}
-									disabled={isLoadingDatabases || isRefetchingDatabases}
-								>
-									<RefreshCw
-										className={cn(
-											"size-3.5",
-											(isLoadingDatabases || isRefetchingDatabases) && "animate-spin",
-										)}
-									/>
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Refresh databases</TooltipContent>
-						</Tooltip>
-					</div>
-
-					<Select
-						value={selectedDatabase || ""}
-						onValueChange={handleDatabaseChange}
-					>
-						<SelectTrigger
-							className="h-9 text-xs font-mono w-full"
-							disabled={isLoadingDatabases || isRefetchingDatabases}
+		<div className="mt-auto flex h-11 items-center gap-0.5 border-t border-sidebar-border bg-sidebar px-2 text-sidebar-foreground">
+			<ConnectionMenu databasesCount={databases?.length ?? 0} />
+			<span
+				aria-hidden
+				className="text-xs text-muted-foreground/50"
+			>
+				/
+			</span>
+			<Select
+				value={selectedDatabase || ""}
+				onValueChange={handleDatabaseChange}
+			>
+				<SelectTrigger
+					variant="outline"
+					aria-label="Database"
+					disabled={busy}
+					className="h-7 min-w-0 flex-1 border-0 px-2 font-mono shadow-none hover:bg-muted/60"
+				>
+					<SelectValue placeholder="Select database…" />
+				</SelectTrigger>
+				<SelectContent>
+					{databases?.map((db) => (
+						<SelectItem
+							key={db.name}
+							value={db.name}
+							className="font-mono text-xs"
 						>
-							<SelectValue placeholder="Select database..." />
-						</SelectTrigger>
-						<SelectContent>
-							{databases?.map((db) => (
-								<SelectItem
-									key={db.name}
-									value={db.name}
-									className="font-mono text-xs"
-								>
-									{db.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-
-				{/* Connection Status - Collapsible */}
-				<div className="space-y-2">
+							{db.name}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+			<Tooltip>
+				<TooltipTrigger asChild>
 					<Button
 						variant="ghost"
-						className="w-full hover:bg-accent flex items-center justify-between"
-						onClick={() => setShowDetails(!showDetails)}
-						disabled={isLoadingConnectionInfo || isRefetchingDatabases}
+						size="icon-sm"
+						aria-label="Refresh databases"
+						onClick={handleRefresh}
+						disabled={busy}
 					>
-						<div className="flex items-center gap-2">
-							<div className="flex items-center justify-center">
-								<div className="relative flex size-2">
-									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-									<span className="relative inline-flex rounded-full size-2 bg-green-500" />
-								</div>
-							</div>
-
-							<span className="text-xs font-medium text-green-600">Connected</span>
-						</div>
-						<ChevronDown
-							className={cn(
-								"size-3 text-muted-foreground transition-transform",
-								showDetails && "rotate-180",
-							)}
-						/>
+						<RefreshCw className={cn(busy && "animate-spin")} />
 					</Button>
-
-					{/* Connection Details */}
-					{showDetails && connectionInfo && (
-						<div className="space-y-1.5 p-2 rounded-md bg-muted/30">
-							<div className="flex justify-between items-center">
-								<span className="text-xs text-muted-foreground">Host</span>
-								<span className="text-xs font-mono text-foreground">
-									{connectionInfo.host}:{connectionInfo.port}
-								</span>
-							</div>
-
-							<div className="flex justify-between items-center">
-								<span className="text-xs text-muted-foreground">User</span>
-								<span className="text-xs font-mono text-foreground">
-									{connectionInfo.user}
-								</span>
-							</div>
-
-							<div className="flex justify-between items-center">
-								<span className="text-xs text-muted-foreground">Databases</span>
-								<span className="text-xs font-mono font-medium text-foreground">
-									{databases?.length || 0}
-								</span>
-							</div>
-						</div>
-					)}
-				</div>
-			</div>
+				</TooltipTrigger>
+				<TooltipContent>Refresh databases</TooltipContent>
+			</Tooltip>
 		</div>
 	);
 }

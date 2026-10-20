@@ -34,6 +34,11 @@ export const showHelp = () => {
 	console.log("  -h, --help               Show this help message");
 	console.log("  -v, --version            Show version number\n");
 
+	console.log(
+		"Without a database URL, open the printed address and choose one in the browser.",
+	);
+	console.log("Connections are saved to ~/.dbstudio/connections.json.\n");
+
 	console.log(color.bold("Examples:"));
 	console.log("  db-studio");
 	console.log("  db-studio -e .env.local");

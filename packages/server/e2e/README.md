@@ -30,6 +30,21 @@ DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio sh e2e/http-
 It writes `e2e/artifacts/http-surface-<label>.json`. Two runs against the same server produce the
 same file, so diff the files from the two versions.
 
+## Connect from the browser
+
+Starts the built CLI without a database URL, then connects, switches and fails a switch from the
+browser against two scratch SQLite files. It checks the saved file's permissions, that the
+browser never receives a password, and that a foreign `Host` header is refused.
+
+```bash
+cd packages/server
+bun run prepack
+bunx tsx e2e/connect-flow.ts
+```
+
+Needs no database. Writes screenshots and `e2e/artifacts/connect-flow/summary.json`, which is
+identical across runs.
+
 ## Stop the server
 
 Starts the built CLI, sends Ctrl+C (SIGINT) and then SIGTERM while a one-second query is in

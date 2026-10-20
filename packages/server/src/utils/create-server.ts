@@ -24,6 +24,7 @@ import {
 	runWithRequestContext,
 } from "@/operational-log.js";
 import { chatRoutes } from "@/routes/chat.routes.js";
+import { connectionsRoutes } from "@/routes/connections.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { keysRoutes } from "@/routes/keys.routes.js";
 import { logsRoutes } from "@/routes/logs.routes.js";
@@ -120,6 +121,21 @@ const isAllowedOrigin = (origin: string | null): boolean => {
 	}
 };
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/**
+ * The server listens on 127.0.0.1 and holds saved database passwords. A web page can still reach
+ * it through DNS rebinding (its own domain resolving to 127.0.0.1), so a request must name a
+ * loopback host in its `Host` header. Setting `HOST` to a non-loopback address opts out: the
+ * user chose to serve db-studio on their network.
+ */
+const isAllowedHost = (hostHeader: string): boolean => {
+	const listen = process.env.HOST;
+	if (listen && !LOOPBACK_HOSTS.has(listen)) return true;
+	const hostname = hostHeader.replace(/:\d+$/, "").toLowerCase();
+	return LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost");
+};
+
 /**
  * Gives every request one ID, reused from the caller when it sent one, so the browser, this
  * server's logs and error reports, and the AI proxy all name the same request. API requests also
@@ -171,8 +187,11 @@ export const createServer = () => {
 				(...args: unknown[]) =>
 					trackRequest(request, async () => (await handle(...args)) as unknown as Response),
 		)
-		.onRequest(({ set }) => {
+		.onRequest(({ request, set }) => {
 			set.headers["x-request-id"] = currentRequestId();
+			if (!isAllowedHost(request.headers.get("host") ?? new URL(request.url).host)) {
+				throw new HTTPException(403, { message: "Host not allowed" });
+			}
 		})
 		.use(
 			cors({
@@ -219,6 +238,7 @@ export const createServer = () => {
 		 */
 		.group(API_PREFIX, (api) =>
 			api
+				.use(connectionsRoutes)
 				.use(databasesRoutes)
 				.use(chatRoutes)
 				.use(telemetryRoutes)

@@ -45,42 +45,40 @@ export const main = async () => {
 	}
 
 	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
-	const HOST = process.env.HOST;
+	// Loopback only by default: the server holds saved database passwords. HOST opts in to more.
+	const HOST = process.env.HOST ?? "127.0.0.1";
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
-	const hasEnvFileValue = Boolean(ENV?.[VAR_NAME]);
-	const hasProcessValue = Boolean(process.env[VAR_NAME]);
-	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
-	const configSource = databaseUrl
-		? "Using database URL from --database-url"
-		: hasEnvFileValue
-			? `Found ${VAR_NAME} in ${env ?? ".env"}`
-			: hasProcessValue
-				? `Found ${VAR_NAME} in environment`
-				: "Using database URL provided interactively";
-	log.success(configSource);
-
-	// Set DATABASE_URL in process.env before importing createServer
-	// This ensures the db pool is initialized with the correct connection string
-	process.env.DATABASE_URL = DATABASE_URL;
+	const DATABASE_URL = databaseUrl || getDatabaseUrl(ENV, VAR_NAME);
 
 	const { flushServerObservability, initServerObservability } = await import(
 		"@/observability.js"
 	);
 	initServerObservability();
 
-	// Import database modules dynamically after setting DATABASE_URL.
-	const { checkDatabaseConnection, getDatabaseConnectionDetails } = await import(
-		"@/cmd/check-database.js"
-	);
-	const { type, name, destination } = getDatabaseConnectionDetails(DATABASE_URL);
-	const connectionSpinner = spinner();
-	connectionSpinner.start(`Connecting to ${name}...`);
-	try {
-		await checkDatabaseConnection(type);
-		connectionSpinner.stop(`Connected to ${name} at ${destination}`);
-	} catch (error) {
-		connectionSpinner.stop(`Could not connect to ${name} at ${destination}`);
-		throw error;
+	if (DATABASE_URL) {
+		log.success(
+			databaseUrl
+				? "Using database URL from --database-url"
+				: ENV?.[VAR_NAME]
+					? `Found ${VAR_NAME} in ${env ?? ".env"}`
+					: `Found ${VAR_NAME} in environment`,
+		);
+		// Imported after the .env file is loaded: the database layer reads driver settings from it.
+		const { getDatabaseConnectionDetails } = await import("@/cmd/check-database.js");
+		const { connect } = await import("@/connection.js");
+		const details = getDatabaseConnectionDetails(DATABASE_URL);
+		const label = details ? `${details.name} at ${details.destination}` : "the database";
+		const connectionSpinner = spinner();
+		connectionSpinner.start(`Connecting to ${label}...`);
+		try {
+			await connect(DATABASE_URL);
+			connectionSpinner.stop(`Connected to ${label}`);
+		} catch (error) {
+			connectionSpinner.stop(`Could not connect to ${label}`);
+			throw error;
+		}
+	} else {
+		log.info(`No ${VAR_NAME} found. Choose a database in the browser.`);
 	}
 
 	const { createServer } = await import("./utils/create-server.js");

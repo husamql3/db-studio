@@ -1,5 +1,9 @@
 import { CONSTANTS } from "@/utils/constants";
 
+export const connectionKeys = {
+	state: () => ["connections"] as const,
+};
+
 export const databaseKeys = {
 	all: [CONSTANTS.CACHE_KEYS.DATABASES_LIST] as const,
 	list: () => [CONSTANTS.CACHE_KEYS.DATABASES_LIST] as const,

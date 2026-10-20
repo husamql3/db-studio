@@ -3,12 +3,20 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { aiDevtoolsPlugin } from "@tanstack/react-ai-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	Link,
+	Navigate,
+	Outlet,
+	useLocation,
+	useRouterState,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { CommandPalette } from "@/components/components/command-palette";
+import { useConnectionChangeWatcher, useConnections } from "@/features/connections";
 import { SettingsOverlay } from "@/features/settings";
 import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
@@ -45,24 +53,62 @@ const darkModeScript = `
 const connectDevtoolsServerBus =
 	import.meta.env.DEV && import.meta.env.VITE_TANSTACK_SERVER_BUS === "true";
 
+const FullPageSpinner = () => (
+	<div className="flex items-center justify-center h-screen">
+		<Spinner
+			size="size-8"
+			color="bg-primary"
+		/>
+	</div>
+);
+
+/** The app for an open connection. Remounted on every switch, so it initializes afresh. */
+const ConnectedApp = () => {
+	const { dbType } = useDatabaseStore();
+	// Fetches the databases list and the current database, then selects one.
+	const { isLoading, isInitialized, error } = useInitializeDatabase();
+
+	useEffect(() => {
+		if (error && dbType) {
+			const status = (error as { status?: number })?.status;
+			posthogAnalytics.capture("connection_error", {
+				db_type: dbType,
+				status_bucket: status ? (status >= 500 ? "5xx" : "4xx") : "network",
+			});
+		}
+	}, [error, dbType]);
+
+	if ((isLoading || !isInitialized) && !error) return <FullPageSpinner />;
+	if (error) {
+		return (
+			<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
+				<p className="text-destructive font-medium">Failed to connect to the database</p>
+				<p className="text-muted-foreground text-sm max-w-sm">
+					{(error as { message?: string })?.message ?? "An unexpected error occurred"}
+				</p>
+				<Link
+					to="/connect"
+					className="text-sm underline underline-offset-4"
+				>
+					Choose another connection
+				</Link>
+			</div>
+		);
+	}
+	return <Outlet />;
+};
+
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
 		useTheme();
 		const pathname = useLocation({ select: (location) => location.pathname });
-
-		const { dbType } = useDatabaseStore();
-		// Initialize database connection when the component mounts, fetches databases list, current db, and selects first db as fallback
-		const { isLoading, isInitialized, error } = useInitializeDatabase();
-
-		useEffect(() => {
-			if (error && dbType) {
-				const status = (error as { status?: number })?.status;
-				posthogAnalytics.capture("connection_error", {
-					db_type: dbType,
-					status_bucket: status ? (status >= 500 ? "5xx" : "4xx") : "network",
-				});
-			}
-		}, [error, dbType]);
+		const { active, isLoading, error } = useConnections();
+		useConnectionChangeWatcher();
+		// From the rendered matches, not the URL: while the Connect page's code loads, the URL is
+		// already /connect but the outlet still renders the previous page, which needs a database.
+		const isConnectPage = useRouterState({
+			select: (state) => state.matches.some((match) => match.routeId === "/connect"),
+		});
 
 		useEffect(() => {
 			const noticeKey = "db-studio-telemetry-notice-shown";
@@ -82,6 +128,7 @@ export const Route = createRootRoute({
 		useEffect(() => {
 			const firstSegment = pathname.split("/").filter(Boolean)[0];
 			const pages = [
+				"connect",
 				"browser",
 				"table",
 				"schema",
@@ -94,8 +141,22 @@ export const Route = createRootRoute({
 			posthogAnalytics.capture("page_viewed", { page });
 		}, [pathname]);
 
-		// Show loading until both queries complete AND database is initialized in store
-		const showLoading = (isLoading || !isInitialized) && !error;
+		// Pieces that query the open database stay out of the Connect page.
+		const isInApp = Boolean(active) && !isConnectPage;
+		const content = isConnectPage ? (
+			<Outlet />
+		) : isLoading ? (
+			<FullPageSpinner />
+		) : error ? (
+			<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
+				<p className="text-destructive font-medium">Cannot reach the DB Studio server</p>
+				<p className="text-muted-foreground text-sm max-w-sm">{error.message}</p>
+			</div>
+		) : !active ? (
+			<Navigate to="/connect" />
+		) : (
+			<ConnectedApp key={active.connectedAt} />
+		);
 
 		return (
 			<>
@@ -108,29 +169,13 @@ export const Route = createRootRoute({
 					fullPageNavigationOnShallowFalseUpdates
 					defaultOptions={{ shallow: true, clearOnDefault: true }}
 				>
-					{showLoading ? (
-						<div className="flex items-center justify-center h-screen">
-							<Spinner
-								size="size-8"
-								color="bg-primary"
-							/>
-						</div>
-					) : error ? (
-						<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
-							<p className="text-destructive font-medium">Failed to connect to the database</p>
-							<p className="text-muted-foreground text-sm max-w-sm">
-								{(error as { message?: string })?.message ?? "An unexpected error occurred"}
-							</p>
-						</div>
-					) : (
-						<Outlet />
-					)}
+					{content}
 					{/* Inside the adapter: it reads the open table's schema from the URL. */}
-					<CommandPalette />
+					{isInApp && <CommandPalette />}
 				</NuqsAdapter>
 				<Toaster position="top-right" />
 				{/* Global overlays */}
-				<TableBuilderOverlay />
+				{isInApp && <TableBuilderOverlay />}
 				<SettingsOverlay />
 				{/* Devtools */}
 				<TanStackDevtools
