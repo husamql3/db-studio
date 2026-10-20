@@ -2,7 +2,8 @@ import rawDocs from "virtual:raw-docs";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
 import { supportedDatabases } from "@/lib/content/databases";
 import { roadmapItems } from "@/lib/content/roadmap";
-import { SPONSOR_EMAIL, sponsorTiers } from "@/lib/content/sponsors";
+import { SPONSOR_EMAIL, type Sponsor, sponsorTiers } from "@/lib/content/sponsors";
+import { readSponsors } from "@/lib/sponsors-store";
 import { mdxToMarkdown } from "./mdx-to-markdown";
 
 const SITE_URL = "https://dbstudio.sh";
@@ -51,7 +52,7 @@ const roadmapMarkdown = (): string => {
 	return `# Roadmap\n\nWhat's done, in progress, and planned for db-studio.\n\n${sections.join("\n\n")}\n`;
 };
 
-const landingMarkdown = (): string => `# db-studio
+const landingMarkdown = (sponsors: Sponsor[]): string => `# db-studio
 
 A modern (pgAdmin alternative but good) database management studio for any database.
 
@@ -91,10 +92,10 @@ ${supportedDatabases
 ## Sponsors
 
 ${sponsorTiers
-	.map(
-		({ label, price, spots, sponsors }) =>
-			`- **${label}** (${price}, ${spots - sponsors.length} of ${spots} open)${sponsors.map((s) => `\n  - [${s.name}](${s.url})`).join("")}`,
-	)
+	.map(({ id, label, price, spots }) => {
+		const inTier = sponsors.filter((s) => s.tier === id);
+		return `- **${label}** (${price}, ${Math.max(0, spots - inTier.length)} of ${spots} open)${inTier.map((s) => `\n  - [${s.name}](${s.url})`).join("")}`;
+	})
 	.join("\n")}
 
 Interested in sponsoring db-studio? Reach out at ${SPONSOR_EMAIL}
@@ -104,10 +105,10 @@ Interested in sponsoring db-studio? Reach out at ${SPONSOR_EMAIL}
  * Markdown version of every public page, keyed by pathname.
  * Returns null for paths that have no markdown representation.
  */
-export const getMarkdownForPath = (pathname: string): string | null => {
+export const getMarkdownForPath = async (pathname: string): Promise<string | null> => {
 	const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
-	if (path === "/") return landingMarkdown();
+	if (path === "/") return landingMarkdown(await readSponsors());
 	if (path === "/changelog") return changelogMarkdown();
 	if (path === "/roadmap") return roadmapMarkdown();
 	return docsMarkdown.get(path) ?? null;
