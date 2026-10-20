@@ -13,7 +13,8 @@
  * 7. A default name is unreadable: not `host/database` for a server, not the file name for a file.
  * 8. Two connections recorded at the same moment overwrite each other, losing one.
  * 9. Renaming or deleting an unknown id silently succeeds.
- * 10. A percent-encoded parameter name (`%61uthToken`) slips past the mask, though the driver
+ * 10. A password with an unencoded `@` is masked only up to that `@`, leaking the rest.
+ * 11. A percent-encoded parameter name (`%61uthToken`) slips past the mask, though the driver
  *     decodes it and reads the token.
  */
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
@@ -64,6 +65,12 @@ describe("maskConnectionUrl", () => {
 		);
 		expect(maskConnectionUrl("mssql://sa@host:1433/db?password=P@ss;word")).toBe(
 			"mssql://sa@host:1433/db?password=••••",
+		);
+	});
+
+	it("hides all of a password that contains an unencoded @", () => {
+		expect(maskConnectionUrl("postgresql://u:p@ss@host/db?x=a@b")).toBe(
+			"postgresql://u:••••@host/db?x=a@b",
 		);
 	});
 

@@ -13,6 +13,7 @@
  * - an unsaved cell edit survives a switch and can be saved into the wrong database;
  * - the saved file is readable by other users, or the browser receives a password;
  * - a request with a foreign Host header (DNS rebinding) is answered.
+ * - choosing Rename shows a field that loses focus at once, so typing never renames.
  *
  *   bun run --cwd packages/server prepack   # builds web and server into dist/
  *   bunx tsx packages/server/e2e/connect-flow.ts
@@ -266,6 +267,26 @@ try {
 		loopback: await statusWithHost(`127.0.0.1:${PORT}`),
 	};
 
+	// Rename from the Connect page's "…" menu.
+	await page.goto(`${BASE}/connect`);
+	await page.getByRole("button", { name: "Actions for shop.sqlite" }).click();
+	await page.getByRole("menuitem", { name: "Rename" }).click();
+	const nameField = page.getByRole("textbox", { name: "Connection name" });
+	await nameField.waitFor();
+	const focused = await nameField.evaluate((field) => field === document.activeElement);
+	await page.keyboard.press("ControlOrMeta+A");
+	await page.keyboard.type("Shop");
+	await page.keyboard.press("Enter");
+	await page.getByText("Shop", { exact: true }).waitFor();
+	const renamed = (await (await fetch(`${BASE}/api/connections`)).json()) as {
+		data: { connections: { name: string }[] };
+	};
+	summary.rename = {
+		focused,
+		names: renamed.data.connections.map(({ name }) => name).sort(),
+	};
+	await shot(page, "7-renamed");
+
 	summary.pageErrors = pageErrors;
 	assert.deepEqual(summary, {
 		firstRun: { path: "/connect" },
@@ -290,6 +311,7 @@ try {
 			],
 		},
 		hostHeader: { foreign: 403, loopback: 200 },
+		rename: { focused: true, names: ["Shop", "blog.sqlite"] },
 		pageErrors: [],
 	});
 	console.log("PASS connect-flow");

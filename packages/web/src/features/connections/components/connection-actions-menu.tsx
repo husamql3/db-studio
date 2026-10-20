@@ -16,6 +16,7 @@ import {
 } from "@db-studio/ui/dropdown-menu";
 import { cn } from "@db-studio/ui/utils";
 import { Ellipsis, Palette, Pencil, Trash2 } from "lucide-react";
+import { useRef } from "react";
 import { useManageConnection } from "../hooks/use-manage-connection";
 import { ConnectionColorDot } from "./connection-color-dot";
 
@@ -29,6 +30,9 @@ export const ConnectionActionsMenu = ({
 }) => {
 	const { setColor, remove } = useManageConnection(connection);
 	const colors: (ConnectionColorSchemaType | null)[] = [null, ...CONNECTION_COLORS];
+	// Rename shows an auto-focused field. It mounts once the menu has closed: before that the
+	// menu holds focus, and closing it would return focus to the "…" button.
+	const renaming = useRef(false);
 
 	return (
 		<DropdownMenu>
@@ -46,8 +50,18 @@ export const ConnectionActionsMenu = ({
 			<DropdownMenuContent
 				align="end"
 				onClick={(e) => e.stopPropagation()}
+				onCloseAutoFocus={(e) => {
+					if (!renaming.current) return;
+					renaming.current = false;
+					e.preventDefault();
+					onRename();
+				}}
 			>
-				<DropdownMenuItem onSelect={onRename}>
+				<DropdownMenuItem
+					onSelect={() => {
+						renaming.current = true;
+					}}
+				>
 					<Pencil /> Rename
 				</DropdownMenuItem>
 				<DropdownMenuSub>

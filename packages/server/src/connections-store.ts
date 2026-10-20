@@ -48,7 +48,8 @@ const decodeParamName = (name: string) => {
 /** Replaces the password and any auth token or password query parameter with `••••`. */
 export const maskConnectionUrl = (url: string): string =>
 	url
-		.replace(/^([a-z][a-z0-9+.-]*:\/\/[^:/@?#]*:)[^@]*@/i, `$1${SECRET}@`)
+		// The last `@` of the authority ends the password: drivers read `u:p@ss@host` as `p@ss`.
+		.replace(/^([a-z][a-z0-9+.-]*:\/\/[^:/@?#]*:)[^/?#]*@/i, `$1${SECRET}@`)
 		.replace(/([?&])([^=&#]*)=[^&#]*/g, (param, separator: string, name: string) =>
 			SECRET_PARAMS.has(decodeParamName(name)) ? `${separator}${name}=${SECRET}` : param,
 		);

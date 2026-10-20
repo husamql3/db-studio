@@ -54,9 +54,14 @@ const switchTo = async (url: string): Promise<void> => {
 			cause: error,
 		});
 	}
-	await replaceDatabaseManager(candidate);
+	// The swap is synchronous: rotate the id with it, so a stale tab is refused while the old
+	// clients close.
+	const closingPrevious = replaceDatabaseManager(candidate);
 	activeUrl = url;
 	connectionId = randomUUID();
+	await closingPrevious.catch((error) => {
+		writeOperationalLog("warn", "connection_close_failed", errorFields(error));
+	});
 };
 
 /**
