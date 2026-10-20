@@ -2,6 +2,7 @@ import rawDocs from "virtual:raw-docs";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
 import { supportedDatabases } from "@/lib/content/databases";
 import { roadmapItems } from "@/lib/content/roadmap";
+import { SPONSOR_EMAIL, sponsorTiers } from "@/lib/content/sponsors";
 import { mdxToMarkdown } from "./mdx-to-markdown";
 
 const SITE_URL = "https://dbstudio.sh";
@@ -87,10 +88,16 @@ ${supportedDatabases
 - [Changelog](${SITE_URL}/changelog)
 - [GitHub](https://github.com/husamql3/db-studio)
 
-## Sponsorship
+## Sponsors
 
-Help us keep db-studio free and actively maintained. If you or your company find it
-useful, consider supporting the project: dbstudio@ql3.dev
+${sponsorTiers
+	.map(
+		({ label, price, spots, sponsors }) =>
+			`- **${label}** (${price}, ${spots - sponsors.length} of ${spots} open)${sponsors.map((s) => `\n  - [${s.name}](${s.url})`).join("")}`,
+	)
+	.join("\n")}
+
+Interested in sponsoring db-studio? Reach out at ${SPONSOR_EMAIL}
 `;
 
 /**
