@@ -1,4 +1,5 @@
 import handler from "@tanstack/react-start/server-entry";
+import { guardAdmin } from "./admin-auth";
 import { getMarkdownForPath } from "./markdown/pages";
 import { prefersMarkdown } from "./markdown/prefers-markdown";
 
@@ -28,14 +29,21 @@ const withVaryAccept = (response: Response): Response => {
 	return patched;
 };
 
+const ADMIN_PATH = /^\/admin(\/|$)/;
+
 export default {
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
 
 		// 301 www (and any other non-canonical host alias) to the apex domain
 		if (url.hostname !== CANONICAL_HOST && url.hostname.endsWith(`.${CANONICAL_HOST}`)) {
 			url.hostname = CANONICAL_HOST;
 			return Response.redirect(url.toString(), 301);
+		}
+
+		if (ADMIN_PATH.test(url.pathname)) {
+			const refusal = await guardAdmin(request, env.ADMIN_PASSWORD);
+			if (refusal) return refusal;
 		}
 
 		const isPageRequest =
@@ -46,7 +54,7 @@ export default {
 		// Content negotiation: agents asking for text/markdown get markdown
 		// (Start's SSR handler would otherwise 500 on non-HTML Accept headers).
 		if (isPageRequest && prefersMarkdown(request.headers.get("accept"))) {
-			const markdown = getMarkdownForPath(url.pathname);
+			const markdown = await getMarkdownForPath(url.pathname);
 			if (markdown !== null) {
 				return markdownResponse(request.method === "HEAD" ? null : markdown, 200);
 			}
