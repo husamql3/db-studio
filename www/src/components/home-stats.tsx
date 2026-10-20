@@ -1,4 +1,4 @@
-import { ArrowUpRightIcon, StarIcon } from "lucide-react";
+import { ArrowUpRightIcon, GitForkIcon, StarIcon } from "lucide-react";
 import { useState } from "react";
 import { IoLogoGithub } from "react-icons/io";
 import { IoLogoNpm } from "react-icons/io5";
@@ -219,12 +219,14 @@ export function BuiltInPublic({ stats }: { stats: HomeStatsData }) {
 					<>
 						<LinkBadge
 							href={REPO}
-							label={`${stats.stars} GitHub stars`}
+							label={`${stats.stars} GitHub stars, ${stats.forks} forks`}
 							icon={<IoLogoGithub className="size-4" />}
 							iconClassName="bg-foreground text-background"
 						>
 							<StarIcon className="size-3" />
 							{stats.stars.toLocaleString()}
+							<GitForkIcon className="ml-1 size-3" />
+							{stats.forks.toLocaleString()}
 						</LinkBadge>
 						<NpmBadge />
 					</>
