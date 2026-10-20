@@ -317,8 +317,13 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
-					<BuiltInPublic stats={stats} />
+					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
+						Everything you need to{" "}
+						<span className="text-foreground">manage your database</span>
+					</h2>
+
+					<FeaturesGrid />
+
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
@@ -338,13 +343,8 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Everything you need to{" "}
-						<span className="text-foreground">manage your database</span>
-					</h2>
-
-					<FeaturesGrid />
-
+					{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
+					<BuiltInPublic stats={stats} />
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
