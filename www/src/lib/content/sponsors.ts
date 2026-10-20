@@ -1,6 +1,6 @@
 export const SPONSOR_EMAIL = "dbstudio@ql3.dev";
 
-export type Sponsor = {
+type Sponsor = {
 	name: string;
 	url: string;
 };
