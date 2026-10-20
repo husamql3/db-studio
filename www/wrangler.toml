@@ -5,6 +5,12 @@ compatibility_date = "2025-09-02"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
+# Cloudflare Web Analytics for the homepage stats. CF_ANALYTICS_TOKEN (Account Analytics: Read)
+# is a secret: `wrangler secret put CF_ANALYTICS_TOKEN`, or .dev.vars locally.
+[vars]
+CF_ACCOUNT_ID = "e63ca873ee31a59544d22cc688fe938b"
+CF_WEB_ANALYTICS_SITE_TAG = "30cfa8e8b4944fd1b8b3743e88bd2fc5"
+
 [[routes]]
 pattern = "dbstudio.sh"
 custom_domain = true
@@ -32,3 +38,8 @@ head_sampling_rate = 1
 [env.preview]
 name = "dbstudio"
 workers_dev = true
+
+# vars are not inherited by environments
+[env.preview.vars]
+CF_ACCOUNT_ID = "e63ca873ee31a59544d22cc688fe938b"
+CF_WEB_ANALYTICS_SITE_TAG = "30cfa8e8b4944fd1b8b3743e88bd2fc5"

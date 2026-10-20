@@ -9,6 +9,7 @@ import {
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
 import { FeaturesGrid } from "@/components/features";
+import { HomeStats } from "@/components/home-stats";
 import { InfiniteSlider } from "@/components/infinite-slider";
 import { SponsorsSection } from "@/components/sponsors";
 import { Highlighter } from "@/components/ui/highlighter";
@@ -26,9 +27,11 @@ import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
 import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
+import { getHomeStats } from "@/utils/get-home-stats";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
+	loader: () => getHomeStats(),
 	head: () =>
 		seoHead({
 			title: "dbstudio – The modern pgAdmin alternative for every database",
@@ -113,6 +116,7 @@ function DemoVideo() {
 }
 
 function App() {
+	const stats = Route.useLoaderData();
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
@@ -294,6 +298,26 @@ function App() {
 						))}
 					</InfiniteSlider>
 
+					<PlusIcon
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+				</div>
+
+				<div className="relative w-full flex flex-col border-y">
+					<HomeStats stats={stats} />
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
 						strokeWidth={1}
