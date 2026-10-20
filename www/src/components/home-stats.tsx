@@ -239,6 +239,7 @@ export function BuiltInPublic({ stats }: { stats: HomeStatsData }) {
 /**
  * The full section, with stars and forks, page views and top referrers as cards under the chart.
  * Not rendered yet: swap it in for BuiltInPublic on the homepage once traffic is worth showing.
+ * @public kept for later, so knip should not flag it as unused
  */
 export function HomeStats({ stats }: { stats: HomeStatsData }) {
 	const { analytics } = stats;
