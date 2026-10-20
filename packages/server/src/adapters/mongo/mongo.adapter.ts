@@ -31,7 +31,12 @@ import type {
 import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getMongoClient, getMongoDb, getMongoDbName } from "@/adapters/connections.js";
+import {
+	getConnectionUrl,
+	getMongoClient,
+	getMongoDb,
+	getMongoDbName,
+} from "@/adapters/connections.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
 import { HTTPException } from "@/http-exception.js";
@@ -549,7 +554,7 @@ export class MongoAdapter extends BaseAdapter {
 		try {
 			const client = await getMongoClient();
 			const admin = client.db().admin();
-			const urlDefaults = parseDatabaseUrl();
+			const urlDefaults = parseDatabaseUrl(getConnectionUrl());
 			let serverStatus: {
 				version?: string;
 				connections?: { current?: number; available?: number };

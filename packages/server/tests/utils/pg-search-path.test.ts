@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // db-manager is globally mocked in tests/setup.ts; this suite exercises the real one.
 vi.unmock("@/db-manager.js");
@@ -28,7 +28,12 @@ vi.mock("mysql2/promise", () => ({ createPool: vi.fn() }));
 const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
-	const { getDbPool } = await import("@/db-manager.js");
+	const { DatabaseManager, getDbPool, replaceDatabaseManager } = await import(
+		"@/db-manager.js"
+	);
+	await replaceDatabaseManager(
+		new DatabaseManager("postgresql://test:test@localhost:5432/testdb"),
+	);
 	await getDbPool();
 	const pool = FakePool.instances[0];
 	expect(pool).toBeDefined();
@@ -36,10 +41,6 @@ const freshPool = async () => {
 };
 
 describe("PostgreSQL pool search_path", () => {
-	beforeEach(() => {
-		process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/testdb";
-	});
-
 	it("widens search_path on every new connection", async () => {
 		const pool = await freshPool();
 		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };

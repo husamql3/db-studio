@@ -28,6 +28,7 @@ type AnalyticsEvent =
 			properties: {
 				page:
 					| "home"
+					| "connect"
 					| "browser"
 					| "table"
 					| "schema"

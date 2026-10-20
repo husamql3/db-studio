@@ -48,6 +48,17 @@ db-studio looks for your database connection in this order:
 2. If not found, searches parent folders until it finds one
 3. Reads `DATABASE_URL` from that file
 4. If `DATABASE_URL` isn't in the file, checks your system environment variables
+5. If there is still no URL, the app opens on the Connect page, where you paste one
+
+### Saved connections
+
+Every connection that opens, from the CLI or the Connect page, is saved to
+`~/.dbstudio/connections.json`. The file holds passwords, so only your user can read it, and
+the browser only ever sees URLs with the password hidden. Switch connections from the
+connection name in the sidebar footer, or open **All connections…** to rename, color or
+delete them.
+
+The server listens on `127.0.0.1` only. Set `HOST=0.0.0.0` to reach it from other machines.
 
 ### Setting Up Your Database Connection
 
@@ -77,15 +88,15 @@ You can customize how db-studio runs with these options:
 
 | Option | What It Does | Example |
 |--------|--------------|---------|
-| `--env <path>` | Use a specific `.env` file | `npx db-studio --env .env.local` |
-| `--var-name <name>` | Use a different variable name instead of `DATABASE_URL` | `npx db-studio --var-name MY_DB_URL` |
-| `--port <number>` | Change the server port (default is 3333) | `npx db-studio --port 4000` |
-| `--database-url <url>` | Provide connection string directly without `.env` file | `npx db-studio --database-url "postgresql://user:pass@localhost:5432/mydb"` |
+| `-e, --env <path>` | Use a specific `.env` file | `npx db-studio --env .env.local` |
+| `-n, --var-name <name>` | Use a different variable name instead of `DATABASE_URL` | `npx db-studio --var-name MY_DB_URL` |
+| `-p, --port <number>` | Change the server port (default is 3333) | `npx db-studio --port 4000` |
+| `-d, --database-url <url>` | Provide connection string directly without `.env` file | `npx db-studio -d "postgresql://user:pass@localhost:5432/mydb"` |
 | `--open` | Open db-studio in your browser once it starts | `npx db-studio --open` |
 | `--no-open` | Do not open the browser (the default) | `npx db-studio --no-open` |
-| `--status` | Only check if connection works (doesn't open the UI) | `npx db-studio --status` |
-| `--version` | Show the installed version | `npx db-studio --version` |
-| `--help` | Show all available options | `npx db-studio --help` |
+| `-s, --status` | Only check if connection works (doesn't open the UI) | `npx db-studio --status` |
+| `-v, --version` | Show the installed version | `npx db-studio --version` |
+| `-h, --help` | Show all available options | `npx db-studio --help` |
 
 ### Real Examples
 

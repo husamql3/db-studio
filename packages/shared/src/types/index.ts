@@ -8,6 +8,7 @@ export * from "./chat.types.js"; // done
 export * from "./cmd-args.types.js"; // done
 export * from "./column.type.js";
 export * from "./column-info.types.js";
+export * from "./connections.types.js";
 export * from "./create-table.types.js"; // done
 export * from "./database.types.js"; // done
 export * from "./database-engines.types.js";

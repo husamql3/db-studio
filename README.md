@@ -23,13 +23,15 @@ Browse tables, edit records, design schemas, and run queries from one UI, launch
 
 ## Installation
 
-No installation required. Run it from a directory that has a `.env` with `DATABASE_URL`:
+No installation required:
 
 ```bash
 npx db-studio
 ```
 
-db-studio searches the current directory, then its parents, for a `.env` file. If `DATABASE_URL` is not there, it reads it from the environment.
+db-studio searches the current directory, then its parents, for a `.env` file with `DATABASE_URL`, then the environment. Without one, open the printed address and paste a connection URL on the Connect page.
+
+Every connection that opens is saved to `~/.dbstudio/connections.json`, readable only by your user, so you can switch between them from the sidebar. The server listens on `127.0.0.1` only; set `HOST` to serve it on your network.
 
 **As a project script:**
 
@@ -45,15 +47,15 @@ db-studio searches the current directory, then its parents, for a `.env` file. I
 
 | Flag                   | Description                                    | Example                                                  |
 |------------------------|------------------------------------------------|----------------------------------------------------------|
-| `--env <path>`         | Use a specific `.env` file                     | `npx db-studio --env .env.local`                         |
-| `--var-name <name>`    | Read a different environment variable          | `npx db-studio --var-name MY_DB_URL`                     |
-| `--port <number>`      | Change the server port (default: 3333)         | `npx db-studio --port 4000`                              |
-| `--database-url <url>` | Pass the connection string directly            | `npx db-studio --database-url "postgresql://localhost/mydb"` |
+| `-e, --env <path>`         | Use a specific `.env` file                     | `npx db-studio --env .env.local`                         |
+| `-n, --var-name <name>`    | Read a different environment variable          | `npx db-studio --var-name MY_DB_URL`                     |
+| `-p, --port <number>`      | Change the server port (default: 3333)         | `npx db-studio --port 4000`                              |
+| `-d, --database-url <url>` | Pass the connection string directly            | `npx db-studio -d "postgresql://localhost/mydb"` |
 | `--open`               | Open db-studio in your browser once it starts  | `npx db-studio --open`                                   |
 | `--no-open`            | Do not open the browser (the default)          | `npx db-studio --no-open`                                |
-| `--status`             | Check the connection only, without the UI      | `npx db-studio --status`                                 |
-| `--version`            | Show the installed version                     | `npx db-studio --version`                                |
-| `--help`               | Show all options                               | `npx db-studio --help`                                   |
+| `-s, --status`             | Check the connection only, without the UI      | `npx db-studio --status`                                 |
+| `-v, --version`            | Show the installed version                     | `npx db-studio --version`                                |
+| `-h, --help`               | Show all options                               | `npx db-studio --help`                                   |
 
 Full documentation: [dbstudio.sh](https://dbstudio.sh)
 

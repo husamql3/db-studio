@@ -1,5 +1,6 @@
 export * from "./chat";
 export * from "./client";
+export * from "./connections";
 export * from "./databases";
 export * from "./logs";
 export * from "./query";
