@@ -1,0 +1,43 @@
+---
+title: Running db studio with Docker
+description: "Run db-studio in a Docker container, no local Node or Bun needed"
+---
+
+Run `db-studio` in a container. There is no published image yet. Building it from source directly.
+
+```bash
+docker build -t db-studio .
+docker run --rm -p 127.0.0.1:3333:3333 -v db-studio-config:/home/node/config db-studio
+```
+
+Open `http://127.0.0.1:3333` and pick a database connection string/url in the browser.
+
+> **Always publish the port on `127.0.0.1`.** The image sets `HOST=0.0.0.0` so the port is reachable from the host. In that mode the Host-header check is off and there is no authentication, and saved connections contain database passwords. `-p 3333:3333` (no `127.0.0.1:`) exposes db-studio to your whole network.
+
+
+#### Connect to a database on your machine
+
+Inside the container, `localhost` is the container itself, not your machine. Use `host.docker.internal` instead.
+
+```bash
+docker run --rm -p 127.0.0.1:3333:3333 \
+  -v db-studio-config:/home/node/config \
+  -e DATABASE_URL=postgresql://user:pass@host.docker.internal:5432/db \
+  db-studio
+```
+
+On Linux, add `--add-host=host.docker.internal:host-gateway` to the command.
+
+### Saved connections
+ 
+Saved connections are stored in `/home/node/config` inside the container. The named volume in the commands above keeps them across restarts. Without `-v`, they are lost when the container is removed/restarted.
+ 
+### Environment variables
+ 
+| Variable | Image default | Purpose |
+| --- | --- | --- |
+| `HOST` | `0.0.0.0` | Address the server binds to |
+| `PORT` | `3333` | Port the server listens on |
+| `DB_STUDIO_CONFIG_DIR` | `/home/node/config` | Where saved connections are stored |
+ 
+The container runs as the unprivileged `node` user (uid 1000).
