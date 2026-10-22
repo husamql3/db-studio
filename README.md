@@ -31,7 +31,7 @@ npx db-studio
 
 db-studio searches the current directory, then its parents, for a `.env` file with `DATABASE_URL`, then the environment. Without one, open the printed address and paste a connection URL on the Connect page.
 
-Every connection that opens is saved to `~/.dbstudio/connections.json`, readable only by your user, so you can switch between them from the sidebar. The server listens on `127.0.0.1` only; set `HOST` to serve it on your network.
+Every connection that opens is saved to `~/.dbstudio/connections.json`, readable only by your user, so you can switch between them from the sidebar. The server listens on `127.0.0.1` only; to serve it on your network, set `HOST` and list the hostname or IP you connect through in `ALLOWED_HOSTS`.
 
 You can also run `db-studio` as a Docker container. Simply run:
 

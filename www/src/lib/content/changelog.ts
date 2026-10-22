@@ -16,6 +16,24 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.21.0",
+		date: "2026-10-23",
+		title: "Docker support and safer network access",
+		tags: ["Breaking change"],
+		features: [
+			{
+				text: "Build and run db-studio in Docker, with saved connections kept between runs",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Network access now requires ALLOWED_HOSTS alongside HOST; list the hostname or IP you use to connect",
+				username: "yousifsabah0",
+			},
+		],
+	},
+	{
 		version: "1.20.1",
 		date: "2026-10-22",
 		title: "Clearer errors for bad data, missing tables and missing builds",
