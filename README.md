@@ -40,7 +40,7 @@ docker build -t db-studio .
 docker run --rm -p 127.0.0.1:3333:3333 -v db-studio-config:/home/node/config db-studio
 ```
 
-Check [Running db studio with Docker](https://dbstudio.sh/docs/getting-started) to learn more and customize the container.
+Check [Running db studio with Docker](https://dbstudio.sh/docs/docker) to learn more and customize the container.
 
 **As a project script:**
 
