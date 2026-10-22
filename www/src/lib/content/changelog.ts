@@ -16,7 +16,7 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
-		version: "2.0.0",
+		version: "1.21.0",
 		date: "2026-10-23",
 		title: "Docker support and safer network access",
 		tags: ["Breaking change"],
