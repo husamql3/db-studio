@@ -335,7 +335,10 @@ export class SqliteAdapter extends BaseAdapter {
 
 			const client = await getSqliteClient();
 
-			const colInfoRows = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfoRows = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
 			if (colInfoRows.length === 0)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -676,7 +679,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const columns = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const columns = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
 
 			const fkMap = new Map<string, FkRow>();
@@ -716,7 +722,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
@@ -746,7 +755,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -867,7 +879,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,

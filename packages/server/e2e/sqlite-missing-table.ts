@@ -22,7 +22,12 @@ const evidence: Record<string, unknown> = {};
 const tableData = async (tableName: string) => {
 	const params = new URLSearchParams({ db: "main", limit: "50" });
 	const response = await app.handle(
-		new Request(new URL(`/api/sqlite/tables/${tableName}/data?${params}`, "http://localhost")),
+		new Request(
+			new URL(
+				`/api/sqlite/tables/${encodeURIComponent(tableName)}/data?${params}`,
+				"http://localhost",
+			),
+		),
 	);
 	const { requestId: _requestId, ...body } = (await response.json()) as Record<
 		string,
@@ -33,8 +38,12 @@ const tableData = async (tableName: string) => {
 
 try {
 	evidence.missingTable = await tableData("device_keys");
-	const { status, body } = evidence.missingTable as { status: number; body: unknown };
-	assert.equal(status, 404, JSON.stringify(body));
+	// A double quote in the name must be escaped, not end the identifier early.
+	evidence.missingQuotedTable = await tableData('device"keys');
+	for (const label of ["missingTable", "missingQuotedTable"]) {
+		const { status, body } = evidence[label] as { status: number; body: unknown };
+		assert.equal(status, 404, `${label}: ${JSON.stringify(body)}`);
+	}
 	console.log("PASS SQLite missing table answers 404");
 } finally {
 	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
