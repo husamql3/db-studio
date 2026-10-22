@@ -336,6 +336,9 @@ export class SqliteAdapter extends BaseAdapter {
 			const client = await getSqliteClient();
 
 			const colInfoRows = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
+			if (colInfoRows.length === 0)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			const pkColumns: string[] = colInfoRows
 				.filter((c) => c.pk > 0)
 				.sort((a, b) => a.pk - b.pk)
