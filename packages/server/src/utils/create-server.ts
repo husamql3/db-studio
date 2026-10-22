@@ -86,8 +86,19 @@ const serveWebFile = async (webDist: string, pathname: string): Promise<Response
 			filePath = requested;
 		}
 	} catch {}
+	const file = await readFile(filePath).catch((error: NodeJS.ErrnoException) => {
+		if (error.code === "ENOENT") return null;
+		throw error;
+	});
+	// A checkout whose web app was never built has no index.html.
+	if (file === null) {
+		return new Response(
+			'The web app is not built. Run "bun run build" in the repository root, then restart db-studio.',
+			{ status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+		);
+	}
 	const hashed = filePath.startsWith(path.join(webDist, "assets", path.sep));
-	return new Response(await readFile(filePath), {
+	return new Response(file, {
 		headers: {
 			"Content-Type": CONTENT_TYPES[path.extname(filePath)] ?? "application/octet-stream",
 			"Cache-Control": hashed ? "public, max-age=31536000, immutable" : "no-cache",
