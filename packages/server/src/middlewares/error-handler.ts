@@ -53,6 +53,10 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 	if (e instanceof Error && isConnectionError(e)) {
 		return { status: 503, body: { error: "Database connection failed", details: e.message } };
 	}
+	// Class 23 (foreign key, unique, not null, check): the user's data broke a constraint.
+	if (isPgDatabaseError(e) && e.code?.startsWith("23")) {
+		return { status: 409, body: { error: e.message } };
+	}
 	return {
 		status: 500,
 		body: { error: e instanceof Error ? e.message : "Internal server error" },
