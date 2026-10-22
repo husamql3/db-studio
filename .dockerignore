@@ -4,6 +4,6 @@
 .git
 .turbo
 
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
