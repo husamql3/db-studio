@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Regression for DB-STUDIO-SERVER-G: a server started from a checkout whose web app was never
 // built (no index.html where getWebDistPath looks) answered every page with 500 ENOENT and
@@ -14,9 +15,14 @@ const { createServer } = await import("../src/utils/create-server.js");
 const { app } = createServer();
 const evidence: Record<string, unknown> = {};
 
+// A failing run captures the error body; keep the artifact free of machine paths and request IDs.
+const serverDir = fileURLToPath(new URL("../", import.meta.url));
 const get = async (pathname: string) => {
 	const response = await app.handle(new Request(new URL(pathname, "http://localhost")));
-	return { status: response.status, body: await response.text() };
+	const body = (await response.text())
+		.replaceAll(serverDir, "<server>/")
+		.replace(/"requestId":"[^"]*"/, '"requestId":"<id>"');
+	return { status: response.status, body };
 };
 
 try {
