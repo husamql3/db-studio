@@ -22,7 +22,7 @@ const get = async (pathname: string) => {
 	const body = (await response.text())
 		.replaceAll(serverDir, "<server>/")
 		.replace(/"requestId":"[^"]*"/, '"requestId":"<id>"');
-	return { status: response.status, body };
+	return { status: response.status, contentType: response.headers.get("content-type"), body };
 };
 
 try {
@@ -35,7 +35,15 @@ try {
 		assert.equal(status, 404, `${label}: ${body}`);
 		assert.match(body, /bun run build/, `${label}: ${body}`);
 	}
-	assert.equal((evidence.unknownApi as { status: number }).status, 404);
+	// The API keeps its JSON 404 instead of getting the plain-text build instructions.
+	const unknownApi = evidence.unknownApi as {
+		status: number;
+		contentType: string;
+		body: string;
+	};
+	assert.equal(unknownApi.status, 404);
+	assert.match(unknownApi.contentType, /^application\/json/);
+	assert.deepEqual(JSON.parse(unknownApi.body), { error: "Not found" });
 	console.log("PASS a missing web build answers 404 with build instructions");
 } finally {
 	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
