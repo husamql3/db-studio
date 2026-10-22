@@ -41,3 +41,7 @@ export const loadedDriver = <T extends DatabaseTypeSchema>(type: T): Drivers[T] 
 /** A PostgreSQL server error; only a process that loaded pg can have one. */
 export const isPgDatabaseError = (error: unknown): error is DatabaseError =>
 	loaded.pg !== undefined && error instanceof loaded.pg.DatabaseError;
+
+/** Class 23 (foreign key, unique, not null, check): the user's data broke a constraint. */
+export const isPgConstraintViolation = (error: unknown): error is DatabaseError =>
+	isPgDatabaseError(error) && error.code?.startsWith("23") === true;

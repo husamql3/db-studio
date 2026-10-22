@@ -23,13 +23,13 @@ await connect(databaseUrl);
 const pool = await getDbPool(db);
 const evidence: Record<string, unknown> = {};
 
-const addRecord = async (data: Record<string, unknown>) => {
+const send = async (method: string, route: string, payload: Record<string, unknown>) => {
 	const params = new URLSearchParams({ db });
 	const response = await app.handle(
-		new Request(new URL(`/api/pg/records?${params}`, "http://localhost"), {
-			method: "POST",
+		new Request(new URL(`/api/pg/records${route}?${params}`, "http://localhost"), {
+			method,
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ tableName: "dbstudio_e2e_child", data }),
+			body: JSON.stringify({ tableName: "dbstudio_e2e_child", ...payload }),
 		}),
 	);
 	const { requestId: _requestId, ...body } = (await response.json()) as Record<
@@ -58,16 +58,25 @@ try {
 		notNull: { id: 3, name: null, parent_id: 1 },
 	};
 	for (const [label, data] of Object.entries(cases)) {
-		evidence[label] = await addRecord(data);
+		evidence[label] = await send("POST", "", { data });
 	}
-	evidence.valid = await addRecord({ id: 4, name: "d", parent_id: 1 });
+	// Updates and bulk inserts catch driver errors themselves; constraint errors must get through.
+	evidence.updateForeignKey = await send("PATCH", "", {
+		updates: [{ rowData: { id: 1 }, columnName: "parent_id", value: 999 }],
+	});
+	evidence.bulkDuplicateKey = await send("POST", "/bulk", {
+		records: [{ id: 1, name: "b", parent_id: 1 }],
+	});
+	evidence.valid = await send("POST", "", { data: { id: 4, name: "d", parent_id: 1 } });
 
-	for (const label of Object.keys(cases)) {
+	for (const label of [...Object.keys(cases), "updateForeignKey", "bulkDuplicateKey"]) {
 		const { status, body } = evidence[label] as { status: number; body: unknown };
 		assert.equal(status, 409, `${label}: ${JSON.stringify(body)}`);
 	}
 	assert.equal((evidence.valid as { status: number }).status, 200);
-	console.log("PASS PostgreSQL constraint violations on insert answer 409");
+	console.log(
+		"PASS PostgreSQL constraint violations on insert, update, and bulk insert answer 409",
+	);
 } finally {
 	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
 	await writeFile(
