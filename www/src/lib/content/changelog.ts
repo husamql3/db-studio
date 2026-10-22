@@ -16,6 +16,25 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.20.1",
+		date: "2026-10-22",
+		title: "Clearer errors for bad data, missing tables and missing builds",
+		bugsFixed: [
+			{
+				text: "Saving a PostgreSQL row that breaks a foreign key, unique or NOT NULL rule now shows the database's reason instead of a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a SQLite table that no longer exists now says the table does not exist instead of showing a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Running db-studio from a source checkout without a web build now explains how to build it instead of failing",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.20.0",
 		date: "2026-10-20",
 		title: "Connect and switch databases from the app",

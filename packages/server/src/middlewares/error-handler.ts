@@ -1,7 +1,7 @@
 import type { ApiError } from "@db-studio/shared/types/api-response.types.js";
 import { NotFoundError, ParseError, ValidationError } from "elysia";
 import { ZodError } from "zod";
-import { isPgDatabaseError } from "@/drivers.js";
+import { isPgConstraintViolation, isPgDatabaseError } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
@@ -50,6 +50,8 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 		return { status: 400, body: { error: "Malformed JSON in request body" } };
 	}
 	if (e instanceof NotFoundError) return { status: 404, body: { error: "Not found" } };
+	// Before the connection check: its message heuristics could match a constraint's name.
+	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
 	if (e instanceof Error && isConnectionError(e)) {
 		return { status: 503, body: { error: "Database connection failed", details: e.message } };
 	}
