@@ -124,16 +124,20 @@ const isAllowedOrigin = (origin: string | null): boolean => {
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 /**
- * The server listens on 127.0.0.1 and holds saved database passwords. A web page can still reach
- * it through DNS rebinding (its own domain resolving to 127.0.0.1), so a request must name a
- * loopback host in its `Host` header. Setting `HOST` to a non-loopback address opts out: the
- * user chose to serve db-studio on their network.
+ * The server holds saved database passwords. A web page can still reach it through DNS
+ * rebinding (its own domain resolving to 127.0.0.1), so a request must name an allowed host in
+ * its `Host` header, whatever address the server listens on. Loopback hosts are always allowed.
+ * To serve db-studio under another name (a LAN host, a reverse proxy), set `ALLOWED_HOSTS` to a
+ * comma-separated list of extra hostnames: no ports, no wildcards.
  */
 const isAllowedHost = (hostHeader: string): boolean => {
-	const listen = process.env.HOST;
-	if (listen && !LOOPBACK_HOSTS.has(listen)) return true;
 	const hostname = hostHeader.replace(/:\d+$/, "").toLowerCase();
-	return LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost");
+	if (LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost")) return true;
+	const allowed =
+		process.env.ALLOWED_HOSTS?.split(",")
+			.map((h) => h.trim().toLowerCase())
+			.filter(Boolean) ?? [];
+	return allowed.includes(hostname);
 };
 
 /**

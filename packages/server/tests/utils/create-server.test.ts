@@ -195,4 +195,62 @@ describe("createServer", () => {
 			}
 		});
 	});
+	describe("Host check middleware", () => {
+		const saved = { HOST: process.env.HOST, ALLOWED_HOSTS: process.env.ALLOWED_HOSTS };
+
+		beforeEach(() => {
+			delete process.env.HOST;
+			delete process.env.ALLOWED_HOSTS;
+		});
+
+		afterEach(() => {
+			for (const [key, value] of Object.entries(saved)) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+		});
+
+		const statusFor = async (host: string) => {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", `http://${host}`)),
+			);
+			return res.status;
+		};
+
+		it.each([
+			"localhost",
+			"localhost:3333",
+			"127.0.0.1:3333",
+			"[::1]:3333",
+			"web.db-studio.localhost",
+		])("should allow %s", async (host) => {
+			expect(await statusFor(host)).not.toBe(403);
+		});
+
+		it.each(["evil.example", "localhost.evil.example", "127.0.0.1.evil.example"])(
+			"should reject %s with a 403",
+			async (host) => {
+				expect(await statusFor(host)).toBe(403);
+			},
+		);
+
+		it("should keep the check on when HOST is a non-loopback address", async () => {
+			process.env.HOST = "0.0.0.0";
+			expect(await statusFor("evil.example")).toBe(403);
+			expect(await statusFor("127.0.0.1:3333")).not.toBe(403);
+		});
+
+		it("should allow only the hosts listed in ALLOWED_HOSTS", async () => {
+			process.env.ALLOWED_HOSTS = "a.lan, 10.0.0.5 ,[fd00::1]";
+			expect(await statusFor("a.lan:3333")).not.toBe(403);
+			expect(await statusFor("10.0.0.5")).not.toBe(403);
+			expect(await statusFor("[fd00::1]:3333")).not.toBe(403);
+			expect(await statusFor("b.lan")).toBe(403);
+		});
+
+		it("should not treat * in ALLOWED_HOSTS as a wildcard", async () => {
+			process.env.ALLOWED_HOSTS = "*";
+			expect(await statusFor("evil.example")).toBe(403);
+		});
+	});
 });
