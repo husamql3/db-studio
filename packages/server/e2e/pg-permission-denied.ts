@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -16,7 +17,8 @@ if (!databaseUrl?.startsWith("postgresql://")) {
 // Saving the connection must not touch the user's ~/.dbstudio.
 process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-const ROLE = "dbstudio_e2e_limited";
+// Roles are cluster-wide: a per-run name means cleanup never drops a role this run did not create.
+const ROLE = `dbstudio_e2e_limited_${randomUUID().slice(0, 8)}`;
 const admin = new pg.Pool({ connectionString: databaseUrl });
 const evidence: Record<string, unknown> = {};
 
@@ -87,11 +89,13 @@ try {
 	assert.equal((evidence.readAllowedByPolicy as { status: number }).status, 200);
 	console.log("PASS PostgreSQL permission errors answer 403");
 } finally {
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL("./artifacts/pg-permission-denied.json", import.meta.url),
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
-	await cleanup();
-	await admin.end();
+	try {
+		await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
+		await writeFile(
+			new URL("./artifacts/pg-permission-denied.json", import.meta.url),
+			`${JSON.stringify(evidence, null, 2)}\n`,
+		);
+	} finally {
+		await cleanup().finally(() => admin.end());
+	}
 }
