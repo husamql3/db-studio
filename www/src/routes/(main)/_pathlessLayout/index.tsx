@@ -28,10 +28,14 @@ import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { getHomeStats } from "@/utils/get-home-stats";
+import { getSponsors } from "@/utils/get-sponsors";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
-	loader: () => getHomeStats(),
+	loader: async () => {
+		const [stats, sponsors] = await Promise.all([getHomeStats(), getSponsors()]);
+		return { stats, sponsors };
+	},
 	head: () =>
 		seoHead({
 			title: "dbstudio – The modern pgAdmin alternative for every database",
@@ -116,7 +120,7 @@ function DemoVideo() {
 }
 
 function App() {
-	const stats = Route.useLoaderData();
+	const { stats, sponsors } = Route.useLoaderData();
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
@@ -364,7 +368,7 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<SponsorsSection />
+					<SponsorsSection sponsors={sponsors} />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
