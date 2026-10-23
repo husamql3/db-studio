@@ -117,7 +117,7 @@ export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 						<div className="grid grid-flow-col auto-cols-fr divide-x">
 							{inTier.map((sponsor) => (
 								<a
-									key={sponsor.name}
+									key={sponsor.id}
 									href={sponsor.url}
 									target="_blank"
 									// noopener only: noreferrer would hide the visit from the sponsor's analytics.
