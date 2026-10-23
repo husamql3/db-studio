@@ -16,9 +16,9 @@ services:
     cap_drop:
       - ALL
 
-# environment:
-#   DATABASE_URL: postgresql://user:pass@host.docker.internal:5432/db
-#   ALLOWED_HOSTS: db.lan
+    # environment:
+    #   DATABASE_URL: postgresql://user:pass@host.docker.internal:5432/db
+    #   ALLOWED_HOSTS: db.lan
 
 volumes:
   db-studio-config:

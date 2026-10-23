@@ -2,7 +2,8 @@
 set -euo pipefail
 
 image=${1:?usage: docker.sh <image>}
-name=dbs-sh
+# Unique per run so cleanup never removes a container this run did not create.
+name=dbs-sh-$$
 url=http://127.0.0.1:3333
 
 cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; }
