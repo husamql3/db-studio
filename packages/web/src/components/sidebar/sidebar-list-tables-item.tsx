@@ -13,7 +13,8 @@ export const SidebarListTablesItem = ({
 	rowCount,
 	rowCountEstimated,
 	schemaName,
-}: TableInfoSchemaType) => {
+	showSchemaName,
+}: TableInfoSchemaType & { showSchemaName: boolean }) => {
 	const params = useParams({ strict: false });
 	const { pathname } = useLocation();
 	const table = params.table as string | undefined;
@@ -35,7 +36,9 @@ export const SidebarListTablesItem = ({
 
 	const label = (
 		<span className="flex-1 truncate">
-			{schemaName && schemaName !== "public" ? `${schemaName}.` : ""}
+			{showSchemaName && schemaName && schemaName !== "public" && (
+				<span className="text-muted-foreground/60">{schemaName}.</span>
+			)}
 			{tableName}
 		</span>
 	);

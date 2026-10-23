@@ -1,7 +1,10 @@
 import { Sheet, SheetContent, SheetTrigger } from "@db-studio/ui/sheet";
 import { cn } from "@db-studio/ui/utils";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import {
+	SIDEBAR_DEFAULT_WIDTH,
+	usePersonalPreferencesStore,
+} from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
@@ -30,7 +33,10 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 			requestAnimationFrame(() => {
 				const delta = e.clientX - startXRef.current;
 				const newWidth = startWidthRef.current + delta;
-				setSidebarWidth(newWidth);
+				// Dragging within 16px of the default width snaps onto it, so it is easy to get back to.
+				setSidebarWidth(
+					Math.abs(newWidth - SIDEBAR_DEFAULT_WIDTH) <= 16 ? SIDEBAR_DEFAULT_WIDTH : newWidth,
+				);
 			});
 		},
 		[setSidebarWidth],
