@@ -1,6 +1,7 @@
 # use bun (1.2.19) for building, same version as
 # `packageManager`
-FROM oven/bun:1.2.19 AS build
+ARG BUN_VERSION=1.2.19
+FROM oven/bun:${BUN_VERSION} AS build
 
 WORKDIR /app
 
@@ -52,8 +53,13 @@ USER node
 
 ENV HOST=0.0.0.0
 ENV PORT=3333
+ENV NODE_ENV=production
 
 EXPOSE 3333
+
+# healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+	CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3333)+'/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 
 # run
 CMD ["node", "dist/index.js", "--no-open"]
