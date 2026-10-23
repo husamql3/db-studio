@@ -52,6 +52,9 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 	if (e instanceof NotFoundError) return { status: 404, body: { error: "Not found" } };
 	// Before the connection check: its message heuristics could match a constraint's name.
 	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
+	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
+	if (isPgDatabaseError(e) && e.code === "42501")
+		return { status: 403, body: { error: e.message } };
 	if (e instanceof Error && isConnectionError(e)) {
 		return { status: 503, body: { error: "Database connection failed", details: e.message } };
 	}
