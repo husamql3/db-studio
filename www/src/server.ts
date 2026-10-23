@@ -46,7 +46,7 @@ export default {
 		// Content negotiation: agents asking for text/markdown get markdown
 		// (Start's SSR handler would otherwise 500 on non-HTML Accept headers).
 		if (isPageRequest && prefersMarkdown(request.headers.get("accept"))) {
-			const markdown = getMarkdownForPath(url.pathname);
+			const markdown = await getMarkdownForPath(url.pathname);
 			if (markdown !== null) {
 				return markdownResponse(request.method === "HEAD" ? null : markdown, 200);
 			}

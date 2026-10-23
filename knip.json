@@ -26,7 +26,7 @@
 		"www": {
 			"entry": ["src/router.tsx"],
 			"project": ["src/**/*.{ts,tsx}"],
-			"ignoreDependencies": ["tailwindcss", "tw-animate-css"]
+			"ignoreDependencies": ["cloudflare", "tailwindcss", "tw-animate-css"]
 		}
 	}
 }
