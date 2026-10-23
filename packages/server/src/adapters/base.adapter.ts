@@ -177,6 +177,10 @@ export abstract class BaseAdapter implements IDbAdapter {
 			if (isConnectionError) {
 				return new HTTPException(503, { message: e.message, cause: e });
 			}
+			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
+			if (isPgDatabaseError(e) && e.code === "42501") {
+				return new HTTPException(403, { message: e.message, cause: e });
+			}
 
 			return new HTTPException(500, { message: e.message, cause: e });
 		}

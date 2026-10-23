@@ -14,6 +14,17 @@ Open `http://127.0.0.1:3333` and pick a database connection string/url in the br
 
 > **Publish the port on `127.0.0.1`.** db-studio has no login and holds your saved database passwords. Publishing on loopback stops other machines from reaching it. The server also rejects any request whose `Host` header is not `localhost`, `127.0.0.1` or `[::1]`, which blocks DNS-rebinding attacks from web pages in your own browser.
 
+### Docker Compose
+
+```bash
+docker compose up -d
+```
+
+Builds the image, publishes the port on `127.0.0.1:3333`, and keeps saved connections in a named volume. Uncomment `environment:` in `docker-compose.yml` to set `DATABASE_URL` or `ALLOWED_HOSTS`.
+
+### Health
+
+The image has a healthcheck that requests the web UI on `127.0.0.1:$PORT`. It never touches your databases. If you set `HOST` to a single non-loopback address, the check will report unhealthy because it can't reach the server there.
 
 #### Connect to a database on your machine
 
@@ -47,6 +58,8 @@ The container runs as the unprivileged `node` user (uid 1000).
 
 Requests are accepted only for loopback hostnames. To use another name, such as a LAN hostname or a reverse proxy, list it in `ALLOWED_HOSTS` (hostnames only, IPv6 in brackets):
 
-    -e ALLOWED_HOSTS=db.lan,10.0.0.5
+```bash
+-e ALLOWED_HOSTS=db.lan,10.0.0.5
+```
 
 Only do this on a network you trust, since db-studio has no authentication.

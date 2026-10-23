@@ -11,11 +11,6 @@ workers_dev = false
 CF_ACCOUNT_ID = "e63ca873ee31a59544d22cc688fe938b"
 CF_WEB_ANALYTICS_SITE_TAG = "30cfa8e8b4944fd1b8b3743e88bd2fc5"
 
-# Sponsor list and logos, edited at /admin (sign-in password: `wrangler secret put ADMIN_PASSWORD`).
-[[kv_namespaces]]
-binding = "SPONSORS"
-id = "c9f7aa7e201d45d09908b689d5448f2a"
-
 [[routes]]
 pattern = "dbstudio.sh"
 custom_domain = true
@@ -43,10 +38,6 @@ head_sampling_rate = 1
 [env.preview]
 name = "dbstudio"
 workers_dev = true
-
-[[env.preview.kv_namespaces]]
-binding = "SPONSORS"
-id = "c9f7aa7e201d45d09908b689d5448f2a"
 
 # vars are not inherited by environments
 [env.preview.vars]

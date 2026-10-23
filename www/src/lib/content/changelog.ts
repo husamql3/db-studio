@@ -16,6 +16,30 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.22.0",
+		date: "2026-10-23",
+		title: "Docker Compose and a tidier sidebar",
+		features: [
+			{
+				text: "Run db-studio with Docker Compose; the image now reports its health",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Sidebar row counts update while Live mode is on",
+			},
+			{
+				text: "The sidebar hides the schema prefix when one schema is selected, and truncates long table names",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "PostgreSQL permission errors now say the role lacks a privilege instead of showing a server error",
+			},
+		],
+	},
+	{
 		version: "1.21.0",
 		date: "2026-10-23",
 		title: "Docker support and safer network access",
