@@ -3,8 +3,6 @@
 // Runtime types generated with workerd@1.20251118.0 2025-09-24 nodejs_compat
 declare namespace Cloudflare {
     interface Env {
-        SPONSORS: KVNamespace;
-        ADMIN_PASSWORD?: string;
         EMAIL_USER: string;
         EMAIL_PASSWORD: string;
         SUPABASE_URL: string;
