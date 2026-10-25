@@ -4,7 +4,6 @@
 declare namespace Cloudflare {
     interface Env {
         SPONSORS: KVNamespace;
-        ADMIN_PASSWORD?: string;
         EMAIL_USER: string;
         EMAIL_PASSWORD: string;
         SUPABASE_URL: string;

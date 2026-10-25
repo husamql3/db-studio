@@ -2,7 +2,7 @@ export const SPONSOR_EMAIL = "dbstudio@ql3.dev";
 
 export type SponsorTierId = "mythic" | "legendary" | "sponsor" | "platform";
 
-/** One sponsor as stored in the SPONSORS KV namespace and edited at /admin. */
+/** One sponsor as stored in the SPONSORS KV namespace, edited in avocado-admin. */
 export type Sponsor = {
 	id: string;
 	name: string;
@@ -36,6 +36,3 @@ export const sponsorTiers: SponsorTier[] = [
 ];
 
 export const sponsorLogoUrl = ({ id, logo }: Sponsor) => `/api/sponsors/logo/${id}?v=${logo}`;
-
-export const sponsorMailto = (tier: SponsorTier) =>
-	`mailto:${SPONSOR_EMAIL}?subject=${encodeURIComponent(`db-studio ${tier.name} sponsorship`)}`;

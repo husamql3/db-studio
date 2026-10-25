@@ -1,5 +1,7 @@
 import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
+const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
+
 export function buildWhereClause(filters: FilterType[]): {
 	clause: string;
 	values: unknown[];
@@ -13,7 +15,7 @@ export function buildWhereClause(filters: FilterType[]): {
 
 	for (const filter of filters) {
 		const paramIndex = values.length + 1;
-		const columnName = `"${filter.columnName}"`;
+		const columnName = quotePgIdent(filter.columnName);
 
 		switch (filter.operator) {
 			case "=":
@@ -72,11 +74,13 @@ export function buildWhereClause(filters: FilterType[]): {
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
-		const parts = sorts.map((s) => `"${s.columnName}" ${s.direction.toUpperCase()}`);
+		const parts = sorts.map(
+			(s) => `${quotePgIdent(s.columnName)} ${s.direction.toUpperCase()}`,
+		);
 		return `ORDER BY ${parts.join(", ")}`;
 	}
 	if (sorts && typeof sorts === "string") {
-		return `ORDER BY "${sorts}" ${order?.toUpperCase() || "ASC"}`;
+		return `ORDER BY ${quotePgIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
 	return "";
 }
@@ -96,7 +100,7 @@ export function buildCursorWhereClause(
 	const useGreaterThan = isAscending === isForward;
 
 	if (sortColumns.length > 0) {
-		const columnList = sortColumns.map((col) => `"${col}"`).join(", ");
+		const columnList = sortColumns.map(quotePgIdent).join(", ");
 		const placeholders = sortColumns.map((_, i) => `$${startParamIndex + i}`).join(", ");
 		const operator = useGreaterThan ? ">" : "<";
 		conditions.push(`(${columnList}) ${operator} (${placeholders})`);
@@ -134,8 +138,6 @@ const resolvedSchemaFor = (tableParam: string): string =>
  */
 export const schemaOf = (tableParam: string, schemaParam: string): string =>
 	`COALESCE(${schemaParam}::text, ${resolvedSchemaFor(tableParam)})`;
-
-const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
 /** `"schema"."table"`, or the bare `"table"`, which resolves through search_path. */
 export const qualifiedTable = (tableName: string, schemaName?: string): string =>

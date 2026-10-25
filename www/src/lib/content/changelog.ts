@@ -16,6 +16,99 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.23.0",
+		date: "2026-10-25",
+		title: "A password for network access",
+		tags: ["Security"],
+		features: [
+			{
+				text: "When db-studio listens on your network or runs in Docker, the browser asks for a password; set it with DB_STUDIO_PASSWORD or use the one printed at startup",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Table filters and sorting no longer let crafted column names run SQL",
+				username: "SecFathy",
+			},
+			{
+				text: "Other websites can no longer make your browser send requests to db-studio",
+				username: "SecFathy",
+			},
+		],
+	},
+	{
+		version: "1.22.1",
+		date: "2026-10-25",
+		title: "Passwords with special characters",
+		bugsFixed: [
+			{
+				text: "MySQL, MariaDB and SQL Server connections now accept usernames, passwords and database names with special characters such as @, ; or =",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.22.0",
+		date: "2026-10-23",
+		title: "Docker Compose and a tidier sidebar",
+		features: [
+			{
+				text: "Run db-studio with Docker Compose; the image now reports its health",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Sidebar row counts update while Live mode is on",
+			},
+			{
+				text: "The sidebar hides the schema prefix when one schema is selected, and truncates long table names",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "PostgreSQL permission errors now say the role lacks a privilege instead of showing a server error",
+			},
+		],
+	},
+	{
+		version: "1.21.0",
+		date: "2026-10-23",
+		title: "Docker support and safer network access",
+		tags: ["Breaking change"],
+		features: [
+			{
+				text: "Build and run db-studio in Docker, with saved connections kept between runs",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Network access now requires ALLOWED_HOSTS alongside HOST; list the hostname or IP you use to connect",
+				username: "yousifsabah0",
+			},
+		],
+	},
+	{
+		version: "1.20.1",
+		date: "2026-10-22",
+		title: "Clearer errors for bad data, missing tables and missing builds",
+		bugsFixed: [
+			{
+				text: "Saving a PostgreSQL row that breaks a foreign key, unique or NOT NULL rule now shows the database's reason instead of a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a SQLite table that no longer exists now says the table does not exist instead of showing a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Running db-studio from a source checkout without a web build now explains how to build it instead of failing",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.20.0",
 		date: "2026-10-20",
 		title: "Connect and switch databases from the app",

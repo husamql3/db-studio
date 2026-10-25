@@ -6,6 +6,22 @@ import {
 } from "@/adapters/pg/pg.query-builder.js";
 
 describe("PostgreSQL query builder", () => {
+	it("keeps a column name containing quotes inside its identifier (GHSA-vw88-9x6f-fcp5)", () => {
+		const name = 'id" = CAST((SELECT note FROM secrets) AS int) OR "id';
+		const escaped = '"id"" = CAST((SELECT note FROM secrets) AS int) OR ""id"';
+		expect(buildWhereClause([{ columnName: name, operator: "=", value: "1" }]).clause).toBe(
+			`WHERE ${escaped} = $1`,
+		);
+		expect(buildSortClause([{ columnName: name, direction: "asc" }], "asc")).toBe(
+			`ORDER BY ${escaped} ASC`,
+		);
+		expect(buildSortClause(name, "asc")).toBe(`ORDER BY ${escaped} ASC`);
+		expect(
+			buildCursorWhereClause({ values: { [name]: 1 }, sortColumns: [name] }, "asc", "asc", 1)
+				.clause,
+		).toBe(`((${escaped}) > ($1))`);
+	});
+
 	it("builds WHERE clauses with PostgreSQL placeholders and casts text operators", () => {
 		const result = buildWhereClause([
 			{ columnName: "status", operator: "=", value: "active" },

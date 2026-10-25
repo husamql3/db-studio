@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
@@ -86,8 +87,19 @@ const serveWebFile = async (webDist: string, pathname: string): Promise<Response
 			filePath = requested;
 		}
 	} catch {}
+	const file = await readFile(filePath).catch((error: NodeJS.ErrnoException) => {
+		if (error.code === "ENOENT") return null;
+		throw error;
+	});
+	// A checkout whose web app was never built has no index.html.
+	if (file === null) {
+		return new Response(
+			'The web app is not built. Run "bun run build" in the repository root, then restart db-studio.',
+			{ status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+		);
+	}
 	const hashed = filePath.startsWith(path.join(webDist, "assets", path.sep));
-	return new Response(await readFile(filePath), {
+	return new Response(file, {
 		headers: {
 			"Content-Type": CONTENT_TYPES[path.extname(filePath)] ?? "application/octet-stream",
 			"Cache-Control": hashed ? "public, max-age=31536000, immutable" : "no-cache",
@@ -124,16 +136,48 @@ const isAllowedOrigin = (origin: string | null): boolean => {
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 /**
- * The server listens on 127.0.0.1 and holds saved database passwords. A web page can still reach
- * it through DNS rebinding (its own domain resolving to 127.0.0.1), so a request must name a
- * loopback host in its `Host` header. Setting `HOST` to a non-loopback address opts out: the
- * user chose to serve db-studio on their network.
+ * The server holds saved database passwords. A web page can still reach it through DNS
+ * rebinding (its own domain resolving to 127.0.0.1), so a request must name an allowed host in
+ * its `Host` header, whatever address the server listens on. Loopback hosts are always allowed.
+ * To serve db-studio under another name (a LAN host, a reverse proxy), set `ALLOWED_HOSTS` to a
+ * comma-separated list of extra hostnames: no ports, no wildcards.
  */
 const isAllowedHost = (hostHeader: string): boolean => {
-	const listen = process.env.HOST;
-	if (listen && !LOOPBACK_HOSTS.has(listen)) return true;
 	const hostname = hostHeader.replace(/:\d+$/, "").toLowerCase();
-	return LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost");
+	if (LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost")) return true;
+	const allowed =
+		process.env.ALLOWED_HOSTS?.split(",")
+			.map((h) => h.trim().toLowerCase())
+			.filter(Boolean) ?? [];
+	return allowed.includes(hostname);
+};
+
+/**
+ * A GET needs no CORS preflight, so any page can make the browser send one here; its response is
+ * unreadable, but the request still runs. Browsers label such requests with `Sec-Fetch-Site`.
+ */
+const isCrossSiteRequest = (request: Request): boolean => {
+	const site = request.headers.get("sec-fetch-site");
+	return (
+		(site === "cross-site" || site === "same-site") &&
+		!isAllowedOrigin(request.headers.get("origin"))
+	);
+};
+
+const sha256 = (value: string) => createHash("sha256").update(value).digest();
+
+/**
+ * With `DB_STUDIO_PASSWORD` set (the CLI generates one when `HOST` is not loopback), every request
+ * needs HTTP Basic auth with that password and any username. The `Host` check is not auth: any
+ * non-browser client can send `Host: localhost`.
+ */
+const isAuthorized = (authorization: string | null): boolean => {
+	const password = process.env.DB_STUDIO_PASSWORD;
+	if (!password) return true;
+	if (!authorization?.startsWith("Basic ")) return false;
+	const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
+	const colon = decoded.indexOf(":");
+	return colon !== -1 && timingSafeEqual(sha256(decoded.slice(colon + 1)), sha256(password));
 };
 
 /**
@@ -192,6 +236,22 @@ export const createServer = () => {
 			if (!isAllowedHost(request.headers.get("host") ?? new URL(request.url).host)) {
 				throw new HTTPException(403, { message: "Host not allowed" });
 			}
+			// CORS preflights never carry credentials.
+			if (
+				request.method !== "OPTIONS" &&
+				!isAuthorized(request.headers.get("authorization"))
+			) {
+				return new Response("Authentication required", {
+					status: 401,
+					headers: { "WWW-Authenticate": 'Basic realm="db-studio", charset="UTF-8"' },
+				});
+			}
+			if (
+				new URL(request.url).pathname.startsWith(`${API_PREFIX}/`) &&
+				isCrossSiteRequest(request)
+			) {
+				throw new HTTPException(403, { message: "Cross-site request refused" });
+			}
 		})
 		.use(
 			cors({
@@ -199,6 +259,7 @@ export const createServer = () => {
 				methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 				allowedHeaders: [
 					"Content-Type",
+					"Authorization",
 					"X-Run-Id",
 					"X-Request-Id",
 					"X-Connection-Id",

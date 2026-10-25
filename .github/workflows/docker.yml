@@ -1,0 +1,64 @@
+name: Check Docker image
+
+on:
+  push:
+    branches:
+      - stage
+    paths: &p
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "bun.lock"
+      - "bunfig.toml"
+      - "package.json"
+      - "www/package.json"
+      - "packages/**"
+      - "scripts/docker.sh"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    branches:
+      - stage
+      - main
+    paths: *p
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    if: github.event_name != 'pull_request' || github.head_ref != 'stage'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Dockerfile Bun version matches packageManager
+        run: |
+          want=$(node -p "require('./package.json').packageManager.split('@')[1]")
+          have=$(sed -n 's/^ARG BUN_VERSION=//p' Dockerfile)
+          [ "$want" = "$have" ] || { echo "Dockerfile has $have, packageManager has $want"; exit 1; }
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: db-studio:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: bash scripts/docker.sh db-studio:ci
+
+      - name: Validate compose file
+        run: docker compose config -q

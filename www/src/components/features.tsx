@@ -1,4 +1,11 @@
-import { BookmarkIcon, CodeIcon, DatabaseIcon, SparklesIcon, TableIcon, ZapIcon } from "lucide-react";
+import {
+	BookmarkIcon,
+	CodeIcon,
+	DatabaseIcon,
+	SparklesIcon,
+	TableIcon,
+	ZapIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Feature = {
@@ -38,7 +45,8 @@ const features: Feature[] = [
 	{
 		icon: SparklesIcon,
 		title: "AI Assistant",
-		description: "Ask about your schema and draft queries in chat, with your own AI provider key.",
+		description:
+			"Ask about your schema and draft queries in chat, with your own AI provider key.",
 	},
 ];
 

@@ -195,4 +195,134 @@ describe("createServer", () => {
 			}
 		});
 	});
+	describe("Host check middleware", () => {
+		const saved = { HOST: process.env.HOST, ALLOWED_HOSTS: process.env.ALLOWED_HOSTS };
+
+		beforeEach(() => {
+			delete process.env.HOST;
+			delete process.env.ALLOWED_HOSTS;
+		});
+
+		afterEach(() => {
+			for (const [key, value] of Object.entries(saved)) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+		});
+
+		const statusFor = async (host: string) => {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", `http://${host}`)),
+			);
+			return res.status;
+		};
+
+		it.each([
+			"localhost",
+			"localhost:3333",
+			"127.0.0.1:3333",
+			"[::1]:3333",
+			"web.db-studio.localhost",
+		])("should allow %s", async (host) => {
+			expect(await statusFor(host)).not.toBe(403);
+		});
+
+		it.each(["evil.example", "localhost.evil.example", "127.0.0.1.evil.example"])(
+			"should reject %s with a 403",
+			async (host) => {
+				expect(await statusFor(host)).toBe(403);
+			},
+		);
+
+		it("should keep the check on when HOST is a non-loopback address", async () => {
+			process.env.HOST = "0.0.0.0";
+			expect(await statusFor("evil.example")).toBe(403);
+			expect(await statusFor("127.0.0.1:3333")).not.toBe(403);
+		});
+
+		it("should allow only the hosts listed in ALLOWED_HOSTS", async () => {
+			process.env.ALLOWED_HOSTS = "a.lan, 10.0.0.5 ,[fd00::1]";
+			expect(await statusFor("a.lan:3333")).not.toBe(403);
+			expect(await statusFor("10.0.0.5")).not.toBe(403);
+			expect(await statusFor("[fd00::1]:3333")).not.toBe(403);
+			expect(await statusFor("b.lan")).toBe(403);
+		});
+
+		it("should not treat * in ALLOWED_HOSTS as a wildcard", async () => {
+			process.env.ALLOWED_HOSTS = "*";
+			expect(await statusFor("evil.example")).toBe(403);
+		});
+	});
+
+	describe("Basic auth (GHSA-q37f-25p8-xvjj)", () => {
+		const saved = process.env.DB_STUDIO_PASSWORD;
+
+		afterEach(() => {
+			if (saved === undefined) delete process.env.DB_STUDIO_PASSWORD;
+			else process.env.DB_STUDIO_PASSWORD = saved;
+		});
+
+		const statusWith = async (authorization?: string) => {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", "http://localhost"), {
+					headers: authorization ? { authorization } : {},
+				}),
+			);
+			return res;
+		};
+		const basic = (user: string, password: string) =>
+			`Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`;
+
+		it("should ask for credentials when a password is set, even with Host: localhost", async () => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			const res = await statusWith();
+			expect(res.status).toBe(401);
+			expect(res.headers.get("www-authenticate")).toMatch(/^Basic /);
+		});
+
+		it.each([
+			["a wrong password", basic("admin", "wrong")],
+			["the password as the username", basic("s3cret:pass", "")],
+			["a non-Basic scheme", "Bearer s3cret:pass"],
+			["no colon", `Basic ${Buffer.from("s3cret:pass".replace(":", "")).toString("base64")}`],
+		])("should refuse %s", async (_, authorization) => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			expect((await statusWith(authorization)).status).toBe(401);
+		});
+
+		it("should accept the password with any username, including one containing no colon", async () => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			expect((await statusWith(basic("anyone", "s3cret:pass"))).status).not.toBe(401);
+			expect((await statusWith(basic("", "s3cret:pass"))).status).not.toBe(401);
+		});
+
+		it("should not ask for credentials without a password", async () => {
+			delete process.env.DB_STUDIO_PASSWORD;
+			expect((await statusWith()).status).not.toBe(401);
+		});
+	});
+
+	describe("Cross-site request guard (GHSA-vw88-9x6f-fcp5)", () => {
+		const statusFor = async (path: string, headers: Record<string, string>) =>
+			(await server.app.handle(new Request(new URL(path, "http://localhost"), { headers })))
+				.status;
+
+		it.each(["cross-site", "same-site"])(
+			"should refuse an API GET a page on another site sends (%s)",
+			async (site) => {
+				expect(
+					await statusFor("/api/pg/tables/users/data?db=x", {
+						"sec-fetch-site": site,
+						origin: "https://evil.example",
+					}),
+				).toBe(403);
+				expect(await statusFor("/api/databases", { "sec-fetch-site": site })).toBe(403);
+				expect(mockDao.getTableData).not.toHaveBeenCalled();
+			},
+		);
+
+		it.each(["same-origin", "none"])("should allow %s API requests", async (site) => {
+			expect(await statusFor("/api/databases", { "sec-fetch-site": site })).not.toBe(403);
+		});
+	});
 });

@@ -48,17 +48,15 @@ export const tableDataQuerySchema = z.object({
 		.optional()
 		.transform((val) => {
 			if (!val) return "";
-
 			try {
 				const parsed = JSON.parse(val);
-				if (Array.isArray(parsed)) {
-					return parsed;
-				}
-				return val;
+				return Array.isArray(parsed) ? parsed : val;
 			} catch {
 				return val;
 			}
-		}),
+		})
+		// Re-validate the parsed JSON: its fields reach SQL as identifiers and keywords.
+		.pipe(z.union([z.string(), z.array(sortSchema)])),
 	order: z.enum(sortDirections).optional(),
 	filters: z
 		.string()
@@ -70,7 +68,8 @@ export const tableDataQuerySchema = z.object({
 			} catch {
 				return [];
 			}
-		}),
+		})
+		.pipe(z.array(filterSchema)),
 });
 
 export type TableDataQuerySchemaType = z.infer<typeof tableDataQuerySchema>;

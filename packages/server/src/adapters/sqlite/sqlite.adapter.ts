@@ -259,15 +259,15 @@ export class SqliteAdapter extends BaseAdapter {
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
 			} else {
-				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause) {
-			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
-		const sql = `SELECT * FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT ?`;
+		const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`;
 		const values = [...filterValues, ...cursorValues, limit + 1];
-		const countSql = `SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`;
 
 		return { sql, values, countSql, countValues: filterValues };
 	}
@@ -335,7 +335,13 @@ export class SqliteAdapter extends BaseAdapter {
 
 			const client = await getSqliteClient();
 
-			const colInfoRows = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfoRows = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
+			if (colInfoRows.length === 0)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			const pkColumns: string[] = colInfoRows
 				.filter((c) => c.pk > 0)
 				.sort((a, b) => a.pk - b.pk)
@@ -391,20 +397,20 @@ export class SqliteAdapter extends BaseAdapter {
 						.replace(/TEMP_DESC/g, "DESC");
 					if (pkTieBreakerCols.length) {
 						const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${tbDir}`).join(", ")}`;
+						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
 					}
 				} else {
-					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 				}
 			} else if (!sortClause) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			} else if (pkTieBreakerCols.length) {
-				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			}
 
 			const [countRow] = await all<{ total: number }>(
 				client,
-				`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
+				`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
 				filterValues,
 			);
 			const total = Number(countRow?.total ?? 0);
@@ -413,7 +419,7 @@ export class SqliteAdapter extends BaseAdapter {
 			const selectClause = useRowid ? "*, rowid" : "*";
 			const dataRows = await all(
 				client,
-				`SELECT ${selectClause} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
+				`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
 				[...filterValues, ...cursorValues, limit + 1],
 			);
 
@@ -673,7 +679,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const columns = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const columns = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
 
 			const fkMap = new Map<string, FkRow>();
@@ -713,7 +722,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
@@ -743,7 +755,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -864,7 +879,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,

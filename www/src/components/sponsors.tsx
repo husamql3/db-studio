@@ -1,11 +1,11 @@
+import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
 import { PlusIcon } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
 	SPONSOR_EMAIL,
 	type Sponsor,
 	type SponsorTierId,
 	sponsorLogoUrl,
-	sponsorMailto,
 	sponsorTiers,
 } from "@/lib/content/sponsors";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,66 @@ const CELL_HEIGHTS: Record<SponsorTierId, string> = {
 	sponsor: "h-24",
 	platform: "h-24",
 };
+
+const ACTION =
+	"border bg-secondary/60 px-2.5 py-1 text-foreground/70 transition-colors duration-200 hover:text-foreground dark:bg-secondary/30";
+
+// Module-level so React calls it once on mount, not again on each re-render.
+const focusOnMount = (el: HTMLElement | null) => el?.focus();
+
+/** An empty slot; clicking it swaps the plus for the two ways to get in touch. */
+function OpenSpot({ tier }: { tier: SponsorTierId }) {
+	const [open, setOpen] = useState(false);
+	const [copied, copy] = useCopyButton(() => navigator.clipboard.writeText(SPONSOR_EMAIL));
+	const cell = cn(
+		"flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground",
+		CELL_HEIGHTS[tier],
+	);
+
+	if (open) {
+		return (
+			<div className={cell}>
+				<button
+					type="button"
+					// The slot button that had focus is gone, so hand focus to the first choice.
+					ref={focusOnMount}
+					onClick={copy}
+					aria-live="polite"
+					className={ACTION}
+				>
+					{copied ? "Copied" : "Copy email"}
+				</button>
+				<a
+					href="https://x.com/husamql3"
+					target="_blank"
+					rel="noopener noreferrer"
+					className={ACTION}
+				>
+					Message on X
+				</a>
+			</div>
+		);
+	}
+
+	return (
+		<button
+			type="button"
+			onClick={() => setOpen(true)}
+			className={cn(
+				cell,
+				"group transition-colors duration-200 hover:bg-secondary/40 hover:text-foreground dark:hover:bg-secondary/20",
+			)}
+		>
+			<span className="flex size-9 items-center justify-center border bg-secondary/60 text-foreground/70 transition-colors duration-200 group-hover:text-foreground dark:bg-secondary/30">
+				<PlusIcon
+					className="size-4"
+					strokeWidth={1.5}
+				/>
+			</span>
+			{tier === "platform" ? "Offer your platform" : "Your logo here"}
+		</button>
+	);
+}
 
 export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 	return (
@@ -57,7 +117,7 @@ export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 						<div className="grid grid-flow-col auto-cols-fr divide-x">
 							{inTier.map((sponsor) => (
 								<a
-									key={sponsor.name}
+									key={sponsor.id}
 									href={sponsor.url}
 									target="_blank"
 									// noopener only: noreferrer would hide the visit from the sponsor's analytics.
@@ -87,23 +147,10 @@ export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 							))}
 
 							{Array.from({ length: Math.max(0, tier.spots - inTier.length) }, (_, i) => (
-								<a
+								<OpenSpot
 									key={i}
-									href={sponsorMailto(tier)}
-									className={cn(
-										"group flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground transition-colors duration-200",
-										"hover:bg-secondary/40 hover:text-foreground dark:hover:bg-secondary/20",
-										CELL_HEIGHTS[tier.id],
-									)}
-								>
-									<span className="flex size-9 items-center justify-center border bg-secondary/60 text-foreground/70 transition-colors duration-200 group-hover:text-foreground dark:bg-secondary/30">
-										<PlusIcon
-											className="size-4"
-											strokeWidth={1.5}
-										/>
-									</span>
-									{tier.id === "platform" ? "Offer your platform" : "Your logo here"}
-								</a>
+									tier={tier.id}
+								/>
 							))}
 						</div>
 					</div>
