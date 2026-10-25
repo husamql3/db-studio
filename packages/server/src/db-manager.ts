@@ -21,6 +21,18 @@ import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
 /**
+ * Decode a URL's username, password or path segment, which `URL` keeps percent-encoded
+ * (`p%40ss` for `p@ss`). A `%` that starts no escape is kept as typed.
+ */
+const decodeUrlPart = (value: string): string => {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return value;
+	}
+};
+
+/**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, SQLite / libSQL, DuckDB and Redis
  */
 export class DatabaseManager {
@@ -93,8 +105,8 @@ export class DatabaseManager {
 			url: driverUrl,
 			host: url.hostname,
 			port: Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
-			user: url.username,
-			password: url.password,
+			user: decodeUrlPart(url.username),
+			password: decodeUrlPart(url.password),
 			dbType: detectedType,
 		};
 	}
@@ -254,8 +266,8 @@ export class DatabaseManager {
 		this.oraclePool ??= loadDriver("oracle")
 			.then((oracledb) =>
 				oracledb.createPool({
-					user: decodeURIComponent(user),
-					password: decodeURIComponent(password),
+					user,
+					password,
 					connectString: `${host}:${port}/${service}`,
 					poolMin: 0,
 					poolMax: 10,
@@ -363,7 +375,7 @@ export class DatabaseManager {
 
 		if (!this.mysqlPools.has(connectionString)) {
 			const url = new URL(connectionString);
-			const dbName = url.pathname.slice(1);
+			const dbName = decodeUrlPart(url.pathname.slice(1));
 
 			const pool = createPool({
 				host: config.host,
@@ -395,7 +407,7 @@ export class DatabaseManager {
 
 		if (!this.mssqlPools.has(connectionString)) {
 			const url = new URL(connectionString);
-			const dbName = url.pathname.slice(1);
+			const dbName = decodeUrlPart(url.pathname.slice(1));
 
 			const poolConfig: MssqlConfig = {
 				server: config.host,
@@ -436,8 +448,9 @@ export class DatabaseManager {
 	 * `clickhouse://` maps to http, `clickhouses://` to https (default port 8443).
 	 */
 	async getClickhouseClient(database?: string): Promise<ClickHouseClient> {
+		const config = this.config();
 		const url = new URL(this.buildConnectionString(database));
-		const dbName = decodeURIComponent(url.pathname.slice(1)) || "default";
+		const dbName = decodeUrlPart(url.pathname.slice(1)) || "default";
 		const { ClickHouseLogLevel, createClient } = await loadDriver("clickhouse");
 
 		const existing = this.clickhouseClients.get(dbName);
@@ -446,8 +459,8 @@ export class DatabaseManager {
 		const tls = url.protocol === "clickhouses:";
 		const client = createClient({
 			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
-			username: decodeURIComponent(url.username) || "default",
-			password: decodeURIComponent(url.password),
+			username: config.user || "default",
+			password: config.password,
 			database: dbName,
 			request_timeout: 30_000,
 			clickhouse_settings: {
@@ -573,13 +586,9 @@ export class DatabaseManager {
 	 * Get the MongoDB database name from the connection URL
 	 */
 	getMongoDbName(): string {
-		const raw = new URL(this.config().url).pathname.replace(/^\/+|\/+$/g, "");
-		try {
-			return decodeURIComponent(raw) || "admin";
-		} catch {
-			// Malformed percent-encoding — fall back to the literal path segment.
-			return raw || "admin";
-		}
+		return (
+			decodeUrlPart(new URL(this.config().url).pathname.replace(/^\/+|\/+$/g, "")) || "admin"
+		);
 	}
 
 	/**
@@ -614,8 +623,8 @@ export class DatabaseManager {
 			enableReadyCheck: true,
 			connectTimeout: 2000,
 		};
-		if (config.user) options.username = decodeURIComponent(config.user);
-		if (config.password) options.password = decodeURIComponent(config.password);
+		if (config.user) options.username = config.user;
+		if (config.password) options.password = config.password;
 		if (url.protocol === "rediss:") options.tls = {};
 
 		const { Redis } = await loadDriver("redis");
