@@ -26,7 +26,7 @@ import { toDriverUrl } from "@/utils/parse-database-url.js";
  */
 const decodeUrlPart = (value: string): string => {
 	try {
-		return decodeURIComponent(value);
+		return decodeURIComponent(value.replace(/%(?![0-9a-fA-F]{2})/g, "%25"));
 	} catch {
 		return value;
 	}
@@ -141,14 +141,10 @@ export class DatabaseManager {
 			return config.url;
 		}
 
-		if (!database) {
-			const url = new URL(config.url);
-			database = url.pathname.slice(1);
-		}
-
 		try {
 			const url = new URL(config.url);
-			url.pathname = `/${database}`;
+			// The name is literal; encoded, the drivers decode it back (`sales%41` stays `sales%41`).
+			if (database) url.pathname = `/${encodeURIComponent(database)}`;
 			return url.toString();
 		} catch (error) {
 			throw new Error(

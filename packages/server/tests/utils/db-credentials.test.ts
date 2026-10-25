@@ -9,9 +9,11 @@
  * 2. A character typed unencoded that `URL` encodes on parse (`;`, `=`) reaches the driver as
  *    `%3B`, `%3D`.
  * 3. A password decoded twice: `100%2541` must arrive as `100%41`, not `100A`.
- * 4. A `%` that starts no escape (`100%`) throws a URIError instead of reaching the driver as typed.
+ * 4. A `%` that starts no escape throws a URIError, or makes the escapes around it reach the driver
+ *    undecoded: `p%40ss%` must arrive as `p@ss%`.
  * 5. A database name with an encoded character (`my%20db`) reaches the driver encoded.
- * 6. An alias rewrite (`mariadb://` to `mysql://`) changes the credentials it re-serializes.
+ * 6. A database name passed by the app (`sales%41`) is decoded as if it came from the URL.
+ * 7. An alias rewrite (`mariadb://` to `mysql://`) changes the credentials it re-serializes.
  */
 import { describe, expect, it, vi } from "vitest";
 
@@ -113,7 +115,7 @@ describe.each(ENGINES)("%s credentials", (_engine, template) => {
 	});
 
 	it("keeps a % that starts no escape", async () => {
-		expect(await driverConfig(url("test:100%"))).toMatchObject({ password: "100%" });
+		expect(await driverConfig(url("test:p%40ss%"))).toMatchObject({ password: "p@ss%" });
 	});
 });
 
@@ -124,6 +126,12 @@ describe("database names", () => {
 		"clickhouse://u:p@localhost:8123/my%20db",
 	])("decodes %s", async (url) => {
 		expect(await driverConfig(url)).toMatchObject({ database: "my db" });
+	});
+
+	it("keeps a name passed by the app as given", async () => {
+		received.length = 0;
+		await new DatabaseManager("mysql://u:p@localhost:3306/db").getMysqlPool("sales%41 db");
+		expect(received[0]).toMatchObject({ database: "sales%41 db" });
 	});
 });
 
