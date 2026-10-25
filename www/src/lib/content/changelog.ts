@@ -16,6 +16,27 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.23.0",
+		date: "2026-10-25",
+		title: "A password for network access",
+		tags: ["Security"],
+		features: [
+			{
+				text: "When db-studio listens on your network or runs in Docker, the browser asks for a password; set it with DB_STUDIO_PASSWORD or use the one printed at startup",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Table filters and sorting no longer let crafted column names run SQL",
+				username: "SecFathy",
+			},
+			{
+				text: "Other websites can no longer make your browser send requests to db-studio",
+				username: "SecFathy",
+			},
+		],
+	},
+	{
 		version: "1.22.0",
 		date: "2026-10-23",
 		title: "Docker Compose and a tidier sidebar",
