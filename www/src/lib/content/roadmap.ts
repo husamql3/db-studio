@@ -66,8 +66,16 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Interactive ER diagram with relationship navigation and join query generation",
+				title: "Schema visualizer: an ER diagram of every table and its foreign keys",
+				status: "completed",
+			},
+			{
+				title: "Generate join queries from relationships in the ER diagram",
 				status: "planned",
+			},
+			{
+				title: "Logs tab for reading database server logs",
+				status: "completed",
 			},
 			{
 				title: "Schema section for views, functions, triggers, and extensions",
@@ -113,8 +121,12 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Smart dropdowns for related tables with search and easy navigation",
-				status: "in-progress",
+				title: "Browse, filter, sort, and select related records when adding a row",
+				status: "completed",
+			},
+			{
+				title: "Searchable dropdowns for related records",
+				status: "planned",
 			},
 			{
 				title: "Export table data and copy table structure as SQL",
@@ -129,7 +141,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Bulk edit rows, clone records, and preview pending changes before saving",
+				title: "Edit multiple rows and save or discard pending cell changes together",
+				status: "completed",
+			},
+			{
+				title: "Clone records and preview pending changes before saving",
 				status: "planned",
 			},
 			{
@@ -154,6 +170,10 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
+				title: "Delete tables and records, with foreign key handling and confirmation",
+				status: "completed",
+			},
+			{
 				title: "Rename tables across all SQL databases and MongoDB",
 				status: "completed",
 			},
@@ -163,7 +183,11 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Live mode for MySQL, SQL Server, SQLite, and MongoDB",
+				title: "Live mode for MySQL, SQL Server, SQLite, DuckDB, and Oracle",
+				status: "completed",
+			},
+			{
+				title: "Live mode for MongoDB",
 				status: "planned",
 			},
 		],
@@ -227,8 +251,8 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{ title: "Add full support for SQLite databases", status: "completed" },
 			{
-				title: "Add full support for MariaDB databases",
-				status: "planned",
+				title: "Add support for MariaDB, CockroachDB, and TiDB databases",
+				status: "completed",
 			},
 			{
 				title: "Add full support for Oracle databases",
@@ -244,6 +268,10 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Add support for ClickHouse analytics databases",
+				status: "completed",
+			},
+			{
+				title: "Add support for libSQL, Turso, and Cloudflare D1 databases",
 				status: "completed",
 			},
 			{
@@ -276,8 +304,9 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Saved connection manager to add, label, edit, and switch between connections",
-				status: "in-progress",
+				title:
+					"Saved connections: connect from the Connect page, then filter, rename, color, delete, and switch between them",
+				status: "completed",
 			},
 			{
 				title: "SSH tunnels, SSL/TLS options, and connection templates",
@@ -315,15 +344,20 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Advanced Tools",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Drag-and-drop visual tool to build queries without writing SQL",
 				status: "planned",
 			},
 			{
-				title: "Compare database structures and generate migration scripts",
-				status: "planned",
+				title:
+					"Migrations diff: compare two database structures and get a step-by-step migration script with risky changes flagged",
+				status: "in-progress",
+			},
+			{
+				title: "Prisma migrations view showing applied, pending, and failed migrations",
+				status: "in-progress",
 			},
 			{
 				title: "Turn query results into charts directly in the app",

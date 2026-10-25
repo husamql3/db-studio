@@ -31,6 +31,9 @@ export const SidebarListTables = () => {
 	);
 	const showSchemaDropdown = (engine?.schemaSelector ?? false) && schemas.length > 1;
 
+	// One schema in view: the dropdown already names it, so the prefix only widens rows.
+	const showSchemaName = selectedSchema === "all" && schemas.length > 1;
+
 	const filteredTables = tablesList?.filter((table) => {
 		const matchesSchema = selectedSchema === "all" || table.schemaName === selectedSchema;
 		const matchesSearch = table.tableName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -72,6 +75,7 @@ export const SidebarListTables = () => {
 									table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
 								}
 								schemaName={table.schemaName}
+								showSchemaName={showSchemaName}
 								tableName={table.tableName}
 								rowCount={table.rowCount}
 								rowCountEstimated={table.rowCountEstimated}

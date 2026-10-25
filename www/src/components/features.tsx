@@ -1,4 +1,4 @@
-import { CodeIcon, DatabaseIcon, TableIcon, ZapIcon } from "lucide-react";
+import { BookmarkIcon, CodeIcon, DatabaseIcon, SparklesIcon, TableIcon, ZapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Feature = {
@@ -29,6 +29,17 @@ const features: Feature[] = [
 		title: "Query Editor",
 		description: "Monaco-powered SQL editor with syntax highlighting built right in.",
 	},
+	{
+		icon: BookmarkIcon,
+		title: "Saved Connections",
+		description:
+			"Every database you open is remembered. Switch, rename, and color connections without leaving the app.",
+	},
+	{
+		icon: SparklesIcon,
+		title: "AI Assistant",
+		description: "Ask about your schema and draft queries in chat, with your own AI provider key.",
+	},
 ];
 
 export function FeaturesGrid() {
@@ -40,7 +51,7 @@ export function FeaturesGrid() {
 					feature={feature}
 					className={cn(
 						i % 2 === 0 && "sm:border-r",
-						i < 2 && "sm:border-b!",
+						i < features.length - 2 && "sm:border-b!",
 						i < features.length - 1 && "border-b sm:border-b-0",
 					)}
 				/>
