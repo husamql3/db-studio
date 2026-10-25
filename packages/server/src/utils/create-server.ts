@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
@@ -152,6 +153,34 @@ const isAllowedHost = (hostHeader: string): boolean => {
 };
 
 /**
+ * A GET needs no CORS preflight, so any page can make the browser send one here; its response is
+ * unreadable, but the request still runs. Browsers label such requests with `Sec-Fetch-Site`.
+ */
+const isCrossSiteRequest = (request: Request): boolean => {
+	const site = request.headers.get("sec-fetch-site");
+	return (
+		(site === "cross-site" || site === "same-site") &&
+		!isAllowedOrigin(request.headers.get("origin"))
+	);
+};
+
+const sha256 = (value: string) => createHash("sha256").update(value).digest();
+
+/**
+ * With `DB_STUDIO_PASSWORD` set (the CLI generates one when `HOST` is not loopback), every request
+ * needs HTTP Basic auth with that password and any username. The `Host` check is not auth: any
+ * non-browser client can send `Host: localhost`.
+ */
+const isAuthorized = (authorization: string | null): boolean => {
+	const password = process.env.DB_STUDIO_PASSWORD;
+	if (!password) return true;
+	if (!authorization?.startsWith("Basic ")) return false;
+	const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
+	const colon = decoded.indexOf(":");
+	return colon !== -1 && timingSafeEqual(sha256(decoded.slice(colon + 1)), sha256(password));
+};
+
+/**
  * Gives every request one ID, reused from the caller when it sent one, so the browser, this
  * server's logs and error reports, and the AI proxy all name the same request. API requests also
  * get a tracing span and a `server_operation` event.
@@ -207,6 +236,22 @@ export const createServer = () => {
 			if (!isAllowedHost(request.headers.get("host") ?? new URL(request.url).host)) {
 				throw new HTTPException(403, { message: "Host not allowed" });
 			}
+			// CORS preflights never carry credentials.
+			if (
+				request.method !== "OPTIONS" &&
+				!isAuthorized(request.headers.get("authorization"))
+			) {
+				return new Response("Authentication required", {
+					status: 401,
+					headers: { "WWW-Authenticate": 'Basic realm="db-studio", charset="UTF-8"' },
+				});
+			}
+			if (
+				new URL(request.url).pathname.startsWith(`${API_PREFIX}/`) &&
+				isCrossSiteRequest(request)
+			) {
+				throw new HTTPException(403, { message: "Cross-site request refused" });
+			}
 		})
 		.use(
 			cors({
@@ -214,6 +259,7 @@ export const createServer = () => {
 				methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 				allowedHeaders: [
 					"Content-Type",
+					"Authorization",
 					"X-Run-Id",
 					"X-Request-Id",
 					"X-Connection-Id",

@@ -165,13 +165,14 @@ export class PgAdapter extends BaseAdapter {
 					.replace(/TEMP_DESC/g, "DESC");
 			} else {
 				const parts = cursorColumns.map(
-					(col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
+					(col) =>
+						`${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
 				);
 				effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
 			}
 		} else if (!sortClause && cursorColumns.length > 0) {
 			const parts = cursorColumns.map(
-				(col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`,
+				(col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`,
 			);
 			effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
 		}
@@ -315,13 +316,14 @@ export class PgAdapter extends BaseAdapter {
 					.replace(/TEMP_DESC/g, "DESC");
 			} else {
 				const parts = cursorColumns.map(
-					(col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
+					(col) =>
+						`${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
 				);
 				effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
 			}
 		} else if (!sortClause && cursorColumns.length > 0) {
 			const parts = cursorColumns.map(
-				(col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`,
+				(col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`,
 			);
 			effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
 		}
@@ -339,7 +341,10 @@ export class PgAdapter extends BaseAdapter {
 		// selected explicitly; ctid is a reserved system column name, so selecting it by name
 		// cannot shadow a user column.
 		const usesCtid = cursorColumns.includes("ctid");
-		const extraSelect = [...pkColumns.map((col) => `"${col}"`), ...(usesCtid ? ["ctid"] : [])];
+		const extraSelect = [
+			...pkColumns.map((col) => this.quoteIdentifier(col)),
+			...(usesCtid ? ["ctid"] : []),
+		];
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
