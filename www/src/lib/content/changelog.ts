@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.22.1",
+		date: "2026-10-25",
+		title: "Passwords with special characters",
+		bugsFixed: [
+			{
+				text: "MySQL, MariaDB and SQL Server connections now accept usernames, passwords and database names with special characters such as @, ; or =",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.22.0",
 		date: "2026-10-23",
 		title: "Docker Compose and a tidier sidebar",
