@@ -107,7 +107,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	}
 
 	protected quoteIdentifier(name: string): string {
-		return `[${name}]`;
+		return quote(name);
 	}
 
 	mapToUniversalType(nativeType: string): DataTypes {
@@ -137,10 +137,10 @@ export class MsSqlAdapter extends BaseAdapter {
 		const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
 		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 
-		const sql = `SELECT * FROM [${tableName}] ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`;
+		const sql = `SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`;
 		const values = [...filterValues, currentOffset, limit + 1];
 
-		const countSql = `SELECT COUNT(*) as total FROM [${tableName}] ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
 		return { sql, values, countSql, countValues: filterValues };
 	}
 
@@ -199,7 +199,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			dataRequest.input(`p${nextIdx + 1}`, limit + 1);
 
 			const dataResult = await dataRequest.query(
-				`SELECT * FROM [${tableName}] ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
+				`SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
 			);
 
 			let rows = dataResult.recordset as Record<string, unknown>[];

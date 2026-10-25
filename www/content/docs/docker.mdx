@@ -51,6 +51,7 @@ Saved connections are stored in `/home/node/config` inside the container. The na
 | `PORT` | `3333` | Port the server listens on |
 | `DB_STUDIO_CONFIG_DIR` | `/home/node/config` | Where saved connections are stored |
 | `ALLOWED_HOSTS` | (empty) | Extra hostnames allowed in the `Host` header, comma-separated, no ports or wildcards |
+| `DB_STUDIO_PASSWORD` | (generated) | Password the browser asks for; any username works |
  
 The container runs as the unprivileged `node` user (uid 1000).
 
@@ -62,4 +63,12 @@ Requests are accepted only for loopback hostnames. To use another name, such as 
 -e ALLOWED_HOSTS=db.lan,10.0.0.5
 ```
 
-Only do this on a network you trust, since db-studio has no authentication.
+### Password
+
+Because the image binds to `0.0.0.0`, db-studio asks for a password. Sign in with any username and the password printed in `docker logs`; it changes on every start. To keep a fixed one, export `DB_STUDIO_PASSWORD` in your shell and pass it through:
+
+```bash
+-e DB_STUDIO_PASSWORD
+```
+
+The password travels in plain text over HTTP, so put db-studio behind a TLS reverse proxy before you open it to an untrusted network.

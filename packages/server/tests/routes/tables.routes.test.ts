@@ -87,6 +87,24 @@ describe("Tables Routes", () => {
 	});
 
 	describe("GET /pg/tables/:tableName/data", () => {
+		it("should return 400 when a sort direction carries SQL (GHSA-vw88-9x6f-fcp5)", async () => {
+			const sort = encodeURIComponent(
+				JSON.stringify([{ columnName: "id", direction: "ASC, (SELECT pg_sleep(2))" }]),
+			);
+			const res = await app.handle(new Request(new URL(`/api/pg/tables/users/data?db=testdb&sort=${sort}`, "http://localhost")));
+
+			expect(res.status).toBe(400);
+			expect(mockDao.getTableData).not.toHaveBeenCalled();
+		});
+
+		it("should return 400 when a filter is not a filter object", async () => {
+			const filters = encodeURIComponent(JSON.stringify([{ columnName: "id", operator: "=" }]));
+			const res = await app.handle(new Request(new URL(`/api/pg/tables/users/data?db=testdb&filters=${filters}`, "http://localhost")));
+
+			expect(res.status).toBe(400);
+			expect(mockDao.getTableData).not.toHaveBeenCalled();
+		});
+
 		it("should return 400 for invalid direction parameter", async () => {
 			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&direction=invalid", "http://localhost")));
 
