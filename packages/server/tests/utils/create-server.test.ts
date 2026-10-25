@@ -253,4 +253,76 @@ describe("createServer", () => {
 			expect(await statusFor("evil.example")).toBe(403);
 		});
 	});
+
+	describe("Basic auth (GHSA-q37f-25p8-xvjj)", () => {
+		const saved = process.env.DB_STUDIO_PASSWORD;
+
+		afterEach(() => {
+			if (saved === undefined) delete process.env.DB_STUDIO_PASSWORD;
+			else process.env.DB_STUDIO_PASSWORD = saved;
+		});
+
+		const statusWith = async (authorization?: string) => {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", "http://localhost"), {
+					headers: authorization ? { authorization } : {},
+				}),
+			);
+			return res;
+		};
+		const basic = (user: string, password: string) =>
+			`Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`;
+
+		it("should ask for credentials when a password is set, even with Host: localhost", async () => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			const res = await statusWith();
+			expect(res.status).toBe(401);
+			expect(res.headers.get("www-authenticate")).toMatch(/^Basic /);
+		});
+
+		it.each([
+			["a wrong password", basic("admin", "wrong")],
+			["the password as the username", basic("s3cret:pass", "")],
+			["a non-Basic scheme", "Bearer s3cret:pass"],
+			["no colon", `Basic ${Buffer.from("s3cret:pass".replace(":", "")).toString("base64")}`],
+		])("should refuse %s", async (_, authorization) => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			expect((await statusWith(authorization)).status).toBe(401);
+		});
+
+		it("should accept the password with any username, including one containing no colon", async () => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			expect((await statusWith(basic("anyone", "s3cret:pass"))).status).not.toBe(401);
+			expect((await statusWith(basic("", "s3cret:pass"))).status).not.toBe(401);
+		});
+
+		it("should not ask for credentials without a password", async () => {
+			delete process.env.DB_STUDIO_PASSWORD;
+			expect((await statusWith()).status).not.toBe(401);
+		});
+	});
+
+	describe("Cross-site request guard (GHSA-vw88-9x6f-fcp5)", () => {
+		const statusFor = async (path: string, headers: Record<string, string>) =>
+			(await server.app.handle(new Request(new URL(path, "http://localhost"), { headers })))
+				.status;
+
+		it.each(["cross-site", "same-site"])(
+			"should refuse an API GET a page on another site sends (%s)",
+			async (site) => {
+				expect(
+					await statusFor("/api/pg/tables/users/data?db=x", {
+						"sec-fetch-site": site,
+						origin: "https://evil.example",
+					}),
+				).toBe(403);
+				expect(await statusFor("/api/databases", { "sec-fetch-site": site })).toBe(403);
+				expect(mockDao.getTableData).not.toHaveBeenCalled();
+			},
+		);
+
+		it.each(["same-origin", "none"])("should allow %s API requests", async (site) => {
+			expect(await statusFor("/api/databases", { "sec-fetch-site": site })).not.toBe(403);
+		});
+	});
 });

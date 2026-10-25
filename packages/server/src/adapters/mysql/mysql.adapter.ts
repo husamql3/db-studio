@@ -100,7 +100,7 @@ export class MySqlAdapter extends BaseAdapter {
 	}
 
 	protected quoteIdentifier(name: string): string {
-		return `\`${name}\``;
+		return quote(name);
 	}
 
 	mapToUniversalType(nativeType: string): DataTypes {
@@ -171,15 +171,15 @@ export class MySqlAdapter extends BaseAdapter {
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
 			} else if (sortColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `\`${col}\` ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${quote(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause && sortColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
-		const sql = `SELECT * FROM \`${tableName}\` ${combinedWhere} ${effectiveSortClause} LIMIT ${limit + 1}`;
+		const sql = `SELECT * FROM ${quote(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${limit + 1}`;
 		const values = [...filterValues, ...cursorValues];
-		const countSql = `SELECT COUNT(*) as total FROM \`${tableName}\` ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
 
 		return { sql, values, countSql, countValues: filterValues };
 	}
@@ -293,19 +293,19 @@ export class MySqlAdapter extends BaseAdapter {
 					.replace(/TEMP_DESC/g, "DESC");
 				if (pkTieBreakerCols.length) {
 					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${tbDir}`).join(", ")}`;
+					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${tbDir}`).join(", ")}`;
 				}
 			} else if (cursorColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `\`${col}\` ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quote(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause && cursorColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		} else if (pkTieBreakerCols.length) {
-			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
 		const [dataRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT * FROM \`${tableName}\` ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
+			`SELECT * FROM ${quote(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
 			[...filterValues, ...cursorValues] as any,
 		);
 

@@ -19,6 +19,7 @@ services:
     # environment:
     #   DATABASE_URL: postgresql://user:pass@host.docker.internal:5432/db
     #   ALLOWED_HOSTS: db.lan
+    #   DB_STUDIO_PASSWORD: change-me
 
 volumes:
   db-studio-config:
