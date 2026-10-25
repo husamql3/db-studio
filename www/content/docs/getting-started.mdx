@@ -58,7 +58,7 @@ the browser only ever sees URLs with the password hidden. Switch connections fro
 connection name in the sidebar footer, or open **All connections…** to rename, color or
 delete them.
 
-The server listens on `127.0.0.1` only. To reach it from another machine, set `HOST=0.0.0.0` and list the hostname or IP you connect through in `ALLOWED_HOSTS`, for example `ALLOWED_HOSTS=db.lan,10.0.0.5`. Use comma-separated hostnames without ports; put IPv6 addresses in brackets. Localhost access needs no override. Off `127.0.0.1`, the browser asks for a password: use any username and the password printed at startup, or set your own with `DB_STUDIO_PASSWORD`.
+The server listens on `127.0.0.1` only. To reach it from another machine, set `HOST=0.0.0.0` and list the hostname or IP you connect through in `ALLOWED_HOSTS`, for example `ALLOWED_HOSTS=db.lan,10.0.0.5`. Use comma-separated hostnames without ports; put IPv6 addresses in brackets. Localhost access needs no override. When `HOST` is not loopback (`127.0.0.1`, `localhost` or `::1`), the browser asks for a password: use any username and the password printed at startup, or set your own with `DB_STUDIO_PASSWORD`.
 
 ### Setting Up Your Database Connection
 

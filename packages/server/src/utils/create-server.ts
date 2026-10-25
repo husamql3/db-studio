@@ -259,6 +259,7 @@ export const createServer = () => {
 				methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 				allowedHeaders: [
 					"Content-Type",
+					"Authorization",
 					"X-Run-Id",
 					"X-Request-Id",
 					"X-Connection-Id",

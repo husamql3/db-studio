@@ -65,10 +65,10 @@ Requests are accepted only for loopback hostnames. To use another name, such as 
 
 ### Password
 
-Because the image binds to `0.0.0.0`, db-studio asks for a password. Sign in with any username and the password printed in `docker logs`; it changes on every start. Set `DB_STUDIO_PASSWORD` to choose a fixed one:
+Because the image binds to `0.0.0.0`, db-studio asks for a password. Sign in with any username and the password printed in `docker logs`; it changes on every start. To keep a fixed one, export `DB_STUDIO_PASSWORD` in your shell and pass it through:
 
 ```bash
--e DB_STUDIO_PASSWORD=change-me
+-e DB_STUDIO_PASSWORD
 ```
 
 The password travels in plain text over HTTP, so put db-studio behind a TLS reverse proxy before you open it to an untrusted network.
