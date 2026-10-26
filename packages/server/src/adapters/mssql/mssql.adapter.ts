@@ -57,6 +57,11 @@ import {
 const MSSQL_FK_VIOLATION = 547;
 /** sp_readerrorlog is limited to the securityadmin role. */
 const MSSQL_NOT_SECURITYADMIN = 15003;
+/** The login may not EXECUTE sp_readerrorlog at all. */
+const MSSQL_NO_EXECUTE_PERMISSION = 27219;
+/** The login sees a table but may not SELECT from it (229) or from one of its columns (230). */
+const isSelectDenied = (e: unknown) =>
+	[229, 230].includes((e as { number?: number }).number ?? 0);
 /** Azure SQL Database has no sp_readerrorlog. */
 const MSSQL_NO_SUCH_PROCEDURE = 2812;
 /** The header line the error log writes above the message of every raised error. */
@@ -233,15 +238,17 @@ export class MsSqlAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const pool = await getMssqlPool();
+			// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
+			// optional; HAS_DBACCESS drops databases the login cannot open.
 			const result = await pool.request().query(`
 				SELECT
 				  d.name AS name,
-				  CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB' AS size,
-				  SUSER_SNAME(d.owner_sid) AS owner,
+				  ISNULL(CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB', '') AS size,
+				  ISNULL(SUSER_SNAME(d.owner_sid), '') AS owner,
 				  d.collation_name AS encoding
 				FROM sys.databases d
-				JOIN sys.master_files mf ON d.database_id = mf.database_id
-				WHERE (d.database_id > 4 OR d.name = DB_NAME())
+				LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
+				WHERE (d.database_id > 4 OR d.name = DB_NAME()) AND HAS_DBACCESS(d.name) = 1
 				GROUP BY d.name, d.owner_sid, d.collation_name
 				ORDER BY d.name
 			`);
@@ -271,7 +278,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			  DB_NAME() AS database_name,
 			  SUSER_NAME() AS [user],
 			  @@SERVERNAME AS host,
-			  (SELECT local_tcp_port FROM sys.dm_exec_connections WHERE session_id = @@SPID) AS port,
+			  CONNECTIONPROPERTY('local_tcp_port') AS port,
 			  @@MAX_CONNECTIONS AS max_connections,
 			  (SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process = 1) AS active_connections
 		`);
@@ -306,10 +313,15 @@ export class MsSqlAdapter extends BaseAdapter {
 				if (estimate >= EXACT_COUNT_LIMIT) {
 					return { tableName, rowCount: estimate, rowCountEstimated: true };
 				}
-				const countResult = await pool
-					.request()
-					.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
-				return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
+				try {
+					const countResult = await pool
+						.request()
+						.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
+					return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
+				} catch (e) {
+					if (!isSelectDenied(e)) throw e;
+					return { tableName, rowCount: estimate, rowCountEstimated: true };
+				}
 			}),
 		);
 	}
@@ -802,7 +814,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			return { available: true, source: "sp_readerrorlog", entries: newestEntries(entries) };
 		} catch (e) {
 			const number = (e as { number?: number }).number;
-			if (number === MSSQL_NOT_SECURITYADMIN) {
+			if (number === MSSQL_NOT_SECURITYADMIN || number === MSSQL_NO_EXECUTE_PERMISSION) {
 				return logsUnavailable(
 					"Reading the error log needs the securityadmin server role: ALTER SERVER ROLE securityadmin ADD MEMBER <login>;",
 				);
@@ -1222,7 +1234,12 @@ export class MsSqlAdapter extends BaseAdapter {
 
 		const cleanedQuery = query.trim().replace(/;+$/, "");
 		const start = performance.now();
-		const result = await pool.request().query(cleanedQuery);
+		const result = await pool
+			.request()
+			.query(cleanedQuery)
+			.catch((e) => {
+				throw this.wrapError(e);
+			});
 		const duration = performance.now() - start;
 
 		if (result.recordset) {
@@ -1398,8 +1415,16 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	private async getTableRowCount(tableName: string, db: string): Promise<number> {
 		const pool = await getMssqlPool(db);
-		const result = await pool.request().query(`SELECT COUNT(*) as count FROM [${tableName}]`);
-		return Number(result.recordset[0]?.count ?? 0);
+		try {
+			const result = await pool
+				.request()
+				.query(`SELECT COUNT(*) as count FROM [${tableName}]`);
+			return Number(result.recordset[0]?.count ?? 0);
+		} catch (e) {
+			// A login may drop a table it cannot read.
+			if (!isSelectDenied(e)) throw e;
+			return (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+		}
 	}
 
 	private async getPrimaryKeyColumns(pool: MssqlPool, tableName: string): Promise<string[]> {
