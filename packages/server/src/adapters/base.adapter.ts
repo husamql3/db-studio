@@ -178,7 +178,12 @@ export abstract class BaseAdapter implements IDbAdapter {
 				return new HTTPException(503, { message: e.message, cause: e });
 			}
 			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
-			if (isPgDatabaseError(e) && e.code === "42501") {
+			// SQL Server 229/230: the login lacks a permission on a table or column.
+			const mssqlNumber = (e as { number?: number }).number;
+			if (
+				(isPgDatabaseError(e) && e.code === "42501") ||
+				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
+			) {
 				return new HTTPException(403, { message: e.message, cause: e });
 			}
 

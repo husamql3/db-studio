@@ -233,15 +233,17 @@ export class MsSqlAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const pool = await getMssqlPool();
+			// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
+			// optional; HAS_DBACCESS drops databases the login cannot open.
 			const result = await pool.request().query(`
 				SELECT
 				  d.name AS name,
-				  CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB' AS size,
-				  SUSER_SNAME(d.owner_sid) AS owner,
+				  ISNULL(CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB', '') AS size,
+				  ISNULL(SUSER_SNAME(d.owner_sid), '') AS owner,
 				  d.collation_name AS encoding
 				FROM sys.databases d
-				JOIN sys.master_files mf ON d.database_id = mf.database_id
-				WHERE (d.database_id > 4 OR d.name = DB_NAME())
+				LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
+				WHERE (d.database_id > 4 OR d.name = DB_NAME()) AND HAS_DBACCESS(d.name) = 1
 				GROUP BY d.name, d.owner_sid, d.collation_name
 				ORDER BY d.name
 			`);
@@ -271,7 +273,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			  DB_NAME() AS database_name,
 			  SUSER_NAME() AS [user],
 			  @@SERVERNAME AS host,
-			  (SELECT local_tcp_port FROM sys.dm_exec_connections WHERE session_id = @@SPID) AS port,
+			  CONNECTIONPROPERTY('local_tcp_port') AS port,
 			  @@MAX_CONNECTIONS AS max_connections,
 			  (SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process = 1) AS active_connections
 		`);
@@ -306,10 +308,16 @@ export class MsSqlAdapter extends BaseAdapter {
 				if (estimate >= EXACT_COUNT_LIMIT) {
 					return { tableName, rowCount: estimate, rowCountEstimated: true };
 				}
-				const countResult = await pool
-					.request()
-					.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
-				return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
+				try {
+					const countResult = await pool
+						.request()
+						.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
+					return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
+				} catch (e) {
+					// 229: the login sees the table but cannot SELECT from it.
+					if ((e as { number?: number }).number !== 229) throw e;
+					return { tableName, rowCount: estimate, rowCountEstimated: true };
+				}
 			}),
 		);
 	}
