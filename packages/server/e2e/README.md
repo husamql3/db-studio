@@ -72,6 +72,21 @@ DATABASE_URL='mssql://sa:DbStudio1!@127.0.0.1:1433/dbstudio' bunx tsx e2e/row-es
 
 The database must be disposable. Writes `e2e/artifacts/row-estimates-<mysql|mssql>.json`.
 
+## Record writes and paging regressions
+
+Force deletes a user referenced twice from one table (as sender and as recipient) and checks that
+both messages go. On PostgreSQL it also saves an edit that fails halfway, 20 times while looping
+queries keep the pool busy, and checks the first change was rolled back and no save hung; then it
+pages one row at a time, forward and back, through NULL sort values and a mixed-direction sort.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/audit-regressions.ts
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/audit-regressions.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/audit-regressions-<pg|mysql>.json`.
+
 ## Run the Oracle review probe
 
 The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp

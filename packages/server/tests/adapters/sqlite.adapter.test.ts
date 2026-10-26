@@ -7,6 +7,9 @@
  * - deleteRecords on a referenced row surfaces a 500 instead of fkViolation with the child rows
  * - getTableColumns loses the FK target or the PK flag (live mode and the FK picker need both)
  * - renameTable breaks on a table name containing a double quote
+ * - alterColumn's table rebuild drops UNIQUE, CHECK, COLLATE, AUTOINCREMENT or a generated
+ *   column, on the edited column or any other
+ * - alterColumn keeps the edited column's old NOT NULL or DEFAULT
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +22,7 @@ vi.unmock("@/db-manager.js");
 const dir = mkdtempSync(path.join(tmpdir(), "db-studio-sqlite-"));
 let adapter: SqliteAdapter;
 let exec: (...statements: string[]) => Promise<void>;
+let select: (sql: string) => Promise<Record<string, unknown>[]>;
 
 beforeAll(async () => {
 	vi.resetModules();
@@ -34,6 +38,7 @@ beforeAll(async () => {
 	exec = async (...statements) => {
 		await client.batch(statements, "write");
 	};
+	select = async (sql) => (await client.execute(sql)).rows.map((row) => ({ ...row }));
 	adapter = new SqliteAdapter();
 
 	await exec(
@@ -105,5 +110,58 @@ describe("SqliteAdapter", () => {
 		const names = (await adapter.getTablesList("main")).map((t) => t.tableName);
 		expect(names).toContain('still"odd');
 		expect(names).not.toContain('we"ird');
+	});
+
+	it("keeps the table's other rules when a column is edited", async () => {
+		await exec(
+			"CREATE TABLE records (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, quantity INT CHECK(quantity >= 0), label TEXT NOT NULL, doubled INT GENERATED ALWAYS AS (quantity * 2) STORED)",
+			"INSERT INTO records (email, quantity, label) VALUES ('a@x.io', 2, 'one'), ('b@x.io', 3, 'two'), ('z@x.io', 9, 'gone')",
+			"DELETE FROM records WHERE id = 3",
+		);
+
+		await adapter.alterColumn({
+			db: "main",
+			tableName: "records",
+			columnName: "label",
+			columnType: "TEXT",
+			isNullable: true,
+		});
+
+		await expect(
+			exec("INSERT INTO records (email, quantity, label) VALUES ('a@x.io', 1, 'dup')"),
+		).rejects.toThrow(/UNIQUE/);
+		await expect(
+			exec("INSERT INTO records (email, quantity, label) VALUES ('c@x.io', -1, 'neg')"),
+		).rejects.toThrow(/CHECK/);
+		// AUTOINCREMENT never reuses an id, including 3, deleted before the edit.
+		await exec("DELETE FROM records WHERE id = 2", "INSERT INTO records (email, quantity) VALUES ('d@x.io', 5)");
+		expect(await select("SELECT id, quantity, doubled, label FROM records ORDER BY id")).toEqual([
+			{ id: 1n, quantity: 2n, doubled: 4n, label: "one" },
+			{ id: 4n, quantity: 5n, doubled: 10n, label: null },
+		]);
+	});
+
+	it("changes only the nullability and default of a column with its own rules", async () => {
+		await exec(
+			"CREATE TABLE stock (id INTEGER PRIMARY KEY, sku TEXT COLLATE NOCASE UNIQUE NOT NULL DEFAULT 'x', qty INT)",
+			"INSERT INTO stock VALUES (1, 'ABC', 1)",
+		);
+
+		await adapter.alterColumn({
+			db: "main",
+			tableName: "stock",
+			columnName: "sku",
+			columnType: "TEXT",
+			isNullable: true,
+			defaultValue: "'none'",
+		});
+
+		await expect(exec("INSERT INTO stock (id, sku) VALUES (2, 'abc')")).rejects.toThrow(/UNIQUE/);
+		await exec("INSERT INTO stock (id, sku) VALUES (3, NULL)", "INSERT INTO stock (id, qty) VALUES (4, 1)");
+		expect(await select("SELECT id, sku FROM stock ORDER BY id")).toEqual([
+			{ id: 1n, sku: "ABC" },
+			{ id: 3n, sku: null },
+			{ id: 4n, sku: "none" },
+		]);
 	});
 });

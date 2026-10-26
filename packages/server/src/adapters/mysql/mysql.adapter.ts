@@ -1026,12 +1026,11 @@ export class MySqlAdapter extends BaseAdapter {
 		const connection = await pool.getConnection();
 		await connection.beginTransaction();
 
+		// Foreign-key checks stay on: a dependent row this walk misses fails the delete and rolls
+		// it back, instead of committing a reference to a deleted row.
 		try {
-			await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
-
 			const fkConstraints = await this.getForeignKeyReferences(tableName, db);
 			let totalRelated = 0;
-			const deletedTables = new Set<string>();
 			const visited = new Set<string>();
 
 			const deleteRelatedRecursively = async (
@@ -1070,18 +1069,17 @@ export class MySqlAdapter extends BaseAdapter {
 					values as any[],
 				);
 				totalRelated += deleteResult.affectedRows;
-				deletedTables.add(targetTable);
 			};
 
+			// Every relationship, even a second one from the same child table: a message's
+			// recipient_id must go as well as its sender_id.
 			for (const constraint of fkConstraints) {
-				if (!deletedTables.has(constraint.referencingTable)) {
-					await deleteRelatedRecursively(
-						constraint.referencingTable,
-						constraint.referencingColumn,
-						pkValues,
-						visited,
-					);
-				}
+				await deleteRelatedRecursively(
+					constraint.referencingTable,
+					constraint.referencingColumn,
+					pkValues,
+					visited,
+				);
 			}
 
 			const mainPh = pkValues.map(() => "?").join(", ");
@@ -1090,11 +1088,9 @@ export class MySqlAdapter extends BaseAdapter {
 				pkValues as any,
 			);
 
-			await connection.execute("SET FOREIGN_KEY_CHECKS = 1");
 			await connection.commit();
 			return { deletedCount: result.affectedRows + totalRelated };
 		} catch (error) {
-			await connection.execute("SET FOREIGN_KEY_CHECKS = 1").catch(() => {});
 			await connection.rollback();
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, {
