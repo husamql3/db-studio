@@ -4,13 +4,13 @@ import { useUpdateCell } from "../../hooks/use-update-cell";
 import { useUpdateCellStore } from "../../stores/update-cell.store";
 export const ClearBtn = () => {
 	const { getUpdateCount, clearUpdates } = useUpdateCellStore();
-	const { isUpdatingCell } = useUpdateCell();
+	const { isUpdatingCell, editScope } = useUpdateCell();
 
 	const handleClearUpdates = useCallback(() => {
-		clearUpdates();
-	}, [clearUpdates]);
+		clearUpdates(editScope.id);
+	}, [clearUpdates, editScope.id]);
 
-	if (getUpdateCount() === 0) {
+	if (getUpdateCount(editScope.id) === 0) {
 		return null;
 	}
 

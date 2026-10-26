@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableNameSchema } from "./database.types";
+import { databaseSchema, tableNameSchema } from "./database.types.js";
 
 export const renameTableSchema = z.object({
 	// Trimmed server-side so whitespace-only names are rejected even if a

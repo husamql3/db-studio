@@ -10,7 +10,6 @@ export type Table = {
 	name: string;
 	description?: string;
 	columns: Column[];
-	sampleData?: Record<string, string>[];
 };
 
 export type Column = {

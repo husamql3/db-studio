@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-	buildCursorWhereClause,
-	buildSortClause,
+	buildKeysetPredicate,
+	buildOrderBy,
 	buildWhereClause,
 } from "@/adapters/pg/pg.query-builder.js";
+
+// Keyset paging failure modes: a NULL sort value ends paging early (a row-value comparison
+// never matches NULL), mixed sort directions skip rows, a backward page reads the wrong side,
+// and a parameter number collides with the filter parameters before it.
 
 describe("PostgreSQL query builder", () => {
 	it("keeps a column name containing quotes inside its identifier (GHSA-vw88-9x6f-fcp5)", () => {
@@ -12,14 +16,12 @@ describe("PostgreSQL query builder", () => {
 		expect(buildWhereClause([{ columnName: name, operator: "=", value: "1" }]).clause).toBe(
 			`WHERE ${escaped} = $1`,
 		);
-		expect(buildSortClause([{ columnName: name, direction: "asc" }], "asc")).toBe(
-			`ORDER BY ${escaped} ASC`,
+		expect(buildOrderBy([{ column: name, direction: "asc" }])).toBe(
+			`ORDER BY ${escaped} ASC NULLS LAST`,
 		);
-		expect(buildSortClause(name, "asc")).toBe(`ORDER BY ${escaped} ASC`);
 		expect(
-			buildCursorWhereClause({ values: { [name]: 1 }, sortColumns: [name] }, "asc", "asc", 1)
-				.clause,
-		).toBe(`((${escaped}) > ($1))`);
+			buildKeysetPredicate([{ column: name, direction: "asc" }], { [name]: 1 }, false, 1).clause,
+		).toBe(`(((${escaped} > $1 OR ${escaped} IS NULL)))`);
 	});
 
 	it("builds WHERE clauses with PostgreSQL placeholders and casts text operators", () => {
@@ -49,45 +51,46 @@ describe("PostgreSQL query builder", () => {
 		expect(buildWhereClause([])).toEqual({ clause: "", values: [] });
 	});
 
-	it("builds ORDER BY clauses for array and string sorts", () => {
-		expect(
-			buildSortClause(
-				[
-					{ columnName: "created_at", direction: "desc" },
-					{ columnName: "id", direction: "asc" },
-				],
-				"asc",
-			),
-		).toBe('ORDER BY "created_at" DESC, "id" ASC');
-
-		expect(buildSortClause("name", "desc")).toBe('ORDER BY "name" DESC');
-		expect(buildSortClause([], "asc")).toBe("");
-		expect(buildSortClause("", "asc")).toBe("");
+	it("orders each column in its own direction with NULLs last, reversed for a backward page", () => {
+		const terms = [
+			{ column: "created_at", direction: "desc" as const },
+			{ column: "id", direction: "asc" as const },
+		];
+		expect(buildOrderBy(terms)).toBe('ORDER BY "created_at" DESC NULLS LAST, "id" ASC NULLS LAST');
+		expect(buildOrderBy(terms, true)).toBe(
+			'ORDER BY "created_at" ASC NULLS FIRST, "id" DESC NULLS FIRST',
+		);
 	});
 
-	it("builds tuple cursor predicates with the correct placeholder offset", () => {
-		const result = buildCursorWhereClause(
-			{
-				sortColumns: ["created_at", "id"],
-				values: { created_at: "2026-01-01", id: 10 },
-			},
-			"asc",
-			"asc",
+	it("continues past a mixed-direction cursor, numbering parameters after the filters", () => {
+		const result = buildKeysetPredicate(
+			[
+				{ column: "created_at", direction: "desc" },
+				{ column: "id", direction: "asc" },
+			],
+			{ created_at: "2026-01-01", id: 10 },
+			false,
 			3,
 		);
-
-		expect(result.clause).toBe('(("created_at", "id") > ($3, $4))');
+		expect(result.clause).toBe(
+			'((("created_at" < $3 OR "created_at" IS NULL)) OR ("created_at" = $3 AND ("id" > $4 OR "id" IS NULL)))',
+		);
 		expect(result.values).toEqual(["2026-01-01", 10]);
-		expect(
-			buildCursorWhereClause(
-				{ sortColumns: ["id"], values: { id: 10 } },
-				"desc",
-				"asc",
-				1,
-			).clause,
-		).toBe('(("id") < ($1))');
-		expect(
-			buildCursorWhereClause({ sortColumns: [], values: {} }, "asc", "asc", 1),
-		).toEqual({ clause: "", values: [] });
+	});
+
+	it("continues past a cursor whose sort value is NULL, in both directions", () => {
+		const terms = [
+			{ column: "label", direction: "asc" as const },
+			{ column: "id", direction: "asc" as const },
+		];
+		const cursor = { label: null, id: 2 };
+		expect(buildKeysetPredicate(terms, cursor, false, 1)).toEqual({
+			clause: '(("label" IS NULL AND ("id" > $1 OR "id" IS NULL)))',
+			values: [2],
+		});
+		expect(buildKeysetPredicate(terms, cursor, true, 1)).toEqual({
+			clause: '((("label" IS NOT NULL)) OR ("label" IS NULL AND ("id" < $1)))',
+			values: [2],
+		});
 	});
 });

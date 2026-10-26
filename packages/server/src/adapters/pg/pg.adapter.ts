@@ -29,7 +29,6 @@ import type {
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
-	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
@@ -38,6 +37,7 @@ import {
 	mapPostgresToDataType,
 	standardizeDataTypeLabel,
 } from "@db-studio/shared/types";
+import type { PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
@@ -52,14 +52,36 @@ import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
-	buildCursorWhereClause,
-	buildSortClause,
+	buildKeysetPredicate,
+	buildOrderBy,
 	buildWhereClause,
+	type OrderTerm,
 	qualifiedTable,
 	schemaOf,
 } from "./pg.query-builder.js";
 
 type PgPool = Awaited<ReturnType<typeof getDbPool>>;
+/** A pool, or one connection checked out of it for a transaction. */
+type PgQueryable = Pick<PgPool, "query">;
+
+/**
+ * Runs `work` inside BEGIN/COMMIT on one checked-out connection. `pool.query` may hand each
+ * statement a different connection, so BEGIN, the writes and ROLLBACK could land apart.
+ */
+const inTransaction = async <T>(pool: PgPool, work: (client: PoolClient) => Promise<T>) => {
+	const client = await pool.connect();
+	try {
+		await client.query("BEGIN");
+		const result = await work(client);
+		await client.query("COMMIT");
+		return result;
+	} catch (error) {
+		await client.query("ROLLBACK");
+		throw error;
+	} finally {
+		client.release();
+	}
+};
 
 /** Bytes read from the end of the log file; enough for several hundred entries. */
 const LOG_TAIL_BYTES = 1024 * 1024;
@@ -99,139 +121,17 @@ export class PgAdapter extends BaseAdapter {
 		return map[universalType] ?? "TEXT";
 	}
 
-	protected buildTableDataQuery(params: GetTableDataParams): QueryBundle {
-		const {
-			tableName,
-			schemaName,
-			cursor = "",
-			limit = 50,
-			direction = "asc",
-			sort = [],
-			order = "asc",
-			filters = [],
-			db,
-		} = params;
-
-		let sortColumns: string[] = [];
-		let effectiveSortDirection: SortDirection = order;
-
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-			effectiveSortDirection = sort[0].direction;
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-
-		// We can't synchronously get primary key columns here (it's async).
-		// The adapter overrides getTableData() to handle that step instead.
-		// For cursor columns we use whatever sort columns are provided, or ctid as fallback.
-		const cursorColumns = sortColumns.length > 0 ? [...sortColumns] : ["ctid"];
-
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
-
-		let cursorWhere = "";
-		let cursorValues: unknown[] = [];
-
-		if (cursor) {
-			const cursorData = this.decodeCursor(cursor);
-			if (cursorData) {
-				const res = buildCursorWhereClause(
-					cursorData,
-					direction,
-					effectiveSortDirection,
-					filterValues.length + 1,
-				);
-				cursorWhere = res.clause;
-				cursorValues = res.values;
-			}
-		}
-
-		let combinedWhere = "";
-		if (filterWhere && cursorWhere) {
-			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
-		} else if (filterWhere) {
-			combinedWhere = filterWhere;
-		} else if (cursorWhere) {
-			combinedWhere = `WHERE ${cursorWhere}`;
-		}
-
-		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
-		let effectiveSortClause = sortClause;
-
-		if (direction === "desc") {
-			if (sortClause) {
-				effectiveSortClause = sortClause
-					.replace(/\bASC\b/gi, "TEMP_DESC")
-					.replace(/\bDESC\b/gi, "ASC")
-					.replace(/TEMP_DESC/g, "DESC");
-			} else {
-				const parts = cursorColumns.map(
-					(col) =>
-						`${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
-				);
-				effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
-			}
-		} else if (!sortClause && cursorColumns.length > 0) {
-			const parts = cursorColumns.map(
-				(col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`,
-			);
-			effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
-		}
-
-		const limitParamIndex = filterValues.length + cursorValues.length + 1;
-		const table = qualifiedTable(tableName, schemaName);
-		const sql = `SELECT * FROM ${table} ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`;
-		const values = [...filterValues, ...cursorValues, limit + 1];
-
-		const countSql = `SELECT COUNT(*) as total FROM ${table} ${filterWhere}`;
-		const countValues = filterValues;
-
-		return { sql, values, countSql, countValues };
+	// getTableData is overridden below: paging needs the primary key, which takes a query.
+	protected buildTableDataQuery(): QueryBundle {
+		throw new Error("PgAdapter builds table data queries in getTableData");
 	}
 
 	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
 		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
 	}
 
-	protected buildCursors(
-		params: GetTableDataParams,
-		rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null } {
-		if (rows.length === 0) return { nextCursor: null, prevCursor: null };
-
-		const { direction = "asc", sort = [], cursor } = params;
-		let sortColumns: string[] = [];
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-		if (sortColumns.length === 0) sortColumns = ["ctid"];
-
-		const createCursor = (row: NormalizedRow): string => {
-			const data: CursorData = {
-				values: Object.fromEntries(sortColumns.map((col) => [col, row[col]])),
-				sortColumns,
-			};
-			return this.encodeCursor(data);
-		};
-
-		const firstRow = rows[0];
-		const lastRow = rows[rows.length - 1];
-
-		let nextCursor: string | null = null;
-		let prevCursor: string | null = null;
-
-		if (direction === "asc") {
-			if (hasMore) nextCursor = createCursor(lastRow);
-			if (cursor) prevCursor = createCursor(firstRow);
-		} else {
-			if (cursor) nextCursor = createCursor(lastRow);
-			if (hasMore) prevCursor = createCursor(firstRow);
-		}
-
-		return { nextCursor, prevCursor };
+	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
+		throw new Error("PgAdapter builds cursors in getTableData");
 	}
 
 	// =========================================================
@@ -266,77 +166,30 @@ export class PgAdapter extends BaseAdapter {
 			throw this.wrapError(e);
 		});
 
-		let sortColumns: string[] = [];
-		let effectiveSortDirection: SortDirection = order;
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-			effectiveSortDirection = sort[0].direction;
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-
+		const sortTerms: OrderTerm[] = Array.isArray(sort)
+			? sort.map((s) => ({ column: s.columnName, direction: s.direction }))
+			: sort
+				? [{ column: sort, direction: order }]
+				: [];
+		// The key breaks ties between equal sort values, so every row has one place in the order.
 		const keyColumns = pkColumns.length ? pkColumns : ["ctid"];
-		const cursorColumns = [
-			...sortColumns,
-			...keyColumns.filter((key) => !sortColumns.includes(key)),
+		const keyDirection = sortTerms[0]?.direction ?? order;
+		const terms = [
+			...sortTerms,
+			...keyColumns
+				.filter((key) => !sortTerms.some((term) => term.column === key))
+				.map((column) => ({ column, direction: keyDirection })),
 		];
+		const cursorColumns = terms.map((term) => term.column);
+		const backward = direction === "desc";
 
-		let cursorWhere = "";
-		let cursorValues: unknown[] = [];
-		if (cursor) {
-			const cursorData = this.decodeCursor(cursor);
-			if (cursorData) {
-				const res = buildCursorWhereClause(
-					cursorData,
-					direction,
-					effectiveSortDirection,
-					filterValues.length + 1,
-				);
-				cursorWhere = res.clause;
-				cursorValues = res.values;
-			}
-		}
+		const cursorData = cursor ? this.decodeCursor(cursor) : null;
+		const { clause: cursorWhere, values: cursorValues } = cursorData
+			? buildKeysetPredicate(terms, cursorData.values, backward, filterValues.length + 1)
+			: { clause: "", values: [] };
 
-		let combinedWhere = "";
-		if (filterWhere && cursorWhere) {
-			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
-		} else if (filterWhere) {
-			combinedWhere = filterWhere;
-		} else if (cursorWhere) {
-			combinedWhere = `WHERE ${cursorWhere}`;
-		}
-
-		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
-		let effectiveSortClause = sortClause;
-
-		if (direction === "desc") {
-			if (sortClause) {
-				effectiveSortClause = sortClause
-					.replace(/\bASC\b/gi, "TEMP_DESC")
-					.replace(/\bDESC\b/gi, "ASC")
-					.replace(/TEMP_DESC/g, "DESC");
-			} else {
-				const parts = cursorColumns.map(
-					(col) =>
-						`${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`,
-				);
-				effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
-			}
-		} else if (!sortClause && cursorColumns.length > 0) {
-			const parts = cursorColumns.map(
-				(col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`,
-			);
-			effectiveSortClause = `ORDER BY ${parts.join(", ")}`;
-		}
-
-		if (sortClause) {
-			const tieBreakers = keyColumns.filter((key) => !sortColumns.includes(key));
-			const tieDirection =
-				(effectiveSortDirection === "desc") !== (direction === "desc") ? "DESC" : "ASC";
-			if (tieBreakers.length) {
-				effectiveSortClause += `, ${tieBreakers.map((key) => `${this.quoteIdentifier(key)} ${tieDirection}`).join(", ")}`;
-			}
-		}
+		const where = [filterWhere.replace(/^WHERE\s+/i, ""), cursorWhere].filter(Boolean);
+		const combinedWhere = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
 		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
 		// selected explicitly; ctid is a reserved system column name, so selecting it by name
@@ -349,7 +202,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 		const dataRes = await pool.query(
-			`SELECT ${["*", ...extraSelect].join(", ")} FROM ${table} ${combinedWhere} ${effectiveSortClause} LIMIT $${limitParamIndex}`,
+			`SELECT ${["*", ...extraSelect].join(", ")} FROM ${table} ${combinedWhere} ${buildOrderBy(terms, backward)} LIMIT $${limitParamIndex}`,
 			[...filterValues, ...cursorValues, limit + 1],
 		);
 
@@ -979,9 +832,7 @@ export class PgAdapter extends BaseAdapter {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
 
-		const client = await pool.connect();
-		try {
-			await client.query("BEGIN");
+		await inTransaction(pool, async (client) => {
 			await client.query(
 				`ALTER TABLE ${table} ALTER COLUMN "${columnName}" TYPE ${columnType}`,
 			);
@@ -995,13 +846,7 @@ export class PgAdapter extends BaseAdapter {
 			} else {
 				await client.query(`ALTER TABLE ${table} ALTER COLUMN "${columnName}" DROP DEFAULT`);
 			}
-			await client.query("COMMIT");
-		} catch (error) {
-			await client.query("ROLLBACK");
-			throw error;
-		} finally {
-			client.release();
-		}
+		});
 	}
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
@@ -1238,32 +1083,33 @@ export class PgAdapter extends BaseAdapter {
 		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, table), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
-		await pool.query("BEGIN");
 		try {
-			let total = 0;
-			for (const { keyValues, rowUpdates } of groups) {
-				const setClauses = rowUpdates.map((u, i) => `"${u.columnName}" = $${i + 1}`);
-				const values = rowUpdates.map((u) =>
-					u.value !== null && typeof u.value === "object" ? JSON.stringify(u.value) : u.value,
-				);
-				const whereClauses = keyColumns.map(
-					(column, i) => `"${column}" = $${values.length + i + 1}`,
-				);
-				values.push(...keyValues);
-				const result = await pool.query(
-					`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
-					values,
-				);
-				if (result.rowCount === 0)
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				total += result.rowCount ?? 0;
-			}
-			await pool.query("COMMIT");
-			return { updatedCount: total };
+			return await inTransaction(pool, async (client) => {
+				let total = 0;
+				for (const { keyValues, rowUpdates } of groups) {
+					const setClauses = rowUpdates.map((u, i) => `"${u.columnName}" = $${i + 1}`);
+					const values = rowUpdates.map((u) =>
+						u.value !== null && typeof u.value === "object"
+							? JSON.stringify(u.value)
+							: u.value,
+					);
+					const whereClauses = keyColumns.map(
+						(column, i) => `"${column}" = $${values.length + i + 1}`,
+					);
+					values.push(...keyValues);
+					const result = await client.query(
+						`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
+						values,
+					);
+					if (result.rowCount === 0)
+						throw new HTTPException(404, {
+							message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
+						});
+					total += result.rowCount ?? 0;
+				}
+				return { updatedCount: total };
+			});
 		} catch (error) {
-			await pool.query("ROLLBACK");
 			if (error instanceof HTTPException || isPgConstraintViolation(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
 		}
@@ -1286,15 +1132,12 @@ export class PgAdapter extends BaseAdapter {
 		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
 
 		try {
-			await pool.query("BEGIN");
 			const result = await pool.query(
 				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${placeholders}) RETURNING *`,
 				pkValues,
 			);
-			await pool.query("COMMIT");
 			return { deletedCount: result.rowCount ?? 0, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
-			await pool.query("ROLLBACK");
 			const pgErr = error as { code?: string };
 			if (pgErr.code === "23503") {
 				const relatedRecords = await this.getRelatedRecords(
@@ -1326,64 +1169,64 @@ export class PgAdapter extends BaseAdapter {
 		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, table));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
-		await pool.query("BEGIN");
 
 		try {
-			const fkConstraints = await this.getFkConstraints(pool, tableName, schemaName);
-			let totalRelated = 0;
-			const deletedTables = new Set<string>();
+			return await inTransaction(pool, async (client) => {
+				const fkConstraints = await this.getFkConstraints(client, tableName, schemaName);
+				let totalRelated = 0;
 
-			const deleteRelated = async (
-				targetTable: string,
-				targetSchema: string,
-				targetColumn: string,
-				values: unknown[],
-			) => {
-				const target = qualifiedTable(targetTable, targetSchema);
-				const nested = await this.getFkConstraints(pool, targetTable, targetSchema);
-				for (const nfk of nested) {
-					const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
-					const { rows } = await pool.query(
-						`SELECT "${nfk.referencedColumn}" FROM ${target} WHERE "${targetColumn}" IN (${placeholders})`,
+				const deleteRelated = async (
+					targetTable: string,
+					targetSchema: string,
+					targetColumn: string,
+					values: unknown[],
+				) => {
+					const target = qualifiedTable(targetTable, targetSchema);
+					const nested = await this.getFkConstraints(client, targetTable, targetSchema);
+					for (const nfk of nested) {
+						const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+						const { rows } = await client.query(
+							`SELECT "${nfk.referencedColumn}" FROM ${target} WHERE "${targetColumn}" IN (${placeholders})`,
+							values,
+						);
+						const nestedVals = rows.map(
+							(r: Record<string, unknown>) => r[nfk.referencedColumn],
+						);
+						if (nestedVals.length > 0)
+							await deleteRelated(
+								nfk.referencingTable,
+								nfk.referencingSchema,
+								nfk.referencingColumn,
+								nestedVals,
+							);
+					}
+					const ph = values.map((_, i) => `$${i + 1}`).join(", ");
+					const res = await client.query(
+						`DELETE FROM ${target} WHERE "${targetColumn}" IN (${ph})`,
 						values,
 					);
-					const nestedVals = rows.map((r: Record<string, unknown>) => r[nfk.referencedColumn]);
-					if (nestedVals.length > 0)
-						await deleteRelated(
-							nfk.referencingTable,
-							nfk.referencingSchema,
-							nfk.referencingColumn,
-							nestedVals,
-						);
-				}
-				const ph = values.map((_, i) => `$${i + 1}`).join(", ");
-				const res = await pool.query(
-					`DELETE FROM ${target} WHERE "${targetColumn}" IN (${ph})`,
-					values,
-				);
-				totalRelated += res.rowCount ?? 0;
-				deletedTables.add(target);
-			};
+					totalRelated += res.rowCount ?? 0;
+				};
 
-			for (const c of fkConstraints) {
-				if (!deletedTables.has(qualifiedTable(c.referencingTable, c.referencingSchema)))
+				// Every relationship, even a second one from the same child table: a message's
+				// recipient_id must go as well as its sender_id.
+				for (const c of fkConstraints) {
 					await deleteRelated(
 						c.referencingTable,
 						c.referencingSchema,
 						c.referencingColumn,
 						pkValues,
 					);
-			}
+				}
 
-			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-			const result = await pool.query(
-				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
-				pkValues,
-			);
-			await pool.query("COMMIT");
-			return { deletedCount: (result.rowCount ?? 0) + totalRelated };
+				const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
+				const result = await client.query(
+					`DELETE FROM ${table} WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
+					pkValues,
+				);
+				return { deletedCount: (result.rowCount ?? 0) + totalRelated };
+			});
 		} catch (error) {
-			await pool.query("ROLLBACK");
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to force delete records from "${tableName}"`,
@@ -1401,45 +1244,41 @@ export class PgAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: "At least one record is required" });
 
 		const pool = await getDbPool(db);
-		const client = await pool.connect();
 
 		try {
-			const columns = Object.keys(records[0]);
-			const colNames = columns.map((c) => `"${c}"`).join(", ");
-			let successCount = 0;
+			return await inTransaction(pool, async (client) => {
+				const columns = Object.keys(records[0]);
+				const colNames = columns.map((c) => `"${c}"`).join(", ");
+				let successCount = 0;
 
-			await client.query("BEGIN");
-			for (const record of records) {
-				const values = columns.map((col) => record[col]);
-				const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
-				try {
-					await client.query(
-						`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
-						values,
-					);
-					successCount++;
-				} catch (error) {
-					if (isPgConstraintViolation(error)) throw error;
-					throw new HTTPException(500, {
-						message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
-					});
+				for (const record of records) {
+					const values = columns.map((col) => record[col]);
+					const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+					try {
+						await client.query(
+							`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
+							values,
+						);
+						successCount++;
+					} catch (error) {
+						if (isPgConstraintViolation(error)) throw error;
+						throw new HTTPException(500, {
+							message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
+						});
+					}
 				}
-			}
-			await client.query("COMMIT");
-			return {
-				success: true,
-				message: `Bulk insert completed: ${successCount} records inserted`,
-				successCount,
-				failureCount: 0,
-			};
+				return {
+					success: true,
+					message: `Bulk insert completed: ${successCount} records inserted`,
+					successCount,
+					failureCount: 0,
+				};
+			});
 		} catch (error) {
-			await client.query("ROLLBACK");
 			if (error instanceof HTTPException || isPgConstraintViolation(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to bulk insert records into "${tableName}"`,
 			});
-		} finally {
-			client.release();
 		}
 	}
 
@@ -1574,7 +1413,7 @@ export class PgAdapter extends BaseAdapter {
 
 	/** The FKs that reference `tableName`, each with the schema of its referencing table. */
 	private async getFkConstraints(
-		pool: PgPool,
+		pool: PgQueryable,
 		tableName: string,
 		schemaName: string | undefined,
 	): Promise<Array<ForeignKeyConstraint & { referencingSchema: string }>> {

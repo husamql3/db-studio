@@ -23,10 +23,13 @@ export const createProxyLimiter = (): MiddlewareHandler => {
 
 		// A BYOK header is not validated here — the provider validates the key when
 		// the request is forwarded. So presence alone must not bypass the limiter;
-		// it only moves the request onto a separate, higher-ceiling IP bucket.
-		const hasPersonalKey = ["gemini", "openai", "anthropic", "grok", "openrouter"].some(
-			(provider) => Boolean(c.req.header(`x-byok-${provider}`)?.trim()),
-		);
+		// it only moves the request onto a separate, higher-ceiling IP bucket. Only
+		// the requested provider's header counts: any other one would leave the
+		// request on the hosted key while granting the higher ceiling.
+		const body = await c.req.json<{ provider?: unknown }>().catch(() => null);
+		const hasPersonalKey =
+			typeof body?.provider === "string" &&
+			Boolean(c.req.header(`x-byok-${body.provider}`)?.trim());
 
 		const prefix = hasPersonalKey ? "rate:proxy:byok:" : "rate:proxy:";
 		const limiter = rateLimiter({

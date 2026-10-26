@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { DatabaseSchemaType } from "./database.types";
+import type { DatabaseSchemaType } from "./database.types.js";
 
 export const deleteRecordSchema = z.object({
 	tableName: z.string("Table name is required"),
