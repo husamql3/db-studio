@@ -472,90 +472,6 @@ export class DatabaseManager {
 	}
 
 	/**
-	 * Get the appropriate pool based on database type (legacy/PG-only helper)
-	 */
-	getPool(database?: string): Promise<Pool> {
-		return this.getPgPool(database);
-	}
-
-	/**
-	 * Close a specific PostgreSQL pool by connection string
-	 */
-	async closePgPool(connectionString: string): Promise<void> {
-		const pool = this.pgPools.get(connectionString);
-		if (pool) {
-			await pool.end();
-			this.pgPools.delete(connectionString);
-			writeOperationalLog("info", "db_pool_closed", { db_type: "pg" });
-		}
-	}
-
-	/**
-	 * Close a specific MySQL pool by connection string
-	 */
-	async closeMysqlPool(connectionString: string): Promise<void> {
-		const pool = this.mysqlPools.get(connectionString);
-		if (pool) {
-			await pool.end();
-			this.mysqlPools.delete(connectionString);
-			writeOperationalLog("info", "db_pool_closed", { db_type: "mysql" });
-		}
-	}
-
-	/**
-	 * Close a specific SQL Server pool by connection string
-	 */
-	async closeMssqlPool(connectionString: string): Promise<void> {
-		const pool = this.mssqlPools.get(connectionString);
-		if (pool) {
-			await pool.close();
-			this.mssqlPools.delete(connectionString);
-			writeOperationalLog("info", "db_pool_closed", { db_type: "mssql" });
-		}
-	}
-
-	/**
-	 * Close a specific database pool by connection string (both types)
-	 */
-	async closePool(connectionString: string): Promise<void> {
-		if (this.baseConfig?.dbType === "sqlite" && connectionString === this.baseConfig.url) {
-			await this.closeSqliteClient();
-			return;
-		}
-		if (this.baseConfig?.dbType === "duckdb" && connectionString === this.baseConfig.url) {
-			await this.closeDuckdb();
-			return;
-		}
-		if (this.baseConfig?.dbType === "oracle") {
-			await this.closeOraclePool();
-			return;
-		}
-		await this.closePgPool(connectionString);
-		await this.closeMysqlPool(connectionString);
-		await this.closeMssqlPool(connectionString);
-	}
-
-	/**
-	 * Close a specific database pool by database name
-	 */
-	async closePoolByDatabase(database: string): Promise<void> {
-		if (this.baseConfig?.dbType === "sqlite") {
-			await this.closeSqliteClient();
-			return;
-		}
-		if (this.baseConfig?.dbType === "duckdb") {
-			await this.closeDuckdb();
-			return;
-		}
-		if (this.baseConfig?.dbType === "oracle") {
-			await this.closeOraclePool();
-			return;
-		}
-		const connectionString = this.buildConnectionString(database);
-		await this.closePool(connectionString);
-	}
-
-	/**
 	 * Get or create a MongoDB client
 	 */
 	async getMongoClient(): Promise<MongoClient> {
@@ -715,17 +631,6 @@ export class DatabaseManager {
 		);
 		this.clickhouseClients.clear();
 	}
-
-	/**
-	 * Get all active pool connection strings
-	 */
-	getActivePools(): string[] {
-		return [
-			...Array.from(this.pgPools.keys()),
-			...Array.from(this.mysqlPools.keys()),
-			...Array.from(this.mssqlPools.keys()),
-		];
-	}
 }
 
 /**
@@ -803,38 +708,10 @@ export const getConnectionUrl = (): string => {
 };
 
 /**
- * Build a connection string for the specified database
- */
-const _buildDbConnectionString = (database?: string): string => {
-	return current().buildConnectionString(database);
-};
-
-/**
- * Close a specific database pool by database name
- */
-const _closeDbPool = async (database: string): Promise<void> => {
-	return current().closePoolByDatabase(database);
-};
-
-/**
- * Close a specific database pool by connection string
- */
-const _closeDbPoolByConnectionString = async (connectionString: string): Promise<void> => {
-	return current().closePool(connectionString);
-};
-
-/**
  * Close all database pools
  */
 export const closeAllDbPools = async (): Promise<void> => {
 	await Promise.all([...connections.values()].map((manager) => manager.closeAll()));
-};
-
-/**
- * Get list of active pool connection strings
- */
-const _getActivePools = (): string[] => {
-	return current().getActivePools();
 };
 
 /**

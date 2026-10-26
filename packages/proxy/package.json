@@ -11,6 +11,7 @@
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "format": "biome check --write --unsafe",
+    "typecheck": "tsc --noEmit",
     "secrets:add": "wrangler secret bulk .env",
     "secrets:list": "wrangler secret list",
     "secrets:clear": "wrangler secret delete --all"
