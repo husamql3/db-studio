@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { EditScope } from "@/types/table.type";
-import { getRecordKey } from "../utils/table-diff";
+import { stableStringify } from "../utils/table-diff";
 
 export type CellUpdate = {
 	scope: string;
@@ -43,7 +43,15 @@ const getCellKey = (
 	rowData: Record<string, unknown>,
 	columnName: string,
 	scope = GLOBAL_SCOPE,
-): string => JSON.stringify([scope.id, getRecordKey(rowData, scope.keyColumns), columnName]);
+): string =>
+	// Keeps each key value's type, so a MongoDB `_id` of 1 and one of "1" stay two rows.
+	stableStringify([
+		scope.id,
+		scope.keyColumns.length > 0
+			? scope.keyColumns.map((column) => rowData[column])
+			: (rowData.id ?? rowData._id ?? rowData),
+		columnName,
+	]);
 
 export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 	updates: new Map(),

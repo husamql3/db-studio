@@ -4,6 +4,7 @@ import { useUpdateCellStore } from "./update-cell.store";
 
 // Failure modes:
 // - two rows sharing `id` but differing in another key column collapse into one draft
+// - MongoDB rows whose `_id` values differ only in type (1 vs "1") share one draft
 // - a draft made in one table is saved against whichever table is open
 // - a successful save drops a draft made in another table, or one re-edited mid-save
 
@@ -28,6 +29,17 @@ describe("useUpdateCellStore", () => {
 
 		expect(store().getUpdate(first, "name", members)?.newValue).toBe("Grace");
 		expect(store().getUpdate(second, "name", members)?.newValue).toBe("Linus");
+	});
+
+	it("keeps one draft per key value type", () => {
+		const collection: EditScope = { id: "mongo", keyColumns: ["_id"] };
+		const numeric = { _id: 1, name: "Ada" };
+		const text = { _id: "1", name: "Ada" };
+		store().setUpdate(numeric, "name", "Grace", "Ada", collection);
+		store().setUpdate(text, "name", "Linus", "Ada", collection);
+
+		expect(store().getUpdate(numeric, "name", collection)?.newValue).toBe("Grace");
+		expect(store().getUpdate(text, "name", collection)?.newValue).toBe("Linus");
 	});
 
 	it("returns and counts only the drafts of the requested table", () => {

@@ -211,5 +211,10 @@ describe("parseBulkData", () => {
 			expect(result).toHaveLength(2);
 			expect(result[1]).toEqual({ name: "Jane", age: 28 });
 		});
+
+		it("should keep a row holding only a quoted empty field", () => {
+			expect(parseBulkData('note\n""\nkept')).toEqual([{ note: null }, { note: "kept" }]);
+			expect(parseBulkData('note\n""')).toEqual([{ note: null }]);
+		});
 	});
 });

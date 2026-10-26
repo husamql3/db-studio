@@ -97,14 +97,17 @@ const parseCSVRows = (input: string, delimiter: string): string[][] => {
 	let row: string[] = [];
 	let field = "";
 	let insideQuotes = false;
+	// A line with a quote is a record even when its only field is empty.
+	let rowQuoted = false;
 
 	const endRow = () => {
 		row.push(field);
-		if (row.length > 1 || row[0].trim() !== "") {
+		if (rowQuoted || row.length > 1 || row[0].trim() !== "") {
 			rows.push(row);
 		}
 		row = [];
 		field = "";
+		rowQuoted = false;
 	};
 
 	for (let i = 0; i < input.length; i++) {
@@ -116,6 +119,7 @@ const parseCSVRows = (input: string, delimiter: string): string[][] => {
 				i++;
 			} else {
 				insideQuotes = !insideQuotes;
+				rowQuoted = true;
 			}
 		} else if (insideQuotes) {
 			field += char;
