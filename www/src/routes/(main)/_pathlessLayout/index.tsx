@@ -295,7 +295,8 @@ function App() {
 								params={{ _splat: "databases" }}
 								hash={slug}
 								aria-label={`${name} docs`}
-								className="flex items-center justify-center gap-2.5 h-10 px-2 transition-opacity duration-200 hover:opacity-70"
+								// brightness-0 + invert flattens the brand colors to white on the dark-only site.
+								className="flex items-center justify-center gap-2.5 h-10 px-2 brightness-0 invert transition-opacity duration-200 hover:opacity-70"
 							>
 								{logo}
 							</Link>

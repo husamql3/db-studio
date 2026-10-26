@@ -79,6 +79,8 @@ ${supportedDatabases
 - **Multi-Database** — PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and more from one UI.
 - **Table Browser** — Browse, filter, sort, and paginate rows. Full CRUD without writing SQL.
 - **Query Editor** — Monaco-powered SQL editor with syntax highlighting built right in.
+- **Saved Connections** — Every database you open is remembered. Switch, rename, and color connections without leaving the app.
+- **AI Assistant** — Ask about your schema and draft queries in chat, with your own AI provider key.
 
 ## Links
 

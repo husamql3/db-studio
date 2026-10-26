@@ -47,15 +47,17 @@ Yes! Run `npx db-studio` in your Drizzle project folder. It uses the same `DATAB
 
 <Accordion id="multiple-databases" title="Can I connect to multiple databases?">
 
-Yes, you have two options:
+Yes. You can switch connections in one db-studio instance:
 
-**Option 1: Multiple databases on the same server**
+1. Click the current connection name in the sidebar footer.
+2. Select a saved connection under **Switch connection**.
+3. To add a connection or see all saved connections, choose **All connections…**. Select a saved connection, or paste a connection URL and click **Connect**.
 
-db-studio lets you switch between databases on the same host directly in the UI.
+Every connection you open is saved automatically. On the Connect page, you can filter, rename, color, or delete saved connections. See [Saved connections](/docs/getting-started#saved-connections).
 
-**Option 2: Run multiple instances**
+To switch databases on the same server, use the database selector in the sidebar footer.
 
-Open different terminals with different ports and env files:
+To keep different connections open at the same time, run separate instances in different terminals with different ports and env files:
 
 ```bash
 # Dev database (terminal 1)
