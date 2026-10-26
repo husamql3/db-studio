@@ -16,6 +16,23 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.24.0",
+		date: "2026-10-27",
+		title: "One connection per browser tab",
+		features: [
+			{
+				text: "Each browser tab keeps its own database connection, so opening another connection in a new tab no longer switches your other tabs",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "SQL Server logins without server-wide permissions can open their databases and list their tables again",
+				username: "ahmedmohamedneom",
+			},
+		],
+	},
+	{
 		version: "1.23.0",
 		date: "2026-10-25",
 		title: "A password for network access",

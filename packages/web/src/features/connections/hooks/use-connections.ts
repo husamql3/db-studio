@@ -22,11 +22,26 @@ type MutationError = Error & { details?: unknown };
 export const errorMessage = (error: MutationError) =>
 	(typeof error.details === "string" && error.details) || error.message;
 
-/** The saved connections and the open one. Refetched on focus to notice a switch in another tab. */
+/** `connectionId` this tab works with; `undefined` until the server first answers. */
+let ownConnectionId: string | null | undefined;
+
+/**
+ * The saved connections and the one this tab has open. Refetched on focus to notice that the
+ * server restarted and closed it.
+ */
 export const useConnections = () => {
 	const { data, isLoading, error } = useQuery({
 		queryKey: connectionKeys.state(),
-		queryFn: async () => (await getConnections()).data.data,
+		queryFn: async () => {
+			const state = (await getConnections()).data.data;
+			// The first answer names this tab's connection, or the latest for a new tab. Adopted
+			// here, before the app renders and sends database requests.
+			if (ownConnectionId === undefined) {
+				ownConnectionId = state.active?.connectionId ?? null;
+				setConnectionId(ownConnectionId);
+			}
+			return state;
+		},
 		refetchOnWindowFocus: true,
 		staleTime: 0,
 	});
@@ -38,9 +53,6 @@ export const useConnections = () => {
 	};
 };
 
-/** `connectionId` of the last switch this tab made, so the watcher does not report it back. */
-let ownConnectionId: string | null = null;
-
 /**
  * Drops everything cached for the previous database, including unsaved edits and open sheets, and
  * starts over at `/`. Query tabs stay.
@@ -48,9 +60,11 @@ let ownConnectionId: string | null = null;
 const useResetToConnection = () => {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
-	return (state: ConnectionsStateSchemaType) => {
+	return async (state: ConnectionsStateSchemaType) => {
 		ownConnectionId = state.active?.connectionId ?? null;
 		setConnectionId(ownConnectionId);
+		// A focus refetch still in flight would answer for the previous connection after this.
+		await queryClient.cancelQueries({ queryKey: connectionKeys.state() });
 		queryClient.removeQueries({
 			predicate: (query) => query.queryKey[0] !== connectionKeys.state()[0],
 		});
@@ -113,8 +127,8 @@ export const useConnect = () => {
 };
 
 /**
- * Another tab switched the connection: this tab's cached data belongs to the old database, so
- * it starts over at `/` and says why.
+ * The server restarted and this tab's connection is gone: its cached data belongs to that
+ * database, so it starts over at `/` on the one the server now offers and says why.
  */
 export const useConnectionChangeWatcher = () => {
 	const { active, connections, isLoading } = useConnections();
@@ -127,7 +141,6 @@ export const useConnectionChangeWatcher = () => {
 		if (isLoading) return;
 		const previous = seen.current;
 		seen.current = connectionId;
-		if (previous === undefined) setConnectionId(connectionId);
 		if (
 			previous === undefined ||
 			previous === connectionId ||
@@ -135,7 +148,7 @@ export const useConnectionChangeWatcher = () => {
 		) {
 			return;
 		}
-		resetTo({ connections, active });
+		void resetTo({ connections, active });
 		const name = connections.find((c) => c.id === active?.id)?.name;
 		toast.info(name ? `Connection changed to ${name}` : "The connection changed");
 	}, [isLoading, connectionId, connections, active, resetTo]);

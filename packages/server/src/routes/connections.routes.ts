@@ -4,11 +4,11 @@ import { connect, connectSaved, getConnectionsState, summarize } from "@/connect
 import { deleteSavedConnection, updateSavedConnection } from "@/connections-store.js";
 
 /**
- * /connections routes: the saved connections and the open one. Saved URLs never leave the
- * server; the browser refers to them by id and sees masked URLs.
- * GET    /connections              - saved connections and the active one
- * POST   /connections              - test a pasted URL, switch to it and save it
- * POST   /connections/:id/connect  - test a saved connection and switch to it
+ * /connections routes: the saved connections and the one this browser tab has open. Saved URLs
+ * never leave the server; the browser refers to them by id and sees masked URLs.
+ * GET    /connections              - saved connections and this tab's open one
+ * POST   /connections              - test a pasted URL, open it and save it
+ * POST   /connections/:id/connect  - test a saved connection and open it
  * PATCH  /connections/:id          - rename or recolor a saved connection
  * DELETE /connections/:id          - forget a saved connection (an open one stays open)
  */
@@ -18,16 +18,15 @@ export const connectionsRoutes = new Elysia({ prefix: "/connections" })
 	.post(
 		"/",
 		async ({ body }) => {
-			await connect(body.url, { requireExistingFile: true });
-			return { data: await getConnectionsState() };
+			const id = await connect(body.url, { requireExistingFile: true });
+			return { data: await getConnectionsState(id) };
 		},
 		{ body: connectUrlSchema },
 	)
 
-	.post("/:id/connect", async ({ params }) => {
-		await connectSaved(params.id);
-		return { data: await getConnectionsState() };
-	})
+	.post("/:id/connect", async ({ params }) => ({
+		data: await getConnectionsState(await connectSaved(params.id)),
+	}))
 
 	.patch(
 		"/:id",

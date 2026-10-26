@@ -9,6 +9,7 @@ import { node } from "@elysiajs/node";
 import { Elysia } from "elysia";
 import { adapterRegistry } from "@/adapters/adapter.registry.js";
 import { registerAdapters } from "@/adapters/register.js";
+import { latestConnectionId } from "@/db-manager.js";
 import { HTTPException } from "@/http-exception.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import {
@@ -196,6 +197,8 @@ const trackRequest = (
 		requestId: resolveRequestId(request.headers.get("x-request-id") ?? undefined),
 		operation,
 		dbType,
+		// Resolved now: a connection another tab opens mid-request must not take over this one.
+		connectionId: request.headers.get("x-connection-id") ?? latestConnectionId() ?? undefined,
 	};
 	return runWithRequestContext(context, async () => {
 		if (

@@ -29,10 +29,10 @@ export type ConnectionSummarySchemaType = z.infer<typeof connectionSummarySchema
 export const connectionsStateSchema = z.object({
 	connections: z.array(connectionSummarySchema),
 	/**
-	 * The database the server is connected to, or `null` before the first connection. `id` is
-	 * `null` when the user deleted the saved entry of the connection that is still open.
-	 * `connectionId` changes on every switch, so a browser tab can tell it missed one. Tabs send it
-	 * as `X-Connection-Id`, and the server refuses a database request that carries an old one.
+	 * The open connection this browser tab works with, or `null` before the first connection. `id`
+	 * is `null` when the user deleted the saved entry of the connection that is still open.
+	 * Each open connection has its own `connectionId`. A tab sends it as `X-Connection-Id`, the
+	 * server answers from that connection, and it refuses one the server no longer has open.
 	 */
 	active: z
 		.object({
