@@ -21,6 +21,7 @@ vi.mock("@/db-manager.js", () => ({
 	getDbPool: vi.fn(() => ({ query: vi.fn() })),
 	getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
 	getDbType: vi.fn(() => "pg"),
+	latestConnectionId: vi.fn(() => null),
 	isValidObjectId: vi.fn(),
 	coerceObjectId: vi.fn(),
 }));

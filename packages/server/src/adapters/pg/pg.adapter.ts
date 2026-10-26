@@ -65,7 +65,8 @@ type PgPool = Awaited<ReturnType<typeof getDbPool>>;
 const LOG_TAIL_BYTES = 1024 * 1024;
 
 export class PgAdapter extends BaseAdapter {
-	private databaseSizeSupport?: Promise<boolean>;
+	// Keyed by pool: tabs can work with a PostgreSQL and a CockroachDB server at once.
+	private databaseSizeSupport = new WeakMap<PgPool, Promise<boolean>>();
 
 	// =========================================================
 	// Abstract method implementations
@@ -1496,14 +1497,18 @@ export class PgAdapter extends BaseAdapter {
 
 	/** CockroachDB speaks the PostgreSQL protocol but has no pg_database_size(). */
 	private supportsDatabaseSize(pool: PgPool): Promise<boolean> {
-		this.databaseSizeSupport ??= pool
-			.query(`SELECT to_regprocedure('pg_database_size(name)') IS NOT NULL AS "supported"`)
-			.then(({ rows }) => rows[0]?.supported === true)
-			.catch((e) => {
-				this.databaseSizeSupport = undefined;
-				throw e;
-			});
-		return this.databaseSizeSupport;
+		let supported = this.databaseSizeSupport.get(pool);
+		if (!supported) {
+			supported = pool
+				.query(`SELECT to_regprocedure('pg_database_size(name)') IS NOT NULL AS "supported"`)
+				.then(({ rows }) => rows[0]?.supported === true)
+				.catch((e) => {
+					this.databaseSizeSupport.delete(pool);
+					throw e;
+				});
+			this.databaseSizeSupport.set(pool, supported);
+		}
+		return supported;
 	}
 
 	private async assertTableExists(

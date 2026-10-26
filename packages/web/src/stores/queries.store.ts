@@ -157,3 +157,8 @@ export const useQueriesStore = create<QueriesStore>()(
 		},
 	),
 );
+
+// Another tab saved queries: reload them, or this tab's next save would drop that tab's work.
+window.addEventListener("storage", (event) => {
+	if (event.key === "dbstudio-queries") void useQueriesStore.persist.rehydrate();
+});

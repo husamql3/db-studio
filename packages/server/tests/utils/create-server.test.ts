@@ -46,6 +46,7 @@ vi.mock("@/db-manager.js", () => ({
 		query: vi.fn(),
 	})),
 	getDbType: vi.fn(() => "pg"),
+	latestConnectionId: vi.fn(() => null),
 	isValidObjectId: vi.fn(),
 	coerceObjectId: vi.fn(),
 }));

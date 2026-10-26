@@ -16,7 +16,7 @@ import type { Pool, PoolConfig } from "pg";
 import { createD1Client, parseD1Url } from "@/d1-client.js";
 import { loadDriver, loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { currentConnectionId, errorFields, writeOperationalLog } from "@/operational-log.js";
 import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
 
@@ -728,101 +728,120 @@ export class DatabaseManager {
 	}
 }
 
-// The open connection; replaced as a whole when the user switches databases
-let databaseManager = new DatabaseManager();
-
 /**
- * Make `next` the open connection, then close the previous one's clients. A request that already
- * holds one of those clients fails; every later call reaches `next`.
+ * The open connections by id. Each browser tab names its own in `X-Connection-Id`, so two tabs
+ * work with two databases at once.
+ * shortcut: a connection stays open until the server stops, add idle eviction if users open many.
  */
-export const replaceDatabaseManager = async (next: DatabaseManager): Promise<void> => {
-	const previous = databaseManager;
-	databaseManager = next;
-	await previous.closeAll();
+const connections = new Map<string, DatabaseManager>();
+/** Serves a request that names no connection: the CLI's `--database-url`, curl, scripts. */
+let latestId: string | null = null;
+const notConnected = new DatabaseManager();
+
+/** Add `manager` as connection `id` and make it the latest. */
+export const openConnection = (id: string, manager: DatabaseManager): void => {
+	connections.set(id, manager);
+	latestId = id;
 };
+
+export const getOpenConnection = (id: string) => connections.get(id);
+
+/** Read once when a request arrives that names no connection; it keeps that one throughout. */
+export const latestConnectionId = (): string | null => latestId;
+
+/** The connection this request names when it is still open, else the latest. */
+export const requestConnectionId = (): string | null => {
+	const sent = currentConnectionId();
+	return sent && connections.has(sent) ? sent : latestId;
+};
+
+// A request naming a connection that is gone reaches none, never another tab's database. Outside
+// a request (CLI startup), the latest.
+const current = (): DatabaseManager =>
+	connections.get(currentConnectionId() ?? latestId ?? "") ?? notConnected;
 
 /**
  * Get a PostgreSQL pool for the specified database
  */
 export const getDbPool = (database?: string): Promise<Pool> => {
-	return databaseManager.getPgPool(database);
+	return current().getPgPool(database);
 };
 
 /**
  * Get a MySQL pool for the specified database
  */
 export const getMysqlPool = (database?: string): Promise<MysqlPool> => {
-	return databaseManager.getMysqlPool(database);
+	return current().getMysqlPool(database);
 };
 
 /**
  * Get a SQL Server pool for the specified database
  */
 export const getMssqlPool = async (database?: string): Promise<MssqlPool> => {
-	return databaseManager.getMssqlPool(database);
+	return current().getMssqlPool(database);
 };
 
 /**
  * Get a ClickHouse client for the specified database
  */
 export const getClickhouseClient = (database?: string): Promise<ClickHouseClient> => {
-	return databaseManager.getClickhouseClient(database);
+	return current().getClickhouseClient(database);
 };
 
 /**
  * Get the type of the connected database. Throws a 409 HTTPException when none is connected.
  */
 export const getDbType = (): DatabaseTypeSchema => {
-	return databaseManager.getDbType();
+	return current().getDbType();
 };
 
 /**
  * Get the URL of the open connection. Throws a 409 HTTPException when none is connected.
  */
 export const getConnectionUrl = (): string => {
-	return databaseManager.getConnectionUrl();
+	return current().getConnectionUrl();
 };
 
 /**
  * Build a connection string for the specified database
  */
 const _buildDbConnectionString = (database?: string): string => {
-	return databaseManager.buildConnectionString(database);
+	return current().buildConnectionString(database);
 };
 
 /**
  * Close a specific database pool by database name
  */
 const _closeDbPool = async (database: string): Promise<void> => {
-	return databaseManager.closePoolByDatabase(database);
+	return current().closePoolByDatabase(database);
 };
 
 /**
  * Close a specific database pool by connection string
  */
 const _closeDbPoolByConnectionString = async (connectionString: string): Promise<void> => {
-	return databaseManager.closePool(connectionString);
+	return current().closePool(connectionString);
 };
 
 /**
  * Close all database pools
  */
 export const closeAllDbPools = async (): Promise<void> => {
-	return databaseManager.closeAll();
+	await Promise.all([...connections.values()].map((manager) => manager.closeAll()));
 };
 
 /**
  * Get list of active pool connection strings
  */
 const _getActivePools = (): string[] => {
-	return databaseManager.getActivePools();
+	return current().getActivePools();
 };
 
 /**
  * Get the client for the configured SQLite file, libSQL / Turso or Cloudflare D1 database
  */
 export const getSqliteClient = (): Promise<SqliteClient> => {
-	return databaseManager.getSqliteClient();
+	return current().getSqliteClient();
 };
 
 /**
@@ -831,53 +850,53 @@ export const getSqliteClient = (): Promise<SqliteClient> => {
 export const withDuckdbConnection = <T>(
 	fn: (connection: DuckDBConnection) => Promise<T>,
 ): Promise<T> => {
-	return databaseManager.withDuckdbConnection(fn);
+	return current().withDuckdbConnection(fn);
 };
 
 /**
  * Get or create the Oracle pool for the configured service
  */
 export const getOraclePool = (): Promise<OraclePool> => {
-	return databaseManager.getOraclePool();
+	return current().getOraclePool();
 };
 
 /**
  * Get or create the MongoDB client
  */
 export const getMongoClient = (): Promise<MongoClient> => {
-	return databaseManager.getMongoClient();
+	return current().getMongoClient();
 };
 
 /**
  * Get the MongoDB database name from the connection URL
  */
 export const getMongoDbName = (): string => {
-	return databaseManager.getMongoDbName();
+	return current().getMongoDbName();
 };
 
 /**
  * Get a MongoDB database instance
  */
 export const getMongoDb = (dbName?: string) => {
-	return databaseManager.getMongoDb(dbName);
+	return current().getMongoDb(dbName);
 };
 
 /**
  * Get or create a Redis client for the specified logical DB index
  */
 export const getRedisClient = (dbIndex?: number): Promise<Redis> => {
-	return databaseManager.getRedisClient(dbIndex);
+	return current().getRedisClient(dbIndex);
 };
 
 export const getIsolatedRedisClient = (dbIndex?: number): Promise<Redis> => {
-	return databaseManager.getIsolatedRedisClient(dbIndex);
+	return current().getIsolatedRedisClient(dbIndex);
 };
 
 /**
  * Get the default Redis logical DB index from the connection URL
  */
 export const getRedisDefaultDb = (): number => {
-	return databaseManager.getRedisDefaultDb();
+	return current().getRedisDefaultDb();
 };
 
 export const isValidObjectId = (value: unknown): value is string => {
