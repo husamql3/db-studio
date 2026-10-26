@@ -14,6 +14,7 @@ import { TableSelector } from "../components/table-selector";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { getRecordKey } from "../utils/table-diff";
 import { useColumnPreferences } from "./use-column-preferences";
+import { useEditScope } from "./use-edit-scope";
 import { useRowMutation } from "./use-row-mutation";
 
 export const useTableModel = ({
@@ -32,6 +33,7 @@ export const useTableModel = ({
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const { canMutateRows, rowMutationReason } = useRowMutation();
+	const editScope = useEditScope(tableName, tableCols);
 
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 	const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
@@ -128,7 +130,7 @@ export const useTableModel = ({
 
 	const tableMeta = useMemo(
 		() => ({
-			editScope: tableName,
+			editScope,
 			canMutateRows,
 			rowMutationReason,
 			focusedCell,

@@ -33,41 +33,27 @@ export const parseBulkData = (input: string): Record<string, unknown>[] => {
  * Parse CSV data with automatic delimiter detection
  */
 const parseCSV = (input: string): Record<string, unknown>[] => {
-	const lines = input.split("\n").filter((line) => line.trim());
+	const delimiter = detectDelimiter(input.split("\n", 1)[0]);
+	const [headerRow, ...rows] = parseCSVRows(input, delimiter);
 
-	if (lines.length < 1) {
+	if (!headerRow) {
 		throw new Error("No data to parse");
 	}
 
-	// Detect delimiter
-	const headerLine = lines[0];
-	const delimiter = detectDelimiter(headerLine);
+	const headers = headerRow.map((h) => h.trim());
 
-	const headers = parseCSVLine(headerLine, delimiter).map((h) => h.trim());
-
-	if (headers.length === 0) {
-		throw new Error("No headers found in CSV");
-	}
-
-	const records: Record<string, unknown>[] = [];
-
-	for (let i = 1; i < lines.length; i++) {
-		const values = parseCSVLine(lines[i], delimiter);
-
+	// A short or long row means a stray delimiter or quote; guessing which column moved
+	// would insert values under the wrong names.
+	const records = rows.map((values, i) => {
 		if (values.length !== headers.length) {
-			console.warn(
-				`Row ${i + 1} has ${values.length} values but ${headers.length} headers expected`,
+			throw new Error(
+				`Row ${i + 2} has ${values.length} ${values.length === 1 ? "value" : "values"} but ${headers.length} columns are expected`,
 			);
 		}
-
-		const record: Record<string, unknown> = {};
-		headers.forEach((header, index) => {
-			const value = values[index]?.trim() ?? "";
-			record[header] = parseValue(value);
-		});
-
-		records.push(record);
-	}
+		return Object.fromEntries(
+			headers.map((header, index) => [header, parseValue(values[index].trim())]),
+		);
+	});
 
 	if (records.length === 0) {
 		throw new Error("No records found in CSV");
@@ -103,36 +89,51 @@ const detectDelimiter = (headerLine: string): string => {
 };
 
 /**
- * Parse a single CSV line respecting quotes
+ * Split CSV into rows of fields. A quoted field may hold the delimiter and newlines;
+ * blank lines are skipped.
  */
-const parseCSVLine = (line: string, delimiter: string): string[] => {
-	const result: string[] = [];
-	let current = "";
+const parseCSVRows = (input: string, delimiter: string): string[][] => {
+	const rows: string[][] = [];
+	let row: string[] = [];
+	let field = "";
 	let insideQuotes = false;
 
-	for (let i = 0; i < line.length; i++) {
-		const char = line[i];
-		const nextChar = line[i + 1];
+	const endRow = () => {
+		row.push(field);
+		if (row.length > 1 || row[0].trim() !== "") {
+			rows.push(row);
+		}
+		row = [];
+		field = "";
+	};
 
+	for (let i = 0; i < input.length; i++) {
+		const char = input[i];
 		if (char === '"') {
-			if (insideQuotes && nextChar === '"') {
+			if (insideQuotes && input[i + 1] === '"') {
 				// Escaped quote
-				current += '"';
-				i++; // Skip next quote
+				field += '"';
+				i++;
 			} else {
-				// Toggle quote state
 				insideQuotes = !insideQuotes;
 			}
-		} else if (char === delimiter && !insideQuotes) {
-			result.push(current);
-			current = "";
-		} else {
-			current += char;
+		} else if (insideQuotes) {
+			field += char;
+		} else if (char === delimiter) {
+			row.push(field);
+			field = "";
+		} else if (char === "\n") {
+			endRow();
+		} else if (char !== "\r") {
+			field += char;
 		}
 	}
 
-	result.push(current);
-	return result;
+	if (insideQuotes) {
+		throw new Error("CSV has a quoted field without a closing quote");
+	}
+	endRow();
+	return rows;
 };
 
 /**
