@@ -86,7 +86,8 @@ const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
 export class MySqlAdapter extends BaseAdapter {
-	private mariaDb?: Promise<boolean>;
+	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
+	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
 
 	// =========================================================
 	// Abstract method implementations
@@ -1268,14 +1269,18 @@ export class MySqlAdapter extends BaseAdapter {
 	}
 
 	private isMariaDb(pool: MysqlPool): Promise<boolean> {
-		this.mariaDb ??= pool
-			.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
-			.then(([rows]) => Number(rows[0]?.mariadb) === 1)
-			.catch((e) => {
-				this.mariaDb = undefined;
-				throw e;
-			});
-		return this.mariaDb;
+		let mariaDb = this.mariaDb.get(pool);
+		if (!mariaDb) {
+			mariaDb = pool
+				.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
+				.then(([rows]) => Number(rows[0]?.mariadb) === 1)
+				.catch((e) => {
+					this.mariaDb.delete(pool);
+					throw e;
+				});
+			this.mariaDb.set(pool, mariaDb);
+		}
+		return mariaDb;
 	}
 
 	private async getPrimaryKeyColumns(pool: MysqlPool, tableName: string): Promise<string[]> {

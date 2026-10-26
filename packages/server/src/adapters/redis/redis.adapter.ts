@@ -325,7 +325,8 @@ const SCHEMA_DESCRIPTIONS: Record<RedisTable, string> = {
 // ---------------------------------------------------------------------------
 
 export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
-	private countCache: Map<number, CountCacheEntry> = new Map();
+	// Keyed by client: each open connection has its own clients, so tabs on two servers never share counts.
+	private countCache = new WeakMap<Redis, CountCacheEntry>();
 
 	// -----------------------------------------------------------------------
 	// Abstract stubs — Redis does not use SQL
@@ -1241,12 +1242,12 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	private async getCachedCounts(dbIndex: number): Promise<Record<RedisTable, number>> {
-		const cached = this.countCache.get(dbIndex);
+		const client = await getRedisClient(dbIndex);
+		const cached = this.countCache.get(client);
 		if (cached && Date.now() - cached.timestamp < COUNT_CACHE_TTL_MS) {
 			return cached.counts;
 		}
 
-		const client = await getRedisClient(dbIndex);
 		const counts = {} as Record<RedisTable, number>;
 		const pipeline = client.pipeline();
 		for (const table of REDIS_TABLES) {
@@ -1266,7 +1267,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			counts[table] = reply?.[1]?.length ?? 0;
 		});
 
-		this.countCache.set(dbIndex, { timestamp: Date.now(), counts });
+		this.countCache.set(client, { timestamp: Date.now(), counts });
 		return counts;
 	}
 
@@ -1289,7 +1290,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			const client = await getRedisClient(parseDbIndex(db));
 
 			await this.writeRecord(client, table, key, data.value, { mode: "create", ttl });
-			this.countCache.delete(parseDbIndex(db));
+			this.countCache.delete(client);
 			return { insertedCount: 1 };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1358,7 +1359,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			if (keys.length === 0)
 				return { deletedCount: 0, fkViolation: false, relatedRecords: [] };
 			const deletedCount = await client.del(...keys);
-			this.countCache.delete(parseDbIndex(db));
+			this.countCache.delete(client);
 			return { deletedCount, fkViolation: false, relatedRecords: [] };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1401,7 +1402,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				}
 			}
 
-			this.countCache.delete(parseDbIndex(db));
+			this.countCache.delete(client);
 			return {
 				success: errors.length === 0,
 				message: `Inserted ${successCount} of ${records.length} record${records.length === 1 ? "" : "s"}`,
