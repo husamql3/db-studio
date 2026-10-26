@@ -193,11 +193,9 @@ function DownloadsOverview({
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
 						<p className="text-5xl font-semibold tracking-tight tabular-nums">
-							{stats.npmYearly.toLocaleString()}
+							{stats.npmTotal?.toLocaleString() ?? "—"}
 						</p>
-						<p className="mt-1 text-xs text-muted-foreground">
-							npm downloads in the last 12 months
-						</p>
+						<p className="mt-1 text-xs text-muted-foreground">total npm downloads</p>
 					</div>
 					<div className="flex flex-wrap gap-2">{badges}</div>
 				</div>
