@@ -198,6 +198,10 @@ function tokenize(sql: string): Token[] {
 					i = skipQuoted(sql, i);
 					continue;
 				}
+				if (sql.startsWith("--", i) || sql.startsWith("/*", i)) {
+					i = skipTrivia(sql, i);
+					continue;
+				}
 				if (sql[i] === "(") depth++;
 				else if (sql[i] === ")") depth--;
 				i++;

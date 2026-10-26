@@ -47,6 +47,7 @@ const query = async (sql: string) => {
 const ids = (rows: Record<string, unknown>[]) => rows.map((row) => Number(row.id));
 
 const forceDeleteTwoForeignKeys = async () => {
+	await query("DROP TABLE IF EXISTS dbstudio_audit_attachments");
 	await query("DROP TABLE IF EXISTS dbstudio_audit_messages");
 	await query("DROP TABLE IF EXISTS dbstudio_audit_users");
 	await query("CREATE TABLE dbstudio_audit_users (id INT PRIMARY KEY)");
@@ -56,8 +57,14 @@ const forceDeleteTwoForeignKeys = async () => {
 			FOREIGN KEY (sender_id) REFERENCES dbstudio_audit_users(id),
 			FOREIGN KEY (recipient_id) REFERENCES dbstudio_audit_users(id))`,
 	);
+	await query(
+		`CREATE TABLE dbstudio_audit_attachments (
+			id INT PRIMARY KEY, message_id INT NOT NULL,
+			FOREIGN KEY (message_id) REFERENCES dbstudio_audit_messages(id))`,
+	);
 	await query("INSERT INTO dbstudio_audit_users VALUES (1), (2)");
 	await query("INSERT INTO dbstudio_audit_messages VALUES (1, 1, 2), (2, 2, 1)");
+	await query("INSERT INTO dbstudio_audit_attachments VALUES (1, 1), (2, 2)");
 
 	const { status } = await call("DELETE", "/records/force", {
 		tableName: "dbstudio_audit_users",
@@ -67,11 +74,16 @@ const forceDeleteTwoForeignKeys = async () => {
 	const messages = await query(
 		"SELECT id, sender_id, recipient_id FROM dbstudio_audit_messages ORDER BY id",
 	);
-	evidence.forceDeleteTwoForeignKeys = { status, users, messages };
+	const attachments = ids(
+		await query("SELECT id FROM dbstudio_audit_attachments ORDER BY id"),
+	);
+	evidence.forceDeleteTwoForeignKeys = { status, users, messages, attachments };
 	assert.equal(status, 200);
 	assert.deepEqual(users, [2]);
 	// Message 2 names user 1 only as its recipient; leaving it would reference a deleted user.
 	assert.deepEqual(messages, []);
+	// Attachment 2 is reached only through message 2, the second relationship's row.
+	assert.deepEqual(attachments, []);
 };
 
 const failedSaveRollsBack = async () => {
@@ -192,6 +204,7 @@ try {
 	process.exit(1);
 }
 await writeArtifact();
+await query("DROP TABLE IF EXISTS dbstudio_audit_attachments");
 await query("DROP TABLE IF EXISTS dbstudio_audit_messages");
 for (const table of ["users", "saves", "paged"]) {
 	await query(`DROP TABLE IF EXISTS dbstudio_audit_${table}`);

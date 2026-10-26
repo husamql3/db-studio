@@ -10,6 +10,7 @@
  * - alterColumn's table rebuild drops UNIQUE, CHECK, COLLATE, AUTOINCREMENT or a generated
  *   column, on the edited column or any other
  * - alterColumn keeps the edited column's old NOT NULL or DEFAULT
+ * - a `)` inside a comment in the CREATE TABLE ends a column early, so the edit is refused
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -163,5 +164,24 @@ describe("SqliteAdapter", () => {
 			{ id: 3n, sku: null },
 			{ id: 4n, sku: "none" },
 		]);
+	});
+
+	it("edits a column of a table whose definition has a comment holding a parenthesis", async () => {
+		await exec(
+			"CREATE TABLE notes (id INTEGER PRIMARY KEY, x TEXT CHECK (length(x) > 0 /* ) */), -- )\n y TEXT)",
+		);
+
+		await adapter.alterColumn({
+			db: "main",
+			tableName: "notes",
+			columnName: "y",
+			columnType: "TEXT",
+			isNullable: false,
+			defaultValue: "'none'",
+		});
+
+		await expect(exec("INSERT INTO notes (id, x) VALUES (1, '')")).rejects.toThrow(/CHECK/);
+		await exec("INSERT INTO notes (id, x) VALUES (2, 'ok')");
+		expect(await select("SELECT id, x, y FROM notes")).toEqual([{ id: 2n, x: "ok", y: "none" }]);
 	});
 });

@@ -1031,17 +1031,21 @@ export class MySqlAdapter extends BaseAdapter {
 		try {
 			const fkConstraints = await this.getForeignKeyReferences(tableName, db);
 			let totalRelated = 0;
-			const visited = new Set<string>();
+			// Values already handled per relationship: a relationship reached again (a second FK
+			// path) still processes its new values, and a cycle ends once no value is new.
+			const handled = new Map<string, Set<string>>();
 
 			const deleteRelatedRecursively = async (
 				targetTable: string,
 				targetColumn: string,
-				values: unknown[],
-				visitedSet: Set<string>,
+				reached: unknown[],
 			) => {
 				const key = `${targetTable}.${targetColumn}`;
-				if (visitedSet.has(key)) return;
-				visitedSet.add(key);
+				const seen = handled.get(key) ?? new Set<string>();
+				handled.set(key, seen);
+				const values = reached.filter((value) => !seen.has(String(value)));
+				if (values.length === 0) return;
+				for (const value of values) seen.add(String(value));
 
 				const nestedFks = await this.getForeignKeyReferences(targetTable, db);
 				for (const nestedFk of nestedFks) {
@@ -1058,7 +1062,6 @@ export class MySqlAdapter extends BaseAdapter {
 							nestedFk.referencingTable,
 							nestedFk.referencingColumn,
 							nestedValues,
-							visitedSet,
 						);
 					}
 				}
@@ -1078,7 +1081,6 @@ export class MySqlAdapter extends BaseAdapter {
 					constraint.referencingTable,
 					constraint.referencingColumn,
 					pkValues,
-					visited,
 				);
 			}
 
