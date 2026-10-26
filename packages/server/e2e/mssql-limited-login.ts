@@ -9,7 +9,9 @@ import sql from "mssql";
 // "No databases returned from server", because sys.master_files hides every row from it. Its
 // table list then failed with error 229 for one table it could see but not read, and
 // connection info failed with error 300 (no VIEW SERVER STATE). The databases, tables and
-// connection routes must answer 200, and reading the unreadable table must answer 403.
+// connection routes must answer 200, and reading the unreadable table must answer 403. The
+// audit of that fix found the same failures for a denied column (230), the Logs tab (27219),
+// the query runner, and deleting a table the login may drop but not read.
 process.env.DB_STUDIO_TELEMETRY = "0";
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl?.startsWith("mssql://")) {
@@ -28,12 +30,12 @@ const admin = await new sql.ConnectionPool({
 	user: decodeURIComponent(url.username),
 	password: decodeURIComponent(url.password),
 	database: db,
-	options: { trustServerCertificate: true },
+	options: { encrypt: false, trustServerCertificate: true },
 }).connect();
 const evidence: Record<string, unknown> = {};
 
 const cleanup = async () => {
-	await admin.query`DROP TABLE IF EXISTS dbstudio_e2e_readable, dbstudio_e2e_private`;
+	await admin.query`DROP TABLE IF EXISTS dbstudio_e2e_readable, dbstudio_e2e_private, dbstudio_e2e_column`;
 	await admin.query(`IF USER_ID('${LOGIN}') IS NOT NULL DROP USER [${LOGIN}]`);
 	await admin.query(`IF SUSER_ID('${LOGIN}') IS NOT NULL DROP LOGIN [${LOGIN}]`);
 };
@@ -48,7 +50,12 @@ try {
 	await admin.query`CREATE TABLE dbstudio_e2e_private (id INT PRIMARY KEY, name NVARCHAR(10))`;
 	await admin.query`INSERT INTO dbstudio_e2e_readable VALUES (1, 'a'), (2, 'b')`;
 	await admin.query`INSERT INTO dbstudio_e2e_private VALUES (1, 'a'), (2, 'b'), (3, 'c')`;
+	await admin.query`CREATE TABLE dbstudio_e2e_column (id INT PRIMARY KEY, secret NVARCHAR(10))`;
+	await admin.query`INSERT INTO dbstudio_e2e_column VALUES (1, 'a')`;
 	await admin.query(`GRANT SELECT ON dbstudio_e2e_readable TO [${LOGIN}]`);
+	// Readable except one column, so COUNT(*) fails with 230.
+	await admin.query(`GRANT SELECT ON dbstudio_e2e_column TO [${LOGIN}]`);
+	await admin.query(`DENY SELECT ON dbstudio_e2e_column (secret) TO [${LOGIN}]`);
 	// Visible in the catalog, but not readable.
 	await admin.query(`GRANT VIEW DEFINITION ON dbstudio_e2e_private TO [${LOGIN}]`);
 
@@ -57,13 +64,16 @@ try {
 	limitedUrl.password = encodeURIComponent(PASSWORD);
 	const { createServer } = await import("../src/utils/create-server.js");
 	const { connect } = await import("../src/connection.js");
-	const { closeAllDbPools } = await import("../src/db-manager.js");
 	const { app } = createServer();
 	await connect(limitedUrl.toString());
 
-	const call = async (route: string) => {
+	const call = async (route: string, method = "GET", body?: unknown) => {
 		const response = await app.handle(
-			new Request(new URL(`/api${route}`, "http://localhost")),
+			new Request(new URL(`/api${route}`, "http://localhost"), {
+				method,
+				headers: body ? { "Content-Type": "application/json" } : {},
+				body: body ? JSON.stringify(body) : undefined,
+			}),
 		);
 		const { requestId: _requestId, ...json } = (await response.json()) as Record<
 			string,
@@ -97,18 +107,36 @@ try {
 	evidence.readPrivate = await call(
 		`/mssql/tables/dbstudio_e2e_private/data?${new URLSearchParams({ db, limit: "50" })}`,
 	);
-	await closeAllDbPools();
+	const query = await call(`/mssql/query?${new URLSearchParams({ db })}`, "POST", {
+		query: "SELECT * FROM dbstudio_e2e_private",
+	});
+	evidence.queryPrivate = { status: query.status };
+	const logs = await call(`/mssql/logs?${new URLSearchParams({ db })}`);
+	evidence.logs = {
+		status: logs.status,
+		available: (logs.body.data as { available?: boolean } | undefined)?.available,
+	};
+	// ALTER on the schema allows DROP TABLE without SELECT.
+	await admin.query(`GRANT ALTER ON SCHEMA::dbo TO [${LOGIN}]`);
+	evidence.deletePrivate = await call(
+		`/mssql/tables/dbstudio_e2e_private?${new URLSearchParams({ db })}`,
+		"DELETE",
+	);
 
 	assert.deepEqual(evidence.databases, { status: 200, connected: [db] });
 	assert.deepEqual(evidence.connection, { status: 200, user: true });
 	assert.deepEqual(evidence.tables, {
 		status: 200,
 		body: [
+			{ tableName: "dbstudio_e2e_column", rowCount: 1, rowCountEstimated: true },
 			{ tableName: "dbstudio_e2e_private", rowCount: 3, rowCountEstimated: true },
 			{ tableName: "dbstudio_e2e_readable", rowCount: 2 },
 		],
 	});
 	assert.equal((evidence.readPrivate as { status: number }).status, 403);
+	assert.deepEqual(evidence.queryPrivate, { status: 403 });
+	assert.deepEqual(evidence.logs, { status: 200, available: false });
+	assert.equal((evidence.deletePrivate as { status: number }).status, 200);
 	console.log("PASS SQL Server limited login lists databases and tables");
 } finally {
 	try {
@@ -118,6 +146,8 @@ try {
 			`${JSON.stringify(evidence, null, 2)}\n`,
 		);
 	} finally {
+		// Open app connections keep the login logged in, and DROP LOGIN refuses that.
+		await (await import("../src/db-manager.js")).closeAllDbPools();
 		await cleanup().finally(() => admin.close());
 	}
 }

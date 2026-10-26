@@ -139,6 +139,17 @@ export abstract class BaseAdapter implements IDbAdapter {
 			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
 			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
 
+			// Before the message checks below, whose words a table name in this message can contain.
+			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
+			// SQL Server 229/230: the login lacks a permission on a table or column.
+			const mssqlNumber = (e as { number?: number }).number;
+			if (
+				(isPgDatabaseError(e) && e.code === "42501") ||
+				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
+			) {
+				return new HTTPException(403, { message: e.message, cause: e });
+			}
+
 			const isConnectionError =
 				code === "ECONNREFUSED" ||
 				code === "ENOTFOUND" ||
@@ -176,15 +187,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 
 			if (isConnectionError) {
 				return new HTTPException(503, { message: e.message, cause: e });
-			}
-			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
-			// SQL Server 229/230: the login lacks a permission on a table or column.
-			const mssqlNumber = (e as { number?: number }).number;
-			if (
-				(isPgDatabaseError(e) && e.code === "42501") ||
-				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
-			) {
-				return new HTTPException(403, { message: e.message, cause: e });
 			}
 
 			return new HTTPException(500, { message: e.message, cause: e });
