@@ -18,6 +18,7 @@ import {
 	Columns3Cog,
 	Ellipsis,
 	FolderKey,
+	GitCompareArrows,
 	ListTree,
 	type LucideIcon,
 	Monitor,
@@ -48,6 +49,7 @@ const ICONS = {
 	logs: ScrollText,
 	visualizer: Workflow,
 	browser: FolderKey,
+	migrations: GitCompareArrows, // PROTOTYPE
 } satisfies Record<string, LucideIcon>;
 
 const railTile =

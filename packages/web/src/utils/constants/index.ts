@@ -6,6 +6,7 @@ export const TABS = [
 	"indexes",
 	"logs",
 	"visualizer",
+	"migrations", // PROTOTYPE
 	// "assistant",
 ] as const;
 
