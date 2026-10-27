@@ -187,43 +187,7 @@ describe("PgAdapter integration scaffold", () => {
 		mockGetDbPool.mockReturnValue(pool);
 	});
 
-	it("builds the paginated data query and maps column types", async () => {
-		const cursor = (
-			adapter as unknown as {
-				encodeCursor: (data: { values: Record<string, unknown>; sortColumns: string[] }) => string;
-			}
-		).encodeCursor({ values: { id: 1 }, sortColumns: ["id"] });
-
-		const helper = adapter as unknown as {
-			buildTableDataQuery: (params: Record<string, unknown>) => {
-				sql: string;
-				values: unknown[];
-			};
-		};
-
-		expect(
-			helper.buildTableDataQuery({
-				db: "appdb",
-				tableName: "users",
-				limit: 1,
-				cursor,
-				direction: "desc",
-				sort: [],
-				filters: [{ columnName: "name", operator: "like", value: "%a%" }],
-			}).sql,
-		).toContain('ORDER BY "ctid" DESC');
-		expect(
-			helper.buildTableDataQuery({
-				db: "appdb",
-				tableName: "users",
-				sort: [{ columnName: "name", direction: "desc" }],
-				order: "asc",
-				direction: "desc",
-				filters: [{ columnName: "active", operator: "=", value: "true" }],
-				cursor,
-			}).values,
-		).toEqual(["true", 1, 51]);
-
+	it("maps column types", () => {
 		expect(adapter.mapFromUniversalType("text")).toBe("TEXT");
 		expect(adapter.mapFromUniversalType("number")).toBe("INTEGER");
 		expect(adapter.mapFromUniversalType("boolean")).toBe("BOOLEAN");

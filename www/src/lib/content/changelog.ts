@@ -16,6 +16,45 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.24.1",
+		date: "2026-10-28",
+		title: "Safer record and column edits",
+		bugsFixed: [
+			{
+				text: "A failed record or column edit no longer saves part of the change, and SQLite column edits keep UNIQUE, CHECK and other column rules",
+				username: "husamql3",
+			},
+			{
+				text: "Sorting a PostgreSQL table by several columns or by a column with empty values no longer skips rows",
+				username: "husamql3",
+			},
+			{
+				text: "Force deleting a row also removes rows that reach it through a second foreign key",
+				username: "husamql3",
+			},
+			{
+				text: "Unsaved grid edits stay with their own table, including rows whose keys look alike",
+				username: "husamql3",
+			},
+			{
+				text: "CSV import handles multiline values and quoted empty rows",
+				username: "husamql3",
+			},
+			{
+				text: "SQLite tables with comments in their definition open again",
+				username: "husamql3",
+			},
+			{
+				text: "Including the database schema in AI chat sends only table and column details, never row values",
+				username: "husamql3",
+			},
+			{
+				text: "Your own AI API key raises the request limit only for the provider it belongs to",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.24.0",
 		date: "2026-10-27",
 		title: "One connection per browser tab",

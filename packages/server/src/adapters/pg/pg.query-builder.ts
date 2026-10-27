@@ -1,4 +1,4 @@
-import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { FilterType, SortDirection } from "@db-studio/shared/types";
 
 const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -71,48 +71,61 @@ export function buildWhereClause(filters: FilterType[]): {
 	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
 }
 
-export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
-	if (Array.isArray(sorts)) {
-		if (sorts.length === 0) return "";
-		const parts = sorts.map(
-			(s) => `${quotePgIdent(s.columnName)} ${s.direction.toUpperCase()}`,
-		);
-		return `ORDER BY ${parts.join(", ")}`;
-	}
-	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quotePgIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
-	}
-	return "";
+export interface OrderTerm {
+	column: string;
+	direction: SortDirection;
 }
 
-export function buildCursorWhereClause(
-	cursorData: CursorData,
-	direction: SortDirection,
-	sortDirection: SortDirection,
+/** NULLs sort last in either direction; a backward page reads that order reversed. */
+const placement = (term: OrderTerm, backward: boolean) => ({
+	descending: (term.direction === "desc") !== backward,
+	nullsLast: !backward,
+});
+
+export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
+	`ORDER BY ${terms
+		.map((term) => {
+			const { descending, nullsLast } = placement(term, backward);
+			return `${quotePgIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
+		})
+		.join(", ")}`;
+
+/**
+ * Rows after the `cursor` row in `buildOrderBy(terms, backward)` order:
+ * `(c1 after v1) OR (c1 = v1 AND c2 after v2) OR …`, where "after" follows each column's own
+ * direction and NULL placement. A row-value comparison `(c1, c2) > (v1, v2)` cannot express
+ * mixed directions and never matches NULL. Each non-NULL cursor value is one parameter,
+ * numbered from `startParamIndex`, that later branches reference again.
+ */
+export function buildKeysetPredicate(
+	terms: OrderTerm[],
+	cursor: Record<string, unknown>,
+	backward: boolean,
 	startParamIndex: number,
 ): { clause: string; values: unknown[] } {
-	const { values, sortColumns } = cursorData;
-	const conditions: string[] = [];
-	const queryValues: unknown[] = [];
+	const branches: string[] = [];
+	const equal: string[] = [];
+	const values: unknown[] = [];
 
-	const isAscending = sortDirection === "asc";
-	const isForward = direction === "asc";
-	const useGreaterThan = isAscending === isForward;
+	for (const term of terms) {
+		const col = quotePgIdent(term.column);
+		const value = cursor[term.column] ?? null;
+		const { descending, nullsLast } = placement(term, backward);
+		if (value !== null) values.push(value);
+		const param = `$${startParamIndex + values.length - 1}`;
 
-	if (sortColumns.length > 0) {
-		const columnList = sortColumns.map(quotePgIdent).join(", ");
-		const placeholders = sortColumns.map((_, i) => `$${startParamIndex + i}`).join(", ");
-		const operator = useGreaterThan ? ">" : "<";
-		conditions.push(`(${columnList}) ${operator} (${placeholders})`);
-		for (const col of sortColumns) {
-			queryValues.push(values[col]);
-		}
+		const after =
+			value === null
+				? nullsLast
+					? null
+					: `${col} IS NOT NULL`
+				: `${col} ${descending ? "<" : ">"} ${param}${nullsLast ? ` OR ${col} IS NULL` : ""}`;
+		if (after) branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
+
+		equal.push(value === null ? `${col} IS NULL` : `${col} = ${param}`);
 	}
 
-	return {
-		clause: conditions.length > 0 ? `(${conditions.join(" AND ")})` : "",
-		values: queryValues,
-	};
+	return { clause: branches.length ? `(${branches.join(" OR ")})` : "FALSE", values };
 }
 
 /**

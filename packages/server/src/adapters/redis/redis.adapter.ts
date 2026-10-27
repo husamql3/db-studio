@@ -1196,7 +1196,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 					valuePipeline.smembers(key);
 					break;
 				case "zsets":
-					valuePipeline.zrange(key, 0, -1, "WITHSCORES");
+					valuePipeline.zrange(key, "0", "-1", "WITHSCORES");
 					break;
 				case "streams":
 					valuePipeline.xinfo("STREAM", key);
