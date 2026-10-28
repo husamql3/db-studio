@@ -16,6 +16,11 @@
 		"packages/server": {
 			"project": ["src/**/*.ts"]
 		},
+		"packages/desktop": {
+			"entry": ["scripts/*.mjs"],
+			"project": ["src/**/*.ts"],
+			"ignoreDependencies": ["electron-builder"]
+		},
 		"packages/proxy": {
 			"project": ["src/**/*.ts"],
 			"ignoreDependencies": ["cloudflare"]

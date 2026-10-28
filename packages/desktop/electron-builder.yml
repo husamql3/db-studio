@@ -8,8 +8,8 @@ directories:
   output: release
   buildResources: build
 
-# Main and preload are fully bundled, so no node_modules ship in the asar. Without the
-# exclusion electron-builder falls back to the monorepo root and drags in biome/turbo binaries.
+# Main is fully bundled, so no node_modules ship in the asar. Without the exclusion
+# electron-builder falls back to the monorepo root and drags in biome/turbo binaries.
 files:
   - dist-electron/**
   - package.json
@@ -53,6 +53,14 @@ win:
   icon: build/icon.png
   target:
     - target: nsis
+
+linux:
+  icon: build/icon.png
+  category: Development
+  maintainer: Hüsam <husam@ql3.dev>
+  target:
+    - target: AppImage
+    - target: deb
 
 nsis:
   oneClick: false

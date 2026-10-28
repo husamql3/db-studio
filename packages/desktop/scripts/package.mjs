@@ -3,6 +3,7 @@
 //
 //   node scripts/package.mjs --mac --arch arm64
 //   node scripts/package.mjs --win --arch x64
+//   node scripts/package.mjs --linux --arch x64
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -27,7 +28,7 @@ const run = (file, runArgs) =>
 	});
 
 run(process.execPath, [path.join(desktopDir, "scripts/ensure-electron.mjs")]);
-run(process.execPath, [path.join(desktopDir, "scripts/stage-server.mjs")]);
+run(process.execPath, [path.join(desktopDir, "scripts/stage-server.mjs"), "--arch", arch]);
 run("npx", [
 	"electron-builder",
 	...forwarded,

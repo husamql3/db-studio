@@ -10,7 +10,7 @@
     "dev:server": "turbo run dev --filter=db-studio",
     "dev:proxy": "turbo run dev --filter=@db-studio/proxy",
     "dev:www": "turbo run dev --filter=@db-studio/www",
-    "dev:desktop": "turbo run dev --filter=@db-studio/desktop",
+    "dev:desktop": "turbo run electron --filter=@db-studio/desktop",
     "start": "turbo run start",
     "init-db:pgsql": "bash ./scripts/init-db-pgsql.sh",
     "init-db:mysql": "bash ./scripts/init-db-mysql.sh",

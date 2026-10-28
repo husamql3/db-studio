@@ -59,7 +59,7 @@
       "cache": false,
       "persistent": true
     },
-    "@db-studio/desktop#dev": {
+    "@db-studio/desktop#electron": {
       "dependsOn": [
         "db-studio#build"
       ],

@@ -134,3 +134,13 @@ jobs:
             --title "v$VERSION" \
             --notes-file release/release-notes.md \
             --target "$GITHUB_SHA"
+
+  desktop:
+    name: Desktop
+    needs: [build, publish]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit

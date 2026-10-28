@@ -1,10 +1,12 @@
 // Builds `server-stage/server/`: the server CLI bundle plus a production install of its runtime
 // dependencies. Packaged into `resources/server` by electron-builder (see electron-builder.yml
 // `extraResources`). The extra nesting matters: electron-builder silently drops a top-level
-// `node_modules` from any copied folder, but keeps nested ones. better-sqlite3 ships N-API
-// prebuilds for every platform, so no Electron-ABI rebuild is needed.
+// `node_modules` from any copied folder, but keeps nested ones. The native deps (@libsql/*,
+// @duckdb/node-bindings-*) are per-platform optional packages with N-API prebuilds, so no
+// Electron-ABI rebuild is needed, but npm must pick the ones for the target, not the host:
+// macOS x64 is built on an arm64 runner.
 //
-//   node scripts/stage-server.mjs
+//   node scripts/stage-server.mjs [--arch x64]
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -14,6 +16,8 @@ const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const serverDir = path.resolve(desktopDir, "../server");
 const stageRoot = path.join(desktopDir, "server-stage");
 const stageDir = path.join(stageRoot, "server");
+const archFlag = process.argv.indexOf("--arch");
+const arch = archFlag === -1 ? process.arch : process.argv[archFlag + 1];
 
 const serverDist = path.join(serverDir, "dist");
 if (
@@ -44,7 +48,7 @@ writeFileSync(
 	),
 );
 
-console.log("Installing server runtime dependencies...");
+console.log(`Installing server runtime dependencies for ${process.platform}-${arch}...`);
 execFileSync(
 	"npm",
 	[
@@ -54,6 +58,8 @@ execFileSync(
 		"--no-fund",
 		"--no-package-lock",
 		"--ignore-scripts",
+		`--cpu=${arch}`,
+		`--os=${process.platform}`,
 	],
 	{ cwd: stageDir, stdio: "inherit", shell: process.platform === "win32" },
 );

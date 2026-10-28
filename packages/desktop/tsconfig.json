@@ -10,10 +10,7 @@
 		"noUnusedParameters": true,
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
-		"noEmit": true,
-		"paths": {
-			"@db-studio/shared/*": ["../shared/src/*"]
-		}
+		"noEmit": true
 	},
-	"include": ["src", "tsup.config.ts", "vitest.config.ts"]
+	"include": ["src", "tsup.config.ts"]
 }

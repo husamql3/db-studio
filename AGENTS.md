@@ -59,7 +59,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
-| `packages/desktop` | Electron desktop app: hosts the server CLI as a child process and the web build over `dbstudio://app` |
+| `packages/desktop` | Electron desktop shell: starts the server CLI as a child process and opens its web app |
 | `www` | Marketing/docs site (TanStack Start + Fumadocs, deploys to Cloudflare) |
 
 ### Server (`packages/server`)
@@ -130,11 +130,10 @@ from a sibling feature's internal files.
 
 ### Desktop (`packages/desktop`)
 
-- **Stack**: Electron 44, `electron-builder`, `electron-updater` (GitHub Releases), `electron-store`; main and preload bundled to CJS with `tsup` (`dist-electron/`). Every JS dependency is inlined, so the desktop package keeps all deps in `devDependencies` and ships no `node_modules`.
-- **Server sidecar**: `src/server/server-process.ts` spawns the built CLI (`packages/server/dist/index.js`) with the URL in the `DB_STUDIO_DESKTOP_DATABASE_URL` env var (`--var-name`, never argv), a free `PORT`, `HOST=127.0.0.1`, and `ALLOWED_ORIGINS` set to the renderer origin. One connection at a time; starts and stops are serialized, switching kills and respawns, then reloads the window. Packaged builds run it with `ELECTRON_RUN_AS_NODE=1` against `resources/server` (staged by `scripts/stage-server.mjs`, which `npm install`s the server's runtime deps; `better-sqlite3` ships N-API prebuilds so no Electron rebuild is needed). Dev uses the system `node`.
-- **Renderer**: the `packages/web` build, served from disk via the privileged `dbstudio://app` scheme (`src/protocol.ts`), or from `VITE_DEV_SERVER_URL` in dev. The preload exposes `window.desktop` (`DesktopBridge` in `packages/shared/src/types/desktop.types.ts`); `getBaseUrl()` in the web client reads the API origin from it.
-- **Connections**: `src/connections/store.ts` keeps metadata in `electron-store` and the URL encrypted with `safeStorage`. The UI is `packages/web/src/features/connections` on the `/connections` route, gated by `isDesktop`.
-- **Commands**: `bun run dev:desktop` (builds the server first via turbo, then starts the web Vite dev server on port 3001 unless one is already reachable or `VITE_DEV_SERVER_URL` is set), `bun run build:desktop`, `bun run --cwd packages/desktop package -- --mac --arch arm64` (also `--win`, `--dir` for an unpacked build). Releases: `.github/workflows/release-desktop.yml` builds macOS arm64/x64 and Windows x64 and uploads to the `v<version>` GitHub release; version follows `packages/server`. v1 builds are unsigned.
+- **Thin shell**: Electron main (`src/main.ts`, bundled to `dist-electron/` by `tsup`, no preload) starts one server child at launch without a database URL (`src/server.ts`: free port, `HOST=127.0.0.1`) and opens a window on `http://127.0.0.1:<port>/`. Links off that origin open in the system browser.
+- **Connections**: the web app's `/connect` page handles them, saved by the server in `~/.dbstudio`, so the desktop app and the CLI share one list.
+- **Server child**: dev runs `packages/server/dist/index.js` with the system `node`; packaged runs Electron as Node (`ELECTRON_RUN_AS_NODE=1`) against `resources/server`, staged by `scripts/stage-server.mjs` with the target platform's native packages. If it fails to start or exits, the app shows the last output lines and the log path, then quits.
+- **Commands**: `bun run dev:desktop` (builds the server, then launches Electron), `bun run --cwd packages/desktop package -- --mac --arch arm64` (also `--win`, `--linux`). Version follows `packages/server`; builds are unsigned.
 
 ### Shared (`packages/shared`)
 
