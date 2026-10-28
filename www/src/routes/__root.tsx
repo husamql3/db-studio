@@ -98,7 +98,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					dangerouslySetInnerHTML={{ __html: structuredData }}
 				/>
 			</head>
-			<body className="dark .dark">
+			<body className="dark">
 				<RootProvider>{children}</RootProvider>
 
 				<TanStackDevtools

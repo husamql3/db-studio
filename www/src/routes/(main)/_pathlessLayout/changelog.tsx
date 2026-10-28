@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Image } from "fumadocs-core/framework";
-import { PlusIcon } from "lucide-react";
+import { SectionHeader } from "@/components/section";
 import { type ChangelogItem, changelog } from "@/lib/content/changelog";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
@@ -15,173 +15,138 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/changelog")({
 		}),
 });
 
-function UsernameBadge({ username }: { username?: string | string[] }) {
+const GROUPS = [
+	{ key: "features", label: "Features", dot: "bg-emerald-400" },
+	{ key: "improvements", label: "Improvements", dot: "bg-brand-light" },
+	{ key: "bugsFixed", label: "Fixes", dot: "bg-amber-400" },
+] as const;
+
+function Usernames({ username }: { username?: string | string[] }) {
 	if (!username) return null;
-
 	const usernames = Array.isArray(username) ? username : [username];
-
 	return (
-		<>
-			{" - "}
+		<span className="text-muted-foreground/70">
+			{" — "}
 			{usernames.map((user, index) => (
 				<span key={user}>
 					<a
 						href={`https://github.com/${user}`}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="inline-flex items-center gap-1 text-blue-600 group"
+						className="underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline"
 					>
-						<span className="text-[11px] font-medium">@{user}</span>
+						@{user}
 					</a>
 					{index < usernames.length - 1 && ", "}
 				</span>
 			))}
-		</>
+		</span>
 	);
 }
 
 function RouteComponent() {
 	return (
-		<main className="flex-1 mx-auto border-x max-w-2xl w-full">
-			<div className="relative px-6 max-w-xl mx-auto py-6 md:py-12">
-				<h1 className="sr-only">Changelog</h1>
-				<div className="relative">
-					<div className="absolute left-[123px] top-0 bottom-0 w-px bg-border hidden md:block" />
+		<main className="mx-auto w-full max-w-5xl flex-1 border-x">
+			<SectionHeader
+				level={1}
+				eyebrow="Changelog"
+				title="What's new in db-studio"
+				description="New features, improvements, and fixes in every release."
+				className="pb-10"
+			/>
 
-					{changelog.map((item: ChangelogItem) => (
-						<div
-							key={item.version}
-							className="relative md:grid md:grid-cols-[100px_1fr] md:gap-6 pb-10 last:pb-0"
-						>
-							<div className="flex flex-row md:flex-col gap-2 mb-3 md:mb-0 md:sticky md:top-4 md:self-start md:text-right">
-								<div
-									suppressHydrationWarning
-									className="text-[10px] text-muted-foreground order-2 md:order-1 flex items-center"
-								>
-									{new Date(item.date).toLocaleDateString("en-US", {
-										month: "short",
-										day: "numeric",
-										year: "numeric",
-									})}
-								</div>
-
-								<div className="order-1 md:order-2 w-fit text-zinc-50 px-2 py-1 rounded-sm text-xs font-medium border border-zinc-800 shadow-2xl shadow-zinc-500">
-									v{item.version}
-								</div>
-							</div>
-
-							<div className="relative md:pl-6">
-								{/* Plus Icon on timeline - hidden on mobile */}
-								<div className="absolute -left-3 top-0 bg-background hidden md:block">
-									<PlusIcon
-										className="size-6"
-										strokeWidth={1}
-									/>
-								</div>
-
-								{/* Content Card */}
-								<div className="space-y-3">
-									<div className="flex flex-col-reverse gap-3">
-										<h2 className="text-base font-semibold">{item.title}</h2>
-
-										<div className="flex gap-1">
-											{item.tags &&
-												item.tags.length > 0 &&
-												item.tags.map((tag: string, tagIndex: number) => (
-													<span
-														key={`${item.title}-${tag}-${tagIndex}`}
-														className={cn(
-															"w-fit items-center bg-zinc-900 px-2 py-0.5 rounded-full text-[10px] font-medium border",
-														)}
-													>
-														{tag}
-													</span>
-												))}
-										</div>
-									</div>
-
-									{item.image && (
-										<div className="w-full h-48 rounded-md">
-											<Image
-												src={item.image || "/placeholder.svg"}
-												alt={item.title}
-												width={1000}
-												height={1000}
-												className="w-full h-full object-cover"
-											/>
-										</div>
-									)}
-
-									<div className="space-y-4 text-xs text-muted-foreground">
-										{item.features && item.features.length > 0 && (
-											<div className="space-y-1.5">
-												<h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
-													🚀 Features
-												</h3>
-												<ul className="space-y-1">
-													{item.features.map((feature, featureIndex: number) => (
-														<li
-															key={`${item.title}-feature-${featureIndex}`}
-															className="flex items-start gap-2"
-														>
-															<span className="flex-1">
-																• {feature.text}
-																<UsernameBadge username={feature.username} />
-															</span>
-														</li>
-													))}
-												</ul>
-											</div>
-										)}
-
-										{item.improvements && item.improvements.length > 0 && (
-											<div className="space-y-1.5">
-												<h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
-													🔧 Improvements
-												</h3>
-												<ul className="space-y-1">
-													{item.improvements.map((improvement, improvementIndex: number) => (
-														<li
-															key={`${item.title}-improvement-${improvementIndex}`}
-															className="flex items-start gap-2"
-														>
-															<span className="flex-1">
-																• {improvement.text}
-																<UsernameBadge username={improvement.username} />
-															</span>
-														</li>
-													))}
-												</ul>
-											</div>
-										)}
-
-										{item.bugsFixed && item.bugsFixed.length > 0 && (
-											<div className="space-y-1.5">
-												<h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
-													🐛 Bug Fixes
-												</h3>
-												<ul className="space-y-1">
-													{item.bugsFixed.map((bug, bugIndex: number) => (
-														<li
-															key={`${item.title}-bug-${bugIndex}`}
-															className="flex items-start gap-2"
-														>
-															<span className="flex-1">
-																• {bug.text}
-																<UsernameBadge username={bug.username} />
-															</span>
-														</li>
-													))}
-												</ul>
-											</div>
-										)}
-									</div>
-								</div>
-							</div>
+			<ol className="border-t">
+				{changelog.map((item: ChangelogItem, index) => (
+					<li
+						key={item.version}
+						id={`v${item.version}`}
+						className="grid scroll-mt-14 gap-4 border-b px-5 py-10 last:border-b-0 md:grid-cols-[180px_1fr] md:gap-8 md:px-8"
+					>
+						<div className="flex items-center gap-3 md:sticky md:top-24 md:flex-col md:items-start md:self-start md:gap-1.5">
+							<a
+								href={`#v${item.version}`}
+								className="flex items-center gap-2 text-sm font-medium tabular-nums transition-colors duration-150 hover:text-brand-light"
+							>
+								v{item.version}
+								{index === 0 && (
+									<span className="rounded-[3px] bg-brand/20 px-1.5 py-0.5 text-[10px] font-normal text-brand-light">
+										Latest
+									</span>
+								)}
+							</a>
+							<time
+								dateTime={item.date}
+								className="text-xs text-muted-foreground"
+							>
+								{/* timeZone UTC: the date string is a calendar day, not a moment. */}
+								{new Date(item.date).toLocaleDateString("en-US", {
+									month: "short",
+									day: "numeric",
+									year: "numeric",
+									timeZone: "UTC",
+								})}
+							</time>
 						</div>
-					))}
-				</div>
-			</div>
+
+						<article className="flex max-w-2xl flex-col gap-6">
+							<div className="flex flex-col gap-2">
+								{item.tags && item.tags.length > 0 && (
+									<div className="flex gap-1">
+										{item.tags.map((tag) => (
+											<span
+												key={tag}
+												className="rounded-[3px] border px-1.5 py-0.5 text-[10px] text-muted-foreground"
+											>
+												{tag}
+											</span>
+										))}
+									</div>
+								)}
+								<h2 className="text-lg font-medium tracking-tight text-balance">
+									{item.title}
+								</h2>
+							</div>
+
+							{item.image && (
+								<Image
+									src={item.image}
+									alt={item.title}
+									width={1000}
+									height={1000}
+									className="h-48 w-full rounded-sm border object-cover"
+								/>
+							)}
+
+							{GROUPS.map(({ key, label, dot }) => {
+								const entries = item[key];
+								if (!entries?.length) return null;
+								return (
+									<section
+										key={key}
+										className="flex flex-col gap-2.5"
+									>
+										<h3 className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+											<span className={cn("size-1.5 rounded-full", dot)} />
+											{label}
+										</h3>
+										<ul className="flex flex-col gap-2 text-[13px] leading-relaxed text-foreground/85">
+											{entries.map((entry) => (
+												<li
+													key={entry.text}
+													className="relative pl-4 text-pretty before:absolute before:left-0 before:text-muted-foreground/60 before:content-['–']"
+												>
+													{entry.text}
+													<Usernames username={entry.username} />
+												</li>
+											))}
+										</ul>
+									</section>
+								);
+							})}
+						</article>
+					</li>
+				))}
+			</ol>
 		</main>
 	);
 }
