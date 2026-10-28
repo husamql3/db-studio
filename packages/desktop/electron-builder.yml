@@ -2,7 +2,8 @@
 appId: sh.dbstudio.desktop
 productName: db-studio
 copyright: Copyright © 2026 Hüsam
-artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+# No version in the name, so releases/latest/download/<file> links in the docs keep working.
+artifactName: "${productName}-${os}-${arch}.${ext}"
 
 directories:
   output: release

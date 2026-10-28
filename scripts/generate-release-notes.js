@@ -48,4 +48,23 @@ if (entry.bugsFixed?.length) {
 	}
 }
 
+const download = (file) =>
+	`[${file}](https://github.com/husamql3/db-studio/releases/download/v${version}/${file})`;
+lines.push(
+	"",
+	"## Download",
+	"",
+	"| Platform | Desktop app |",
+	"| --- | --- |",
+	`| macOS (Apple silicon) | ${download("db-studio-mac-arm64.dmg")} |`,
+	`| macOS (Intel) | ${download("db-studio-mac-x64.dmg")} |`,
+	`| Windows (x64) | ${download("db-studio-win-x64.exe")} |`,
+	`| Debian, Ubuntu (x64) | ${download("db-studio-linux-amd64.deb")} |`,
+	`| Other Linux (x64) | ${download("db-studio-linux-x86_64.AppImage")} |`,
+	"",
+	"The apps are not signed yet. On macOS, run `xattr -dr com.apple.quarantine /Applications/db-studio.app` after installing. Install steps for each platform: https://dbstudio.sh/docs/desktop",
+	"",
+	`Or run it without installing: \`npx db-studio@${version}\``,
+);
+
 console.log(lines.join("\n"));

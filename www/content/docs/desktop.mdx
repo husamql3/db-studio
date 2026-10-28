@@ -1,0 +1,75 @@
+---
+title: Desktop App
+description: "Install the db-studio desktop app on macOS, Windows or Linux. No Node, npx or terminal needed."
+---
+
+The desktop app is db-studio in its own window. It opens on the Connect page, and it shares
+saved connections with the CLI in `~/.dbstudio`, so a database you opened with `npx db-studio`
+is already in the list.
+
+## Download
+
+| Platform | File |
+| --- | --- |
+| macOS (Apple silicon) | [db-studio-mac-arm64.dmg](https://github.com/husamql3/db-studio/releases/latest/download/db-studio-mac-arm64.dmg) |
+| macOS (Intel) | [db-studio-mac-x64.dmg](https://github.com/husamql3/db-studio/releases/latest/download/db-studio-mac-x64.dmg) |
+| Windows (x64) | [db-studio-win-x64.exe](https://github.com/husamql3/db-studio/releases/latest/download/db-studio-win-x64.exe) |
+| Debian, Ubuntu (x64) | [db-studio-linux-amd64.deb](https://github.com/husamql3/db-studio/releases/latest/download/db-studio-linux-amd64.deb) |
+| Other Linux (x64) | [db-studio-linux-x86_64.AppImage](https://github.com/husamql3/db-studio/releases/latest/download/db-studio-linux-x86_64.AppImage) |
+
+Older versions are on the [releases page](https://github.com/husamql3/db-studio/releases).
+
+## macOS
+
+1. Open the `.dmg` and drag **db-studio** into **Applications**.
+2. The app is not signed yet, so macOS says it "is damaged and can't be opened" or that Apple
+   "could not verify" it. Remove the download quarantine once:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/db-studio.app
+   ```
+
+3. Open db-studio from Applications.
+
+Not sure which Mac you have? Apple menu → **About This Mac**: a chip named **Apple M…** needs
+`arm64`, an **Intel** processor needs `x64`.
+
+## Windows
+
+1. Run `db-studio-win-x64.exe` and follow the installer.
+2. The installer is not signed yet, so SmartScreen shows "Windows protected your PC". Click
+   **More info**, then **Run anyway**.
+
+## Linux
+
+### Debian and Ubuntu
+
+```bash
+sudo apt install ./db-studio-linux-amd64.deb
+```
+
+Start **db-studio** from your app launcher, or run `db-studio` in a terminal.
+
+### Other distributions
+
+The AppImage runs without installing:
+
+```bash
+chmod +x db-studio-linux-x86_64.AppImage
+./db-studio-linux-x86_64.AppImage
+```
+
+If it fails with a FUSE error, install FUSE 2: `libfuse2` on most distributions (`libfuse2t64`
+on Ubuntu 24.04 and later), `fuse` on Arch, `fuse-libs` on Fedora.
+
+## Updates
+
+On Windows and with the AppImage, db-studio checks for a new version when it starts and installs
+it when you quit. On macOS and with the `.deb`, download the new version and install it over the
+old one; your saved connections stay where they are.
+
+## Uninstall
+
+Delete the app (Applications on macOS, **Installed apps** on Windows, `sudo apt remove
+db-studio` or the AppImage file on Linux). Saved connections live in `~/.dbstudio`; delete that
+folder too if you no longer use the CLI.
