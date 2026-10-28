@@ -158,19 +158,3 @@ DATABASE_URL='d1://<account id>/<database id>?authToken=<api token>' bunx tsx e2
 ```
 
 It writes `e2e/artifacts/d1-specifics-<label>.json`.
-
-## UI before/after screenshots
-
-Drives the menus, tooltips, sheets, dialogs, the command palette and a pressed button against a
-running server, and screenshots each one at rest or frozen partway through its animation. Run it
-once on the old build and once on the new one, then compare the two folders.
-
-```bash
-DB_PATH=/tmp/ui-v2.sqlite bun run init-db:sqlite
-cd packages/web && bun run build && cd ../server && bun run build
-NODE_ENV=development DB_STUDIO_TELEMETRY=0 DB_STUDIO_CONFIG_DIR=/tmp/ui-v2-config \
-  node dist/index.js --no-open -p 4530 -d sqlite:///tmp/ui-v2.sqlite &
-bunx tsx e2e/ui-v2-shots.ts before          # rebuild the web app, then: … after
-```
-
-It writes `e2e/artifacts/ui-v2/<label>/<shot>.png`; the same build produces the same images.
