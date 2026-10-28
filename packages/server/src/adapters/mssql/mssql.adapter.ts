@@ -6,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -16,26 +17,37 @@ import type {
 	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyConstraint,
 	ForeignKeyDataType,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogEntrySchemaType,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getMssqlPool } from "@/adapters/connections.js";
+import {
+	BaseAdapter,
+	EXACT_COUNT_LIMIT,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
+import { getConnectionUrl, getMssqlPool } from "@/adapters/connections.js";
+import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMssqlColumnDefinition,
+	buildOrderByClause,
 	buildSortClause,
 	buildWhereClause,
 	formatMssqlDefaultValue,
@@ -43,7 +55,38 @@ import {
 } from "./mssql.query-builder.js";
 
 const MSSQL_FK_VIOLATION = 547;
+/** sp_readerrorlog is limited to the securityadmin role. */
+const MSSQL_NOT_SECURITYADMIN = 15003;
+/** The login may not EXECUTE sp_readerrorlog at all. */
+const MSSQL_NO_EXECUTE_PERMISSION = 27219;
+/** The login sees a table but may not SELECT from it (229) or from one of its columns (230). */
+const isSelectDenied = (e: unknown) =>
+	[229, 230].includes((e as { number?: number }).number ?? 0);
+/** Azure SQL Database has no sp_readerrorlog. */
+const MSSQL_NO_SUCH_PROCEDURE = 2812;
+/** The header line the error log writes above the message of every raised error. */
+const ERRORLOG_HEADER = /^Error: (\d+), Severity: (\d+), State: (\d+)\.?$/;
 const MSSQL_FK_DEPENDENCY = 3726;
+const MSSQL_DUP_INDEX_NAME = 1913;
+const MSSQL_DUP_KEY = 1505;
+/** The column type cannot be an index key (1919, 1978), e.g. NVARCHAR(MAX). */
+const MSSQL_CANNOT_INDEX = new Set([1919, 1978]);
+/** The index enforces a constraint, or a foreign key references it. */
+const MSSQL_INDEX_IN_USE = 3723;
+
+const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
+
+interface IndexColumnRow {
+	indexName: string;
+	isUnique: boolean;
+	typeDesc: string;
+	isPrimaryKey: boolean;
+	isUniqueConstraint: boolean;
+	filterDefinition: string | null;
+	columnName: string | null;
+	isDescending: boolean | null;
+	isIncluded: boolean | null;
+}
 
 interface FkConstraintRow {
 	constraint_name: string;
@@ -69,7 +112,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	}
 
 	protected quoteIdentifier(name: string): string {
-		return `[${name}]`;
+		return quote(name);
 	}
 
 	mapToUniversalType(nativeType: string): DataTypes {
@@ -99,10 +142,10 @@ export class MsSqlAdapter extends BaseAdapter {
 		const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
 		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 
-		const sql = `SELECT * FROM [${tableName}] ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`;
+		const sql = `SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`;
 		const values = [...filterValues, currentOffset, limit + 1];
 
-		const countSql = `SELECT COUNT(*) as total FROM [${tableName}] ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
 		return { sql, values, countSql, countValues: filterValues };
 	}
 
@@ -147,16 +190,11 @@ export class MsSqlAdapter extends BaseAdapter {
 				values: filterValues,
 				nextIdx,
 			} = buildWhereClause(filters, 0);
-			const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
-
-			const countRequest = pool.request();
-			filterValues.forEach((val, idx) => {
-				countRequest.input(`p${idx}`, val);
-			});
-			const countResult = await countRequest.query(
-				`SELECT COUNT(*) as total FROM [${tableName}] ${filterWhere}`,
-			);
-			const total = Number(countResult.recordset[0]?.total ?? 0);
+			const [pkColumns, { total, estimated }] = await Promise.all([
+				this.getPrimaryKeyColumns(pool, tableName),
+				this.countRows(pool, tableName, filterWhere, filterValues),
+			]);
+			const sortClause = buildOrderByClause(sort, order, pkColumns);
 
 			const dataRequest = pool.request();
 			filterValues.forEach((val, idx) => {
@@ -166,7 +204,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			dataRequest.input(`p${nextIdx + 1}`, limit + 1);
 
 			const dataResult = await dataRequest.query(
-				`SELECT * FROM [${tableName}] ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
+				`SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
 			);
 
 			let rows = dataResult.recordset as Record<string, unknown>[];
@@ -178,6 +216,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				meta: {
 					limit,
 					total,
+					...(estimated && { totalEstimated: true }),
 					hasNextPage: hasMore,
 					hasPreviousPage: currentOffset > 0,
 					nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
@@ -199,15 +238,17 @@ export class MsSqlAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const pool = await getMssqlPool();
+			// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
+			// optional; HAS_DBACCESS drops databases the login cannot open.
 			const result = await pool.request().query(`
 				SELECT
 				  d.name AS name,
-				  CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB' AS size,
-				  SUSER_SNAME(d.owner_sid) AS owner,
+				  ISNULL(CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB', '') AS size,
+				  ISNULL(SUSER_SNAME(d.owner_sid), '') AS owner,
 				  d.collation_name AS encoding
 				FROM sys.databases d
-				JOIN sys.master_files mf ON d.database_id = mf.database_id
-				WHERE (d.database_id > 4 OR d.name = DB_NAME())
+				LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
+				WHERE (d.database_id > 4 OR d.name = DB_NAME()) AND HAS_DBACCESS(d.name) = 1
 				GROUP BY d.name, d.owner_sid, d.collation_name
 				ORDER BY d.name
 			`);
@@ -237,7 +278,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			  DB_NAME() AS database_name,
 			  SUSER_NAME() AS [user],
 			  @@SERVERNAME AS host,
-			  (SELECT local_tcp_port FROM sys.dm_exec_connections WHERE session_id = @@SPID) AS port,
+			  CONNECTIONPROPERTY('local_tcp_port') AS port,
 			  @@MAX_CONNECTIONS AS max_connections,
 			  (SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process = 1) AS active_connections
 		`);
@@ -247,7 +288,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			});
 		}
 		const info = result.recordset[0] as Record<string, string | number>;
-		const urlDefaults = parseDatabaseUrl();
+		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
 		return {
 			host: String(info.host || urlDefaults.host),
 			port: Number(info.port || urlDefaults.port),
@@ -263,25 +304,24 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const pool = await getMssqlPool(db);
-		const result = await pool.request().query(`
-			SELECT table_name AS tableName
-			FROM information_schema.tables
-			WHERE table_catalog = DB_NAME()
-			  AND table_type = 'BASE TABLE'
-			  AND table_schema = 'dbo'
-			ORDER BY table_name
-		`);
-		if (!result.recordset || result.recordset.length === 0) return [];
+		const estimates = await this.rowEstimates(pool);
 
+		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
+		// are counted; larger ones report their estimate.
 		return Promise.all(
-			(result.recordset as Array<{ tableName: string }>).map(async (table) => {
-				const countResult = await pool
-					.request()
-					.query(`SELECT COUNT(*) as count FROM [${table.tableName}]`);
-				return {
-					tableName: table.tableName,
-					rowCount: (countResult.recordset[0] as { count: number })?.count ?? 0,
-				};
+			[...estimates].map(async ([tableName, estimate]) => {
+				if (estimate >= EXACT_COUNT_LIMIT) {
+					return { tableName, rowCount: estimate, rowCountEstimated: true };
+				}
+				try {
+					const countResult = await pool
+						.request()
+						.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
+					return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
+				} catch (e) {
+					if (!isSelectDenied(e)) throw e;
+					return { tableName, rowCount: estimate, rowCountEstimated: true };
+				}
 			}),
 		);
 	}
@@ -729,6 +769,144 @@ export class MsSqlAdapter extends BaseAdapter {
 			.query(`EXEC sp_rename '${tableName}.${columnName}', '${newColumnName}', 'COLUMN'`);
 	}
 
+	// --- Server logs ---
+
+	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		const pool = await getMssqlPool(db);
+		try {
+			const result = await pool
+				.request()
+				.query(
+					"EXEC sp_readerrorlog 0, 1; SELECT DATEDIFF(MINUTE, GETUTCDATE(), GETDATE()) AS offset",
+				);
+			const [log, [{ offset }]] = result.recordsets as unknown as [
+				{ LogDate: Date; ProcessInfo: string; Text: string }[],
+				{ offset: number }[],
+			];
+
+			// LogDate is server-local wall time, which the driver reads as if it were UTC.
+			const entries: ServerLogEntrySchemaType[] = [];
+			let header: { code: string; severity: number; process: string } | null = null;
+			for (const row of log) {
+				const match = ERRORLOG_HEADER.exec(row.Text);
+				if (match) {
+					header = { code: match[1], severity: Number(match[2]), process: row.ProcessInfo };
+					continue;
+				}
+				const error = header?.process === row.ProcessInfo ? header : null;
+				header = null;
+				entries.push({
+					ts: new Date(row.LogDate.getTime() - offset * 60_000).toISOString(),
+					level: !error
+						? "info"
+						: error.severity >= 20
+							? "fatal"
+							: error.severity >= 11
+								? "error"
+								: "warning",
+					rawLevel: error ? `Severity ${error.severity}` : "Info",
+					source: row.ProcessInfo,
+					code: error?.code,
+					message: row.Text,
+					detail: {},
+				});
+			}
+			return { available: true, source: "sp_readerrorlog", entries: newestEntries(entries) };
+		} catch (e) {
+			const number = (e as { number?: number }).number;
+			if (number === MSSQL_NOT_SECURITYADMIN || number === MSSQL_NO_EXECUTE_PERMISSION) {
+				return logsUnavailable(
+					"Reading the error log needs the securityadmin server role: ALTER SERVER ROLE securityadmin ADD MEMBER <login>;",
+				);
+			}
+			if (number === MSSQL_NO_SUCH_PROCEDURE) {
+				return logsUnavailable(
+					"This server has no error log to read. Azure SQL Database keeps its logs in Azure Monitor.",
+				);
+			}
+			throw this.wrapError(e);
+		}
+	}
+
+	// --- Indexes ---
+
+	async getTableIndexes({
+		tableName,
+		db,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			return await this.listIndexes(await getMssqlPool(db), tableName);
+		} catch (e) {
+			throw this.wrapError(e);
+		}
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, indexName, columns, isUnique, method, db } = params;
+		try {
+			const pool = await getMssqlPool(db);
+			await this.assertTableExists(pool, tableName);
+
+			const columnRows = await pool
+				.request()
+				.input("tableName", tableName)
+				.query<{ columnName: string }>(`
+					SELECT COLUMN_NAME AS columnName FROM INFORMATION_SCHEMA.COLUMNS
+					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
+				`);
+			const existing = new Set(columnRows.recordset.map((row) => row.columnName));
+			const missing = columns.find((column) => !existing.has(column));
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+
+			if (method !== undefined)
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			await pool
+				.request()
+				.query(
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quote(indexName)} ON [dbo].${quote(tableName)} (${columns.map(quote).join(", ")})`,
+				);
+		} catch (e) {
+			const number = (e as { number?: number }).number;
+			if (e instanceof Error && (number === MSSQL_DUP_INDEX_NAME || number === MSSQL_DUP_KEY))
+				throw new HTTPException(409, { message: e.message, cause: e });
+			if (e instanceof Error && number !== undefined && MSSQL_CANNOT_INDEX.has(number))
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
+	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
+		try {
+			const pool = await getMssqlPool(db);
+			const index = (await this.listIndexes(pool, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
+
+			await pool
+				.request()
+				.query(`DROP INDEX ${quote(indexName)} ON [dbo].${quote(tableName)}`);
+		} catch (e) {
+			if (e instanceof Error && (e as { number?: number }).number === MSSQL_INDEX_IN_USE)
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw this.wrapError(e);
+		}
+	}
+
 	// --- Records ---
 
 	async addRecord({
@@ -792,6 +970,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
 		const keyColumns = this.resolveKeyColumns(params);
+		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const transaction = pool.transaction();
@@ -844,6 +1023,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const transaction = pool.transaction();
@@ -888,6 +1068,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const transaction = pool.transaction();
@@ -1053,7 +1234,12 @@ export class MsSqlAdapter extends BaseAdapter {
 
 		const cleanedQuery = query.trim().replace(/;+$/, "");
 		const start = performance.now();
-		const result = await pool.request().query(cleanedQuery);
+		const result = await pool
+			.request()
+			.query(cleanedQuery)
+			.catch((e) => {
+				throw this.wrapError(e);
+			});
 		const duration = performance.now() - start;
 
 		if (result.recordset) {
@@ -1180,15 +1366,160 @@ export class MsSqlAdapter extends BaseAdapter {
 		return results;
 	}
 
+	/**
+	 * The row count SQL Server keeps for each dbo table (or only `tableName`), in name order. It
+	 * is maintained with every write but documented as approximate.
+	 */
+	private async rowEstimates(
+		pool: MssqlPool,
+		tableName?: string,
+	): Promise<Map<string, number>> {
+		const request = pool.request();
+		if (tableName !== undefined) request.input("tableName", tableName);
+		const result = await request.query<{ tableName: string; estimate: string | number }>(`
+			SELECT t.name AS tableName, SUM(p.rows) AS estimate
+			FROM sys.tables t
+			JOIN sys.partitions p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
+			WHERE t.schema_id = SCHEMA_ID('dbo')
+				${tableName === undefined ? "" : "AND t.name = @tableName"}
+			GROUP BY t.name
+			ORDER BY t.name
+		`);
+		return new Map(result.recordset.map((row) => [row.tableName, Number(row.estimate)]));
+	}
+
+	/**
+	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
+	 * reports that estimate, because an exact count reads the whole table and the total is
+	 * fetched with every page.
+	 */
+	private async countRows(
+		pool: MssqlPool,
+		tableName: string,
+		filterWhere: string,
+		filterValues: unknown[],
+	): Promise<{ total: number; estimated: boolean }> {
+		if (!filterWhere) {
+			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
+		}
+		const request = pool.request();
+		filterValues.forEach((val, idx) => {
+			request.input(`p${idx}`, val);
+		});
+		const result = await request.query(
+			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
+		);
+		return { total: Number(result.recordset[0]?.total ?? 0), estimated: false };
+	}
+
 	private async getTableRowCount(tableName: string, db: string): Promise<number> {
 		const pool = await getMssqlPool(db);
-		const result = await pool.request().query(`SELECT COUNT(*) as count FROM [${tableName}]`);
-		return Number(result.recordset[0]?.count ?? 0);
+		try {
+			const result = await pool
+				.request()
+				.query(`SELECT COUNT(*) as count FROM [${tableName}]`);
+			return Number(result.recordset[0]?.count ?? 0);
+		} catch (e) {
+			// A login may drop a table it cannot read.
+			if (!isSelectDenied(e)) throw e;
+			return (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+		}
+	}
+
+	private async getPrimaryKeyColumns(pool: MssqlPool, tableName: string): Promise<string[]> {
+		const result = await pool
+			.request()
+			.input("tableName", tableName)
+			.query(`
+				SELECT ku.COLUMN_NAME AS columnName
+				FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+				JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
+				  ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
+				  AND tc.TABLE_SCHEMA = ku.TABLE_SCHEMA
+				  AND tc.TABLE_NAME = ku.TABLE_NAME
+				WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+				  AND tc.TABLE_NAME = @tableName
+				  AND tc.TABLE_SCHEMA = 'dbo'
+				ORDER BY ku.ORDINAL_POSITION
+			`);
+		return (result.recordset as { columnName: string }[]).map((r) => r.columnName);
 	}
 
 	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
 		const cols = await this.getTableColumns({ tableName, db });
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
+	}
+
+	private async listIndexes(
+		pool: MssqlPool,
+		tableName: string,
+	): Promise<IndexInfoSchemaType[]> {
+		await this.assertTableExists(pool, tableName);
+		// type 0 is the heap, which is the table itself rather than an index.
+		const result = await pool
+			.request()
+			.input("tableName", tableName)
+			.query<IndexColumnRow>(`
+				SELECT
+					i.name AS indexName,
+					i.is_unique AS isUnique,
+					i.type_desc AS typeDesc,
+					i.is_primary_key AS isPrimaryKey,
+					i.is_unique_constraint AS isUniqueConstraint,
+					CASE WHEN i.has_filter = 1 THEN i.filter_definition END AS filterDefinition,
+					c.name AS columnName,
+					ic.is_descending_key AS isDescending,
+					ic.is_included_column AS isIncluded
+				FROM sys.indexes i
+				LEFT JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+				LEFT JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+				WHERE i.object_id = OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(@tableName))
+				  AND i.type > 0 AND i.is_hypothetical = 0
+				ORDER BY i.is_primary_key DESC, i.name, ic.is_included_column, ic.key_ordinal, ic.index_column_id
+			`);
+
+		const byName = new Map<
+			string,
+			{ index: IndexInfoSchemaType; row: IndexColumnRow; keys: string[]; included: string[] }
+		>();
+		for (const row of result.recordset) {
+			const entry = byName.get(row.indexName) ?? {
+				index: {
+					indexName: row.indexName,
+					columns: [],
+					isUnique: row.isUnique,
+					method: row.typeDesc.toLowerCase(),
+					kind: row.isPrimaryKey
+						? "primary"
+						: row.isUniqueConstraint
+							? "unique-constraint"
+							: "index",
+					definition: null,
+				},
+				row,
+				keys: [],
+				included: [],
+			};
+			byName.set(row.indexName, entry);
+			if (row.columnName === null) continue;
+			// SQL Server marks every columnstore column as included, not only B-tree INCLUDEs.
+			if (row.isIncluded && !row.typeDesc.endsWith("COLUMNSTORE")) {
+				entry.included.push(quote(row.columnName));
+			} else {
+				entry.index.columns.push(row.columnName);
+				entry.keys.push(`${quote(row.columnName)}${row.isDescending ? " DESC" : ""}`);
+			}
+		}
+
+		// SQL Server stores no CREATE INDEX text; a filtered index is rebuilt from its catalog rows.
+		return [...byName.values()].map(({ index, row, keys, included }) => ({
+			...index,
+			definition:
+				row.filterDefinition === null
+					? null
+					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quote(row.indexName)} ON ${quote(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
+		}));
 	}
 
 	private async assertTableExists(pool: MssqlPool, tableName: string): Promise<void> {

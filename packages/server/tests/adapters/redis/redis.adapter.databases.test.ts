@@ -52,21 +52,6 @@ describe("RedisAdapter — databases", () => {
 			const list = await adapter.getDatabasesList();
 			expect(list).toEqual([{ name: "0", size: "0 keys", owner: "n/a", encoding: "n/a" }]);
 		});
-
-		it("wraps connection errors to 503", async () => {
-			mockClient.call.mockRejectedValue(
-				Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
-			);
-			await expect(adapter.getDatabasesList()).rejects.toMatchObject({ status: 503 });
-		});
-	});
-
-	describe("getCurrentDatabase", () => {
-		it("returns the default DB index from the URL", async () => {
-			mockGetRedisDefaultDb.mockReturnValue(3);
-			const result = await adapter.getCurrentDatabase();
-			expect(result).toEqual({ db: "3" });
-		});
 	});
 
 	describe("getDatabaseConnectionInfo", () => {

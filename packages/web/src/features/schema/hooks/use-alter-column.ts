@@ -18,9 +18,11 @@ const normalizeAlterColumnPayload = (data: AlterColumnSchemaType): AlterColumnSc
 
 export const useAlterColumn = ({
 	tableName,
+	schemaName,
 	columnName,
 }: {
 	tableName: string;
+	schemaName: string | undefined;
 	columnName: string;
 }) => {
 	const queryClient = useQueryClient();
@@ -36,6 +38,7 @@ export const useAlterColumn = ({
 		mutationFn: async (data) => {
 			const res = await alterColumnRequest({
 				tableName,
+				schemaName,
 				columnName,
 				data: normalizeAlterColumnPayload(data),
 				db: selectedDatabase,

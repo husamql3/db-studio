@@ -6,14 +6,17 @@ import { useUpdateCellStore } from "../../stores/update-cell.store";
 
 export const SaveBtn = ({
 	setRowSelection,
+	disabledReason,
 }: {
 	setRowSelection: OnChangeFn<RowSelectionState>;
+	disabledReason?: string;
 }) => {
 	const { getUpdates, getUpdateCount } = useUpdateCellStore();
-	const { updateCell, isUpdatingCell } = useUpdateCell();
+	const { updateCell, isUpdatingCell, editScope } = useUpdateCell();
 
 	const handleSave = useCallback(async () => {
-		const updates = getUpdates();
+		if (disabledReason) return;
+		const updates = getUpdates(editScope.id);
 		if (updates.length === 0) return;
 		try {
 			await updateCell(updates);
@@ -22,14 +25,12 @@ export const SaveBtn = ({
 		} catch (error) {
 			console.error("Failed to save updates:", error);
 		}
-	}, [getUpdates, updateCell, setRowSelection]);
+	}, [disabledReason, getUpdates, editScope.id, updateCell, setRowSelection]);
 
-	// Hide button if no updates
-	if (getUpdateCount() === 0) {
+	const updateCount = getUpdateCount(editScope.id);
+	if (updateCount === 0) {
 		return null;
 	}
-
-	const updateCount = getUpdateCount();
 
 	return (
 		<Button
@@ -38,7 +39,8 @@ export const SaveBtn = ({
 			className="h-8! border-l-0 border-y-0 border-r border-border rounded-none bg-green-700 text-white hover:bg-green-800"
 			onClick={handleSave}
 			aria-label="Save changes to the table"
-			disabled={isUpdatingCell}
+			disabled={isUpdatingCell || Boolean(disabledReason)}
+			title={disabledReason}
 		>
 			Save Changes
 			{updateCount > 0 && (

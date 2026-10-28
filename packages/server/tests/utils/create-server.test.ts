@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { Hono } from "hono";
 
 const mockDao = vi.hoisted(() => ({
 	getDatabasesList: vi.fn().mockResolvedValue([]),
-	getCurrentDatabase: vi.fn().mockResolvedValue({ database: "test" }),
+	getCurrentDatabase: vi.fn().mockResolvedValue({ db: "test" }),
 	getDatabaseConnectionInfo: vi.fn().mockResolvedValue({
 		version: "PostgreSQL 15.2",
 		database: "test",
@@ -47,6 +46,7 @@ vi.mock("@/db-manager.js", () => ({
 		query: vi.fn(),
 	})),
 	getDbType: vi.fn(() => "pg"),
+	latestConnectionId: vi.fn(() => null),
 	isValidObjectId: vi.fn(),
 	coerceObjectId: vi.fn(),
 }));
@@ -65,87 +65,31 @@ describe("createServer", () => {
 		vi.restoreAllMocks();
 	});
 
-	describe("Server initialization", () => {
-		it("should return an object with app property", () => {
-			expect(server).toHaveProperty("app");
-		});
-
-		it("should return an app with Hono methods", () => {
-			// Using duck typing instead of instanceof due to module resolution
-			expect(typeof server.app.request).toBe("function");
-			expect(typeof server.app.fetch).toBe("function");
-			expect(typeof server.app.get).toBe("function");
-			expect(typeof server.app.post).toBe("function");
-		});
-
-		it("should create app with strict: false option", async () => {
-			// Test that trailing slashes are handled gracefully
-			const res1 = await server.app.request("/api/databases");
-			const res2 = await server.app.request("/api/databases/");
-
-			// Both should work (or at least not throw 500)
-			expect([200, 404]).toContain(res1.status);
-			expect([200, 404]).toContain(res2.status);
-		});
-	});
-
 	describe("Database type validation middleware", () => {
-		it("should accept pg as valid database type", async () => {
-			const res = await server.app.request("/api/databases");
-			expect(res.status).toBe(200);
-		});
-
-		it("should reject invalid database type with 400", async () => {
-			const res = await server.app.request("/api/invalid/databases");
-			expect(res.status).toBe(400);
-		});
-
-		it("should accept mysql database type as valid (no /mysql/databases route → 404)", async () => {
-			const res = await server.app.request("/api/mysql/databases");
-			// mysql is now a valid dbType; /mysql/databases has no handler → 404
-			expect(res.status).toBe(404);
-		});
-
-		it("should reject sqlite database type", async () => {
-			const res = await server.app.request("/api/sqlite/databases");
-			expect(res.status).toBe(400);
-		});
-
-		it("should accept mongodb database type as valid (no /mongodb/databases route → 404)", async () => {
-			const res = await server.app.request("/api/mongodb/databases");
-			// mongodb is now a valid dbType; /mongodb/databases has no handler → 404
-			expect(res.status).toBe(404);
-		});
-
-		it("should reject numeric database type", async () => {
-			const res = await server.app.request("/api/123/databases");
-			expect(res.status).toBe(400);
-		});
-
-		it("should reject uppercase PG", async () => {
-			const res = await server.app.request("/api/PG/databases");
-			expect(res.status).toBe(400);
-		});
-
-		it("should reject mixed case Pg", async () => {
-			const res = await server.app.request("/api/Pg/databases");
-			expect(res.status).toBe(400);
-		});
-
-		it("should return validation error for invalid type", async () => {
-			const res = await server.app.request("/api/invalid/databases");
+		it("should reject an unsupported database type with a 400 error payload", async () => {
+			const res = await server.app.handle(new Request(new URL("/api/invalid/tables?db=x", "http://localhost")));
 			const json = await res.json();
 
-			// zValidator returns error in a different format
 			expect(res.status).toBe(400);
-			// The response contains the validation error info
-			expect(json).toBeDefined();
+			expect(json).toHaveProperty("error");
+		});
+
+		it("should not treat SPA client routes as a database type (db-studio#214)", async () => {
+			// A browser refresh on a client route like /table/:name must NOT be
+			// interpreted as a /:dbType API request. Pre-fix this returned 400
+			// "Invalid database type: table"; now it falls through to the SPA.
+			const res = await server.app.handle(new Request(new URL("/table/users", "http://localhost"), {
+				headers: { Accept: "text/html" },
+			}));
+			expect(res.status).not.toBe(400);
+			const body = await res.text();
+			expect(body).not.toContain("Invalid database type");
 		});
 	});
 
 	describe("CORS middleware", () => {
 		it("should NOT emit a wildcard Access-Control-Allow-Origin for a same-origin/no-origin request", async () => {
-			const res = await server.app.request("/api/databases");
+			const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost")));
 
 			// Same-origin default: no allowlist configured means no allow-origin
 			// header is reflected. A cross-origin caller therefore gets no CORS
@@ -154,15 +98,18 @@ describe("createServer", () => {
 		});
 
 		it("should NOT emit an Access-Control-Allow-Origin for a disallowed cross-origin request", async () => {
-			const res = await server.app.request("/api/databases", {
+			const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
 				headers: { Origin: "https://evil.example" },
-			});
+			}));
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("should advertise allowed methods on a CORS preflight", async () => {
-			const res = await server.app.request("/api/databases", { method: "OPTIONS" });
+			const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
+					method: "OPTIONS",
+					headers: { Origin: "https://web.db-studio.localhost", "Access-Control-Request-Method": "PUT" },
+				}));
 
 			const methods = res.headers.get("Access-Control-Allow-Methods");
 			expect(methods).toContain("GET");
@@ -174,28 +121,19 @@ describe("createServer", () => {
 		});
 
 		it("should advertise allowed headers on a CORS preflight", async () => {
-			const res = await server.app.request("/api/chat", {
+			const res = await server.app.handle(new Request(new URL("/api/chat", "http://localhost"), {
 				method: "OPTIONS",
 				headers: {
 					Origin: "https://web.db-studio.localhost",
 					"Access-Control-Request-Method": "POST",
 					"Access-Control-Request-Headers": "content-type,x-run-id,x-byok-anthropic",
 				},
-			});
+			}));
 
 			const headers = res.headers.get("Access-Control-Allow-Headers");
 			expect(headers).toContain("Content-Type");
 			expect(headers?.toLowerCase()).toContain("x-run-id");
 			expect(headers?.toLowerCase()).toContain("x-byok-anthropic");
-		});
-
-		it("should handle OPTIONS preflight request", async () => {
-			const res = await server.app.request("/api/databases", {
-				method: "OPTIONS",
-			});
-
-			// OPTIONS should return without error
-			expect([200, 204, 404]).toContain(res.status);
 		});
 
 		it("should allow localhost and *.localhost origins when NODE_ENV is development", async () => {
@@ -204,26 +142,26 @@ describe("createServer", () => {
 			try {
 				process.env.NODE_ENV = "development";
 				delete process.env.ALLOWED_ORIGINS;
-				const res1 = await server.app.request("/api/databases", {
+				const res1 = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
 					headers: { Origin: "https://web.db-studio.localhost" },
-				});
+				}));
 				expect(res1.headers.get("Access-Control-Allow-Origin")).toBe(
 					"https://web.db-studio.localhost",
 				);
 
-				const res2 = await server.app.request("/api/databases", {
+				const res2 = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
 					headers: { Origin: "http://localhost:3000" },
-				});
+				}));
 				expect(res2.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:3000");
 
-				const res3 = await server.app.request("/api/databases", {
+				const res3 = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
 					headers: { Origin: "http://127.0.0.1:5173" },
-				});
+				}));
 				expect(res3.headers.get("Access-Control-Allow-Origin")).toBe("http://127.0.0.1:5173");
 
-				const resEvil = await server.app.request("/api/databases", {
+				const resEvil = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
 					headers: { Origin: "https://evil.example" },
-				});
+				}));
 				expect(resEvil.headers.get("Access-Control-Allow-Origin")).toBeNull();
 			} finally {
 				if (originalEnv === undefined) {
@@ -243,9 +181,9 @@ describe("createServer", () => {
 			const originalOrigins = process.env.ALLOWED_ORIGINS;
 			try {
 				process.env.ALLOWED_ORIGINS = "https://custom.dbstudio.sh, https://admin.dbstudio.sh";
-				const res = await server.app.request("/api/databases", {
+				const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
 					headers: { Origin: "https://custom.dbstudio.sh" },
-				});
+				}));
 				expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
 					"https://custom.dbstudio.sh",
 				);
@@ -258,177 +196,134 @@ describe("createServer", () => {
 			}
 		});
 	});
+	describe("Host check middleware", () => {
+		const saved = { HOST: process.env.HOST, ALLOWED_HOSTS: process.env.ALLOWED_HOSTS };
 
-	describe("Pretty JSON middleware", () => {
-		it("should return JSON response", async () => {
-			const res = await server.app.request("/api/databases");
-			const json = await res.json();
+		beforeEach(() => {
+			delete process.env.HOST;
+			delete process.env.ALLOWED_HOSTS;
+		});
 
-			// Verify it's valid JSON with expected structure
-			expect(json).toHaveProperty("data");
-			expect(res.headers.get("Content-Type")).toContain("application/json");
+		afterEach(() => {
+			for (const [key, value] of Object.entries(saved)) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+		});
+
+		const statusFor = async (host: string) => {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", `http://${host}`)),
+			);
+			return res.status;
+		};
+
+		it.each([
+			"localhost",
+			"localhost:3333",
+			"127.0.0.1:3333",
+			"[::1]:3333",
+			"web.db-studio.localhost",
+		])("should allow %s", async (host) => {
+			expect(await statusFor(host)).not.toBe(403);
+		});
+
+		it.each(["evil.example", "localhost.evil.example", "127.0.0.1.evil.example"])(
+			"should reject %s with a 403",
+			async (host) => {
+				expect(await statusFor(host)).toBe(403);
+			},
+		);
+
+		it("should keep the check on when HOST is a non-loopback address", async () => {
+			process.env.HOST = "0.0.0.0";
+			expect(await statusFor("evil.example")).toBe(403);
+			expect(await statusFor("127.0.0.1:3333")).not.toBe(403);
+		});
+
+		it("should allow only the hosts listed in ALLOWED_HOSTS", async () => {
+			process.env.ALLOWED_HOSTS = "a.lan, 10.0.0.5 ,[fd00::1]";
+			expect(await statusFor("a.lan:3333")).not.toBe(403);
+			expect(await statusFor("10.0.0.5")).not.toBe(403);
+			expect(await statusFor("[fd00::1]:3333")).not.toBe(403);
+			expect(await statusFor("b.lan")).toBe(403);
+		});
+
+		it("should not treat * in ALLOWED_HOSTS as a wildcard", async () => {
+			process.env.ALLOWED_HOSTS = "*";
+			expect(await statusFor("evil.example")).toBe(403);
 		});
 	});
 
-	describe("Routes registration", () => {
-		describe("/databases routes", () => {
-			it("should register GET /databases", async () => {
-				const res = await server.app.request("/api/databases");
-				expect(res.status).toBe(200);
-			});
+	describe("Basic auth (GHSA-q37f-25p8-xvjj)", () => {
+		const saved = process.env.DB_STUDIO_PASSWORD;
 
-			it("should register GET /databases/current", async () => {
-				const res = await server.app.request("/api/databases/current");
-				expect(res.status).toBe(200);
-			});
-
-			it("should register GET /databases/connection", async () => {
-				const res = await server.app.request("/api/databases/connection");
-				expect(res.status).toBe(200);
-			});
+		afterEach(() => {
+			if (saved === undefined) delete process.env.DB_STUDIO_PASSWORD;
+			else process.env.DB_STUDIO_PASSWORD = saved;
 		});
 
-		describe("/tables routes", () => {
-			it("should register /tables route group", async () => {
-				const res = await server.app.request("/api/pg/tables");
-				// Should not be 404 (route exists), but may require params
-				expect([200, 400, 404, 500]).toContain(res.status);
-			});
+		const statusWith = async (authorization?: string) => {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", "http://localhost"), {
+					headers: authorization ? { authorization } : {},
+				}),
+			);
+			return res;
+		};
+		const basic = (user: string, password: string) =>
+			`Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`;
+
+		it("should ask for credentials when a password is set, even with Host: localhost", async () => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			const res = await statusWith();
+			expect(res.status).toBe(401);
+			expect(res.headers.get("www-authenticate")).toMatch(/^Basic /);
 		});
 
-		describe("/records routes", () => {
-			it("should register /records route group", async () => {
-				const res = await server.app.request("/api/pg/records");
-				// Should not be 404 (route exists), but may require params
-				expect([200, 400, 404, 500]).toContain(res.status);
-			});
+		it.each([
+			["a wrong password", basic("admin", "wrong")],
+			["the password as the username", basic("s3cret:pass", "")],
+			["a non-Basic scheme", "Bearer s3cret:pass"],
+			["no colon", `Basic ${Buffer.from("s3cret:pass".replace(":", "")).toString("base64")}`],
+		])("should refuse %s", async (_, authorization) => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			expect((await statusWith(authorization)).status).toBe(401);
 		});
 
-		describe("/query routes", () => {
-			it("should register /query route group", async () => {
-				const res = await server.app.request("/api/pg/query", { method: "POST" });
-				// Should not be 404 (route exists), but may require body
-				expect([200, 400, 404, 500]).toContain(res.status);
-			});
+		it("should accept the password with any username, including one containing no colon", async () => {
+			process.env.DB_STUDIO_PASSWORD = "s3cret:pass";
+			expect((await statusWith(basic("anyone", "s3cret:pass"))).status).not.toBe(401);
+			expect((await statusWith(basic("", "s3cret:pass"))).status).not.toBe(401);
 		});
 
-		describe("/chat routes", () => {
-			it("should register /chat route group", async () => {
-				const res = await server.app.request("/api/pg/chat", { method: "POST" });
-				// Should not be 404 (route exists), but may require body
-				expect([200, 400, 404, 500]).toContain(res.status);
-			});
+		it("should not ask for credentials without a password", async () => {
+			delete process.env.DB_STUDIO_PASSWORD;
+			expect((await statusWith()).status).not.toBe(401);
 		});
 	});
 
-	describe("Error handling", () => {
-		it("should handle errors with custom error handler", async () => {
-			// The error handler is tested more thoroughly in error-handler.test.ts
-			// Here we just verify it's wired up correctly
-			const res = await server.app.request("/api/invalid/databases");
+	describe("Cross-site request guard (GHSA-vw88-9x6f-fcp5)", () => {
+		const statusFor = async (path: string, headers: Record<string, string>) =>
+			(await server.app.handle(new Request(new URL(path, "http://localhost"), { headers })))
+				.status;
 
-			expect(res.status).toBe(400);
-			const json = await res.json();
-			expect(json).toHaveProperty("error");
-		});
-	});
+		it.each(["cross-site", "same-site"])(
+			"should refuse an API GET a page on another site sends (%s)",
+			async (site) => {
+				expect(
+					await statusFor("/api/pg/tables/users/data?db=x", {
+						"sec-fetch-site": site,
+						origin: "https://evil.example",
+					}),
+				).toBe(403);
+				expect(await statusFor("/api/databases", { "sec-fetch-site": site })).toBe(403);
+				expect(mockDao.getTableData).not.toHaveBeenCalled();
+			},
+		);
 
-	describe("Base path handling", () => {
-		it("should have /databases routes under the API prefix (no dbType required)", async () => {
-			const res = await server.app.request("/api/databases");
-			expect(res.status).toBe(200);
-		});
-
-		it("should require valid database type for dbType-specific routes", async () => {
-			// Request with invalid dbType gets validated and fails
-			const res = await server.app.request("/api/invalid/tables?db=testdb");
-			expect(res.status).toBe(400);
-		});
-
-		it("should return 404 for root path", async () => {
-			const res = await server.app.request("/");
-			// Root path is owned by the SPA (served only outside test env), so in
-			// tests it matches no registered API route.
-			expect(res.status).toBe(404);
-		});
-
-		it("should not treat SPA client routes as a database type (db-studio#214)", async () => {
-			// A browser refresh on a client route like /table/:name must NOT be
-			// interpreted as a /:dbType API request. Pre-fix this returned 400
-			// "Invalid database type: table"; now it falls through to the SPA.
-			const res = await server.app.request("/table/users", {
-				headers: { Accept: "text/html" },
-			});
-			expect(res.status).not.toBe(400);
-			const body = await res.text();
-			expect(body).not.toContain("Invalid database type");
-		});
-	});
-
-	describe("Response format", () => {
-		it("should return JSON responses", async () => {
-			const res = await server.app.request("/api/databases");
-
-			expect(res.headers.get("Content-Type")).toContain("application/json");
-		});
-
-		it("should wrap data in data property", async () => {
-			const res = await server.app.request("/api/databases");
-			const json = await res.json();
-
-			expect(json).toHaveProperty("data");
-		});
-	});
-
-	describe("Multiple server instances", () => {
-		it("should create independent server instances", () => {
-			const server1 = createServer();
-			const server2 = createServer();
-
-			expect(server1.app).not.toBe(server2.app);
-		});
-
-		it("should handle requests independently", async () => {
-			const server1 = createServer();
-			const server2 = createServer();
-
-			const [res1, res2] = await Promise.all([
-				server1.app.request("/api/databases"),
-				server2.app.request("/api/databases"),
-			]);
-
-			expect(res1.status).toBe(200);
-			expect(res2.status).toBe(200);
-		});
-	});
-
-	describe("Query parameters handling", () => {
-		it("should ignore unknown query parameters", async () => {
-			const res = await server.app.request("/api/databases?unknown=value&foo=bar");
-			expect(res.status).toBe(200);
-		});
-
-		it("should handle empty query string", async () => {
-			const res = await server.app.request("/api/databases?");
-			expect(res.status).toBe(200);
-		});
-	});
-
-	describe("Path handling edge cases", () => {
-		it("should handle double slashes", async () => {
-			const res = await server.app.request("/api/pg//databases");
-			// May normalize or return 404
-			expect([200, 404]).toContain(res.status);
-		});
-
-		it("should return 404 for unknown routes under valid dbType", async () => {
-			const res = await server.app.request("/api/pg/unknown-route");
-			expect(res.status).toBe(404);
-		});
-
-		it("should return 404 for deeply nested unknown routes", async () => {
-			const res = await server.app.request("/api/pg/unknown/deep/path");
-			expect(res.status).toBe(404);
+		it.each(["same-origin", "none"])("should allow %s API requests", async (site) => {
+			expect(await statusFor("/api/databases", { "sec-fetch-site": site })).not.toBe(403);
 		});
 	});
 });

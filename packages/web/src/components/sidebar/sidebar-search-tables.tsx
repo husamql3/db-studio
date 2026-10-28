@@ -5,7 +5,7 @@ import { Plus, Search } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 
@@ -15,7 +15,7 @@ export const SidebarSearchTables = () => {
 		defaultValue: "",
 	});
 	const { openOverlay } = useOverlayStore();
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 
 	// todo: fix this shit
 	useHotkeys(
@@ -46,7 +46,7 @@ export const SidebarSearchTables = () => {
 					/>
 					<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
 				</div>
-				{dbType !== "mongodb" && (
+				{engine?.dataModel !== "document" && (
 					<Button
 						size="icon-lg"
 						className="shrink-0 rounded-sm"

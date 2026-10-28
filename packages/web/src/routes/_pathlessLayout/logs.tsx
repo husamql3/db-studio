@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LogsScreen } from "@/features/logs";
 
 export const Route = createFileRoute("/_pathlessLayout/logs")({
 	component: RouteComponent,
@@ -6,8 +7,8 @@ export const Route = createFileRoute("/_pathlessLayout/logs")({
 
 function RouteComponent() {
 	return (
-		<main className="flex-1 flex items-center justify-center">
-			Logs will be available soon!
+		<main className="flex-1 overflow-hidden">
+			<LogsScreen />
 		</main>
 	);
 }

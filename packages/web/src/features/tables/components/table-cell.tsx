@@ -1,6 +1,7 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { useMemo } from "react";
 import type { CellVariant, TableRecord } from "@/types/table.type";
+import { formatCellValue } from "@/utils/format-cell-value";
 import {
 	TableBooleanCell,
 	TableDateCell,
@@ -10,6 +11,7 @@ import {
 	TableNumberCell,
 	TableTextCell,
 } from "./table-cell-variant";
+import { TableCellWrapper } from "./table-cell-wrapper";
 
 export const TableCell = ({
 	cell,
@@ -39,6 +41,26 @@ export const TableCell = ({
 	const cellVariant = cell.column.columnDef.meta?.variant as CellVariant | undefined;
 	const isForeignKey = cell.column.columnDef.meta?.isForeignKey;
 	const referencedTable = cell.column.columnDef.meta?.referencedTable;
+
+	if (meta?.canMutateRows === false) {
+		const value = cell.getValue();
+		return (
+			<TableCellWrapper
+				cell={cell}
+				table={table}
+				rowIndex={rowIndex}
+				columnId={columnId}
+				isEditing={false}
+				isFocused={isFocused}
+				isSelected={isSelected}
+				aria-readonly="true"
+				title={meta.rowMutationReason}
+				className="pr-7"
+			>
+				<span data-slot="grid-cell-content">{formatCellValue(value)}</span>
+			</TableCellWrapper>
+		);
+	}
 
 	if (isForeignKey && referencedTable) {
 		return (

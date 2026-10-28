@@ -11,6 +11,7 @@ import {
 import { Button } from "@db-studio/ui/button";
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import type { TableRecord } from "@/types/table.type";
 import { type RelatedRecord, useDeleteCells } from "../../hooks/use-delete-cell";
 import { ForceDeleteDialog } from "./force-delete-dialog";
@@ -19,13 +20,18 @@ export const DeleteBtn = ({
 	selectedRows,
 	setRowSelection,
 	tableName,
+	disabledReason,
 }: {
 	tableName: string;
 	selectedRows: Row<TableRecord>[];
 	setRowSelection: OnChangeFn<RowSelectionState>;
+	disabledReason?: string;
 }) => {
 	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } = useDeleteCells(
-		{ tableName },
+		{
+			tableName,
+			schemaName: useTableSchemaName(),
+		},
 	);
 	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
@@ -33,10 +39,12 @@ export const DeleteBtn = ({
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
 	const handleDeleteClick = useCallback(() => {
+		if (disabledReason) return;
 		setIsOpenConfirmDialog(true);
-	}, []);
+	}, [disabledReason]);
 
 	const handleConfirmDelete = useCallback(async () => {
+		if (disabledReason) return;
 		const rowData = selectedRows.map((row) => row.original);
 		let relatedRecords: RelatedRecord[] | undefined;
 
@@ -50,10 +58,10 @@ export const DeleteBtn = ({
 			setRelatedRecords(relatedRecords || []);
 			setIsOpenFkDialog(true);
 		}
-	}, [deleteCells, selectedRows, setRowSelection]);
+	}, [disabledReason, deleteCells, selectedRows, setRowSelection]);
 
 	const handleForceDelete = async () => {
-		if (pendingRowData.length === 0) return;
+		if (disabledReason || pendingRowData.length === 0) return;
 
 		const res = await forceDeleteCells(pendingRowData);
 
@@ -98,7 +106,8 @@ export const DeleteBtn = ({
 				className="h-8! border-l-0 border-y-0 border-r border-border text-white rounded-none"
 				onClick={handleDeleteClick}
 				aria-label="Delete the selected record"
-				disabled={isDeletingCells}
+				disabled={isDeletingCells || Boolean(disabledReason)}
+				title={disabledReason}
 			>
 				Delete Record
 				{selectedRows?.length > 1 && (

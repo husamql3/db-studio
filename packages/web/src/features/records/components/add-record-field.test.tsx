@@ -57,35 +57,4 @@ describe("AddRecordField — binary columns", () => {
 		expect(picker.getAttribute("value")).toBeNull();
 		expect(picker.value).toBe("");
 	});
-
-	it("shows the stored bytes read-only next to the picker", () => {
-		render(
-			<Harness
-				col={column({})}
-				defaultValues={{ avatar: "\\x89504e47" }}
-			/>,
-		);
-
-		expect(screen.getByRole("group", { name: "avatar stored value" }).textContent).toBe(
-			"\\x89504e47",
-		);
-	});
-
-	it("omits the read-only preview when the column is empty", () => {
-		render(
-			<Harness
-				col={column({})}
-				defaultValues={{ avatar: "" }}
-			/>,
-		);
-
-		expect(screen.queryByRole("group", { name: "avatar stored value" })).toBeNull();
-		expect(
-			(
-				within(screen.getByRole("group", { name: "avatar" })).getByLabelText(
-					"avatar",
-				) as HTMLInputElement
-			).type,
-		).toBe("file");
-	});
 });

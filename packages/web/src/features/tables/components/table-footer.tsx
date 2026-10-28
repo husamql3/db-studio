@@ -10,7 +10,7 @@ import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pag
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
 import { useTableData } from "../hooks/use-table-data";
 
@@ -21,13 +21,13 @@ export const TableFooter = ({
 	tableName: string;
 	variant?: "row" | "document";
 }) => {
-	const {
-		sidebar: { isPinned, width },
-	} = usePersonalPreferencesStore();
 	const [limit, setLimit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
-	const { tableData } = useTableData({ tableName });
+	const { tableData, prefetchPage } = useTableData({
+		tableName,
+		schemaName: useTableSchemaName(),
+	});
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
@@ -61,6 +61,14 @@ export const TableFooter = ({
 		}
 	};
 
+	const prefetchPrevPage = () => {
+		if (tableData?.meta?.prevCursor) prefetchPage(tableData.meta.prevCursor, "desc");
+	};
+
+	const prefetchNextPage = () => {
+		if (tableData?.meta?.nextCursor) prefetchPage(tableData.meta.nextCursor, "asc");
+	};
+
 	const handleFirstPage = () => {
 		// Reset to first page by clearing cursor
 		setCursor(null);
@@ -68,12 +76,7 @@ export const TableFooter = ({
 	};
 
 	return (
-		<footer
-			className="fixed bottom-0 left-0 right-0 h-9 border-t border-border flex items-center justify-between bg-background px-2 text-foreground"
-			style={{
-				marginLeft: isPinned ? `${width}px` : "0",
-			}}
-		>
+		<footer className="absolute bottom-0 inset-x-0 h-9 border-t border-border flex items-center justify-between bg-background px-2 text-foreground">
 			<div className="flex items-center gap-2">
 				<Label className="text-xs text-muted-foreground whitespace-nowrap">
 					{perPageLabel}
@@ -92,7 +95,7 @@ export const TableFooter = ({
 								inputRef.current?.blur();
 							}
 						}}
-						className="w-10 h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+						className="w-12 min-w-8 px-1 field-sizing-content supports-[field-sizing:content]:w-auto h-full bg-transparent text-xs text-center text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					/>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -129,7 +132,11 @@ export const TableFooter = ({
 					aria-live="polite"
 				>
 					Showing <span className="text-foreground font-medium">{dataLength}</span> of{" "}
-					<span className="text-foreground font-medium">{totalRows}</span> {itemLabel}
+					<span className="text-foreground font-medium">
+						{tableData?.meta?.totalEstimated && "~"}
+						{totalRows}
+					</span>{" "}
+					{itemLabel}
 				</p>
 			</div>
 
@@ -153,6 +160,8 @@ export const TableFooter = ({
 								variant="ghost"
 								className="size-6 disabled:opacity-30"
 								onClick={handlePrevPage}
+								onPointerEnter={prefetchPrevPage}
+								onFocus={prefetchPrevPage}
 								disabled={!tableData?.meta?.hasPreviousPage || totalRows === 0}
 								aria-label="Go to previous page"
 							>
@@ -165,6 +174,8 @@ export const TableFooter = ({
 								variant="ghost"
 								className="size-6 disabled:opacity-30"
 								onClick={handleNextPage}
+								onPointerEnter={prefetchNextPage}
+								onFocus={prefetchNextPage}
 								disabled={!tableData?.meta?.hasNextPage || totalRows === 0}
 								aria-label="Go to next page"
 							>

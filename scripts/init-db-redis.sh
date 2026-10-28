@@ -8,10 +8,7 @@ DB_IMAGE="${DB_IMAGE:-redis:7}"
 
 DATABASE_URL="${DATABASE_URL:-redis://${DB_HOST}:${DB_PORT}/0}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-redis] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then

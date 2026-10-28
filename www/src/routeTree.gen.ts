@@ -9,17 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AdminRouteImport } from './routes/admin'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as mainPathlessLayoutRouteImport } from './routes/(main)/_pathlessLayout'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as mainPathlessLayoutIndexRouteImport } from './routes/(main)/_pathlessLayout/index'
 import { Route as mainPathlessLayoutChangelogRouteImport } from './routes/(main)/_pathlessLayout/changelog'
 import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
+import { Route as ApiSponsorsLogoIdRouteImport } from './routes/api/sponsors/logo.$id'
 
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const mainPathlessLayoutRoute = mainPathlessLayoutRouteImport.update({
@@ -53,69 +54,87 @@ const mainPathlessLayoutRoadmapRoute =
     path: '/roadmap',
     getParentRoute: () => mainPathlessLayoutRoute,
   } as any)
+const ApiSponsorsLogoIdRoute = ApiSponsorsLogoIdRouteImport.update({
+  id: '/api/sponsors/logo/$id',
+  path: '/api/sponsors/logo/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/admin': typeof AdminRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
   '/roadmap': typeof mainPathlessLayoutRoadmapRoute
   '/': typeof mainPathlessLayoutIndexRoute
+  '/api/sponsors/logo/$id': typeof ApiSponsorsLogoIdRoute
 }
 export interface FileRoutesByTo {
-  '/admin': typeof AdminRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
   '/roadmap': typeof mainPathlessLayoutRoadmapRoute
   '/': typeof mainPathlessLayoutIndexRoute
+  '/api/sponsors/logo/$id': typeof ApiSponsorsLogoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/admin': typeof AdminRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/(main)/_pathlessLayout': typeof mainPathlessLayoutRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/(main)/_pathlessLayout/changelog': typeof mainPathlessLayoutChangelogRoute
   '/(main)/_pathlessLayout/roadmap': typeof mainPathlessLayoutRoadmapRoute
   '/(main)/_pathlessLayout/': typeof mainPathlessLayoutIndexRoute
+  '/api/sponsors/logo/$id': typeof ApiSponsorsLogoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/admin'
+    | '/sitemap.xml'
     | '/api/search'
     | '/docs/$'
     | '/changelog'
     | '/roadmap'
     | '/'
+    | '/api/sponsors/logo/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/admin' | '/api/search' | '/docs/$' | '/changelog' | '/roadmap' | '/'
+  to:
+    | '/sitemap.xml'
+    | '/api/search'
+    | '/docs/$'
+    | '/changelog'
+    | '/roadmap'
+    | '/'
+    | '/api/sponsors/logo/$id'
   id:
     | '__root__'
-    | '/admin'
+    | '/sitemap.xml'
     | '/(main)/_pathlessLayout'
     | '/api/search'
     | '/docs/$'
     | '/(main)/_pathlessLayout/changelog'
     | '/(main)/_pathlessLayout/roadmap'
     | '/(main)/_pathlessLayout/'
+    | '/api/sponsors/logo/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AdminRoute: typeof AdminRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   mainPathlessLayoutRoute: typeof mainPathlessLayoutRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
   DocsSplatRoute: typeof DocsSplatRoute
+  ApiSponsorsLogoIdRoute: typeof ApiSponsorsLogoIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(main)/_pathlessLayout': {
@@ -160,6 +179,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof mainPathlessLayoutRoadmapRouteImport
       parentRoute: typeof mainPathlessLayoutRoute
     }
+    '/api/sponsors/logo/$id': {
+      id: '/api/sponsors/logo/$id'
+      path: '/api/sponsors/logo/$id'
+      fullPath: '/api/sponsors/logo/$id'
+      preLoaderRoute: typeof ApiSponsorsLogoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -179,10 +205,11 @@ const mainPathlessLayoutRouteWithChildren =
   mainPathlessLayoutRoute._addFileChildren(mainPathlessLayoutRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  AdminRoute: AdminRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   mainPathlessLayoutRoute: mainPathlessLayoutRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
   DocsSplatRoute: DocsSplatRoute,
+  ApiSponsorsLogoIdRoute: ApiSponsorsLogoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -29,3 +29,5 @@ lerna-debug.log*
 
 # coverage
 coverage/
+# e2e contract artifacts
+e2e/artifacts/

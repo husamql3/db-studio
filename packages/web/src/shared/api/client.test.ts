@@ -1,13 +1,13 @@
 import { AxiosError, type InternalAxiosRequestConfig } from "axios";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiClient, apiOperationForRequest, getBaseUrl } from "./client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClient, apiOperationForRequest } from "./client";
 
 const sentry = vi.hoisted(() => ({
 	addBreadcrumb: vi.fn(),
 	captureException: vi.fn(),
 }));
 
-vi.mock("@/lib/sentry", () => ({ Sentry: sentry }));
+vi.mock("@/lib/sentry", () => ({ sentry }));
 vi.mock("@/lib/logger", () => ({
 	logger: { request: vi.fn(), response: vi.fn(), error: vi.fn() },
 }));
@@ -57,7 +57,7 @@ describe("API error reporting", () => {
 		).toBe("get_tables");
 		expect(sentry.addBreadcrumb).toHaveBeenCalledWith({
 			category: "db_studio.http",
-			data: { operation: "get_tables", method: "GET" },
+			data: { operation: "get_tables", method: "GET", request_id: expect.any(String) },
 			level: "info",
 		});
 		expect(JSON.stringify(sentry.addBreadcrumb.mock.calls)).not.toContain("customer_secrets");
@@ -80,7 +80,10 @@ describe("API error reporting", () => {
 
 		expect(sentry.captureException).toHaveBeenCalledOnce();
 		const [error, context] = sentry.captureException.mock.calls[0];
-		expect(error).toMatchObject({ name: "AxiosError", message: "Network request failed" });
+		expect(error).toMatchObject({
+			name: "AxiosError",
+			message: "get_tables did not reach the server (ERR_NETWORK)",
+		});
 		expect(error.stack).not.toContain("private-host");
 		expect(context).toEqual({
 			tags: {
@@ -88,33 +91,11 @@ describe("API error reporting", () => {
 				error_kind: "network",
 				operation: "get_tables",
 				error_code: "ERR_NETWORK",
+				request_id: expect.any(String),
 			},
 			fingerprint: ["network", "get_tables", "ERR_NETWORK"],
 		});
 		expect(JSON.stringify(context)).not.toContain("private-host");
 		expect(JSON.stringify(context)).not.toContain("customer_secrets");
-	});
-});
-
-describe("getBaseUrl", () => {
-	afterEach(() => {
-		delete window.desktop;
-	});
-
-	it("prefers the desktop bridge origin when a server child is running", () => {
-		window.desktop = {
-			getApiBaseUrl: () => "http://127.0.0.1:43123",
-		} as unknown as NonNullable<typeof window.desktop>;
-
-		expect(getBaseUrl()).toBe("http://127.0.0.1:43123");
-	});
-
-	it("falls back to the web resolution when the desktop app is disconnected", () => {
-		window.desktop = {
-			getApiBaseUrl: () => null,
-		} as unknown as NonNullable<typeof window.desktop>;
-
-		expect(getBaseUrl()).not.toBe("null");
-		expect(getBaseUrl()).toMatch(/^https?:\/\//);
 	});
 });

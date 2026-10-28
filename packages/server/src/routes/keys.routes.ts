@@ -1,96 +1,59 @@
 import {
 	createKeySchema,
-	type DeleteKeyResultSchemaType,
 	databaseSchema,
 	deleteKeyQuerySchema,
-	type KeyDetailsResultSchemaType,
-	type KeyRawResultSchemaType,
-	type KeyScanResultSchemaType,
-	type KeyWriteResultSchemaType,
 	keyActionSchema,
 	keyDetailsQuerySchema,
 	keyParamSchema,
 	keyRawQuerySchema,
 	keyScanQuerySchema,
 } from "@db-studio/shared/types";
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
-import { assertKeyValueAdapter, getAdapter } from "@/adapters/adapter.registry.js";
-import type { ApiHandler, RouteEnv } from "@/app.types.js";
+import { Elysia } from "elysia";
+import { assertKeyValueAdapter } from "@/adapters/adapter.registry.js";
+import { adapterPlugin } from "@/routes/adapter.plugin.js";
 
-export const keysRoutes = new Hono<RouteEnv>()
-	.basePath("/keys")
+export const keysRoutes = new Elysia({ prefix: "/keys" })
+	.use(adapterPlugin)
+	.resolve(({ adapter, dbType }) => ({
+		keyValueAdapter: assertKeyValueAdapter(adapter, dbType),
+	}))
 	.get(
 		"/",
-		zValidator("query", keyScanQuerySchema),
-		async (c): ApiHandler<KeyScanResultSchemaType> => {
-			const query = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
-			return c.json({ data: await adapter.scanKeys(query) }, 200);
-		},
+		async ({ keyValueAdapter, query }) => ({ data: await keyValueAdapter.scanKeys(query) }),
+		{ query: keyScanQuerySchema },
 	)
 	.post(
 		"/",
-		zValidator("query", databaseSchema),
-		zValidator("json", createKeySchema),
-		async (c): ApiHandler<KeyWriteResultSchemaType> => {
-			const { db } = c.req.valid("query");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
-			return c.json({ data: await adapter.createKey({ db, ...body }) }, 200);
-		},
+		async ({ keyValueAdapter, query: { db }, body }) => ({
+			data: await keyValueAdapter.createKey({ db, ...body }),
+		}),
+		{ query: databaseSchema, body: createKeySchema },
 	)
 	.get(
 		"/:key/raw",
-		zValidator("param", keyParamSchema),
-		zValidator("query", keyRawQuerySchema),
-		async (c): ApiHandler<KeyRawResultSchemaType> => {
-			const { key } = c.req.valid("param");
-			const query = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
-			return c.json({ data: await adapter.getStringChunk({ ...query, key }) }, 200);
-		},
+		async ({ keyValueAdapter, query, params: { key } }) => ({
+			data: await keyValueAdapter.getStringChunk({ ...query, key }),
+		}),
+		{ query: keyRawQuerySchema, params: keyParamSchema },
 	)
 	.get(
 		"/:key",
-		zValidator("param", keyParamSchema),
-		zValidator("query", keyDetailsQuerySchema),
-		async (c): ApiHandler<KeyDetailsResultSchemaType> => {
-			const { key } = c.req.valid("param");
-			const query = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
-			return c.json({ data: await adapter.getKeyDetails({ ...query, key }) }, 200);
-		},
+		async ({ keyValueAdapter, query, params: { key } }) => ({
+			data: await keyValueAdapter.getKeyDetails({ ...query, key }),
+		}),
+		{ query: keyDetailsQuerySchema, params: keyParamSchema },
 	)
 	.post(
 		"/:key/actions",
-		zValidator("param", keyParamSchema),
-		zValidator("query", databaseSchema),
-		zValidator("json", keyActionSchema),
-		async (c): ApiHandler<KeyWriteResultSchemaType> => {
-			const { key } = c.req.valid("param");
-			const { db } = c.req.valid("query");
-			const body = c.req.valid("json");
-			const dbType = c.get("dbType");
-			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
-			return c.json({ data: await adapter.applyKeyAction({ db, key, ...body }) }, 200);
-		},
+		async ({ keyValueAdapter, query: { db }, params: { key }, body }) => ({
+			data: await keyValueAdapter.applyKeyAction({ db, key, ...body }),
+		}),
+		{ query: databaseSchema, params: keyParamSchema, body: keyActionSchema },
 	)
 	.delete(
 		"/:key",
-		zValidator("param", keyParamSchema),
-		zValidator("query", deleteKeyQuerySchema),
-		async (c): ApiHandler<DeleteKeyResultSchemaType> => {
-			const { key } = c.req.valid("param");
-			const query = c.req.valid("query");
-			const dbType = c.get("dbType");
-			const adapter = assertKeyValueAdapter(getAdapter(dbType), dbType);
-			return c.json({ data: await adapter.deleteKey({ ...query, key }) }, 200);
-		},
+		async ({ keyValueAdapter, query, params: { key } }) => ({
+			data: await keyValueAdapter.deleteKey({ ...query, key }),
+		}),
+		{ query: deleteKeyQuerySchema, params: keyParamSchema },
 	);
-
-export type KeysRoutes = typeof keysRoutes.routes;

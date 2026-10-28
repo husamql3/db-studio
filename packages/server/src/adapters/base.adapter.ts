@@ -7,6 +7,7 @@ import type {
 	CellValue,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	CursorData,
 	DatabaseInfoSchemaType,
@@ -17,16 +18,26 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
+	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogsResult,
+	SortDirection,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
-import { DatabaseError } from "pg";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
+import { isPgDatabaseError } from "@/drivers.js";
+import { HTTPException } from "@/http-exception.js";
+
+/**
+ * Tables the database estimates at this many rows or more report their estimate instead of an
+ * exact count, in the table list and as an unfiltered page total: counting reads the whole table.
+ */
+export const EXACT_COUNT_LIMIT = 50_000;
 
 /** One record's pending updates, addressed by every one of its key columns. */
 export interface RecordUpdateGroup {
@@ -50,6 +61,18 @@ export type NormalizedRow = Record<string, CellValue>;
 function notImplemented(method: string): never {
 	throw new HTTPException(501, {
 		message: `${method} is not implemented for this database type`,
+	});
+}
+
+function serverLogsNotSupported(): never {
+	throw new HTTPException(400, {
+		message: "Server logs are not supported for this database type",
+	});
+}
+
+function indexesNotSupported(): never {
+	throw new HTTPException(400, {
+		message: "Indexes are not supported for this database type",
 	});
 }
 
@@ -92,6 +115,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	// =========================================================
 
 	/**
+	 * Delete requests carry one key column per row, so on a composite key they would match
+	 * every row sharing that column's value. Refuse until the request addresses whole keys.
+	 */
+	protected assertDeletableKey(pkColumns: string[]): void {
+		if (pkColumns.length > 1)
+			throw new HTTPException(400, {
+				message:
+					"Deleting rows from tables with a composite primary key is not supported yet.",
+			});
+	}
+
+	/**
 	 * Wrap any thrown value in an HTTPException.
 	 * Detects connection errors for all supported databases and maps them to 503.
 	 * Concrete adapters can override to handle additional DB-specific error codes.
@@ -101,14 +136,27 @@ export abstract class BaseAdapter implements IDbAdapter {
 
 		if (e instanceof Error) {
 			const err = e as { code?: string; errno?: number };
+			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
+			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
+
+			// Before the message checks below, whose words a table name in this message can contain.
+			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
+			// SQL Server 229/230: the login lacks a permission on a table or column.
+			const mssqlNumber = (e as { number?: number }).number;
+			if (
+				(isPgDatabaseError(e) && e.code === "42501") ||
+				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
+			) {
+				return new HTTPException(403, { message: e.message, cause: e });
+			}
 
 			const isConnectionError =
-				err.code === "ECONNREFUSED" ||
-				err.code === "ENOTFOUND" ||
-				err.code === "ETIMEDOUT" ||
-				err.code === "ER_ACCESS_DENIED_ERROR" ||
-				err.code === "ER_BAD_HOST_ERROR" ||
-				err.code === "ECONNRESET" ||
+				code === "ECONNREFUSED" ||
+				code === "ENOTFOUND" ||
+				code === "ETIMEDOUT" ||
+				code === "ER_ACCESS_DENIED_ERROR" ||
+				code === "ER_BAD_HOST_ERROR" ||
+				code === "ECONNRESET" ||
 				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
 				err.errno === 2003 || // MySQL can't connect to server
 				err.errno === 2002 || // MySQL can't connect to local server
@@ -119,6 +167,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.includes("MongoNetworkError") ||
 				e.message.includes("MongoServerSelectionError") ||
 				e.message.includes("Login failed") ||
+				/HTTP status (401|403)\b/.test(e.message) || // libSQL / Turso: bad or missing authToken
 				e.message.startsWith("NOAUTH") || // Redis: auth required
 				e.message.startsWith("WRONGPASS") || // Redis: invalid credentials
 				e.message.startsWith("LOADING") || // Redis: dataset loading
@@ -126,7 +175,15 @@ export abstract class BaseAdapter implements IDbAdapter {
 				e.message.startsWith("READONLY") || // Redis: read-only replica
 				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
 				e.message.includes("Redis cluster mode is not supported") ||
-				(e instanceof DatabaseError && e.code?.startsWith("08")); // PG connection exception class
+				e.message.includes("Could not set lock on file") || // DuckDB: file locked by another process
+				// Oracle: no listener, unknown service/SID, bad credentials, locked account,
+				// timeout or lost connection; NJS-5xx are the thin driver's network errors
+				/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/.test(
+					e.message,
+				) ||
+				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
+				e.message === "Timeout error." || // @clickhouse/client request timeout
+				(isPgDatabaseError(e) && e.code?.startsWith("08")); // PG connection exception class
 
 			if (isConnectionError) {
 				return new HTTPException(503, { message: e.message, cause: e });
@@ -144,6 +201,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 */
 	protected resolveKeyColumns(params: UpdateRecordsSchemaType): string[] {
 		return params.primaryKeys?.length ? params.primaryKeys : [params.primaryKey];
+	}
+
+	/**
+	 * An update matched on part of a primary key would write every row sharing those
+	 * values, so the request must name every key column of the table.
+	 */
+	protected assertWholeKey(pkColumns: string[], keyColumns: string[]): void {
+		const missing = pkColumns.filter((column) => !keyColumns.includes(column));
+		if (missing.length > 0)
+			throw new HTTPException(400, {
+				message: `Updates must match on every primary key column; missing: ${missing.join(", ")}`,
+			});
 	}
 
 	/**
@@ -174,6 +243,26 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 
 		return [...groups.values()];
+	}
+
+	/**
+	 * ORDER BY terms for a page: the requested sorts, then every key column not already
+	 * sorted on, as tie-breakers in the leading sort's direction so paging stays stable.
+	 */
+	protected orderTerms<K>(
+		sort: GetTableDataParams["sort"] = [],
+		order: SortDirection,
+		keyColumns: K[],
+	): Array<{ column: string | K; direction: SortDirection }> {
+		const sorts =
+			typeof sort === "string" ? (sort ? [{ columnName: sort, direction: order }] : []) : sort;
+		const tieBreakerDirection = sorts[0]?.direction ?? order;
+		return [
+			...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
+			...keyColumns
+				.filter((key) => !sorts.some((s) => s.columnName === key))
+				.map((column) => ({ column, direction: tieBreakerDirection })),
+		];
 	}
 
 	/** Human-readable `col = value` list used in "record not found" errors. */
@@ -224,18 +313,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 			const { db, limit = 50, direction = "asc" } = params;
 			const bundle = this.buildTableDataQuery(params);
 
-			// Total count with active filters only (no cursor)
-			const countRes = await this.runQuery<Record<string, unknown>[]>(
-				db,
-				bundle.countSql,
-				bundle.countValues,
-			);
+			// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
+			// next page exists) are independent, so a page costs the slower query, not both.
+			const [countRes, pageRows] = await Promise.all([
+				this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
+				this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
+			]);
 			const total = Number(countRes[0]?.total ?? 0);
 
-			// Fetch limit+1 rows to determine whether a next page exists
-			let rawRows = await this.runQuery<unknown[]>(db, bundle.sql, bundle.values);
-			const hasMore = rawRows.length > limit;
-			if (hasMore) rawRows = rawRows.slice(0, limit);
+			const hasMore = pageRows.length > limit;
+			const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
 
 			let rows = this.normalizeRows(rawRows);
 			if (direction === "desc") rows = rows.reverse();
@@ -263,6 +350,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 		db,
 	}: {
 		tableName: string;
+		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
@@ -333,6 +421,21 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	renameColumn(_params: RenameColumnParamsSchemaType): Promise<void> {
 		return notImplemented("renameColumn");
+	}
+	getTableIndexes(_params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		return indexesNotSupported();
+	}
+	createIndex(_params: CreateIndexParamsSchemaType): Promise<void> {
+		return indexesNotSupported();
+	}
+	dropIndex(_params: DropIndexParamsSchemaType): Promise<void> {
+		return indexesNotSupported();
+	}
+	getServerLogs(_params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
+		return serverLogsNotSupported();
 	}
 	addRecord(_params: {
 		db: DatabaseSchemaType["db"];

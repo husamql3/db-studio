@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { LIMIT } from "@db-studio/shared/constants";
 import { AI_PROVIDER_OPTIONS, type AiProvider } from "@db-studio/shared/types";
-import { chat, type ModelMessage, toServerSentEventsResponse } from "@tanstack/ai";
+import { chat, EventType, type ModelMessage, toServerSentEventsResponse } from "@tanstack/ai";
 import { getByokKey } from "@tanstack/ai/byok/server";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
@@ -11,9 +11,12 @@ import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createProxyLimiter, keyGenerator } from "./limit";
+import { errorType, type ProxyEnv, requestId, writeLog } from "./log";
 import { getRedis } from "./redis";
 
-const app = new Hono<{ Bindings: CloudflareBindings }>();
+const app = new Hono<ProxyEnv>();
+
+app.use("/*", requestId);
 
 app.use(
 	"/*",
@@ -23,6 +26,7 @@ app.use(
 		allowHeaders: [
 			"Content-Type",
 			"x-api-key",
+			"x-request-id",
 			"cf-connecting-ip",
 			"x-real-ip",
 			"x-forwarded-for",
@@ -32,6 +36,7 @@ app.use(
 			"x-byok-grok",
 			"x-byok-openrouter",
 		],
+		exposeHeaders: ["x-request-id"],
 	}),
 );
 
@@ -42,14 +47,21 @@ app.use("/chat", createProxyLimiter());
  * POST /chat - Proxy chat requests to Gemini API
  */
 app.post("/chat", async (c) => {
+	// Declared out here so a failure log can say which provider and model it was for.
+	let provider: AiProvider | undefined;
+	let model: string | undefined;
+	let byok = false;
 	try {
-		const { messages, systemPrompt, conversationId, provider, model } = await c.req.json<{
+		const body = await c.req.json<{
 			messages: ModelMessage[];
 			systemPrompt: string;
 			conversationId?: string;
 			provider: AiProvider;
 			model: string;
 		}>();
+		const { messages, systemPrompt, conversationId } = body;
+		provider = body.provider;
+		model = body.model;
 		if (!messages || !Array.isArray(messages)) {
 			return c.json({ error: "Invalid request: messages array required" }, 400);
 		}
@@ -59,8 +71,9 @@ app.post("/chat", async (c) => {
 			return c.json({ error: "Unsupported AI provider or model" }, 400);
 		}
 
-		const apiKey =
-			getByokKey(c.req.raw, provider) ?? (provider === "gemini" ? env.GEMINI_API_KEY : null);
+		const byokKey = getByokKey(c.req.raw, provider);
+		byok = Boolean(byokKey);
+		const apiKey = byokKey ?? (provider === "gemini" ? env.GEMINI_API_KEY : null);
 		if (!apiKey) {
 			return c.json({ error: `An API key is required for ${providerOption.label}` }, 401);
 		}
@@ -96,13 +109,39 @@ app.post("/chat", async (c) => {
 			systemPrompts: [systemPrompt],
 		});
 
-		return toServerSentEventsResponse(stream);
+		// A provider failure (bad key, quota, outage) surfaces while the stream is
+		// read, after this handler has returned, and usually as a RUN_ERROR chunk
+		// rather than a throw, so it has to be logged from inside the stream.
+		const failure = { provider, model, byok: String(byok) };
+		const logged = (async function* () {
+			try {
+				for await (const chunk of stream) {
+					if (chunk.type === EventType.RUN_ERROR) {
+						writeLog(c, "error", "chat_stream_failed", {
+							...failure,
+							error_code: chunk.code,
+						});
+					}
+					yield chunk;
+				}
+			} catch (error) {
+				writeLog(c, "error", "chat_stream_failed", {
+					...failure,
+					error_type: errorType(error),
+				});
+				throw error;
+			}
+		})();
+
+		return toServerSentEventsResponse(logged);
 	} catch (error) {
-		console.error(
-			"AI proxy request failed",
-			error instanceof Error ? error.name : "UnknownError",
-		);
-		return c.json({ error: "AI request failed" }, 500);
+		writeLog(c, "error", "chat_request_failed", {
+			provider,
+			model,
+			byok: String(byok),
+			error_type: errorType(error),
+		});
+		return c.json({ error: "AI request failed", requestId: c.get("requestId") }, 500);
 	}
 });
 
@@ -129,7 +168,7 @@ app.get("/chat/limit", async (c) => {
 			remaining,
 		});
 	} catch (error) {
-		console.error("Error fetching limit:", error);
+		writeLog(c, "error", "chat_limit_failed", { error_type: errorType(error) });
 		return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 });
 	}
 });

@@ -11,10 +11,7 @@ DB_IMAGE="${DB_IMAGE:-mongo:7}"
 
 DATABASE_URL="${DATABASE_URL:-mongodb://${DB_HOST}:${DB_PORT}/${DB_NAME}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db-mongo] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
@@ -239,6 +236,7 @@ db.projects.createIndex({ public_id: 1 }, { unique: true });
 
 // ─── contributions ─────────────────────────────────────────────────────────────
 db.contributions.createIndex({ contributor_id: 1, project_id: 1 }, { unique: true });
+db.contributions.createIndex({ project_id: 1 });
 
 const mona   = db.contributors.findOne({ email: "mona@example.com" });
 const diego  = db.contributors.findOne({ email: "diego@example.com" });

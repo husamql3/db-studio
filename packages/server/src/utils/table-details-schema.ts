@@ -9,6 +9,7 @@ import type {
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { getAdapter } from "@/adapters/adapter.registry.js";
 import { getDbType } from "@/db-manager.js";
+import { errorFields, writeOperationalLog } from "@/operational-log.js";
 
 function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	const column: Column = {
@@ -53,48 +54,6 @@ function extractRelationships(tables: Table[]): Relationship[] {
 	return relationships;
 }
 
-function stringifySampleValue(value: unknown): string {
-	if (value == null) {
-		return "";
-	}
-
-	if (value instanceof Date) {
-		return value.toISOString();
-	}
-
-	if (typeof value === "bigint") {
-		return value.toString();
-	}
-
-	if (typeof value === "object") {
-		try {
-			return JSON.stringify(value);
-		} catch {
-			return String(value);
-		}
-	}
-
-	return String(value);
-}
-
-async function getSampleData(
-	adapter: IDbAdapter,
-	tableName: string,
-	db: DatabaseSchemaType["db"],
-): Promise<Record<string, string>[]> {
-	try {
-		const result = await adapter.getTableData({ tableName, db, limit: 3 });
-		return result.data.map((row) =>
-			Object.fromEntries(
-				Object.entries(row).map(([key, value]) => [key, stringifySampleValue(value)]),
-			),
-		);
-	} catch (error) {
-		console.warn(`Could not fetch sample data for table ${tableName}:`, error);
-		return [];
-	}
-}
-
 async function getTableColumns(
 	adapter: IDbAdapter,
 	tableName: string,
@@ -103,62 +62,36 @@ async function getTableColumns(
 	try {
 		return await adapter.getTableColumns({ tableName, db });
 	} catch (error) {
-		console.warn(`Could not fetch columns for table ${tableName}:`, error);
+		writeOperationalLog("warn", "schema_columns_failed", errorFields(error));
 		return [];
-	}
-}
-
-async function getDatabaseSchema(
-	db: DatabaseSchemaType["db"],
-	options: {
-		includeSampleData?: boolean;
-		includeDescriptions?: boolean;
-		maxTables?: number;
-	} = {},
-): Promise<DatabaseSchema> {
-	const dbType = getDbType();
-	const { includeSampleData = false, maxTables } = options;
-	const adapter = getAdapter(dbType);
-
-	try {
-		const tablesList = await adapter.getTablesList(db);
-		const selectedTables = tablesList.slice(0, maxTables ?? tablesList.length);
-
-		const tablePromises = selectedTables.map(async ({ schemaName, tableName }) => {
-			const [columns, sampleData] = await Promise.all([
-				getTableColumns(adapter, tableName, db),
-				includeSampleData ? getSampleData(adapter, tableName, db) : Promise.resolve([]),
-			]);
-
-			const table: Table = {
-				name: schemaName ? `${schemaName}.${tableName}` : tableName,
-				columns: columns.map(convertColumnInfo),
-			};
-
-			if (sampleData.length > 0) {
-				table.sampleData = sampleData;
-			}
-
-			return table;
-		});
-
-		const tables = await Promise.all(tablePromises);
-		const relationships = extractRelationships(tables);
-
-		return { dbType, tables, relationships };
-	} catch (error) {
-		console.error("Error fetching database schema:", error);
-		throw new Error(
-			`Failed to fetch database schema: ${error instanceof Error ? error.message : "Unknown error"}`,
-		);
 	}
 }
 
 export async function getDetailedSchema(
 	db: DatabaseSchemaType["db"],
 ): Promise<DatabaseSchema> {
-	return getDatabaseSchema(db, {
-		includeSampleData: true,
-		includeDescriptions: true,
-	});
+	const dbType = getDbType();
+	const adapter = getAdapter(dbType);
+
+	try {
+		const tablesList = await adapter.getTablesList(db);
+		// Structure only: the prompt goes to an external AI provider, and the setting
+		// promises table and column metadata, never row values.
+		const tables = await Promise.all(
+			tablesList.map(
+				async ({ schemaName, tableName }): Promise<Table> => ({
+					name: schemaName ? `${schemaName}.${tableName}` : tableName,
+					columns: (await getTableColumns(adapter, tableName, db)).map(convertColumnInfo),
+				}),
+			),
+		);
+		const relationships = extractRelationships(tables);
+
+		return { dbType, tables, relationships };
+	} catch (error) {
+		writeOperationalLog("error", "schema_fetch_failed", errorFields(error));
+		throw new Error(
+			`Failed to fetch database schema: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+	}
 }

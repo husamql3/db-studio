@@ -8,21 +8,23 @@ export * from "./chat.types.js"; // done
 export * from "./cmd-args.types.js"; // done
 export * from "./column.type.js";
 export * from "./column-info.types.js";
+export * from "./connections.types.js";
 export * from "./create-table.types.js"; // done
 export * from "./database.types.js"; // done
-export * from "./database-capabilities.types.js";
+export * from "./database-engines.types.js";
 export * from "./database-list.types.js"; // done
 export * from "./database-schema.type.js"; // done
 export * from "./delete-column.types.js"; // done
 export * from "./delete-record.types.js"; // done
 export * from "./delete-table.types.js"; // done
-export * from "./desktop.types.js";
 export * from "./execute-query.types.js"; // done
 export * from "./export-table.types.js";
+export * from "./index-info.types.js";
 export * from "./key-browser.types.js";
 export * from "./rate-limit-response.type.js";
 export * from "./rename-column.types.js";
 export * from "./rename-table.types.js";
+export * from "./server-logs.types.js";
 export * from "./table-data.types.js"; // done
 export * from "./table-info.type.js"; // done
 export * from "./table-schema.types.js"; // done

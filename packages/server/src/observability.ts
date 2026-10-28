@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import path from "node:path";
-import type { DatabaseTypeSchema } from "@db-studio/shared/types";
+import { DATABASE_TYPES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import * as Sentry from "@sentry/node";
-import { HTTPException } from "hono/http-exception";
 import { PostHog } from "posthog-node";
+import { currentRequestId, diagnosticErrorFor, errorFields } from "@/operational-log.js";
 import packageJson from "../package.json" with { type: "json" };
 
 type DurationBucket = "under_100ms" | "100ms_1s" | "1s_5s" | "over_5s";
@@ -84,7 +84,7 @@ const OFFICIAL_SENTRY_DSN =
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
 const currentState = (): TelemetryState => (state ??= readState());
 
-export const isTelemetryEnabled = (): boolean =>
+const isTelemetryEnabled = (): boolean =>
 	!isTestOrDevelopment() && process.env.DB_STUDIO_TELEMETRY !== "0" && currentState().enabled;
 
 export const getTelemetryConfig = () => ({
@@ -124,11 +124,10 @@ export const outcomeForStatus = (status: number): Outcome => {
 	return "success";
 };
 
+const DB_TYPE_PATH = new RegExp(`^/api/(${DATABASE_TYPES.join("|")})(?=/|$)`);
+
 export const operationForRequest = (method: string, pathname: string): string => {
-	const pathWithoutType = pathname.replace(
-		/^\/api\/(?:pg|mysql|mssql|mongodb|sqlite|redis)(?=\/|$)/,
-		"/api",
-	);
+	const pathWithoutType = pathname.replace(DB_TYPE_PATH, "/api");
 	const rules: Array<[RegExp, string]> = [
 		[/^\/api\/databases(?:\/|$)/, "databases"],
 		[/^\/api\/tables(?:\/|$)/, "tables"],
@@ -142,9 +141,7 @@ export const operationForRequest = (method: string, pathname: string): string =>
 };
 
 export const databaseTypeForRequest = (pathname: string): DatabaseTypeSchema | undefined =>
-	pathname.match(/^\/api\/(pg|mysql|mssql|mongodb|sqlite|redis)(?=\/|$)/)?.[1] as
-		| DatabaseTypeSchema
-		| undefined;
+	pathname.match(DB_TYPE_PATH)?.[1] as DatabaseTypeSchema | undefined;
 
 export const initServerObservability = (): void => {
 	if (!isTelemetryEnabled()) return;
@@ -162,8 +159,12 @@ export const initServerObservability = (): void => {
 			defaultIntegrations: false,
 			beforeSend(event) {
 				delete event.request;
-				delete event.user;
+				// The random, resettable installation ID PostHog already uses, so Sentry
+				// can count affected installations without knowing who they are.
+				event.user = { id: currentState().installationId };
 				delete event.breadcrumbs;
+				// Defaults to the machine's hostname, which is often its owner's name.
+				delete event.server_name;
 				return event;
 			},
 			beforeSendSpan(span) {
@@ -187,6 +188,10 @@ export const initServerObservability = (): void => {
 		});
 	}
 };
+
+/** Sends the events and errors still queued, before the process exits. */
+export const flushServerObservability = () =>
+	Promise.allSettled([posthog?.shutdown(2_000), Sentry.close(2_000)]);
 
 export const captureServerEvent = (event: ServerEvent): void => {
 	if (!isTelemetryEnabled() || !posthog) return;
@@ -215,33 +220,19 @@ export const captureInstallationActive = (): void => {
 	});
 };
 
-const safeErrorType = (error: unknown): string => {
-	const name =
-		error instanceof HTTPException
-			? "HTTPException"
-			: error instanceof Error
-				? error.name
-				: "Error";
-	return /^[A-Za-z][A-Za-z0-9]{0,49}$/.test(name) ? name : "Error";
-};
-
-const safeErrorCode = (error: unknown): string | undefined => {
-	if (!(error instanceof Error)) return undefined;
-	const { code, errno } = error as Error & { code?: unknown; errno?: unknown };
-	if (typeof code === "string" && /^[A-Z0-9_]{2,32}$/.test(code)) return code;
-	if (typeof errno === "number" && Number.isSafeInteger(errno)) return String(errno);
-	return undefined;
-};
-
-const sanitizedError = (error: unknown, errorType: string): Error => {
-	const sanitized = new Error("Server operation failed");
+/** Built only from fixed vocabulary, so it is safe to send and reads as the issue title. */
+const sanitizedError = (error: unknown, errorType: string, message: string): Error => {
+	const sanitized = new Error(message);
 	sanitized.name = errorType;
 	if (error instanceof Error && error.stack) {
+		// npx installs under the home directory, whose path names the account.
+		const home = homedir();
 		const frames = error.stack
 			.split("\n")
 			.slice(1)
-			.filter((line) => /^\s*at\s/.test(line));
-		sanitized.stack = [`${errorType}: Server operation failed`, ...frames].join("\n");
+			.filter((line) => /^\s*at\s/.test(line))
+			.map((line) => line.replaceAll(home, "~"));
+		sanitized.stack = [`${errorType}: ${message}`, ...frames].join("\n");
 	}
 	return sanitized;
 };
@@ -255,10 +246,10 @@ export const captureServerError = (
 	}: { operation: string; status: number; dbType?: DatabaseTypeSchema },
 ): void => {
 	if (!isTelemetryEnabled() || status < 500) return;
-	const diagnosticError = error instanceof HTTPException && error.cause ? error.cause : error;
-	const errorType = safeErrorType(diagnosticError);
-	const errorCode = safeErrorCode(diagnosticError);
-	Sentry.captureException(sanitizedError(diagnosticError, errorType), {
+	const { error_type: errorType, error_code: errorCode } = errorFields(error);
+	const requestId = currentRequestId();
+	const message = `${operation} failed with ${status}${errorCode ? ` ${errorCode}` : ""}`;
+	Sentry.captureException(sanitizedError(diagnosticErrorFor(error), errorType, message), {
 		tags: {
 			operation,
 			source: "server",
@@ -267,6 +258,7 @@ export const captureServerError = (
 			...(dbType ? { db_type: dbType } : {}),
 			error_type: errorType,
 			...(errorCode ? { error_code: errorCode } : {}),
+			...(requestId ? { request_id: requestId } : {}),
 		},
 		fingerprint: [operation, String(status), errorType, errorCode ?? "unknown"],
 	});
@@ -288,16 +280,3 @@ export const startServerSpan = <T>(
 		},
 		callback,
 	);
-
-export const writeOperationalLog = (
-	level: "info" | "error",
-	event: string,
-	fields: Record<string, string | number | undefined>,
-): void => {
-	const safeFields = Object.fromEntries(
-		Object.entries(fields).filter(([, value]) => value !== undefined),
-	);
-	process.stderr.write(
-		`${JSON.stringify({ timestamp: new Date().toISOString(), level, event, ...safeFields })}\n`,
-	);
-};

@@ -1,6 +1,5 @@
 import { intro, log, outro, spinner } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
-import { serve } from "@hono/node-server";
 import color from "picocolors";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
@@ -46,49 +45,69 @@ export const main = async () => {
 	}
 
 	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
-	const HOST = process.env.HOST;
+	// Loopback only by default: the server holds saved database passwords. HOST opts in to more.
+	const HOST = process.env.HOST ?? "127.0.0.1";
+	// Off loopback, anyone who reaches the port could use the API, so require a password.
+	if (!["127.0.0.1", "localhost", "::1"].includes(HOST) && !process.env.DB_STUDIO_PASSWORD) {
+		const { randomBytes } = await import("node:crypto");
+		process.env.DB_STUDIO_PASSWORD = randomBytes(18).toString("base64url");
+		log.warn(
+			`HOST=${HOST} exposes db-studio to the network, so it asks for a password (set DB_STUDIO_PASSWORD to choose one). Sign in with any username and the password ${color.cyan(process.env.DB_STUDIO_PASSWORD)}`,
+		);
+	}
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
-	const hasEnvFileValue = Boolean(ENV?.[VAR_NAME]);
-	const hasProcessValue = Boolean(process.env[VAR_NAME]);
-	const DATABASE_URL = databaseUrl ? databaseUrl : await getDatabaseUrl(ENV, VAR_NAME);
-	const configSource = databaseUrl
-		? "Using database URL from --database-url"
-		: hasEnvFileValue
-			? `Found ${VAR_NAME} in ${env ?? ".env"}`
-			: hasProcessValue
-				? `Found ${VAR_NAME} in environment`
-				: "Using database URL provided interactively";
-	log.success(configSource);
+	const DATABASE_URL = databaseUrl || getDatabaseUrl(ENV, VAR_NAME);
 
-	// Set DATABASE_URL in process.env before importing createServer
-	// This ensures the db pool is initialized with the correct connection string
-	process.env.DATABASE_URL = DATABASE_URL;
-
-	const { initServerObservability } = await import("@/observability.js");
+	const { flushServerObservability, initServerObservability } = await import(
+		"@/observability.js"
+	);
 	initServerObservability();
 
-	// Import database modules dynamically after setting DATABASE_URL.
-	const { checkDatabaseConnection, getDatabaseConnectionDetails } = await import(
-		"@/cmd/check-database.js"
-	);
-	const { type, name, destination } = getDatabaseConnectionDetails(DATABASE_URL);
-	const connectionSpinner = spinner();
-	connectionSpinner.start(`Connecting to ${name}...`);
-	try {
-		await checkDatabaseConnection(type);
-		connectionSpinner.stop(`Connected to ${name} at ${destination}`);
-	} catch (error) {
-		connectionSpinner.stop(`Could not connect to ${name} at ${destination}`);
-		throw error;
+	if (DATABASE_URL) {
+		log.success(
+			databaseUrl
+				? "Using database URL from --database-url"
+				: ENV?.[VAR_NAME]
+					? `Found ${VAR_NAME} in ${env ?? ".env"}`
+					: `Found ${VAR_NAME} in environment`,
+		);
+		// Imported after the .env file is loaded: the database layer reads driver settings from it.
+		const { getDatabaseConnectionDetails } = await import("@/cmd/check-database.js");
+		const { connect } = await import("@/connection.js");
+		const details = getDatabaseConnectionDetails(DATABASE_URL);
+		const label = details ? `${details.name} at ${details.destination}` : "the database";
+		const connectionSpinner = spinner();
+		connectionSpinner.start(`Connecting to ${label}...`);
+		try {
+			await connect(DATABASE_URL);
+			connectionSpinner.stop(`Connected to ${label}`);
+		} catch (error) {
+			connectionSpinner.stop(`Could not connect to ${label}`);
+			throw error;
+		}
+	} else {
+		log.info(`No ${VAR_NAME} found. Choose a database in the browser.`);
 	}
 
 	const { createServer } = await import("./utils/create-server.js");
+	const { closeAllDbPools } = await import("@/db-manager.js");
 	const { app } = createServer();
-	serve({
-		fetch: app.fetch,
-		hostname: HOST,
-		port: PORT,
-	});
+
+	// Ctrl+C or SIGTERM: let open requests finish, then close the database connections, whose
+	// idle timeout would otherwise keep the process alive for 30 s. Registered before listen()
+	// so it runs before srvx's own handler, which would stop the server without waiting.
+	const stop = async () => {
+		const deadline = new Promise((resolve) => setTimeout(resolve, 5_000));
+		await Promise.race([app.server?.stop(), deadline]);
+		await Promise.race([
+			Promise.allSettled([closeAllDbPools(), flushServerObservability()]),
+			deadline,
+		]);
+		process.exit(0);
+	};
+	process.once("SIGINT", stop);
+	process.once("SIGTERM", stop);
+	app.listen({ hostname: HOST, port: PORT });
 
 	const serverUrl =
 		process.env.DB_STUDIO_SERVER_URL ?? process.env.PORTLESS_URL ?? `http://localhost:${PORT}`;

@@ -1,19 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTableCols } from "@/features/schema";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
 import { updateRecords } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { type CellUpdate, useUpdateCellStore } from "../stores/update-cell.store";
-import { getIdentityColumnNames } from "../utils/row-details-utils";
+import { useEditScope } from "./use-edit-scope";
 
 export const useUpdateCell = () => {
 	const queryClient = useQueryClient();
 	const { table } = Route.useParams();
-	const { clearUpdates, getUpdateCount } = useUpdateCellStore();
+	const schemaName = useTableSchemaName();
+	const { removeUpdates } = useUpdateCellStore();
 	const { selectedDatabase } = useDatabaseStore();
-	const { tableCols } = useTableCols({ tableName: table });
+	const { tableCols } = useTableCols({
+		tableName: table,
+		schemaName: schemaName ?? undefined,
+	});
+	const editScope = useEditScope(table, tableCols);
 
 	const { mutateAsync: updateCellMutation, isPending: isUpdatingCell } = useMutation({
 		mutationFn: async (updates: CellUpdate[]) => {
@@ -23,7 +29,7 @@ export const useUpdateCell = () => {
 
 			// Transform updates into the format the API expects. Composite keys are
 			// sent in full so an edit can never match more than its own record.
-			const identityColumnNames = getIdentityColumnNames(tableCols);
+			const identityColumnNames = editScope.keyColumns;
 			const payload = {
 				tableName: table,
 				updates: updates.map((update) => ({
@@ -36,11 +42,15 @@ export const useUpdateCell = () => {
 					: {}),
 			};
 
-			const res = await updateRecords({ ...payload, db: selectedDatabase });
+			const res = await updateRecords({
+				...payload,
+				schemaName,
+				db: selectedDatabase,
+			});
 			return res.data.data;
 		},
-		onSuccess: async () => {
-			clearUpdates();
+		onSuccess: async (_data, updates) => {
+			removeUpdates(updates);
 
 			await Promise.all([
 				queryClient.invalidateQueries({
@@ -52,7 +62,7 @@ export const useUpdateCell = () => {
 	});
 
 	const updateCell = async (updates: CellUpdate[]) => {
-		const count = getUpdateCount();
+		const count = updates.length;
 		return toast.promise(updateCellMutation(updates), {
 			loading: "Saving changes...",
 			success: (message) =>
@@ -64,5 +74,6 @@ export const useUpdateCell = () => {
 	return {
 		updateCell,
 		isUpdatingCell: isUpdatingCell,
+		editScope,
 	};
 };

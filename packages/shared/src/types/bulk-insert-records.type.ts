@@ -1,8 +1,9 @@
 import { z } from "zod";
-import type { DatabaseSchemaType } from "./database.types";
+import type { DatabaseSchemaType } from "./database.types.js";
 
 export type BulkInsertRecordsParams = {
 	tableName: string;
+	schemaName?: string;
 	records: Record<string, unknown>[];
 	db: DatabaseSchemaType["db"];
 };

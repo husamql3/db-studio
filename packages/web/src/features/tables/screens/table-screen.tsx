@@ -5,12 +5,15 @@ import {
 	BulkInsertJsonSheet,
 	BulkInsertSheet,
 } from "@/features/records";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { TableTab } from "../components/table-tab";
 
 export const TableScreen = ({ tableName }: { tableName: string }) => {
+	// Remount per table, so pending edits and selection never carry over to a same-named table.
+	const schemaName = useTableSchemaName();
 	return (
 		<main
-			key={tableName}
+			key={`${schemaName}.${tableName}`}
 			className="flex-1 flex flex-col overflow-hidden"
 		>
 			<TableTab tableName={tableName} />

@@ -10,7 +10,13 @@ export interface AddRecordFormData {
 	[key: string]: string;
 }
 
-export const useCreateRecord = ({ tableName }: { tableName: string }) => {
+export const useCreateRecord = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
 	const { closeOverlay } = useOverlayStore();
 	const { selectedDatabase, dbType } = useDatabaseStore();
@@ -19,6 +25,7 @@ export const useCreateRecord = ({ tableName }: { tableName: string }) => {
 		mutationFn: async (data: AddRecordFormData) => {
 			const res = await createRecordRequest({
 				tableName,
+				schemaName,
 				data,
 				db: selectedDatabase,
 			});

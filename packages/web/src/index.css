@@ -6,16 +6,35 @@
 @source "../../ui/src/**/*.{ts,tsx}";
 @source "../node_modules/streamdown/dist/*.js";
 
-* {
-	scrollbar-width: thin;
-	scrollbar-color: gray transparent;
+/* Chromium and Safari: rounded, inset thumb on a transparent track */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+	background: transparent;
 }
 
-/* macOS desktop app: the in-app title bar owns the top strip, so the sidebar sheet (portaled to
-   body, absolute when pinned, fixed when hovering) starts below it. */
-.desktop-title-bar [data-slot="sheet-content"][data-side="left"] {
-	top: var(--desktop-title-bar-height);
-	height: calc(100% - var(--desktop-title-bar-height));
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: var(--scrollbar-thumb);
+	background-clip: content-box;
+	border: 2px solid transparent;
+	border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox. Chromium ignores ::-webkit-scrollbar once these are set, so keep them out of its way */
+@supports not selector(::-webkit-scrollbar) {
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--scrollbar-thumb) transparent;
+	}
 }
 
 @layer utilities {
@@ -45,5 +64,63 @@
 
 	.animate-shimmer {
 		animation: shimmer var(--duration, 2s) linear infinite;
+	}
+}
+
+/* The sidebar slides out from behind the icon rail while the content's left margin moves
+   with it on the same curve, so the two edges travel together. The clip moves with the translate, so nothing paints over the rail. Unlayered
+   so it overrides the sheet's slide/fade utilities. */
+:root {
+	--rail-sidebar-ease: cubic-bezier(0.2, 0, 0, 1);
+	--rail-sidebar-duration: 250ms;
+}
+
+.sidebar-behind-rail[data-state="open"] {
+	animation: sidebar-behind-rail-in var(--rail-sidebar-duration) var(--rail-sidebar-ease);
+}
+
+.sidebar-behind-rail[data-state="closed"] {
+	animation: sidebar-behind-rail-out var(--rail-sidebar-duration) var(--rail-sidebar-ease)
+		forwards;
+}
+
+.rail-content {
+	transition: margin-left var(--rail-sidebar-duration) var(--rail-sidebar-ease);
+}
+
+/* Follow the pointer instantly while the sidebar is being resized. */
+body:has(#resize-overlay) .rail-content {
+	transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sidebar-behind-rail[data-state] {
+		animation-duration: 1ms;
+	}
+
+	.rail-content {
+		transition: none;
+	}
+}
+
+@keyframes sidebar-behind-rail-in {
+	from {
+		transform: translateX(-100%);
+		clip-path: inset(0 0 0 100%);
+	}
+	to {
+		transform: translateX(0);
+		clip-path: inset(0);
+	}
+}
+
+@keyframes sidebar-behind-rail-out {
+	from {
+		transform: translateX(0);
+		clip-path: inset(0);
+	}
+	to {
+		transform: translateX(-100%);
+		clip-path: inset(0 0 0 100%);
 	}
 }

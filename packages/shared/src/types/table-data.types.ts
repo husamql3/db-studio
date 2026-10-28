@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema } from "./database.types.js";
+import { databaseSchema, tableQuerySchema } from "./database.types.js";
 
 export const filterSchema = z.object({
 	columnName: z.string(),
@@ -22,6 +22,8 @@ export type SortType = z.infer<typeof sortSchema>;
 export const tableDataMetaSchema = z.object({
 	limit: z.number(),
 	total: z.number(),
+	/** True when total is the database's statistics estimate instead of an exact count. */
+	totalEstimated: z.boolean().optional(),
 	hasNextPage: z.boolean(),
 	hasPreviousPage: z.boolean(),
 	nextCursor: z.string().nullable(),
@@ -37,6 +39,7 @@ export type TableDataResultSchemaType = z.infer<typeof tableDataResultSchema>;
 
 export const tableDataQuerySchema = z.object({
 	db: databaseSchema.shape.db,
+	schemaName: tableQuerySchema.shape.schemaName,
 	cursor: z.string().optional(), // Base64 encoded cursor for pagination
 	limit: z.string().optional().default("50").transform(Number),
 	direction: z.enum(sortDirections).optional().default(sortDirections[0]), // Pagination direction
@@ -45,17 +48,15 @@ export const tableDataQuerySchema = z.object({
 		.optional()
 		.transform((val) => {
 			if (!val) return "";
-
 			try {
 				const parsed = JSON.parse(val);
-				if (Array.isArray(parsed)) {
-					return parsed;
-				}
-				return val;
+				return Array.isArray(parsed) ? parsed : val;
 			} catch {
 				return val;
 			}
-		}),
+		})
+		// Re-validate the parsed JSON: its fields reach SQL as identifiers and keywords.
+		.pipe(z.union([z.string(), z.array(sortSchema)])),
 	order: z.enum(sortDirections).optional(),
 	filters: z
 		.string()
@@ -67,7 +68,8 @@ export const tableDataQuerySchema = z.object({
 			} catch {
 				return [];
 			}
-		}),
+		})
+		.pipe(z.array(filterSchema)),
 });
 
 export type TableDataQuerySchemaType = z.infer<typeof tableDataQuerySchema>;

@@ -31,11 +31,12 @@ import type {
 	RedisKeyTypeSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	ServerLogEntrySchemaType,
+	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { HTTPException } from "hono/http-exception";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
@@ -46,6 +47,8 @@ import {
 	getRedisDefaultDb,
 } from "@/adapters/connections.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
+import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { HTTPException } from "@/http-exception.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
 
 // ---------------------------------------------------------------------------
@@ -94,6 +97,15 @@ const assertRedisTable = (tableName: string): RedisTable => {
 	}
 	return tableName;
 };
+
+/** One SLOWLOG GET reply: id, unix seconds, microseconds, argv, client address, client name. */
+type SlowlogEntry = [number, number, number, string[], string?, string?];
+/** One LATENCY LATEST reply: event, unix seconds, latest ms, max ms. */
+type LatencyEntry = [string, number, number, number];
+
+/** Quotes an argument the way redis-cli would need it typed back. */
+const quoteArg = (arg: string) =>
+	/[\s"']/.test(arg) || arg === "" ? JSON.stringify(arg) : arg;
 
 const parseDbIndex = (db: string): number => {
 	if (db === "") return getRedisDefaultDb();
@@ -313,7 +325,8 @@ const SCHEMA_DESCRIPTIONS: Record<RedisTable, string> = {
 // ---------------------------------------------------------------------------
 
 export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
-	private countCache: Map<number, CountCacheEntry> = new Map();
+	// Keyed by client: each open connection has its own clients, so tabs on two servers never share counts.
+	private countCache = new WeakMap<Redis, CountCacheEntry>();
 
 	// -----------------------------------------------------------------------
 	// Abstract stubs — Redis does not use SQL
@@ -1183,7 +1196,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 					valuePipeline.smembers(key);
 					break;
 				case "zsets":
-					valuePipeline.zrange(key, 0, -1, "WITHSCORES");
+					valuePipeline.zrange(key, "0", "-1", "WITHSCORES");
 					break;
 				case "streams":
 					valuePipeline.xinfo("STREAM", key);
@@ -1229,12 +1242,12 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	private async getCachedCounts(dbIndex: number): Promise<Record<RedisTable, number>> {
-		const cached = this.countCache.get(dbIndex);
+		const client = await getRedisClient(dbIndex);
+		const cached = this.countCache.get(client);
 		if (cached && Date.now() - cached.timestamp < COUNT_CACHE_TTL_MS) {
 			return cached.counts;
 		}
 
-		const client = await getRedisClient(dbIndex);
 		const counts = {} as Record<RedisTable, number>;
 		const pipeline = client.pipeline();
 		for (const table of REDIS_TABLES) {
@@ -1254,7 +1267,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			counts[table] = reply?.[1]?.length ?? 0;
 		});
 
-		this.countCache.set(dbIndex, { timestamp: Date.now(), counts });
+		this.countCache.set(client, { timestamp: Date.now(), counts });
 		return counts;
 	}
 
@@ -1277,7 +1290,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			const client = await getRedisClient(parseDbIndex(db));
 
 			await this.writeRecord(client, table, key, data.value, { mode: "create", ttl });
-			this.countCache.delete(parseDbIndex(db));
+			this.countCache.delete(client);
 			return { insertedCount: 1 };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1346,7 +1359,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			if (keys.length === 0)
 				return { deletedCount: 0, fkViolation: false, relatedRecords: [] };
 			const deletedCount = await client.del(...keys);
-			this.countCache.delete(parseDbIndex(db));
+			this.countCache.delete(client);
 			return { deletedCount, fkViolation: false, relatedRecords: [] };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1389,7 +1402,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				}
 			}
 
-			this.countCache.delete(parseDbIndex(db));
+			this.countCache.delete(client);
 			return {
 				success: errors.length === 0,
 				message: `Inserted ${successCount} of ${records.length} record${records.length === 1 ? "" : "s"}`,
@@ -1563,6 +1576,64 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				await client.xadd(key, "*", ...(flat as [string, ...string[]]));
 				return;
 			}
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Server logs
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Redis serves no log over its protocol, so the slow log and the latency monitor's latest
+	 * spikes stand in for it.
+	 */
+	override async getServerLogs({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<ServerLogsResult> {
+		try {
+			const client = await getRedisClient(parseDbIndex(db));
+			const slowlog = (await client.call("SLOWLOG", "GET", "128")) as SlowlogEntry[];
+			// The latency monitor is optional; a server that refuses it still has a slow log.
+			const latency = ((await client.call("LATENCY", "LATEST").catch(() => [])) ??
+				[]) as LatencyEntry[];
+
+			const entries: ServerLogEntrySchemaType[] = [
+				// SLOWLOG GET answers newest first.
+				...slowlog.reverse().map(([id, seconds, micros, args, clientAddr, clientName]) => ({
+					ts: new Date(Number(seconds) * 1000).toISOString(),
+					level: "info" as const,
+					rawLevel: "slowlog",
+					message: args.map(quoteArg).join(" "),
+					durationMs: Number(micros) / 1000,
+					detail: logDetail({ id, client: clientAddr, client_name: clientName }),
+				})),
+				...latency.map(([event, seconds, latestMs, maxMs]) => ({
+					ts: new Date(Number(seconds) * 1000).toISOString(),
+					level: "warning" as const,
+					rawLevel: "latency",
+					source: event,
+					message: `latency spike: ${event}`,
+					durationMs: Number(latestMs),
+					detail: logDetail({ max_ms: maxMs }),
+				})),
+			];
+			return {
+				available: true,
+				source: "SLOWLOG GET + LATENCY LATEST",
+				entries: newestEntries(entries),
+			};
+		} catch (e) {
+			if (e instanceof Error && e.message.startsWith("NOPERM")) {
+				return logsUnavailable(
+					"Reading the slow log needs the +slowlog command, and +latency for latency spikes.",
+				);
+			}
+			if (e instanceof Error && e.message.startsWith("ERR unknown command")) {
+				return logsUnavailable("This Redis server has SLOWLOG turned off.");
+			}
+			throw this.wrapError(e);
 		}
 	}
 

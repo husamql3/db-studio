@@ -6,11 +6,36 @@ import axios, {
 	type InternalAxiosRequestConfig,
 } from "axios";
 import { logger } from "@/lib/logger";
-import { Sentry } from "@/lib/sentry";
+import { sentry } from "@/lib/sentry";
+
+/** `crypto.randomUUID` only exists on secure origins; db-studio is also served over plain LAN HTTP. */
+const newRequestId = (): string =>
+	crypto.randomUUID?.() ??
+	Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	).join("");
+
+const CONNECTION_ID_KEY = "dbstudio-connection-id";
+/** The server connection this tab works with. Per tab: another tab can work with another one. */
+let connectionId = sessionStorage.getItem(CONNECTION_ID_KEY);
+
+/** Every request names this tab's connection; the server answers from that connection. */
+export const connectionHeaders = (): Record<string, string> =>
+	connectionId ? { "X-Connection-Id": connectionId } : {};
+
+export const setConnectionId = (id: string | null): void => {
+	connectionId = id;
+	if (id) sessionStorage.setItem(CONNECTION_ID_KEY, id);
+	else sessionStorage.removeItem(CONNECTION_ID_KEY);
+};
 
 const setupInterceptors = (instance: AxiosInstance) => {
 	instance.interceptors.request.use(
 		(config) => {
+			// The server adopts this ID, so its log line and error report name the same request.
+			const requestId = newRequestId();
+			config.headers.set("X-Request-Id", requestId);
+			config.headers.set(connectionHeaders());
 			(
 				config as InternalAxiosRequestConfig & {
 					metadata?: { startTime: number };
@@ -19,11 +44,12 @@ const setupInterceptors = (instance: AxiosInstance) => {
 				startTime: performance.now(),
 			};
 			logger.request(config);
-			Sentry.addBreadcrumb({
+			sentry?.addBreadcrumb({
 				category: "db_studio.http",
 				data: {
 					operation: apiOperationForRequest(config.method, config.url),
 					method: config.method?.toUpperCase(),
+					request_id: requestId,
 				},
 				level: "info",
 			});
@@ -60,23 +86,31 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const data = error.response?.data;
 			const message = data?.error ?? error.message ?? "An error occurred";
 			const details = data?.details;
-			const apiError = new Error(message);
-			(apiError as Error & { status: number; details?: unknown }).status = status;
-			(apiError as Error & { status: number; details?: unknown }).details = details;
+			const requestId: string | undefined = error.config?.headers
+				.get("X-Request-Id")
+				?.toString();
+			const apiError = Object.assign(new Error(message), { status, details, requestId });
 			if (!error.response) {
 				const operation = apiOperationForRequest(error.config?.method, error.config?.url);
 				const errorCode =
 					typeof error.code === "string" && /^[A-Z0-9_]{2,32}$/.test(error.code)
 						? error.code
 						: "unknown";
-				const reportedError = new Error("Network request failed");
+				const reportedMessage = `${operation} did not reach the server (${errorCode})`;
+				const reportedError = new Error(reportedMessage);
 				reportedError.name = "AxiosError";
 				if (error.stack) {
 					const frames = error.stack.split("\n").slice(1).filter(isStackFrame);
-					reportedError.stack = ["AxiosError: Network request failed", ...frames].join("\n");
+					reportedError.stack = [`AxiosError: ${reportedMessage}`, ...frames].join("\n");
 				}
-				Sentry.captureException(reportedError, {
-					tags: { source: "client", error_kind: "network", operation, error_code: errorCode },
+				sentry?.captureException(reportedError, {
+					tags: {
+						source: "client",
+						error_kind: "network",
+						operation,
+						error_code: errorCode,
+						...(requestId ? { request_id: requestId } : {}),
+					},
 					fingerprint: ["network", operation, errorCode],
 				});
 			}
@@ -98,9 +132,6 @@ export const apiOperationForRequest = (method?: string, url?: string): string =>
 };
 
 export const getBaseUrl = (): string => {
-	// Desktop app: the Electron main process owns the server child and tells us where it listens.
-	const desktopBaseUrl = globalThis.window?.desktop?.getApiBaseUrl();
-	if (desktopBaseUrl) return desktopBaseUrl;
 	if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
 	if (
 		import.meta.env.DEV &&
@@ -135,14 +166,9 @@ export class ApiClient {
 		this.dbType = type;
 		this.api.defaults.baseURL = `${this.resolveBaseUrl()}${DEFAULTS.API_PREFIX}/${type}`;
 	}
-
-	getDbType(): DatabaseTypeSchema | null {
-		return this.dbType;
-	}
 }
 
-export const apiClient = new ApiClient();
+const apiClient = new ApiClient();
 export const rootApi = apiClient.rootApi;
 export const api = apiClient.api;
 export const setDbType = (type: DatabaseTypeSchema): void => apiClient.setDbType(type);
-export const getDbType = (): DatabaseTypeSchema | null => apiClient.getDbType();

@@ -1,5 +1,5 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
-import posthog from "posthog-js";
+import type { PostHog } from "posthog-js";
 
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
 
@@ -28,6 +28,7 @@ type AnalyticsEvent =
 			properties: {
 				page:
 					| "home"
+					| "connect"
 					| "browser"
 					| "table"
 					| "schema"
@@ -45,6 +46,8 @@ export type TelemetryConfig = {
 };
 
 let config: TelemetryConfig | undefined;
+/** The PostHog client, loaded the first time telemetry turns out to be enabled. */
+let posthog: PostHog | undefined;
 let initialized = false;
 let everInitialized = false;
 
@@ -67,6 +70,7 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	const key = import.meta.env.VITE_POSTHOG_KEY ?? OFFICIAL_POSTHOG_KEY;
 	if (!config?.enabled || !key) return config;
 	if (initialized) return config;
+	posthog ??= (await import("posthog-js")).default;
 	if (everInitialized) {
 		posthog.opt_in_capturing();
 		posthog.identify(config.installationId);
@@ -91,42 +95,13 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	return config;
 };
 
-export const setTelemetryPreference = async (enabled: boolean): Promise<TelemetryConfig> => {
-	const response = await fetch("/api/telemetry/preference", {
-		method: "PUT",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ enabled }),
-	});
-	if (!response.ok) throw new Error("Could not update telemetry preference");
-	const body = (await response.json()) as { data: TelemetryConfig };
-	config = body.data;
-	if (!enabled) {
-		posthog.opt_out_capturing();
-		initialized = false;
-	} else if (!globalPrivacyControlEnabled()) {
-		await initPosthog();
-	}
-	return body.data;
-};
-
-export const resetTelemetryIdentifier = async (): Promise<void> => {
-	const response = await fetch("/api/telemetry/reset", { method: "POST" });
-	if (!response.ok) throw new Error("Could not reset analytics identifier");
-	const body = (await response.json()) as { data: { installationId: string } };
-	if (config) config = { ...config, installationId: body.data.installationId };
-	if (initialized) {
-		posthog.reset();
-		posthog.identify(body.data.installationId);
-	}
-};
-
 export const posthogAnalytics = {
 	capture<E extends AnalyticsEvent["event"]>(
 		event: E,
 		properties: Extract<AnalyticsEvent, { event: E }>["properties"],
 	): void {
 		if (!initialized || !config?.enabled) return;
-		posthog.capture(event, {
+		posthog?.capture(event, {
 			...properties,
 			source: "client",
 			app_version: config.appVersion,

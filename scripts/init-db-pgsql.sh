@@ -13,10 +13,7 @@ DB_IMAGE="${DB_IMAGE:-postgres:16-alpine}"
 
 DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
@@ -118,6 +115,8 @@ BEGIN
       ADD CONSTRAINT contributions_unique_pair UNIQUE (contributor_id, project_id);
   END IF;
 END $$;
+
+CREATE INDEX IF NOT EXISTS contributions_project_id_idx ON public.contributions (project_id);
 
 SELECT setval(pg_get_serial_sequence('public.contributors', 'id'), COALESCE((SELECT MAX(id) FROM public.contributors), 1), true);
 SELECT setval(pg_get_serial_sequence('public.projects', 'id'), COALESCE((SELECT MAX(id) FROM public.projects), 1), true);

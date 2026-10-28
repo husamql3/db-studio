@@ -1,4 +1,3 @@
-import { statSync } from "node:fs";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -7,6 +6,7 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
+	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	CursorData,
 	DatabaseInfoSchemaType,
@@ -17,10 +17,12 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
+	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyConstraint,
 	ForeignKeyDataType,
+	IndexInfoSchemaType,
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -29,15 +31,19 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/shared/types";
-import type Database from "better-sqlite3";
-import { HTTPException } from "hono/http-exception";
+import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getSqliteDb } from "@/adapters/connections.js";
+import { getSqliteClient } from "@/adapters/connections.js";
+import { HTTPException } from "@/http-exception.js";
+import type { SqliteClient, SqlParam, SqlResult, SqlStatement } from "@/sqlite-client.js";
 import {
 	buildCursorWhereClause,
 	buildSortClause,
 	buildWhereClause,
+	hasMultipleStatements,
+	isTransactionControl,
+	recreateTableWithColumn,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
@@ -54,25 +60,134 @@ interface FkRow {
 	seq: number;
 	table: string;
 	from: string;
-	to: string;
+	/** null when the constraint references the parent's primary key implicitly */
+	to: string | null;
 	on_update: string;
 	on_delete: string;
 }
 
+/** A (possibly composite) foreign key, seen from the table it references. */
+interface ForeignKeyEdge {
+	childTable: string;
+	childColumns: string[];
+	parentColumns: (string | null)[];
+}
+
+interface IndexKeyRow {
+	indexName: string;
+	isUnique: number;
+	/** c: CREATE INDEX, u: UNIQUE constraint, pk: PRIMARY KEY */
+	origin: string;
+	partial: number;
+	sql: string | null;
+	seqno: number;
+	/** -2 marks an expression key, which has no column name */
+	cid: number;
+	columnName: string | null;
+}
+
+const QUOTE_END: Record<string, string> = { "'": "'", '"': '"', "`": "`", "[": "]" };
+
+/**
+ * The key list of a CREATE INDEX statement, split at its top-level commas. PRAGMA index_xinfo
+ * names no expression keys, so their text has to come from the statement itself.
+ */
+const indexKeyParts = (sql: string): string[] => {
+	const parts: string[] = [];
+	let depth = 0;
+	let start = -1;
+	for (let i = 0; i < sql.length; i++) {
+		const char = sql[i] ?? "";
+		const end = QUOTE_END[char];
+		if (end) {
+			i = sql.indexOf(end, i + 1);
+			if (i === -1) break;
+		} else if (char === "-" && sql[i + 1] === "-") {
+			i = sql.indexOf("\n", i + 2);
+			if (i === -1) break;
+		} else if (char === "/" && sql[i + 1] === "*") {
+			const endComment = sql.indexOf("*/", i + 2);
+			if (endComment === -1) break;
+			i = endComment + 1;
+		} else if (char === "(") {
+			if (depth++ === 0) start = i + 1;
+		} else if (char === ")" && --depth === 0) {
+			parts.push(sql.slice(start, i).trim());
+			break;
+		} else if (char === "," && depth === 1) {
+			parts.push(sql.slice(start, i).trim());
+			start = i + 1;
+		}
+	}
+	return parts;
+};
+
+const allNamed = (columns: (string | null)[]): columns is string[] =>
+	columns.every((c) => c !== null);
+
+const toSqliteValue = (value: unknown): SqlParam => {
+	if (value === null || value === undefined) return null;
+	if (typeof value === "boolean") return value ? 1 : 0;
+	if (typeof value === "string" || typeof value === "number" || typeof value === "bigint")
+		return value;
+	if (value instanceof Date) return value.toISOString();
+	return JSON.stringify(value);
+};
+
+const stmt = (sql: string, values: unknown[] = []): SqlStatement => ({
+	sql,
+	args: values.map(toSqliteValue),
+});
+
+const MIN_SAFE = BigInt(Number.MIN_SAFE_INTEGER);
+const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+
+// The client runs in intMode "bigint" so integers past 2^53 don't throw; JSON can't carry
+// bigint or ArrayBuffer, and the export writer renders Buffers as hex.
+const fromSqliteValue = (value: Value): unknown => {
+	if (typeof value === "bigint")
+		return value >= MIN_SAFE && value <= MAX_SAFE ? Number(value) : value.toString();
+	if (value instanceof ArrayBuffer) return Buffer.from(value);
+	return value;
+};
+
+const toRows = <T = Record<string, unknown>>({ columns, rows }: SqlResult): T[] =>
+	rows.map(
+		(row) => Object.fromEntries(columns.map((col, i) => [col, fromSqliteValue(row[i])])) as T,
+	);
+
+const all = async <T = Record<string, unknown>>(
+	client: SqliteClient,
+	sql: string,
+	values: unknown[] = [],
+): Promise<T[]> => toRows<T>(await client.execute(stmt(sql, values)));
+
+// The client returns the connection to its pool after every call, which rolls back
+// anything left open, so a lone BEGIN would leave the next query autocommitting.
+const isFkViolation = (e: unknown) =>
+	e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
+
 export class SqliteAdapter extends BaseAdapter {
+	// alterColumn reads the column list and then rebuilds the table from it; a column added
+	// between the two would be dropped by the rebuild, so column changes run one at a time.
+	private schemaChange: Promise<unknown> = Promise.resolve();
+
+	private serializeSchemaChange<T>(change: () => Promise<T>): Promise<T> {
+		const run = this.schemaChange.then(change);
+		this.schemaChange = run.catch(() => {});
+		return run;
+	}
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
 
 	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		const sqliteDb = getSqliteDb();
-		const stmt = sqliteDb.prepare(sql);
-		// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 requires spreading unknown[]
-		return stmt.all(...(values as any[])) as T;
+		return (await all(await getSqliteClient(), sql, values)) as T;
 	}
 
 	protected quoteIdentifier(name: string): string {
-		return `"${name}"`;
+		return `"${name.replaceAll('"', '""')}"`;
 	}
 
 	mapToUniversalType(nativeType: string): DataTypes {
@@ -145,15 +260,15 @@ export class SqliteAdapter extends BaseAdapter {
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
 			} else {
-				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause) {
-			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
-		const sql = `SELECT * FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT ?`;
+		const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`;
 		const values = [...filterValues, ...cursorValues, limit + 1];
-		const countSql = `SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`;
 
 		return { sql, values, countSql, countValues: filterValues };
 	}
@@ -219,12 +334,15 @@ export class SqliteAdapter extends BaseAdapter {
 				filters = [],
 			} = params;
 
-			const sqliteDb = getSqliteDb();
+			const client = await getSqliteClient();
 
-			const colInfoRows = sqliteDb
-				.prepare(`PRAGMA table_info("${tableName}")`)
-				// biome-ignore lint/suspicious/noExplicitAny: PRAGMA returns untyped rows
-				.all() as any[];
+			const colInfoRows = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
+			if (colInfoRows.length === 0)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			const pkColumns: string[] = colInfoRows
 				.filter((c) => c.pk > 0)
 				.sort((a, b) => a.pk - b.pk)
@@ -280,34 +398,31 @@ export class SqliteAdapter extends BaseAdapter {
 						.replace(/TEMP_DESC/g, "DESC");
 					if (pkTieBreakerCols.length) {
 						const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${tbDir}`).join(", ")}`;
+						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
 					}
 				} else {
-					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 				}
 			} else if (!sortClause) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			} else if (pkTieBreakerCols.length) {
-				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			}
 
-			const countRow = sqliteDb
-				.prepare(`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`)
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-				.get(...(filterValues as any[])) as { total: number } | undefined;
+			const [countRow] = await all<{ total: number }>(
+				client,
+				`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
+				filterValues,
+			);
 			const total = Number(countRow?.total ?? 0);
 
 			// When falling back to rowid for cursor, include it in SELECT so buildCursors can read it
 			const selectClause = useRowid ? "*, rowid" : "*";
-			const dataRows = sqliteDb
-				.prepare(
-					`SELECT ${selectClause} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
-				)
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-				.all(...([...filterValues, ...cursorValues, limit + 1] as any[])) as Record<
-				string,
-				unknown
-			>[];
+			const dataRows = await all(
+				client,
+				`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
+				[...filterValues, ...cursorValues, limit + 1],
+			);
 
 			const hasMore = dataRows.length > limit;
 			let rows = hasMore ? dataRows.slice(0, limit) : dataRows;
@@ -359,38 +474,16 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const sqliteDb = getSqliteDb();
-			const rows = sqliteDb.prepare("PRAGMA database_list").all() as Array<{
-				seq: number;
-				name: string;
-				file: string;
-			}>;
-
-			if (!rows.length)
-				throw new HTTPException(500, { message: "No databases returned from SQLite" });
-
-			// Hide SQLite's internal temp database. `PRAGMA database_list` always
-			// reports `main`, so filtering can never empty the list.
-			return rows
-				.filter((row) => row.name !== "temp")
-				.map((row) => ({
-					name: row.name,
-					size: this.getFileSize(row.file),
-					owner: "",
-					encoding: "UTF-8",
-				}));
+			const { name, size } = await (await getSqliteClient()).info();
+			return [{ name, size, owner: "", encoding: "UTF-8" }];
 		} catch (e) {
-			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);
 		}
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		try {
-			const sqliteDb = getSqliteDb();
-			const rows = sqliteDb.prepare("PRAGMA database_list").all() as Array<{ name: string }>;
-			const main = rows.find((r) => r.name === "main");
-			return { db: main?.name ?? "main" };
+			return { db: (await (await getSqliteClient()).info()).name };
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -398,17 +491,13 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 		try {
-			const sqliteDb = getSqliteDb();
-			const versionRow = sqliteDb.prepare("SELECT sqlite_version() as version").get() as {
-				version: string;
-			};
-
+			const { name, version } = await (await getSqliteClient()).info();
 			return {
 				host: null,
 				port: null,
 				user: "",
-				database: "main",
-				version: `SQLite ${versionRow.version}`,
+				database: name,
+				version,
 				active_connections: 1,
 				max_connections: 1,
 			};
@@ -423,19 +512,24 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		try {
-			const sqliteDb = getSqliteDb();
-			const tables = sqliteDb
-				.prepare(
-					`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
-				)
-				.all() as Array<{ name: string }>;
+			const client = await getSqliteClient();
+			const tables = await all<{ name: string }>(
+				client,
+				`SELECT name FROM sqlite_master
+				WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*'
+				ORDER BY name`,
+			);
+			if (!tables.length) return [];
 
-			return tables.map((t) => {
-				const countRow = sqliteDb
-					.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`)
-					.get() as { count: number };
-				return { tableName: t.name, rowCount: countRow?.count ?? 0 };
-			});
+			// One round trip for every count; matters against a remote server.
+			const counts = await client.batch(
+				tables.map((t) => `SELECT COUNT(*) as count FROM ${this.quoteIdentifier(t.name)}`),
+				"read",
+			);
+			return tables.map((t, i) => ({
+				tableName: t.name,
+				rowCount: toRows<{ count: number }>(counts[i])[0]?.count ?? 0,
+			}));
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -449,21 +543,23 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
-		const sqliteDb = getSqliteDb();
 
+		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 		const columnDefs = fields.map((field: FieldDataType) => {
 			// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
-			if (field.isPrimaryKey && field.isIdentity) {
+			if (primaryKey.length === 1 && field.isPrimaryKey && field.isIdentity) {
 				return `"${field.columnName}" INTEGER PRIMARY KEY AUTOINCREMENT`;
 			}
 			let def = `"${field.columnName}" ${field.columnType}`;
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
+			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 			if (field.defaultValue?.trim() && !field.isIdentity)
 				def += ` DEFAULT ${field.defaultValue.trim()}`;
 			return def;
 		});
+		if (primaryKey.length > 1)
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map(
@@ -471,41 +567,40 @@ export class SqliteAdapter extends BaseAdapter {
 					`FOREIGN KEY ("${fk.columnName}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
 			) ?? [];
 
-		sqliteDb
-			.prepare(`CREATE TABLE "${tableName}" (${[...columnDefs, ...fkDefs].join(", ")})`)
-			.run();
+		const client = await getSqliteClient();
+		await client.execute(
+			`CREATE TABLE "${tableName}" (${[...columnDefs, ...fkDefs].join(", ")})`,
+		);
 
 		void db;
 	}
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, cascade } = params;
-		const sqliteDb = getSqliteDb();
+		const client = await getSqliteClient();
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
+		if (!(await this.tableExists(client, tableName)))
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const countRow = sqliteDb
-			.prepare(`SELECT COUNT(*) as count FROM "${tableName}"`)
-			.get() as { count: number };
+		const [countRow] = await all<{ count: number }>(
+			client,
+			`SELECT COUNT(*) as count FROM "${tableName}"`,
+		);
 		const rowCount = countRow?.count ?? 0;
 
 		if (!cascade) {
-			const related = this.getFkReferencesForTable(sqliteDb, tableName);
+			const related = await this.getFkReferencesForTable(client, tableName);
 			if (related.length > 0) {
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: this.getRelatedRecordsForTable(sqliteDb, tableName),
+					relatedRecords: await this.getRelatedRecordsForTable(client, tableName),
 				};
 			}
 		}
 
 		try {
-			sqliteDb.prepare(`DROP TABLE "${tableName}"`).run();
+			await client.execute(`DROP TABLE "${tableName}"`);
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
 			const errMsg = error instanceof Error ? error.message : String(error);
@@ -513,7 +608,7 @@ export class SqliteAdapter extends BaseAdapter {
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: this.getRelatedRecordsForTable(sqliteDb, tableName),
+					relatedRecords: await this.getRelatedRecordsForTable(client, tableName),
 				};
 			}
 			if (error instanceof HTTPException) throw error;
@@ -524,30 +619,20 @@ export class SqliteAdapter extends BaseAdapter {
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
 		const { tableName, newTableName, db } = params;
 		this.assertDifferentTableName(tableName, newTableName);
-		const sqliteDb = getSqliteDb();
+		const client = await getSqliteClient();
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
+		if (!(await this.tableExists(client, tableName)))
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const targetRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(newTableName);
-		if (targetRow)
+		if (await this.tableExists(client, newTableName))
 			throw new HTTPException(409, {
 				message: `Table "${newTableName}" already exists`,
 			});
 
 		try {
-			// Identifiers cannot be bound as parameters — escape the quote character.
-			const escapeIdent = (s: string) => s.replaceAll('"', '""');
-			sqliteDb
-				.prepare(
-					`ALTER TABLE "${escapeIdent(tableName)}" RENAME TO "${escapeIdent(newTableName)}"`,
-				)
-				.run();
+			await client.execute(
+				`ALTER TABLE ${this.quoteIdentifier(tableName)} RENAME TO ${this.quoteIdentifier(newTableName)}`,
+			);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -563,10 +648,11 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
 		try {
-			const sqliteDb = getSqliteDb();
-			const row = sqliteDb
-				.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`)
-				.get(tableName) as { sql: string } | undefined;
+			const [row] = await all<{ sql: string }>(
+				await getSqliteClient(),
+				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+				[tableName],
+			);
 			if (!row)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			void db;
@@ -589,18 +675,16 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
 		try {
-			const sqliteDb = getSqliteDb();
+			const client = await getSqliteClient();
 
-			const tableRow = sqliteDb
-				.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-				.get(tableName);
-			if (!tableRow)
+			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const columns = sqliteDb
-				.prepare(`PRAGMA table_info("${tableName}")`)
-				.all() as TableInfoRow[];
-			const fks = sqliteDb.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as FkRow[];
+			const columns = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
 
 			const fkMap = new Map<string, FkRow>();
 			for (const fk of fks) {
@@ -631,202 +715,268 @@ export class SqliteAdapter extends BaseAdapter {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
-			params;
-		const sqliteDb = getSqliteDb();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
+				params;
+			const client = await getSqliteClient();
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = sqliteDb.prepare(`PRAGMA table_info("${tableName}")`).all() as Array<{
-			name: string;
-		}>;
-		if (colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(409, {
-				message: `Column "${columnName}" already exists in table "${tableName}"`,
-			});
-		}
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			if (colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(409, {
+					message: `Column "${columnName}" already exists in table "${tableName}"`,
+				});
+			}
 
-		let def = `"${columnName}" ${columnType}`;
-		if (isUnique) def += " UNIQUE";
-		if (!isNullable) def += " NOT NULL";
-		if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
+			let def = `"${columnName}" ${columnType}`;
+			if (isUnique) def += " UNIQUE";
+			if (!isNullable) def += " NOT NULL";
+			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
-		try {
-			sqliteDb.prepare(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`).run();
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+			try {
+				await client.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
 
-		void db;
+			void db;
+		});
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, columnName, db } = params;
-		const sqliteDb = getSqliteDb();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, db } = params;
+			const client = await getSqliteClient();
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = sqliteDb.prepare(`PRAGMA table_info("${tableName}")`).all() as Array<{
-			name: string;
-		}>;
-		if (!colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			if (!colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(404, {
+					message: `Column "${columnName}" does not exist in table "${tableName}"`,
+				});
+			}
 
-		try {
-			sqliteDb.prepare(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`).run();
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+			try {
+				await client.execute(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
 
-		void db;
-		return { deletedCount: 1 };
+			void db;
+			return { deletedCount: 1 };
+		});
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const sqliteDb = getSqliteDb();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
+			const client = await getSqliteClient();
+			const q = (name: string) => this.quoteIdentifier(name);
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = sqliteDb
-			.prepare(`PRAGMA table_info("${tableName}")`)
-			.all() as TableInfoRow[];
-		if (!colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
+			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info(${q(tableName)})`);
+			const target = colInfo.find((c) => c.name === columnName);
+			if (!target) {
+				throw new HTTPException(404, {
+					message: `Column "${columnName}" does not exist in table "${tableName}"`,
+				});
+			}
+
+			// SQLite has no ALTER COLUMN, so the table is recreated from its own CREATE TABLE.
+			// Rebuilding it from PRAGMA output instead would drop UNIQUE, CHECK, COLLATE,
+			// AUTOINCREMENT and generated columns, which the PRAGMAs do not report.
+			const tempName = `${tableName}_alter_${Date.now()}`;
+			const [table] = await all<{ sql: string }>(
+				client,
+				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+				[tableName],
+			);
+			const createTemp = recreateTableWithColumn(table?.sql ?? "", tempName, columnName, {
+				type: columnType,
+				notNull: !isNullable && !target.pk,
+				defaultValue: defaultValue?.trim() || null,
 			});
-		}
+			if (!createTemp) {
+				throw new HTTPException(400, {
+					message: `Cannot edit columns of "${tableName}": its definition could not be read`,
+				});
+			}
+			// Generated columns are absent from table_info and are computed again on insert.
+			const colNames = colInfo.map((c) => q(c.name)).join(", ");
+			// Copying rows sets the AUTOINCREMENT counter to the highest id copied; carry the old
+			// one over so ids of rows deleted earlier are never handed out again.
+			const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
+			const keepSequence = /\bAUTOINCREMENT\b/i.test(createTemp)
+				? [
+						`DELETE FROM sqlite_sequence WHERE name = ${literal(tempName)}`,
+						`INSERT INTO sqlite_sequence (name, seq) SELECT ${literal(tempName)}, seq FROM sqlite_sequence WHERE name = ${literal(tableName)}`,
+					]
+				: [];
 
-		// SQLite doesn't support ALTER COLUMN — use the recreate-table approach
-		const pkCols = colInfo.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk);
-		const hasCompositePk = pkCols.length > 1;
-
-		const newColDefs = colInfo.map((col) => {
-			const isTarget = col.name === columnName;
-			const type = isTarget ? columnType : col.type;
-			const nullable = isTarget ? isNullable : col.notnull === 0;
-			const defVal = isTarget ? defaultValue?.trim() || null : col.dflt_value;
-			const isPk = col.pk > 0;
-
-			let def = `"${col.name}" ${type}`;
-			if (!hasCompositePk && isPk) def += " PRIMARY KEY";
-			if (!isPk && !nullable) def += " NOT NULL";
-			if (defVal) def += ` DEFAULT ${defVal}`;
-			return def;
-		});
-
-		if (hasCompositePk) {
-			newColDefs.push(`PRIMARY KEY (${pkCols.map((c) => `"${c.name}"`).join(", ")})`);
-		}
-
-		const fks = sqliteDb.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as FkRow[];
-		const fksByGroup = new Map<number, FkRow[]>();
-		for (const fk of fks) {
-			const arr = fksByGroup.get(fk.id) ?? [];
-			arr.push(fk);
-			fksByGroup.set(fk.id, arr);
-		}
-		const fkDefs = Array.from(fksByGroup.values()).map((group) => {
-			const from = group.map((f) => `"${f.from}"`).join(", ");
-			const to = group.map((f) => `"${f.to}"`).join(", ");
-			const { table, on_update, on_delete } = group[0];
-			return `FOREIGN KEY (${from}) REFERENCES "${table}" (${to}) ON UPDATE ${on_update} ON DELETE ${on_delete}`;
-		});
-
-		const colNames = colInfo.map((c) => `"${c.name}"`).join(", ");
-		const tempName = `${tableName}_alter_${Date.now()}`;
-
-		const existingIndexes = sqliteDb
-			.prepare(
+			const existingIndexes = await all<{ sql: string }>(
+				client,
 				`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`,
-			)
-			.all(tableName) as Array<{ sql: string }>;
-		const existingTriggers = sqliteDb
-			.prepare(`SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?`)
-			.all(tableName) as Array<{ sql: string }>;
+				[tableName],
+			);
+			const existingTriggers = await all<{ sql: string }>(
+				client,
+				`SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?`,
+				[tableName],
+			);
 
-		sqliteDb.pragma("foreign_keys = OFF");
-		const doAlter = sqliteDb.transaction(() => {
-			sqliteDb
-				.prepare(`CREATE TABLE "${tempName}" (${[...newColDefs, ...fkDefs].join(", ")})`)
-				.run();
-			sqliteDb
-				.prepare(
-					`INSERT INTO "${tempName}" (${colNames}) SELECT ${colNames} FROM "${tableName}"`,
-				)
-				.run();
-			sqliteDb.prepare(`DROP TABLE "${tableName}"`).run();
-			sqliteDb.prepare(`ALTER TABLE "${tempName}" RENAME TO "${tableName}"`).run();
+			// DROP TABLE runs an implicit DELETE, which fires the foreign key actions of every
+			// table that references this one, including itself: the new table's self-references
+			// point at the old name until the RENAME.
+			const referencedBy = new Set(
+				(await this.getFkReferencesForTable(client, tableName, { includeSelf: true })).map(
+					(fk) => fk.referencingTable,
+				),
+			);
+			try {
+				await client.rebuildTable(
+					[
+						createTemp,
+						`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
+						...keepSequence,
+						`DROP TABLE ${q(tableName)}`,
+						`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
+						...existingIndexes.map(({ sql }) => sql),
+						...existingTriggers.map(({ sql }) => sql),
+					],
+					[...referencedBy],
+				);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
+
+			void db;
 		});
-
-		try {
-			doAlter();
-			for (const { sql } of existingIndexes) {
-				sqliteDb.prepare(sql).run();
-			}
-			for (const { sql } of existingTriggers) {
-				sqliteDb.prepare(sql).run();
-			}
-		} catch (e) {
-			if (e instanceof HTTPException) throw e;
-			throw this.wrapError(e);
-		} finally {
-			sqliteDb.pragma("foreign_keys = ON");
-		}
-
-		void db;
 	}
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, newColumnName, db } = params;
-		const sqliteDb = getSqliteDb();
+		return this.serializeSchemaChange(async () => {
+			const { tableName, columnName, newColumnName, db } = params;
+			const client = await getSqliteClient();
 
-		const tableRow = sqliteDb
-			.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-			.get(tableName);
-		if (!tableRow)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!(await this.tableExists(client, tableName)))
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const colInfo = sqliteDb.prepare(`PRAGMA table_info("${tableName}")`).all() as Array<{
-			name: string;
-		}>;
-		if (!colInfo.some((c) => c.name === columnName)) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
-		if (colInfo.some((c) => c.name === newColumnName)) {
-			throw new HTTPException(409, {
-				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-			});
-		}
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			if (!colInfo.some((c) => c.name === columnName)) {
+				throw new HTTPException(404, {
+					message: `Column "${columnName}" does not exist in table "${tableName}"`,
+				});
+			}
+			if (colInfo.some((c) => c.name === newColumnName)) {
+				throw new HTTPException(409, {
+					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
+				});
+			}
 
-		try {
-			sqliteDb
-				.prepare(
+			try {
+				await client.execute(
 					`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
-				)
-				.run();
+				);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
+
+			void db;
+		});
+	}
+
+	// =========================================================
+	// IDbAdapter — Indexes
+	// =========================================================
+
+	async getTableIndexes({
+		tableName,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		try {
+			return await this.listIndexes(await getSqliteClient(), tableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
+	}
 
-		void db;
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		// Serialized with column changes: alterColumn rebuilds the table from the indexes it read.
+		return this.serializeSchemaChange(async () => {
+			const { tableName, indexName, columns, isUnique, method } = params;
+			try {
+				const client = await getSqliteClient();
+				if (!(await this.tableExists(client, tableName)))
+					throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
+				const colInfo = await all<TableInfoRow>(
+					client,
+					`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+				);
+				const missing = columns.find((column) => !colInfo.some((c) => c.name === column));
+				if (missing !== undefined)
+					throw new HTTPException(400, {
+						message: `Column "${missing}" does not exist in table "${tableName}"`,
+					});
+
+				if (method !== undefined)
+					throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+				await client.execute(
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${this.quoteIdentifier(tableName)} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
+				);
+			} catch (e) {
+				// Indexes share one namespace with tables, so either can already hold the name.
+				if (
+					e instanceof Error &&
+					/already exists|there is already|UNIQUE constraint failed/.test(e.message)
+				)
+					throw new HTTPException(409, { message: e.message, cause: e });
+				if (e instanceof Error && e.message.includes("reserved for internal use"))
+					throw new HTTPException(400, { message: e.message, cause: e });
+				throw this.wrapError(e);
+			}
+		});
+	}
+
+	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
+		return this.serializeSchemaChange(async () => {
+			try {
+				const client = await getSqliteClient();
+				const index = (await this.listIndexes(client, tableName)).find(
+					(candidate) => candidate.indexName === indexName,
+				);
+				if (!index)
+					throw new HTTPException(404, {
+						message: `Index "${indexName}" does not exist on table "${tableName}"`,
+					});
+				if (index.kind !== "index")
+					throw new HTTPException(400, {
+						message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+					});
+
+				await client.execute(`DROP INDEX ${this.quoteIdentifier(indexName)}`);
+			} catch (e) {
+				throw this.wrapError(e);
+			}
+		});
 	}
 
 	// =========================================================
@@ -839,26 +989,26 @@ export class SqliteAdapter extends BaseAdapter {
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
-		const sqliteDb = getSqliteDb();
 		const columns = Object.keys(data);
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
-		const values = Object.values(data).map((v) =>
-			v !== null && typeof v === "object" ? JSON.stringify(v) : v,
-		);
 		const colNames = columns.map((c) => `"${c}"`).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
 
 		try {
-			const result = sqliteDb
-				.prepare(`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`)
-				.run(...values);
-			if (result.changes === 0)
+			const client = await getSqliteClient();
+			const result = await client.execute(
+				stmt(
+					`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`,
+					Object.values(data),
+				),
+			);
+			if (result.rowsAffected === 0)
 				throw new HTTPException(500, {
 					message: `Failed to insert record into "${tableName}"`,
 				});
-			return { insertedCount: result.changes };
+			return { insertedCount: result.rowsAffected };
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -872,44 +1022,48 @@ export class SqliteAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
-		const sqliteDb = getSqliteDb();
 
 		const keyColumns = this.resolveKeyColumns(params);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
-		const doUpdate = sqliteDb.transaction(() => {
-			let total = 0;
-			for (const { keyValues, rowUpdates } of groups) {
-				const setClauses = rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ");
-				const values = [
-					...rowUpdates.map((u) =>
-						u.value !== null && typeof u.value === "object"
-							? JSON.stringify(u.value)
-							: u.value,
-					),
-					...keyValues,
-				];
-				const whereClauses = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-				const result = sqliteDb
-					.prepare(`UPDATE "${tableName}" SET ${setClauses} WHERE ${whereClauses}`)
-					.run(...(values as any[]));
-				if (result.changes === 0) {
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				}
-				total += result.changes;
-			}
-			return total;
-		});
-
+		const where = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
 		try {
-			const total = doUpdate();
-			void db;
-			return { updatedCount: total };
+			const client = await getSqliteClient();
+			this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
+			// A batch is one transaction, and the guard after each UPDATE fails it with an integer
+			// overflow when that UPDATE matched no row, rolling back every earlier UPDATE. RAISE()
+			// would name the row but only works inside a trigger.
+			const statements = groups.flatMap(({ keyValues, rowUpdates }) => [
+				stmt(
+					`UPDATE "${tableName}" SET ${rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ")} WHERE ${where}`,
+					[...rowUpdates.map((u) => u.value), ...keyValues],
+				),
+				"SELECT CASE WHEN changes() = 0 THEN abs(-9223372036854775808) END",
+			]);
+			try {
+				const results = await client.batch(statements, "write");
+				void db;
+				return {
+					updatedCount: results.reduce(
+						(total, result, i) => (i % 2 === 0 ? total + result.rowsAffected : total),
+						0,
+					),
+				};
+			} catch (e) {
+				if (!(e instanceof Error && e.message.includes("integer overflow"))) throw e;
+				const found = await client.batch(
+					groups.map(({ keyValues }) =>
+						stmt(`SELECT 1 FROM "${tableName}" WHERE ${where} LIMIT 1`, keyValues),
+					),
+					"read",
+				);
+				const missing = groups.find((_, i) => found[i].rows.length === 0);
+				if (!missing) throw e;
+				throw new HTTPException(404, {
+					message: `Record with ${this.describeKey(keyColumns, missing.keyValues)} not found in table "${tableName}"`,
+				});
+			}
 		} catch (e) {
-			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);
 		}
 	}
@@ -919,29 +1073,24 @@ export class SqliteAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const sqliteDb = getSqliteDb();
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const placeholders = pkValues.map(() => "?").join(", ");
-
-		const doDelete = sqliteDb.transaction(() => {
-			// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-			return sqliteDb
-				.prepare(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`)
-				.run(...(pkValues as any[])).changes;
-		});
+		const client = await getSqliteClient();
 
 		try {
-			const changes = doDelete();
+			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
+			const result = await client.execute(
+				stmt(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`, pkValues),
+			);
 			void db;
-			return { deletedCount: changes, fkViolation: false, relatedRecords: [] };
+			return { deletedCount: result.rowsAffected, fkViolation: false, relatedRecords: [] };
 		} catch (e) {
-			const errMsg = e instanceof Error ? e.message : String(e);
-			if (errMsg.includes("FOREIGN KEY constraint failed")) {
-				const relatedRecords = this.getRelatedRecords(sqliteDb, tableName, primaryKeys);
+			if (isFkViolation(e)) {
+				const relatedRecords = await this.getRelatedRecords(client, tableName, primaryKeys);
 				void db;
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -949,51 +1098,54 @@ export class SqliteAdapter extends BaseAdapter {
 		}
 	}
 
+	/**
+	 * Deletes the rows and, children first, every row that references them through any chain
+	 * of foreign keys. Each table's rows are selected by a predicate nested on its parent's,
+	 * so the plan is a list of plain DELETEs that run as one write batch (one transaction).
+	 * A foreign key cycle is not followed; rows it still references make the batch fail
+	 * and roll back instead of leaving orphans.
+	 */
 	async forceDeleteRecords({
 		tableName,
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const sqliteDb = getSqliteDb();
 		const pkColumn = primaryKeys[0]?.columnName;
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
+		const q = (name: string) => this.quoteIdentifier(name);
 		const pkValues = primaryKeys.map((pk) => pk.value);
-
-		sqliteDb.pragma("foreign_keys = OFF");
-		const doForceDelete = sqliteDb.transaction(() => {
-			const fkRefs = this.getFkReferencesForTable(sqliteDb, tableName);
-			let totalRelated = 0;
-
-			for (const fk of fkRefs) {
-				const ph = pkValues.map(() => "?").join(", ");
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-				const res = sqliteDb
-					.prepare(
-						`DELETE FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph})`,
-					)
-					.run(...(pkValues as any[]));
-				totalRelated += res.changes;
-			}
-
-			const ph = pkValues.map(() => "?").join(", ");
-			// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-			const result = sqliteDb
-				.prepare(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${ph})`)
-				.run(...(pkValues as any[]));
-			return result.changes + totalRelated;
-		});
+		const rootPredicate = `${q(pkColumn)} IN (${pkValues.map(() => "?").join(", ")})`;
 
 		try {
-			const deletedCount = doForceDelete();
+			const client = await getSqliteClient();
+			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
+			const fksByParent = await this.getForeignKeysByParent(client);
+			const deletes: SqlStatement[] = [];
+
+			const plan = async (table: string, predicate: string, path: string[]) => {
+				for (const fk of fksByParent.get(table) ?? []) {
+					if (path.includes(fk.childTable)) continue;
+					const parentCols = allNamed(fk.parentColumns)
+						? fk.parentColumns
+						: await this.getPrimaryKeyColumns(client, table);
+					const childPredicate = `(${fk.childColumns.map(q).join(", ")}) IN (SELECT ${parentCols.map(q).join(", ")} FROM ${q(table)} WHERE ${predicate})`;
+					await plan(fk.childTable, childPredicate, [...path, fk.childTable]);
+				}
+				deletes.push(stmt(`DELETE FROM ${q(table)} WHERE ${predicate}`, pkValues));
+			};
+			await plan(tableName, rootPredicate, [tableName]);
+
+			const results = await client.batch(deletes, "write");
 			void db;
-			return { deletedCount };
+			return { deletedCount: results.reduce((sum, r) => sum + r.rowsAffected, 0) };
 		} catch (e) {
-			if (e instanceof HTTPException) throw e;
+			if (isFkViolation(e))
+				throw new HTTPException(409, {
+					message: `Cannot force delete from "${tableName}": rows are still referenced through a foreign key cycle`,
+				});
 			throw this.wrapError(e);
-		} finally {
-			sqliteDb.pragma("foreign_keys = ON");
 		}
 	}
 
@@ -1005,39 +1157,30 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!records?.length)
 			throw new HTTPException(400, { message: "At least one record is required" });
 
-		const sqliteDb = getSqliteDb();
 		const columns = Object.keys(records[0]);
 		const colNames = columns.map((c) => `"${c}"`).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
-		const stmt = sqliteDb.prepare(
-			`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`,
-		);
-
-		const doInsert = sqliteDb.transaction((recs: typeof records) => {
-			let count = 0;
-			for (const record of recs) {
-				const values = columns.map((col) => {
-					const v = record[col];
-					return v !== null && typeof v === "object" ? JSON.stringify(v) : v;
-				});
-				// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-				stmt.run(...(values as any[]));
-				count++;
-			}
-			return count;
-		});
+		const sql = `INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`;
 
 		try {
-			const successCount = doInsert(records);
+			const client = await getSqliteClient();
+			await client.batch(
+				records.map((record) =>
+					stmt(
+						sql,
+						columns.map((col) => record[col]),
+					),
+				),
+				"write",
+			);
 			void db;
 			return {
 				success: true,
-				message: `Bulk insert completed: ${successCount} records inserted`,
-				successCount,
+				message: `Bulk insert completed: ${records.length} records inserted`,
+				successCount: records.length,
 				failureCount: 0,
 			};
 		} catch (e) {
-			if (e instanceof HTTPException) throw e;
 			throw this.wrapError(e);
 		}
 	}
@@ -1053,35 +1196,42 @@ export class SqliteAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		const sqliteDb = getSqliteDb();
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
 		const cleaned = query.trim().replace(/;+$/, "");
+		if (isTransactionControl(cleaned))
+			throw new HTTPException(400, {
+				message:
+					"Transaction statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE) are not supported in the query runner: each query runs on its own connection, so a transaction cannot span queries.",
+			});
+		if (hasMultipleStatements(cleaned))
+			throw new HTTPException(400, {
+				message:
+					"The query runner runs one statement at a time. Run each statement separately.",
+			});
 		const start = performance.now();
 
 		try {
-			const stmt = sqliteDb.prepare(cleaned);
-			if (stmt.reader) {
-				const rows = stmt.all() as Record<string, unknown>[];
-				const duration = performance.now() - start;
-				void db;
+			const result = await (await getSqliteClient()).execute(cleaned);
+			const duration = performance.now() - start;
+			void db;
+			// Statements that return rows report their columns even when no row matches.
+			if (result.columns.length > 0) {
+				const rows = toRows(result);
 				return {
-					columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+					columns: result.columns,
 					rows,
 					rowCount: rows.length,
 					duration,
 					message: rows.length === 0 ? "OK" : undefined,
 				};
 			}
-			const info = stmt.run();
-			const duration = performance.now() - start;
-			void db;
 			return {
 				columns: [],
 				rows: [],
-				rowCount: info.changes,
+				rowCount: result.rowsAffected,
 				duration,
-				message: `OK (${info.changes} rows affected)`,
+				message: `OK (${result.rowsAffected} rows affected)`,
 			};
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1092,62 +1242,130 @@ export class SqliteAdapter extends BaseAdapter {
 	// Private helpers
 	// =========================================================
 
-	private getFileSize(filePath: string): string {
-		if (!filePath) return "in-memory";
-		try {
-			const stats = statSync(filePath);
-			const bytes = stats.size;
-			if (bytes < 1024) return `${bytes} B`;
-			if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-			return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-		} catch {
-			return "N/A";
-		}
+	private async tableExists(client: SqliteClient, tableName: string): Promise<boolean> {
+		const rows = await all(
+			client,
+			`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+			[tableName],
+		);
+		return rows.length > 0;
 	}
 
-	private getFkReferencesForTable(
-		sqliteDb: Database.Database,
+	private async listIndexes(
+		client: SqliteClient,
 		tableName: string,
-	): ForeignKeyConstraint[] {
-		const allTables = sqliteDb
-			.prepare(
-				`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
-			)
-			.all() as Array<{ name: string }>;
+	): Promise<IndexInfoSchemaType[]> {
+		if (!(await this.tableExists(client, tableName)))
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-		const references: ForeignKeyConstraint[] = [];
-		for (const table of allTables) {
-			if (table.name === tableName) continue;
-			const fks = sqliteDb
-				.prepare(`PRAGMA foreign_key_list("${table.name}")`)
-				.all() as FkRow[];
-			for (const fk of fks) {
-				if (fk.table === tableName) {
-					references.push({
-						constraintName: `fk_${table.name}_${fk.from}_${tableName}_${fk.to}`,
-						referencingTable: table.name,
-						referencingColumn: fk.from,
-						referencedTable: tableName,
-						referencedColumn: fk.to,
-					});
-				}
+		// A rowid table's INTEGER PRIMARY KEY is the rowid itself, so it has no index to list.
+		const rows = await all<IndexKeyRow>(
+			client,
+			`SELECT il.name AS indexName, il."unique" AS isUnique, il.origin, il.partial, m.sql,
+				xi.seqno, xi.cid, xi.name AS columnName
+			 FROM pragma_index_list(?) il
+			 JOIN pragma_index_xinfo(il.name) xi ON xi.key = 1
+			 LEFT JOIN sqlite_master m ON m.type = 'index' AND m.name = il.name
+			 ORDER BY il.origin = 'pk' DESC, il.name, xi.seqno`,
+			[tableName],
+		);
+
+		const byName = new Map<string, IndexInfoSchemaType>();
+		for (const row of rows) {
+			const index = byName.get(row.indexName) ?? {
+				indexName: row.indexName,
+				columns: [],
+				isUnique: row.isUnique === 1,
+				method: null,
+				kind:
+					row.origin === "pk" ? "primary" : row.origin === "u" ? "unique-constraint" : "index",
+				definition: row.partial === 1 ? row.sql : null,
+			};
+			byName.set(row.indexName, index);
+			if (row.columnName !== null) {
+				index.columns.push(row.columnName);
+			} else {
+				index.columns.push(indexKeyParts(row.sql ?? "")[row.seqno] ?? "");
+				index.definition = row.sql;
 			}
 		}
-		return references;
+		return [...byName.values()];
 	}
 
-	private getRelatedRecordsForTable(
-		sqliteDb: Database.Database,
-		tableName: string,
-	): RelatedRecord[] {
-		const fks = this.getFkReferencesForTable(sqliteDb, tableName);
-		if (!fks.length) return [];
+	private async getPrimaryKeyColumns(client: SqliteClient, tableName: string) {
+		const cols = await all<TableInfoRow>(
+			client,
+			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+		);
+		return cols
+			.filter((c) => c.pk > 0)
+			.sort((a, b) => a.pk - b.pk)
+			.map((c) => c.name);
+	}
 
+	/** Every foreign key in the database, keyed by the table it references. */
+	private async getForeignKeysByParent(
+		client: SqliteClient,
+	): Promise<Map<string, ForeignKeyEdge[]>> {
+		const rows = await all<{
+			child: string;
+			id: number;
+			parent: string;
+			from: string;
+			to: string | null;
+		}>(
+			client,
+			`SELECT m.name AS child, f.id, f."table" AS parent, f."from", f."to"
+			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
+			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
+			ORDER BY m.name, f.id, f.seq`,
+		);
+		const byConstraint = new Map<string, ForeignKeyEdge>();
+		const byParent = new Map<string, ForeignKeyEdge[]>();
+		for (const row of rows) {
+			const key = `${row.child}\u0000${row.id}`;
+			let fk = byConstraint.get(key);
+			if (!fk) {
+				fk = { childTable: row.child, childColumns: [], parentColumns: [] };
+				byConstraint.set(key, fk);
+				byParent.set(row.parent, [...(byParent.get(row.parent) ?? []), fk]);
+			}
+			fk.childColumns.push(row.from);
+			fk.parentColumns.push(row.to);
+		}
+		return byParent;
+	}
+
+	private async getFkReferencesForTable(
+		client: SqliteClient,
+		tableName: string,
+		{ includeSelf = false }: { includeSelf?: boolean } = {},
+	): Promise<ForeignKeyConstraint[]> {
+		const fks = await all<{ child: string; from: string; to: string | null }>(
+			client,
+			`SELECT m.name AS child, f."from", f."to"
+			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
+			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
+				AND (m.name != ? COLLATE NOCASE OR ?) AND f."table" = ? COLLATE NOCASE`,
+			[tableName, includeSelf ? 1 : 0, tableName],
+		);
+		return fks.map((fk) => ({
+			constraintName: `fk_${fk.child}_${fk.from}_${tableName}_${fk.to}`,
+			referencingTable: fk.child,
+			referencingColumn: fk.from,
+			referencedTable: tableName,
+			referencedColumn: fk.to ?? "",
+		}));
+	}
+
+	private async getRelatedRecordsForTable(
+		client: SqliteClient,
+		tableName: string,
+	): Promise<RelatedRecord[]> {
+		const fks = await this.getFkReferencesForTable(client, tableName);
 		const results: RelatedRecord[] = [];
 		for (const fk of fks) {
-			const rows = sqliteDb
-				.prepare(`SELECT * FROM "${fk.referencingTable}" LIMIT 100`)
-				.all() as Record<string, unknown>[];
+			const rows = await all(client, `SELECT * FROM "${fk.referencingTable}" LIMIT 100`);
 			if (rows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,
@@ -1160,26 +1378,23 @@ export class SqliteAdapter extends BaseAdapter {
 		return results;
 	}
 
-	private getRelatedRecords(
-		sqliteDb: Database.Database,
+	private async getRelatedRecords(
+		client: SqliteClient,
 		tableName: string,
 		primaryKeys: DeleteRecordParams["primaryKeys"],
-	): RelatedRecord[] {
-		const fks = this.getFkReferencesForTable(sqliteDb, tableName);
-		if (!fks.length) return [];
-
+	): Promise<RelatedRecord[]> {
+		const fks = await this.getFkReferencesForTable(client, tableName);
 		const results: RelatedRecord[] = [];
 		for (const fk of fks) {
 			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
 			if (!matchingPk) continue;
 			const pkValues = primaryKeys.map((pk) => pk.value);
 			const ph = pkValues.map(() => "?").join(", ");
-			// biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 spread
-			const rows = sqliteDb
-				.prepare(
-					`SELECT * FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
-				)
-				.all(...(pkValues as any[])) as Record<string, unknown>[];
+			const rows = await all(
+				client,
+				`SELECT * FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
+				pkValues,
+			);
 			if (rows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,

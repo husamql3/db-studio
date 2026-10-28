@@ -14,12 +14,18 @@ import {
 	SelectValue,
 } from "@db-studio/ui/select";
 import { Textarea } from "@db-studio/ui/textarea";
+import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
+import { format } from "date-fns";
 import {
 	type ChangeEvent,
 	type ComponentProps,
 	type KeyboardEvent,
+	lazy,
 	memo,
+	type ReactElement,
+	type ReactNode,
+	Suspense,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -32,8 +38,44 @@ import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";
-import { JsonEditor } from "./json-editor";
 import { TableCellWrapper } from "./table-cell-wrapper";
+
+// Monaco is several megabytes; load it when a JSON cell is first edited, not with the grid.
+const JsonEditor = lazy(() =>
+	import("./json-editor").then((module) => ({ default: module.JsonEditor })),
+);
+
+/**
+ * A cell's editor popover, mounted the first time the cell is edited. Until then only the anchor
+ * renders: a page holds hundreds of cells, and an idle Radix popover in each was a large share
+ * of the grid's render time. Once mounted it stays, so closing still animates.
+ */
+const CellPopover = ({
+	active,
+	open,
+	onOpenChange,
+	anchor,
+	children,
+}: {
+	active: boolean;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	anchor: ReactElement;
+	children: ReactNode;
+}) => {
+	const [mounted, setMounted] = useState(active);
+	if (active && !mounted) setMounted(true);
+	if (!mounted) return anchor;
+	return (
+		<Popover
+			open={open}
+			onOpenChange={onOpenChange}
+		>
+			<PopoverAnchor asChild>{anchor}</PopoverAnchor>
+			{children}
+		</Popover>
+	);
+};
 
 interface CellVariantProps<TData> {
 	cell: Cell<TData, unknown>;
@@ -206,15 +248,15 @@ export const TableTextCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		useHotkeys("enter", () => onSave());
-		useHotkeys("esc", () => onCancel());
+		useHotkeys("enter", () => onSave(), { enabled: open });
+		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
-			<Popover
+			<CellPopover
+				active={open || isEditing}
 				open={open}
 				onOpenChange={onOpenChange}
-			>
-				<PopoverAnchor asChild>
+				anchor={
 					<TableCellWrapper
 						ref={containerRef}
 						cell={cell}
@@ -228,7 +270,8 @@ export const TableTextCell = memo(
 					>
 						<span data-slot="grid-cell-content">{displayValue}</span>
 					</TableCellWrapper>
-				</PopoverAnchor>
+				}
+			>
 				<PopoverContent
 					data-grid-cell-editor=""
 					align="start"
@@ -266,7 +309,7 @@ export const TableTextCell = memo(
 						</Button>
 					</div>
 				</PopoverContent>
-			</Popover>
+			</CellPopover>
 		);
 	},
 );
@@ -283,25 +326,34 @@ export const TableNumberCell = memo(
 		isFocused,
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
-		const { setUpdate, clearUpdate } = useUpdateCellStore();
+		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue() as number;
-
-		// Initialize state with initialValue
-		const [value, setValue] = useState(() => initialValue);
-		const [open, setOpen] = useState(false);
-		const inputRef = useRef<HTMLInputElement>(null);
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
 		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
+		// A pending edit wins over the server value, also after a refetch (e.g. Live mode).
+		const pendingUpdate = getUpdate(rowData, columnName, meta?.editScope);
+		const displayValue = pendingUpdate ? (pendingUpdate.newValue as number) : initialValue;
+
+		// The input exists only while the cell is edited; a page holds hundreds of number cells.
+		const [value, setValue] = useState(displayValue);
+		const [open, setOpen] = useState(false);
+		const containerRef = useRef<HTMLDivElement>(null);
+
+		// Follow the grid's editing state, starting each edit from the value the cell shows.
+		if (isEditing !== open) {
+			if (isEditing) setValue(displayValue);
+			setOpen(isEditing);
+		}
+
 		const onSave = useCallback(() => {
 			// Update the store with the final value
 			setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
 
-			// Close the popover
+			// Close the editor
 			setOpen(false);
 			meta?.onCellEditingStop?.();
 		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
@@ -334,33 +386,6 @@ export const TableNumberCell = memo(
 			[columnName, value, initialValue, rowData, setUpdate],
 		);
 
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !open) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						// Update store when tabbing away
-						if (value !== initialValue) {
-							setUpdate(
-								rowData,
-								columnName,
-								value,
-								initialValue,
-								table.options.meta?.editScope,
-							);
-						}
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, open, meta, value, initialValue, columnName, rowData, setUpdate],
-		);
-
 		const onTextInputKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLInputElement>) => {
 				if (event.key === "Escape") {
@@ -385,10 +410,15 @@ export const TableNumberCell = memo(
 			meta?.onCellEditingStop?.();
 		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
-		// Sync open state with isEditing prop
-		if (isEditing && !open) {
-			setOpen(true);
-		}
+		// Focus the input as it mounts, with the caret after the current value.
+		const focusInput = useCallback((input: HTMLInputElement | null) => {
+			if (!input) return;
+			input.focus();
+			// Number inputs have no selection API; resetting the value moves the caret to the end.
+			const current = input.value;
+			input.value = "";
+			input.value = current;
+		}, []);
 
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
@@ -396,8 +426,8 @@ export const TableNumberCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		useHotkeys("enter", () => onSave());
-		useHotkeys("esc", () => onCancel());
+		useHotkeys("enter", () => onSave(), { enabled: open });
+		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<TableCellWrapper
@@ -409,18 +439,21 @@ export const TableNumberCell = memo(
 				isEditing={isEditing}
 				isFocused={isFocused}
 				isSelected={isSelected}
-				onKeyDown={onWrapperKeyDown}
 			>
-				<Input
-					type="number"
-					variant="outline"
-					ref={inputRef}
-					value={value || ""}
-					onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
-					onKeyDown={(event) => onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)}
-					onBlur={onTextInputBlur}
-					className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-				/>
+				{open ? (
+					<Input
+						type="number"
+						variant="outline"
+						ref={focusInput}
+						value={value ?? ""}
+						onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
+						onKeyDown={(event) => onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)}
+						onBlur={onTextInputBlur}
+						className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					/>
+				) : (
+					<span data-slot="grid-cell-content">{formatCellValue(displayValue)}</span>
+				)}
 			</TableCellWrapper>
 		);
 	},
@@ -864,11 +897,20 @@ export const TableDateCell = memo(
 			[isEditing, onCancel],
 		);
 
+		const onPickerOpenChange = useCallback(
+			(open: boolean) => {
+				if (!open) meta?.onCellEditingStop?.();
+			},
+			[meta],
+		);
+
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
 				containerRef.current.focus();
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
+
+		const date = currentValue ? new Date(currentValue) : undefined;
 
 		return (
 			<TableCellWrapper
@@ -881,16 +923,32 @@ export const TableDateCell = memo(
 				isFocused={isFocused}
 				isSelected={isSelected}
 				onKeyDown={onWrapperKeyDown}
-				className="p-0!"
+				className={isEditing ? "p-0!" : undefined}
 			>
-				<DatePicker
-					isFormatted={false}
-					icon={false}
-					value={currentValue ? new Date(currentValue) : undefined}
-					onChange={onDateChange}
-					placeholder="Pick a date"
-					className="size-full px-2! py-1.5! rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
-				/>
+				{/* The picker exists only while the cell is edited; a page holds hundreds of date
+				cells, and a single click only focuses a cell, as everywhere else. */}
+				{isEditing ? (
+					<DatePicker
+						isFormatted={false}
+						icon={false}
+						value={date}
+						onChange={onDateChange}
+						open
+						onOpenChange={onPickerOpenChange}
+						placeholder="Pick a date"
+						className="size-full px-2! py-1.5! rounded-none border-none p-0 text-sm shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
+					/>
+				) : (
+					// The text the picker's button shows.
+					<span
+						data-slot="grid-cell-content"
+						className={cn(!date && "text-muted-foreground")}
+					>
+						{date && !Number.isNaN(date.getTime())
+							? format(date, "yyyy-MM-dd")
+							: "Pick a date"}
+					</span>
+				)}
 			</TableCellWrapper>
 		);
 	},
@@ -1062,11 +1120,11 @@ export const TableJsonCell = memo(
 		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
-			<Popover
+			<CellPopover
+				active={open || isEditing}
 				open={open}
 				onOpenChange={onOpenChange}
-			>
-				<PopoverAnchor asChild>
+				anchor={
 					<TableCellWrapper
 						ref={containerRef}
 						cell={cell}
@@ -1080,7 +1138,8 @@ export const TableJsonCell = memo(
 					>
 						<span data-slot="grid-cell-content">{displayValue}</span>
 					</TableCellWrapper>
-				</PopoverAnchor>
+				}
+			>
 				<PopoverContent
 					data-grid-cell-editor=""
 					align="start"
@@ -1089,13 +1148,15 @@ export const TableJsonCell = memo(
 					className="w-[440px] rounded-none p-0 gap-0"
 					onOpenAutoFocus={onOpenAutoFocus}
 				>
-					<JsonEditor
-						value={editorValue}
-						onChange={setEditorValue}
-						onSave={onSave}
-						onCancel={onCancel}
-						className="h-[240px]"
-					/>
+					<Suspense fallback={<div className="h-[240px]" />}>
+						<JsonEditor
+							value={editorValue}
+							onChange={setEditorValue}
+							onSave={onSave}
+							onCancel={onCancel}
+							className="h-[240px]"
+						/>
+					</Suspense>
 					{parseError && (
 						<p className="border-t px-2 py-1.5 text-xs text-destructive truncate">
 							{parseError}
@@ -1124,7 +1185,7 @@ export const TableJsonCell = memo(
 						</Button>
 					</div>
 				</PopoverContent>
-			</Popover>
+			</CellPopover>
 		);
 	},
 );
@@ -1148,6 +1209,9 @@ export const TableForeignKeyCell = memo(
 		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
 		const [open, setOpen] = useState(false);
 		const [drawerOpen, setDrawerOpen] = useState(false);
+		// Like CellPopover: no idle drawer per cell; mount it on first open and keep it.
+		const [drawerMounted, setDrawerMounted] = useState(false);
+		if (drawerOpen && !drawerMounted) setDrawerMounted(true);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
@@ -1276,11 +1340,11 @@ export const TableForeignKeyCell = memo(
 
 		return (
 			<>
-				<Popover
+				<CellPopover
+					active={open || isEditing}
 					open={open}
 					onOpenChange={onOpenChange}
-				>
-					<PopoverAnchor asChild>
+					anchor={
 						<TableCellWrapper
 							ref={containerRef}
 							cell={cell}
@@ -1310,7 +1374,8 @@ export const TableForeignKeyCell = memo(
 								</span>
 							)}
 						</TableCellWrapper>
-					</PopoverAnchor>
+					}
+				>
 					<PopoverContent
 						data-grid-cell-editor=""
 						align="start"
@@ -1347,21 +1412,23 @@ export const TableForeignKeyCell = memo(
 							</Button>
 						</div>
 					</PopoverContent>
-				</Popover>
-				<Drawer
-					open={drawerOpen}
-					onOpenChange={setDrawerOpen}
-				>
-					<DrawerContent className="h-[70vh]">
-						{referencedTable && (
-							<FkDrawerContent
-								referencedTable={referencedTable}
-								referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
-								fkValue={displayValue}
-							/>
-						)}
-					</DrawerContent>
-				</Drawer>
+				</CellPopover>
+				{drawerMounted && (
+					<Drawer
+						open={drawerOpen}
+						onOpenChange={setDrawerOpen}
+					>
+						<DrawerContent className="h-[70vh]">
+							{referencedTable && (
+								<FkDrawerContent
+									referencedTable={referencedTable}
+									referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
+									fkValue={displayValue}
+								/>
+							)}
+						</DrawerContent>
+					</Drawer>
+				)}
 			</>
 		);
 	},

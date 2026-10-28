@@ -1,5 +1,7 @@
 import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
+const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
+
 export function buildWhereClause(filters: FilterType[]): {
 	clause: string;
 	values: unknown[];
@@ -10,7 +12,7 @@ export function buildWhereClause(filters: FilterType[]): {
 	const values: unknown[] = [];
 
 	for (const filter of filters) {
-		const col = `\`${filter.columnName}\``;
+		const col = quote(filter.columnName);
 		switch (filter.operator) {
 			case "=":
 			case "!=":
@@ -59,10 +61,10 @@ export function buildWhereClause(filters: FilterType[]): {
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
-		return `ORDER BY ${sorts.map((s) => `\`${s.columnName}\` ${s.direction.toUpperCase()}`).join(", ")}`;
+		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
 	if (sorts && typeof sorts === "string") {
-		return `ORDER BY \`${sorts}\` ${order?.toUpperCase() || "ASC"}`;
+		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
 	return "";
 }
@@ -80,7 +82,7 @@ export function buildCursorWhereClause(
 	const useGreaterThan = isAscending === isForward;
 	const operator = useGreaterThan ? ">" : "<";
 
-	const columnList = sortColumns.map((col) => `\`${col}\``).join(", ");
+	const columnList = sortColumns.map(quote).join(", ");
 	const placeholders = sortColumns.map(() => "?").join(", ");
 	const queryValues = sortColumns.map((col) => values[col]);
 

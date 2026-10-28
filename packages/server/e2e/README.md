@@ -1,0 +1,160 @@
+# API contract E2E
+
+Drives the real Elysia app in-process (`app.handle`, no port) against the SQL database in
+`DATABASE_URL`, through the same routes the web app calls, using a scratch table `dbstudio_e2e`.
+
+```bash
+bun run init-db:pgsql   # from the repo root; prints the DATABASE_URL it seeded
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bun run e2e -- pg
+```
+
+Prints PASS/FAIL per step and exits non-zero on any failure. Writes the normalized artifact to
+`e2e/artifacts/<label>.json`; rerunning from the same state must produce a byte-identical file.
+The scratch table names are fixed so the artifact stays repeatable, so run one contract at a time
+per database: two runs sharing a `DATABASE_URL` would drop each other's tables.
+MongoDB and Redis are out of scope. Dialect-specific SQL goes in `OVERRIDES` in `contract.ts`.
+
+## Pin the HTTP surface
+
+The surface probe boots the real CLI on port 4999 and records status, headers, and bodies for
+routing, validation, error, CORS, request ID, static file, SPA fallback, and chat streaming cases.
+It serves a fake AI proxy on port 4998 for the chat cases. Use it to compare old and new versions
+of the HTTP layer, such as a framework upgrade.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio sh e2e/http-surface.sh <label>
+```
+
+It writes `e2e/artifacts/http-surface-<label>.json`. Two runs against the same server produce the
+same file, so diff the files from the two versions.
+
+## Connect from the browser
+
+Starts the built CLI without a database URL, then connects, switches and fails a switch from the
+browser against two scratch SQLite files. It checks the saved file's permissions, that the
+browser never receives a password, and that a foreign `Host` header is refused.
+
+```bash
+cd packages/server
+bun run prepack
+bunx tsx e2e/connect-flow.ts
+```
+
+Needs no database. Writes screenshots and `e2e/artifacts/connect-flow/summary.json`, which is
+identical across runs.
+
+## Stop the server
+
+Starts the built CLI, sends Ctrl+C (SIGINT) and then SIGTERM while a one-second query is in
+flight, and checks that the query is answered and the process exits within 5 s with code 0.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/shutdown.ts
+```
+
+Writes `e2e/artifacts/shutdown-<build>.json`; pass a snapshot name from `e2e/artifacts/builds/` to
+check another build.
+
+## MySQL and SQL Server row estimates
+
+Creates a 100,000-row table, a 100-row table and a table emptied after the database reported its
+size, then checks the table list and page totals: the large table reports the database's
+estimate, the others and every filtered total an exact count.
+
+```bash
+cd packages/server
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/row-estimates.ts
+DATABASE_URL='mssql://sa:DbStudio1!@127.0.0.1:1433/dbstudio' bunx tsx e2e/row-estimates.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/row-estimates-<mysql|mssql>.json`.
+
+## Record writes and paging regressions
+
+Force deletes a user referenced twice from one table (as sender and as recipient) and checks that
+both messages go. On PostgreSQL it also saves an edit that fails halfway, 20 times while looping
+queries keep the pool busy, and checks the first change was rolled back and no save hung; then it
+pages one row at a time, forward and back, through NULL sort values and a mixed-direction sort.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/audit-regressions.ts
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/audit-regressions.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/audit-regressions-<pg|mysql>.json`.
+
+## Run the Oracle review probe
+
+The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp
+keys, nullable temporal bulk inserts, mixed-offset timestamp sorting, temporal pattern filters,
+and the composite primary-key delete guard.
+
+```bash
+cd packages/server
+DATABASE_URL='oracle://user:pass@host:1521/SERVICE' bunx tsx e2e/oracle-review.ts
+```
+
+The probe writes `e2e/artifacts/oracle-review.json`. A native Oracle `DATE` or
+`TIMESTAMP` query-runner result returns 400. Use `TO_CHAR` with an explicit format in that query.
+
+## ClickHouse regressions
+
+The ClickHouse probe requires Node 20 and checks exact wide-number values, refused grid
+mutations, inserts, explicit SQL mutations, and failures that arrive after response streaming
+starts.
+
+```bash
+DATABASE_URL=clickhouse://dbstudio:dbstudio@127.0.0.1:8123/dbstudio \
+  node --import tsx e2e/clickhouse-regressions.ts after
+```
+
+It writes `e2e/artifacts/clickhouse-regressions-<label>.json`. Use a new label for each run so
+before and after evidence can be compared directly.
+
+## Index listing regressions
+
+Checks SQL Server columnstore columns separately from B-tree INCLUDE columns, and SQLite
+expression keys containing SQL comments and quoted comment markers. On MySQL, checks that
+primary keys and both forms of unique index refuse drops, uniqueness remains enforced, and
+ordinary indexes can still be dropped. Uses and removes only
+the `dbstudio_e2e_index_listing` scratch table in a disposable database.
+
+```bash
+DATABASE_URL=sqlite:///tmp/dbstudio-index-review.sqlite bunx tsx e2e/index-listing.ts
+# Or set DATABASE_URL to a disposable SQL Server or MySQL database.
+```
+
+Writes `e2e/artifacts/<engine>-index-listing.json` (`sqlite`, `mssql`, or `mysql`).
+
+## MongoDB indexes
+
+MongoDB is outside the contract, so the Indexes routes have their own probe. It works on a
+scratch collection `dbstudio_e2e_indexes` that it creates and drops, then records the indexes
+of the seeded `contributors`, `projects` and `contributions` collections (`null` when absent).
+
+```bash
+cd packages/server
+DATABASE_URL='mongodb://127.0.0.1:27017/dbstudio' bunx tsx e2e/mongo-indexes.ts
+```
+
+It writes `e2e/artifacts/mongo-indexes.json`.
+
+## SQLite and Cloudflare D1 specifics
+
+Checks what the contract does not reach: an update naming one missing key answers 404 and rolls
+back the rows it did match, altering a table with mixed-case child references or self-references
+keeps the rows (SQLite rebuilds it; D1 refuses with 400 because it cannot suspend foreign keys),
+internal `_cf_*` tables stay hidden, and the returned blob bytes match the inserted bytes. It
+creates and drops `dbstudio_d1_Parent`, `dbstudio_d1_child`, and `dbstudio_d1_Self`.
+
+```bash
+cd packages/server
+DATABASE_URL=sqlite:///tmp/scratch.sqlite bunx tsx e2e/d1-specifics.ts sqlite
+DATABASE_URL='d1://<account id>/<database id>?authToken=<api token>' bunx tsx e2e/d1-specifics.ts d1
+```
+
+It writes `e2e/artifacts/d1-specifics-<label>.json`.

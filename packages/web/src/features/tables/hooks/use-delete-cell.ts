@@ -15,9 +15,15 @@ export interface RelatedRecord {
 	records: Array<Record<string, unknown>>;
 }
 
-export const useDeleteCells = ({ tableName }: { tableName: string }) => {
+export const useDeleteCells = ({
+	tableName,
+	schemaName,
+}: {
+	tableName: string;
+	schemaName: string | undefined;
+}) => {
 	const queryClient = useQueryClient();
-	const { tableCols } = useTableCols({ tableName });
+	const { tableCols } = useTableCols({ tableName, schemaName });
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const {
@@ -43,6 +49,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 
 			const result = await deleteCellsService(
 				tableName,
+				schemaName,
 				tableCols,
 				rowData,
 				force,
@@ -100,6 +107,7 @@ export const useDeleteCells = ({ tableName }: { tableName: string }) => {
 
 const deleteCellsService = async (
 	tableName: string,
+	schemaName: string | undefined,
 	tableCols: ColumnInfoSchemaType[],
 	rowData: Record<string, unknown>[],
 	force: boolean,
@@ -119,6 +127,7 @@ const deleteCellsService = async (
 
 	const payload = {
 		tableName,
+		schemaName,
 		primaryKeys,
 	};
 

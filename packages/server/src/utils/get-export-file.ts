@@ -1,5 +1,4 @@
 import type { CellValue, FormatType } from "@db-studio/shared/types";
-import { utils, write } from "xlsx";
 
 interface ExportFileOptions {
 	cols: string[];
@@ -20,7 +19,7 @@ interface ExportFileOptions {
 const toCellValue = (value: unknown): CellValue => {
 	if (value === null || value === undefined) return value;
 	if (value instanceof Date) return value;
-	// BLOB/bytea/varbinary arrive as Buffers from better-sqlite3, mssql and mysql2.
+	// BLOB/bytea/varbinary arrive as Buffers from the sqlite adapter, mssql and mysql2.
 	// JSON.stringify would turn them into {"type":"Buffer","data":[...]}.
 	if (Buffer.isBuffer(value)) return `0x${value.toString("hex")}`;
 	if (typeof value === "object") return JSON.stringify(value);
@@ -43,13 +42,21 @@ const toSheetData = (cols: string[], rows: Record<string, unknown>[]): CellValue
  * @param options.tableName - The name of the table being exported
  * @returns The file content as a Uint8Array
  */
-export function getExportFile({ cols, rows, format, tableName }: ExportFileOptions): BodyInit {
-	switch (format) {
-		case "json": {
-			const jsonContent = JSON.stringify(rows ?? [], null, 2);
-			return new Uint8Array(Buffer.from(jsonContent, "utf-8"));
-		}
+export async function getExportFile({
+	cols,
+	rows,
+	format,
+	tableName,
+}: ExportFileOptions): Promise<BodyInit> {
+	if (format === "json") {
+		const jsonContent = JSON.stringify(rows ?? [], null, 2);
+		return new Uint8Array(Buffer.from(jsonContent, "utf-8"));
+	}
 
+	// The sheet library takes tens of milliseconds to load, so it loads on the first export
+	// instead of with the server.
+	const { utils, write } = await import("xlsx");
+	switch (format) {
 		case "csv": {
 			const worksheet = utils.aoa_to_sheet(toSheetData(cols, rows));
 			const csvContent = utils.sheet_to_csv(worksheet);

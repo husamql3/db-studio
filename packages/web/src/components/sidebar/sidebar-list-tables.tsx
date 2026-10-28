@@ -2,8 +2,9 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
+import { EditTableSheet } from "@/features/schema";
 import { useTablesList } from "@/features/tables";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarListTables = () => {
@@ -13,7 +14,7 @@ export const SidebarListTables = () => {
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
 		defaultValue: "all",
 	});
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 
 	const { tablesList = [], isLoadingTablesList, errorTablesList } = useTablesList();
 	const schemas = useMemo(
@@ -28,7 +29,10 @@ export const SidebarListTables = () => {
 			).sort(),
 		[tablesList],
 	);
-	const showSchemaDropdown = dbType === "pg" && schemas.length > 1;
+	const showSchemaDropdown = (engine?.schemaSelector ?? false) && schemas.length > 1;
+
+	// One schema in view: the dropdown already names it, so the prefix only widens rows.
+	const showSchemaName = selectedSchema === "all" && schemas.length > 1;
 
 	const filteredTables = tablesList?.filter((table) => {
 		const matchesSchema = selectedSchema === "all" || table.schemaName === selectedSchema;
@@ -61,29 +65,34 @@ export const SidebarListTables = () => {
 	}
 
 	return (
-		<div className="flex-1 overflow-y-auto pb-3">
-			{filteredTables && filteredTables.length > 0 ? (
-				<ul>
-					{filteredTables?.map((table) => (
-						<SidebarListTablesItem
-							key={
-								table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
-							}
-							schemaName={table.schemaName}
-							tableName={table.tableName}
-							rowCount={table.rowCount}
-						/>
-					))}
-				</ul>
-			) : searchTerm ? (
-				<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
-					No tables found matching
-				</div>
-			) : (
-				<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
-					No tables available
-				</div>
-			)}
-		</div>
+		<>
+			<div className="flex-1 overflow-y-auto pb-3">
+				{filteredTables && filteredTables.length > 0 ? (
+					<ul>
+						{filteredTables?.map((table) => (
+							<SidebarListTablesItem
+								key={
+									table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
+								}
+								schemaName={table.schemaName}
+								showSchemaName={showSchemaName}
+								tableName={table.tableName}
+								rowCount={table.rowCount}
+								rowCountEstimated={table.rowCountEstimated}
+							/>
+						))}
+					</ul>
+				) : searchTerm ? (
+					<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
+						No tables found matching
+					</div>
+				) : (
+					<div className="flex-1 overflow-y-auto pb-3 h-full flex items-center justify-center">
+						No tables available
+					</div>
+				)}
+			</div>
+			<EditTableSheet />
+		</>
 	);
 };

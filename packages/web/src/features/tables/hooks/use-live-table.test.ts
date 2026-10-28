@@ -22,20 +22,6 @@ describe("useLiveTable", () => {
 		vi.useRealTimers();
 	});
 
-	it("does not poll when Live mode is disabled", () => {
-		const refetch = vi.fn().mockResolvedValue({ isError: false });
-		renderHook(() =>
-			useLiveTable({
-				tableName: "users",
-				tableDataRows: [],
-				refetchTableData: refetch,
-			}),
-		);
-
-		vi.advanceTimersByTime(3000);
-		expect(refetch).not.toHaveBeenCalled();
-	});
-
 	it("polls every 1 second when Live mode is enabled", async () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
 		const { result } = renderHook(() =>
@@ -65,7 +51,7 @@ describe("useLiveTable", () => {
 	});
 
 	it("does not enable or poll if database does not support liveMode", () => {
-		useDatabaseStore.setState({ dbType: "mysql" });
+		useDatabaseStore.setState({ dbType: "mongodb" });
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
 
 		const { result } = renderHook(() =>

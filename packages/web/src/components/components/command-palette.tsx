@@ -22,6 +22,7 @@ import {
 	Download,
 	GitBranch,
 	KeyRound,
+	ListTree,
 	MessageSquare,
 	Moon,
 	Pin,
@@ -37,12 +38,15 @@ import {
 	Upload,
 } from "lucide-react";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile, useTablesList } from "@/features/tables";
-import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
+import { tableId } from "@/features/visualizer";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { CONSTANTS } from "@/utils/constants";
 import {
 	NO_TABLE_HINT,
 	SCHEMALESS_HINT,
@@ -52,6 +56,7 @@ import { useCommandPaletteState } from "./use-command-palette-state";
 
 export function CommandPalette() {
 	const navigate = useNavigate();
+	const openSchema = useTableSchemaName();
 	const { openOverlay } = useOverlayStore();
 	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
 	const { toggleTheme, isDark } = useTheme();
@@ -77,26 +82,31 @@ export function CommandPalette() {
 		pathname,
 		activeTable,
 		dbType,
-		isRedis,
+		isKeyValue,
 		isSchemaless,
 		canCreateTable,
 		canEditRecords,
 		recordsHint,
 		canEditSchema,
 		schemaHint,
+		hasIndexes,
 	} = useCommandPaletteCapabilities();
 
 	const isMac =
 		typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
 
-	const handleNavigateToTable = (tableName: string) => {
+	const handleNavigateToTable = (tableName: string, schemaName: string | undefined) => {
 		handleAction(() => {
 			if (dbType) {
 				posthogAnalytics.capture("table_viewed", { db_type: dbType });
 			}
 			// Reset search params: sort/filter/cursor keys from the previous
 			// table must not leak into the newly opened one.
-			navigate({ to: "/table/$table", params: { table: tableName }, search: {} });
+			navigate({
+				to: "/table/$table",
+				params: { table: tableName },
+				search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
+			});
 		});
 	};
 
@@ -154,14 +164,15 @@ export function CommandPalette() {
 						) : (
 							tablesList.map((table) => (
 								<CommandItem
-									key={table.tableName}
-									value={table.tableName}
-									onSelect={() => handleNavigateToTable(table.tableName)}
+									key={tableId(table)}
+									value={tableId(table)}
+									onSelect={() => handleNavigateToTable(table.tableName, table.schemaName)}
 								>
 									<Database className="mr-2 size-4 text-primary" />
 									<div className="flex flex-1 items-center justify-between">
 										<span className="font-medium">{table.tableName}</span>
 										<span className="text-xs text-muted-foreground">
+											{table.rowCountEstimated && "~"}
 											{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
 										</span>
 									</div>
@@ -185,7 +196,7 @@ export function CommandPalette() {
 				{mode === "all" && (
 					<>
 						{/* Quick Access - Tables shortcut */}
-						{!isRedis && (
+						{!isKeyValue && (
 							<>
 								<CommandGroup heading="Quick Access">
 									<CommandItem
@@ -212,7 +223,7 @@ export function CommandPalette() {
 
 						{/* Navigation */}
 						<CommandGroup heading="Go to">
-							{!isRedis && (
+							{!isKeyValue && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/" }))}
 									keywords={["go", "navigate", "home", "tables"]}
@@ -238,7 +249,7 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							{!isRedis && (
+							{!isKeyValue && (
 								<CommandItem
 									disabled={!activeTable || isSchemaless}
 									onSelect={() => {
@@ -248,7 +259,7 @@ export function CommandPalette() {
 											navigate({
 												to: "/schema/$table",
 												params: { table },
-												search: {},
+												search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
 											}),
 										);
 									}}
@@ -267,7 +278,32 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isRedis && (
+							{hasIndexes && (
+								<CommandItem
+									disabled={!activeTable}
+									onSelect={() => {
+										if (!activeTable) return;
+										const table = activeTable;
+										handleAction(() =>
+											navigate({
+												to: "/indexes/$table",
+												params: { table },
+												search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
+											}),
+										);
+									}}
+									keywords={["go", "navigate", "indexes", "index"]}
+								>
+									<ListTree className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Go to Indexes</span>
+										<span className="text-xs text-muted-foreground">
+											{activeTable ? `View the indexes of ${activeTable}` : NO_TABLE_HINT}
+										</span>
+									</div>
+								</CommandItem>
+							)}
+							{isKeyValue && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/browser" }))}
 									keywords={["go", "navigate", "redis", "browser", "keys"]}
@@ -359,7 +395,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isRedis && (
+							{isKeyValue && (
 								<CommandItem
 									onSelect={() =>
 										handleAction(() => {
@@ -380,7 +416,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{!isRedis && (
+							{!isKeyValue && (
 								<>
 									<CommandItem
 										disabled={!canEditRecords}
@@ -425,13 +461,45 @@ export function CommandPalette() {
 											</span>
 										</div>
 									</CommandItem>
+									{hasIndexes && (
+										<CommandItem
+											disabled={!activeTable}
+											onSelect={() => {
+												if (!activeTable) return;
+												const table = activeTable;
+												handleAction(() => {
+													if (!pathname.startsWith("/indexes/")) {
+														navigate({
+															to: "/indexes/$table",
+															params: { table },
+															search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
+														});
+													}
+													openOverlay("indexes.create-index");
+												});
+											}}
+											keywords={["create", "add", "new", "index", "indexes"]}
+										>
+											<ListTree className="mr-2 size-4" />
+											<div className="flex flex-col">
+												<span>Create Index</span>
+												<span className="text-xs text-muted-foreground">
+													{activeTable ? `Create an index on ${activeTable}` : NO_TABLE_HINT}
+												</span>
+											</div>
+										</CommandItem>
+									)}
 									<CommandItem
 										disabled={!activeTable || isExportingFile}
 										onSelect={() => {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({ tableName, format: "csv" }).catch(() => undefined);
+												void exportFile({
+													tableName,
+													schemaName: openSchema,
+													format: "csv",
+												}).catch(() => undefined);
 											});
 										}}
 										keywords={["export", "download", "csv"]}
@@ -450,7 +518,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({ tableName, format: "json" }).catch(() => undefined);
+												void exportFile({
+													tableName,
+													schemaName: openSchema,
+													format: "json",
+												}).catch(() => undefined);
 											});
 										}}
 										keywords={["export", "download", "json"]}
@@ -471,7 +543,7 @@ export function CommandPalette() {
 											if (!activeTable || isSchemaless) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void copyTableSchema(tableName).catch(() => undefined);
+												void copyTableSchema(tableName, openSchema).catch(() => undefined);
 											});
 										}}
 										keywords={["copy", "schema", "ddl", "clipboard"]}
@@ -567,7 +639,7 @@ export function CommandPalette() {
 						</CommandGroup>
 
 						{/* Tables Navigation - Show top 5 tables in all mode */}
-						{!isRedis &&
+						{!isKeyValue &&
 							!isLoadingTablesList &&
 							!errorTablesList &&
 							tablesList &&
@@ -577,15 +649,18 @@ export function CommandPalette() {
 									<CommandGroup heading="Recent Tables">
 										{tablesList.slice(0, 5).map((table) => (
 											<CommandItem
-												key={table.tableName}
-												value={table.tableName}
+												key={tableId(table)}
+												value={tableId(table)}
 												keywords={["table", "recent", table.tableName]}
-												onSelect={() => handleNavigateToTable(table.tableName)}
+												onSelect={() =>
+													handleNavigateToTable(table.tableName, table.schemaName)
+												}
 											>
 												<Database className="mr-2 size-4" />
 												<div className="flex flex-col">
 													<span>{table.tableName}</span>
 													<span className="text-xs text-muted-foreground">
+														{table.rowCountEstimated && "~"}
 														{table.rowCount} {table.rowCount === 1 ? "row" : "rows"}
 													</span>
 												</div>

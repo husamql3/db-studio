@@ -1,5 +1,6 @@
 import { intro, outro } from "@clack/prompts";
 import { META } from "@db-studio/shared/constants/meta.js";
+import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import color from "picocolors";
 
 /**
@@ -12,7 +13,11 @@ export const showHelp = () => {
 	console.log("  db-studio [options]\n");
 
 	console.log(color.bold("Supported Databases:"));
-	console.log("  PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis\n");
+	console.log(
+		`  ${Object.values(DATABASE_ENGINES)
+			.map(({ label }) => label)
+			.join(", ")}\n`,
+	);
 
 	console.log(color.bold("Options:"));
 	console.log("  -e, --env <path>         Path to custom .env file");
@@ -28,6 +33,11 @@ export const showHelp = () => {
 	console.log("  -s, --status             Show status of the database connection");
 	console.log("  -h, --help               Show this help message");
 	console.log("  -v, --version            Show version number\n");
+
+	console.log(
+		"Without a database URL, open the printed address and choose one in the browser.",
+	);
+	console.log("Connections are saved to ~/.dbstudio/connections.json.\n");
 
 	console.log(color.bold("Examples:"));
 	console.log("  db-studio");

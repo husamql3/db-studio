@@ -1,10 +1,15 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createClient as createLibsqlClient } from "@libsql/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
 	getDbPool: vi.fn(),
 	getMysqlPool: vi.fn(),
 	getMssqlPool: vi.fn(),
-	getSqliteDb: vi.fn(),
+	getSqliteClient: vi.fn(),
 	getMongoDb: vi.fn(),
 }));
 
@@ -12,7 +17,7 @@ vi.mock("@/adapters/connections.js", () => ({
 	getDbPool: mocks.getDbPool,
 	getMysqlPool: mocks.getMysqlPool,
 	getMssqlPool: mocks.getMssqlPool,
-	getSqliteDb: mocks.getSqliteDb,
+	getSqliteClient: mocks.getSqliteClient,
 	getMongoDb: mocks.getMongoDb,
 	getMongoClient: vi.fn(),
 	getMongoDbName: vi.fn(),
@@ -26,6 +31,7 @@ import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { fromLibsql } from "@/sqlite-client.js";
 
 /**
  * A `(tenant_id, user_id)` row where only the first key column is shared with
@@ -39,6 +45,15 @@ const compositeParams = {
 	updates: [{ columnName: "name", value: "Grace", rowData: compositeRow }],
 };
 
+/** A pg pool whose statements, and those of the clients it checks out, land in `statements`. */
+const recordingPgPool = (statements: Array<{ sql: string; values: unknown[] }>) => {
+	const query = vi.fn(async (sql: string, values: unknown[] = []) => {
+		statements.push({ sql, values });
+		return { rows: [], rowCount: 1, fields: [] };
+	});
+	return { query, connect: async () => ({ query, release: () => {} }) };
+};
+
 describe("composite primary key updates", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -47,12 +62,7 @@ describe("composite primary key updates", () => {
 	describe("PgAdapter", () => {
 		it("matches on every key column", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getDbPool.mockReturnValue({
-				query: vi.fn(async (sql: string, values: unknown[] = []) => {
-					statements.push({ sql, values });
-					return { rows: [], rowCount: 1, fields: [] };
-				}),
-			});
+			mocks.getDbPool.mockReturnValue(recordingPgPool(statements));
 
 			const adapter = new PgAdapter();
 			await expect(
@@ -66,12 +76,7 @@ describe("composite primary key updates", () => {
 
 		it("still matches on the single key column when no composite key is sent", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getDbPool.mockReturnValue({
-				query: vi.fn(async (sql: string, values: unknown[] = []) => {
-					statements.push({ sql, values });
-					return { rows: [], rowCount: 1, fields: [] };
-				}),
-			});
+			mocks.getDbPool.mockReturnValue(recordingPgPool(statements));
 
 			const adapter = new PgAdapter();
 			await adapter.updateRecords({
@@ -105,12 +110,7 @@ describe("composite primary key updates", () => {
 
 		it("writes one statement per record when two rows share a key column", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getDbPool.mockReturnValue({
-				query: vi.fn(async (sql: string, values: unknown[] = []) => {
-					statements.push({ sql, values });
-					return { rows: [], rowCount: 1, fields: [] };
-				}),
-			});
+			mocks.getDbPool.mockReturnValue(recordingPgPool(statements));
 
 			const adapter = new PgAdapter();
 			await adapter.updateRecords({
@@ -166,25 +166,33 @@ describe("composite primary key updates", () => {
 	});
 
 	describe("SqliteAdapter", () => {
-		it("matches on every key column", async () => {
-			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getSqliteDb.mockReturnValue({
-				transaction: (fn: () => number) => fn,
-				prepare: (sql: string) => ({
-					run: (...values: unknown[]) => {
-						statements.push({ sql, values });
-						return { changes: 1 };
-					},
-				}),
+		it("updates only the row matching every key column", async () => {
+			const dir = mkdtempSync(path.join(tmpdir(), "db-studio-composite-"));
+			const client = createLibsqlClient({
+				url: pathToFileURL(path.join(dir, "members.db")).href,
+				intMode: "bigint",
 			});
+			try {
+				await client.executeMultiple(`
+					CREATE TABLE members (tenant_id INTEGER, user_id INTEGER, name TEXT, PRIMARY KEY (tenant_id, user_id));
+					INSERT INTO members VALUES (7, 42, 'Ada'), (7, 43, 'Bob');
+				`);
+				mocks.getSqliteClient.mockResolvedValue(fromLibsql(client));
 
-			const adapter = new SqliteAdapter();
-			await expect(
-				adapter.updateRecords({ db: "appdb", params: compositeParams } as never),
-			).resolves.toEqual({ updatedCount: 1 });
+				const adapter = new SqliteAdapter();
+				await expect(
+					adapter.updateRecords({ db: "main", params: compositeParams } as never),
+				).resolves.toEqual({ updatedCount: 1 });
 
-			expect(statements[0]?.sql).toContain('WHERE "tenant_id" = ? AND "user_id" = ?');
-			expect(statements[0]?.values).toEqual(["Grace", 7, 42]);
+				const { rows } = await client.execute("SELECT user_id, name FROM members ORDER BY user_id");
+				expect(rows.map((r) => [Number(r.user_id), r.name])).toEqual([
+					[42, "Grace"],
+					[43, "Bob"],
+				]);
+			} finally {
+				client.close();
+				rmSync(dir, { recursive: true, force: true });
+			}
 		});
 	});
 
@@ -208,7 +216,17 @@ describe("composite primary key updates", () => {
 				rollback: vi.fn(),
 				request: () => request,
 			};
-			mocks.getMssqlPool.mockResolvedValue({ transaction: () => transaction });
+			// the primary-key lookup that guards against partial-key updates
+			const keyLookup = {
+				input: () => keyLookup,
+				query: async () => ({
+					recordset: [{ columnName: "tenant_id" }, { columnName: "user_id" }],
+				}),
+			};
+			mocks.getMssqlPool.mockResolvedValue({
+				transaction: () => transaction,
+				request: () => keyLookup,
+			});
 
 			const adapter = new MsSqlAdapter();
 			vi.spyOn(adapter, "getTableColumns").mockResolvedValue([]);

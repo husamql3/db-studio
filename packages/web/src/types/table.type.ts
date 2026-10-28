@@ -5,6 +5,12 @@ export type TableRecord = Record<string, unknown>;
 
 export type CellVariant = DataTypes;
 
+/** The table a draft cell edit belongs to, and the columns that tell its rows apart. */
+export type EditScope = {
+	id: string;
+	keyColumns: string[];
+};
+
 interface CellPosition {
 	rowIndex: number;
 	columnId: string;
@@ -43,7 +49,9 @@ declare module "@tanstack/react-table" {
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface TableMeta<TData extends RowData> {
-		editScope?: string;
+		editScope?: EditScope;
+		canMutateRows?: boolean;
+		rowMutationReason?: string;
 		focusedCell?: CellPosition | null;
 		editingCell?: CellPosition | null;
 		isScrolling?: boolean;

@@ -1,5 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useTableCols } from "@/features/schema";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { TableRecord } from "@/types/table.type";
@@ -16,12 +20,15 @@ import { TableLoadingState } from "./table-loading-state";
 import { UnsavedRowGuardDialog } from "./unsaved-row-guard-dialog";
 
 export const TableTabContainer = ({ tableName }: { tableName: string }) => {
-	const { dbType } = useDatabaseStore();
-	const { tableData, isLoadingTableData, errorTableData, refetchTableData } = useTableData({
-		tableName,
-	});
+	const engine = useDatabaseEngine();
+	const schemaName = useTableSchemaName();
+	const queryClient = useQueryClient();
+	const { selectedDatabase } = useDatabaseStore();
+	const { tableData, pageKey, isLoadingTableData, errorTableData, refetchTableData } =
+		useTableData({ tableName, schemaName });
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
 		tableName,
+		schemaName,
 	});
 
 	const tableDataRows = useMemo<TableRecord[]>(() => tableData?.data || [], [tableData?.data]);
@@ -57,7 +64,14 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 		tableName,
 		tableCols,
 		tableDataRows,
-		refetchTableData,
+		refetchTableData: () => {
+			// Each Live poll also refreshes the sidebar row counts.
+			void queryClient.refetchQueries(
+				{ queryKey: tableKeys.list(selectedDatabase), exact: true },
+				{ cancelRefetch: false },
+			);
+			return refetchTableData();
+		},
 		isEditingCell,
 	});
 
@@ -90,8 +104,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 		);
 	}
 
-	// if (dbType === "mongodb" || dbType === "redis") {
-	if (dbType === "mongodb") {
+	if (engine?.dataModel === "document") {
 		return (
 			<TableDocumentView
 				tableName={tableName}
@@ -105,6 +118,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 			<TableGrid
 				table={table}
 				tableName={tableName}
+				pageKey={pageKey}
 				selectedRows={selectedRows}
 				setRowSelection={setRowSelection}
 			/>

@@ -1,3 +1,4 @@
+import "@/lib/monaco-environment";
 import * as monaco from "monaco-editor";
 
 export const MONACO_DARK_THEME = "db-studio-dark";

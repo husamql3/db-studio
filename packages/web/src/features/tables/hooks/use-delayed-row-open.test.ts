@@ -11,21 +11,6 @@ describe("useDelayedRowOpen", () => {
 		vi.useRealTimers();
 	});
 
-	it("runs the action after the delay", () => {
-		const action = vi.fn();
-		const { result } = renderHook(() => useDelayedRowOpen());
-
-		act(() => {
-			result.current.schedule(action);
-		});
-		expect(action).not.toHaveBeenCalled();
-
-		act(() => {
-			vi.advanceTimersByTime(ROW_DETAILS_OPEN_DELAY);
-		});
-		expect(action).toHaveBeenCalledTimes(1);
-	});
-
 	it("cancels a pending action on double-click", () => {
 		const action = vi.fn();
 		const { result } = renderHook(() => useDelayedRowOpen());

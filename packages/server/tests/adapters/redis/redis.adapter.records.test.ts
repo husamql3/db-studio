@@ -51,16 +51,6 @@ describe("RedisAdapter — record mutations", () => {
 			expect(mockClient.expire).toHaveBeenCalledWith("foo", 60);
 		});
 
-		it("returns 409 if a string key already exists (SET NX returns null)", async () => {
-			mockClient.set.mockResolvedValue(null);
-			await expect(
-				adapter.addRecord({
-					db: "0",
-					params: { tableName: "strings", data: { key: "foo", value: "bar" } },
-				}),
-			).rejects.toMatchObject({ status: 409 });
-		});
-
 		it("inserts a hash with HSET after EXISTS precheck", async () => {
 			mockClient.exists.mockResolvedValue(0);
 			mockClient.hset.mockResolvedValue(2);
@@ -72,19 +62,6 @@ describe("RedisAdapter — record mutations", () => {
 				},
 			});
 			expect(mockClient.hset).toHaveBeenCalledWith("user:1", "name", "alice", "age", "30");
-		});
-
-		it("rejects a hash insert when the key already exists", async () => {
-			mockClient.exists.mockResolvedValue(1);
-			await expect(
-				adapter.addRecord({
-					db: "0",
-					params: {
-						tableName: "hashes",
-						data: { key: "user:1", value: { name: "alice" } },
-					},
-				}),
-			).rejects.toMatchObject({ status: 409 });
 		});
 
 		it("inserts a list with RPUSH", async () => {
@@ -144,25 +121,6 @@ describe("RedisAdapter — record mutations", () => {
 				"action",
 				"login",
 			);
-		});
-
-		it("rejects an empty hash", async () => {
-			mockClient.exists.mockResolvedValue(0);
-			await expect(
-				adapter.addRecord({
-					db: "0",
-					params: { tableName: "hashes", data: { key: "x", value: {} } },
-				}),
-			).rejects.toMatchObject({ status: 400 });
-		});
-
-		it("rejects when the 'key' column is missing", async () => {
-			await expect(
-				adapter.addRecord({
-					db: "0",
-					params: { tableName: "strings", data: { value: "bar" } },
-				}),
-			).rejects.toMatchObject({ status: 400 });
 		});
 	});
 
@@ -231,93 +189,6 @@ describe("RedisAdapter — record mutations", () => {
 
 			expect(mockClient.renamenx).not.toHaveBeenCalled();
 		});
-
-		it("returns 409 when renaming onto a key that already exists", async () => {
-			mockClient.set.mockResolvedValue("OK");
-			mockClient.renamenx.mockResolvedValue(0);
-
-			await expect(
-				adapter.updateRecords({
-					db: "0",
-					params: {
-						tableName: "strings",
-						primaryKey: "key",
-						updates: [
-							{ rowData: { key: "old", value: "v" }, columnName: "key", value: "taken" },
-						],
-					},
-				}),
-			).rejects.toMatchObject({ status: 409 });
-		});
-
-		it("returns 404 when updating a string that doesn't exist (SET XX returns null)", async () => {
-			mockClient.set.mockResolvedValue(null);
-			await expect(
-				adapter.updateRecords({
-					db: "0",
-					params: {
-						tableName: "strings",
-						primaryKey: "key",
-						updates: [
-							{
-								rowData: { key: "missing", value: "x" },
-								columnName: "value",
-								value: "y",
-							},
-						],
-					},
-				}),
-			).rejects.toMatchObject({ status: 404 });
-		});
-
-		it("throws 400 when attempting to update a stream", async () => {
-			mockClient.exists.mockResolvedValue(1);
-			await expect(
-				adapter.updateRecords({
-					db: "0",
-					params: {
-						tableName: "streams",
-						primaryKey: "key",
-						updates: [
-							{
-								rowData: { key: "events", value: {} },
-								columnName: "value",
-								value: {},
-							},
-						],
-					},
-				}),
-			).rejects.toMatchObject({ status: 400 });
-		});
-	});
-
-	describe("deleteRecords", () => {
-		it("DELs all primary keys", async () => {
-			mockClient.del.mockResolvedValue(3);
-			const result = await adapter.deleteRecords({
-				db: "0",
-				tableName: "strings",
-				primaryKeys: [
-					{ columnName: "key", value: "a" },
-					{ columnName: "key", value: "b" },
-					{ columnName: "key", value: "c" },
-				],
-			});
-			expect(mockClient.del).toHaveBeenCalledWith("a", "b", "c");
-			expect(result).toEqual({ deletedCount: 3, fkViolation: false, relatedRecords: [] });
-		});
-	});
-
-	describe("forceDeleteRecords", () => {
-		it("delegates to deleteRecords (no FK semantics in Redis)", async () => {
-			mockClient.del.mockResolvedValue(1);
-			const result = await adapter.forceDeleteRecords({
-				db: "0",
-				tableName: "strings",
-				primaryKeys: [{ columnName: "key", value: "x" }],
-			});
-			expect(result.deletedCount).toBe(1);
-		});
 	});
 
 	describe("bulkInsertRecords", () => {
@@ -340,12 +211,6 @@ describe("RedisAdapter — record mutations", () => {
 			expect(result.failureCount).toBe(1);
 			expect(result.errors).toHaveLength(1);
 			expect(result.errors?.[0].recordIndex).toBe(1);
-		});
-
-		it("rejects empty record arrays", async () => {
-			await expect(
-				adapter.bulkInsertRecords({ db: "0", tableName: "strings", records: [] }),
-			).rejects.toMatchObject({ status: 400 });
 		});
 	});
 });

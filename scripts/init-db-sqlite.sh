@@ -32,10 +32,7 @@ esac
 
 DATABASE_URL="${DATABASE_URL:-sqlite://${DB_URL_PATH}}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[init-db] docker is not installed or not in PATH"
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/orbstack.sh"
 
 mkdir -p "${DB_DIR}"
 
@@ -112,6 +109,8 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE INDEX IF NOT EXISTS contributions_project_id_idx ON contributions (project_id);
+
 INSERT OR IGNORE INTO contributors (name, email, is_active, birth_date, joined_at) VALUES
   ('Mona Patel',   'mona@example.com',  1, '1994-04-19', '2024-01-15 09:00:00'),
   ('Diego Rivera', 'diego@example.com', 0, '1991-11-03', '2023-10-21 14:30:00');
@@ -132,12 +131,12 @@ INSERT OR IGNORE INTO contributions (contributor_id, project_id, role, hours_per
     'Product Designer', 20, 0, '2025-01-20', '2025-01-20 11:30:00'
   );
 
-INSERT OR IGNORE INTO events (event_type, page, metadata, occurred_at) VALUES
-  ('page_view',   '/dashboard', '{"referrer":"google.com"}',               '2025-03-01 08:12:00'),
-  ('click',       '/dashboard', '{"element":"btn-export"}',                '2025-03-01 08:13:45'),
-  ('api_call',    NULL,         '{"endpoint":"/api/tables","status":200}', '2025-03-01 08:14:00'),
-  ('page_view',   '/tables',   '{"referrer":"/dashboard"}',                '2025-03-02 10:05:00'),
-  ('form_submit', '/settings', '{"form":"connection-form"}',               '2025-03-02 10:07:30');
+INSERT OR IGNORE INTO events (id, event_type, page, metadata, occurred_at) VALUES
+  (1, 'page_view',   '/dashboard', '{"referrer":"google.com"}',               '2025-03-01 08:12:00'),
+  (2, 'click',       '/dashboard', '{"element":"btn-export"}',                '2025-03-01 08:13:45'),
+  (3, 'api_call',    NULL,         '{"endpoint":"/api/tables","status":200}', '2025-03-01 08:14:00'),
+  (4, 'page_view',   '/tables',   '{"referrer":"/dashboard"}',                '2025-03-02 10:05:00'),
+  (5, 'form_submit', '/settings', '{"form":"connection-form"}',               '2025-03-02 10:07:30');
 
 INSERT OR IGNORE INTO departments (name, cost_center) VALUES
   ('Engineering', 'CC-100'),

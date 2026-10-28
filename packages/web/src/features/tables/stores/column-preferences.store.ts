@@ -14,9 +14,6 @@ export type ColumnPrefKeyParts = {
 
 export const EMPTY_COLUMN_PREFS: ColumnPrefs = { order: [], hidden: [] };
 
-export const sameColumnPrefKey = (a: ColumnPrefKeyParts, b: ColumnPrefKeyParts): boolean =>
-	a.dbType === b.dbType && a.database === b.database && a.tableName === b.tableName;
-
 /** Deep equality for prefs — used to skip no-op writes and state updates. */
 export const sameColumnPrefs = (a: ColumnPrefs, b: ColumnPrefs): boolean =>
 	a.order.length === b.order.length &&

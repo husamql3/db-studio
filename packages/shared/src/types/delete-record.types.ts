@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { DatabaseSchemaType } from "./database.types";
+import type { DatabaseSchemaType } from "./database.types.js";
 
 export const deleteRecordSchema = z.object({
 	tableName: z.string("Table name is required"),
@@ -16,6 +16,7 @@ export const deleteRecordSchema = z.object({
 export type DeleteRecordSchemaType = z.infer<typeof deleteRecordSchema>;
 
 export type DeleteRecordParams = DeleteRecordSchemaType & {
+	schemaName?: string;
 	db: DatabaseSchemaType["db"];
 };
 

@@ -1,30 +1,51 @@
+import { DATABASE_ENGINES, dbTypeFromProtocol } from "@db-studio/shared/types";
+import { errorFields, writeOperationalLog } from "@/operational-log.js";
+
+/** Wire-compatible aliases the drivers don't understand, with the alias engine's own default port. */
+export const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort: number }> = {
+	cockroachdb: { driverScheme: "postgresql", defaultPort: 26257 },
+	mariadb: { driverScheme: "mysql", defaultPort: 3306 },
+	tidb: { driverScheme: "mysql", defaultPort: 4000 },
+};
+
+const defaultPortFor = (url: URL): number => {
+	const scheme = url.protocol.replace(":", "");
+	const dbType = dbTypeFromProtocol(scheme);
+	return (
+		DRIVER_ALIASES[scheme]?.defaultPort ??
+		(dbType && DATABASE_ENGINES[dbType].defaultPort) ??
+		5432
+	);
+};
+
 /**
- * Parse DATABASE_URL to extract host and port
+ * Rewrite a wire-compatible alias (e.g. `cockroachdb://`) to the scheme its driver
+ * understands, pinning the alias's default port so the driver does not substitute its own.
  */
-export function parseDatabaseUrl(): { host: string; port: number } {
-	const databaseUrl = process.env.DATABASE_URL;
+export const toDriverUrl = (databaseUrl: string): string => {
+	const url = new URL(databaseUrl);
+	const alias = DRIVER_ALIASES[url.protocol.replace(":", "")];
+	if (!alias) return databaseUrl;
+	url.port ||= String(alias.defaultPort);
+	url.protocol = alias.driverScheme;
+	return url.toString();
+};
 
-	if (!databaseUrl) {
-		return { host: "localhost", port: 5432 };
-	}
-
+/**
+ * Extract the host and port of a connection URL
+ */
+export function parseDatabaseUrl(databaseUrl: string): {
+	host: string;
+	port: number;
+} {
 	try {
 		const url = new URL(databaseUrl);
-		const protocol = url.protocol.replace(":", "");
-		const defaultPort =
-			protocol === "mongodb" || protocol === "mongodb+srv"
-				? 27017
-				: protocol === "mssql" || protocol === "sqlserver"
-					? 1433
-					: protocol === "mysql" || protocol === "mysql2"
-						? 3306
-						: 5432;
 		return {
 			host: url.hostname || "localhost",
-			port: Number.parseInt(url.port, 10) || defaultPort,
+			port: Number.parseInt(url.port, 10) || defaultPortFor(url),
 		};
 	} catch (error) {
-		console.error("Failed to parse DATABASE_URL:", error);
+		writeOperationalLog("error", "database_url_unparseable", errorFields(error));
 		return { host: "localhost", port: 5432 };
 	}
 }

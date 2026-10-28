@@ -29,7 +29,12 @@ bun run init-db:mysql   # MySQL
 bun run init-db:mssql   # SQL Server
 bun run init-db:mongo   # MongoDB
 bun run init-db:sqlite  # SQLite
+bun run init-db:libsql  # libSQL server (sqld) on OrbStack
+bun run init-db:d1      # Cloudflare D1 (remote, via wrangler; D1_DATABASE, default db-studio-e2e)
 bun run init-db:redis   # Redis
+bun run init-db:duckdb  # DuckDB
+bun run init-db:oracle  # Oracle
+bun run init-db:clickhouse  # ClickHouse
 ```
 
 ### Running a single test (server package)
@@ -50,7 +55,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 | Package | Role |
 |---------|------|
-| `packages/server` | Hono API server + CLI (`npx db-studio`) |
+| `packages/server` | Elysia API server on Node (`@elysiajs/node`) + CLI (`npx db-studio`) |
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
@@ -60,15 +65,16 @@ This is a **Bun + Turbo monorepo** with these packages:
 ### Server (`packages/server`)
 
 - **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
-- **Hono app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, validates `/:dbType`, and serves the frontend build.
+- **Elysia app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
 - **DB connections**: `src/db-manager.ts` owns connection creation and URL parsing; adapters import connection helpers through `src/adapters/connections.ts`.
-- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis all route through registered adapters.
+- **Open connections**: the server can start without a database URL; until one opens, database routes answer 409 and the web app shows `/connect`. Several connections stay open at once, one per browser tab: a tab keeps its `connectionId` in `sessionStorage` and sends it as `X-Connection-Id` on every request, and `db-manager.ts` answers from that connection (a request without one gets the latest opened; one naming a closed connection gets 409). Adapters stay connection-agnostic, so keep any per-connection cache keyed by the client, not a module or adapter field. `src/connection.ts` tests a URL before it opens it, reuses an already open URL, and saves it through `src/connections-store.ts` to `~/.dbstudio/connections.json` (`DB_STUDIO_CONFIG_DIR` overrides; owner-only file). Saved URLs never reach the browser: `/connections` returns masked URLs and takes ids. The server listens on `127.0.0.1` and refuses requests whose `Host` is not loopback unless `HOST` names another address.
+- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse all route through registered adapters.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
 - **Adapter registry**: `src/adapters/adapter.registry.ts` exports `adapterRegistry` and `getAdapter(dbType)`. `src/adapters/register.ts` registers each adapter before routes mount.
-- **Routes**: `src/routes/` — each route file uses `new Hono<RouteEnv>()` (not `AppType`) to avoid circular imports and to access `c.get("dbType")`
-- **Middleware**: `create-server.ts` validates `/:dbType` against `adapterRegistry.getSupportedTypes()` and sets `c.set("dbType", ...)`
+- **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against the adapter registry and adds `dbType` and `adapter` to the context.
+- **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts`. It has no framework dependency; never import Elysia into adapters.
 
-**Multi-database routing pattern**: requests under `/:dbType/*` are validated against the adapter registry, then routes call `getAdapter(c.get("dbType"))`. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
+**Multi-database routing pattern**: requests under `/:dbType/*` resolve their adapter through `adapterPlugin`, then handlers call methods on the `adapter` from the context. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
 
 ### Frontend (`packages/web`)
 
@@ -138,14 +144,14 @@ Three export paths:
 
 ### Key types
 
-- `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"]` in `database.types.ts`
-- `RouteEnv` — Hono env type that provides `c.get("dbType")`
+- `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]` in `database.types.ts`
+- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, protocols, default port, data model, editor language, Live mode, schema selector, Indexes and Logs tabs); web reads it via `useDatabaseEngine()`
 - `CellVariant` / `DataTypes` — used for table cell rendering
 
 ## Tooling
 
 - **Linter/Formatter**: Biome (tabs, 95-char width). Run `bun run format` to auto-fix.
-- **Tests**: Vitest (server package only). Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in `vitest.config.ts`.
+- **Tests**: Vitest (`server`, `web`, `www`). Deliberately minimal — see [Testing](#testing) before adding any. Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in each `vitest.config.ts`.
 - **Pre-commit hook**: runs `bun run format && bun run typecheck && bun run test && bun run build` via Husky.
 - **CI**: GitHub Actions on push to `stage` — build → biome format → tests.
 
@@ -153,11 +159,18 @@ Three export paths:
 
 - **Commit format**: `<type>(<scope>): <message>` (e.g., `feat(back): add mysql row insert`)
 - **Branch format**: `<type>/<issue-number>/<description>` (e.g., `feat/123/support-mysql`)
+- **Releases (`stage` → `main`)**: before merging, confirm that (1) every user-facing change since the last release has an entry in `www/src/lib/content/changelog.ts` and (2) `version` in `packages/server/package.json` is bumped to match the new changelog `version`. Keep entries brief: one short sentence per change, written for users, with no implementation details.
+- **Version bump**: derive it from the new changelog entry, not from the size of the diff. Minor (`1.19.0` → `1.20.0`) when `features` has an entry or an improvement changes what users can see or do (a new screen, setting, CLI flag or engine). Patch (`1.19.0` → `1.19.1`) when the entry has only `bugsFixed` or improvements users do not see (speed, dependencies, docs). Major when an existing setup stops working (a removed or renamed CLI flag, a connection URL that no longer parses, a `connections.json` that no longer loads, a dropped Node version); ask before releasing one.
+- **Logging**: server code never calls `console.*` outside `src/cmd/` (CLI output). Use `writeOperationalLog(level, event, fields)` from `src/operational-log.ts`: `event` is a fixed `snake_case` name, and anything variable goes in `fields` — never interpolated into the name. Pass errors as `errorFields(error)` (type + driver code); never log a message, connection string, table name or row. Each line already carries `instance_id` and, inside a request, `request_id`, `operation` and `db_type`. The request ID arrives as `X-Request-Id` (the web client sends one), is echoed on the response and in the `ApiError` body, tagged on Sentry reports, and forwarded to the proxy, whose logs go through `writeLog` in `packages/proxy/src/log.ts`.
 - **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
-- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`. Legacy Mongo DAO files remain only for standalone compatibility tests.
+- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`.
+- **SQLite / libSQL specifics**: one `SqliteAdapter` on `@libsql/client` (`intMode: "bigint"`, rows normalized in `toRows`) serves `sqlite://` files (opened as `file:` URLs) and remote `libsql://` / Turso URLs (`?authToken=`, `?tls=0` for local sqld) under dbType `sqlite`; `PRAGMA foreign_keys` does not persist between requests on a remote server and is a no-op inside a transaction, so the table rebuild in `alterColumn` goes through `client.migrate()`. The adapter only sees the `SqliteClient` interface in `src/sqlite-client.ts` (`fromLibsql` wraps the libSQL client). Cloudflare D1 is a third protocol of the same engine: `d1://<account_id>/<database_id>?authToken=<api token>` (or `CLOUDFLARE_API_TOKEN`) goes through `src/d1-client.ts`, which calls the REST `/raw` endpoint, where one batch is one transaction and interactive transactions do not exist. So `updateRecords` is one write batch with a guard after each UPDATE that fails the batch when the UPDATE matched no row. D1 always enforces foreign keys and cannot suspend them, so `alterColumn` returns 400 for a table that other tables, or the table itself, reference. D1's internal `_cf_*` tables refuse every access and are hidden. D1 serializes integers as JSON doubles, so values past 2^53 arrive rounded; select them with `CAST(x AS TEXT)` to read them exactly.
 - **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
+- **DuckDB specifics**: file-based like SQLite (`duckdb:///abs/path.duckdb` or `duckdb://./rel.duckdb`); one `DuckDBInstance` + connection per file via `@duckdb/node-api`, and every call goes through `withDuckdbConnection()`, which serializes access so transactions cannot interleave; the instance checkpoints on every commit (`checkpoint_threshold: "0b"`) because DuckDB cannot replay an `ALTER TABLE` on a table with a `nextval()` default from the WAL; a file locked by another process surfaces as 503; `"ident"` quoting, `?` placeholders; rows go through one boundary (`getRowObjectsJson()`, then safe-range BIGINT/HUGEINT to numbers); keyset pagination sorts NULLS LAST in both directions and builds a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …` honouring each column's direction and NULLs (`buildKeysetPredicate`), never a row-value tuple comparison; only the current schema (`main`) is listed; identity/serial columns become a `<table>_<column>_seq` sequence default; FK actions CASCADE/SET NULL/SET DEFAULT, ADD COLUMN with UNIQUE/PRIMARY KEY, and ALTER on tables other tables reference return 400; `forceDeleteRecords` uses the ordinary single-statement delete and refuses 400 when dependent rows exist, because DuckDB cannot delete a parent and its children in one atomic transaction; implemented in `DuckDbAdapter`.
+- **Oracle specifics**: `oracle://user:pass@host:1521/SERVICE` via `oracledb` in Thin mode (no Instant Client), one pool per process; the connected container (`CON_NAME`) is the only database and only the user's own tables (`USER_TABLES`) are listed; every identifier is quoted as stored, so `"ident"` quoting preserves case, and names containing `"` are rejected with 400 because Oracle cannot quote them; `:n` bind placeholders; OFFSET/FETCH pagination with an offset cursor like MSSQL, ordered by the user sort then the primary key (`ROWID` without one); `text` becomes `VARCHAR2(4000)`, not CLOB, so it stays sortable and comparable; DDL auto-commits, so every schema operation is a single statement that cannot half-apply; `oracleServerVersion >= 23ai` gates native `BOOLEAN` and `JSON` (older releases get `NUMBER(1)` and `CLOB`); array columns, ON UPDATE actions and ON DELETE SET DEFAULT return 400; implemented in `OracleAdapter`. Adapter-owned reads return `DATE` and `TIMESTAMP` columns as strings and preserve nine fractional digits. The query runner returns 400 for native temporal result columns because Thin mode converts them to millisecond-only JavaScript `Date` values. Select those columns with `TO_CHAR` and an explicit Oracle format.
+- **ClickHouse specifics**: OLAP engine over the HTTP interface via `@clickhouse/client` (`clickhouse://` → http, `clickhouses://` → https, one client per database in `db-manager.ts`); every request sets `wait_end_of_query = 1` so late server failures reach the API; row counts come from `system.tables.total_rows` (no `count()` scans); `isPrimaryKey` marks sorting-key columns, which are not unique, so pagination is OFFSET-based ordered by user sort, then the sorting key, then `_part`/`_part_offset`; inserts use `JSONEachRow`; grid updates, deletes, and force deletes return 400 because sorting keys cannot identify one row safely, while explicit query-runner mutations remain available and wait with `mutations_sync = 2`; created tables are `MergeTree ORDER BY (<pk>)`, identity/serial columns become `UInt64 DEFAULT generateSnowflakeID()`; no FKs or UNIQUE (400); JSON output quotes 64/128/256-bit integers and decimals so their exact values cross the JavaScript boundary as strings; implemented in `ClickhouseAdapter`.
 
 ## Patterns
 
@@ -190,7 +203,7 @@ export const databaseSchema = z.object({
 });
 export type DatabaseSchemaType = z.infer<typeof databaseSchema>;
 
-export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"] as const;
+export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"] as const;
 export const databaseTypeSchema = z.enum(DATABASE_TYPES);
 export type DatabaseTypeSchema = z.infer<typeof databaseTypeSchema>;
 ```
@@ -330,36 +343,37 @@ isOverlayOpen("records.add-record");
 To add a new overlay: add its ID to the `OverlayId` union in `overlay.store.ts`, then
 render the overlay component wherever it belongs (route screen or app shell).
 
-### Server Routes (Hono)
+### Server Routes (Elysia)
 
 Location: `packages/server/src/routes/[resource].routes.ts`
 
 **Pattern**:
 ```ts
-export const tablesRoutes = new Hono<RouteEnv>()   // NOT AppType
-  .basePath("/tables")
+export const tablesRoutes = new Elysia({ prefix: "/tables" })
+  .use(adapterPlugin)
 
-  .get("/", zValidator("query", databaseSchema), async (c): ApiHandler<TableInfoSchemaType[]> => {
-    const { db } = c.req.valid("query");
-    const adapter = getAdapter(c.get("dbType"));
-    return c.json({ data: await adapter.getTablesList(db) }, 200);
+  .get("/", async ({ adapter, query }) => ({ data: await adapter.getTablesList(query.db) }), {
+    query: databaseSchema,
   })
 
-  .post("/", zValidator("query", databaseSchema), zValidator("json", createTableSchema), async (c): ApiHandler<string> => {
-    const body = c.req.valid("json");
-    const adapter = getAdapter(c.get("dbType"));
-    await adapter.createTable({ tableData: body, db: c.req.valid("query").db });
-    return c.json({ data: `Table ${body.tableName} created successfully` }, 200);
-  });
-
-export type TablesRoutes = typeof tablesRoutes.routes;
+  .post(
+    "/",
+    async ({ adapter, query, body }) => {
+      await adapter.createTable({ tableData: body, db: query.db });
+      return { data: `Table ${body.tableName} created successfully` };
+    },
+    { query: databaseSchema, body: createTableSchema },
+  );
 ```
 
 **Rules**:
-- Always `new Hono<RouteEnv>()` — never `AppType` (causes circular imports)
-- Validation via `zValidator("query"|"json"|"param", schema)`
-- DB dispatch via `getAdapter(c.get("dbType"))` — never switch/if-else on dbType in routes
-- Return type annotation `ApiHandler<T>` on every handler
+- Chain every call on the instance; Elysia infers context and response types through the chain.
+- Validation via the route's `query` / `params` / `body` options with the Zod schemas from `@db-studio/shared/types`. A failure reaches `handleError` and answers 400 `{ error: "Validation error", details }`.
+- Query values reach the schema as raw strings: `create-server.ts` replaces Elysia's query parser, which JSON-parses `[...]`/`{...}` values and splits on commas.
+- DB dispatch via the `adapter` that `adapterPlugin` adds — never switch/if-else on dbType in routes.
+- Return the `{ data }` envelope; use `status(409, { data })` for a non-200 success body and throw `HTTPException` for failures.
+- Return a stream as its body and put its headers on `set.headers`: Elysia on Node drops the headers of a returned chunked `Response`.
+- Do not use Elysia's `file()` on Node: it sends `Content-Length` together with chunked encoding.
 
 ### Adapter Pattern
 
@@ -377,7 +391,7 @@ export type TablesRoutes = typeof tablesRoutes.routes;
 
 **Request flow**:
 ```
-Request → create-server validates and sets dbType → route calls getAdapter(dbType)
+Request → adapterPlugin validates dbType → getAdapter(dbType)
   → adapterRegistry.get(dbType) returns the adapter
   → route calls adapter.someMethod(params)
 ```
@@ -419,6 +433,7 @@ export class PgAdapter extends BaseAdapter {
 3. Add connection handling in `src/db-manager.ts` and expose adapter-facing helpers through `src/adapters/connections.ts`.
 4. Register the adapter in `src/adapters/register.ts`: `adapterRegistry.register("<dbname>", new MyAdapter())`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols, default port, data model, editor language, Live mode support, schema selector, Indexes tab support (`indexes`) and Logs tab support (`serverLogs`); an engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 
@@ -491,57 +506,94 @@ export const setDbType = (type: DatabaseTypeSchema): void => {
 
 `src/lib/api.ts` is a legacy compatibility facade — do not add new code there.
 
-### Tests
+### Testing
 
-Location: `packages/server/tests/[area]/[feature].test.ts`
+This repo deliberately carries very few unit tests. A large mock-heavy unit suite was deleted
+because it could not fail for any bug a user would ever hit. Do not grow it back.
 
-**Route tests** mock `adapter.registry.js` so all DB types share the same mock adapter:
-```ts
-const mockAdapter = vi.hoisted(() => ({
-  getTablesList: vi.fn(),
-  addRecord: vi.fn(),
-  executeQuery: vi.fn(),
-  // ... all IDbAdapter methods used by the route under test
-}));
+#### Never write unit tests after you write code
 
-vi.mock("@/adapters/adapter.registry.js", () => ({
-  getAdapter: vi.fn(() => mockAdapter),
-  adapterRegistry: {
-    register: vi.fn(),
-    get: vi.fn(() => mockAdapter),
-    getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
-  },
-}));
+Writing tests *after* the implementation only produces tests shaped like the implementation.
+They restate the code you just wrote, pass on the first run, and keep passing after you break
+the behaviour. If you finished a change and your instinct is "now add a test for it" — don't.
+Verify the change with an E2E run instead.
 
-vi.mock("@/db-manager.js", () => ({
-  getDbPool: vi.fn(() => ({ query: vi.fn() })),
-  getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
-  getMssqlPool: vi.fn(),
-  // ...
-}));
+The only tests written after code are **regression tests for a specific reported bug**, and only
+when the test fails before the fix and passes after it. If you cannot demonstrate that
+red-then-green transition, you do not have a regression test, you have decoration.
 
-describe("Tables Routes", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    app = createServer().app;
-  });
-});
-```
+#### Prefer E2E tests as the sole testing mechanism
 
-**Adapter tests** mock `adapters/connections.js` and instantiate the adapter:
-```ts
-const mockPool = vi.hoisted(() => vi.fn());
-vi.mock("@/adapters/connections.js", () => ({ getMssqlPool: mockPool, ... }));
+E2E is the default and usually the only testing mechanism here. Use E2E to verify that a complex
+feature actually works: drive the real app against a real database (see `scripts/init-db-*.sh`
+for seeded instances of each supported engine), perform the user's actual sequence of actions,
+and assert on what the user would see.
 
-import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
+**Every E2E test must end by producing a verifiable, repeatable artifact.** A test that only
+prints "pass" is not evidence. The artifact is the deliverable — a screenshot, a recorded trace,
+an exported result set, a dumped table state, a diffable JSON snapshot of the final DB rows.
+It must be:
 
-const adapter = new MsSqlAdapter();
-mockPool.mockResolvedValue({ request: vi.fn().mockReturnValue({...}) });
-```
+- **Verifiable** — a human can open it and independently confirm the feature worked.
+- **Repeatable** — running the test again from the same seeded state produces the same artifact.
+  No timestamps, no random IDs, no connection strings, no machine-specific paths baked into it.
+  Normalise or redact anything non-deterministic before writing the artifact out.
 
-**Rules**:
-- Route tests always mock `@/adapters/adapter.registry.js` — never individual adapter files
-- Use `vi.hoisted()` for mock objects referenced inside `vi.mock()` factory functions
-- Reset mocks in `beforeEach` (not `afterEach`)
-- Test both happy path and error cases (connection errors → 503, generic errors → 500)
-- Run a single file: `bunx vitest run tests/path/to/file.test.ts` (from `packages/server`)
+Write artifacts to a gitignored output directory and name them after the scenario, so a reviewer
+can pair a failing run with the exact artifact it produced.
+
+#### If you must test a system in isolation, write the failure modes down first
+
+Isolated tests are a last resort, reserved for logic that E2E genuinely cannot reach or cannot
+pin down precisely — parsers, SQL and pipeline builders, value formatters, diffing, redaction,
+auth token validation.
+
+When you decide an isolated test is warranted, the order is mandatory:
+
+1. **First, write down every way the system could fail.** In the PR description or a comment at
+   the top of the test file, enumerate the real failure modes: wrong identifier quoting for a
+   dialect, wrong placeholder style, off-by-one in LIMIT/OFFSET, a composite key silently
+   matching the wrong row, `null` vs `""` vs `0` vs `false` collapsing into each other, an
+   unescaped quote enabling injection, a secret surviving redaction.
+2. **Then write the tests**, one per failure mode you listed, each with an expected value you
+   derived independently of the implementation.
+3. **Then write or fix the code.**
+
+If you cannot name a concrete failure mode, there is no test to write.
+
+#### What makes a test worth keeping
+
+Apply one question to every test: *if I introduced a plausible bug in the code under test, would
+this test fail?* If the answer is no, delete it. In particular, never write:
+
+- **Mock theater** — mocking the unit's only collaborator, then asserting the mock's configured
+  return value came back out. This proves `vi.fn()` works.
+- **Call assertions with no argument checks** — `expect(mockFn).toHaveBeenCalled()`.
+- **Pass-through route tests** — asserting a status code for a handler whose whole body is
+  `return c.json(await adapter.x())`, where `adapter` is mocked.
+- **Store setter/getter tests** — `setFoo(true)` then `expect(foo).toBe(true)`; "starts with
+  default values"; "reset() restores defaults".
+- **Render-the-prop tests** — rendering a component and asserting a string that was passed in as
+  a prop appears on screen, or that clicking calls a `vi.fn()` prop.
+- **Tests of what TypeScript already guarantees** — required props, enum membership, field types.
+- **Copy-paste families** — the same test duplicated per database type against one shared mock.
+- Snapshot tests.
+
+#### Mechanics
+
+- Vitest. `bun run test` at the root runs every package's suite.
+- Server: `cd packages/server && bunx vitest run tests/path/to/file.test.ts`.
+- Web: `cd packages/web && bunx vitest run src/path/to/file.test.ts` (happy-dom).
+- Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are set in each
+  `vitest.config.ts`.
+- Naming: `[file-name].test.ts`, colocated with the source in `packages/web` and `www`;
+  under `packages/server/tests/[area]/` for the server.
+
+#### Performance
+
+Benchmark a performance change with `packages/server/e2e/perf.ts` before claiming it; its
+header explains the seed database and build snapshots. Compare builds in one interleaved run,
+never two separate runs: wall time swings 20–40% between identical builds on a busy machine.
+Judge by the layout and style-recalculation counts, best-of-N and the paired change, and run
+an identical build against itself first if you need the noise floor. Changes that save database
+round trips only show with `PERF_DB_LATENCY_MS` set.

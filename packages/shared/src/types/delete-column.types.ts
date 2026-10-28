@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { databaseSchema } from "./database.types";
+import { databaseSchema, tableQuerySchema } from "./database.types.js";
 
-export const deleteColumnQuerySchema = databaseSchema.extend({
+export const deleteColumnQuerySchema = tableQuerySchema.extend({
 	cascade: z
 		.string()
 		.optional()
@@ -18,6 +18,7 @@ export const deleteColumnParamSchema = z.object({
 export const deleteColumnParamsSchema = z.object({
 	db: databaseSchema.shape.db,
 	tableName: deleteColumnParamSchema.shape.tableName,
+	schemaName: tableQuerySchema.shape.schemaName,
 	columnName: deleteColumnParamSchema.shape.columnName,
 	cascade: z.boolean().optional(),
 });

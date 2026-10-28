@@ -1,4 +1,4 @@
-import type { DeleteTableResult, RelatedRecord } from "@db-studio/shared/types";
+import type { DeleteTableResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { deleteTable as deleteTableRequest } from "@/shared/api";
@@ -16,13 +16,16 @@ export const useDeleteTable = () => {
 	} = useMutation({
 		mutationFn: async ({
 			tableName,
+			schemaName,
 			cascade = false,
 		}: {
 			tableName: string;
+			schemaName: string | undefined;
 			cascade?: boolean;
 		}): Promise<DeleteTableResult> => {
 			const response = await deleteTableRequest({
 				tableName,
+				schemaName,
 				db: selectedDatabase,
 				cascade,
 			});
@@ -35,8 +38,11 @@ export const useDeleteTable = () => {
 		},
 	});
 
-	const deleteTable = async (tableName: string): Promise<DeleteTableResult> => {
-		const promise = deleteTableAsync({ tableName, cascade: false });
+	const deleteTable = async (
+		tableName: string,
+		schemaName: string | undefined,
+	): Promise<DeleteTableResult> => {
+		const promise = deleteTableAsync({ tableName, schemaName, cascade: false });
 		toast.promise(promise, {
 			loading: "Deleting table...",
 			success: (result) =>
@@ -48,8 +54,11 @@ export const useDeleteTable = () => {
 		return promise;
 	};
 
-	const forceDeleteTable = async (tableName: string): Promise<DeleteTableResult> => {
-		const promise = deleteTableAsync({ tableName, cascade: true });
+	const forceDeleteTable = async (
+		tableName: string,
+		schemaName: string | undefined,
+	): Promise<DeleteTableResult> => {
+		const promise = deleteTableAsync({ tableName, schemaName, cascade: true });
 		toast.promise(promise, {
 			loading: "Deleting table...",
 			success: (result) =>
@@ -66,5 +75,3 @@ export const useDeleteTable = () => {
 		resetDeleteResult,
 	};
 };
-
-export type { RelatedRecord };

@@ -1,5 +1,7 @@
 import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
+const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
+
 export function buildWhereClause(
 	filters: FilterType[],
 	startIdx = 0,
@@ -11,7 +13,7 @@ export function buildWhereClause(
 	let idx = startIdx;
 
 	for (const filter of filters) {
-		const col = `[${filter.columnName}]`;
+		const col = quote(filter.columnName);
 		switch (filter.operator) {
 			case "=":
 			case "!=":
@@ -65,12 +67,31 @@ export function buildWhereClause(
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
-		return `ORDER BY ${sorts.map((s) => `[${s.columnName}] ${s.direction.toUpperCase()}`).join(", ")}`;
+		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
 	if (sorts && typeof sorts === "string") {
-		return `ORDER BY [${sorts}] ${order?.toUpperCase() || "ASC"}`;
+		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
 	return "";
+}
+
+export function buildOrderByClause(
+	sorts: SortType[] | string,
+	order: SortDirection,
+	keyColumns: string[],
+): string {
+	const sortClause = buildSortClause(sorts, order);
+	const sortColumns = Array.isArray(sorts) ? sorts.map((s) => s.columnName) : [sorts];
+	const direction = (
+		Array.isArray(sorts) ? (sorts[0]?.direction ?? order) : order
+	).toUpperCase();
+	const tieBreakers = keyColumns
+		.filter((col) => !sortColumns.includes(col))
+		.map((col) => `${quote(col)} ${direction}`)
+		.join(", ");
+
+	if (!tieBreakers) return sortClause || "ORDER BY (SELECT NULL)";
+	return sortClause ? `${sortClause}, ${tieBreakers}` : `ORDER BY ${tieBreakers}`;
 }
 
 export function mapColumnTypeToMssql(columnType: string, isArray: boolean): string {

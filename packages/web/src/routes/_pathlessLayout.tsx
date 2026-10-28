@@ -1,9 +1,7 @@
 import { createFileRoute, Navigate, Outlet, useLocation } from "@tanstack/react-router";
-import { Header } from "@/components/components/header";
-import { DesktopTitleBar } from "@/components/desktop-title-bar";
+import { NavRail } from "@/components/components/nav-rail";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { SidebarToggleButton } from "@/components/sidebar/sidebar-toggle-btn";
-import { useDatabaseStore } from "@/stores/database.store";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
 export const Route = createFileRoute("/_pathlessLayout")({
@@ -11,37 +9,38 @@ export const Route = createFileRoute("/_pathlessLayout")({
 });
 
 function RouteComponent() {
-	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
+	const isKeyValue = engine?.dataModel === "key-value";
 	const { pathname } = useLocation();
 	const section = pathname.split("/")[1];
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
-	if (dbType === "redis" && section !== "browser" && section !== "runner") {
+	if (isKeyValue && section !== "browser" && section !== "runner" && section !== "logs") {
 		return <Navigate to="/browser" />;
 	}
-	if (dbType !== "redis" && section === "browser") {
+	if (!isKeyValue && section === "browser") {
 		return <Navigate to="/" />;
+	}
+	if (engine && !engine.indexes && section === "indexes") {
+		return <Navigate to="/table" />;
+	}
+	if (engine && !engine.serverLogs && section === "logs") {
+		return <Navigate to="/table" />;
 	}
 
 	return (
-		<div className="bg-background text-foreground w-dvw flex flex-col h-dvh max-h-dvh overflow-hidden">
-			<DesktopTitleBar>
-				<SidebarToggleButton className="size-7 border-0 rounded-md" />
-			</DesktopTitleBar>
+		<div className="bg-background text-foreground w-dvw flex h-dvh max-h-dvh overflow-hidden relative">
+			<NavRail />
+			<Sidebar />
 
-			<div className="flex flex-1 min-h-0 relative">
-				<Sidebar />
-
-				<div
-					className="flex-1 flex flex-col h-full overflow-hidden"
-					style={{
-						marginLeft: isPinned ? `${width}px` : "0",
-					}}
-				>
-					<Header />
-					<Outlet />
-				</div>
+			<div
+				className="rail-content relative flex-1 flex flex-col h-full overflow-hidden"
+				style={{
+					marginLeft: isPinned ? `${width}px` : "0",
+				}}
+			>
+				<Outlet />
 			</div>
 		</div>
 	);

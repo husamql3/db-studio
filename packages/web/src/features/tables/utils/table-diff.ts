@@ -24,7 +24,7 @@ export const getRecordKey = (row: TableRecord, primaryKeyCols: string[] = []): s
 	return stableStringify(row);
 };
 
-export const isValueEqual = (a: unknown, b: unknown): boolean => {
+const isValueEqual = (a: unknown, b: unknown): boolean => {
 	if (a === b) return true;
 	if (typeof a === "object" && typeof b === "object" && a !== null && b !== null) {
 		return stableStringify(a) === stableStringify(b);

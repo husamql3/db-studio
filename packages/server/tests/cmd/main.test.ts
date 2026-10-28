@@ -5,17 +5,18 @@ const mocks = vi.hoisted(() => ({
 	args: vi.fn(),
 	loadEnv: vi.fn(),
 	getDatabaseUrl: vi.fn(),
-	checkDatabaseConnection: vi.fn(),
+	connect: vi.fn(),
 	getDatabaseConnectionDetails: vi.fn(),
 	openBrowser: vi.fn(),
 	shouldOpenBrowser: vi.fn(),
 	createServer: vi.fn(),
-	serve: vi.fn(),
+	listen: vi.fn(),
 	intro: vi.fn(),
 	outro: vi.fn(),
 	log: {
 		success: vi.fn(),
 		warn: vi.fn(),
+		info: vi.fn(),
 	},
 	spinner: vi.fn(() => ({
 		start: vi.fn(),
@@ -28,10 +29,6 @@ vi.mock("@clack/prompts", () => ({
 	outro: mocks.outro,
 	log: mocks.log,
 	spinner: mocks.spinner,
-}));
-
-vi.mock("@hono/node-server", () => ({
-	serve: mocks.serve,
 }));
 
 vi.mock("@/cmd/args.js", () => ({
@@ -47,8 +44,11 @@ vi.mock("@/cmd/get-db-url.js", () => ({
 }));
 
 vi.mock("@/cmd/check-database.js", () => ({
-	checkDatabaseConnection: mocks.checkDatabaseConnection,
 	getDatabaseConnectionDetails: mocks.getDatabaseConnectionDetails,
+}));
+
+vi.mock("@/connection.js", () => ({
+	connect: mocks.connect,
 }));
 
 vi.mock("@/cmd/open-browser.js", () => ({
@@ -82,15 +82,15 @@ describe("main configuration resolution", () => {
 			version: false,
 		});
 		mocks.loadEnv.mockResolvedValue({});
-		mocks.getDatabaseUrl.mockResolvedValue("postgresql://localhost:5432/test");
+		mocks.getDatabaseUrl.mockReturnValue("postgresql://localhost:5432/test");
 		mocks.getDatabaseConnectionDetails.mockReturnValue({
 			type: "pg",
 			name: "PostgreSQL",
 			destination: "localhost:5432",
 		});
-		mocks.checkDatabaseConnection.mockResolvedValue(undefined);
+		mocks.connect.mockResolvedValue(null);
 		mocks.shouldOpenBrowser.mockReturnValue(false);
-		mocks.createServer.mockReturnValue({ app: { fetch: vi.fn() } });
+		mocks.createServer.mockReturnValue({ app: { listen: mocks.listen } });
 	});
 
 	afterEach(() => {
@@ -105,7 +105,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: 8080,
 				hostname: "127.0.0.1",
@@ -126,7 +126,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: 9000,
 			}),
@@ -144,7 +144,7 @@ describe("main configuration resolution", () => {
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: 7000,
 				hostname: "0.0.0.0",
@@ -152,15 +152,15 @@ describe("main configuration resolution", () => {
 		);
 	});
 
-	it("falls back to default PORT and undefined HOST when not configured", async () => {
+	it("falls back to the default PORT and the loopback HOST when not configured", async () => {
 		mocks.loadEnv.mockResolvedValue({});
 
 		await main();
 
-		expect(mocks.serve).toHaveBeenCalledWith(
+		expect(mocks.listen).toHaveBeenCalledWith(
 			expect.objectContaining({
 				port: DEFAULTS.PORT,
-				hostname: undefined,
+				hostname: "127.0.0.1",
 			}),
 		);
 	});

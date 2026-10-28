@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { databaseSchema } from "./database.types";
-import { deleteColumnParamSchema } from "./delete-column.types";
+import { databaseSchema, tableQuerySchema } from "./database.types.js";
+import { deleteColumnParamSchema } from "./delete-column.types.js";
 
 export const alterColumnSchema = z.object({
 	columnType: z.string("Column type is required"),
@@ -17,6 +17,7 @@ export type AlterColumnParamSchemaType = z.infer<typeof alterColumnParamSchema>;
 export const alterColumnParamsSchema = z.object({
 	db: databaseSchema.shape.db,
 	tableName: deleteColumnParamSchema.shape.tableName,
+	schemaName: tableQuerySchema.shape.schemaName,
 	columnName: deleteColumnParamSchema.shape.columnName,
 	columnType: alterColumnSchema.shape.columnType,
 	isNullable: alterColumnSchema.shape.isNullable,

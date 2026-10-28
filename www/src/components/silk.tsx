@@ -1,6 +1,7 @@
 /* eslint-disable react/no-unknown-property */
 
 import { Canvas, type RootState, useFrame, useThree } from "@react-three/fiber";
+import { useReducedMotion } from "motion/react";
 import type React from "react";
 import { type Ref, useLayoutEffect, useMemo, useRef } from "react";
 import { Color, type IUniform, type Mesh, type ShaderMaterial } from "three";
@@ -139,6 +140,7 @@ export const Silk: React.FC<SilkProps> = ({
 	rotation = 0,
 }) => {
 	const meshRef = useRef<Mesh>(null);
+	const reduceMotion = useReducedMotion();
 
 	const uniforms = useMemo<SilkUniforms>(
 		() => ({
@@ -155,7 +157,8 @@ export const Silk: React.FC<SilkProps> = ({
 	return (
 		<Canvas
 			dpr={[1, 2]}
-			frameloop="always"
+			// "demand" draws the first frame and then holds it still.
+			frameloop={reduceMotion ? "demand" : "always"}
 			style={{
 				position: "absolute",
 				top: 0,

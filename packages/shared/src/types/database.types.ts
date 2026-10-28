@@ -6,7 +6,27 @@ export const databaseSchema = z.object({
 
 export type DatabaseSchemaType = z.infer<typeof databaseSchema>;
 
-export const DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis"] as const;
+/**
+ * The query of a table route. `schemaName` picks the table's schema on engines that list one
+ * (PostgreSQL); without it, the bare table name resolves through the search path.
+ */
+export const tableQuerySchema = databaseSchema.extend({
+	schemaName: z.string().optional(),
+});
+
+export type TableQuerySchemaType = z.infer<typeof tableQuerySchema>;
+
+export const DATABASE_TYPES = [
+	"pg",
+	"mysql",
+	"mssql",
+	"mongodb",
+	"sqlite",
+	"redis",
+	"duckdb",
+	"oracle",
+	"clickhouse",
+] as const;
 
 export const databaseTypeSchema = z.enum(DATABASE_TYPES, {
 	message: "Invalid database type",

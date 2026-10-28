@@ -1,12 +1,14 @@
 import { EventEmitter } from "node:events";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // db-manager is globally mocked in tests/setup.ts; this suite exercises the real one.
 vi.unmock("@/db-manager.js");
 
+type FakeClient = { query: (sql: string) => Promise<unknown> };
+
 class FakePool extends EventEmitter {
 	static instances: FakePool[] = [];
-	constructor(public config: unknown) {
+	constructor(public config: { onConnect: (client: FakeClient) => Promise<void> }) {
 		super();
 		FakePool.instances.push(this);
 	}
@@ -17,7 +19,7 @@ vi.mock("pg", () => ({
 	DatabaseError: class DatabaseError extends Error {},
 	default: { Pool: FakePool },
 }));
-vi.mock("better-sqlite3", () => ({ default: class {} }));
+vi.mock("@libsql/client", () => ({ createClient: vi.fn() }));
 vi.mock("ioredis", () => ({ Redis: class {} }));
 vi.mock("mongodb", () => ({ MongoClient: class {}, ObjectId: class {} }));
 vi.mock("mssql", () => ({ default: { ConnectionPool: class {} } }));
@@ -26,68 +28,80 @@ vi.mock("mysql2/promise", () => ({ createPool: vi.fn() }));
 const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
-	const { getDbPool } = await import("@/db-manager.js");
-	getDbPool();
+	const { DatabaseManager, getDbPool, openConnection } = await import(
+		"@/db-manager.js"
+	);
+	openConnection(
+		"test",
+		new DatabaseManager("postgresql://test:test@localhost:5432/testdb"),
+	);
+	await getDbPool();
 	const pool = FakePool.instances[0];
 	expect(pool).toBeDefined();
 	return pool as FakePool;
 };
 
 describe("PostgreSQL pool search_path", () => {
-	beforeEach(() => {
-		process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/testdb";
-	});
-
 	it("widens search_path on every new connection", async () => {
 		const pool = await freshPool();
 		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
 
-		pool.emit("connect", client);
+		await pool.config.onConnect(client);
 
 		expect(client.query).toHaveBeenCalledTimes(1);
-		expect(client.query.mock.calls[0][0]).toContain("SET search_path TO public, ");
+		expect(client.query.mock.calls[0][0]).toMatch(/set_config\(\s*'search_path'/);
 	});
 
-	it("enqueues the statement synchronously so no query can overtake it", async () => {
-		// pg hands the client to the caller as soon as the synchronous "connect"
-		// emit returns. Looking the schemas up first and only then issuing SET
-		// would let the caller's query run against the default search_path.
+	it("holds the client back until the statement finishes", async () => {
+		// pg-pool hands the client to the caller once onConnect settles. Settling
+		// before the SET completes would let the caller's query overlap it on a
+		// busy client (deprecated by pg) or run against the default search_path.
 		const pool = await freshPool();
-		const order: string[] = [];
+		let finishSet = () => {};
 		const client = {
-			query: vi.fn((sql: string) => {
-				order.push(sql.includes("search_path") ? "set" : "caller");
-				return Promise.resolve({ rows: [] });
-			}),
+			query: vi.fn(() => new Promise<void>((resolve) => (finishSet = resolve))),
 		};
+		let settled = false;
 
-		pool.emit("connect", client);
-		// Whatever the caller does the instant it receives the client:
-		client.query("SELECT * FROM daily_summarie");
+		const hook = pool.config.onConnect(client).then(() => {
+			settled = true;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(settled).toBe(false);
 
-		expect(order).toEqual(["set", "caller"]);
+		finishSet();
+		await hook;
+		expect(settled).toBe(true);
 	});
 
 	it("keeps public first so an ambiguous table name still resolves to public", async () => {
 		const pool = await freshPool();
 		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
 
-		pool.emit("connect", client);
+		await pool.config.onConnect(client);
 
 		const sql = client.query.mock.calls[0][0] as string;
-		expect(sql).toContain("'SET search_path TO public, ' || extra");
+		expect(sql).toContain("'public, ' || string_agg");
 		// Only non-system, non-public schemas are appended after it.
 		expect(sql).toContain("'pg_catalog', 'information_schema', 'public'");
 	});
 
 	it("leaves the connection usable when the statement fails", async () => {
+		// A rejected onConnect makes pg-pool end the client and fail the checkout.
 		const pool = await freshPool();
-		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-		const client = { query: vi.fn().mockRejectedValue(new Error("permission denied")) };
+		const lines: string[] = [];
+		const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		const client = {
+			query: vi.fn().mockRejectedValue(new Error("permission denied for secret-host")),
+		};
 
-		expect(() => pool.emit("connect", client)).not.toThrow();
-		await vi.waitFor(() => expect(consoleError).toHaveBeenCalled());
+		await expect(pool.config.onConnect(client)).resolves.toBeUndefined();
+		stderr.mockRestore();
 
-		consoleError.mockRestore();
+		expect(lines.join("")).toContain('"event":"db_search_path_widen_failed"');
+		expect(lines.join("")).not.toContain("secret-host");
 	});
 });

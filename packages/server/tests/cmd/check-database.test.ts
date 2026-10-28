@@ -1,31 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-	getDbPool: vi.fn(),
-	getDbType: vi.fn(),
-	getMongoClient: vi.fn(),
-	getMongoDbName: vi.fn(),
-	getMssqlPool: vi.fn(),
-	getMysqlPool: vi.fn(),
-	getRedisClient: vi.fn(),
-	getSqliteDb: vi.fn(),
-}));
-
-vi.mock("@/db-manager.js", () => mocks);
-
+import type { DatabaseManager } from "@/db-manager.js";
 import {
 	checkDatabaseConnection,
 	getDatabaseConnectionDetails,
 } from "@/cmd/check-database.js";
 
 describe("database startup check", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
 	it("reports a safe PostgreSQL destination without credentials", () => {
-		mocks.getDbType.mockReturnValue("pg");
-
 		expect(
 			getDatabaseConnectionDetails("postgresql://admin:secret@database.internal/app"),
 		).toEqual({
@@ -35,22 +17,24 @@ describe("database startup check", () => {
 		});
 	});
 
-	it("runs a real Redis ping before reporting a successful connection", async () => {
-		const ping = vi.fn().mockResolvedValue("PONG");
-		mocks.getRedisClient.mockResolvedValue({ ping });
-
-		await checkDatabaseConnection("redis");
-
-		expect(ping).toHaveBeenCalledOnce();
+	it.each([
+		["pg", "cockroachdb://root@database.internal/app", "database.internal:26257"],
+		["mysql", "mariadb://root@database.internal/app", "database.internal:3306"],
+		["mysql", "tidb://root@database.internal/app", "database.internal:4000"],
+	])("uses the %s alias default port for %s", (_type, url, destination) => {
+		expect(getDatabaseConnectionDetails(url)?.destination).toBe(destination);
 	});
 
 	it("bounds the PostgreSQL startup query", async () => {
 		vi.useFakeTimers();
 		const query = vi.fn().mockReturnValue(new Promise(() => undefined));
-		mocks.getDbPool.mockReturnValue({ query });
+		const manager = {
+			getDbType: () => "pg",
+			getPgPool: async () => ({ query }),
+		} as unknown as DatabaseManager;
 
 		try {
-			const result = expect(checkDatabaseConnection("pg")).rejects.toThrow(
+			const result = expect(checkDatabaseConnection(manager)).rejects.toThrow(
 				"Database startup check timed out",
 			);
 			await vi.advanceTimersByTimeAsync(2_000);
@@ -60,14 +44,5 @@ describe("database startup check", () => {
 		}
 
 		expect(query).toHaveBeenCalledWith("SELECT 1");
-	});
-
-	it("propagates a failed health check", async () => {
-		const connectionError = new Error("Connection refused");
-		mocks.getDbPool.mockReturnValue({
-			query: vi.fn().mockRejectedValue(connectionError),
-		});
-
-		await expect(checkDatabaseConnection("pg")).rejects.toBe(connectionError);
 	});
 });

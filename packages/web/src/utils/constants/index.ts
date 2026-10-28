@@ -15,6 +15,8 @@ export const CONSTANTS = {
 
 	ACTIVE_TABLE: "table", // query state key for active table
 	ACTIVE_SCHEMA: "schema", // query state key for selected schema
+	// The open table's schema on engines that list schemas, so same-named tables stay apart.
+	TABLE_SCHEMA: "tableSchema" as const,
 	ACTIVE_TAB: "t", // query state key for active tab
 	COLUMN_NAME: "columnName", // query state key for column name
 
@@ -58,8 +60,7 @@ export const CONSTANTS = {
 	},
 
 	//* other constants
-	HOVER_ZONE: 20, // pixels from left edge
-	HOVER_DELAY: 100, // ms delay before opening
+	RAIL_WIDTH: 48, // px, the left navigation rail
 };
 
 export const PRESET_SIZES = [5, 10, 25, 50, 100, 500];

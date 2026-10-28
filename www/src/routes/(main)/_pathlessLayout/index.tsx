@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, CopyIcon, PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { PlusIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
 	CodeBlock,
 	CodeBlockTab,
@@ -9,54 +9,118 @@ import {
 	CodeBlockTabsTrigger,
 } from "@/components/codeblock";
 import { FeaturesGrid } from "@/components/features";
+import { BuiltInPublic } from "@/components/home-stats";
 import { InfiniteSlider } from "@/components/infinite-slider";
+import { SponsorsSection } from "@/components/sponsors";
 import { Highlighter } from "@/components/ui/highlighter";
+import { ClickhouseIcon } from "@/components/ui/svgs/clickhouseIcon";
+import { CockroachdbIcon } from "@/components/ui/svgs/cockroachdbIcon";
+import { DuckdbIcon } from "@/components/ui/svgs/duckdbIcon";
+import { MariadbIconDark } from "@/components/ui/svgs/mariadbIconDark";
 import { MongodbWordmarkDark } from "@/components/ui/svgs/mongodbWordmarkDark";
 import { MysqlWordmarkDark } from "@/components/ui/svgs/mysqlWordmarkDark";
+import { OracleIcon } from "@/components/ui/svgs/oracleIcon";
 import { PostgresqlWordmarkDark } from "@/components/ui/svgs/postgresqlWordmarkDark";
 import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
+import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
+import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
+import { getHomeStats } from "@/utils/get-home-stats";
+import { getSponsors } from "@/utils/get-sponsors";
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
+	loader: async () => {
+		const [stats, sponsors] = await Promise.all([getHomeStats(), getSponsors()]);
+		return { stats, sponsors };
+	},
 	head: () =>
 		seoHead({
 			title: "dbstudio – The modern pgAdmin alternative for every database",
 			description:
-				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis. Browse tables, edit records, and run queries from one UI.",
+				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and Turso. Browse tables, edit records, and run queries from one UI.",
 			path: "/",
 		}),
 });
 
-const EMAIL = "dbstudio@ql3.dev";
+/** Engines whose brand ships an icon only; the slider pairs each with its name. */
+const iconLogo = (name: string, Icon: typeof OracleIcon) => (
+	<>
+		<Icon
+			aria-hidden="true"
+			className="h-7 w-auto"
+		/>
+		<span className="text-2xl font-semibold tracking-tight">{name}</span>
+	</>
+);
 
-function EmailCopyButton() {
-	const [copied, setCopied] = useState(false);
+/** Slider logos, each linking to its section on /docs/databases. */
+const LOGOS = [
+	{
+		slug: "postgresql",
+		name: "PostgreSQL",
+		logo: <PostgresqlWordmarkDark className="h-10 w-auto" />,
+	},
+	{ slug: "mysql", name: "MySQL", logo: <MysqlWordmarkDark className="h-10 w-auto" /> },
+	{ slug: "mongodb", name: "MongoDB", logo: <MongodbWordmarkDark className="h-10 w-auto" /> },
+	{ slug: "sql-server", name: "SQL Server", logo: <SqlServer className="h-10 w-auto" /> },
+	{ slug: "sqlite", name: "SQLite", logo: <SQLite className="h-10 w-auto" /> },
+	{ slug: "turso", name: "Turso", logo: <TursoWordmarkDark className="h-8 w-auto" /> },
+	{ slug: "mariadb", name: "MariaDB", logo: iconLogo("MariaDB", MariadbIconDark) },
+	{ slug: "cockroachdb", name: "CockroachDB", logo: iconLogo("CockroachDB", CockroachdbIcon) },
+	{ slug: "tidb", name: "TiDB", logo: iconLogo("TiDB", TidbIcon) },
+	{ slug: "duckdb", name: "DuckDB", logo: iconLogo("DuckDB", DuckdbIcon) },
+	{ slug: "oracle", name: "Oracle", logo: iconLogo("Oracle", OracleIcon) },
+	{ slug: "clickhouse", name: "ClickHouse", logo: iconLogo("ClickHouse", ClickhouseIcon) },
+];
 
-	const copy = () => {
-		navigator.clipboard.writeText(EMAIL);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
-	};
+// Plays from an effect, not autoPlay, so reduced-motion users keep the first frame.
+function DemoVideo() {
+	const videoRef = useRef<HTMLVideoElement>(null);
+	const [loaded, setLoaded] = useState(false);
+
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+		// A cached video can load before hydration attaches onLoadedData.
+		if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) setLoaded(true);
+		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		video.play().catch(() => {});
+	}, []);
 
 	return (
-		<button
-			type="button"
-			onClick={copy}
-			className="mt-1 group flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer"
-			aria-label="Copy email"
-		>
-			<span className="text-xs underline underline-offset-4">{EMAIL}</span>
-			<span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-				{copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
-			</span>
-		</button>
+		<div className="relative aspect-video w-full">
+			<video
+				ref={videoRef}
+				src="/demo.mp4"
+				width={1920}
+				height={1080}
+				muted
+				loop
+				playsInline
+				preload="auto"
+				aria-label="db-studio feature tour"
+				onLoadedData={() => setLoaded(true)}
+				className="w-full h-full object-contain"
+			/>
+			{/* The pulse animates opacity, so the fade-out lives on the wrapper. */}
+			<div
+				aria-hidden
+				className={cn(
+					"absolute inset-0 transition-opacity duration-500",
+					loaded && "opacity-0 pointer-events-none",
+				)}
+			>
+				<div className="size-full bg-muted animate-pulse" />
+			</div>
+		</div>
 	);
 }
 
 function App() {
+	const { stats, sponsors } = Route.useLoaderData();
 	return (
 		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
 			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
@@ -80,7 +144,7 @@ function App() {
 					</div>
 
 					<div className="w-full max-w-xl mx-auto flex flex-col items-center gap-5">
-						<p className="text-center md:text-xl font-bold">
+						<h1 className="text-center md:text-xl font-bold">
 							A modern (pgAdmin alternative but good)
 							<Highlighter
 								action="highlight"
@@ -89,12 +153,12 @@ function App() {
 								database management studio
 							</Highlighter>
 							for any database
-						</p>
+						</h1>
 					</div>
 
 					<div className="flex flex-col mx-auto max-w-md sm:max-w-lg w-full">
 						<div className="flex flex-col gap-1 text-center md:text-left">
-							<h1 className="font-semibold">Getting Started</h1>
+							<h2 className="font-semibold">Getting Started</h2>
 							<p className="text-xs text-muted-foreground">
 								Launch instantly from your terminal, no installation needed.
 							</p>
@@ -193,13 +257,7 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<img
-						src="/studio.png"
-						alt="db-studio"
-						width={1000}
-						height={1000}
-						className="w-full h-full object-contain"
-					/>
+					<DemoVideo />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"
@@ -230,25 +288,19 @@ function App() {
 						speedOnHover={30}
 						className="py-8 border-t"
 					>
-						<div className="flex items-center justify-center h-10 px-2">
-							<PostgresqlWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<MysqlWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<MongodbWordmarkDark className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<SqlServer className="h-10 w-auto" />
-						</div>
-
-						<div className="flex items-center justify-center h-10 px-2">
-							<SQLite className="h-10 w-auto" />
-						</div>
+						{LOGOS.map(({ slug, name, logo }) => (
+							<Link
+								key={slug}
+								to="/docs/$"
+								params={{ _splat: "databases" }}
+								hash={slug}
+								aria-label={`${name} docs`}
+								// brightness-0 + invert flattens the brand colors to white on the dark-only site.
+								className="flex items-center justify-center gap-2.5 h-10 px-2 brightness-0 invert transition-opacity duration-200 hover:opacity-70"
+							>
+								{logo}
+							</Link>
+						))}
 					</InfiniteSlider>
 
 					<PlusIcon
@@ -296,17 +348,28 @@ function App() {
 				</div>
 
 				<div className="relative w-full flex flex-col border-y">
-					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Open for <span className="text-foreground">sponsorship</span>
-					</h2>
+					{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
+					<BuiltInPublic stats={stats} />
+					<PlusIcon
+						className="-top-[12.5px] -left-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -top-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+					<PlusIcon
+						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
+						strokeWidth={1}
+					/>
+				</div>
 
-					<div className="flex flex-col items-center gap-3 px-4 py-8 md:px-8 text-center border-t">
-						<p className="text-xs text-muted-foreground max-w-sm">
-							Help us keep db-studio free and actively maintained. If you or your company find
-							it useful, consider supporting the project.
-						</p>
-						<EmailCopyButton />
-					</div>
+				<div className="relative w-full flex flex-col border-y">
+					<SponsorsSection sponsors={sponsors} />
 
 					<PlusIcon
 						className="-top-[12.5px] -left-[12.5px] absolute size-6"

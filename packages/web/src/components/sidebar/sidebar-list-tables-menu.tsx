@@ -33,9 +33,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useSchemaEditStore } from "@/features/schema";
+import { useCopyTableSchema } from "@/features/table-builder";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
-import { useCopyTableSchema } from "@/hooks/use-copy-table-schema";
+import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarListTablesMenu = ({
 	tableName,
@@ -47,17 +51,22 @@ export const SidebarListTablesMenu = ({
 	const navigate = useNavigate();
 	const params = useParams({ strict: false });
 	const { pathname } = useLocation();
+	const openSchema = useTableSchemaName();
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
 	const { exportFile, isExportingFile } = useExportFile();
 	const { deleteTable, forceDeleteTable, isDeletingTable } = useDeleteTable();
 	const { renameTable, isRenamingTable } = useRenameTable({ tableName, schemaName });
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
+	const { setEditingTable } = useSchemaEditStore();
+	const isSchemaless = useIsSchemaless();
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
-	const renameOverlayId = `tables.rename-table.${tableName}` as const;
-	const deleteOverlayId = `tables.delete-table.${tableName}` as const;
-	const forceDeleteOverlayId = `tables.force-delete-table.${tableName}` as const;
+	// Same-named tables in two schemas each get their own dialogs.
+	const overlayKey = schemaName ? `${schemaName}.${tableName}` : tableName;
+	const renameOverlayId = `tables.rename-table.${overlayKey}` as const;
+	const deleteOverlayId = `tables.delete-table.${overlayKey}` as const;
+	const forceDeleteOverlayId = `tables.force-delete-table.${overlayKey}` as const;
 
 	const handleRenameDialogChange = (open: boolean) => {
 		if (open) {
@@ -75,9 +84,17 @@ export const SidebarListTablesMenu = ({
 			await renameTable({ newTableName: trimmed, schemaName });
 			handleRenameDialogChange(false);
 			const activeTable = (params as { table?: string }).table;
-			if (activeTable === tableName) {
-				const basePath = pathname.startsWith("/schema") ? "/schema/$table" : "/table/$table";
-				navigate({ to: basePath, params: { table: trimmed } });
+			if (activeTable === tableName && openSchema === schemaName) {
+				const basePath = pathname.startsWith("/schema")
+					? "/schema/$table"
+					: pathname.startsWith("/indexes")
+						? "/indexes/$table"
+						: "/table/$table";
+				navigate({
+					to: basePath,
+					params: { table: trimmed },
+					search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
+				});
 			}
 		} catch {
 			// Error notification handled by toast.promise in useRenameTable
@@ -90,7 +107,7 @@ export const SidebarListTablesMenu = ({
 	};
 
 	const handleDelete = async () => {
-		const result = await deleteTable(tableName);
+		const result = await deleteTable(tableName, schemaName);
 
 		if (result.fkViolation) {
 			setRelatedRecords(result.relatedRecords);
@@ -103,7 +120,7 @@ export const SidebarListTablesMenu = ({
 	};
 
 	const handleForceDelete = async () => {
-		await forceDeleteTable(tableName);
+		await forceDeleteTable(tableName, schemaName);
 		closeOverlay(forceDeleteOverlayId);
 		navigate({ to: "/" });
 	};
@@ -143,7 +160,7 @@ export const SidebarListTablesMenu = ({
 							Copy name
 						</DropdownMenuItem>
 						<DropdownMenuItem
-							onClick={() => copyTableSchema(tableName)}
+							onClick={() => copyTableSchema(tableName, schemaName)}
 							disabled={isCopyingSchema}
 						>
 							<FileCode className="size-4" />
@@ -154,17 +171,17 @@ export const SidebarListTablesMenu = ({
 							<Type className="size-4" />
 							Rename table
 						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() =>
-								navigate({
-									to: "/schema/$table",
-									params: { table: tableName },
-								})
-							}
-						>
-							<Pencil className="size-4" />
-							Edit table
-						</DropdownMenuItem>
+						{!isSchemaless && (
+							<DropdownMenuItem
+								onClick={() => {
+									setEditingTable({ tableName, schemaName });
+									openOverlay("schema.edit-table");
+								}}
+							>
+								<Pencil className="size-4" />
+								Edit table
+							</DropdownMenuItem>
+						)}
 						<DropdownMenuSub>
 							<DropdownMenuSubTrigger>
 								<Download className="size-4" />
@@ -172,19 +189,19 @@ export const SidebarListTablesMenu = ({
 							</DropdownMenuSubTrigger>
 							<DropdownMenuSubContent>
 								<DropdownMenuItem
-									onClick={() => exportFile({ tableName, format: "csv" })}
+									onClick={() => exportFile({ tableName, schemaName, format: "csv" })}
 									disabled={isExportingFile}
 								>
 									Export as CSV
 								</DropdownMenuItem>
 								<DropdownMenuItem
-									onClick={() => exportFile({ tableName, format: "json" })}
+									onClick={() => exportFile({ tableName, schemaName, format: "json" })}
 									disabled={isExportingFile}
 								>
 									Export as JSON
 								</DropdownMenuItem>
 								<DropdownMenuItem
-									onClick={() => exportFile({ tableName, format: "xlsx" })}
+									onClick={() => exportFile({ tableName, schemaName, format: "xlsx" })}
 									disabled={isExportingFile}
 								>
 									Export as Excel

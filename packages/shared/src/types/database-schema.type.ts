@@ -1,4 +1,4 @@
-import type { DatabaseTypeSchema } from "./database.types";
+import type { DatabaseTypeSchema } from "./database.types.js";
 
 export type DatabaseSchema = {
 	dbType: DatabaseTypeSchema;
@@ -10,7 +10,6 @@ export type Table = {
 	name: string;
 	description?: string;
 	columns: Column[];
-	sampleData?: Record<string, string>[];
 };
 
 export type Column = {

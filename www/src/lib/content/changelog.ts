@@ -16,6 +16,406 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "1.24.1",
+		date: "2026-10-28",
+		title: "Safer record and column edits",
+		bugsFixed: [
+			{
+				text: "A failed record or column edit no longer saves part of the change, and SQLite column edits keep UNIQUE, CHECK and other column rules",
+				username: "husamql3",
+			},
+			{
+				text: "Sorting a PostgreSQL table by several columns or by a column with empty values no longer skips rows",
+				username: "husamql3",
+			},
+			{
+				text: "Force deleting a row also removes rows that reach it through a second foreign key",
+				username: "husamql3",
+			},
+			{
+				text: "Unsaved grid edits stay with their own table, including rows whose keys look alike",
+				username: "husamql3",
+			},
+			{
+				text: "CSV import handles multiline values and quoted empty rows",
+				username: "husamql3",
+			},
+			{
+				text: "SQLite tables with comments in their definition open again",
+				username: "husamql3",
+			},
+			{
+				text: "Including the database schema in AI chat sends only table and column details, never row values",
+				username: "husamql3",
+			},
+			{
+				text: "Your own AI API key raises the request limit only for the provider it belongs to",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.24.0",
+		date: "2026-10-27",
+		title: "One connection per browser tab",
+		features: [
+			{
+				text: "Each browser tab keeps its own database connection, so opening another connection in a new tab no longer switches your other tabs",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "SQL Server logins without server-wide permissions can open their databases and list their tables again",
+				username: "ahmedmohamedneom",
+			},
+		],
+	},
+	{
+		version: "1.23.0",
+		date: "2026-10-25",
+		title: "A password for network access",
+		tags: ["Security"],
+		features: [
+			{
+				text: "When db-studio listens on your network or runs in Docker, the browser asks for a password; set it with DB_STUDIO_PASSWORD or use the one printed at startup",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Table filters and sorting no longer let crafted column names run SQL",
+				username: "SecFathy",
+			},
+			{
+				text: "Other websites can no longer make your browser send requests to db-studio",
+				username: "SecFathy",
+			},
+		],
+	},
+	{
+		version: "1.22.1",
+		date: "2026-10-25",
+		title: "Passwords with special characters",
+		bugsFixed: [
+			{
+				text: "MySQL, MariaDB and SQL Server connections now accept usernames, passwords and database names with special characters such as @, ; or =",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.22.0",
+		date: "2026-10-23",
+		title: "Docker Compose and a tidier sidebar",
+		features: [
+			{
+				text: "Run db-studio with Docker Compose; the image now reports its health",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Sidebar row counts update while Live mode is on",
+			},
+			{
+				text: "The sidebar hides the schema prefix when one schema is selected, and truncates long table names",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "PostgreSQL permission errors now say the role lacks a privilege instead of showing a server error",
+			},
+		],
+	},
+	{
+		version: "1.21.0",
+		date: "2026-10-23",
+		title: "Docker support and safer network access",
+		tags: ["Breaking change"],
+		features: [
+			{
+				text: "Build and run db-studio in Docker, with saved connections kept between runs",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Network access now requires ALLOWED_HOSTS alongside HOST; list the hostname or IP you use to connect",
+				username: "yousifsabah0",
+			},
+		],
+	},
+	{
+		version: "1.20.1",
+		date: "2026-10-22",
+		title: "Clearer errors for bad data, missing tables and missing builds",
+		bugsFixed: [
+			{
+				text: "Saving a PostgreSQL row that breaks a foreign key, unique or NOT NULL rule now shows the database's reason instead of a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a SQLite table that no longer exists now says the table does not exist instead of showing a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Running db-studio from a source checkout without a web build now explains how to build it instead of failing",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.20.0",
+		date: "2026-10-20",
+		title: "Connect and switch databases from the app",
+		features: [
+			{
+				text: "Start db-studio without a database URL and connect from the new Connect page by pasting one; a URL that fails to connect leaves the current connection open",
+				username: "husamql3",
+			},
+			{
+				text: "Saved connections: every database you open is remembered, and you can filter, rename, color and delete them from the Connect page",
+				username: "husamql3",
+			},
+			{
+				text: "Switch connections from the sidebar footer, which now shows the current connection and database",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "db-studio now accepts requests only from this machine; set HOST to reach it from another machine or a container",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.19.0",
+		date: "2026-10-19",
+		title: "A navigation rail",
+		improvements: [
+			{
+				text: "A slim navigation rail on the left replaces the top header: switch tabs, toggle the sidebar, change the theme, and open settings or the AI assistant from one place",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.18.0",
+		date: "2026-10-17",
+		title: "Edit columns from the sidebar and a faster app",
+		features: [
+			{
+				text: "Edit a table's column names and types from the sidebar's Edit table sheet; only changed columns are saved, and a failed edit stays in the form to fix and retry",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Faster startup and reloads: the query editor, AI assistant, spreadsheet export, and telemetry load only when first used, and the browser caches the app between visits",
+				username: "husamql3",
+			},
+			{
+				text: "Smoother scrolling and paging in the table grid: only visible rows render, cell editors mount on first edit, and the next page starts loading when you hover its button",
+				username: "husamql3",
+			},
+			{
+				text: "Large PostgreSQL, MySQL, and SQL Server tables list and open faster by using row estimates instead of full counts",
+				username: "husamql3",
+			},
+			{
+				text: "Polished the sidebar resizer, scrollbars, and column menu, which now reorders live while you drag",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed Escape on one grid cell discarding unsaved edits in other cells",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed PostgreSQL connections timing out on serverless databases waking from idle and on distant regions",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a PostgreSQL table that no longer exists now shows a clear not-found error instead of a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed db-studio taking up to 30 seconds to exit after Ctrl+C",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.17.0",
+		date: "2026-10-11",
+		title: "Manage table indexes",
+		features: [
+			{
+				text: "View and manage indexes in a dedicated tab for PostgreSQL, MySQL, SQL Server, SQLite/libSQL, DuckDB, Oracle, and MongoDB",
+				username: "husamql3",
+			},
+			{
+				text: "Create indexes with ordered columns and a unique option, choose a PostgreSQL index method, or enter nested MongoDB field paths; drop indexes with confirmation while primary keys and constraint-backed indexes stay protected",
+				username: "husamql3",
+			},
+			{
+				text: "Inspect index columns, uniqueness, methods, and definitions, including expression and filtered indexes, plus MongoDB sparse and TTL badges",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.16.2",
+		date: "2026-10-11",
+		title: "Query editor typing fix",
+		bugsFixed: [
+			{
+				text: "Fixed the query editor losing focus and resetting to the placeholder on every keystroke, which made it impossible to type a query",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.16.1",
+		date: "2026-10-10",
+		title: "Query editor and PostgreSQL table list fixes",
+		improvements: [
+			{
+				text: "API errors now include a request ID, so a reported problem can be matched to its server log line and error report",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed the query editor throwing an error on the first keystroke because its background worker failed to load",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the PostgreSQL table list failing to load on databases with many tables",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.16.0",
+		date: "2026-10-08",
+		title: "Oracle, DuckDB, ClickHouse, libSQL, and more",
+		features: [
+			{
+				text: "Connect to Oracle with oracle:// URLs through the Thin driver, no Instant Client needed: browse, edit, and query your own tables with exact numeric keys",
+				username: "husamql3",
+			},
+			{
+				text: "Open DuckDB files to browse and edit records, manage schemas, run SQL, and use Live mode",
+				username: "husamql3",
+			},
+			{
+				text: "Browse, sort, filter, export, insert into, and query ClickHouse over HTTP or TLS; grid edits and deletes are disabled because ClickHouse sorting keys are not unique",
+				username: "husamql3",
+			},
+			{
+				text: "Open remote libSQL and Turso databases with libsql:// URLs and an authToken, alongside local SQLite files",
+				username: "husamql3",
+			},
+			{
+				text: "Connect to MariaDB, CockroachDB, and TiDB with mariadb://, cockroachdb://, and tidb:// URLs",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Tables with a composite primary key can be created on PostgreSQL and SQLite, and editing a row now matches on every key column",
+				username: "husamql3",
+			},
+			{
+				text: "The SQLite query runner now accepts one statement per request and returns a clear error for multi-statement and transaction-control SQL",
+				username: "husamql3",
+			},
+			{
+				text: "The website's logo slider shows the newly supported databases",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed deletes on tables with a composite primary key removing every row that shared the first key column; these deletes are now refused until whole keys can be addressed",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed record updates sent with only part of a composite key rewriting every matching row",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed the app opening the first database instead of the connected one on PostgreSQL",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed CSV and JSON bulk inserts failing on boolean columns in SQLite",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed PostgreSQL tables without a primary key skipping or repeating rows when paging through sorted data",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed MariaDB JSON columns showing as plain text",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.15.0",
+		date: "2026-10-05",
+		title: "Live mode for MySQL, SQL Server and SQLite",
+		features: [
+			{
+				text: "Live mode now works on MySQL, SQL Server, and SQLite, not just PostgreSQL: the grid refreshes every second and highlights rows and cells that changed",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "Removed the website's admin dashboard along with its sign-in, analytics API, and charting dependency",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Fixed SQL Server tables without a sort returning rows in storage order instead of primary-key order, which let rows shift between refreshes",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed MySQL paging repeating or skipping rows when sorting by a column with duplicate values",
+				username: "husamql3",
+			},
+			{
+				text: "Fixed number cells keeping their old value after the table refreshed, on every database; unsaved edits are still preserved",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.14.2",
+		date: "2026-09-26",
+		title: "Leaner test suite and an up-to-date roadmap",
+		improvements: [
+			{
+				text: "Removed unit tests that could not catch real bugs, keeping the ones that pin down SQL building, error mapping, data parsing, and credential redaction",
+				username: "husamql3",
+			},
+			{
+				text: "Added the website's admin authentication tests to the project-wide test run; they had never been running",
+				username: "husamql3",
+			},
+			{
+				text: "Brought the roadmap up to date with shipped features, including the JSON cell editor, column preferences, bring-your-own AI keys, the command palette, and Live mode",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.14.1",
 		date: "2026-09-23",
 		title: "A real JSON editor and a quicker row details sheet",

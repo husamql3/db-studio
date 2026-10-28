@@ -1,4 +1,5 @@
 import { useLocation, useParams } from "@tanstack/react-router";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -15,6 +16,7 @@ export const useCommandPaletteCapabilities = () => {
 	const routeParams = useParams({ strict: false });
 	const activeTable = (routeParams as { table?: string }).table ?? null;
 	const { dbType } = useDatabaseStore();
+	const engine = useDatabaseEngine();
 	const isSchemaless = useIsSchemaless();
 
 	// Create-table targets SQL-style schemas. Schemaless databases (MongoDB
@@ -29,11 +31,12 @@ export const useCommandPaletteCapabilities = () => {
 		pathname,
 		activeTable,
 		dbType,
-		isRedis: dbType === "redis",
+		isKeyValue: engine?.dataModel === "key-value",
 		isSchemaless,
 		canCreateTable: !isSchemaless,
 		canEditRecords: Boolean(activeTable) && onTableScreen,
 		recordsHint: !activeTable ? NO_TABLE_HINT : "Open the table data screen first",
+		hasIndexes: Boolean(engine?.indexes),
 		canEditSchema: Boolean(activeTable) && onSchemaScreen && !isSchemaless,
 		schemaHint: isSchemaless
 			? SCHEMALESS_HINT

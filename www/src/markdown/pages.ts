@@ -1,6 +1,9 @@
 import rawDocs from "virtual:raw-docs";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
+import { supportedDatabases } from "@/lib/content/databases";
 import { roadmapItems } from "@/lib/content/roadmap";
+import { SPONSOR_EMAIL, type Sponsor, sponsorTiers } from "@/lib/content/sponsors";
+import { readSponsors } from "@/lib/sponsors-store";
 import { mdxToMarkdown } from "./mdx-to-markdown";
 
 const SITE_URL = "https://dbstudio.sh";
@@ -49,7 +52,7 @@ const roadmapMarkdown = (): string => {
 	return `# Roadmap\n\nWhat's done, in progress, and planned for db-studio.\n\n${sections.join("\n\n")}\n`;
 };
 
-const landingMarkdown = (): string => `# db-studio
+const landingMarkdown = (sponsors: Sponsor[]): string => `# db-studio
 
 A modern (pgAdmin alternative but good) database management studio for any database.
 
@@ -63,14 +66,21 @@ npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
 
 ## Works with your stack
 
-PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis.
+${supportedDatabases
+	.map(
+		({ name, slug, scheme }) =>
+			`- [${name}](${SITE_URL}/docs/databases#${slug}) — \`${scheme}\``,
+	)
+	.join("\n")}
 
 ## Everything you need to manage your database
 
 - **Zero Installation** — Launch instantly with a single npx command. No setup required.
-- **Multi-Database** — First-class support for PostgreSQL and MySQL, with more coming.
+- **Multi-Database** — PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and more from one UI.
 - **Table Browser** — Browse, filter, sort, and paginate rows. Full CRUD without writing SQL.
 - **Query Editor** — Monaco-powered SQL editor with syntax highlighting built right in.
+- **Saved Connections** — Every database you open is remembered. Switch, rename, and color connections without leaving the app.
+- **AI Assistant** — Ask about your schema and draft queries in chat, with your own AI provider key.
 
 ## Links
 
@@ -81,20 +91,26 @@ PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, and Redis.
 - [Changelog](${SITE_URL}/changelog)
 - [GitHub](https://github.com/husamql3/db-studio)
 
-## Sponsorship
+## Sponsors
 
-Help us keep db-studio free and actively maintained. If you or your company find it
-useful, consider supporting the project: dbstudio@ql3.dev
+${sponsorTiers
+	.map(({ id, label, price, spots }) => {
+		const inTier = sponsors.filter((s) => s.tier === id);
+		return `- **${label}** (${price}, ${Math.max(0, spots - inTier.length)} of ${spots} open)${inTier.map((s) => `\n  - [${s.name}](${s.url})`).join("")}`;
+	})
+	.join("\n")}
+
+Interested in sponsoring db-studio? Reach out at ${SPONSOR_EMAIL}
 `;
 
 /**
  * Markdown version of every public page, keyed by pathname.
  * Returns null for paths that have no markdown representation.
  */
-export const getMarkdownForPath = (pathname: string): string | null => {
+export const getMarkdownForPath = async (pathname: string): Promise<string | null> => {
 	const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
-	if (path === "/") return landingMarkdown();
+	if (path === "/") return landingMarkdown(await readSponsors());
 	if (path === "/changelog") return changelogMarkdown();
 	if (path === "/roadmap") return roadmapMarkdown();
 	return docsMarkdown.get(path) ?? null;

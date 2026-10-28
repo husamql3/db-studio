@@ -1,7 +1,10 @@
 import { Sheet, SheetContent, SheetTrigger } from "@db-studio/ui/sheet";
 import { cn } from "@db-studio/ui/utils";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
-import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import {
+	SIDEBAR_DEFAULT_WIDTH,
+	usePersonalPreferencesStore,
+} from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
@@ -14,13 +17,11 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	const isResizingRef = useRef(false);
 	const startXRef = useRef(0);
 	const startWidthRef = useRef(0);
-	const hoverTimeoutRef = useRef<number | null>(null);
 	const sheetContentRef = useRef<HTMLDivElement>(null);
 
 	// Handler refs — updated every render so the stable listeners always call the latest handler
 	const handleMouseMoveRef = useRef((_e: MouseEvent) => {});
 	const handleMouseUpRef = useRef(() => {});
-	const handleEdgeHoverRef = useRef((_e: MouseEvent) => {});
 	const handleMouseEnterRef = useRef(() => {});
 	const handleMouseLeaveRef = useRef(() => {});
 
@@ -32,7 +33,10 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 			requestAnimationFrame(() => {
 				const delta = e.clientX - startXRef.current;
 				const newWidth = startWidthRef.current + delta;
-				setSidebarWidth(newWidth);
+				// Dragging within 16px of the default width snaps onto it, so it is easy to get back to.
+				setSidebarWidth(
+					Math.abs(newWidth - SIDEBAR_DEFAULT_WIDTH) <= 16 ? SIDEBAR_DEFAULT_WIDTH : newWidth,
+				);
 			});
 		},
 		[setSidebarWidth],
@@ -78,36 +82,9 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		}
 	}, [isPinned, setSidebarOpen]);
 
-	// Edge hover detection - opens sidebar when mouse is near left edge
-	const handleEdgeHover = useCallback(
-		(e: MouseEvent) => {
-			// Don't trigger if sidebar is already pinned or open, or if resizing
-			if (isPinned || isOpen || isResizingRef.current) return;
-
-			if (e.clientX <= CONSTANTS.HOVER_ZONE) {
-				// Clear any existing timeout
-				if (hoverTimeoutRef.current) {
-					clearTimeout(hoverTimeoutRef.current);
-				}
-
-				// Set a small delay to avoid accidental triggers
-				hoverTimeoutRef.current = window.setTimeout(() => {
-					setSidebarOpen(true);
-				}, CONSTANTS.HOVER_DELAY);
-			} else if (e.clientX > CONSTANTS.HOVER_ZONE + 50) {
-				// Clear timeout if mouse moves away before delay completes
-				if (hoverTimeoutRef.current) {
-					clearTimeout(hoverTimeoutRef.current);
-				}
-			}
-		},
-		[isPinned, isOpen, setSidebarOpen],
-	);
-
 	// Keep handler refs current every render so stable listeners always use the latest handler
 	handleMouseMoveRef.current = handleMouseMove;
 	handleMouseUpRef.current = handleMouseUp;
-	handleEdgeHoverRef.current = handleEdgeHover;
 	handleMouseEnterRef.current = handleMouseEnter;
 	handleMouseLeaveRef.current = handleMouseLeave;
 
@@ -120,21 +97,13 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	useEffect(() => {
 		const onMouseMove = (e: MouseEvent) => handleMouseMoveRef.current(e);
 		const onMouseUp = () => handleMouseUpRef.current();
-		const onEdgeHover = (e: MouseEvent) => handleEdgeHoverRef.current(e);
 
 		document.addEventListener("mousemove", onMouseMove);
 		document.addEventListener("mouseup", onMouseUp);
-		document.addEventListener("mousemove", onEdgeHover);
 
 		return () => {
 			document.removeEventListener("mousemove", onMouseMove);
 			document.removeEventListener("mouseup", onMouseUp);
-			document.removeEventListener("mousemove", onEdgeHover);
-
-			// Clear timeout on cleanup
-			if (hoverTimeoutRef.current) {
-				clearTimeout(hoverTimeoutRef.current);
-			}
 		};
 	}, []); // empty deps — listeners are stable, handlers updated via refs
 
@@ -167,11 +136,8 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 				side="left"
 				showCloseButton={false}
 				isPinned={isPinned}
-				className={cn(
-					"bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0",
-					"transition-transform duration-300 ease-out",
-				)}
-				style={{ width: `${width}px` }}
+				className="sidebar-behind-rail bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0"
+				style={{ width: `${width}px`, left: `${CONSTANTS.RAIL_WIDTH}px` }}
 				onOpenAutoFocus={(e) => e.preventDefault()}
 			>
 				<div className="relative h-full flex flex-col">
@@ -183,14 +149,12 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 						tabIndex={0}
 						onMouseDown={handleMouseDown}
 						className={cn(
-							"absolute top-0 right-0 w-2 h-full cursor-col-resize z-50",
-							"hover:bg-blue-500/50 transition-colors group",
+							"absolute inset-y-0 -right-1.5 w-3 cursor-col-resize z-50 outline-none",
+							"after:absolute after:inset-y-0 after:left-1/2 after:w-px after:transition-colors",
+							"hover:after:bg-blue-400/70 active:after:bg-blue-400/70 focus-visible:after:bg-blue-400/70",
 						)}
-						title="Drag to resize"
-					>
-						{/* Visual indicator on hover */}
-						<div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-12 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-full" />
-					</div>
+						title="Drag to resize sidebar"
+					/>
 				</div>
 			</SheetContent>
 		</Sheet>

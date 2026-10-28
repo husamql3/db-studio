@@ -62,12 +62,20 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Indexes section to view, add, edit, remove, and understand indexes",
+				title: "Indexes section to view, add and remove indexes",
+				status: "completed",
+			},
+			{
+				title: "Schema visualizer: an ER diagram of every table and its foreign keys",
+				status: "completed",
+			},
+			{
+				title: "Generate join queries from relationships in the ER diagram",
 				status: "planned",
 			},
 			{
-				title: "Interactive ER diagram with relationship navigation and join query generation",
-				status: "planned",
+				title: "Logs tab for reading database server logs",
+				status: "completed",
 			},
 			{
 				title: "Schema section for views, functions, triggers, and extensions",
@@ -93,6 +101,15 @@ export const roadmapItems: RoadmapItem[] = [
 				title: "Smart SQL editor with color coding, auto-complete, and formatting",
 				status: "completed",
 			},
+			{
+				title:
+					"Command palette for jumping to tables, running actions, and opening the assistant",
+				status: "completed",
+			},
+			{
+				title: "Light, dark, and system themes",
+				status: "completed",
+			},
 		],
 	},
 	{
@@ -104,8 +121,12 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "completed",
 			},
 			{
-				title: "Smart dropdowns for related tables with search and easy navigation",
-				status: "in-progress",
+				title: "Browse, filter, sort, and select related records when adding a row",
+				status: "completed",
+			},
+			{
+				title: "Searchable dropdowns for related records",
+				status: "planned",
 			},
 			{
 				title: "Export table data and copy table structure as SQL",
@@ -117,10 +138,14 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Better JSON editor inside cells with formatting and line numbers",
-				status: "planned",
+				status: "completed",
 			},
 			{
-				title: "Bulk edit rows, clone records, and preview pending changes before saving",
+				title: "Edit multiple rows and save or discard pending cell changes together",
+				status: "completed",
+			},
+			{
+				title: "Clone records and preview pending changes before saving",
 				status: "planned",
 			},
 			{
@@ -133,8 +158,37 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Customize the grid: hide/reorder columns and add color rules",
-				status: "in-progress",
+				title: "Customize the grid: hide and reorder columns",
+				status: "completed",
+			},
+			{
+				title: "Color rules for highlighting grid cells and rows",
+				status: "planned",
+			},
+			{
+				title: "Editable row details sheet with keyboard navigation between rows",
+				status: "completed",
+			},
+			{
+				title: "Delete tables and records, with foreign key handling and confirmation",
+				status: "completed",
+			},
+			{
+				title: "Rename tables across all SQL databases and MongoDB",
+				status: "completed",
+			},
+			{
+				title:
+					"Live mode for PostgreSQL that refreshes tables and highlights new and changed rows",
+				status: "completed",
+			},
+			{
+				title: "Live mode for MySQL, SQL Server, SQLite, DuckDB, and Oracle",
+				status: "completed",
+			},
+			{
+				title: "Live mode for MongoDB",
+				status: "planned",
 			},
 		],
 	},
@@ -144,7 +198,7 @@ export const roadmapItems: RoadmapItem[] = [
 		items: [
 			{
 				title: "Turn plain English into accurate SQL using knowledge of your full database",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Explain any SQL query in simple, everyday English",
@@ -152,12 +206,12 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Support for adding personal AI provider credentials (OpenAI, Anthropic, etc.)",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title:
 					"Suggest faster ways to write queries, explain plans, and show how much quicker they’ll run",
-				status: "planned",
+				status: "in-progress",
 			},
 			{
 				title: "Help design tables and suggest smart improvements to your database structure",
@@ -169,7 +223,7 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{
 				title: "Spot errors in failed queries and suggest quick fixes",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Generate migration drafts from schema changes with human review",
@@ -197,20 +251,28 @@ export const roadmapItems: RoadmapItem[] = [
 			},
 			{ title: "Add full support for SQLite databases", status: "completed" },
 			{
-				title: "Add full support for MariaDB databases",
-				status: "planned",
+				title: "Add support for MariaDB, CockroachDB, and TiDB databases",
+				status: "completed",
 			},
 			{
 				title: "Add full support for Oracle databases",
-				status: "planned",
+				status: "completed",
 			},
 			{
 				title: "Add support for Redis and Valkey key-value databases",
 				status: "completed",
 			},
 			{
-				title: "Add support for DuckDB and ClickHouse analytics databases",
-				status: "planned",
+				title: "Add support for DuckDB analytics databases",
+				status: "completed",
+			},
+			{
+				title: "Add support for ClickHouse analytics databases",
+				status: "completed",
+			},
+			{
+				title: "Add support for libSQL, Turso, and Cloudflare D1 databases",
+				status: "completed",
 			},
 			{
 				title: "Add support for Elasticsearch and OpenSearch databases",
@@ -224,17 +286,17 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Platform Availability",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Native desktop apps for macOS, Windows, and Linux",
-				status: "planned",
+				status: "in-progress",
 			},
 		],
 	},
 	{
 		title: "Database Operations",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title:
@@ -242,7 +304,12 @@ export const roadmapItems: RoadmapItem[] = [
 				status: "planned",
 			},
 			{
-				title: "Saved connection manager with SSH tunnels, SSL/TLS, env vars, and templates",
+				title:
+					"Saved connections: connect from the Connect page, then filter, rename, color, delete, and switch between them",
+				status: "completed",
+			},
+			{
+				title: "SSH tunnels, SSL/TLS options, and connection templates",
 				status: "planned",
 			},
 			{
@@ -277,15 +344,20 @@ export const roadmapItems: RoadmapItem[] = [
 	},
 	{
 		title: "Advanced Tools",
-		status: "planned",
+		status: "in-progress",
 		items: [
 			{
 				title: "Drag-and-drop visual tool to build queries without writing SQL",
 				status: "planned",
 			},
 			{
-				title: "Compare database structures and generate migration scripts",
-				status: "planned",
+				title:
+					"Migrations diff: compare two database structures and get a step-by-step migration script with risky changes flagged",
+				status: "in-progress",
+			},
+			{
+				title: "Prisma migrations view showing applied, pending, and failed migrations",
+				status: "in-progress",
 			},
 			{
 				title: "Turn query results into charts directly in the app",

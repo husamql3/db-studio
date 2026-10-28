@@ -12,6 +12,7 @@ const fixtures = vi.hoisted(() => ({
 	tableCols: [] as ColumnInfoSchemaType[],
 }));
 
+vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 vi.mock("@/shared/api", () => ({
 	updateRecords: (...args: unknown[]) => fixtures.updateRecords(...args),
 }));

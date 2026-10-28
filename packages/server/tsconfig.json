@@ -11,9 +11,8 @@
 			"node",
 			"vitest/globals"
 		],
-		"jsx": "react-jsx",
-		"jsxImportSource": "hono/jsx",
 		"outDir": "./dist",
+		"rootDir": "..",
 		"ignoreDeprecations": "6.0",
 		"paths": {
 			"@/*": [

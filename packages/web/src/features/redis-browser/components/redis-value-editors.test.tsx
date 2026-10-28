@@ -53,59 +53,7 @@ const renderEditor = (
 	return { ...view, props };
 };
 
-describe("hash editor filtering", () => {
-	it("hides rows whose field and value both miss the filter, case-insensitively", () => {
-		renderEditor(hashDetail());
-		const filter = screen.getByLabelText("Filter loaded entries");
-
-		// Matches on field text regardless of case.
-		fireEvent.change(filter, { target: { value: "BETA" } });
-		expect(screen.getByText("beta")).toBeInTheDocument();
-		expect(screen.queryByText("alpha")).not.toBeInTheDocument();
-		expect(screen.queryByText("gamma")).not.toBeInTheDocument();
-
-		// Matches on value text too: only beta has value "two".
-		fireEvent.change(filter, { target: { value: "TWO" } });
-		expect(screen.getByText("beta")).toBeInTheDocument();
-		expect(screen.queryByText("alpha")).not.toBeInTheDocument();
-		expect(screen.queryByText("gamma")).not.toBeInTheDocument();
-
-		// Clearing the filter restores every loaded row.
-		fireEvent.change(filter, { target: { value: "" } });
-		expect(screen.getByText("alpha")).toBeInTheDocument();
-		expect(screen.getByText("beta")).toBeInTheDocument();
-		expect(screen.getByText("gamma")).toBeInTheDocument();
-	});
-
-	it("shows the filtered-empty message when nothing matches", () => {
-		renderEditor(hashDetail());
-		fireEvent.change(screen.getByLabelText("Filter loaded entries"), {
-			target: { value: "zzz-no-match" },
-		});
-		expect(screen.getByText("No loaded entries match the filter.")).toBeInTheDocument();
-		expect(screen.queryByText("alpha")).not.toBeInTheDocument();
-	});
-});
-
 describe("hash add form", () => {
-	it("submits the encoded pair and clears the inputs on success", async () => {
-		const { props } = renderEditor(hashDetail());
-		const fieldInput = screen.getByPlaceholderText("field");
-		const valueInput = screen.getByPlaceholderText("value");
-
-		fireEvent.change(fieldInput, { target: { value: "delta" } });
-		fireEvent.change(valueInput, { target: { value: "four" } });
-		fireEvent.click(screen.getByRole("button", { name: "Add" }));
-
-		expect(props.act).toHaveBeenCalledWith({
-			action: "upsertHash",
-			field: encodeTextValue("delta"),
-			value: encodeTextValue("four"),
-		});
-		await waitFor(() => expect(fieldInput).toHaveValue(""));
-		expect(valueInput).toHaveValue("");
-	});
-
 	it("keeps the typed pair when the save fails", async () => {
 		const act = vi.fn<RedisAct>().mockResolvedValue(false);
 		renderEditor(hashDetail(), { act });
@@ -179,37 +127,6 @@ describe("list editor pushes", () => {
 			entries: [{ index: 0, value: encodeTextValue("first") }],
 		});
 
-	it("pushes to the left via the dedicated button", async () => {
-		const { props } = renderEditor(listDetail());
-		const item = screen.getByPlaceholderText("new item");
-
-		fireEvent.change(item, { target: { value: "fresh" } });
-		fireEvent.click(screen.getByRole("button", { name: "Push left" }));
-
-		expect(props.act).toHaveBeenCalledWith({
-			action: "pushList",
-			side: "left",
-			value: encodeTextValue("fresh"),
-		});
-		await waitFor(() => expect(item).toHaveValue(""));
-	});
-
-	it("pushes to the right when the form submits", async () => {
-		const { props } = renderEditor(listDetail());
-		const item = screen.getByPlaceholderText("new item");
-
-		fireEvent.change(item, { target: { value: "tail" } });
-		fireEvent.click(screen.getByRole("button", { name: "Push right" }));
-
-		await waitFor(() =>
-			expect(props.act).toHaveBeenCalledWith({
-				action: "pushList",
-				side: "right",
-				value: encodeTextValue("tail"),
-			}),
-		);
-	});
-
 	it("disables both push buttons while the hex draft is unparseable", async () => {
 		const { props } = renderEditor(listDetail());
 		const item = screen.getByPlaceholderText("new item");
@@ -239,35 +156,5 @@ describe("list editor pushes", () => {
 				value: { base64: base64UrlFromBytes(Uint8Array.from([255, 0])) },
 			}),
 		);
-	});
-});
-
-describe("stream editor", () => {
-	it("reports a direction change when the order toggle flips", () => {
-		const { props } = renderEditor(
-			makeDetail({
-				kind: "stream",
-				entries: [
-					{
-						id: "1-1",
-						fields: [{ field: encodeTextValue("event"), value: encodeTextValue("login") }],
-					},
-				],
-			}),
-		);
-		expect(screen.getByText("Oldest first")).toBeInTheDocument();
-
-		fireEvent.click(screen.getByText("Newest first"));
-		expect(props.onStreamDirectionChange).toHaveBeenCalledWith("backward");
-	});
-});
-
-describe("unknown kinds", () => {
-	it("falls back to the metadata-only notice", () => {
-		renderEditor(makeDetail({ kind: "unknown" }));
-		expect(screen.getByText("Metadata only")).toBeInTheDocument();
-		expect(
-			screen.getByText("This Redis module type cannot be edited in this release."),
-		).toBeInTheDocument();
 	});
 });

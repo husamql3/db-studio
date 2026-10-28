@@ -1,4 +1,4 @@
-import type { DatabaseSchema } from "@db-studio/shared/types";
+import { DATABASE_ENGINES, type DatabaseSchema } from "@db-studio/shared/types";
 
 /**
  * Generate system prompt with database context
@@ -11,7 +11,7 @@ The user chose not to share their database schema. Do not claim to know their ta
 	}
 
 	const dbTypeLower = schema.dbType.toLowerCase();
-	const dbTypeLabel = schema.dbType === "pg" ? "PostgreSQL" : schema.dbType;
+	const dbTypeLabel = DATABASE_ENGINES[schema.dbType].label;
 	if (dbTypeLower.includes("mongo")) {
 		return `You are a database assistant for db-studio. Your responses must be CONCISE and FOCUSED.
 
@@ -137,7 +137,7 @@ This will return the 5 customers with the highest total order value. You might a
  * Format schema information for the prompt
  */
 function formatSchemaForPrompt(schema: DatabaseSchema): string {
-	const dbTypeLabel = schema.dbType === "pg" ? "PostgreSQL" : schema.dbType;
+	const dbTypeLabel = DATABASE_ENGINES[schema.dbType].label;
 	let output = `Database Type: ${dbTypeLabel}\n\n`;
 
 	output += "**Tables and Columns:**\n";
@@ -157,12 +157,6 @@ function formatSchemaForPrompt(schema: DatabaseSchema): string {
 			if (col.description) {
 				output += `    ${col.description}\n`;
 			}
-		}
-
-		// Add sample data if available
-		if (table.sampleData && table.sampleData.length > 0) {
-			output += `Sample data (${table.sampleData.length} rows):\n`;
-			output += `${JSON.stringify(table.sampleData.slice(0, 3), null, 2)}\n`;
 		}
 	}
 

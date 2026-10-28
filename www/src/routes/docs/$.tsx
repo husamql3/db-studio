@@ -2,7 +2,7 @@ import browserCollections from "fumadocs-mdx:collections/browser";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useFumadocsLoader } from "fumadocs-core/source/client";
-import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { Accordions } from "fumadocs-ui/components/accordion";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Card, Cards } from "fumadocs-ui/components/card";
 import {
@@ -14,6 +14,7 @@ import {
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page";
 import defaultMdxComponents from "fumadocs-ui/mdx";
+import { Accordion } from "@/components/accordion";
 import { baseOptions } from "@/components/layout.shared";
 import { seoHead } from "@/lib/seo";
 import { source } from "@/lib/source";
@@ -87,6 +88,7 @@ function Page() {
 		<DocsLayout
 			{...baseOptions()}
 			tree={pageTree}
+			containerProps={{ className: "[--fd-layout-width:100vw]" }}
 		>
 			<Content />
 		</DocsLayout>

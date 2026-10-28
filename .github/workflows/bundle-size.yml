@@ -10,6 +10,10 @@ on:
       - "packages/web/src/**"
       - "packages/shared/src/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bundle-size:
     runs-on: ubuntu-latest

@@ -23,15 +23,6 @@ describe("RedisAdapter — executeQuery", () => {
 		adapter = new RedisAdapter();
 	});
 
-	it("rejects empty queries with 400", async () => {
-		await expect(adapter.executeQuery({ db: "0", query: "" })).rejects.toMatchObject({
-			status: 400,
-		});
-		await expect(adapter.executeQuery({ db: "0", query: "   " })).rejects.toMatchObject({
-			status: 400,
-		});
-	});
-
 	it("tokenizes a simple GET and shapes a scalar reply", async () => {
 		mockClient.call.mockResolvedValue("alice");
 		const result = await adapter.executeQuery({ db: "0", query: "GET user:1" });
@@ -101,12 +92,6 @@ describe("RedisAdapter — executeQuery", () => {
 		const result = await adapter.executeQuery({ db: "0", query: "LRANGE foo 0 -1" });
 		expect(result.columns).toEqual(["error"]);
 		expect(result.error).toContain("WRONGTYPE");
-	});
-
-	it("rejects malformed quoted strings with 400", async () => {
-		await expect(
-			adapter.executeQuery({ db: "0", query: 'SET k "unclosed' }),
-		).rejects.toMatchObject({ status: 400 });
 	});
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	buildMssqlColumnDefinition,
+	buildOrderByClause,
 	formatMssqlDefaultValue,
 	buildSortClause,
 	buildWhereClause,
@@ -92,5 +93,37 @@ describe("MSSQL query builder", () => {
 				{ includePrimaryKey: true },
 			),
 		).toBe("[id] INT IDENTITY(1,1) PRIMARY KEY");
+	});
+});
+
+// Paging and live polling need a total order. Failure modes: a composite key loses a column or
+// its order, a key column already in the sort is repeated (SQL Server rejects duplicate ORDER BY
+// columns), tie-breakers ignore the sort direction, and a keyless unsorted table emits no ORDER BY
+// (OFFSET/FETCH requires one).
+describe("MSSQL buildOrderByClause", () => {
+	it("orders an unsorted table by every key column in key order", () => {
+		expect(buildOrderByClause([], "asc", ["tenant_id", "id"])).toBe(
+			"ORDER BY [tenant_id] ASC, [id] ASC",
+		);
+	});
+
+	it("breaks sort ties by key in the sort's direction", () => {
+		expect(
+			buildOrderByClause([{ columnName: "created_at", direction: "desc" }], "asc", ["id"]),
+		).toBe("ORDER BY [created_at] DESC, [id] DESC");
+		expect(buildOrderByClause("name", "desc", ["id"])).toBe("ORDER BY [name] DESC, [id] DESC");
+	});
+
+	it("does not repeat a key column that is already sorted", () => {
+		expect(buildOrderByClause([{ columnName: "id", direction: "desc" }], "asc", ["id"])).toBe(
+			"ORDER BY [id] DESC",
+		);
+		expect(
+			buildOrderByClause([{ columnName: "id", direction: "desc" }], "asc", ["id", "sku"]),
+		).toBe("ORDER BY [id] DESC, [sku] DESC");
+	});
+
+	it("falls back to a no-op ORDER BY for an unsorted keyless table", () => {
+		expect(buildOrderByClause([], "asc", [])).toBe("ORDER BY (SELECT NULL)");
 	});
 });
