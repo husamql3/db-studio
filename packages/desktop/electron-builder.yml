@@ -55,6 +55,7 @@ win:
     - target: nsis
 
 linux:
+  executableName: db-studio
   icon: build/icon.png
   category: Development
   maintainer: Hüsam <husam@ql3.dev>
