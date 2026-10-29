@@ -16,6 +16,37 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.0.0",
+		date: "2026-10-29",
+		title: "Desktop app and a new website",
+		features: [
+			{
+				text: "db-studio is now a desktop app for macOS, Windows and Linux, sharing saved connections with the CLI",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "The website has a new design",
+				username: "husamql3",
+			},
+			{
+				text: "Menus, dialogs, tooltips and tabs open with smoother motion and consistent corners, and respect reduced motion",
+				username: "husamql3",
+			},
+			{
+				text: "The visualizer uses the full width without the tables sidebar",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "A query result too large to send now shows a clear error asking you to add a LIMIT",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.24.1",
 		date: "2026-10-28",
 		title: "Safer record and column edits",
