@@ -145,17 +145,15 @@ const MoreMenu = () => {
 
 	return (
 		<DropdownMenu>
-			<RailTip label="More">
-				<DropdownMenuTrigger asChild>
-					<button
-						type="button"
-						aria-label="More"
-						className={railTile}
-					>
-						<Ellipsis className="size-5" />
-					</button>
-				</DropdownMenuTrigger>
-			</RailTip>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					aria-label="More"
+					className={railTile}
+				>
+					<Ellipsis className="size-5" />
+				</button>
+			</DropdownMenuTrigger>
 
 			<DropdownMenuContent
 				side="right"
