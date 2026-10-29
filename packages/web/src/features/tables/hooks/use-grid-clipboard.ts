@@ -11,7 +11,7 @@ import {
 } from "../utils/grid-clipboard";
 
 type PastedChange = { rowData: TableRecord; columnId: string; value: unknown };
-export type PasteProblem = {
+type PasteProblem = {
 	rowNumber: number;
 	columnId: string;
 	text: string;
