@@ -35,7 +35,7 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	},
 	head: () =>
 		seoHead({
-			title: "dbstudio – The modern pgAdmin alternative for every database",
+			title: "db-studio | Every database. One studio",
 			description:
 				"dbstudio is a modern database client for PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and Turso. Browse tables, edit records, and run queries from one UI.",
 			path: "/",
@@ -146,8 +146,7 @@ function Hero({ stars }: { stars: number }) {
 				</Link>
 
 				<h1 className="max-w-3xl text-3xl leading-[1.1] font-semibold tracking-tight text-balance md:text-[2.625rem]">
-					The modern pgAdmin alternative{" "}
-					<span className="text-muted-foreground">for every database.</span>
+					Every database. <span className="text-muted-foreground">One studio</span>
 				</h1>
 
 				<p className="max-w-xl text-sm leading-relaxed text-muted-foreground text-pretty">
