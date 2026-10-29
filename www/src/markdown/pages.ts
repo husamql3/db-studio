@@ -86,6 +86,7 @@ ${supportedDatabases
 
 - [Documentation](${SITE_URL}/docs)
 - [Getting Started](${SITE_URL}/docs/getting-started)
+- [Desktop App](${SITE_URL}/docs/desktop)
 - [FAQ](${SITE_URL}/docs/faq)
 - [Roadmap](${SITE_URL}/roadmap)
 - [Changelog](${SITE_URL}/changelog)

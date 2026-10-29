@@ -2,19 +2,32 @@
 @import "tw-animate-css";
 @import 'fumadocs-ui/css/black.css';
 @import 'fumadocs-ui/css/preset.css';
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
+/* The app's typeface, so the site and the product read as one thing. */
+@theme {
+  --font-sans: "JetBrains Mono Variable", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --color-brand: oklch(0.488 0.243 264.376);
+  --color-brand-light: oklch(0.72 0.15 264.376);
+  /* Stronger than the built-in curves: motion starts at once and settles softly. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 html,
 body {
-	@apply bg-zinc-950 dark:bg-zinc-950;
-  font-family: "Geist Mono", monospace;
-	scroll-behavior: smooth;
-	color-scheme: dark;
+  @apply bg-zinc-950;
+  scroll-behavior: smooth;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+}
 
-	@media (prefers-color-scheme: dark) {
-		color-scheme: dark;
-	}
+::selection {
+  background: oklch(0.488 0.243 264.376 / 0.45);
 }
 
 @theme inline {
@@ -130,7 +143,47 @@ body {
   --sidebar-ring: oklch(0.552 0.016 285.938);
 }
 
+/* Fumadocs' black theme, moved onto the site's zinc so docs and pages share a background. */
+.dark {
+  --color-fd-background: oklch(0.141 0.005 285.823);
+  --color-fd-card: oklch(0.17 0.005 285.823);
+  --color-fd-popover: oklch(0.17 0.005 285.823);
+  --color-fd-secondary: oklch(0.21 0.006 285.885);
+  --color-fd-muted: oklch(0.17 0.005 285.823);
+  --color-fd-border: oklch(1 0 0 / 10%);
+}
+
+/* Fumadocs boxes the desktop sidebar's icon links (X, GitHub) with no prop to opt out; show them as bare
+   icons, like the mobile drawer does. If fumadocs renames these classes, the box simply comes back. */
+#nd-sidebar .flex.rounded-lg.border.bg-fd-secondary\/50 {
+  border-width: 0;
+  background: transparent;
+  padding: 0;
+  gap: 2px;
+}
+
+/* First paint of a page: children rise in one after another. Plays once, never on interaction. */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+}
+
+.stagger > * {
+  animation: enter 600ms var(--ease-out) both;
+}
+.stagger > :nth-child(2) { animation-delay: 60ms; }
+.stagger > :nth-child(3) { animation-delay: 120ms; }
+.stagger > :nth-child(4) { animation-delay: 180ms; }
+.stagger > :nth-child(5) { animation-delay: 240ms; }
+
 @media (prefers-reduced-motion: reduce) {
+  .stagger > * {
+    animation: none;
+  }
+
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

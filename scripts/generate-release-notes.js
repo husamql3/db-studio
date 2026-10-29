@@ -48,4 +48,13 @@ if (entry.bugsFixed?.length) {
 	}
 }
 
+lines.push(
+	"",
+	"## Desktop app",
+	"",
+	"Installers are under **Assets**. Which one to pick and how to install: https://dbstudio.sh/docs/desktop",
+	"",
+	"macOS: the app is not signed yet, so run `xattr -dr com.apple.quarantine /Applications/db-studio.app` after installing.",
+);
+
 console.log(lines.join("\n"));

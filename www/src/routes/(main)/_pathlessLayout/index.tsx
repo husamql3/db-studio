@@ -1,18 +1,14 @@
+import { META } from "@db-studio/shared/constants";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-	CodeBlock,
-	CodeBlockTab,
-	CodeBlockTabs,
-	CodeBlockTabsList,
-	CodeBlockTabsTrigger,
-} from "@/components/codeblock";
+import { IoLogoGithub } from "react-icons/io";
 import { FeaturesGrid } from "@/components/features";
 import { BuiltInPublic } from "@/components/home-stats";
-import { InfiniteSlider } from "@/components/infinite-slider";
+import { InstallCommand } from "@/components/install-command";
+import { SectionHeader } from "@/components/section";
 import { SponsorsSection } from "@/components/sponsors";
-import { Highlighter } from "@/components/ui/highlighter";
+import { Button } from "@/components/ui/btn";
 import { ClickhouseIcon } from "@/components/ui/svgs/clickhouseIcon";
 import { CockroachdbIcon } from "@/components/ui/svgs/cockroachdbIcon";
 import { DuckdbIcon } from "@/components/ui/svgs/duckdbIcon";
@@ -25,6 +21,7 @@ import { SQLite } from "@/components/ui/svgs/sqliteWordmark";
 import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
 import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
+import { changelog } from "@/lib/content/changelog";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { getHomeStats } from "@/utils/get-home-stats";
@@ -45,29 +42,29 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 		}),
 });
 
-/** Engines whose brand ships an icon only; the slider pairs each with its name. */
+/** Engines whose brand ships an icon only; the grid pairs each with its name. */
 const iconLogo = (name: string, Icon: typeof OracleIcon) => (
 	<>
 		<Icon
 			aria-hidden="true"
-			className="h-7 w-auto"
+			className="h-6 w-auto"
 		/>
-		<span className="text-2xl font-semibold tracking-tight">{name}</span>
+		<span className="text-lg font-semibold tracking-tight">{name}</span>
 	</>
 );
 
-/** Slider logos, each linking to its section on /docs/databases. */
+/** Engine logos, each linking to its section on /docs/databases. */
 const LOGOS = [
 	{
 		slug: "postgresql",
 		name: "PostgreSQL",
-		logo: <PostgresqlWordmarkDark className="h-10 w-auto" />,
+		logo: <PostgresqlWordmarkDark className="h-9 w-auto" />,
 	},
-	{ slug: "mysql", name: "MySQL", logo: <MysqlWordmarkDark className="h-10 w-auto" /> },
-	{ slug: "mongodb", name: "MongoDB", logo: <MongodbWordmarkDark className="h-10 w-auto" /> },
-	{ slug: "sql-server", name: "SQL Server", logo: <SqlServer className="h-10 w-auto" /> },
-	{ slug: "sqlite", name: "SQLite", logo: <SQLite className="h-10 w-auto" /> },
-	{ slug: "turso", name: "Turso", logo: <TursoWordmarkDark className="h-8 w-auto" /> },
+	{ slug: "mysql", name: "MySQL", logo: <MysqlWordmarkDark className="h-9 w-auto" /> },
+	{ slug: "mongodb", name: "MongoDB", logo: <MongodbWordmarkDark className="h-8 w-auto" /> },
+	{ slug: "sql-server", name: "SQL Server", logo: iconLogo("SQL Server", SqlServer) },
+	{ slug: "sqlite", name: "SQLite", logo: <SQLite className="h-9 w-auto" /> },
+	{ slug: "turso", name: "Turso", logo: <TursoWordmarkDark className="h-7 w-auto" /> },
 	{ slug: "mariadb", name: "MariaDB", logo: iconLogo("MariaDB", MariadbIconDark) },
 	{ slug: "cockroachdb", name: "CockroachDB", logo: iconLogo("CockroachDB", CockroachdbIcon) },
 	{ slug: "tidb", name: "TiDB", logo: iconLogo("TiDB", TidbIcon) },
@@ -109,7 +106,7 @@ function DemoVideo() {
 			<div
 				aria-hidden
 				className={cn(
-					"absolute inset-0 transition-opacity duration-500",
+					"absolute inset-0 transition-opacity duration-300 ease-out",
 					loaded && "opacity-0 pointer-events-none",
 				)}
 			>
@@ -119,301 +116,139 @@ function DemoVideo() {
 	);
 }
 
+function Hero({ stars }: { stars: number }) {
+	const latest = changelog[0];
+	return (
+		<section className="relative overflow-hidden px-5 pt-16 pb-14 md:px-8 md:pt-24 md:pb-20">
+			{/* A faint grid that fades out from the top-left corner, behind the copy. */}
+			<div
+				aria-hidden
+				className="pointer-events-none absolute inset-0 opacity-50"
+				style={{
+					backgroundImage:
+						"linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)",
+					backgroundSize: "32px 32px",
+					maskImage: "radial-gradient(ellipse 70% 90% at 0% 0%, black, transparent 70%)",
+				}}
+			/>
+
+			<div className="stagger relative flex flex-col items-start gap-6">
+				<Link
+					to="/changelog"
+					hash={`v${latest.version}`}
+					className="group inline-flex h-7 max-w-full items-center gap-2 rounded-sm border bg-card pr-2.5 pl-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground"
+				>
+					<span className="rounded-[3px] bg-brand/20 px-1.5 py-0.5 text-brand-light">
+						v{latest.version}
+					</span>
+					<span className="truncate">{latest.title}</span>
+					<ArrowRightIcon className="size-3 shrink-0 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
+				</Link>
+
+				<h1 className="max-w-3xl text-3xl leading-[1.1] font-semibold tracking-tight text-balance md:text-[2.625rem]">
+					The modern pgAdmin alternative{" "}
+					<span className="text-muted-foreground">for every database.</span>
+				</h1>
+
+				<p className="max-w-xl text-sm leading-relaxed text-muted-foreground text-pretty">
+					Browse tables, edit records, and run queries on PostgreSQL, MySQL, SQL Server,
+					MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse from one UI. One command,
+					nothing to install.
+				</p>
+
+				<InstallCommand />
+
+				<div className="flex flex-wrap gap-2">
+					<Button asChild>
+						<Link
+							to="/docs/$"
+							params={{ _splat: "getting-started" }}
+						>
+							Read the docs
+						</Link>
+					</Button>
+					<Button
+						asChild
+						variant="outline"
+					>
+						<a
+							href={META.SITE_GITHUB_LINK}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<IoLogoGithub />
+							Star on GitHub
+							<span className="tabular-nums text-muted-foreground">
+								{stars.toLocaleString()}
+							</span>
+						</a>
+					</Button>
+				</div>
+			</div>
+		</section>
+	);
+}
+
 function App() {
 	const { stats, sponsors } = Route.useLoaderData();
 	return (
-		<main className="flex-1 flex items-center justify-center mx-auto border-x max-w-2xl w-full">
-			<div className="h-full relative w-full flex-1 flex py-4 flex-col items-center justify-center my-16 gap-16">
-				<div className="relative w-full flex flex-col border-y px-3 py-6 md:px-8 md:py-10 gap-6 md:gap-10">
-					{/* X Faded Borders & Shades */}
-					<div
-						aria-hidden="true"
-						className="absolute inset-0 -z-1 size-full overflow-hidden"
-					>
-						<div
-							className={cn(
-								"absolute -inset-x-20 inset-y-0 z-0 rounded-full",
-								"bg-[radial-gradient(ellipse_at_center,theme(--color-foreground/.1),transparent,transparent)]",
-								"blur-[50px]",
-							)}
-						/>
-						<div className="absolute inset-y-0 left-4 w-px bg-linear-to-b from-transparent via-border to-border md:left-8" />
-						<div className="absolute inset-y-0 right-4 w-px bg-linear-to-b from-transparent via-border to-border md:right-8" />
-						<div className="absolute inset-y-0 left-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:left-12" />
-						<div className="absolute inset-y-0 right-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:right-12" />
-					</div>
+		<main className="mx-auto w-full max-w-5xl flex-1 border-x">
+			<Hero stars={stats.stars} />
 
-					<div className="w-full max-w-xl mx-auto flex flex-col items-center gap-5">
-						<h1 className="text-center md:text-xl font-bold">
-							A modern (pgAdmin alternative but good)
-							<Highlighter
-								action="highlight"
-								color="oklch(0.488 0.243 264.376)"
-							>
-								database management studio
-							</Highlighter>
-							for any database
-						</h1>
-					</div>
+			<div className="border-t">
+				<DemoVideo />
+			</div>
 
-					<div className="flex flex-col mx-auto max-w-md sm:max-w-lg w-full">
-						<div className="flex flex-col gap-1 text-center md:text-left">
-							<h2 className="font-semibold">Getting Started</h2>
-							<p className="text-xs text-muted-foreground">
-								Launch instantly from your terminal, no installation needed.
-							</p>
-						</div>
-
-						<CodeBlockTabs
-							defaultValue="npx"
-							lang="bash"
+			<section className="border-t">
+				<SectionHeader
+					eyebrow="Engines"
+					title="Works with your stack"
+					description="Every engine db-studio speaks, plus the databases built on their protocols. Pick one to see how to connect."
+				/>
+				<ul className="grid grid-cols-2 gap-px border-t bg-border sm:grid-cols-3 md:grid-cols-4">
+					{LOGOS.map(({ slug, name, logo }) => (
+						<li
+							key={slug}
+							className="bg-background"
 						>
-							<CodeBlockTabsList>
-								<CodeBlockTabsTrigger
-									className="text-xs"
-									value="npx"
-								>
-									npx
-								</CodeBlockTabsTrigger>
-								<CodeBlockTabsTrigger
-									className="text-xs"
-									value="yarn"
-								>
-									Yarn
-								</CodeBlockTabsTrigger>
-								<CodeBlockTabsTrigger
-									className="text-xs"
-									value="pnpm"
-								>
-									pnpm
-								</CodeBlockTabsTrigger>
-								<CodeBlockTabsTrigger
-									className="text-xs"
-									value="bun"
-								>
-									bun
-								</CodeBlockTabsTrigger>
-							</CodeBlockTabsList>
-
-							<CodeBlockTab value="npx">
-								<CodeBlock
-									className="text-xs"
-									lang="bash"
-								>
-									<pre>
-										<code>npx db-studio</code>
-									</pre>
-								</CodeBlock>
-							</CodeBlockTab>
-							<CodeBlockTab value="yarn">
-								<CodeBlock
-									className="text-xs"
-									lang="bash"
-								>
-									<pre>
-										<code>yarn dlx db-studio</code>
-									</pre>
-								</CodeBlock>
-							</CodeBlockTab>
-							<CodeBlockTab value="pnpm">
-								<CodeBlock
-									className="text-xs"
-									lang="bash"
-								>
-									<pre>
-										<code>pnpm dlx db-studio</code>
-									</pre>
-								</CodeBlock>
-							</CodeBlockTab>
-							<CodeBlockTab value="bun">
-								<CodeBlock
-									className="text-xs"
-									lang="bash"
-								>
-									<pre>
-										<code>bunx db-studio</code>
-									</pre>
-								</CodeBlock>
-							</CodeBlockTab>
-						</CodeBlockTabs>
-					</div>
-
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
-
-				<div className="relative w-full flex flex-col border-y">
-					<DemoVideo />
-
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
-
-				<div className="relative w-full flex flex-col border-y">
-					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Works with your <span className="text-foreground">stack</span>
-					</h2>
-
-					<InfiniteSlider
-						gap={64}
-						speed={60}
-						speedOnHover={30}
-						className="py-8 border-t"
-					>
-						{LOGOS.map(({ slug, name, logo }) => (
 							<Link
-								key={slug}
 								to="/docs/$"
 								params={{ _splat: "databases" }}
 								hash={slug}
 								aria-label={`${name} docs`}
-								// brightness-0 + invert flattens the brand colors to white on the dark-only site.
-								className="flex items-center justify-center gap-2.5 h-10 px-2 brightness-0 invert transition-opacity duration-200 hover:opacity-70"
+								className="group flex h-24 items-center justify-center px-4 transition-colors duration-200 hover:bg-white/[0.025]"
 							>
-								{logo}
+								{/* brightness-0 + invert flattens the brand colors to white on the dark-only site. */}
+								<span className="flex items-center gap-2 opacity-60 brightness-0 invert transition-opacity duration-200 group-hover:opacity-100">
+									{logo}
+								</span>
 							</Link>
-						))}
-					</InfiniteSlider>
+						</li>
+					))}
+				</ul>
+			</section>
 
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
+			<section className="border-t">
+				<SectionHeader
+					eyebrow="Features"
+					title="Everything you need to manage your database"
+				/>
+				<FeaturesGrid />
+			</section>
 
-				<div className="relative w-full flex flex-col border-y">
-					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Everything you need to{" "}
-						<span className="text-foreground">manage your database</span>
-					</h2>
+			<section className="border-t">
+				{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
+				<BuiltInPublic stats={stats} />
+			</section>
 
-					<FeaturesGrid />
-
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
-
-				<div className="relative w-full flex flex-col border-y">
-					{/* <HomeStats stats={stats} /> adds page views and referrers; use it once traffic grows. */}
-					<BuiltInPublic stats={stats} />
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
-
-				<div className="relative w-full flex flex-col border-y">
-					<SponsorsSection sponsors={sponsors} />
-
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
-
-				{/* <div className="relative w-full flex flex-col border-y">
-					<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-						Shoutout to our <span className="text-foreground">contributors</span>
-					</h2>
-
-					<ContributorsGrid contributors={contributors} />
-
-					<PlusIcon
-						className="-top-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -top-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div> */}
-			</div>
+			<section className="border-t">
+				<SectionHeader
+					eyebrow="Sponsors"
+					title="Open for sponsorship"
+					description="db-studio is free and open source. Sponsors keep it that way."
+				/>
+				<SponsorsSection sponsors={sponsors} />
+			</section>
 		</main>
 	);
 }
