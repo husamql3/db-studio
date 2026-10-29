@@ -66,7 +66,6 @@ export const TableBody = ({
 						<TableBodyRow
 							key={row.id}
 							row={row}
-							tableName={tableName}
 							tableState={table.getState()}
 							tableMeta={table.options.meta}
 							virtualColumns={virtualColumns}
