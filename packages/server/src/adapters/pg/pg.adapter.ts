@@ -47,7 +47,7 @@ import {
 } from "@/adapters/base.adapter.js";
 import { getConnectionUrl, getDbPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
-import { isPgConstraintViolation, isPgDatabaseError } from "@/drivers.js";
+import { isPgConstraintViolation, isPgDatabaseError, isPgDataException } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
@@ -1087,12 +1087,16 @@ export class PgAdapter extends BaseAdapter {
 			return await inTransaction(pool, async (client) => {
 				let total = 0;
 				for (const { keyValues, rowUpdates } of groups) {
-					const setClauses = rowUpdates.map((u, i) => `"${u.columnName}" = $${i + 1}`);
-					const values = rowUpdates.map((u) =>
-						u.value !== null && typeof u.value === "object"
-							? JSON.stringify(u.value)
-							: u.value,
-					);
+					const values: unknown[] = [];
+					const setClauses = rowUpdates.map((u) => {
+						if (u.useDefault) return `"${u.columnName}" = DEFAULT`;
+						values.push(
+							u.value !== null && typeof u.value === "object"
+								? JSON.stringify(u.value)
+								: u.value,
+						);
+						return `"${u.columnName}" = $${values.length}`;
+					});
 					const whereClauses = keyColumns.map(
 						(column, i) => `"${column}" = $${values.length + i + 1}`,
 					);
@@ -1110,7 +1114,12 @@ export class PgAdapter extends BaseAdapter {
 				return { updatedCount: total };
 			});
 		} catch (error) {
-			if (error instanceof HTTPException || isPgConstraintViolation(error)) throw error;
+			if (
+				error instanceof HTTPException ||
+				isPgConstraintViolation(error) ||
+				isPgDataException(error)
+			)
+				throw error;
 			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
 		}
 	}
@@ -1261,7 +1270,7 @@ export class PgAdapter extends BaseAdapter {
 						);
 						successCount++;
 					} catch (error) {
-						if (isPgConstraintViolation(error)) throw error;
+						if (isPgConstraintViolation(error) || isPgDataException(error)) throw error;
 						throw new HTTPException(500, {
 							message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
 						});
@@ -1275,7 +1284,12 @@ export class PgAdapter extends BaseAdapter {
 				};
 			});
 		} catch (error) {
-			if (error instanceof HTTPException || isPgConstraintViolation(error)) throw error;
+			if (
+				error instanceof HTTPException ||
+				isPgConstraintViolation(error) ||
+				isPgDataException(error)
+			)
+				throw error;
 			throw new HTTPException(500, {
 				message: `Failed to bulk insert records into "${tableName}"`,
 			});

@@ -3,7 +3,7 @@ name: Check Docker image
 on:
   push:
     branches:
-      - stage
+      - main
     paths: &p
       - "Dockerfile"
       - ".dockerignore"
@@ -28,7 +28,6 @@ on:
       - "!packages/server/e2e/**"
   pull_request:
     branches:
-      - stage
       - main
     paths: *p
   workflow_dispatch:
@@ -42,7 +41,6 @@ permissions:
 
 jobs:
   image:
-    if: github.event_name != 'pull_request' || github.head_ref != 'stage'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

@@ -1,12 +1,14 @@
 import { Alert } from "@db-studio/ui/alert";
 import { Button } from "@db-studio/ui/button";
 import { SheetClose } from "@db-studio/ui/sheet";
+import { useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/features/schema";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
+import { useAddRecordStore } from "../stores/add-record.store";
 import { AddRecordField } from "./add-record-field";
 import { RecordReferenceSheet } from "./record-reference-sheet";
 
@@ -16,6 +18,14 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName, schemaName });
 	const methods = useForm<AddRecordFormData>();
+	const { prefill, setPrefill } = useAddRecordStore();
+
+	// Prefilled values count as edits, so a duplicate can be saved as it opens.
+	useEffect(() => {
+		if (!prefill) return;
+		methods.reset(prefill, { keepDefaultValues: true });
+		setPrefill(null);
+	}, [prefill, methods, setPrefill]);
 
 	const onSubmit = async (data: AddRecordFormData) => {
 		createRecord(data, {

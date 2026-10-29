@@ -50,6 +50,7 @@ export function InstallCommand({ className }: { className?: string }) {
 				<button
 					type="button"
 					onClick={copy}
+					data-analytics-install={runner}
 					data-checked={copied || undefined}
 					aria-label={copied ? "Copied" : "Copy command"}
 					className="group grid size-8 cursor-pointer place-items-center rounded-sm text-muted-foreground transition-[color,background-color,transform] duration-150 ease-out hover:bg-white/5 hover:text-foreground active:scale-[0.97]"

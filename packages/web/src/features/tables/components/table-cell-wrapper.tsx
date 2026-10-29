@@ -1,9 +1,19 @@
 import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
 import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
-import type { TableRecord } from "@/types/table.type";
+import type { NavigationDirection, TableRecord } from "@/types/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
+
+const NAVIGATION_KEYS: Partial<Record<string, NavigationDirection>> = {
+	ArrowUp: "up",
+	ArrowDown: "down",
+	ArrowLeft: "left",
+	ArrowRight: "right",
+	Home: "home",
+	End: "end",
+	Tab: "right",
+};
 
 interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
 	cell: Cell<TData, unknown>;
@@ -41,8 +51,8 @@ export function TableCellWrapper<TData>({
 			if (!isEditing) {
 				event.preventDefault();
 				onClickProp?.(event);
-				// A single click only focuses the cell so the row can open its
-				// details sheet; editing starts on double-click or via the keyboard.
+				// A single click only focuses the cell; editing starts on double-click or
+				// via the keyboard, and row details open from the row button or Space.
 				meta?.onCellClick?.(rowIndex, columnId, event);
 			}
 		},
@@ -51,9 +61,9 @@ export function TableCellWrapper<TData>({
 
 	const onContextMenu = useCallback(
 		(event: MouseEvent) => {
-			if (!isEditing) {
-				meta?.onCellContextMenu?.(rowIndex, columnId, event);
-			}
+			// The editor keeps the browser's menu for cut, copy and paste.
+			if (isEditing) event.stopPropagation();
+			else meta?.onCellContextMenu?.(rowIndex, columnId, event);
 		},
 		[meta, rowIndex, columnId, isEditing],
 	);
@@ -98,40 +108,35 @@ export function TableCellWrapper<TData>({
 
 			if (event.defaultPrevented) return;
 
-			if (
-				event.key === "ArrowUp" ||
-				event.key === "ArrowDown" ||
-				event.key === "ArrowLeft" ||
-				event.key === "ArrowRight" ||
-				event.key === "Home" ||
-				event.key === "End" ||
-				event.key === "PageUp" ||
-				event.key === "PageDown" ||
-				event.key === "Tab"
-			) {
+			if (!isFocused || isEditing) return;
+
+			const direction = NAVIGATION_KEYS[event.key];
+			if (direction) {
+				const resolved = event.key === "Tab" && event.shiftKey ? "left" : direction;
+				const moved = meta?.onCellNavigate?.(rowIndex, columnId, resolved) ?? false;
+				// Tab at the grid's edge falls through so focus can leave the grid.
+				if (moved || event.key !== "Tab") event.preventDefault();
 				return;
 			}
 
-			if (isFocused && !isEditing) {
-				if (event.key === "F2" || event.key === "Enter") {
-					event.preventDefault();
-					event.stopPropagation();
-					meta?.onCellEditingStart?.(rowIndex, columnId);
-					return;
-				}
+			if (event.key === "F2" || event.key === "Enter") {
+				event.preventDefault();
+				event.stopPropagation();
+				meta?.onCellEditingStart?.(rowIndex, columnId);
+				return;
+			}
 
-				if (event.key === " ") {
-					event.preventDefault();
-					event.stopPropagation();
-					meta?.onCellEditingStart?.(rowIndex, columnId);
-					return;
-				}
+			if (event.key === " ") {
+				event.preventDefault();
+				event.stopPropagation();
+				meta?.onRowDetailsOpen?.(rowIndex);
+				return;
+			}
 
-				if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-					event.preventDefault();
-					event.stopPropagation();
-					meta?.onCellEditingStart?.(rowIndex, columnId);
-				}
+			if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+				event.preventDefault();
+				event.stopPropagation();
+				meta?.onCellEditingStart?.(rowIndex, columnId);
 			}
 		},
 		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
@@ -153,7 +158,7 @@ export function TableCellWrapper<TData>({
 				"**:data-[slot=grid-cell-content]:line-clamp-1",
 				{
 					"ring-1 ring-ring ring-inset": isFocused,
-					"bg-primary/10": isSelected && !isEditing,
+					"bg-primary/25": isSelected && !isEditing,
 					"cursor-default": !isEditing,
 					"ring-2 ring-primary": hasUpdate,
 					"bg-emerald-500/20 dark:bg-emerald-500/25 transition-colors duration-1000 ease-in-out":

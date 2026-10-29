@@ -45,3 +45,7 @@ export const isPgDatabaseError = (error: unknown): error is DatabaseError =>
 /** Class 23 (foreign key, unique, not null, check): the user's data broke a constraint. */
 export const isPgConstraintViolation = (error: unknown): error is DatabaseError =>
 	isPgDatabaseError(error) && error.code?.startsWith("23") === true;
+
+/** Class 22 (invalid date, text in a number column, value too long): the user's data has the wrong form. */
+export const isPgDataException = (error: unknown): error is DatabaseError =>
+	isPgDatabaseError(error) && error.code?.startsWith("22") === true;

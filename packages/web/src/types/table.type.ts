@@ -16,13 +16,16 @@ interface CellPosition {
 	columnId: string;
 }
 
+/** A rectangle of cells between the cell a selection started at and the one it reaches. */
+export type CellRange = { anchor: CellPosition; focus: CellPosition };
+
 interface UpdateCell {
 	rowIndex: number;
 	columnId: string;
 	value: unknown;
 }
 
-type NavigationDirection =
+export type NavigationDirection =
 	| "up"
 	| "down"
 	| "left"
@@ -45,6 +48,9 @@ declare module "@tanstack/react-table" {
 		referencedTable?: string | null;
 		referencedColumn?: string | null;
 		enumValues?: string[] | null;
+		isNullable?: boolean;
+		/** The column declares a default and the engine can write it from the grid. */
+		hasDefault?: boolean;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,9 +60,17 @@ declare module "@tanstack/react-table" {
 		rowMutationReason?: string;
 		focusedCell?: CellPosition | null;
 		editingCell?: CellPosition | null;
+		selection?: CellRange | null;
 		isScrolling?: boolean;
 
 		onCellEditingStart?: (rowIndex: number, columnId: string) => void;
+		/** Moves focus from the cell; false when it is already at the grid's edge. */
+		onCellNavigate?: (
+			rowIndex: number,
+			columnId: string,
+			direction: NavigationDirection,
+		) => boolean;
+		onRowDetailsOpen?: (rowIndex: number) => void;
 		onCellClick?: (rowIndex: number, columnId: string, event?: React.MouseEvent) => void;
 
 		getIsCellSelected?: (rowIndex: number, columnId: string) => boolean;
