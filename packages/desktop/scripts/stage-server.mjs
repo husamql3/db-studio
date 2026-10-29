@@ -7,8 +7,16 @@
 // macOS x64 is built on an arm64 runner.
 //
 //   node scripts/stage-server.mjs [--arch x64]
-import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,4 +71,16 @@ execFileSync(
 	],
 	{ cwd: stageDir, stdio: "inherit", shell: process.platform === "win32" },
 );
+
+// DuckDB's macOS package ships a universal libduckdb.dylib; keep only the target slice.
+if (process.platform === "darwin") {
+	const slice = arch === "x64" ? "x86_64" : arch;
+	for (const file of readdirSync(stageDir, { recursive: true })) {
+		if (!/\.(dylib|node)$/.test(file)) continue;
+		const binary = path.join(stageDir, file);
+		// Empty for the other platforms' prebuilds oracledb ships, which are not Mach-O.
+		const archs = spawnSync("lipo", ["-archs", binary], { encoding: "utf8" }).stdout.trim();
+		if (archs.includes(" ")) execFileSync("lipo", ["-thin", slice, binary, "-output", binary]);
+	}
+}
 console.log(`✓ Staged server into ${path.relative(desktopDir, stageDir)}`);
