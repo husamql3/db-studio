@@ -16,6 +16,43 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.1.0",
+		date: "2026-10-30",
+		title: "Spreadsheet-style editing",
+		features: [
+			{
+				text: "Select a range of cells, copy it with headers, and paste cells from a spreadsheet",
+				username: "husamql3",
+			},
+			{
+				text: "Review unsaved cell edits, revert a single cell, and undo with Cmd/Ctrl+Z",
+				username: "husamql3",
+			},
+			{
+				text: "Set a cell to NULL, empty text or its column default as explicit choices",
+				username: "husamql3",
+			},
+			{
+				text: "Copy a row as JSON or as a SQL INSERT, and duplicate it from the row menu",
+				username: "husamql3",
+			},
+			{
+				text: "Mark a saved connection read-only so the database refuses any write",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Saving a value PostgreSQL cannot read as the column's type now shows a clear error",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a MySQL table that no longer exists now says so instead of a server error",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "2.0.1",
 		date: "2026-10-29",
 		title: "Every database. One studio",

@@ -1,7 +1,7 @@
 {
   "name": "db-studio",
   "type": "module",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Every database. One studio. Browse tables, edit records, design schemas, and run queries across SQL, document, and key-value databases. Free and open source.",
   "keywords": [
     "database client",
