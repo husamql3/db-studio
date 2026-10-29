@@ -34,7 +34,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import type { TableRecord } from "@/types/table.type";
+import type { NavigationDirection, TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";
@@ -118,20 +118,23 @@ export const TableTextCell = memo(
 			? formatCellValue(pendingUpdate.newValue)
 			: (initialValue ?? "");
 
-		const onSave = useCallback(() => {
-			// Update the store with the final value
-			setUpdate(
-				rowData,
-				columnName,
-				editorValue,
-				rawInitialValue,
-				table.options.meta?.editScope,
-			);
+		const onSave = useCallback(
+			(direction?: NavigationDirection) => {
+				// Update the store with the final value
+				setUpdate(
+					rowData,
+					columnName,
+					editorValue,
+					rawInitialValue,
+					table.options.meta?.editScope,
+				);
 
-			// Stop editing first, then close the popover
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, editorValue, rawInitialValue, initialValue, columnName, rowData, setUpdate]);
+				// Stop editing first, then close the popover
+				meta?.onCellEditingStop?.({ direction });
+				setOpen(false);
+			},
+			[meta, editorValue, rawInitialValue, initialValue, columnName, rowData, setUpdate],
+		);
 
 		const onCancel = useCallback(() => {
 			// Restore the original value
@@ -206,9 +209,17 @@ export const TableTextCell = memo(
 				if (event.key === "Escape") {
 					event.preventDefault();
 					onCancel();
-				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+				} else if (
+					event.key === "Enter" &&
+					!event.shiftKey &&
+					!event.nativeEvent.isComposing
+				) {
+					// Enter confirms like a spreadsheet; Shift+Enter adds a line break.
 					event.preventDefault();
 					onSave();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					onSave(event.shiftKey ? "left" : "right");
 				}
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
@@ -295,7 +306,7 @@ export const TableTextCell = memo(
 							size="sm"
 							className="rounded-none justify-start text-xs py-4 px-2"
 						>
-							<Kbd className="text-xs font-normal">⌘↵</Kbd>
+							<Kbd className="text-xs font-normal">↵</Kbd>
 							<span className="ml-1 text-xs">Save Changes</span>
 						</Button>
 
@@ -349,14 +360,17 @@ export const TableNumberCell = memo(
 			setOpen(isEditing);
 		}
 
-		const onSave = useCallback(() => {
-			// Update the store with the final value
-			setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
+		const onSave = useCallback(
+			(direction?: NavigationDirection) => {
+				// Update the store with the final value
+				setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
 
-			// Close the editor
-			setOpen(false);
-			meta?.onCellEditingStop?.();
-		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
+				// Close the editor
+				setOpen(false);
+				meta?.onCellEditingStop?.({ direction });
+			},
+			[meta, value, initialValue, columnName, rowData, setUpdate],
+		);
 
 		const onCancel = useCallback(() => {
 			// Restore the original value
@@ -391,9 +405,12 @@ export const TableNumberCell = memo(
 				if (event.key === "Escape") {
 					event.preventDefault();
 					onCancel();
-				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+				} else if (event.key === "Enter") {
 					event.preventDefault();
 					onSave();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					onSave(event.shiftKey ? "left" : "right");
 				}
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();

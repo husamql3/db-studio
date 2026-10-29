@@ -26,7 +26,6 @@ export const TableGrid = ({
 		/>
 		<TableContainer
 			table={table}
-			tableName={tableName}
 			pageKey={pageKey}
 		/>
 		<TableFooter tableName={tableName} />

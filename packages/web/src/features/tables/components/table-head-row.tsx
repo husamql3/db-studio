@@ -162,7 +162,7 @@ export const TableHeadRow = ({
 							className="h-full flex z-100! relative"
 							style={{
 								display: "flex",
-								width: virtualColumn.index === 0 ? "40px" : header.getSize(),
+								width: virtualColumn.index === 0 ? "64px" : header.getSize(),
 							}}
 						>
 							<div

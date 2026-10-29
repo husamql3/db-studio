@@ -9,7 +9,6 @@ const ROW_HEIGHT = 33;
 interface TableBodyProps {
 	columnVirtualizer: Virtualizer<HTMLDivElement, HTMLTableCellElement>;
 	table: Table<TableRecord>;
-	tableName: string;
 	tableContainerRef: RefObject<HTMLDivElement | null>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
@@ -18,7 +17,6 @@ interface TableBodyProps {
 export const TableBody = ({
 	columnVirtualizer,
 	table,
-	tableName,
 	tableContainerRef,
 	virtualPaddingLeft,
 	virtualPaddingRight,
@@ -52,7 +50,6 @@ export const TableBody = ({
 					<TableBodyRow
 						key={row.id}
 						row={row}
-						tableName={tableName}
 						tableState={table.getState()}
 						tableMeta={table.options.meta}
 						virtualColumns={virtualColumns}

@@ -2,22 +2,23 @@ import type { Table } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useLayoutEffect, useRef } from "react";
 import type { TableRecord } from "@/types/table.type";
+import { useGridClipboard } from "../hooks/use-grid-clipboard";
+import { PastePreviewDialog } from "./paste-preview-dialog";
 import { TableBody } from "./table-body";
 import { TableHead } from "./table-head";
 
 export const TableContainer = ({
 	table,
-	tableName,
 	pageKey,
 }: {
 	table: Table<TableRecord>;
-	tableName: string;
 	pageKey: string;
 }) => {
 	const visibleColumns = table.getVisibleLeafColumns();
 
 	// The virtualizers need to know the scrollable container element
 	const tableContainerRef = useRef<HTMLDivElement | null>(null);
+	const { onCopy, onPaste, preview, stagePreview, closePreview } = useGridClipboard(table);
 
 	// Another page, sort or filter starts at the top, even when it was cached and the grid stayed
 	// mounted; Live mode refreshing the same page keeps the position.
@@ -53,6 +54,8 @@ export const TableContainer = ({
 			style={{
 				position: "relative",
 			}}
+			onCopy={onCopy}
+			onPaste={onPaste}
 		>
 			{/* Even though we're still using sematic table tags, we must use CSS grid and flexbox for dynamic row heights */}
 			<table
@@ -68,12 +71,16 @@ export const TableContainer = ({
 				<TableBody
 					columnVirtualizer={columnVirtualizer}
 					table={table}
-					tableName={tableName}
 					tableContainerRef={tableContainerRef as RefObject<HTMLDivElement>}
 					virtualPaddingLeft={virtualPaddingLeft as number | undefined}
 					virtualPaddingRight={virtualPaddingRight}
 				/>
 			</table>
+			<PastePreviewDialog
+				preview={preview}
+				onStage={stagePreview}
+				onClose={closePreview}
+			/>
 		</div>
 	);
 };
