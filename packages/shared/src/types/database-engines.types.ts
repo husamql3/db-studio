@@ -12,7 +12,23 @@ interface DatabaseEngineBase {
 	editorLanguage: "pgsql" | "json" | "plaintext";
 	liveMode: boolean;
 	schemaSelector: boolean;
+	/** A connection can be opened in a read-only session the database itself enforces. */
+	readOnly: boolean;
+	/** Grid edits can set a cell to its column default (`UPDATE … SET c = DEFAULT`). */
+	/** How "Copy as SQL INSERT" writes literals; `null` hides it. */
+	sqlInsert: SqlInsertDialect | null;
 }
+
+export type SqlInsertDialect = {
+	/** Opening identifier quote; `[` closes with `]`. */
+	quote: '"' | "`" | "[";
+	/** `TRUE`/`FALSE`, or `1`/`0` where the engine has no boolean literal. */
+	booleanKeywords: boolean;
+	/** String literals treat a backslash as an escape, so it is doubled. */
+	backslashEscapes: boolean;
+	/** `N'…'`, so non-ASCII text survives a non-Unicode collation. */
+	unicodePrefix: boolean;
+};
 
 type RowMutationCapability =
 	| { rowMutation: true; rowMutationReason?: never }
@@ -47,6 +63,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: true,
+		readOnly: true,
+		sqlInsert: {
+			quote: '"',
+			booleanKeywords: true,
+			backslashEscapes: false,
+			unicodePrefix: false,
+		},
 		rowMutation: true,
 		indexes: {
 			methods: ["btree", "hash", "gin", "gist", "spgist", "brin"],
@@ -62,6 +85,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: true,
+		sqlInsert: {
+			quote: "`",
+			booleanKeywords: true,
+			backslashEscapes: true,
+			unicodePrefix: false,
+		},
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
@@ -74,6 +104,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: false,
+		sqlInsert: {
+			quote: "[",
+			booleanKeywords: false,
+			backslashEscapes: false,
+			unicodePrefix: true,
+		},
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -89,6 +126,8 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "json",
 		liveMode: false,
 		schemaSelector: false,
+		readOnly: false,
+		sqlInsert: null,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
@@ -101,6 +140,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: false,
+		sqlInsert: {
+			quote: '"',
+			booleanKeywords: true,
+			backslashEscapes: false,
+			unicodePrefix: false,
+		},
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: false,
@@ -113,6 +159,8 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "plaintext",
 		liveMode: false,
 		schemaSelector: false,
+		readOnly: false,
+		sqlInsert: null,
 		rowMutation: true,
 		indexes: false,
 		serverLogs: true,
@@ -125,6 +173,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: true,
+		sqlInsert: {
+			quote: '"',
+			booleanKeywords: true,
+			backslashEscapes: false,
+			unicodePrefix: false,
+		},
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -141,6 +196,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: false,
+		sqlInsert: {
+			quote: '"',
+			booleanKeywords: false,
+			backslashEscapes: false,
+			unicodePrefix: false,
+		},
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -156,6 +218,13 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: false,
 		schemaSelector: false,
+		readOnly: true,
+		sqlInsert: {
+			quote: "`",
+			booleanKeywords: true,
+			backslashEscapes: true,
+			unicodePrefix: false,
+		},
 		indexes: false,
 		rowMutation: false,
 		rowMutationReason:

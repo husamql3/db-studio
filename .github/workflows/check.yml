@@ -36,7 +36,8 @@ jobs:
         run: bun install --ignore-scripts
 
       - name: Build project
-        run: bun run build
+        # Desktop packaging has its own workflow with app-specific path filters.
+        run: bun run build --filter='!@db-studio/desktop'
 
       - parallel:
           - name: Biome checks

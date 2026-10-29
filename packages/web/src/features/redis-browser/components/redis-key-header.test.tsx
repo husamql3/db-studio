@@ -1,4 +1,5 @@
 import type { KeyDetailsResultSchemaType } from "@db-studio/shared/types";
+import { TooltipProvider } from "@db-studio/ui/tooltip";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -42,6 +43,7 @@ const renderHeader = (props: Partial<HeaderProps> = {}) => {
 			{...handlers}
 			{...props}
 		/>,
+		{ wrapper: TooltipProvider },
 	);
 	return handlers;
 };

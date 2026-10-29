@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "getting-started",
+    "desktop",
     "databases",
     "indexes",
     "faq"

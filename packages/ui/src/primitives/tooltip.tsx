@@ -3,8 +3,12 @@ import type * as React from "react";
 
 import { cn } from "../utils";
 
+/**
+ * Mounted once at the app root, so the first tooltip waits `delayDuration` and the next one
+ * opens at once while the pointer moves along a toolbar.
+ */
 function TooltipProvider({
-	delayDuration = 0,
+	delayDuration = 300,
 	...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
 	return (
@@ -18,12 +22,10 @@ function TooltipProvider({
 
 function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
 	return (
-		<TooltipProvider>
-			<TooltipPrimitive.Root
-				data-slot="tooltip"
-				{...props}
-			/>
-		</TooltipProvider>
+		<TooltipPrimitive.Root
+			data-slot="tooltip"
+			{...props}
+		/>
 	);
 }
 
@@ -48,7 +50,7 @@ function TooltipContent({
 				data-slot="tooltip-content"
 				sideOffset={sideOffset}
 				className={cn(
-					"data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 rounded-md px-3 py-1.5 text-xs **:data-[slot=kbd]:rounded-md bg-foreground text-background z-50 w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin)",
+					"data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 duration-125 ease-out rounded-sm px-3 py-1.5 text-xs bg-foreground text-background z-50 w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin)",
 					className,
 				)}
 				{...props}

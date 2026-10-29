@@ -9,9 +9,11 @@ import { TableHead } from "./table-head";
 
 export const TableContainer = ({
 	table,
+	tableName,
 	pageKey,
 }: {
 	table: Table<TableRecord>;
+	tableName: string;
 	pageKey: string;
 }) => {
 	const visibleColumns = table.getVisibleLeafColumns();
@@ -71,6 +73,7 @@ export const TableContainer = ({
 				<TableBody
 					columnVirtualizer={columnVirtualizer}
 					table={table}
+					tableName={tableName}
 					tableContainerRef={tableContainerRef as RefObject<HTMLDivElement>}
 					virtualPaddingLeft={virtualPaddingLeft as number | undefined}
 					virtualPaddingRight={virtualPaddingRight}

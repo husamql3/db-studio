@@ -1,5 +1,4 @@
 import { META } from "@db-studio/shared/constants";
-import { Link } from "@tanstack/react-router";
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { FaXTwitter } from "react-icons/fa6";
 
@@ -7,14 +6,17 @@ export function baseOptions(): BaseLayoutProps {
 	return {
 		nav: {
 			enabled: true,
+			// Fumadocs wraps the title in its own link to `url`, so the title must not be a link.
 			title: (
-				<Link to="/">
+				<span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
 					<img
 						src="/logo.png"
-						alt="db-studio"
-						width={32}
+						alt=""
+						width={24}
+						height={24}
 					/>
-				</Link>
+					db-studio
+				</span>
 			),
 			url: "/",
 		},

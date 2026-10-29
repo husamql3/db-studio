@@ -1,0 +1,122 @@
+name: Release desktop
+
+# Builds the Electron app for macOS, Windows and Linux. Every run keeps the installers as
+# workflow artifacts; with a version (from release.yml or by hand) they are also attached to the
+# GitHub release `v<version>`, together with the electron-updater manifests for Windows
+# (latest.yml) and Linux (latest-linux.yml). latest-mac.yml is not published: macOS auto-update
+# stays off until builds are signed, and the arm64 and x64 jobs would each write their own copy.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release to attach installers to (must match packages/server/package.json). Empty builds artifacts only."
+        required: false
+        type: string
+
+concurrency:
+  group: release-desktop-${{ inputs.version || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      VERSION: ${{ inputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            runner: macos-latest
+            platform: --mac
+            arch: arm64
+          - label: macOS x64
+            runner: macos-latest
+            platform: --mac
+            arch: x64
+          - label: Windows x64
+            runner: windows-latest
+            platform: --win
+            arch: x64
+          - label: Linux x64
+            runner: ubuntu-latest
+            platform: --linux
+            arch: x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.version && format('v{0}', inputs.version) || '' }}
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+
+      # npm 11 (Node 24) is needed for `npm install --cpu/--os` in scripts/stage-server.mjs.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      # The docs site is not part of the app, and bun fails to link its fumadocs-ui on Windows.
+      - name: Install dependencies
+        run: bun install --ignore-scripts --filter '!@db-studio/www'
+
+      - name: Build web, server and desktop
+        run: bun run build:desktop --force
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Verify version
+        if: env.VERSION != ''
+        shell: bash
+        run: |
+          SERVER_VERSION=$(node -p "require('./packages/server/package.json').version")
+          if [ "$SERVER_VERSION" != "$VERSION" ]; then
+            echo "packages/server is $SERVER_VERSION but release is $VERSION"
+            exit 1
+          fi
+
+      - name: Package
+        run: bun run --cwd packages/desktop package -- ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: db-studio-desktop-${{ runner.os }}-${{ matrix.arch }}
+          path: |
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.AppImage
+            packages/desktop/release/*.deb
+          if-no-files-found: error
+
+      - name: Upload to release
+        if: env.VERSION != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          cd packages/desktop/release
+          files=(*.dmg *.zip *.exe *.AppImage *.deb *.blockmap)
+          for manifest in latest.yml latest-linux.yml; do
+            if [ -f "$manifest" ]; then files+=("$manifest"); fi
+          done
+          gh release upload "v$VERSION" "${files[@]}" --clobber

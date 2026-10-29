@@ -19,6 +19,8 @@ export const connectionSummarySchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	color: connectionColorSchema.nullable(),
+	/** Opens in a read-only database session, so a stray write fails. */
+	readOnly: z.boolean(),
 	lastUsedAt: z.number(),
 	dbType: databaseTypeSchema,
 	/** The URL with its password and auth token replaced by `••••`. */
@@ -52,5 +54,6 @@ export type ConnectUrlSchemaType = z.infer<typeof connectUrlSchema>;
 export const updateConnectionSchema = z.object({
 	name: z.string().trim().min(1, "Name is required").max(100).optional(),
 	color: connectionColorSchema.nullable().optional(),
+	readOnly: z.boolean().optional(),
 });
 export type UpdateConnectionSchemaType = z.infer<typeof updateConnectionSchema>;

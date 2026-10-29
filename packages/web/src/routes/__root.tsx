@@ -1,5 +1,6 @@
 import { Toaster } from "@db-studio/ui/sonner";
 import { Spinner } from "@db-studio/ui/spinner";
+import { TooltipProvider } from "@db-studio/ui/tooltip";
 import { aiDevtoolsPlugin } from "@tanstack/react-ai-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -159,7 +160,7 @@ export const Route = createRootRoute({
 		);
 
 		return (
-			<>
+			<TooltipProvider>
 				<script
 					defer
 					src={`data:text/javascript;base64,${btoa(darkModeScript)}`}
@@ -202,7 +203,7 @@ export const Route = createRootRoute({
 						connectToServerBus: connectDevtoolsServerBus,
 					}}
 				/>
-			</>
+			</TooltipProvider>
 		);
 	},
 });

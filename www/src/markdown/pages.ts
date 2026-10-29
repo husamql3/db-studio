@@ -54,7 +54,9 @@ const roadmapMarkdown = (): string => {
 
 const landingMarkdown = (sponsors: Sponsor[]): string => `# db-studio
 
-A modern (pgAdmin alternative but good) database management studio for any database.
+Every database. One studio
+
+Browse tables, edit records, design schemas, and run queries in a free, open-source database GUI that runs locally.
 
 ## Getting Started
 
@@ -86,6 +88,7 @@ ${supportedDatabases
 
 - [Documentation](${SITE_URL}/docs)
 - [Getting Started](${SITE_URL}/docs/getting-started)
+- [Desktop App](${SITE_URL}/docs/desktop)
 - [FAQ](${SITE_URL}/docs/faq)
 - [Roadmap](${SITE_URL}/roadmap)
 - [Changelog](${SITE_URL}/changelog)

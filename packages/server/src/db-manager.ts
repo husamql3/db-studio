@@ -57,9 +57,19 @@ export class DatabaseManager {
 		dbType: DatabaseTypeSchema;
 	} | null;
 
-	/** Throws when `databaseUrl` is malformed or names an unsupported engine; connects lazily. */
-	constructor(databaseUrl: string | null = null) {
+	/**
+	 * Throws when `databaseUrl` is malformed or names an unsupported engine, or when `readOnly` is
+	 * set for an engine that cannot open a read-only session; connects lazily.
+	 */
+	constructor(
+		databaseUrl: string | null = null,
+		private readonly readOnly = false,
+	) {
 		this.baseConfig = databaseUrl ? this.parseConfig(databaseUrl) : null;
+		const engine = this.baseConfig && DATABASE_ENGINES[this.baseConfig.dbType];
+		if (readOnly && engine && !engine.readOnly) {
+			throw new Error(`${engine.label} connections cannot be opened read-only`);
+		}
 	}
 
 	/**
@@ -224,6 +234,7 @@ export class DatabaseManager {
 					const { DuckDBInstance } = await loadDriver("duckdb");
 					const instance = await DuckDBInstance.create(filePath, {
 						checkpoint_threshold: "0b",
+						...(this.readOnly && { access_mode: "READ_ONLY" }),
 					});
 					return { instance, connection: await instance.connect() };
 				} catch (e) {
@@ -324,8 +335,13 @@ export class DatabaseManager {
 			// block, because CockroachDB does not run PL/pgSQL.
 			const pool = new Pool({
 				...poolConfig,
-				onConnect: (client) =>
-					client
+				onConnect: async (client) => {
+					// shortcut: a transaction-mode pooler (PgBouncer, Neon -pooler, Supabase :6543) can
+					// run later queries on a server connection that never got this SET; connect directly
+					// for a guaranteed read-only session, or wrap each request in BEGIN READ ONLY.
+					// Unlike search_path below, a failure here fails the connection instead of allowing writes.
+					if (this.readOnly) await client.query("SET default_transaction_read_only = on");
+					await client
 						.query(
 							`SELECT set_config(
 								'search_path',
@@ -348,7 +364,8 @@ export class DatabaseManager {
 									...errorFields(err),
 								});
 							},
-						),
+						);
+				},
 			});
 
 			pool.on("error", (err) => {
@@ -386,6 +403,15 @@ export class DatabaseManager {
 				// Enable multiple statements for raw query support
 				multipleStatements: false,
 			});
+			// mysql2 queues commands per connection, so this runs before the connection's first
+			// query; a connection that cannot be made read-only is dropped instead of writing.
+			if (this.readOnly) {
+				pool.pool.on("connection", (connection) =>
+					connection.query("SET SESSION TRANSACTION READ ONLY", (error) => {
+						if (error) connection.destroy();
+					}),
+				);
+			}
 
 			this.mysqlPools.set(connectionString, pool);
 		}
@@ -463,6 +489,8 @@ export class DatabaseManager {
 				output_format_json_quote_64bit_integers: 1,
 				output_format_json_quote_decimals: 1,
 				wait_end_of_query: 1,
+				// 2, not 1: read-only that still lets each request change settings like the one above.
+				...(this.readOnly && { readonly: "2" }),
 			},
 			// Failures surface through the adapter's error mapping; the client's own log would duplicate them.
 			log: { level: ClickHouseLogLevel.OFF },
@@ -642,6 +670,17 @@ const connections = new Map<string, DatabaseManager>();
 /** Serves a request that names no connection: the CLI's `--database-url`, curl, scripts. */
 let latestId: string | null = null;
 const notConnected = new DatabaseManager();
+/** Closed while this server runs: a tab naming one is told it is gone, not handed the latest. */
+const closedIds = new Set<string>();
+
+/** Close connection `id`; requests that name it get 409 from then on. */
+export const closeConnection = async (id: string): Promise<void> => {
+	const manager = connections.get(id);
+	connections.delete(id);
+	closedIds.add(id);
+	if (latestId === id) latestId = null;
+	await manager?.closeAll();
+};
 
 /** Add `manager` as connection `id` and make it the latest. */
 export const openConnection = (id: string, manager: DatabaseManager): void => {
@@ -654,9 +693,13 @@ export const getOpenConnection = (id: string) => connections.get(id);
 /** Read once when a request arrives that names no connection; it keeps that one throughout. */
 export const latestConnectionId = (): string | null => latestId;
 
-/** The connection this request names when it is still open, else the latest. */
+/**
+ * The connection this request names when it is still open; none when this server closed it; else
+ * (a new tab, or an id from before a restart) the latest.
+ */
 export const requestConnectionId = (): string | null => {
 	const sent = currentConnectionId();
+	if (sent && closedIds.has(sent)) return null;
 	return sent && connections.has(sent) ? sent : latestId;
 };
 
