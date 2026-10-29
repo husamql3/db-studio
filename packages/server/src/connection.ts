@@ -147,7 +147,7 @@ export const getConnectionsState = async (
 	};
 };
 
-export const summarize = (saved: SavedConnection) => {
+const summarize = (saved: SavedConnection) => {
 	const summary = toSummary(saved);
 	if (!summary)
 		throw new HTTPException(500, { message: "Saved connection has an unknown engine" });
