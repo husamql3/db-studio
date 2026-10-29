@@ -24,6 +24,8 @@ extraResources:
     to: .
 
 asar: true
+# Smaller downloads; the installed app is identical.
+compression: maximum
 npmRebuild: false
 nodeGypRebuild: false
 
