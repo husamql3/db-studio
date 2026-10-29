@@ -1087,12 +1087,16 @@ export class PgAdapter extends BaseAdapter {
 			return await inTransaction(pool, async (client) => {
 				let total = 0;
 				for (const { keyValues, rowUpdates } of groups) {
-					const setClauses = rowUpdates.map((u, i) => `"${u.columnName}" = $${i + 1}`);
-					const values = rowUpdates.map((u) =>
-						u.value !== null && typeof u.value === "object"
-							? JSON.stringify(u.value)
-							: u.value,
-					);
+					const values: unknown[] = [];
+					const setClauses = rowUpdates.map((u) => {
+						if (u.useDefault) return `"${u.columnName}" = DEFAULT`;
+						values.push(
+							u.value !== null && typeof u.value === "object"
+								? JSON.stringify(u.value)
+								: u.value,
+						);
+						return `"${u.columnName}" = $${values.length}`;
+					});
 					const whereClauses = keyColumns.map(
 						(column, i) => `"${column}" = $${values.length + i + 1}`,
 					);

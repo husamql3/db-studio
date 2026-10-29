@@ -42,7 +42,7 @@ export const EXACT_COUNT_LIMIT = 50_000;
 /** One record's pending updates, addressed by every one of its key columns. */
 export interface RecordUpdateGroup {
 	keyValues: unknown[];
-	rowUpdates: Array<{ columnName: string; value: unknown }>;
+	rowUpdates: Array<{ columnName: string; value: unknown; useDefault?: boolean }>;
 }
 
 /** Bundles a paginated data query together with its companion COUNT query. */
@@ -240,7 +240,11 @@ export abstract class BaseAdapter implements IDbAdapter {
 
 			const groupKey = JSON.stringify(keyValues.map((value) => String(value)));
 			const group: RecordUpdateGroup = groups.get(groupKey) ?? { keyValues, rowUpdates: [] };
-			group.rowUpdates.push({ columnName: update.columnName, value: update.value });
+			group.rowUpdates.push({
+				columnName: update.columnName,
+				value: update.value,
+				useDefault: update.useDefault,
+			});
 			groups.set(groupKey, group);
 		}
 

@@ -38,6 +38,7 @@ export const updateRecords = ({
 		rowData: Record<string, unknown>;
 		columnName: string;
 		value: unknown;
+		useDefault?: boolean;
 	}>;
 	primaryKey?: string;
 	primaryKeys?: string[];

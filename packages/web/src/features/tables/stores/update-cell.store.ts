@@ -2,6 +2,9 @@ import { create } from "zustand";
 import type { EditScope } from "@/types/table.type";
 import { stableStringify } from "../utils/table-diff";
 
+/** A pending value meaning "set this cell to its column default"; compared by identity. */
+export const CELL_DEFAULT = Object.freeze({ default: true });
+
 export type CellUpdate = {
 	scope: string;
 	rowData: Record<string, unknown>; // The entire row data

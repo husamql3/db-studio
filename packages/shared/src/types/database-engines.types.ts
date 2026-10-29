@@ -12,9 +12,10 @@ interface DatabaseEngineBase {
 	editorLanguage: "pgsql" | "json" | "plaintext";
 	liveMode: boolean;
 	schemaSelector: boolean;
+	/** Grid edits can set a cell to its column default (`UPDATE … SET c = DEFAULT`). */
+	cellDefault: boolean;
 	/** A connection can be opened in a read-only session the database itself enforces. */
 	readOnly: boolean;
-	/** Grid edits can set a cell to its column default (`UPDATE … SET c = DEFAULT`). */
 	/** How "Copy as SQL INSERT" writes literals; `null` hides it. */
 	sqlInsert: SqlInsertDialect | null;
 }
@@ -63,6 +64,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: true,
+		cellDefault: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -85,6 +87,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",
@@ -104,6 +107,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: "[",
@@ -126,6 +130,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "json",
 		liveMode: false,
 		schemaSelector: false,
+		cellDefault: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -140,6 +145,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: false,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -159,6 +165,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "plaintext",
 		liveMode: false,
 		schemaSelector: false,
+		cellDefault: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -173,6 +180,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -196,6 +204,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -218,6 +227,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: false,
 		schemaSelector: false,
+		cellDefault: false,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",

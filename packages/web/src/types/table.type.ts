@@ -49,6 +49,8 @@ declare module "@tanstack/react-table" {
 		referencedColumn?: string | null;
 		enumValues?: string[] | null;
 		isNullable?: boolean;
+		/** The column declares a default and the engine can write it from the grid. */
+		hasDefault?: boolean;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars

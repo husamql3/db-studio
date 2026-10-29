@@ -6,7 +6,11 @@ import { Route } from "@/routes/_pathlessLayout/table/$table";
 import { updateRecords } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
-import { type CellUpdate, useUpdateCellStore } from "../stores/update-cell.store";
+import {
+	CELL_DEFAULT,
+	type CellUpdate,
+	useUpdateCellStore,
+} from "../stores/update-cell.store";
 import { useEditScope } from "./use-edit-scope";
 
 export const useUpdateCell = () => {
@@ -35,7 +39,9 @@ export const useUpdateCell = () => {
 				updates: updates.map((update) => ({
 					rowData: update.rowData,
 					columnName: update.columnName,
-					value: update.newValue,
+					...(update.newValue === CELL_DEFAULT
+						? { value: null, useDefault: true }
+						: { value: update.newValue }),
 				})),
 				...(identityColumnNames.length > 0
 					? { primaryKey: identityColumnNames[0], primaryKeys: identityColumnNames }

@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
 import type { CellRange, NavigationDirection, TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
@@ -35,6 +36,7 @@ export const useTableModel = ({
 	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const { canMutateRows, rowMutationReason } = useRowMutation();
+	const cellDefault = useDatabaseEngine()?.cellDefault ?? false;
 	const editScope = useEditScope(tableName, tableCols);
 
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
@@ -77,13 +79,14 @@ export const useTableModel = ({
 					enumValues: col.enumValues,
 					dataTypeLabel: col.dataTypeLabel,
 					isNullable: col.isNullable,
+					hasDefault: cellDefault && col.columnDefault !== null,
 				},
 				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
 				minSize: 100,
 				maxSize: 500,
 			})) || []),
 		],
-		[visibleCols, selectorColumn],
+		[visibleCols, selectorColumn, cellDefault],
 	);
 
 	useEffect(() => {
