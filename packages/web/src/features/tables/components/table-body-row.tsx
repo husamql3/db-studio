@@ -22,6 +22,8 @@ interface TableBodyRowProps {
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
 	virtualRow: VirtualItem;
+	/** The row menu is open for this row. */
+	isMenuOpen: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export const TableBodyRow = memo(function TableBodyRow({
 	virtualPaddingLeft,
 	virtualPaddingRight,
 	virtualRow,
+	isMenuOpen,
 }: TableBodyRowProps) {
 	const visibleCells = row.getVisibleCells();
 	const { schedule, cancel } = useDelayedRowOpen();
@@ -49,6 +52,7 @@ export const TableBodyRow = memo(function TableBodyRow({
 	return (
 		<tr
 			data-index={virtualRow.index}
+			data-state={isMenuOpen ? "open" : undefined}
 			key={row.id}
 			className={cn(
 				"flex absolute w-fit border-b items-center justify-between text-sm hover:bg-accent/20 data-[state=open]:bg-accent/40 [&_svg]:size-4",
