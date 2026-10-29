@@ -1,5 +1,5 @@
-// Builds `server-stage/server/`: the server CLI bundle plus a production install of its runtime
-// dependencies. Packaged into `resources/server` by electron-builder (see electron-builder.yml
+// Builds `server-stage/server/`: the server CLI with its JS dependencies bundled into index.js,
+// plus the per-platform native packages that bundle loads at runtime. Packaged into `resources/server` by electron-builder (see electron-builder.yml
 // `extraResources`). The extra nesting matters: electron-builder silently drops a top-level
 // `node_modules` from any copied folder, but keeps nested ones. The native deps (@libsql/*,
 // @duckdb/node-bindings-*) are per-platform optional packages with N-API prebuilds, so no
@@ -15,9 +15,11 @@ import {
 	readdirSync,
 	readFileSync,
 	rmSync,
+	renameSync,
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -71,6 +73,50 @@ execFileSync(
 	],
 	{ cwd: stageDir, stdio: "inherit", shell: process.platform === "win32" },
 );
+
+// The installed packages hold ~190 MB of JS (types, maps, dual builds, unused code) that a
+// bundle does not need. Native addons stay external and resolve from node_modules at runtime.
+const entry = path.join(stageDir, "index.js");
+await build({
+	entryPoints: [entry],
+	outfile: entry,
+	allowOverwrite: true,
+	bundle: true,
+	platform: "node",
+	format: "esm",
+	target: "node22",
+	external: ["*.node"],
+	logLevel: "error",
+	// CJS dependencies call require() and read __dirname, which an ES module does not define.
+	banner: {
+		js: [
+			'import { createRequire as __createRequire } from "node:module";',
+			'import { dirname as __pathDirname } from "node:path";',
+			'import { fileURLToPath as __fileURLToPath } from "node:url";',
+			"const require = __createRequire(import.meta.url);",
+			"const __filename = __fileURLToPath(import.meta.url);",
+			"const __dirname = __pathDirname(__filename);",
+		].join("\n"),
+	},
+});
+
+// Keep only the single-platform prebuild packages (DuckDB, libSQL), which the bundle requires
+// by computed names.
+const nodeModules = path.join(stageDir, "node_modules");
+const installed = `${nodeModules}-installed`;
+renameSync(nodeModules, installed);
+const packages = readdirSync(installed)
+	.filter((name) => !name.startsWith("."))
+	.flatMap((name) =>
+		name.startsWith("@") ? readdirSync(path.join(installed, name)).map((n) => `${name}/${n}`) : [name],
+	);
+for (const name of packages) {
+	const manifest = JSON.parse(readFileSync(path.join(installed, name, "package.json"), "utf8"));
+	if (manifest.os?.length !== 1) continue;
+	mkdirSync(path.dirname(path.join(nodeModules, name)), { recursive: true });
+	renameSync(path.join(installed, name), path.join(nodeModules, name));
+}
+rmSync(installed, { recursive: true, force: true });
 
 // DuckDB's macOS package ships a universal libduckdb.dylib; keep only the target slice.
 if (process.platform === "darwin") {
