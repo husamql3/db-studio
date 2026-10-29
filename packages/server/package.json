@@ -1,8 +1,8 @@
 {
   "name": "db-studio",
   "type": "module",
-  "version": "2.0.0",
-  "description": "Modern database client for PostgreSQL with spreadsheet-like grid, AI-powered SQL assistance, ER diagrams, fast data browsing and editing. CLI tool, upcoming desktop & web versions.",
+  "version": "2.0.1",
+  "description": "Every database. One studio. Browse tables, edit records, design schemas, and run queries across SQL, document, and key-value databases. Free and open source.",
   "keywords": [
     "database client",
     "database gui",
@@ -16,7 +16,6 @@
     "postgresql",
     "postgresql client",
     "postgresql gui",
-    "pgadmin alternative",
     "mysql",
     "mysql client",
     "ai sql",

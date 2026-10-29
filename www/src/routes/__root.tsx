@@ -35,7 +35,7 @@ export const Route = createRootRoute({
 			{ property: "og:image:height", content: META.SITE_IMAGE_HEIGHT },
 			{
 				property: "og:image:alt",
-				content: `${META.SITE_NAME} – ${META.SITE_DESCRIPTION}`,
+				content: META.SITE_IMAGE_ALT,
 			},
 			{ name: "twitter:card", content: "summary_large_image" },
 		],
