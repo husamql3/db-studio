@@ -7,7 +7,7 @@ import {
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
 import { Link } from "@tanstack/react-router";
-import { Check, Settings2 } from "lucide-react";
+import { Check, Lock, Settings2 } from "lucide-react";
 import { useDatabaseConnectionInfo } from "@/hooks/use-databases-list";
 import { useConnect, useConnections } from "../hooks/use-connections";
 import { formatLastUsed } from "../utils/format-last-used";
@@ -37,6 +37,12 @@ export const ConnectionMenu = ({ databasesCount }: { databasesCount: number }) =
 				>
 					<ConnectionColorDot color={current?.color ?? null} />
 					<span className="truncate text-xs font-medium">{name}</span>
+					{current?.readOnly && (
+						<Lock
+							aria-label="Read-only"
+							className="size-3 shrink-0 text-muted-foreground"
+						/>
+					)}
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent

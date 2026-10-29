@@ -127,8 +127,9 @@ export const useConnect = () => {
 };
 
 /**
- * The server restarted and this tab's connection is gone: its cached data belongs to that
- * database, so it starts over at `/` on the one the server now offers and says why.
+ * This tab's connection is gone: the server restarted, or closed it to switch read-only. Its
+ * cached data belongs to that database, so it starts over on the one the server now offers (none
+ * after a close: the Connect page) and says why.
  */
 export const useConnectionChangeWatcher = () => {
 	const { active, connections, isLoading } = useConnections();
@@ -150,6 +151,12 @@ export const useConnectionChangeWatcher = () => {
 		}
 		void resetTo({ connections, active });
 		const name = connections.find((c) => c.id === active?.id)?.name;
-		toast.info(name ? `Connection changed to ${name}` : "The connection changed");
+		toast.info(
+			name
+				? `Connection changed to ${name}`
+				: active
+					? "The connection changed"
+					: "The connection was closed",
+		);
 	}, [isLoading, connectionId, connections, active, resetTo]);
 };
