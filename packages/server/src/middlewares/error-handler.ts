@@ -50,6 +50,15 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 		return { status: 400, body: { error: "Malformed JSON in request body" } };
 	}
 	if (e instanceof NotFoundError) return { status: 404, body: { error: "Not found" } };
+	// V8 caps one string near 2^29 characters; a response body past it cannot be written.
+	if (e instanceof RangeError && e.message === "Invalid string length") {
+		return {
+			status: 400,
+			body: {
+				error: "The result is too large to send. Add a LIMIT or select fewer rows or columns.",
+			},
+		};
+	}
 	// Before the connection check: its message heuristics could match a constraint's name.
 	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
 	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
