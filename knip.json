@@ -31,7 +31,7 @@
 		"www": {
 			"entry": ["src/router.tsx"],
 			"project": ["src/**/*.{ts,tsx}"],
-			"ignoreDependencies": ["cloudflare", "tailwindcss", "tw-animate-css"]
+			"ignoreDependencies": ["@fontsource-variable/jetbrains-mono", "cloudflare", "tailwindcss", "tw-animate-css"]
 		}
 	}
 }

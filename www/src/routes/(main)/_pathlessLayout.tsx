@@ -6,14 +6,13 @@ export const Route = createFileRoute("/(main)/_pathlessLayout")({
 	component: RouteComponent,
 });
 
+// A div, not <main>: each page renders its own <main>.
 function RouteComponent() {
 	return (
-		<main className="relative min-h-dvh w-full flex flex-col h-full z-10">
-			<div className="px-4 md:px-0 flex flex-col flex-1">
-				<Header />
-				<Outlet />
-				<Footer />
-			</div>
-		</main>
+		<div className="relative flex min-h-dvh w-full flex-col">
+			<Header />
+			<Outlet />
+			<Footer />
+		</div>
 	);
 }
