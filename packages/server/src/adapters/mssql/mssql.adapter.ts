@@ -980,9 +980,12 @@ export class MsSqlAdapter extends BaseAdapter {
 			let total = 0;
 			for (const { keyValues, rowUpdates } of groups) {
 				const request = transaction.request();
-				const setClauses = rowUpdates.map((u, idx) => `[${u.columnName}] = @value${idx}`);
+				const setClauses = rowUpdates.map(
+					(u, idx) => `[${u.columnName}] = ${u.useDefault ? "DEFAULT" : `@value${idx}`}`,
+				);
 
 				rowUpdates.forEach((u, idx) => {
+					if (u.useDefault) return;
 					let value = u.value;
 					if (value !== null && typeof value === "object") value = JSON.stringify(value);
 					if (booleanColumns.has(u.columnName) && typeof value === "string") {

@@ -852,11 +852,15 @@ export class OracleAdapter extends BaseAdapter {
 				const set = rowUpdates
 					.map(
 						(u) =>
-							`${ident(u.columnName)} = ${bindOracleValue(
-								toOracleValue(u.value, types.get(u.columnName)),
-								types.get(u.columnName),
-								bind,
-							)}`,
+							`${ident(u.columnName)} = ${
+								u.useDefault
+									? "DEFAULT"
+									: bindOracleValue(
+											toOracleValue(u.value, types.get(u.columnName)),
+											types.get(u.columnName),
+											bind,
+										)
+							}`,
 					)
 					.join(", ");
 				const where = keyColumns

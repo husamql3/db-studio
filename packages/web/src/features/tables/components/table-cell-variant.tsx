@@ -36,9 +36,38 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import type { NavigationDirection, TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
-import { useUpdateCellStore } from "../stores/update-cell.store";
+import { CELL_DEFAULT, useUpdateCellStore } from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";
 import { TableCellWrapper } from "./table-cell-wrapper";
+
+/** A cell's text; NULL, empty text and a pending DEFAULT get labels no real value can mimic. */
+export const CellContent = ({
+	value,
+	className,
+	children,
+}: {
+	value: unknown;
+	className?: string;
+	children?: ReactNode;
+}) => {
+	const marker =
+		value === null || value === undefined
+			? "NULL"
+			: value === CELL_DEFAULT
+				? "DEFAULT"
+				: value === ""
+					? "EMPTY"
+					: null;
+	return (
+		<span
+			data-slot="grid-cell-content"
+			data-marker={marker ?? undefined}
+			className={cn(className, marker && "font-mono text-xs text-muted-foreground/70")}
+		>
+			{marker ?? children ?? formatCellValue(value)}
+		</span>
+	);
+};
 
 // Monaco is several megabytes; load it when a JSON cell is first edited, not with the grid.
 const JsonEditor = lazy(() =>
@@ -99,81 +128,72 @@ export const TableTextCell = memo(
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const rawInitialValue = cell.getValue();
-		const initialValue = formatCellValue(rawInitialValue);
 
-		// Separate editor value from display value
-		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
+		const [editorValue, setEditorValue] = useState("");
 		const [open, setOpen] = useState(false);
+		// True from opening until the first save or cancel; the blur that closing causes must not
+		// save again, against a value the first save already changed.
+		const editingRef = useRef(false);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
+		const columnMeta = cell.column.columnDef.meta;
 
 		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
-		// Get the current display value from store or use initial value
-		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
-		const displayValue = pendingUpdate
-			? formatCellValue(pendingUpdate.newValue)
-			: (initialValue ?? "");
+		// A pending edit wins over the server value.
+		const pendingUpdate = getUpdate(rowData, columnName, meta?.editScope);
+		const currentValue = pendingUpdate ? pendingUpdate.newValue : rawInitialValue;
+		// What the textarea starts from; NULL and DEFAULT start empty and show as its placeholder.
+		const editorStart = currentValue === CELL_DEFAULT ? "" : formatCellValue(currentValue);
 
-		const onSave = useCallback(
+		const close = useCallback(
 			(direction?: NavigationDirection) => {
-				// Update the store with the final value
-				setUpdate(
-					rowData,
-					columnName,
-					editorValue,
-					rawInitialValue,
-					table.options.meta?.editScope,
-				);
-
+				editingRef.current = false;
 				// Stop editing first, then close the popover
 				meta?.onCellEditingStop?.({ direction });
 				setOpen(false);
 			},
-			[meta, editorValue, rawInitialValue, initialValue, columnName, rowData, setUpdate],
+			[meta],
+		);
+
+		const commit = useCallback(
+			(value: unknown, direction?: NavigationDirection) => {
+				setUpdate(rowData, columnName, value, rawInitialValue, meta?.editScope);
+				close(direction);
+			},
+			[close, rowData, columnName, rawInitialValue, meta?.editScope, setUpdate],
+		);
+
+		// Typed text only replaces the value when it changed, so confirming an untouched NULL
+		// cell keeps it NULL instead of writing an empty string.
+		const onSave = useCallback(
+			(direction?: NavigationDirection) => {
+				if (!editingRef.current) return;
+				if (editorValue === editorStart) close(direction);
+				else commit(editorValue, direction);
+			},
+			[editorValue, editorStart, close, commit],
 		);
 
 		const onCancel = useCallback(() => {
-			// Restore the original value
-			setEditorValue(initialValue ?? "");
-
 			// Clear this cell's update from the store
-			clearUpdate(rowData, columnName, table.options.meta?.editScope);
+			clearUpdate(rowData, columnName, meta?.editScope);
+			close();
+		}, [close, columnName, rowData, clearUpdate, meta?.editScope]);
 
-			// Stop editing first, then close the popover
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, initialValue, columnName, rowData, clearUpdate, editorValue]);
-
-		const onChange = useCallback(
-			(event: ChangeEvent<HTMLTextAreaElement>) => {
-				const newValue = event.target.value;
-				setEditorValue(newValue);
-			},
-			[columnName, editorValue, initialValue],
-		);
+		const onChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
+			setEditorValue(event.target.value);
+		}, []);
 
 		const onOpenChange = useCallback(
 			(isOpen: boolean) => {
-				setOpen(isOpen);
-				if (!isOpen) {
-					// When closing, update the store with current value if changed
-					if (editorValue !== initialValue) {
-						setUpdate(
-							rowData,
-							columnName,
-							editorValue,
-							initialValue,
-							table.options.meta?.editScope,
-						);
-					}
-					meta?.onCellEditingStop?.();
-				}
+				if (isOpen) setOpen(true);
+				else onSave();
 			},
-			[meta, editorValue, initialValue, columnName, rowData, setUpdate],
+			[onSave],
 		);
 
 		const onOpenAutoFocus: NonNullable<
@@ -224,34 +244,19 @@ export const TableTextCell = memo(
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
 			},
-			[onCancel, onSave, editorValue, initialValue],
+			[onCancel, onSave],
 		);
-
-		const onTextareaBlur = useCallback(() => {
-			// Update store on blur
-			if (editorValue !== initialValue) {
-				setUpdate(
-					rowData,
-					columnName,
-					editorValue,
-					initialValue,
-					table.options.meta?.editScope,
-				);
-			}
-			// Stop editing first, then close the popover
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
 
 		// Sync open state with isEditing prop and initialize editor value
 		useEffect(() => {
 			if (isEditing && !open) {
-				setEditorValue(displayValue);
+				setEditorValue(editorStart);
+				editingRef.current = true;
 				setOpen(true);
 			} else if (!isEditing && open) {
 				setOpen(false);
 			}
-		}, [isEditing, open, displayValue]);
+		}, [isEditing, open, editorStart]);
 
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
@@ -261,6 +266,13 @@ export const TableTextCell = memo(
 
 		useHotkeys("enter", () => onSave(), { enabled: open });
 		useHotkeys("esc", () => onCancel(), { enabled: open });
+
+		// Explicit values the textarea cannot express; the current one is not offered again.
+		const valueActions: { label: string; value: unknown }[] = [
+			...(columnMeta?.isNullable ? [{ label: "Set NULL", value: null }] : []),
+			{ label: "Set empty string", value: "" },
+			...(columnMeta?.hasDefault ? [{ label: "Use default", value: CELL_DEFAULT }] : []),
+		].filter((action) => action.value !== currentValue);
 
 		return (
 			<CellPopover
@@ -279,7 +291,7 @@ export const TableTextCell = memo(
 						isSelected={isSelected}
 						onKeyDown={onWrapperKeyDown}
 					>
-						<span data-slot="grid-cell-content">{displayValue}</span>
+						<CellContent value={currentValue} />
 					</TableCellWrapper>
 				}
 			>
@@ -296,10 +308,33 @@ export const TableTextCell = memo(
 						value={editorValue}
 						onChange={onChange}
 						onKeyDown={onTextareaKeyDown}
-						onBlur={onTextareaBlur}
+						onBlur={() => onSave()}
 						className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
-						placeholder="Enter text..."
+						placeholder={
+							currentValue === null || currentValue === undefined
+								? "NULL"
+								: currentValue === CELL_DEFAULT
+									? "DEFAULT"
+									: "Enter text..."
+						}
 					/>
+					{valueActions.length > 0 && (
+						<div className="flex border-t">
+							{valueActions.map((action) => (
+								<Button
+									key={action.label}
+									variant="ghost"
+									size="sm"
+									className="flex-1 rounded-none text-xs"
+									// Keep focus in the textarea so its blur does not save typed text first.
+									onMouseDown={(event) => event.preventDefault()}
+									onClick={() => commit(action.value)}
+								>
+									{action.label}
+								</Button>
+							))}
+						</div>
+					)}
 					<div className="flex flex-col border-t">
 						<Button
 							variant="ghost"
@@ -469,7 +504,7 @@ export const TableNumberCell = memo(
 						className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					/>
 				) : (
-					<span data-slot="grid-cell-content">{formatCellValue(displayValue)}</span>
+					<CellContent value={displayValue} />
 				)}
 			</TableCellWrapper>
 		);
@@ -605,14 +640,6 @@ export const TableBooleanCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		// Display value (use currentValue which includes store updates)
-		const displayValue =
-			currentValue === null || currentValue === undefined
-				? "NULL"
-				: currentValue
-					? "true"
-					: "false";
-
 		return (
 			<TableCellWrapper
 				ref={containerRef}
@@ -659,7 +686,9 @@ export const TableBooleanCell = memo(
 						</SelectContent>
 					</Select>
 				) : (
-					<span className="flex items-center size-full px-2 py-1.5">{displayValue}</span>
+					<span className="flex items-center size-full px-2 py-1.5">
+						<CellContent value={currentValue}>{currentValue ? "true" : "false"}</CellContent>
+					</span>
 				)}
 			</TableCellWrapper>
 		);
@@ -781,10 +810,6 @@ export const TableEnumCell = memo(
 			}
 		}, [isFocused, isEditing, meta?.isScrolling]);
 
-		// Display value (use currentValue which includes store updates)
-		const displayValue =
-			currentValue === null || currentValue === undefined ? "NULL" : currentValue;
-
 		return (
 			<TableCellWrapper
 				ref={containerRef}
@@ -838,7 +863,7 @@ export const TableEnumCell = memo(
 					</Select>
 				) : (
 					<span className="flex items-center size-full px-2 py-1.5 truncate">
-						{displayValue}
+						<CellContent value={currentValue} />
 					</span>
 				)}
 			</TableCellWrapper>
@@ -957,14 +982,9 @@ export const TableDateCell = memo(
 					/>
 				) : (
 					// The text the picker's button shows.
-					<span
-						data-slot="grid-cell-content"
-						className={cn(!date && "text-muted-foreground")}
-					>
-						{date && !Number.isNaN(date.getTime())
-							? format(date, "yyyy-MM-dd")
-							: "Pick a date"}
-					</span>
+					<CellContent value={currentValue}>
+						{date && !Number.isNaN(date.getTime()) ? format(date, "yyyy-MM-dd") : currentValue}
+					</CellContent>
 				)}
 			</TableCellWrapper>
 		);
@@ -1153,7 +1173,7 @@ export const TableJsonCell = memo(
 						isSelected={isSelected}
 						onKeyDown={onWrapperKeyDown}
 					>
-						<span data-slot="grid-cell-content">{displayValue}</span>
+						<CellContent value={currentJsonValue}>{displayValue}</CellContent>
 					</TableCellWrapper>
 				}
 			>
@@ -1373,7 +1393,11 @@ export const TableForeignKeyCell = memo(
 							isSelected={isSelected}
 							onKeyDown={onWrapperKeyDown}
 						>
-							{displayValue !== "" && (
+							{pendingUpdate?.newValue === null ||
+							(!pendingUpdate &&
+								(rawInitialValue === null || rawInitialValue === undefined)) ? (
+								<CellContent value={null} />
+							) : (
 								<span className="flex items-center gap-1.5 size-full overflow-hidden">
 									{referencedTable && (
 										<Badge

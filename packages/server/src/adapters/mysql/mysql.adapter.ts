@@ -939,14 +939,19 @@ export class MySqlAdapter extends BaseAdapter {
 		try {
 			let total = 0;
 			for (const { keyValues, rowUpdates } of groups) {
-				const setClauses = rowUpdates.map((u) => `\`${u.columnName}\` = ?`);
-				const values: unknown[] = rowUpdates.map((u) => {
-					if (u.value !== null && typeof u.value === "object") return JSON.stringify(u.value);
-					if (booleanColumns.has(u.columnName) && typeof u.value === "string") {
-						return u.value === "true" ? 1 : 0;
-					}
-					return u.value;
-				});
+				const setClauses = rowUpdates.map(
+					(u) => `\`${u.columnName}\` = ${u.useDefault ? "DEFAULT" : "?"}`,
+				);
+				const values: unknown[] = rowUpdates
+					.filter((u) => !u.useDefault)
+					.map((u) => {
+						if (u.value !== null && typeof u.value === "object")
+							return JSON.stringify(u.value);
+						if (booleanColumns.has(u.columnName) && typeof u.value === "string") {
+							return u.value === "true" ? 1 : 0;
+						}
+						return u.value;
+					});
 				values.push(...keyValues);
 				const whereClauses = keyColumns.map((column) => `\`${column}\` = ?`);
 

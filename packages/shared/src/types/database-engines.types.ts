@@ -12,6 +12,8 @@ interface DatabaseEngineBase {
 	editorLanguage: "pgsql" | "json" | "plaintext";
 	liveMode: boolean;
 	schemaSelector: boolean;
+	/** Grid edits can set a cell to its column default (`UPDATE … SET c = DEFAULT`). */
+	cellDefault: boolean;
 }
 
 type RowMutationCapability =
@@ -47,6 +49,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: true,
+		cellDefault: true,
 		rowMutation: true,
 		indexes: {
 			methods: ["btree", "hash", "gin", "gist", "spgist", "brin"],
@@ -62,6 +65,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
@@ -74,6 +78,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -89,6 +94,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "json",
 		liveMode: false,
 		schemaSelector: false,
+		cellDefault: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
@@ -101,6 +107,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: false,
@@ -113,6 +120,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "plaintext",
 		liveMode: false,
 		schemaSelector: false,
+		cellDefault: false,
 		rowMutation: true,
 		indexes: false,
 		serverLogs: true,
@@ -125,6 +133,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -141,6 +150,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		cellDefault: true,
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -156,6 +166,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: false,
 		schemaSelector: false,
+		cellDefault: false,
 		indexes: false,
 		rowMutation: false,
 		rowMutationReason:
