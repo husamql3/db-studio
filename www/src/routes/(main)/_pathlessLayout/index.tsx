@@ -1,6 +1,6 @@
 import { META } from "@db-studio/shared/constants";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, DownloadIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { IoLogoGithub } from "react-icons/io";
 import { FeaturesGrid } from "@/components/features";
@@ -116,6 +116,52 @@ function DemoVideo() {
 	);
 }
 
+const RELEASES = `${META.SITE_GITHUB_LINK}/releases/latest`;
+
+type Download = { os: string; file: string };
+
+type HighEntropyNavigator = Navigator & {
+	userAgentData?: {
+		getHighEntropyValues: (hints: string[]) => Promise<{ architecture?: string }>;
+	};
+};
+
+/** Picks the installer for this machine, or null when there is no desktop build for it. */
+async function detectDownload(): Promise<Download | null> {
+	const ua = navigator.userAgent;
+	// iPadOS reports itself as a Mac; touch points tell them apart.
+	if (/Macintosh/.test(ua) && navigator.maxTouchPoints < 2) {
+		// Only Chromium exposes the CPU; Safari and Firefox report Intel on every Mac, so they get arm64.
+		const arch = await (navigator as HighEntropyNavigator).userAgentData
+			?.getHighEntropyValues(["architecture"])
+			.then((v) => v.architecture)
+			.catch(() => undefined);
+		return { os: "macOS", file: `db-studio-mac-${arch === "x86" ? "x64" : "arm64"}.dmg` };
+	}
+	if (/Windows/.test(ua)) return { os: "Windows", file: "db-studio-win-x64.exe" };
+	if (/Linux x86_64/.test(ua) && !/Android/.test(ua))
+		return { os: "Linux", file: "db-studio-linux-x86_64.AppImage" };
+	return null;
+}
+
+// Detects after hydration; the server render links to the releases page.
+function DownloadButton() {
+	const [download, setDownload] = useState<Download | null>(null);
+
+	useEffect(() => {
+		detectDownload().then(setDownload);
+	}, []);
+
+	return (
+		<Button asChild>
+			<a href={download ? `${RELEASES}/download/${download.file}` : RELEASES}>
+				<DownloadIcon />
+				{download ? `Download for ${download.os}` : "Download"}
+			</a>
+		</Button>
+	);
+}
+
 function Hero({ stars }: { stars: number }) {
 	const latest = changelog[0];
 	return (
@@ -158,14 +204,7 @@ function Hero({ stars }: { stars: number }) {
 				<InstallCommand />
 
 				<div className="flex flex-wrap gap-2">
-					<Button asChild>
-						<Link
-							to="/docs/$"
-							params={{ _splat: "getting-started" }}
-						>
-							Read the docs
-						</Link>
-					</Button>
+					<DownloadButton />
 					<Button
 						asChild
 						variant="outline"

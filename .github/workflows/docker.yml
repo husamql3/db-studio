@@ -11,10 +11,21 @@ on:
       - "bun.lock"
       - "bunfig.toml"
       - "package.json"
+      - "turbo.json"
+      - "tsconfig.json"
+      - "packages/server/**"
+      - "packages/web/**"
+      - "packages/ui/**"
+      - "packages/shared/**"
+      - "packages/desktop/package.json"
+      - "packages/proxy/package.json"
       - "www/package.json"
-      - "packages/**"
       - "scripts/docker.sh"
       - ".github/workflows/docker.yml"
+      - "!**/*.md"
+      - "!**/*.test.*"
+      - "!packages/server/tests/**"
+      - "!packages/server/e2e/**"
   pull_request:
     branches:
       - stage
