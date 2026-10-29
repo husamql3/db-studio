@@ -18,26 +18,9 @@ on:
         description: "Release to attach installers to (must match packages/server/package.json). Empty builds artifacts only."
         required: false
         type: string
-  pull_request:
-    paths:
-      - "packages/desktop/**"
-      - "packages/server/**"
-      - "packages/web/**"
-      - "packages/ui/**"
-      - "packages/shared/**"
-      - "bun.lock"
-      - "bunfig.toml"
-      - "package.json"
-      - "turbo.json"
-      - "tsconfig.json"
-      - ".github/workflows/release-desktop.yml"
-      - "!**/*.md"
-      - "!**/*.test.*"
-      - "!packages/server/tests/**"
-      - "!packages/server/e2e/**"
 
 concurrency:
-  group: release-desktop-${{ github.event.pull_request.number || inputs.version || github.ref }}
+  group: release-desktop-${{ inputs.version || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -45,7 +28,6 @@ permissions:
 
 jobs:
   build:
-    if: github.event_name != 'pull_request' || github.head_ref != 'stage'
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
