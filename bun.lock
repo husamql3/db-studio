@@ -52,7 +52,7 @@
     },
     "packages/server": {
       "name": "db-studio",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "bin": {
         "db-studio": "./dist/index.js",
       },

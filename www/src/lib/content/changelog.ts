@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.1.0",
+		date: "2026-10-29",
+		title: "Download the desktop app",
+		improvements: [
+			{
+				text: "The homepage download button picks the desktop installer for your operating system",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "2.0.1",
 		date: "2026-10-29",
 		title: "Every database. One studio",
