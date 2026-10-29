@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.0.1",
+		date: "2026-10-29",
+		title: "Every database. One studio",
+		improvements: [
+			{
+				text: "The website and docs now use our new slogan: Every database. One studio",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "2.0.0",
 		date: "2026-10-29",
 		title: "Desktop app and a new website",
