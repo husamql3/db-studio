@@ -1,7 +1,8 @@
 import { Button } from "@db-studio/ui/button";
 import { Kbd } from "@db-studio/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@db-studio/ui/popover";
-import { ArrowRight, Undo2 } from "lucide-react";
+import { cn } from "@db-studio/ui/utils";
+import { Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatCellValue } from "@/utils/format-cell-value";
@@ -15,19 +16,29 @@ import { stableStringify } from "../../utils/table-diff";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
-const CellValue = ({ value, className }: { value: unknown; className: string }) => {
+/** One side of a change, like a diff line; NULL and empty text get the grid's markers. */
+const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {
 	const text = formatCellValue(value);
+	const marker = value === null || value === undefined ? "NULL" : text === "" ? "EMPTY" : null;
+	const Line = added ? "ins" : "del";
 	return (
-		<span
-			className={`min-w-0 flex-1 truncate font-mono ${className}`}
-			title={text}
-		>
-			{value === null || value === undefined ? (
-				<span className="italic">NULL</span>
-			) : (
-				text || <span className="italic">empty</span>
+		<Line
+			className={cn(
+				"flex min-w-0 gap-1.5 px-1.5 no-underline",
+				added
+					? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+					: "bg-red-500/10 text-red-700 dark:text-red-300",
 			)}
-		</span>
+			title={marker ?? text}
+		>
+			<span
+				aria-hidden
+				className="select-none opacity-60"
+			>
+				{added ? "+" : "-"}
+			</span>
+			<span className={cn("truncate", marker && "text-[0.625rem]")}>{marker ?? text}</span>
+		</Line>
 	);
 };
 
@@ -100,55 +111,59 @@ export const ReviewBtn = () => {
 			</PopoverTrigger>
 			<PopoverContent
 				align="start"
-				className="w-[28rem] p-0"
+				className="w-[28rem] gap-0 overflow-hidden rounded-sm p-0"
 			>
-				<div className="flex items-center justify-between border-b px-3 py-2 text-xs text-muted-foreground">
+				<div className="flex h-8 items-center justify-between border-b px-3 text-muted-foreground">
 					<span>
-						{updates.length} {updates.length === 1 ? "change" : "changes"} in {rows.size}{" "}
+						<span className="text-foreground">{updates.length}</span>{" "}
+						{updates.length === 1 ? "change" : "changes"} in{" "}
+						<span className="text-foreground">{rows.size}</span>{" "}
 						{rows.size === 1 ? "row" : "rows"}
 					</span>
-					<span className="flex items-center gap-1">
-						<Kbd className="text-xs font-normal">{isMac ? "⌘Z" : "Ctrl+Z"}</Kbd> undo
+					<span className="flex items-center gap-1.5 text-[0.625rem]">
+						<Kbd>{isMac ? "⌘Z" : "Ctrl+Z"}</Kbd>
+						undo last
 					</span>
 				</div>
-				<div className="max-h-96 overflow-auto">
+				<div className="max-h-96 overflow-auto font-mono">
 					{[...rows.values()].map((cells, index) => (
 						<section key={stableStringify(getRowIdentity(cells[0].rowData, editScope))}>
-							<h3 className="sticky top-0 border-b bg-muted px-3 py-1 font-mono text-xs text-muted-foreground">
+							<h3 className="sticky top-0 z-10 flex min-h-6 items-center py-1 border-b bg-popover px-3 text-[0.625rem] text-muted-foreground">
 								{rowLabel(cells[0].rowData, index)}
 							</h3>
-							<ul>
+							<ul className="divide-y">
 								{cells.map((cell) => (
 									<li
 										key={cell.columnName}
-										className="flex items-center gap-2 border-b px-3 py-1 text-xs last:border-b-0"
+										className="group/change grid grid-cols-[7rem_minmax(0,1fr)_auto] items-start gap-x-2 py-1.5 pr-1.5 pl-3"
 									>
 										<span
-											className="w-28 shrink-0 truncate"
+											className="truncate pt-px text-foreground"
 											title={cell.columnName}
 										>
 											{cell.columnName}
 										</span>
-										<CellValue
-											value={cell.originalValue}
-											className="text-muted-foreground line-through"
-										/>
-										<ArrowRight className="size-3 shrink-0 text-muted-foreground" />
-										<CellValue
-											value={cell.newValue}
-											className="text-green-600 dark:text-green-400"
-										/>
+										<div className="grid gap-px">
+											<DiffLine
+												value={cell.originalValue}
+												added={false}
+											/>
+											<DiffLine
+												value={cell.newValue}
+												added
+											/>
+										</div>
 										<Button
 											type="button"
 											variant="ghost"
-											size="icon"
-											className="size-6 shrink-0"
+											size="icon-sm"
+											className="self-center pointer-fine:opacity-0 pointer-fine:group-hover/change:opacity-100 pointer-fine:focus-visible:opacity-100"
 											onClick={() => clearUpdate(cell.rowData, cell.columnName, editScope)}
 											disabled={isUpdatingCell}
 											aria-label={`Revert ${cell.columnName}`}
 											title="Revert to the original value"
 										>
-											<Undo2 className="size-3.5" />
+											<Undo2 />
 										</Button>
 									</li>
 								))}
