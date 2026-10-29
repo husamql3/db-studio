@@ -158,3 +158,18 @@ DATABASE_URL='d1://<account id>/<database id>?authToken=<api token>' bunx tsx e2
 ```
 
 It writes `e2e/artifacts/d1-specifics-<label>.json`.
+
+## Read-only connections
+
+Marks a saved connection read-only and checks that reads work, query-runner writes and DDL fail,
+the tab's old read-write connection closes without moving that tab to another database, a
+connection opened during the switch cannot write, a pasted URL of the same connection opens
+read-only, and an in-memory DuckDB database refuses the switch and keeps its rows. DuckDB and SQLite run on scratch files; set `PG_URL`, `MYSQL_URL` or `CLICKHOUSE_URL`
+to include those engines.
+
+```bash
+cd packages/server
+MYSQL_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/read-only.ts
+```
+
+It writes `e2e/artifacts/read-only.json`.

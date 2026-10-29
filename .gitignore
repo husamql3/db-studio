@@ -33,5 +33,10 @@ dist-ssr
 .env
 db/
 
+# Desktop build output
+packages/desktop/dist-electron
+packages/desktop/server-stage
+packages/desktop/release
+
 # Claude Code local config
 .claude/

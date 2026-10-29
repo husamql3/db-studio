@@ -244,10 +244,15 @@ export class MySqlAdapter extends BaseAdapter {
 		const pool = await getMysqlPool(db);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
+		// The first queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, tableName),
 			this.countRows(pool, tableName, filterWhere, filterValues),
-		]);
+		]).catch((e: unknown) => {
+			if ((e as { errno?: number }).errno === MYSQL_NO_SUCH_TABLE)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.wrapError(e);
+		});
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;

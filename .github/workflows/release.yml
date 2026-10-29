@@ -5,8 +5,22 @@ on:
     branches:
       - main
     paths:
-      - "packages/**"
+      - "packages/server/**"
+      - "packages/web/**"
+      - "packages/ui/**"
+      - "packages/shared/**"
+      - "packages/desktop/**"
+      - "bun.lock"
+      - "bunfig.toml"
+      - "package.json"
+      - "turbo.json"
+      - "tsconfig.json"
       - ".github/workflows/release.yml"
+      - ".github/workflows/release-desktop.yml"
+      - "!**/*.md"
+      - "!**/*.test.*"
+      - "!packages/server/tests/**"
+      - "!packages/server/e2e/**"
   workflow_dispatch:
     inputs:
       publish:
@@ -23,7 +37,40 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    name: Check release version
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.version.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compare app version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ] || [[ "$BEFORE" =~ ^0+$ ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          previous=$(git show "$BEFORE:packages/server/package.json" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          current=$(node -p "require('./packages/server/package.json').version")
+          if [ "$previous" != "$current" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "App version unchanged; skipping npm and desktop release builds"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: version
+    if: needs.version.outputs.changed == 'true'
     runs-on: ubuntu-latest
     name: Build release
     outputs:
@@ -134,3 +181,13 @@ jobs:
             --title "v$VERSION" \
             --notes-file release/release-notes.md \
             --target "$GITHUB_SHA"
+
+  desktop:
+    name: Desktop
+    needs: [build, publish]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit

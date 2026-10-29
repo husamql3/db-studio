@@ -10,6 +10,7 @@ const PAGES: { path: string; lastmod: string }[] = [
 	{ path: "/changelog", lastmod: changelog[0].date },
 	{ path: "/docs", lastmod: "2026-10-18" },
 	{ path: "/docs/getting-started", lastmod: "2026-10-18" },
+	{ path: "/docs/desktop", lastmod: "2026-10-29" },
 	{ path: "/docs/faq", lastmod: "2026-10-18" },
 	{ path: "/docs/databases", lastmod: "2026-10-18" },
 	{ path: "/docs/indexes", lastmod: "2026-10-11" },

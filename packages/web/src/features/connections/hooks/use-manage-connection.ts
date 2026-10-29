@@ -7,13 +7,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { deleteConnection, updateConnection } from "@/shared/api";
 import { connectionKeys } from "@/shared/query/keys";
-import { errorMessage } from "./use-connections";
+import { errorMessage, useConnect, useConnections } from "./use-connections";
 
 type MutationError = Error & { details?: unknown };
 
-/** Rename, recolor or forget a saved connection. Forgetting the open one leaves it open. */
+/** Rename, recolor, switch read-only or forget a saved connection. Forgetting the open one leaves it open. */
 export const useManageConnection = (connection: ConnectionSummarySchemaType) => {
 	const queryClient = useQueryClient();
+	const { active } = useConnections();
+	const { connectSaved } = useConnect();
 
 	const setState = (
 		change: (state: ConnectionsStateSchemaType) => ConnectionsStateSchemaType,
@@ -58,6 +60,18 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 			error: (error: MutationError) => errorMessage(error) || "Failed to change the color",
 		});
 
+	/** The server closes the connection open in the old mode, so this tab reconnects to it. */
+	const setReadOnly = (readOnly: boolean) =>
+		toast.promise(
+			updateMutation.mutateAsync({ readOnly }).then((updated) => {
+				if (active?.id === updated.id) void connectSaved(updated);
+			}),
+			{
+				error: (error: MutationError) =>
+					errorMessage(error) || "Failed to change read-only mode",
+			},
+		);
+
 	const remove = () =>
 		toast.promise(deleteMutation.mutateAsync(), {
 			loading: "Removing connection…",
@@ -65,5 +79,5 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 			error: (error: MutationError) => errorMessage(error) || "Failed to remove connection",
 		});
 
-	return { rename, setColor, remove };
+	return { rename, setColor, setReadOnly, remove };
 };

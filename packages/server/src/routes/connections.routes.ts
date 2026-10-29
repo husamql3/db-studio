@@ -1,7 +1,7 @@
 import { connectUrlSchema, updateConnectionSchema } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
-import { connect, connectSaved, getConnectionsState, summarize } from "@/connection.js";
-import { deleteSavedConnection, updateSavedConnection } from "@/connections-store.js";
+import { connect, connectSaved, getConnectionsState, updateConnection } from "@/connection.js";
+import { deleteSavedConnection } from "@/connections-store.js";
 
 /**
  * /connections routes: the saved connections and the one this browser tab has open. Saved URLs
@@ -9,7 +9,7 @@ import { deleteSavedConnection, updateSavedConnection } from "@/connections-stor
  * GET    /connections              - saved connections and this tab's open one
  * POST   /connections              - test a pasted URL, open it and save it
  * POST   /connections/:id/connect  - test a saved connection and open it
- * PATCH  /connections/:id          - rename or recolor a saved connection
+ * PATCH  /connections/:id          - rename, recolor or switch read-only on a saved connection
  * DELETE /connections/:id          - forget a saved connection (an open one stays open)
  */
 export const connectionsRoutes = new Elysia({ prefix: "/connections" })
@@ -30,9 +30,7 @@ export const connectionsRoutes = new Elysia({ prefix: "/connections" })
 
 	.patch(
 		"/:id",
-		async ({ params, body }) => ({
-			data: summarize(await updateSavedConnection(params.id, body)),
-		}),
+		async ({ params, body }) => ({ data: await updateConnection(params.id, body) }),
 		{ body: updateConnectionSchema },
 	)
 

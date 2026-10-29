@@ -1,6 +1,6 @@
 import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
 import { PlusIcon } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import {
 	SPONSOR_EMAIL,
 	type Sponsor,
@@ -10,18 +10,15 @@ import {
 } from "@/lib/content/sponsors";
 import { cn } from "@/lib/utils";
 
-// three.js is most of Silk's weight; loading it lazily keeps it out of the homepage bundle.
-const Silk = lazy(() => import("@/components/silk").then((m) => ({ default: m.Silk })));
-
 const CELL_HEIGHTS: Record<SponsorTierId, string> = {
-	mythic: "h-40",
-	legendary: "h-32",
-	sponsor: "h-24",
-	platform: "h-24",
+	mythic: "h-48",
+	legendary: "h-40",
+	sponsor: "h-32",
+	platform: "h-32",
 };
 
 const ACTION =
-	"border bg-secondary/60 px-2.5 py-1 text-foreground/70 transition-colors duration-200 hover:text-foreground dark:bg-secondary/30";
+	"cursor-pointer rounded-sm border bg-white/[0.03] px-2.5 py-1 text-foreground/70 transition-[color,transform] duration-150 ease-out hover:text-foreground active:scale-[0.97]";
 
 // Module-level so React calls it once on mount, not again on each re-render.
 const focusOnMount = (el: HTMLElement | null) => el?.focus();
@@ -37,7 +34,7 @@ function OpenSpot({ tier }: { tier: SponsorTierId }) {
 
 	if (open) {
 		return (
-			<div className={cell}>
+			<div className={cn(cell, "animate-in fade-in-0 duration-200")}>
 				<button
 					type="button"
 					// The slot button that had focus is gone, so hand focus to the first choice.
@@ -66,10 +63,10 @@ function OpenSpot({ tier }: { tier: SponsorTierId }) {
 			onClick={() => setOpen(true)}
 			className={cn(
 				cell,
-				"group transition-colors duration-200 hover:bg-secondary/40 hover:text-foreground dark:hover:bg-secondary/20",
+				"group w-full cursor-pointer transition-colors duration-150 hover:bg-white/[0.02] hover:text-foreground",
 			)}
 		>
-			<span className="flex size-9 items-center justify-center border bg-secondary/60 text-foreground/70 transition-colors duration-200 group-hover:text-foreground dark:bg-secondary/30">
+			<span className="flex size-7 items-center justify-center rounded-sm border bg-white/[0.03] text-foreground/70 transition-colors duration-150 group-hover:text-foreground">
 				<PlusIcon
 					className="size-4"
 					strokeWidth={1.5}
@@ -83,22 +80,6 @@ function OpenSpot({ tier }: { tier: SponsorTierId }) {
 export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 	return (
 		<>
-			{/* Same Silk settings as the roadmap header; the canvas paints behind this box. */}
-			<div className="relative overflow-hidden">
-				<Suspense>
-					<Silk
-						speed={4}
-						scale={1}
-						color="#222222"
-						noiseIntensity={0.4}
-						rotation={0}
-					/>
-				</Suspense>
-				<h2 className="py-6 text-center font-medium text-lg text-muted-foreground tracking-tight md:text-xl">
-					Open for <span className="text-foreground">sponsorship</span>
-				</h2>
-			</div>
-
 			{sponsorTiers.map((tier) => {
 				const inTier = sponsors.filter((s) => s.tier === tier.id);
 				return (
@@ -106,51 +87,62 @@ export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 						key={tier.id}
 						className="border-t"
 					>
-						<div className="flex items-center justify-between border-b px-6 py-2.5 text-xs bg-background dark:bg-[radial-gradient(50%_80%_at_25%_0%,--theme(--color-foreground/.05),transparent)]">
-							<h3 className="font-semibold text-foreground">{tier.label}</h3>
-							<span className="text-muted-foreground">{tier.price}</span>
+						<div className="flex items-center justify-between border-b bg-white/[0.015] px-5 py-2 text-xs md:px-8">
+							<h3 className="font-medium text-foreground">{tier.label}</h3>
+							<span className="tabular-nums text-muted-foreground">{tier.price}</span>
 						</div>
 
-						{/* One row per tier with borders only between cells: the section and tier
-					    strips already draw every outer edge, and overlapping translucent
-					    borders render thicker. */}
-						<div className="grid grid-flow-col auto-cols-fr divide-x">
+						{/* One row per tier. gap-px over a border-colored grid draws one hairline between
+						    cells; the tier strips already draw the outer edges. Cells sit on bg-background so
+						    their translucent hover doesn't let the lines through. */}
+						<div
+							className="grid grid-cols-(--cols) gap-px bg-border"
+							style={
+								{ "--cols": `repeat(${tier.spots}, minmax(0, 1fr))` } as React.CSSProperties
+							}
+						>
 							{inTier.map((sponsor) => (
-								<a
+								<div
 									key={sponsor.id}
-									href={sponsor.url}
-									target="_blank"
-									// noopener only: noreferrer would hide the visit from the sponsor's analytics.
-									rel="noopener"
-									className={cn(
-										"flex items-center justify-center font-semibold tracking-tight transition-colors duration-200",
-										"hover:bg-secondary/40 dark:hover:bg-secondary/20",
-										tier.id === "mythic"
-											? "text-2xl bg-[radial-gradient(60%_90%_at_50%_0%,oklch(0.488_0.243_264.376/.15),transparent)]"
-											: "text-sm dark:bg-[radial-gradient(50%_80%_at_50%_0%,--theme(--color-foreground/.05),transparent)]",
-										CELL_HEIGHTS[tier.id],
-									)}
+									className="bg-background"
 								>
-									{sponsor.logo ? (
-										<img
-											src={sponsorLogoUrl(sponsor)}
-											alt={sponsor.name}
-											className={cn(
-												"w-auto max-w-[70%] object-contain",
-												tier.id === "mythic" ? "h-12" : "h-7",
-											)}
-										/>
-									) : (
-										sponsor.name
-									)}
-								</a>
+									<a
+										href={sponsor.url}
+										target="_blank"
+										// noopener only: noreferrer would hide the visit from the sponsor's analytics.
+										rel="noopener"
+										className={cn(
+											"flex items-center justify-center font-semibold tracking-tight transition-colors duration-200",
+											"hover:bg-white/[0.02]",
+											tier.id === "mythic"
+												? "text-2xl bg-[radial-gradient(60%_90%_at_50%_0%,oklch(0.488_0.243_264.376/.15),transparent)]"
+												: "text-sm dark:bg-[radial-gradient(50%_80%_at_50%_0%,--theme(--color-foreground/.05),transparent)]",
+											CELL_HEIGHTS[tier.id],
+										)}
+									>
+										{sponsor.logo ? (
+											<img
+												src={sponsorLogoUrl(sponsor)}
+												alt={sponsor.name}
+												className={cn(
+													"w-auto max-w-[70%] object-contain",
+													tier.id === "mythic" ? "h-12" : "h-7",
+												)}
+											/>
+										) : (
+											sponsor.name
+										)}
+									</a>
+								</div>
 							))}
 
 							{Array.from({ length: Math.max(0, tier.spots - inTier.length) }, (_, i) => (
-								<OpenSpot
+								<div
 									key={i}
-									tier={tier.id}
-								/>
+									className="bg-background"
+								>
+									<OpenSpot tier={tier.id} />
+								</div>
 							))}
 						</div>
 					</div>
@@ -161,7 +153,7 @@ export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 				Interested in sponsoring db-studio? Reach out at
 				<a
 					href={`mailto:${SPONSOR_EMAIL}`}
-					className="underline underline-offset-4 hover:text-foreground"
+					className="underline underline-offset-4 transition-colors duration-150 hover:text-foreground"
 				>
 					{SPONSOR_EMAIL}
 				</a>
