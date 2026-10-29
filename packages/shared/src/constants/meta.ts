@@ -6,9 +6,10 @@ export const META = {
 	AUTHOR_USERNAME: "husamql3",
 	AUTHOR_GITHUB_LINK: "https://github.com/husamql3",
 	//* site
-	SITE_DESCRIPTION: "The modern pgAdmin alternative that works with every database.",
+	SITE_DESCRIPTION:
+		"Every database. One studio. Browse tables, edit records, and run queries in a free, open-source database GUI.",
 	SITE_KEYWORDS: [
-		"pgadmin alternative",
+		"database studio",
 		"database client",
 		"database gui",
 		"database browser",
@@ -31,6 +32,6 @@ export const META = {
 	SITE_IMAGE: "https://dbstudio.sh/og-image.png",
 	SITE_IMAGE_WIDTH: "1200",
 	SITE_IMAGE_HEIGHT: "630",
-	SITE_IMAGE_ALT: "dbstudio.sh – Modern database management studio",
+	SITE_IMAGE_ALT: "db-studio | Every database. One studio",
 	SITE_COLOR: "#1447e6",
 };
