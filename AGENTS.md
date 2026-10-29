@@ -59,6 +59,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
+| `packages/desktop` | Electron desktop shell: starts the server CLI as a child process and opens its web app |
 | `www` | Marketing/docs site (TanStack Start + Fumadocs, deploys to Cloudflare) |
 
 ### Server (`packages/server`)
@@ -126,6 +127,13 @@ proxy  → shared
 Features within `packages/web` follow the same rule internally — a feature may import
 from `src/shared/`, `src/stores/`, and sibling feature `index.ts` barrels, but never
 from a sibling feature's internal files.
+
+### Desktop (`packages/desktop`)
+
+- **Thin shell**: Electron main (`src/main.ts`, bundled to `dist-electron/` by `tsup`, no preload) starts one server child at launch without a database URL (`src/server.ts`: free port, `HOST=127.0.0.1`) and opens a window on `http://127.0.0.1:<port>/`. Links off that origin open in the system browser.
+- **Connections**: the web app's `/connect` page handles them, saved by the server in `~/.dbstudio`, so the desktop app and the CLI share one list.
+- **Server child**: dev runs `packages/server/dist/index.js` with the system `node`; packaged runs Electron as Node (`ELECTRON_RUN_AS_NODE=1`) against `resources/server`, staged by `scripts/stage-server.mjs` with the target platform's native packages. If it fails to start or exits, the app shows the last output lines and the log path, then quits.
+- **Commands**: `bun run dev:desktop` (builds the server, then launches Electron), `bun run --cwd packages/desktop package -- --mac --arch arm64` (also `--win`, `--linux`). Version follows `packages/server`; builds are unsigned.
 
 ### Shared (`packages/shared`)
 
