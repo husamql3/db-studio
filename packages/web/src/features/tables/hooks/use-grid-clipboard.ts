@@ -31,7 +31,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
  * stage edits; a paste with values a column cannot take is previewed first.
  */
 export const useGridClipboard = (table: Table<TableRecord>) => {
-	const { getUpdate, setUpdate } = useUpdateCellStore();
+	const { getUpdate, setUpdates } = useUpdateCellStore();
 	const [preview, setPreview] = useState<PastePreview | null>(null);
 	const meta = table.options.meta;
 
@@ -68,11 +68,17 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 		return pending ? pending.newValue : rowData[columnId];
 	};
 
-	const stage = (changes: PastedChange[]) => {
-		for (const { rowData, columnId, value } of changes) {
-			setUpdate(rowData, columnId, value, rowData[columnId], meta?.editScope);
-		}
-	};
+	// One paste is one undo step.
+	const stage = (changes: PastedChange[]) =>
+		setUpdates(
+			changes.map(({ rowData, columnId, value }) => ({
+				rowData,
+				columnName: columnId,
+				newValue: value,
+				originalValue: rowData[columnId],
+			})),
+			meta?.editScope,
+		);
 
 	const onCopy = (event: ClipboardEvent<HTMLElement>) => {
 		const bounds = getBounds(event);
