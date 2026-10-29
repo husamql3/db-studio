@@ -29,15 +29,18 @@ function RouteComponent() {
 		return <Navigate to="/table" />;
 	}
 
+	// The visualizer canvas uses the full width; it has no table list.
+	const hasSidebar = section !== "visualizer";
+
 	return (
 		<div className="bg-background text-foreground w-dvw flex h-dvh max-h-dvh overflow-hidden relative">
 			<NavRail />
-			<Sidebar />
+			{hasSidebar && <Sidebar />}
 
 			<div
 				className="rail-content relative flex-1 flex flex-col h-full overflow-hidden"
 				style={{
-					marginLeft: isPinned ? `${width}px` : "0",
+					marginLeft: hasSidebar && isPinned ? `${width}px` : "0",
 				}}
 			>
 				<Outlet />

@@ -1,7 +1,7 @@
 import type { ApiError } from "@db-studio/shared/types/api-response.types.js";
 import { NotFoundError, ParseError, ValidationError } from "elysia";
 import { ZodError } from "zod";
-import { isPgConstraintViolation, isPgDatabaseError } from "@/drivers.js";
+import { isPgConstraintViolation, isPgDatabaseError, isPgDataException } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
@@ -50,8 +50,18 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 		return { status: 400, body: { error: "Malformed JSON in request body" } };
 	}
 	if (e instanceof NotFoundError) return { status: 404, body: { error: "Not found" } };
+	// V8 caps one string near 2^29 characters; a response body past it cannot be written.
+	if (e instanceof RangeError && e.message === "Invalid string length") {
+		return {
+			status: 400,
+			body: {
+				error: "The result is too large to send. Add a LIMIT or select fewer rows or columns.",
+			},
+		};
+	}
 	// Before the connection check: its message heuristics could match a constraint's name.
 	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
+	if (isPgDataException(e)) return { status: 400, body: { error: e.message } };
 	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
 	if (isPgDatabaseError(e) && e.code === "42501")
 		return { status: 403, body: { error: e.message } };

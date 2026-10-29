@@ -59,6 +59,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 | `packages/web` | React 19 web app (Vite, TanStack Router/Query/Table) |
 | `packages/shared` | Shared types and constants |
 | `packages/proxy` | Cloudflare Workers proxy (rate limiting via Upstash Redis) |
+| `packages/desktop` | Electron desktop shell: starts the server CLI as a child process and opens its web app |
 | `www` | Marketing/docs site (TanStack Start + Fumadocs, deploys to Cloudflare) |
 
 ### Server (`packages/server`)
@@ -127,6 +128,13 @@ Features within `packages/web` follow the same rule internally — a feature may
 from `src/shared/`, `src/stores/`, and sibling feature `index.ts` barrels, but never
 from a sibling feature's internal files.
 
+### Desktop (`packages/desktop`)
+
+- **Thin shell**: Electron main (`src/main.ts`, bundled to `dist-electron/` by `tsup`, no preload) starts one server child at launch without a database URL (`src/server.ts`: free port, `HOST=127.0.0.1`) and opens a window on `http://127.0.0.1:<port>/`. Links off that origin open in the system browser.
+- **Connections**: the web app's `/connect` page handles them, saved by the server in `~/.dbstudio`, so the desktop app and the CLI share one list.
+- **Server child**: dev runs `packages/server/dist/index.js` with the system `node`; packaged runs Electron as Node (`ELECTRON_RUN_AS_NODE=1`) against `resources/server`, staged by `scripts/stage-server.mjs` with the target platform's native packages. If it fails to start or exits, the app shows the last output lines and the log path, then quits.
+- **Commands**: `bun run dev:desktop` (builds the server, then launches Electron), `bun run --cwd packages/desktop package -- --mac --arch arm64` (also `--win`, `--linux`). Version follows `packages/server`; builds are unsigned.
+
 ### Shared (`packages/shared`)
 
 Three export paths:
@@ -150,7 +158,8 @@ Three export paths:
 
 - **Commit format**: `<type>(<scope>): <message>` (e.g., `feat(back): add mysql row insert`)
 - **Branch format**: `<type>/<issue-number>/<description>` (e.g., `feat/123/support-mysql`)
-- **Releases (`stage` → `main`)**: before merging, confirm that (1) every user-facing change since the last release has an entry in `www/src/lib/content/changelog.ts` and (2) `version` in `packages/server/package.json` is bumped to match the new changelog `version`. Keep entries brief: one short sentence per change, written for users, with no implementation details.
+- **Release scope**: bump the app version and add a versioned changelog entry only when changes affect the desktop app or db-studio CLI/server, including their bundled web app, shared code, runtime dependencies, or packaging. Website-only changes in `www/`, documentation, and unrelated files do not require an app release; keep the app version unchanged and omit a new versioned changelog entry.
+- **App releases (`stage` → `main`)**: before merging app changes, confirm that every user-facing app change since the last release has an entry in `www/src/lib/content/changelog.ts` and that `version` in `packages/server/package.json` matches the new changelog version. Keep entries brief: one short sentence per change, written for users, with no implementation details.
 - **Version bump**: derive it from the new changelog entry, not from the size of the diff. Minor (`1.19.0` → `1.20.0`) when `features` has an entry or an improvement changes what users can see or do (a new screen, setting, CLI flag or engine). Patch (`1.19.0` → `1.19.1`) when the entry has only `bugsFixed` or improvements users do not see (speed, dependencies, docs). Major when an existing setup stops working (a removed or renamed CLI flag, a connection URL that no longer parses, a `connections.json` that no longer loads, a dropped Node version); ask before releasing one.
 - **Logging**: server code never calls `console.*` outside `src/cmd/` (CLI output). Use `writeOperationalLog(level, event, fields)` from `src/operational-log.ts`: `event` is a fixed `snake_case` name, and anything variable goes in `fields` — never interpolated into the name. Pass errors as `errorFields(error)` (type + driver code); never log a message, connection string, table name or row. Each line already carries `instance_id` and, inside a request, `request_id`, `operation` and `db_type`. The request ID arrives as `X-Request-Id` (the web client sends one), is echoed on the response and in the `ApiError` body, tagged on Sentry reports, and forwarded to the proxy, whose logs go through `writeLog` in `packages/proxy/src/log.ts`.
 - **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`

@@ -10,6 +10,7 @@ COPY bun.lock package.json bunfig.toml ./
 
 # copy every package `package.json` to the working
 # directory
+COPY packages/desktop/package.json ./packages/desktop/
 COPY packages/proxy/package.json ./packages/proxy/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/

@@ -61,9 +61,9 @@ export function TableCellWrapper<TData>({
 
 	const onContextMenu = useCallback(
 		(event: MouseEvent) => {
-			if (!isEditing) {
-				meta?.onCellContextMenu?.(rowIndex, columnId, event);
-			}
+			// The editor keeps the browser's menu for cut, copy and paste.
+			if (isEditing) event.stopPropagation();
+			else meta?.onCellContextMenu?.(rowIndex, columnId, event);
 		},
 		[meta, rowIndex, columnId, isEditing],
 	);
