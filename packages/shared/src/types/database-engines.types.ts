@@ -12,6 +12,8 @@ interface DatabaseEngineBase {
 	editorLanguage: "pgsql" | "json" | "plaintext";
 	liveMode: boolean;
 	schemaSelector: boolean;
+	/** A connection can be opened in a read-only session the database itself enforces. */
+	readOnly: boolean;
 }
 
 type RowMutationCapability =
@@ -47,6 +49,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: true,
+		readOnly: true,
 		rowMutation: true,
 		indexes: {
 			methods: ["btree", "hash", "gin", "gist", "spgist", "brin"],
@@ -62,6 +65,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: true,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
@@ -74,6 +78,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: false,
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -89,6 +94,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "json",
 		liveMode: false,
 		schemaSelector: false,
+		readOnly: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
@@ -101,6 +107,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: false,
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: false,
@@ -113,6 +120,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "plaintext",
 		liveMode: false,
 		schemaSelector: false,
+		readOnly: false,
 		rowMutation: true,
 		indexes: false,
 		serverLogs: true,
@@ -125,6 +133,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: true,
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -141,6 +150,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
+		readOnly: false,
 		rowMutation: true,
 		indexes: {
 			methods: [],
@@ -156,6 +166,7 @@ export const DATABASE_ENGINES = {
 		editorLanguage: "pgsql",
 		liveMode: false,
 		schemaSelector: false,
+		readOnly: true,
 		indexes: false,
 		rowMutation: false,
 		rowMutationReason:
