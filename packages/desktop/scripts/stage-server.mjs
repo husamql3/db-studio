@@ -7,20 +7,20 @@
 // macOS x64 is built on an arm64 runner.
 //
 //   node scripts/stage-server.mjs [--arch x64]
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
 	cpSync,
 	existsSync,
 	mkdirSync,
 	readdirSync,
 	readFileSync,
-	rmSync,
 	renameSync,
+	rmSync,
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const serverDir = path.resolve(desktopDir, "../server");
@@ -108,25 +108,31 @@ renameSync(nodeModules, installed);
 const packages = readdirSync(installed)
 	.filter((name) => !name.startsWith("."))
 	.flatMap((name) =>
-		name.startsWith("@") ? readdirSync(path.join(installed, name)).map((n) => `${name}/${n}`) : [name],
+		name.startsWith("@")
+			? readdirSync(path.join(installed, name)).map((n) => `${name}/${n}`)
+			: [name],
 	);
 for (const name of packages) {
-	const manifest = JSON.parse(readFileSync(path.join(installed, name, "package.json"), "utf8"));
+	const manifest = JSON.parse(
+		readFileSync(path.join(installed, name, "package.json"), "utf8"),
+	);
 	if (manifest.os?.length !== 1) continue;
 	mkdirSync(path.dirname(path.join(nodeModules, name)), { recursive: true });
 	renameSync(path.join(installed, name), path.join(nodeModules, name));
 }
 rmSync(installed, { recursive: true, force: true });
 
-// DuckDB's macOS package ships a universal libduckdb.dylib; keep only the target slice.
+// DuckDB's macOS package ships a universal libduckdb.dylib with its local symbols; keep only
+// the target slice and drop those symbols. Stripping voids DuckDB's signature, so re-sign ad hoc.
 if (process.platform === "darwin") {
 	const slice = arch === "x64" ? "x86_64" : arch;
-	for (const file of readdirSync(stageDir, { recursive: true })) {
+	for (const file of readdirSync(nodeModules, { recursive: true })) {
 		if (!/\.(dylib|node)$/.test(file)) continue;
-		const binary = path.join(stageDir, file);
-		// Empty for the other platforms' prebuilds oracledb ships, which are not Mach-O.
-		const archs = spawnSync("lipo", ["-archs", binary], { encoding: "utf8" }).stdout.trim();
+		const binary = path.join(nodeModules, file);
+		const archs = execFileSync("lipo", ["-archs", binary], { encoding: "utf8" }).trim();
 		if (archs.includes(" ")) execFileSync("lipo", ["-thin", slice, binary, "-output", binary]);
+		execFileSync("strip", ["-x", binary], { stdio: "ignore" });
+		execFileSync("codesign", ["--force", "--sign", "-", binary]);
 	}
 }
 console.log(`✓ Staged server into ${path.relative(desktopDir, stageDir)}`);
