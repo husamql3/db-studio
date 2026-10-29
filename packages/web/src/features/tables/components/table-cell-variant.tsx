@@ -267,12 +267,15 @@ export const TableTextCell = memo(
 		useHotkeys("enter", () => onSave(), { enabled: open });
 		useHotkeys("esc", () => onCancel(), { enabled: open });
 
-		// Explicit values the textarea cannot express; the current one is not offered again.
-		const valueActions: { label: string; value: unknown }[] = [
-			...(columnMeta?.isNullable ? [{ label: "Set NULL", value: null }] : []),
-			{ label: "Set empty string", value: "" },
-			...(columnMeta?.hasDefault ? [{ label: "Use default", value: CELL_DEFAULT }] : []),
-		].filter((action) => action.value !== currentValue);
+		// Explicit values the textarea cannot express. Labels match the grid's markers; the
+		// current one stays in place, pressed, so the buttons never shift between cells.
+		const valueActions: { label: string; title: string; value: unknown }[] = [
+			...(columnMeta?.isNullable ? [{ label: "NULL", title: "Set NULL", value: null }] : []),
+			{ label: "EMPTY", title: "Set empty string", value: "" },
+			...(columnMeta?.hasDefault
+				? [{ label: "DEFAULT", title: "Use column default", value: CELL_DEFAULT }]
+				: []),
+		];
 
 		return (
 			<CellPopover
@@ -318,40 +321,46 @@ export const TableTextCell = memo(
 									: "Enter text..."
 						}
 					/>
-					{valueActions.length > 0 && (
-						<div className="flex border-t">
-							{valueActions.map((action) => (
+					{/* Mouse down keeps focus in the textarea, so its blur does not save typed text first. */}
+					<div className="flex h-8 items-center gap-1 border-t px-1.5">
+						<span className="px-1 text-[0.625rem] text-muted-foreground/70">Set</span>
+						{valueActions.map((action) => {
+							const isCurrent = (currentValue ?? null) === action.value;
+							return (
 								<Button
 									key={action.label}
 									variant="ghost"
-									size="sm"
-									className="flex-1 rounded-none text-xs"
-									// Keep focus in the textarea so its blur does not save typed text first.
+									size="xs"
+									aria-pressed={isCurrent}
+									aria-label={action.title}
+									title={action.title}
+									disabled={isCurrent}
+									className="font-mono disabled:opacity-100 aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border aria-pressed:ring-inset"
 									onMouseDown={(event) => event.preventDefault()}
 									onClick={() => commit(action.value)}
 								>
 									{action.label}
 								</Button>
-							))}
-						</div>
-					)}
-					<div className="flex flex-col border-t">
+							);
+						})}
 						<Button
 							variant="ghost"
-							size="sm"
-							className="rounded-none justify-start text-xs py-4 px-2"
+							size="xs"
+							className="ml-auto"
+							onMouseDown={(event) => event.preventDefault()}
+							onClick={onCancel}
 						>
-							<Kbd className="text-xs font-normal">↵</Kbd>
-							<span className="ml-1 text-xs">Save Changes</span>
+							<Kbd className="h-4 min-w-4">esc</Kbd>
+							Cancel
 						</Button>
-
 						<Button
 							variant="ghost"
-							size="sm"
-							className="rounded-none justify-start text-xs py-4 px-2"
+							size="xs"
+							onMouseDown={(event) => event.preventDefault()}
+							onClick={() => onSave()}
 						>
-							<Kbd className="text-xs font-normal">esc</Kbd>
-							<span className="ml-1 text-xs">Cancel Changes</span>
+							<Kbd className="h-4 min-w-4">↵</Kbd>
+							Save
 						</Button>
 					</div>
 				</PopoverContent>
