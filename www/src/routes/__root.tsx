@@ -113,6 +113,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					]}
 				/>
 				<Scripts />
+				<script
+					src="/google-analytics.js"
+					async
+				/>
 			</body>
 		</html>
 	);
