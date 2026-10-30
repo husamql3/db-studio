@@ -49,3 +49,13 @@ export const isPgConstraintViolation = (error: unknown): error is DatabaseError 
 /** Class 22 (invalid date, text in a number column, value too long): the user's data has the wrong form. */
 export const isPgDataException = (error: unknown): error is DatabaseError =>
 	isPgDatabaseError(error) && error.code?.startsWith("22") === true;
+
+/**
+ * A write the database refused because the connection is read-only: PostgreSQL 25006, MySQL
+ * 1792, or DuckDB's "attached in read-only mode".
+ */
+export const isReadOnlyRefusal = (error: unknown): boolean =>
+	(isPgDatabaseError(error) && error.code === "25006") ||
+	(error instanceof Error &&
+		((error as { errno?: number }).errno === 1792 ||
+			error.message.includes("attached in read-only mode")));
