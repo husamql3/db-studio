@@ -1,7 +1,12 @@
 import type { ApiError } from "@db-studio/shared/types/api-response.types.js";
 import { NotFoundError, ParseError, ValidationError } from "elysia";
 import { ZodError } from "zod";
-import { isPgConstraintViolation, isPgDatabaseError, isPgDataException } from "@/drivers.js";
+import {
+	isPgConstraintViolation,
+	isPgDatabaseError,
+	isPgDataException,
+	isReadOnlyRefusal,
+} from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
@@ -62,6 +67,14 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 	// Before the connection check: its message heuristics could match a constraint's name.
 	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
 	if (isPgDataException(e)) return { status: 400, body: { error: e.message } };
+	if (isReadOnlyRefusal(e))
+		return {
+			status: 403,
+			body: {
+				error:
+					"This connection is read-only. Turn off read-only for it in Connections to make changes.",
+			},
+		};
 	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
 	if (isPgDatabaseError(e) && e.code === "42501")
 		return { status: 403, body: { error: e.message } };
