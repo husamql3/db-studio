@@ -2,7 +2,9 @@
 // 1. a Windows ESM frame names the bundle as a file URL (`file:///C:/Users/<name>/…`),
 //    whose forward slashes never match the backslashed `homedir()` (DB-STUDIO-SERVER-Y, -N);
 // 2. the home directory holds a space, which the file URL percent-encodes (`<first>%20<last>`);
-// 3. a CommonJS frame on Windows keeps the plain backslashed path.
+// 3. a CommonJS frame on Windows keeps the plain backslashed path;
+// 4. file URLs encode #, ?, and Unicode in account names;
+// 5. replacing a decoded home ending in % first leaves the encoded suffix (25) behind.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { captureServerError } from "@/observability.js";
 
@@ -25,7 +27,9 @@ vi.mock("@sentry/node", () => ({
 const reportedStack = (home: string, frame: string): string => {
 	mocks.home = home;
 	const error = new Error("pool acquire timeout");
-	error.stack = ["Error: pool acquire timeout", `    at getTableColumns (${frame})`].join("\n");
+	error.stack = ["Error: pool acquire timeout", `    at getTableColumns (${frame})`].join(
+		"\n",
+	);
 	captureServerError(error, { operation: "get_tables", status: 500, dbType: "pg" });
 	return mocks.captureException.mock.calls[0][0].stack;
 };
@@ -38,6 +42,47 @@ describe("home directory redaction in reported stacks", () => {
 	});
 
 	afterEach(() => vi.unstubAllEnvs());
+
+	it.each([
+		{
+			name: "Windows hash",
+			home: "C:\\Users\\Jane#Doe",
+			frame: "file:///C:/Users/Jane%23Doe/dist/index.js:10:5",
+			expected: "file:///~/dist/index.js:10:5",
+		},
+		{
+			name: "POSIX question mark",
+			home: "/Users/jane?doe",
+			frame: "file:///Users/jane%3Fdoe/dist/index.js:10:5",
+			expected: "file://~/dist/index.js:10:5",
+		},
+		{
+			name: "Windows trailing percent",
+			home: "C:\\Users\\Jane%",
+			frame: "file:///C:/Users/Jane%25/dist/index.js:10:5",
+			expected: "file:///~/dist/index.js:10:5",
+		},
+		{
+			name: "POSIX trailing percent",
+			home: "/Users/jane%",
+			frame: "file:///Users/jane%25/dist/index.js:10:5",
+			expected: "file://~/dist/index.js:10:5",
+		},
+		{
+			name: "Unicode with hash",
+			home: "/Users/Hüsam#Yıldırım",
+			frame: "file:///Users/H%C3%BCsam%23Y%C4%B1ld%C4%B1r%C4%B1m/dist/index.js:10:5",
+			expected: "file://~/dist/index.js:10:5",
+		},
+	])("redacts an encoded $name home without changing the remaining frame", ({
+		home,
+		frame,
+		expected,
+	}) => {
+		expect(reportedStack(home, frame)).toBe(
+			`Error: get_tables failed with 500\n    at getTableColumns (${expected})`,
+		);
+	});
 
 	it("redacts a Windows home directory from a file URL frame", () => {
 		const stack = reportedStack(
