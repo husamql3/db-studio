@@ -5,6 +5,7 @@ import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-t
 import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 import { RedisKeySidebar } from "@/features/redis-browser/components/redis-key-sidebar";
+import { SidebarContentRoutinesList } from "@/features/routines";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 
 export const Sidebar = () => {
@@ -22,6 +23,8 @@ export const Sidebar = () => {
 				return <SidebarContentTablesList />;
 			case "runner":
 				return <SidebarContentQueriesList />;
+			case "routines":
+				return <SidebarContentRoutinesList />;
 			default:
 				return <SidebarContentTablesList />;
 			// todo

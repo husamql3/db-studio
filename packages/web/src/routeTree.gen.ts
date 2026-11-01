@@ -14,6 +14,7 @@ import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as PathlessLayoutIndexRouteImport } from './routes/_pathlessLayout/index'
 import { Route as PathlessLayoutBrowserRouteImport } from './routes/_pathlessLayout/browser'
 import { Route as PathlessLayoutLogsRouteImport } from './routes/_pathlessLayout/logs'
+import { Route as PathlessLayoutRoutinesRouteImport } from './routes/_pathlessLayout/routines'
 import { Route as PathlessLayoutVisualizerRouteImport } from './routes/_pathlessLayout/visualizer'
 import { Route as PathlessLayoutIndexesIndexRouteImport } from './routes/_pathlessLayout/indexes/index'
 import { Route as PathlessLayoutIndexesTableRouteImport } from './routes/_pathlessLayout/indexes/$table'
@@ -46,6 +47,11 @@ const PathlessLayoutBrowserRoute = PathlessLayoutBrowserRouteImport.update({
 const PathlessLayoutLogsRoute = PathlessLayoutLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
+  getParentRoute: () => PathlessLayoutRoute,
+} as any)
+const PathlessLayoutRoutinesRoute = PathlessLayoutRoutinesRouteImport.update({
+  id: '/routines',
+  path: '/routines',
   getParentRoute: () => PathlessLayoutRoute,
 } as any)
 const PathlessLayoutVisualizerRoute =
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/connect': typeof ConnectRoute
   '/browser': typeof PathlessLayoutBrowserRoute
   '/logs': typeof PathlessLayoutLogsRoute
+  '/routines': typeof PathlessLayoutRoutinesRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
   '/indexes/$table': typeof PathlessLayoutIndexesTableRoute
   '/runner/$queryId': typeof PathlessLayoutRunnerQueryIdRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/connect': typeof ConnectRoute
   '/browser': typeof PathlessLayoutBrowserRoute
   '/logs': typeof PathlessLayoutLogsRoute
+  '/routines': typeof PathlessLayoutRoutinesRoute
   '/visualizer': typeof PathlessLayoutVisualizerRoute
   '/': typeof PathlessLayoutIndexRoute
   '/indexes/$table': typeof PathlessLayoutIndexesTableRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/connect': typeof ConnectRoute
   '/_pathlessLayout/browser': typeof PathlessLayoutBrowserRoute
   '/_pathlessLayout/logs': typeof PathlessLayoutLogsRoute
+  '/_pathlessLayout/routines': typeof PathlessLayoutRoutinesRoute
   '/_pathlessLayout/visualizer': typeof PathlessLayoutVisualizerRoute
   '/_pathlessLayout/': typeof PathlessLayoutIndexRoute
   '/_pathlessLayout/indexes/$table': typeof PathlessLayoutIndexesTableRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/browser'
     | '/logs'
+    | '/routines'
     | '/visualizer'
     | '/indexes/$table'
     | '/runner/$queryId'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/browser'
     | '/logs'
+    | '/routines'
     | '/visualizer'
     | '/'
     | '/indexes/$table'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/_pathlessLayout/browser'
     | '/_pathlessLayout/logs'
+    | '/_pathlessLayout/routines'
     | '/_pathlessLayout/visualizer'
     | '/_pathlessLayout/'
     | '/_pathlessLayout/indexes/$table'
@@ -239,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof PathlessLayoutLogsRouteImport
+      parentRoute: typeof PathlessLayoutRoute
+    }
+    '/_pathlessLayout/routines': {
+      id: '/_pathlessLayout/routines'
+      path: '/routines'
+      fullPath: '/routines'
+      preLoaderRoute: typeof PathlessLayoutRoutinesRouteImport
       parentRoute: typeof PathlessLayoutRoute
     }
     '/_pathlessLayout/visualizer': {
@@ -310,6 +329,7 @@ declare module '@tanstack/react-router' {
 interface PathlessLayoutRouteChildren {
   PathlessLayoutBrowserRoute: typeof PathlessLayoutBrowserRoute
   PathlessLayoutLogsRoute: typeof PathlessLayoutLogsRoute
+  PathlessLayoutRoutinesRoute: typeof PathlessLayoutRoutinesRoute
   PathlessLayoutVisualizerRoute: typeof PathlessLayoutVisualizerRoute
   PathlessLayoutIndexRoute: typeof PathlessLayoutIndexRoute
   PathlessLayoutIndexesTableRoute: typeof PathlessLayoutIndexesTableRoute
@@ -325,6 +345,7 @@ interface PathlessLayoutRouteChildren {
 const PathlessLayoutRouteChildren: PathlessLayoutRouteChildren = {
   PathlessLayoutBrowserRoute: PathlessLayoutBrowserRoute,
   PathlessLayoutLogsRoute: PathlessLayoutLogsRoute,
+  PathlessLayoutRoutinesRoute: PathlessLayoutRoutinesRoute,
   PathlessLayoutVisualizerRoute: PathlessLayoutVisualizerRoute,
   PathlessLayoutIndexRoute: PathlessLayoutIndexRoute,
   PathlessLayoutIndexesTableRoute: PathlessLayoutIndexesTableRoute,

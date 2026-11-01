@@ -136,6 +136,7 @@ export const Route = createRootRoute({
 				"visualizer",
 				"logs",
 				"indexes",
+				"routines",
 			] as const;
 			const page = pages.find((candidate) => candidate === firstSegment) ?? "home";
 			posthogAnalytics.capture("page_viewed", { page });

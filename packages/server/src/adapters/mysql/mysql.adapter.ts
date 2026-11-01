@@ -28,6 +28,7 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 	SortDirection,
@@ -419,6 +420,27 @@ export class MySqlAdapter extends BaseAdapter {
 	}
 
 	// --- Tables ---
+
+	async getRoutines({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<RoutineInfoSchemaType[]> {
+		const pool = await getMysqlPool(db);
+		const [rows] = await pool.execute<RowDataPacket[]>(`
+			SELECT ROUTINE_NAME AS routineName,
+				ROUTINE_SCHEMA AS schemaName,
+				LOWER(ROUTINE_TYPE) AS routineType,
+				NULL AS signature,
+				CASE WHEN ROUTINE_TYPE = 'FUNCTION' THEN DATA_TYPE ELSE NULL END AS returnType,
+				EXTERNAL_LANGUAGE AS language,
+				ROUTINE_DEFINITION AS definition
+			FROM information_schema.ROUTINES
+			WHERE ROUTINE_SCHEMA = DATABASE()
+			ORDER BY ROUTINE_NAME
+		`);
+		return rows as RoutineInfoSchemaType[];
+	}
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const pool = await getMysqlPool(db);

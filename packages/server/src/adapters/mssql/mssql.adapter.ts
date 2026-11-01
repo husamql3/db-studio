@@ -26,6 +26,7 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogEntrySchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
@@ -294,6 +295,30 @@ export class MsSqlAdapter extends BaseAdapter {
 	}
 
 	// --- Tables ---
+
+	async getRoutines({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<RoutineInfoSchemaType[]> {
+		const pool = await getMssqlPool(db);
+		const result = await pool.request().query<RoutineInfoSchemaType>(`
+			SELECT o.name AS routineName,
+				s.name AS schemaName,
+				CASE WHEN o.type IN ('P', 'PC') THEN 'procedure' ELSE 'function' END AS routineType,
+				NULL AS signature,
+				NULL AS returnType,
+				CASE WHEN o.type IN ('PC', 'FS', 'FT') THEN 'CLR' ELSE 'T-SQL' END AS language,
+				m.definition AS definition
+			FROM sys.objects o
+			JOIN sys.schemas s ON s.schema_id = o.schema_id
+			LEFT JOIN sys.sql_modules m ON m.object_id = o.object_id
+			WHERE o.type IN ('P', 'PC', 'FN', 'IF', 'TF', 'FS', 'FT')
+				AND o.is_ms_shipped = 0
+			ORDER BY s.name, o.name
+		`);
+		return result.recordset;
+	}
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const pool = await getMssqlPool(db);

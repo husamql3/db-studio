@@ -35,7 +35,8 @@ type AnalyticsEvent =
 					| "runner"
 					| "visualizer"
 					| "logs"
-					| "indexes";
+					| "indexes"
+					| "routines";
 			};
 	  };
 

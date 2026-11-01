@@ -30,6 +30,7 @@ import { keysRoutes } from "@/routes/keys.routes.js";
 import { logsRoutes } from "@/routes/logs.routes.js";
 import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
+import { routinesRoutes } from "@/routes/routines.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
 import { telemetryRoutes } from "@/routes/telemetry.routes.js";
 
@@ -249,6 +250,7 @@ export const createServer = () => {
 						.use(recordsRoutes)
 						.use(queryRoutes)
 						.use(keysRoutes)
+						.use(routinesRoutes)
 						.use(logsRoutes),
 				),
 		);

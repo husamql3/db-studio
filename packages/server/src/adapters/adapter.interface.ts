@@ -22,6 +22,7 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogsResult,
 	SortDirection,
 	SortType,
@@ -112,6 +113,9 @@ export interface IDbAdapter {
 	// --- Server logs ---
 	/** The newest entries of the server's own log, or why the server keeps it out of reach. */
 	getServerLogs(params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult>;
+
+	// --- Stored routines ---
+	getRoutines(params: { db: DatabaseSchemaType["db"] }): Promise<RoutineInfoSchemaType[]>;
 
 	// --- Type system ---
 	/**

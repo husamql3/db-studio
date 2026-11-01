@@ -4,6 +4,7 @@ export const TABS = [
 	"runner",
 	"schema",
 	"indexes",
+	"routines",
 	"logs",
 	"visualizer",
 	// "assistant",

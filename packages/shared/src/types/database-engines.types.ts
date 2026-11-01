@@ -33,10 +33,14 @@ type IndexCapability = {
 /** `false` hides the Logs tab: the engine runs inside DB Studio, so no server writes a log. */
 type ServerLogsCapability = { serverLogs: boolean };
 
+/** Whether the engine exposes stored procedures or functions in the Routines tab. */
+type RoutinesCapability = { routines: boolean };
+
 export type DatabaseEngine = DatabaseEngineBase &
 	RowMutationCapability &
 	IndexCapability &
-	ServerLogsCapability;
+	ServerLogsCapability &
+	RoutinesCapability;
 
 export const DATABASE_ENGINES = {
 	pg: {
@@ -53,6 +57,7 @@ export const DATABASE_ENGINES = {
 			createNote: "Building an index blocks writes to this table until it finishes.",
 		},
 		serverLogs: true,
+		routines: true,
 	},
 	mysql: {
 		label: "MySQL",
@@ -65,6 +70,7 @@ export const DATABASE_ENGINES = {
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
+		routines: true,
 	},
 	mssql: {
 		label: "SQL Server",
@@ -80,6 +86,7 @@ export const DATABASE_ENGINES = {
 			createNote: "Building an index blocks writes to this table until it finishes.",
 		},
 		serverLogs: true,
+		routines: true,
 	},
 	mongodb: {
 		label: "MongoDB",
@@ -92,6 +99,7 @@ export const DATABASE_ENGINES = {
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: true,
+		routines: false,
 	},
 	sqlite: {
 		label: "SQLite / libSQL / D1",
@@ -104,6 +112,7 @@ export const DATABASE_ENGINES = {
 		rowMutation: true,
 		indexes: { methods: [], createNote: null },
 		serverLogs: false,
+		routines: false,
 	},
 	redis: {
 		label: "Redis",
@@ -116,6 +125,7 @@ export const DATABASE_ENGINES = {
 		rowMutation: true,
 		indexes: false,
 		serverLogs: true,
+		routines: false,
 	},
 	duckdb: {
 		label: "DuckDB",
@@ -132,6 +142,7 @@ export const DATABASE_ENGINES = {
 				"DuckDB cannot alter or rename a table that has an index, or alter or drop a column an index covers.",
 		},
 		serverLogs: false,
+		routines: false,
 	},
 	oracle: {
 		label: "Oracle",
@@ -147,6 +158,7 @@ export const DATABASE_ENGINES = {
 			createNote: "Building an index blocks writes to this table until it finishes.",
 		},
 		serverLogs: true,
+		routines: true,
 	},
 	clickhouse: {
 		label: "ClickHouse",
@@ -161,6 +173,7 @@ export const DATABASE_ENGINES = {
 		rowMutationReason:
 			"Use a SQL query to update or delete ClickHouse rows; sorting keys are not unique.",
 		serverLogs: true,
+		routines: false,
 	},
 } satisfies Record<DatabaseTypeSchema, DatabaseEngine>;
 

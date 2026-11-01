@@ -28,6 +28,9 @@ function RouteComponent() {
 	if (engine && !engine.serverLogs && section === "logs") {
 		return <Navigate to="/table" />;
 	}
+	if (engine && !engine.routines && section === "routines") {
+		return <Navigate to="/table" />;
+	}
 
 	return (
 		<div className="bg-background text-foreground w-dvw flex h-dvh max-h-dvh overflow-hidden relative">

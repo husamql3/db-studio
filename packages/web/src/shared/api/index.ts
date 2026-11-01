@@ -6,4 +6,5 @@ export * from "./logs";
 export * from "./query";
 export * from "./records";
 export * from "./redis-keys";
+export * from "./routines";
 export * from "./tables";

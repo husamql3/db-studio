@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
 import {
+	Braces,
 	Bug,
 	Check,
 	Columns3Cog,
@@ -45,6 +46,7 @@ const ICONS = {
 	runner: SquareTerminal,
 	schema: Columns3Cog,
 	indexes: ListTree,
+	routines: Braces,
 	logs: ScrollText,
 	visualizer: Workflow,
 	browser: FolderKey,
@@ -73,6 +75,7 @@ const RailSections = () => {
 			: TABS.filter(
 					(route) =>
 						(route !== "indexes" || engine?.indexes) &&
+						(route !== "routines" || engine?.routines) &&
 						(route !== "logs" || engine?.serverLogs),
 				);
 	const activeTable = (params as { table?: string }).table;

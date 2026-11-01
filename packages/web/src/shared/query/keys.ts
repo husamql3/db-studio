@@ -70,6 +70,11 @@ export const serverLogKeys = {
 	database: (db?: string | null) => ["server-logs", db] as const,
 };
 
+export const routineKeys = {
+	all: ["routines"] as const,
+	database: (db?: string | null) => ["routines", db] as const,
+};
+
 export const redisKeyBrowserKeys = {
 	all: ["redis-keys"] as const,
 	list: (db: string | null, search: string, exactPattern: boolean, type: string) =>
