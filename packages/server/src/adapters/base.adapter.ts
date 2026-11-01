@@ -30,7 +30,12 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
-import { isPgDatabaseError, isPgDataException } from "@/drivers.js";
+import {
+	isPgDatabaseError,
+	isPgDataException,
+	isReadOnlyRefusal,
+	READ_ONLY_MESSAGE,
+} from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -151,6 +156,12 @@ export abstract class BaseAdapter implements IDbAdapter {
 			}
 			if (isPgDataException(e))
 				return new HTTPException(400, { message: e.message, cause: e });
+			if (isReadOnlyRefusal(e)) {
+				return new HTTPException(403, {
+					message: READ_ONLY_MESSAGE,
+					cause: e,
+				});
+			}
 
 			const isConnectionError =
 				code === "ECONNREFUSED" ||
