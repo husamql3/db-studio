@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -32,7 +33,8 @@ const { createServer } = await import("../src/utils/create-server.js");
 const { connect, updateConnection } = await import("../src/connection.js");
 const { listSavedConnections } = await import("../src/connections-store.js");
 const { app } = createServer();
-const TABLE = "dbstudio_e2e_readonly";
+const TABLE = `dbstudio_e2e_readonly_${randomUUID().replaceAll("-", "")}`;
+let tableCreated = false;
 const evidence: Record<string, unknown> = {};
 
 const call = async (connectionId: string, method: string, route: string, body?: unknown) => {
@@ -58,12 +60,12 @@ const query = (connectionId: string, sql: string) =>
 const writable = await connect(databaseUrl);
 const [saved] = await listSavedConnections();
 try {
-	await query(writable, `DROP TABLE IF EXISTS ${TABLE}`);
 	const created = await query(
 		writable,
 		`CREATE TABLE ${TABLE} (id INT PRIMARY KEY, label VARCHAR(50))`,
 	);
 	assert.equal(created.status, 200, JSON.stringify(created.body));
+	tableCreated = true;
 	const seeded = await query(writable, `INSERT INTO ${TABLE} VALUES (1, 'original')`);
 	assert.equal(seeded.status, 200, JSON.stringify(seeded.body));
 
@@ -136,6 +138,6 @@ try {
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
 	await updateConnection(saved.id, { readOnly: false });
-	await query(await connect(databaseUrl), `DROP TABLE IF EXISTS ${TABLE}`);
+	if (tableCreated) await query(await connect(databaseUrl), `DROP TABLE IF EXISTS ${TABLE}`);
 }
 process.exit(0);
