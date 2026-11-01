@@ -6,6 +6,7 @@ import {
 	isPgDatabaseError,
 	isPgDataException,
 	isReadOnlyRefusal,
+	READ_ONLY_MESSAGE,
 } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
@@ -70,10 +71,7 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 	if (isReadOnlyRefusal(e))
 		return {
 			status: 403,
-			body: {
-				error:
-					"This connection is read-only. Turn off read-only for it in Connections to make changes.",
-			},
+			body: { error: READ_ONLY_MESSAGE },
 		};
 	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
 	if (isPgDatabaseError(e) && e.code === "42501")

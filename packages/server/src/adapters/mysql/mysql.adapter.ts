@@ -51,6 +51,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { isReadOnlyRefusal } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -531,7 +532,7 @@ export class MySqlAdapter extends BaseAdapter {
 				const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
 	}
@@ -975,7 +976,7 @@ export class MySqlAdapter extends BaseAdapter {
 			return { updatedCount: total };
 		} catch (error) {
 			await connection.rollback();
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
 		} finally {
 			connection.release();
@@ -1012,7 +1013,7 @@ export class MySqlAdapter extends BaseAdapter {
 				const relatedRecords = await this.getRelatedRecords(tableName, primaryKeys, db);
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to delete records from "${tableName}"`,
 			});
@@ -1104,7 +1105,7 @@ export class MySqlAdapter extends BaseAdapter {
 			return { deletedCount: result.affectedRows + totalRelated };
 		} catch (error) {
 			await connection.rollback();
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to force delete records from "${tableName}"`,
 			});
@@ -1147,6 +1148,7 @@ export class MySqlAdapter extends BaseAdapter {
 						values as any,
 					);
 				} catch (error) {
+					if (isReadOnlyRefusal(error)) throw error;
 					throw new HTTPException(500, {
 						message: `Failed to insert record ${i + 1}: ${error instanceof Error ? error.message : String(error)}`,
 					});
@@ -1162,7 +1164,7 @@ export class MySqlAdapter extends BaseAdapter {
 			};
 		} catch (error) {
 			await connection.rollback();
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to bulk insert records into "${tableName}"`,
 			});

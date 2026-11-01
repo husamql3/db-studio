@@ -3,10 +3,10 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Regression for DB-STUDIO-SERVER-V: a write sent through a read-only connection (an INSERT in
-// the query runner, or adding a row in the grid) reached the database, which refused it as a
-// read-only session should, but the refusal answered 500 and went to Sentry. It must answer 403
-// and say the connection is read-only. Runs against PostgreSQL, MySQL or DuckDB:
+// Regression for DB-STUDIO-SERVER-V: read-only writes answered 500 and went to Sentry.
+// Query-runner inserts, grid inserts/edits/deletes/force deletes/bulk inserts and table deletion
+// must answer 403, explain read-only mode, and leave the seeded row unchanged.
+// Runs against PostgreSQL, MySQL or DuckDB:
 //   DATABASE_URL=<url> bunx tsx e2e/read-only-writes.ts
 process.env.DB_STUDIO_TELEMETRY = "0";
 const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -52,28 +52,75 @@ const writable = await connect(databaseUrl);
 const [saved] = await listSavedConnections();
 try {
 	await query(writable, `DROP TABLE IF EXISTS ${TABLE}`);
-	const created = await query(writable, `CREATE TABLE ${TABLE} (id INT PRIMARY KEY)`);
+	const created = await query(
+		writable,
+		`CREATE TABLE ${TABLE} (id INT PRIMARY KEY, label VARCHAR(50))`,
+	);
 	assert.equal(created.status, 200, JSON.stringify(created.body));
+	const seeded = await query(writable, `INSERT INTO ${TABLE} VALUES (1, 'original')`);
+	assert.equal(seeded.status, 200, JSON.stringify(seeded.body));
 
 	await updateConnection(saved.id, { readOnly: true });
 	const readOnly = await connect(databaseUrl);
-	evidence.queryRunnerInsert = await query(readOnly, `INSERT INTO ${TABLE} VALUES (1)`);
+	evidence.queryRunnerInsert = await query(readOnly, `INSERT INTO ${TABLE} VALUES (2, 'new')`);
 	evidence.gridAddRecord = await call(
 		readOnly,
 		"POST",
 		`/records?${new URLSearchParams({ db })}`,
 		{ tableName: TABLE, data: { id: 2 } },
 	);
-	evidence.readStillWorks = await query(readOnly, `SELECT COUNT(*) AS n FROM ${TABLE}`);
+	evidence.gridEditRecord = await call(
+		readOnly,
+		"PATCH",
+		`/records?${new URLSearchParams({ db })}`,
+		{
+			tableName: TABLE,
+			primaryKey: "id",
+			updates: [{ rowData: { id: 1 }, columnName: "label", value: "changed" }],
+		},
+	);
+	for (const [label, route] of [
+		["gridDeleteRecord", "/records"],
+		["gridForceDeleteRecord", "/records/force"],
+	]) {
+		evidence[label] = await call(
+			readOnly,
+			"DELETE",
+			`${route}?${new URLSearchParams({ db })}`,
+			{ tableName: TABLE, primaryKeys: [{ columnName: "id", value: 1 }] },
+		);
+	}
+	evidence.gridBulkInsert = await call(
+		readOnly,
+		"POST",
+		`/records/bulk?${new URLSearchParams({ db })}`,
+		{ tableName: TABLE, records: [{ id: 3 }, { id: 4 }] },
+	);
+	evidence.gridDeleteTable = await call(
+		readOnly,
+		"DELETE",
+		`/tables/${TABLE}?${new URLSearchParams({ db })}`,
+	);
+	const read = await query(readOnly, `SELECT id, label FROM ${TABLE} ORDER BY id`);
+	const rows = (read.body.data as { rows?: unknown[] } | undefined)?.rows;
+	// Keep the artifact the same on every run: retain rows, without query timings.
+	evidence.readStillWorks = { status: read.status, rows };
 
-	for (const label of ["queryRunnerInsert", "gridAddRecord"]) {
+	for (const label of [
+		"queryRunnerInsert",
+		"gridAddRecord",
+		"gridEditRecord",
+		"gridDeleteRecord",
+		"gridForceDeleteRecord",
+		"gridBulkInsert",
+		"gridDeleteTable",
+	]) {
 		const { status, body } = evidence[label] as { status: number; body: { error?: string } };
 		assert.equal(status, 403, `${label}: ${JSON.stringify(body)}`);
 		assert.match(body.error ?? "", /read-only/i, `${label}: ${JSON.stringify(body)}`);
 	}
-	assert.equal((evidence.readStillWorks as { status: number }).status, 200);
-	// Keep the artifact the same on every run: drop timings and engine-specific count types.
-	evidence.readStillWorks = { status: 200 };
+	assert.equal(read.status, 200, JSON.stringify(read.body));
+	assert.deepEqual(rows, [{ id: 1, label: "original" }]);
 	console.log(`PASS ${dbType} read-only writes answer 403`);
 } finally {
 	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });

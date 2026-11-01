@@ -47,7 +47,12 @@ import {
 } from "@/adapters/base.adapter.js";
 import { getConnectionUrl, getDbPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
-import { isPgConstraintViolation, isPgDatabaseError, isPgDataException } from "@/drivers.js";
+import {
+	isPgConstraintViolation,
+	isPgDatabaseError,
+	isPgDataException,
+	isReadOnlyRefusal,
+} from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
@@ -484,7 +489,7 @@ export class PgAdapter extends BaseAdapter {
 					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName, schemaName),
 				};
 			}
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
 	}
@@ -1117,7 +1122,8 @@ export class PgAdapter extends BaseAdapter {
 			if (
 				error instanceof HTTPException ||
 				isPgConstraintViolation(error) ||
-				isPgDataException(error)
+				isPgDataException(error) ||
+				isReadOnlyRefusal(error)
 			)
 				throw error;
 			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
@@ -1157,7 +1163,7 @@ export class PgAdapter extends BaseAdapter {
 				);
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to delete records from "${tableName}"`,
 			});
@@ -1236,7 +1242,7 @@ export class PgAdapter extends BaseAdapter {
 				return { deletedCount: (result.rowCount ?? 0) + totalRelated };
 			});
 		} catch (error) {
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to force delete records from "${tableName}"`,
 			});
@@ -1270,7 +1276,12 @@ export class PgAdapter extends BaseAdapter {
 						);
 						successCount++;
 					} catch (error) {
-						if (isPgConstraintViolation(error) || isPgDataException(error)) throw error;
+						if (
+							isPgConstraintViolation(error) ||
+							isPgDataException(error) ||
+							isReadOnlyRefusal(error)
+						)
+							throw error;
 						throw new HTTPException(500, {
 							message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
 						});
@@ -1287,7 +1298,8 @@ export class PgAdapter extends BaseAdapter {
 			if (
 				error instanceof HTTPException ||
 				isPgConstraintViolation(error) ||
-				isPgDataException(error)
+				isPgDataException(error) ||
+				isReadOnlyRefusal(error)
 			)
 				throw error;
 			throw new HTTPException(500, {

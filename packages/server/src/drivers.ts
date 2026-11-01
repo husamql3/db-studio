@@ -50,6 +50,9 @@ export const isPgConstraintViolation = (error: unknown): error is DatabaseError 
 export const isPgDataException = (error: unknown): error is DatabaseError =>
 	isPgDatabaseError(error) && error.code?.startsWith("22") === true;
 
+export const READ_ONLY_MESSAGE =
+	"This connection is read-only. Turn off read-only for it in Connections to make changes.";
+
 /**
  * A write the database refused because the connection is read-only: PostgreSQL 25006, MySQL
  * 1792, or DuckDB's "attached in read-only mode".
