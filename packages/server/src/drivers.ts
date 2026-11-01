@@ -51,7 +51,7 @@ export const isPgDataException = (error: unknown): error is DatabaseError =>
 	isPgDatabaseError(error) && error.code?.startsWith("22") === true;
 
 export const READ_ONLY_MESSAGE =
-	"This connection is read-only. Turn off read-only for it in Connections to make changes.";
+	"This database session is read-only. Disable read-only in Connections if enabled, or connect to a writable database.";
 
 /**
  * A write the database refused because the connection is read-only: PostgreSQL 25006, MySQL

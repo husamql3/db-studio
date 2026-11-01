@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { rmSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -10,9 +11,12 @@ import path from "node:path";
 //   DATABASE_URL=<url> bunx tsx e2e/read-only-writes.ts
 process.env.DB_STUDIO_TELEMETRY = "0";
 const databaseUrl = process.env.DATABASE_URL ?? "";
-const dbType = { postgresql: "pg", mysql: "mysql", duckdb: "duckdb" }[
-	databaseUrl.split("://")[0]
-];
+const dbTypes: Record<string, "pg" | "mysql" | "duckdb" | undefined> = {
+	postgresql: "pg",
+	mysql: "mysql",
+	duckdb: "duckdb",
+};
+const dbType = dbTypes[databaseUrl.split("://")[0]];
 if (!dbType)
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL, MySQL or DuckDB database");
 const db =
@@ -20,7 +24,10 @@ const db =
 		? path.parse(new URL(databaseUrl).pathname).name
 		: decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 // Saving connections must not touch the user's ~/.dbstudio.
-process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+const configDir = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+// Also remove saved credentials when imports or the initial connection fail.
+process.once("exit", () => rmSync(configDir, { recursive: true, force: true }));
+process.env.DB_STUDIO_CONFIG_DIR = configDir;
 const { createServer } = await import("../src/utils/create-server.js");
 const { connect, updateConnection } = await import("../src/connection.js");
 const { listSavedConnections } = await import("../src/connections-store.js");
