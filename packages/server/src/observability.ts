@@ -225,13 +225,16 @@ const sanitizedError = (error: unknown, errorType: string, message: string): Err
 	const sanitized = new Error(message);
 	sanitized.name = errorType;
 	if (error instanceof Error && error.stack) {
-		// npx installs under the home directory, whose path names the account.
+		// npx installs under the home directory, whose path names the account. ESM
+		// frames name it as a file URL: forward slashes, spaces as %20.
 		const home = homedir();
+		const forwardSlashed = home.replaceAll("\\", "/");
+		const homeForms = home ? [home, forwardSlashed, encodeURI(forwardSlashed)] : [];
 		const frames = error.stack
 			.split("\n")
 			.slice(1)
 			.filter((line) => /^\s*at\s/.test(line))
-			.map((line) => line.replaceAll(home, "~"));
+			.map((line) => homeForms.reduce((frame, form) => frame.replaceAll(form, "~"), line));
 		sanitized.stack = [`${errorType}: ${message}`, ...frames].join("\n");
 	}
 	return sanitized;
