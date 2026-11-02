@@ -63,7 +63,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.2.19
+          bun-version-file: package.json
 
       # npm 11 (Node 24) is needed for `npm install --cpu/--os` in scripts/stage-server.mjs.
       - name: Setup Node.js
