@@ -170,6 +170,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				code === "ER_ACCESS_DENIED_ERROR" ||
 				code === "ER_BAD_HOST_ERROR" ||
 				code === "ECONNRESET" ||
+				e.name === "ConnectionError" || // mssql: login failure, connect timeout or socket error
 				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
 				err.errno === 2003 || // MySQL can't connect to server
 				err.errno === 2002 || // MySQL can't connect to local server
