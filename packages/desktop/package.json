@@ -13,7 +13,7 @@
     "electron": "tsup && node scripts/ensure-electron.mjs && node scripts/launch-electron.mjs",
     "stage:server": "node scripts/stage-server.mjs",
     "package": "node scripts/package.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "format": "biome check --write --unsafe"
   },
   "devDependencies": {

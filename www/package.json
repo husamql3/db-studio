@@ -12,7 +12,7 @@
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",
     "check-meta": "bunx check-site-meta",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "test": "vitest run",
     "format": "biome check --write --unsafe"
   },

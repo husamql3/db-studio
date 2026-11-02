@@ -13,8 +13,8 @@
 		"./src/**/*.css"
 	],
 	"scripts": {
-		"build": "tsc --project tsconfig.json --noEmit",
-		"typecheck": "tsc --project tsconfig.json --noEmit",
+		"build": "bun check",
+		"typecheck": "bun check",
 		"format": "biome check --write --unsafe",
 		"storybook": "storybook dev -p 6006 -c .storybook",
 		"build-storybook": "storybook build -c .storybook"
