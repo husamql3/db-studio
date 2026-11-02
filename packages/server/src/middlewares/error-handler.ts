@@ -1,7 +1,13 @@
 import type { ApiError } from "@db-studio/shared/types/api-response.types.js";
 import { NotFoundError, ParseError, ValidationError } from "elysia";
 import { ZodError } from "zod";
-import { isPgConstraintViolation, isPgDatabaseError, isPgDataException } from "@/drivers.js";
+import {
+	isPgConstraintViolation,
+	isPgDatabaseError,
+	isPgDataException,
+	isReadOnlyRefusal,
+	READ_ONLY_MESSAGE,
+} from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
@@ -25,6 +31,7 @@ const isConnectionError = (e: Error): boolean => {
 
 	return (
 		isMysqlConnectionError ||
+		e.name === "ConnectionError" ||
 		e.message.includes("ECONNREFUSED") ||
 		e.message.includes("connection refused") ||
 		e.message.includes("timeout expired") ||
@@ -62,6 +69,11 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 	// Before the connection check: its message heuristics could match a constraint's name.
 	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
 	if (isPgDataException(e)) return { status: 400, body: { error: e.message } };
+	if (isReadOnlyRefusal(e))
+		return {
+			status: 403,
+			body: { error: READ_ONLY_MESSAGE },
+		};
 	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
 	if (isPgDatabaseError(e) && e.code === "42501")
 		return { status: 403, body: { error: e.message } };

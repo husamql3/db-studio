@@ -13,17 +13,17 @@
     "electron": "tsup && node scripts/ensure-electron.mjs && node scripts/launch-electron.mjs",
     "stage:server": "node scripts/stage-server.mjs",
     "package": "node scripts/package.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "format": "biome check --write --unsafe"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.6",
-    "@types/node": "^26.0.0",
-    "electron": "44.4.2",
-    "electron-builder": "26.15.6",
-    "electron-updater": "^6.8.9",
-    "esbuild": "0.27.2",
-    "tsup": "^8.5.1",
+    "@biomejs/biome": "^2.6.4",
+    "@types/node": "^26.6.6",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "electron-updater": "^6.8.11",
+    "esbuild": "0.28.2",
+    "tsup": "^9.0.0",
     "typescript": "^7.0.2"
   }
 }

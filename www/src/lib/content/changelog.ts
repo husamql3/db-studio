@@ -16,6 +16,39 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.2.0",
+		date: "2026-11-03",
+		title: "MongoDB document cards and connection fixes",
+		improvements: [
+			{
+				text: "Browse MongoDB documents in individual cards with collapsible fields and editor colors",
+				username: ["a7medayman6", "husamql3"],
+			},
+			{
+				text: "Updated the desktop app and CLI dependencies",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Writes refused by a read-only connection now show clear guidance",
+				username: "husamql3",
+			},
+			{
+				text: "Your home directory is removed from error reports, including encoded Windows paths",
+				username: "husamql3",
+			},
+			{
+				text: "MongoDB databases with views now list their collections correctly",
+				username: "husamql3",
+			},
+			{
+				text: "Unreachable SQL Server connections now show a connection error",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "2.1.0",
 		date: "2026-10-30",
 		title: "Spreadsheet-style editing",

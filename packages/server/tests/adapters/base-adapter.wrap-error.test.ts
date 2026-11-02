@@ -1,3 +1,4 @@
+import sql from "mssql";
 import { describe, expect, it } from "vitest";
 import { HTTPException } from "@/http-exception.js";
 import type { DataTypes } from "@db-studio/shared/types";
@@ -80,6 +81,13 @@ describe("BaseAdapter.wrapError()", () => {
 	it("maps MSSQL login failures to 503", () => {
 		const error = new Error("Login failed for user");
 		expect(wrap(new MsSqlAdapter(), error).status).toBe(503);
+	});
+
+	it("maps an MSSQL connect timeout to 503, but not a query timeout", () => {
+		const connect = new sql.ConnectionError("Failed to connect to db:1433 in 15000ms", "ETIMEOUT");
+		const query = new sql.RequestError("Timeout: Request failed to complete in 15000ms", "ETIMEOUT");
+		expect(wrap(new MsSqlAdapter(), connect)).toMatchObject({ status: 503, cause: connect });
+		expect(wrap(new MsSqlAdapter(), query).status).toBe(500);
 	});
 
 	it("maps MongoDB network errors to 503", () => {

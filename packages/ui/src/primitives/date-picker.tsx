@@ -9,6 +9,37 @@ import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { ScrollArea } from "./scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
+function CalendarDropdown({ onChange, options, value }: DropdownProps) {
+	return (
+		<Select
+			onValueChange={(value) => {
+				onChange?.({
+					target: { value: String(value) },
+				} as React.ChangeEvent<HTMLSelectElement>);
+			}}
+			value={String(value)}
+		>
+			<SelectTrigger className="h-8 w-fit font-medium first-letter:capitalize focus:ring-0 focus:ring-offset-0">
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent>
+				{options?.map((option) => (
+					<SelectItem
+						key={option.value}
+						value={String(option.value)}
+					>
+						{option.label}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
+	);
+}
+
+function CalendarDropdownNav({ children }: DropdownNavProps) {
+	return <div className="flex w-full items-center gap-2">{children}</div>;
+}
+
 interface DatePickerProps {
 	value?: Date | null;
 	onChange?: (date: Date | null | undefined) => void;
@@ -52,15 +83,6 @@ export function DatePicker({
 	const hours = value ? value.getHours() : 0;
 	const minutes = value ? value.getMinutes() : 0;
 	const seconds = value ? value.getSeconds() : 0;
-
-	const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler) => {
-		const _event = {
-			target: {
-				value: String(_value),
-			},
-		} as React.ChangeEvent<HTMLSelectElement>;
-		_e(_event);
-	};
 
 	const handleSelect = (date: Date | undefined) => {
 		if (date && value) {
@@ -188,37 +210,7 @@ export function DatePicker({
 						</Button>
 					</div>
 					<Calendar
-						components={{
-							Dropdown: (props: DropdownProps) => {
-								return (
-									<Select
-										onValueChange={(value) => {
-											if (props.onChange) {
-												handleCalendarChange(value, props.onChange);
-											}
-										}}
-										value={String(props.value)}
-									>
-										<SelectTrigger className="h-8 w-fit font-medium first-letter:capitalize focus:ring-0 focus:ring-offset-0">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{props.options?.map((option) => (
-												<SelectItem
-													key={option.value}
-													value={String(option.value)}
-												>
-													{option.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								);
-							},
-							DropdownNav: (props: DropdownNavProps) => {
-								return <div className="flex w-full items-center gap-2">{props.children}</div>;
-							},
-						}}
+						components={{ Dropdown: CalendarDropdown, DropdownNav: CalendarDropdownNav }}
 						defaultMonth={value || today}
 						hideNavigation
 						mode="single"
