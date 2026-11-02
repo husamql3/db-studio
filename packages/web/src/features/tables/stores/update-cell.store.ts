@@ -16,7 +16,7 @@ export type CellUpdate = {
 type Change = [key: string, update: CellUpdate | undefined];
 /** One undoable edit: what its cells held before it. */
 type HistoryStep = { scope: string; previous: Change[] };
-export type StagedEdit = {
+type StagedEdit = {
 	rowData: Record<string, unknown>;
 	columnName: string;
 	newValue: unknown;
