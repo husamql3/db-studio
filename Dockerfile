@@ -1,6 +1,6 @@
-# use bun (1.2.19) for building, same version as
+# use bun (1.4.4) for building, same version as
 # `packageManager`
-ARG BUN_VERSION=1.2.19
+ARG BUN_VERSION=1.4.4
 FROM oven/bun:${BUN_VERSION} AS build
 
 WORKDIR /app

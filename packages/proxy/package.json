@@ -28,12 +28,12 @@
     "@tanstack/ai-grok": "^0.18.4",
     "@tanstack/ai-openai": "^0.22.5",
     "@tanstack/ai-openrouter": "^0.19.8",
-    "@upstash/redis": "^1.36.1",
-    "hono": "^4.11.3",
-    "hono-rate-limiter": "^0.5.3"
+    "@upstash/redis": "^1.40.0",
+    "hono": "^4.13.16",
+    "hono-rate-limiter": "^0.5.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.6",
-    "wrangler": "^4.4.0"
+    "@biomejs/biome": "^2.6.4",
+    "wrangler": "^4.156.0"
   }
 }

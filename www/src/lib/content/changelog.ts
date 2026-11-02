@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.1.1",
+		date: "2026-11-01",
+		title: "Dependency updates",
+		improvements: [
+			{
+				text: "Updated the desktop app and CLI dependencies",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "2.1.0",
 		date: "2026-10-30",
 		title: "Spreadsheet-style editing",
