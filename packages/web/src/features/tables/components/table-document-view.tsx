@@ -26,6 +26,28 @@ const getDocumentIdLabel = (doc: Record<string, unknown>): string => {
 };
 
 /**
+ * Builds a stable, type-preserving React key for a document card.
+ *
+ * `getDocumentIdLabel` maps both `_id: 1` (number) and `_id: "1"` (string) to
+ * the same string `"1"`, which would cause React to treat them as the same node.
+ * Prefixing with the JS type prevents that collision. When `_id` is absent the
+ * key falls back to `"idx:<index>"` so it never conflicts with an id-derived key.
+ */
+const getDocumentKey = (doc: Record<string, unknown>, index: number): string => {
+	const id = doc._id;
+	if (id === null || id === undefined) return `idx:${index}`;
+	if (typeof id === "string") return `str:${id}`;
+	if (typeof id === "number") return `num:${id}`;
+	if (typeof id === "boolean") return `bool:${id}`;
+	if (typeof id === "object") {
+		const oid = (id as Record<string, unknown>).$oid;
+		if (typeof oid === "string") return `oid:${oid}`;
+		return `obj:${JSON.stringify(id)}`;
+	}
+	return `idx:${index}`;
+};
+
+/**
  * A single MongoDB document rendered as a bordered card, mirroring the
  * Compass document list view. The header shows the 1-based document number
  * and its `_id` value; the body is an independently collapsible JsonView tree.
@@ -67,8 +89,8 @@ const DocumentCard = ({
 				)}
 			</div>
 
-			{/* Document body — each card gets its own JsonView so trees are independently collapsible */}
-			<div className="p-3">
+			{/* Document body — overflow-x-auto lets wide content scroll rather than clip behind the card edge */}
+			<div className="p-3 overflow-x-auto">
 				<JsonView
 					value={doc}
 					objectSortKeys={false}
@@ -103,8 +125,7 @@ export const TableDocumentView = ({
 				<div className="flex flex-col gap-2">
 					{rows.map((doc, index) => (
 						<DocumentCard
-							// ObjectId _id serializes to a unique string; fall back to index
-							key={getDocumentIdLabel(doc) || index}
+							key={getDocumentKey(doc, index)}
 							doc={doc}
 							index={index}
 							jsonTheme={jsonTheme}
