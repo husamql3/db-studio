@@ -31,6 +31,7 @@ const isConnectionError = (e: Error): boolean => {
 
 	return (
 		isMysqlConnectionError ||
+		e.name === "ConnectionError" ||
 		e.message.includes("ECONNREFUSED") ||
 		e.message.includes("connection refused") ||
 		e.message.includes("timeout expired") ||
