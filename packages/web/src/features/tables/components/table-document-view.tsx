@@ -128,7 +128,8 @@ const DocumentCard = ({
 					{idLabel}
 				</span>
 				<CellCopyButton
-					value={doc._id}
+					// The copy button hides empty values; copy null and "" as the header shows them.
+					value={doc._id === null || doc._id === "" ? idLabel : doc._id}
 					className="static shrink-0 translate-y-0"
 				/>
 			</div>
