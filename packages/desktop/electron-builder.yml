@@ -66,6 +66,12 @@ linux:
     - target: AppImage
     - target: deb
 
+# AppImage is the one format that stays compressed after install: every launch reads Electron
+# and the server through its squashfs. `compression: maximum` would make that xz with 1 MB
+# blocks, which decompresses ~5x slower than gzip and made the app slow to open (#459).
+appImage:
+  compression: gzip
+
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

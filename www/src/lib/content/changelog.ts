@@ -16,6 +16,17 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.2.1",
+		date: "2026-11-04",
+		title: "Faster Linux launch",
+		bugsFixed: [
+			{
+				text: "The Linux AppImage opens faster",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "2.2.0",
 		date: "2026-11-03",
 		title: "MongoDB document cards and connection fixes",
