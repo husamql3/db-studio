@@ -1,34 +1,22 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { databaseName, requireDatabaseUrl, writeArtifact } from "./lib.js";
 
 // Regression for DB-STUDIO-SERVER-V: read-only writes answered 500 and went to Sentry.
 // Query-runner inserts, grid inserts/edits/deletes/force deletes/bulk inserts and table deletion
 // must answer 403, explain read-only mode, and leave the seeded row unchanged.
 // Runs against PostgreSQL, MySQL or DuckDB:
 //   DATABASE_URL=<url> bunx tsx e2e/read-only-writes.ts
-process.env.DB_STUDIO_TELEMETRY = "0";
-
-const databaseUrl = process.env.DATABASE_URL ?? "";
-
-const dbTypes: Record<string, "pg" | "mysql" | "duckdb" | undefined> = {
-	postgresql: "pg",
-	mysql: "mysql",
-	duckdb: "duckdb",
-};
-
-const dbType = dbTypes[databaseUrl.split("://")[0]];
-
-if (!dbType)
-	throw new Error("Set DATABASE_URL to a disposable PostgreSQL, MySQL or DuckDB database");
+const { url: databaseUrl, dbType } = requireDatabaseUrl("pg", "mysql", "duckdb");
 
 const db =
 	dbType === "duckdb"
 		? path.parse(new URL(databaseUrl).pathname).name
-		: decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+		: databaseName(databaseUrl);
 
 // Saving connections must not touch the user's ~/.dbstudio.
 const configDir = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
@@ -150,11 +138,7 @@ try {
 	assert.deepEqual(rows, [{ id: 1, label: "original" }]);
 	console.log(`PASS ${dbType} read-only writes answer 403`);
 } finally {
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL(`./artifacts/read-only-writes-${dbType}.json`, import.meta.url),
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
+	await writeArtifact(`read-only-writes-${dbType}.json`, evidence);
 	await updateConnection(saved.id, { readOnly: false });
 
 	if (tableCreated) await query(await connect(databaseUrl), `DROP TABLE IF EXISTS ${TABLE}`);

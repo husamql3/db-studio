@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import sql from "mssql";
+import { databaseName, inProcessApp, requireDatabaseUrl, writeArtifact } from "./lib.js";
 
 // Regression for discussion #63: a SQL Server login without server-level permissions saw
 // "No databases returned from server", because sys.master_files hides every row from it. Its
@@ -11,20 +9,11 @@ import sql from "mssql";
 // connection info failed with error 300 (no VIEW SERVER STATE). The databases, tables and
 // connection routes must answer 200, and reading the unreadable table must answer 403. The
 // audit of that fix found the same failures for a denied column (230), the Logs tab (27219),
-// the query runner, and deleting a table the login may drop but not read.
-process.env.DB_STUDIO_TELEMETRY = "0";
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl?.startsWith("mssql://")) {
-	throw new Error("Set DATABASE_URL to a disposable SQL Server database (sa)");
-}
-
-// Saving the connection must not touch the user's ~/.dbstudio.
-process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
-
+// the query runner, and deleting a table the login may drop but not read. DATABASE_URL must be
+// sa's.
+const { url: databaseUrl } = requireDatabaseUrl("mssql");
 const url = new URL(databaseUrl);
-const db = decodeURIComponent(url.pathname.slice(1));
+const db = databaseName(databaseUrl);
 
 // Logins are server-wide: a per-run name means cleanup never drops a login this run did not create.
 const LOGIN = `dbstudio_e2e_limited_${randomUUID().slice(0, 8)}`;
@@ -69,27 +58,11 @@ try {
 	const limitedUrl = new URL(databaseUrl);
 	limitedUrl.username = LOGIN;
 	limitedUrl.password = encodeURIComponent(PASSWORD);
-	const { createServer } = await import("../src/app.js");
-	const { connect } = await import("../src/connection.js");
-	const { app } = createServer();
-	await connect(limitedUrl.toString());
+	const app = await inProcessApp(limitedUrl.toString());
 
 	const call = async (route: string, method = "GET", body?: unknown) => {
-		const init: RequestInit = { method };
-
-		if (body) {
-			init.headers = { "Content-Type": "application/json" };
-			init.body = JSON.stringify(body);
-		}
-
-		const response = await app.handle(
-			new Request(new URL(`/api${route}`, "http://localhost"), init),
-		);
-
-		const { requestId: _requestId, ...json } = (await response.json()) as Record<
-			string,
-			unknown
-		>;
+		const response = await app.request(method, `/api${route}`, body);
+		const { requestId: _requestId, ...json } = response.body as Record<string, unknown>;
 
 		return { status: response.status, body: json };
 	};
@@ -154,11 +127,7 @@ try {
 	console.log("PASS SQL Server limited login lists databases and tables");
 } finally {
 	try {
-		await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-		await writeFile(
-			new URL("./artifacts/mssql-limited-login.json", import.meta.url),
-			`${JSON.stringify(evidence, null, 2)}\n`,
-		);
+		await writeArtifact("mssql-limited-login.json", evidence);
 	} finally {
 		// Open app connections keep the login logged in, and DROP LOGIN refuses that.
 		await (await import("../src/open-connections.js")).closeAllConnections();

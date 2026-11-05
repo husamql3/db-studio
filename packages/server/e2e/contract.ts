@@ -1,6 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DEFAULTS } from "@db-studio/shared/constants";
 import {
 	type ColumnInfoSchemaType,
@@ -16,12 +14,16 @@ import {
 	tableInfoSchema,
 } from "@db-studio/shared/types";
 import { z } from "zod";
+import {
+	inProcessApp,
+	type Json,
+	normalize,
+	redactUrl,
+	requireDatabaseUrl,
+	writeArtifact,
+} from "./lib.js";
 
 process.env.TZ = "UTC";
-
-process.env.DB_STUDIO_TELEMETRY = "0";
-
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
@@ -806,7 +808,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 	];
 };
 
-const REDACTED_KEYS = new Set([
+const REDACTED_KEYS = [
 	"id",
 	"version",
 	"host",
@@ -820,47 +822,17 @@ const REDACTED_KEYS = new Set([
 	"nextCursor",
 	"prevCursor",
 	"requestId",
-]);
-
-const normalize = (value: unknown, secrets: string[], key?: string): Json => {
-	if (value === null || value === undefined) return null;
-
-	if (key && REDACTED_KEYS.has(key)) return `<${key}>`;
-
-	if (Array.isArray(value)) return value.map((v) => normalize(v, secrets));
-
-	if (value instanceof Date) return value.toISOString();
-
-	if (typeof value === "object") {
-		return Object.fromEntries(
-			Object.keys(value)
-				.sort()
-				.map((k) => [k, normalize((value as Record<string, unknown>)[k], secrets, k)]),
-		);
-	}
-
-	if (typeof value === "string") {
-		return secrets.reduce((s, secret) => s.replaceAll(secret, "<redacted>"), value);
-	}
-
-	if (typeof value === "number" || typeof value === "boolean") return value;
-
-	return String(value);
-};
+];
 
 const main = async () => {
 	const label = process.argv[2];
-	const databaseUrl = process.env.DATABASE_URL;
 
-	if (!label || !databaseUrl) {
+	if (!label) {
 		console.error("usage: DATABASE_URL=<url> bun run e2e -- <label>");
 		process.exit(2);
 	}
 
-	const { createConnection, registerConnection } = await import("../src/open-connections.js");
-	const connection = createConnection(databaseUrl);
-	registerConnection("e2e", connection);
-	const { dbType } = connection;
+	const { url: databaseUrl, dbType } = requireDatabaseUrl();
 
 	if (dbType === "mongodb" || dbType === "redis") {
 		console.error(`${dbType} is out of scope: this contract covers SQL engines only.`);
@@ -875,14 +847,17 @@ const main = async () => {
 		bodies: new Map(),
 	};
 
-	const secrets = [
-		databaseUrl,
-		databaseUrl.replace(/^[a-z0-9+]+:\/\//i, ""),
-		...url.searchParams.getAll("authToken"),
-	].filter(Boolean);
+	const options = {
+		keys: REDACTED_KEYS,
+		replace: [
+			...redactUrl(databaseUrl),
+			...url.searchParams
+				.getAll("authToken")
+				.map((token): [string, string] => [token, "<redacted>"]),
+		].filter(([secret]) => secret),
+	};
 
-	const { createServer } = await import("../src/app.js");
-	const { app } = createServer();
+	const { request } = await inProcessApp(databaseUrl);
 
 	const results = [];
 	let failures = 0;
@@ -894,33 +869,16 @@ const main = async () => {
 
 		try {
 			const query = new URLSearchParams({ db: ctx.db, ...step.query?.(ctx) });
-			const payload = step.body?.(ctx);
 
-			const res = await app.handle(
-				new Request(
-					new URL(
-						`${DEFAULTS.API_PREFIX}${step.resolvePath?.(ctx) ?? step.path}?${query}`,
-						"http://localhost",
-					),
-					{
-						method: step.method,
-						headers: payload === undefined ? {} : { "Content-Type": "application/json" },
-						body: payload === undefined ? undefined : JSON.stringify(payload),
-					},
-				),
-			);
-
-			status = res.status;
-			const text = await res.text();
-
-			try {
-				body = JSON.parse(text);
-			} catch {
-				body = text;
-			}
+			({ status, body } = await request(
+				step.method,
+				`${DEFAULTS.API_PREFIX}${step.resolvePath?.(ctx) ?? step.path}?${query}`,
+				step.body?.(ctx),
+			));
 
 			const accepted = [step.expect ?? []].flat();
 			const statusOk = accepted.length ? accepted.includes(status) : status < 300;
+			const text = typeof body === "string" ? body : JSON.stringify(body);
 			assert(statusOk, `unexpected status ${status}: ${text.slice(0, 300)}`);
 
 			if (status < 300) ctx.bodies.set(step.name, body);
@@ -942,19 +900,16 @@ const main = async () => {
 			name: step.name,
 			status,
 			ok,
-			body: normalize(recorded, secrets),
+			body: normalize(recorded, options),
 		};
 
-		if (!ok) result.error = normalize(error, secrets);
+		if (!ok) result.error = normalize(error, options);
 		results.push(result);
 	}
 
-	const artifactDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
-	await mkdir(artifactDir, { recursive: true });
-	const artifactPath = path.join(artifactDir, `${label}.json`);
-	await writeFile(
-		artifactPath,
-		`${JSON.stringify(normalize({ engine: dbType, steps: results }, secrets), null, 2)}\n`,
+	const artifactPath = await writeArtifact(
+		`${label}.json`,
+		normalize({ engine: dbType, steps: results }, options),
 	);
 
 	console.log(

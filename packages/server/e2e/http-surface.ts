@@ -1,7 +1,8 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { databaseName, requireDatabaseUrl, writeArtifact } from "./lib.js";
 
 /**
  * Pins the HTTP layer (routing, validation, errors, CORS, request IDs, static files, SPA
@@ -19,7 +20,9 @@ if (!baseUrl || !label) {
 }
 
 const REQUEST_ID = "pin-request-0001";
-const DB = "dbstudio";
+
+// The database the server under test opened (http-surface.sh passes DATABASE_URL to both).
+const DB = databaseName(requireDatabaseUrl("pg").url);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const RECORDED_HEADERS = [
@@ -390,13 +393,7 @@ results.push({
 	mismatches: concurrent.filter((ok) => !ok).length,
 });
 
-const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
-
-await mkdir(outDir, { recursive: true });
-
-const out = path.join(outDir, `http-surface-${label}.json`);
-
-await writeFile(out, `${JSON.stringify(results, null, 2)}\n`);
+const out = await writeArtifact(`http-surface-${label}.json`, results);
 
 console.log(`wrote ${path.relative(process.cwd(), out)}`);
 

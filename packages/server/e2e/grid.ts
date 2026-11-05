@@ -23,47 +23,25 @@
  * e2e/artifacts/grid-<build>/.
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
-import { chromium, type Page } from "playwright-core";
+import path from "node:path";
+import type { Page } from "playwright-core";
+import {
+	ARTIFACTS_DIR,
+	cliPath,
+	launchBrowser,
+	requireDatabaseUrl,
+	startCli,
+	writeArtifact,
+} from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to a PostgreSQL database seeded by e2e/perf-seed.sql");
-}
-
+const { url: databaseUrl } = requireDatabaseUrl("pg");
 const build = process.argv[2];
+const outDir = `grid-${build ?? "dist"}`;
 
-const cli = fileURLToPath(
-	new URL(
-		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
-		import.meta.url,
-	),
-);
-
-const outDir = new URL(`./artifacts/grid-${build ?? "dist"}/`, import.meta.url);
-const PORT = 4524;
-const BASE = `http://127.0.0.1:${PORT}`;
-
-const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-	cwd: tmpdir(),
-	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
-	stdio: "ignore",
+const { child: server, base: BASE } = await startCli({
+	cli: cliPath(build),
+	args: ["-d", databaseUrl],
 });
-
-for (;;) {
-	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
-
-	const ready = await fetch(`${BASE}/api/databases`)
-		.then((response) => response.ok)
-		.catch(() => false);
-
-	if (ready) break;
-	await new Promise((resolve) => setTimeout(resolve, 50));
-}
 
 /** The grid cell wrapper for a column of the first row, found through the header position. */
 const cellSelector = async (page: Page, column: string) => {
@@ -92,15 +70,10 @@ const cellSelector = async (page: Page, column: string) => {
 
 const summary: Record<string, unknown> = {};
 
-await mkdir(outDir, { recursive: true });
-
 const shot = (page: Page, name: string) =>
-	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
+	page.screenshot({ path: path.join(ARTIFACTS_DIR, outDir, `${name}.png`) });
 
-const browser = await chromium.launch({
-	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
-	headless: true,
-});
+const browser = await launchBrowser();
 
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
@@ -310,7 +283,7 @@ try {
 	await shot(page, "failure");
 	throw error;
 } finally {
-	await writeFile(new URL("summary.json", outDir), `${JSON.stringify(summary, null, 2)}\n`);
+	await writeArtifact(`${outDir}/summary.json`, summary);
 	await browser.close();
 	server.kill("SIGKILL");
 }

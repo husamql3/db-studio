@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeArtifact } from "./lib.js";
 
 // Regression for DB-STUDIO-SERVER-G: a server started from a checkout whose web app was never
 // built (no index.html where getWebDistPath looks) answered every page with 500 ENOENT and
 // reported each one to Sentry. It must answer 404 and say how to build the web app, while the
 // API keeps working.
-process.env.DB_STUDIO_TELEMETRY = "0";
 
 // getWebDistPath falls back to <cwd>/../web/dist; an empty temp directory has none.
 process.chdir(await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-")));
@@ -53,9 +53,5 @@ try {
 	assert.deepEqual(JSON.parse(unknownApi.body), { error: "Not found" });
 	console.log("PASS a missing web build answers 404 with build instructions");
 } finally {
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL("./artifacts/missing-web-build.json", import.meta.url),
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
+	await writeArtifact("missing-web-build.json", evidence);
 }

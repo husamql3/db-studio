@@ -20,9 +20,10 @@
  * Writes e2e/artifacts/read-only.json; it holds no ids, paths or URLs, so reruns match.
  */
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { databaseName, writeArtifact } from "./lib.js";
 
 const dir = await mkdtemp(path.join(tmpdir(), "db-studio-read-only-"));
 
@@ -75,7 +76,7 @@ for (const [env, dbType] of [
 ] as const) {
 	const url = process.env[env];
 
-	if (url) engines.push({ dbType, url, db: new URL(url).pathname.slice(1), supported: true });
+	if (url) engines.push({ dbType, url, db: databaseName(url), supported: true });
 }
 
 const TABLE = "dbstudio_ro_probe";
@@ -271,11 +272,7 @@ for (const engine of engines) {
 	}
 }
 
-const out = new URL("./artifacts/read-only.json", import.meta.url);
-
-await mkdir(new URL(".", out), { recursive: true });
-
-await writeFile(out, `${JSON.stringify(report, null, "\t")}\n`);
+await writeArtifact("read-only.json", report);
 
 await rm(dir, { recursive: true, force: true });
 

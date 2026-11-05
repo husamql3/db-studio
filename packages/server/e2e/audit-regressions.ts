@@ -1,58 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
 import { tableDataResultSchema } from "@db-studio/shared/types";
 import { z } from "zod";
+import { inProcessApp, requireDatabaseUrl, writeArtifact } from "./lib.js";
 
-process.env.DB_STUDIO_TELEMETRY = "0";
+const { call, close, dbType, query } = await inProcessApp(
+	requireDatabaseUrl("pg", "mysql").url,
+);
 
-const databaseUrl = process.env.DATABASE_URL ?? "";
-
-const dbType = databaseUrl.startsWith("postgresql://")
-	? "pg"
-	: databaseUrl.startsWith("mysql://")
-		? "mysql"
-		: null;
-
-if (!dbType) throw new Error("Set DATABASE_URL to a disposable PostgreSQL or MySQL database");
-
-const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-
-const { closeAllConnections, createConnection, registerConnection } =
-	await import("../src/open-connections.js");
-
-registerConnection("e2e", createConnection(databaseUrl));
-
-const { createServer } = await import("../src/app.js");
-const { app } = createServer();
 const evidence: Record<string, unknown> = {};
 
-const rowsSchema = z.object({
-	data: z.object({ rows: z.array(z.record(z.string(), z.unknown())) }),
-});
-
 const pageSchema = z.object({ data: tableDataResultSchema });
-
-const call = async (method: string, path: string, body?: unknown) => {
-	const url = new URL(`/api/${dbType}${path}`, "http://localhost");
-	url.searchParams.set("db", db);
-
-	const response = await app.handle(
-		new Request(url, {
-			method,
-			headers: { "Content-Type": "application/json" },
-			body: body === undefined ? undefined : JSON.stringify(body),
-		}),
-	);
-
-	return { status: response.status, body: (await response.json()) as unknown };
-};
-
-const query = async (sql: string) => {
-	const { status, body } = await call("POST", "/query", { query: sql });
-	assert.equal(status, 200, JSON.stringify(body));
-
-	return rowsSchema.parse(body).data.rows;
-};
 
 const ids = (rows: Record<string, unknown>[]) => rows.map((row) => Number(row.id));
 
@@ -209,14 +166,6 @@ const pagingVisitsEveryRow = async () => {
 	}
 };
 
-const writeArtifact = async () => {
-	await mkdir("e2e/artifacts", { recursive: true });
-	await writeFile(
-		`e2e/artifacts/audit-regressions-${dbType}.json`,
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
-};
-
 try {
 	await forceDeleteTwoForeignKeys();
 
@@ -224,13 +173,13 @@ try {
 	if (dbType === "pg") await failedSaveRollsBack();
 	await pagingVisitsEveryRow();
 } catch (error) {
-	await writeArtifact();
+	await writeArtifact(`audit-regressions-${dbType}.json`, evidence);
 	console.error(error);
 	// A hung save keeps connections busy, so cleanup could wait forever.
 	process.exit(1);
 }
 
-await writeArtifact();
+await writeArtifact(`audit-regressions-${dbType}.json`, evidence);
 
 await query("DROP TABLE IF EXISTS dbstudio_audit_attachments");
 
@@ -240,6 +189,6 @@ for (const table of ["users", "saves", "paged"]) {
 	await query(`DROP TABLE IF EXISTS dbstudio_audit_${table}`);
 }
 
-await closeAllConnections();
+await close();
 
 console.log("PASS");
