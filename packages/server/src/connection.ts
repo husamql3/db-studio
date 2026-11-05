@@ -6,7 +6,6 @@ import {
 	DATABASE_ENGINES,
 	type UpdateConnectionSchemaType,
 } from "@db-studio/shared/types";
-import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 import { normalizeConnectionUrl, parseConnectionUrl, urlDbType } from "@/connection-url.js";
 import {
 	findSavedConnection,
@@ -29,6 +28,7 @@ import {
 	requestConnectionId,
 } from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 /**
  * Opening connections and switching their mode, one at a time: an open that read the old mode must

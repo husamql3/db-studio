@@ -22,7 +22,7 @@ const { closeAllConnections, createConnection, registerConnection } =
 
 registerConnection("e2e", createConnection(databaseUrl));
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 const evidence: Record<string, unknown> = {};
 

@@ -69,7 +69,7 @@ try {
 	const limitedUrl = new URL(databaseUrl);
 	limitedUrl.username = LOGIN;
 	limitedUrl.password = encodeURIComponent(PASSWORD);
-	const { createServer } = await import("../src/utils/create-server.js");
+	const { createServer } = await import("../src/app.js");
 	const { connect } = await import("../src/connection.js");
 	const { app } = createServer();
 	await connect(limitedUrl.toString());

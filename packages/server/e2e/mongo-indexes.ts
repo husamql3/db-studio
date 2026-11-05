@@ -11,7 +11,7 @@ if (!databaseUrl?.startsWith("mongodb")) {
 	throw new Error("Set DATABASE_URL to a disposable MongoDB database");
 }
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 const db = connector("mongodb").dbName;

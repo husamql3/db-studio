@@ -55,7 +55,7 @@ try {
 	const limitedUrl = new URL(databaseUrl);
 	limitedUrl.username = ROLE;
 	limitedUrl.password = "e2e";
-	const { createServer } = await import("../src/utils/create-server.js");
+	const { createServer } = await import("../src/app.js");
 	const { connect } = await import("../src/connection.js");
 	const { connector } = await import("../src/open-connections.js");
 	const { app } = createServer();

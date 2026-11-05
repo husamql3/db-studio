@@ -21,7 +21,7 @@ const databaseUrl = process.env.DATABASE_URL;
 assert.ok(databaseUrl, "Set DATABASE_URL");
 
 const db = engine === "sqlite" ? "main" : new URL(databaseUrl).pathname.slice(1);
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 const table = "dbstudio_e2e_index_listing";
 const evidence: Record<string, unknown> = {};

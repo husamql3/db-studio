@@ -28,7 +28,7 @@ const dir = await mkdtemp(path.join(tmpdir(), "db-studio-read-only-"));
 
 process.env.DB_STUDIO_CONFIG_DIR = path.join(dir, "config");
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 
 const call = async (method: string, route: string, body?: unknown, connectionId?: string) => {

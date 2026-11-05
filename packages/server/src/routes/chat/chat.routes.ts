@@ -3,8 +3,8 @@ import { chatSchema } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
 import { currentRequestId, writeOperationalLog } from "@/operational-log.js";
-import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
-import { getDetailedSchema } from "@/utils/table-details-schema.js";
+import { generateSystemPrompt } from "@/routes/chat/system-prompt-generator.js";
+import { getDetailedSchema } from "@/routes/chat/table-details-schema.js";
 
 /** The body is re-framed for the browser, so the upstream framing headers do not apply. */
 const HOP_BY_HOP_HEADERS = new Set([

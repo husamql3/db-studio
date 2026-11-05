@@ -28,7 +28,7 @@ try {
 	await admin.query(`DROP TABLE IF EXISTS ${TABLE}`);
 	await admin.query(`CREATE TABLE ${TABLE} (id INT PRIMARY KEY, born DATE, code VARCHAR(3))`);
 
-	const { createServer } = await import("../src/utils/create-server.js");
+	const { createServer } = await import("../src/app.js");
 	const { connect } = await import("../src/connection.js");
 	const { connector } = await import("../src/open-connections.js");
 	const { app } = createServer();

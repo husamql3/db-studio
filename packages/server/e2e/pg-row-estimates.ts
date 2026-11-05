@@ -28,7 +28,7 @@ if (!databaseUrl?.startsWith("postgresql://")) {
 }
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 const pool = await connector("pg").pool(db);

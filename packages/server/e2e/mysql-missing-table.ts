@@ -18,7 +18,7 @@ if (!databaseUrl?.startsWith("mysql://")) {
 process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { connect } = await import("../src/connection.js");
 const { app } = createServer();
 

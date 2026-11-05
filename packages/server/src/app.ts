@@ -24,7 +24,7 @@ import {
 	resolveRequestId,
 	runWithRequestContext,
 } from "@/operational-log.js";
-import { chatRoutes } from "@/routes/chat.routes.js";
+import { chatRoutes } from "@/routes/chat/chat.routes.js";
 import { connectionsRoutes } from "@/routes/connections.routes.js";
 import { databasesRoutes } from "@/routes/databases.routes.js";
 import { keysRoutes } from "@/routes/keys.routes.js";

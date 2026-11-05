@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { read, utils } from "xlsx";
-import { getExportFile } from "@/utils/get-export-file.js";
+import { getExportFile } from "@/routes/get-export-file.js";
 
 const decode = (body: BodyInit): string => Buffer.from(body as Uint8Array).toString("utf-8");
 

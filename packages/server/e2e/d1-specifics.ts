@@ -22,7 +22,7 @@ if (!label || !databaseUrl) {
 
 const isD1 = databaseUrl.startsWith("d1://");
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 
 const current = await app.handle(

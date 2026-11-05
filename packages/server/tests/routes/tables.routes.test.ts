@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createServer } from "@/utils/create-server.js";
+import { createServer } from "@/app.js";
 
 const mockDao = vi.hoisted(() => ({
 	createTable: vi.fn(),

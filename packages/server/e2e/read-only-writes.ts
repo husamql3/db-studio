@@ -38,7 +38,7 @@ process.once("exit", () => rmSync(configDir, { recursive: true, force: true }));
 
 process.env.DB_STUDIO_CONFIG_DIR = configDir;
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { connect, updateConnection } = await import("../src/connection.js");
 const { listSavedConnections } = await import("../src/connections-store.js");
 const { app } = createServer();

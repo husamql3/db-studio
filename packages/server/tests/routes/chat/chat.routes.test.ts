@@ -1,18 +1,18 @@
 import { LIMIT } from "@db-studio/shared/constants";
 import { Elysia } from "elysia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { chatRoutes } from "@/routes/chat.routes.js";
+import { chatRoutes } from "@/routes/chat/chat.routes.js";
 
 const mocks = vi.hoisted(() => ({
 	getDetailedSchema: vi.fn(),
 	generateSystemPrompt: vi.fn(() => "system prompt"),
 }));
 
-vi.mock("@/utils/table-details-schema.js", () => ({
+vi.mock("@/routes/chat/table-details-schema.js", () => ({
 	getDetailedSchema: mocks.getDetailedSchema,
 }));
 
-vi.mock("@/utils/system-prompt-generator.js", () => ({
+vi.mock("@/routes/chat/system-prompt-generator.js", () => ({
 	generateSystemPrompt: mocks.generateSystemPrompt,
 }));
 

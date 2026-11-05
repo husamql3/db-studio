@@ -6,7 +6,7 @@ process.env.DATABASE_URL = "duckdb://:memory:";
 
 process.env.DB_STUDIO_TELEMETRY = "0";
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 

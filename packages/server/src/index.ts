@@ -5,10 +5,10 @@ import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
 import { openBrowser, shouldOpenBrowser } from "@/cmd/open-browser.js";
-import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 import { showHelp } from "@/cmd/show-help.js";
 import { showStatus } from "@/cmd/show-status.js";
 import { showVersion } from "@/cmd/show-version.js";
+import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 export const main = async () => {
 	const { env, port, databaseUrl, varName, open, status, help, version } = args();
@@ -92,7 +92,7 @@ export const main = async () => {
 		log.info(`No ${VAR_NAME} found. Choose a database in the browser.`);
 	}
 
-	const { createServer } = await import("./utils/create-server.js");
+	const { createServer } = await import("@/app.js");
 	const { closeAllConnections } = await import("@/open-connections.js");
 	const { app } = createServer();
 

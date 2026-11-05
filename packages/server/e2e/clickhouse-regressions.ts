@@ -37,7 +37,7 @@ if (process.versions.node.split(".")[0] !== "20") {
 }
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 
 const request = async (

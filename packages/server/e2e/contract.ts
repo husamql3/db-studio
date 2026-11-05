@@ -881,7 +881,7 @@ const main = async () => {
 		...url.searchParams.getAll("authToken"),
 	].filter(Boolean);
 
-	const { createServer } = await import("../src/utils/create-server.js");
+	const { createServer } = await import("../src/app.js");
 	const { app } = createServer();
 
 	const results = [];

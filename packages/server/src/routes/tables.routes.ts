@@ -17,7 +17,7 @@ import {
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { adapterPlugin } from "@/routes/adapter.plugin.js";
-import { getExportFile } from "@/utils/get-export-file.js";
+import { getExportFile } from "@/routes/get-export-file.js";
 
 const EXPORT_CONTENT_TYPES = {
 	csv: "text/csv",

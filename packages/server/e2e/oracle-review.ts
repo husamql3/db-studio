@@ -22,7 +22,7 @@ if (!databaseUrl?.startsWith("oracle://")) {
 
 const parsedDatabaseUrl = new URL(databaseUrl);
 const db = decodeURIComponent(parsedDatabaseUrl.pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 const scenarios: Scenario[] = [];
 

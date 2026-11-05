@@ -29,7 +29,7 @@ const dbType = { "mysql:": "mysql", "mssql:": "mssql" }[databaseUrl.protocol];
 if (!dbType) throw new Error("Set DATABASE_URL to a disposable MySQL or SQL Server database");
 
 const db = decodeURIComponent(databaseUrl.pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 

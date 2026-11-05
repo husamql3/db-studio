@@ -56,7 +56,7 @@ vi.mock("@/cmd/open-browser.js", () => ({
 	shouldOpenBrowser: mocks.shouldOpenBrowser,
 }));
 
-vi.mock("@/utils/create-server.js", () => ({
+vi.mock("@/app.js", () => ({
 	createServer: mocks.createServer,
 }));
 

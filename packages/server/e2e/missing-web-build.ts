@@ -13,7 +13,7 @@ process.env.DB_STUDIO_TELEMETRY = "0";
 // getWebDistPath falls back to <cwd>/../web/dist; an empty temp directory has none.
 process.chdir(await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-")));
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 const evidence: Record<string, unknown> = {};
 

@@ -45,7 +45,7 @@ vi.mock("@/open-connections.js", () => ({
 	latestConnectionId: vi.fn(() => null),
 }));
 
-import { createServer } from "@/utils/create-server.js";
+import { createServer } from "@/app.js";
 
 describe("createServer", () => {
 	let server: ReturnType<typeof createServer>;

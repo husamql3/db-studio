@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
+import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 // Failure modes for the scheme alternation built from the engine registry:
 // - an alias scheme (cockroachdb, mariadb, tidb) is missing, so its credentials print verbatim

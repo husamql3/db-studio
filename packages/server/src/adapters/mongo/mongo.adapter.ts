@@ -31,12 +31,12 @@ import type {
 import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import { visibleMongoDatabases } from "@/adapters/mongo/mongo-database-visibility.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
-import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import {
 	buildMatchStage,
 	buildSortStage,

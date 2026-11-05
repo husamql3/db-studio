@@ -12,7 +12,7 @@ vi.mock("@/open-connections.js", () => ({
 	requestConnection: vi.fn(() => ({ dbType: "pg" })),
 }));
 
-import { getDetailedSchema } from "@/utils/table-details-schema.js";
+import { getDetailedSchema } from "@/routes/chat/table-details-schema.js";
 
 describe("getDetailedSchema", () => {
 	beforeEach(() => {

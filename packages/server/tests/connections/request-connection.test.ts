@@ -26,7 +26,7 @@ const sqliteFile = async (name: string, table: string) => {
 
 it("keeps a request without X-Connection-Id on the connection that was latest when it arrived", async () => {
 	vi.resetModules();
-	const { createServer } = await import("@/utils/create-server.js");
+	const { createServer } = await import("@/app.js");
 	const { createConnection, registerConnection } = await import("@/open-connections.js");
 	const { ADAPTERS } = await import("@/adapters/adapter.registry.js");
 	const a = await sqliteFile("a.sqlite", "only_in_a");
