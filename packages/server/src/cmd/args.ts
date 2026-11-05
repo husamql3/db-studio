@@ -1,5 +1,15 @@
-import type { Args } from "@db-studio/shared/types";
 import { program } from "commander";
+
+type Args = {
+	env?: string;
+	port?: string;
+	databaseUrl?: string;
+	varName?: string;
+	open?: boolean;
+	status?: boolean;
+	help?: boolean;
+	version?: boolean;
+};
 
 /**
  * Get the arguments from the command line

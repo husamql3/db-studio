@@ -1,4 +1,4 @@
-import { DEFAULTS, LIMIT } from "@db-studio/shared/constants";
+import { LIMIT } from "@db-studio/shared/constants";
 import { chatSchema } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
@@ -24,10 +24,17 @@ const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
  * local `bun run dev` proxy.
  */
 const resolveProxyUrl = (): string => {
+	// Read per request: the CLI loads .env after this module is imported.
+	const configured =
+		process.env.DB_STUDIO_PROXY_URL ??
+		(process.env.NODE_ENV === "development"
+			? "https://proxy.db-studio.localhost"
+			: "https://db-studio-proxy.husamql3.workers.dev");
+
 	let url: URL;
 
 	try {
-		url = new URL(DEFAULTS.PROXY_URL);
+		url = new URL(configured);
 	} catch {
 		throw new HTTPException(500, {
 			message: "DB_STUDIO_PROXY_URL is not a valid URL",

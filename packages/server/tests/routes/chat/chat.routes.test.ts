@@ -83,6 +83,26 @@ describe("Chat routes", () => {
 		expect(String(init?.body)).toContain('"model":"gpt-5.2"');
 	});
 
+	// The CLI loads .env after the server modules are imported, so a proxy URL read at import
+	// time ignored DB_STUDIO_PROXY_URL from .env.
+	it("sends chat to the DB_STUDIO_PROXY_URL set after the routes loaded", async () => {
+		vi.stubEnv("DB_STUDIO_PROXY_URL", "http://127.0.0.1:4998");
+
+		try {
+			await app.handle(
+				new Request(new URL("/api/pg/chat", "http://localhost"), {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(requestBody(false)),
+				}),
+			);
+		} finally {
+			vi.unstubAllEnvs();
+		}
+
+		expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toBe("http://127.0.0.1:4998/chat");
+	});
+
 	it("reports hosted quota as unavailable when the proxy limit check fails", async () => {
 		vi.mocked(fetch).mockRejectedValueOnce(new Error("proxy unavailable"));
 
