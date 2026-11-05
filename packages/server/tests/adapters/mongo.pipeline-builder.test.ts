@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/db-manager.js", () => ({
-	isValidObjectId: vi.fn((value: unknown) => value === "507f1f77bcf86cd799439011"),
-	coerceObjectId: vi.fn((value: unknown) => ({ objectId: value })),
+vi.mock("@/adapters/mongo/object-id.js", () => ({
+	coerceObjectId: vi.fn((value: unknown) =>
+		value === "507f1f77bcf86cd799439011" ? { objectId: value } : value,
+	),
 }));
 
 import {

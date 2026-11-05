@@ -17,10 +17,10 @@ if (!dbType) throw new Error("Set DATABASE_URL to a disposable PostgreSQL or MyS
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 
-const { DatabaseManager, openConnection, closeAllDbPools } =
-	await import("../src/db-manager.js");
+const { closeAllConnections, createConnection, registerConnection } =
+	await import("../src/open-connections.js");
 
-openConnection("e2e", new DatabaseManager(databaseUrl));
+registerConnection("e2e", createConnection(databaseUrl));
 
 const { createServer } = await import("../src/utils/create-server.js");
 const { app } = createServer();
@@ -241,6 +241,6 @@ for (const table of ["users", "saves", "paged"]) {
 	await query(`DROP TABLE IF EXISTS dbstudio_audit_${table}`);
 }
 
-await closeAllDbPools();
+await closeAllConnections();
 
 console.log("PASS");

@@ -57,7 +57,7 @@ try {
 	limitedUrl.password = "e2e";
 	const { createServer } = await import("../src/utils/create-server.js");
 	const { connect } = await import("../src/connection.js");
-	const { getDbPool } = await import("../src/db-manager.js");
+	const { connector } = await import("../src/open-connections.js");
 	const { app } = createServer();
 	await connect(limitedUrl.toString());
 
@@ -90,7 +90,7 @@ try {
 	evidence.readWithoutGrant = await read("dbstudio_e2e_private");
 	evidence.insertRefusedByPolicy = await insert("dbstudio_e2e_rls");
 	evidence.readAllowedByPolicy = await read("dbstudio_e2e_rls");
-	await (await getDbPool(db)).end();
+	await (await connector("pg").pool(db)).end();
 
 	for (const label of ["insertWithoutGrant", "readWithoutGrant", "insertRefusedByPolicy"]) {
 		const { status, body } = evidence[label] as { status: number; body: unknown };

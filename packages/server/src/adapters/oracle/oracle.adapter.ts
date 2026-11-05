@@ -32,7 +32,6 @@ import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getConnectionUrl, getOraclePool } from "@/adapters/connections.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -40,9 +39,10 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
-import { parseConnectionUrl } from "@/connection-url.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import {
 	bindOracleValue,
 	buildFilterConditions,
@@ -306,7 +306,7 @@ export class OracleAdapter extends BaseAdapter {
 
 	private async withConnection<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
 		try {
-			const conn = await (await getOraclePool()).getConnection();
+			const conn = await (await connector("oracle").pool()).getConnection();
 
 			try {
 				return await fn(conn);
@@ -469,18 +469,18 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => ({ db: await this.containerName(conn) }));
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = await getOraclePool().catch((e) => {
-			throw this.wrapError(e);
-		});
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
+		const pool = await connector("oracle")
+			.pool()
+			.catch((e) => {
+				throw this.wrapError(e);
+			});
 
 		return this.withConnection(async (conn) => {
 			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");
-			const { host, port } = parseConnectionUrl(getConnectionUrl());
 
 			return {
-				host,
-				port,
+				...server,
 				user: row?.U ?? "",
 				database: await this.containerName(conn),
 				version: `Oracle ${conn.oracleServerVersionString}`,

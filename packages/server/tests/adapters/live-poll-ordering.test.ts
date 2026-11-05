@@ -41,7 +41,16 @@ const connections = vi.hoisted(() => ({
 	getOraclePool: vi.fn(),
 }));
 
-vi.mock("@/adapters/connections.js", () => connections);
+vi.mock("@/open-connections.js", () => ({
+	connector: (dbType: string) =>
+		({
+			mysql: { pool: connections.getMysqlPool },
+			mssql: { pool: connections.getMssqlPool },
+			sqlite: { client: connections.getSqliteClient },
+			duckdb: { withConnection: connections.withDuckdbConnection },
+			oracle: { pool: connections.getOraclePool },
+		})[dbType],
+}));
 
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
@@ -101,7 +110,7 @@ const engines: Engine[] = [
 		url: ":memory:",
 		adapter: new DuckDbAdapter(),
 		connect: async (url) => {
-			// The adapter reads DuckDB's type ids from the driver that db-manager loads.
+			// The adapter reads DuckDB's type ids from the driver its connector loads.
 			await loadDriver("duckdb");
 			duckdbInstance = await DuckDBInstance.create(url);
 			const connection = await duckdbInstance.connect();
@@ -172,7 +181,7 @@ const engines: Engine[] = [
 		adapter: new OracleAdapter(),
 		connect: async (url) => {
 			const { username, password, hostname, port, pathname } = new URL(url);
-			// The adapter reads Oracle's type constants from the driver that db-manager loads.
+			// The adapter reads Oracle's type constants from the driver its connector loads.
 			await loadDriver("oracle");
 			oraclePool = await oracledb.createPool({
 				user: decodeURIComponent(username),

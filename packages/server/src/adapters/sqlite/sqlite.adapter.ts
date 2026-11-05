@@ -34,8 +34,8 @@ import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/
 import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getSqliteClient } from "@/adapters/connections.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import type { SqliteClient, SqlParam, SqlResult, SqlStatement } from "@/sqlite-client.js";
 import {
 	buildCursorWhereClause,
@@ -196,7 +196,7 @@ export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		return (await all(await getSqliteClient(), sql, values)) as T;
+		return (await all(await connector("sqlite").client(), sql, values)) as T;
 	}
 
 	protected quoteIdentifier(name: string): string {
@@ -358,7 +358,7 @@ export class SqliteAdapter extends BaseAdapter {
 				filters = [],
 			} = params;
 
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			const colInfoRows = await all<TableInfoRow>(
 				client,
@@ -514,7 +514,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const { name, size } = await (await getSqliteClient()).info();
+			const { name, size } = await (await connector("sqlite").client()).info();
 
 			return [{ name, size, owner: "", encoding: "UTF-8" }];
 		} catch (e) {
@@ -524,7 +524,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		try {
-			return { db: (await (await getSqliteClient()).info()).name };
+			return { db: (await (await connector("sqlite").client()).info()).name };
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -532,7 +532,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 		try {
-			const { name, version } = await (await getSqliteClient()).info();
+			const { name, version } = await (await connector("sqlite").client()).info();
 
 			return {
 				host: null,
@@ -554,7 +554,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		try {
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			const tables = await all<{ name: string }>(
 				client,
@@ -620,7 +620,7 @@ export class SqliteAdapter extends BaseAdapter {
 					`FOREIGN KEY ("${fk.columnName}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
 			) ?? [];
 
-		const client = await getSqliteClient();
+		const client = await connector("sqlite").client();
 		await client.execute(
 			`CREATE TABLE "${tableName}" (${[...columnDefs, ...fkDefs].join(", ")})`,
 		);
@@ -630,7 +630,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, cascade } = params;
-		const client = await getSqliteClient();
+		const client = await connector("sqlite").client();
 
 		if (!(await this.tableExists(client, tableName)))
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -677,7 +677,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
 		const { tableName, newTableName, db } = params;
 		this.assertDifferentTableName(tableName, newTableName);
-		const client = await getSqliteClient();
+		const client = await connector("sqlite").client();
 
 		if (!(await this.tableExists(client, tableName)))
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -707,7 +707,7 @@ export class SqliteAdapter extends BaseAdapter {
 	}): Promise<string> {
 		try {
 			const [row] = await all<{ sql: string }>(
-				await getSqliteClient(),
+				await connector("sqlite").client(),
 				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
 				[tableName],
 			);
@@ -735,7 +735,7 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
 		try {
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -783,7 +783,7 @@ export class SqliteAdapter extends BaseAdapter {
 			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
 				params;
 
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -820,7 +820,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		return this.serializeSchemaChange(async () => {
 			const { tableName, columnName, db } = params;
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -851,7 +851,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
 			const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 			const q = (name: string) => this.quoteIdentifier(name);
 
 			if (!(await this.tableExists(client, tableName)))
@@ -947,7 +947,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
 			const { tableName, columnName, newColumnName, db } = params;
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -992,7 +992,7 @@ export class SqliteAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			return await this.listIndexes(await getSqliteClient(), tableName);
+			return await this.listIndexes(await connector("sqlite").client(), tableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -1004,7 +1004,7 @@ export class SqliteAdapter extends BaseAdapter {
 			const { tableName, indexName, columns, isUnique, method } = params;
 
 			try {
-				const client = await getSqliteClient();
+				const client = await connector("sqlite").client();
 
 				if (!(await this.tableExists(client, tableName)))
 					throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
@@ -1045,7 +1045,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
 			try {
-				const client = await getSqliteClient();
+				const client = await connector("sqlite").client();
 
 				const index = (await this.listIndexes(client, tableName)).find(
 					(candidate) => candidate.indexName === indexName,
@@ -1087,7 +1087,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const placeholders = columns.map(() => "?").join(", ");
 
 		try {
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 
 			const result = await client.execute(
 				stmt(
@@ -1122,7 +1122,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const where = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
 
 		try {
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 			this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
 
 			// A batch is one transaction, and the guard after each UPDATE fails it with an integer
@@ -1180,7 +1180,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const placeholders = pkValues.map(() => "?").join(", ");
-		const client = await getSqliteClient();
+		const client = await connector("sqlite").client();
 
 		try {
 			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
@@ -1226,7 +1226,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const rootPredicate = `${q(pkColumn)} IN (${pkValues.map(() => "?").join(", ")})`;
 
 		try {
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 			const fksByParent = await this.getForeignKeysByParent(client);
 			const deletes: SqlStatement[] = [];
@@ -1275,7 +1275,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const sql = `INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`;
 
 		try {
-			const client = await getSqliteClient();
+			const client = await connector("sqlite").client();
 			await client.batch(
 				records.map((record) =>
 					stmt(
@@ -1327,7 +1327,7 @@ export class SqliteAdapter extends BaseAdapter {
 		const start = performance.now();
 
 		try {
-			const result = await (await getSqliteClient()).execute(cleaned);
+			const result = await (await connector("sqlite").client()).execute(cleaned);
 			const duration = performance.now() - start;
 			void db;
 

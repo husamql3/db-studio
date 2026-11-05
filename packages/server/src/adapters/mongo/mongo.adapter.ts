@@ -31,16 +31,10 @@ import type {
 import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import {
-	getConnectionUrl,
-	getMongoClient,
-	getMongoDb,
-	getMongoDbName,
-} from "@/adapters/connections.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
-import { parseConnectionUrl } from "@/connection-url.js";
-import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
 import {
@@ -49,6 +43,7 @@ import {
 	decodeMongoCursor,
 	encodeMongoCursor,
 } from "./mongo.pipeline-builder.js";
+import { coerceObjectId } from "./object-id.js";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -168,11 +163,6 @@ const dataTypeLabel = (dt: DataTypes): string => {
 			return "text";
 	}
 };
-
-const canCoerce = (value: unknown): boolean =>
-	typeof value === "string" && isValidObjectId(value);
-
-const toMongoId = (value: unknown) => coerceObjectId(value as string);
 
 const formatBytes = (bytes: number): string => {
 	if (!Number.isFinite(bytes)) return "n/a";
@@ -305,7 +295,7 @@ const resolveFieldDefault = (
 
 const normalizeIdFilter = (filter: Record<string, unknown>): Record<string, unknown> => {
 	if (filter._id && typeof filter._id === "string") {
-		return { ...filter, _id: toMongoId(filter._id) };
+		return { ...filter, _id: coerceObjectId(filter._id) };
 	}
 
 	if (filter._id && typeof filter._id === "object") {
@@ -316,7 +306,7 @@ const normalizeIdFilter = (filter: Record<string, unknown>): Record<string, unkn
 				...filter,
 				_id: {
 					...obj,
-					$in: obj.$in.map((v) => (typeof v === "string" ? toMongoId(v) : v)),
+					$in: obj.$in.map((v) => coerceObjectId(v)),
 				},
 			};
 		}
@@ -326,7 +316,7 @@ const normalizeIdFilter = (filter: Record<string, unknown>): Record<string, unkn
 				...filter,
 				_id: {
 					...obj,
-					$nin: obj.$nin.map((v) => (typeof v === "string" ? toMongoId(v) : v)),
+					$nin: obj.$nin.map((v) => coerceObjectId(v)),
 				},
 			};
 		}
@@ -522,7 +512,7 @@ export class MongoAdapter extends BaseAdapter {
 		try {
 			const { tableName, db, cursor, limit, direction = "asc", sort, order, filters } = params;
 
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const filterObj = buildMatchStage(filters ?? []);
 			const sortObj = buildSortStage(sort ?? "", order);
@@ -569,7 +559,7 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const rows = await collection.find({}).limit(10000).toArray();
 			// Nested documents stay nested: the JSON export needs the real structure,
@@ -589,7 +579,7 @@ export class MongoAdapter extends BaseAdapter {
 
 	override async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const client = await getMongoClient();
+			const client = await connector("mongodb").client();
 			const admin = client.db().admin();
 			const result = await admin.listDatabases();
 			const databases = result.databases ?? [];
@@ -598,7 +588,7 @@ export class MongoAdapter extends BaseAdapter {
 				throw new HTTPException(500, { message: "No databases returned from MongoDB" });
 			}
 
-			return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
+			return visibleMongoDatabases(databases, connector("mongodb").dbName).map((db) => ({
 				name: db.name,
 				size: formatBytes(db.sizeOnDisk ?? 0),
 				owner: "n/a",
@@ -610,14 +600,15 @@ export class MongoAdapter extends BaseAdapter {
 	}
 
 	override async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		return { db: getMongoDbName() };
+		return { db: connector("mongodb").dbName };
 	}
 
-	override async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
+	override async getDatabaseConnectionInfo(
+		server: ServerAddress,
+	): Promise<ConnectionInfoSchemaType> {
 		try {
-			const client = await getMongoClient();
+			const client = await connector("mongodb").client();
 			const admin = client.db().admin();
-			const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 			let serverStatus: {
 				version?: string;
@@ -631,10 +622,10 @@ export class MongoAdapter extends BaseAdapter {
 			}
 
 			return {
-				host: urlDefaults.host,
-				port: urlDefaults.port,
+				host: server.host,
+				port: server.port,
 				user: "n/a",
-				database: getMongoDbName(),
+				database: connector("mongodb").dbName,
 				version: serverStatus.version ?? "unknown",
 				active_connections: serverStatus.connections?.current ?? 0,
 				max_connections:
@@ -652,7 +643,7 @@ export class MongoAdapter extends BaseAdapter {
 
 	override async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collections = await mongoDb.listCollections().toArray();
 			const results: TableInfoSchemaType[] = [];
 
@@ -679,7 +670,7 @@ export class MongoAdapter extends BaseAdapter {
 	}): Promise<void> {
 		try {
 			const tableName = tableData?.tableName ?? "";
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
 			if (collections.length > 0) {
@@ -742,7 +733,7 @@ export class MongoAdapter extends BaseAdapter {
 		db,
 	}: DeleteTableParams): Promise<DeleteTableResult> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const rowCount = await collection.estimatedDocumentCount();
 			await collection.drop();
@@ -757,7 +748,7 @@ export class MongoAdapter extends BaseAdapter {
 		try {
 			const { tableName, newTableName, db } = params;
 			this.assertDifferentTableName(tableName, newTableName);
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const existing = await mongoDb.listCollections({ name: tableName }).toArray();
 
 			if (existing.length === 0) {
@@ -788,7 +779,7 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
 			if (collections.length === 0) {
@@ -862,7 +853,7 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const documents = await collection.find({}).limit(200).toArray();
 			const totalDocs = documents.length;
@@ -948,7 +939,7 @@ export class MongoAdapter extends BaseAdapter {
 	override async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
 		try {
 			const { tableName, columnName, columnType, defaultValue, isNullable, db } = params;
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
 			if (collections.length === 0) {
@@ -1018,7 +1009,7 @@ export class MongoAdapter extends BaseAdapter {
 		db,
 	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const result = await collection.updateMany({}, { $unset: { [columnName]: "" } });
 
@@ -1031,7 +1022,7 @@ export class MongoAdapter extends BaseAdapter {
 	override async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		try {
 			const { tableName, columnName, columnType, isNullable, db } = params;
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
 			if (collections.length === 0) {
@@ -1091,7 +1082,7 @@ export class MongoAdapter extends BaseAdapter {
 	override async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		try {
 			const { tableName, columnName, newColumnName, db } = params;
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
 			if (collections.length === 0) {
@@ -1141,7 +1132,7 @@ export class MongoAdapter extends BaseAdapter {
 
 	override async getServerLogs(): Promise<ServerLogsResult> {
 		try {
-			const client = await getMongoClient();
+			const client = await connector("mongodb").client();
 
 			const { log } = (await client.db("admin").command({ getLog: "global" })) as {
 				log: string[];
@@ -1206,7 +1197,7 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			return await this.listIndexes(await getMongoDb(db), tableName);
+			return await this.listIndexes(await connector("mongodb").db(db), tableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -1229,7 +1220,7 @@ export class MongoAdapter extends BaseAdapter {
 			if (new Set(columns).size !== columns.length)
 				throw new HTTPException(400, { message: "A field can appear only once in an index" });
 
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			// MongoDB answers ok when the name and spec both match an existing index.
 			const existing = await this.listIndexes(mongoDb, tableName);
 
@@ -1259,7 +1250,7 @@ export class MongoAdapter extends BaseAdapter {
 		db,
 	}: DropIndexParamsSchemaType): Promise<void> {
 		try {
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 
 			const index = (await this.listIndexes(mongoDb, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
@@ -1293,7 +1284,7 @@ export class MongoAdapter extends BaseAdapter {
 	}): Promise<{ insertedCount: number }> {
 		try {
 			const { tableName, data } = params;
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const payload = normalizeDoc(data);
 
@@ -1321,7 +1312,7 @@ export class MongoAdapter extends BaseAdapter {
 	}): Promise<{ updatedCount: number }> {
 		try {
 			const { tableName } = params;
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 
 			let totalUpdated = 0;
@@ -1348,7 +1339,7 @@ export class MongoAdapter extends BaseAdapter {
 				const filter: Record<string, unknown> = {};
 				keyColumns.forEach((column, i) => {
 					const value = keyValues[i];
-					filter[column] = column === "_id" && canCoerce(value) ? toMongoId(value) : value;
+					filter[column] = column === "_id" ? coerceObjectId(value) : value;
 				});
 
 				const result = await collection.updateOne(filter, { $set: updateSet });
@@ -1371,12 +1362,12 @@ export class MongoAdapter extends BaseAdapter {
 	override async deleteRecords(params: DeleteRecordParams): Promise<DeleteRecordResult> {
 		try {
 			const { tableName, primaryKeys, db } = params;
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 			const pkColumn = primaryKeys[0]?.columnName ?? "_id";
 
 			const pkValues = primaryKeys.map((pk) =>
-				pkColumn === "_id" && canCoerce(pk.value) ? toMongoId(pk.value) : pk.value,
+				pkColumn === "_id" ? coerceObjectId(pk.value) : pk.value,
 			);
 
 			const result = await collection.deleteMany({ [pkColumn]: { $in: pkValues } });
@@ -1409,7 +1400,7 @@ export class MongoAdapter extends BaseAdapter {
 				throw new HTTPException(400, { message: "At least one record is required" });
 			}
 
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(tableName);
 
 			const docs = records.map((record) => {
@@ -1463,7 +1454,7 @@ export class MongoAdapter extends BaseAdapter {
 				});
 			}
 
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			const collection = mongoDb.collection(payload.collection);
 
 			const startTime = performance.now();

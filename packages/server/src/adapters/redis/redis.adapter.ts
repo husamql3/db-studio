@@ -41,14 +41,10 @@ import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import {
-	getIsolatedRedisClient,
-	getRedisClient,
-	getRedisDefaultDb,
-} from "@/adapters/connections.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
 
 // ---------------------------------------------------------------------------
@@ -114,7 +110,7 @@ const quoteArg = (arg: string) =>
 	/[\s"']/.test(arg) || arg === "" ? JSON.stringify(arg) : arg;
 
 const parseDbIndex = (db: string): number => {
-	if (db === "") return getRedisDefaultDb();
+	if (db === "") return connector("redis").defaultDb;
 	const parsed = Number.parseInt(db, 10);
 
 	if (!Number.isFinite(parsed) || parsed < 0) {
@@ -398,7 +394,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		try {
 			const { db, limit, search, exactPattern, type, cursor } = params;
 			const dbIndex = parseDbIndex(db);
-			const client = await getRedisClient(dbIndex);
+			const client = await connector("redis").client(dbIndex);
 			let scanCursor = "0";
 
 			if (cursor) {
@@ -467,7 +463,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		try {
 			const { db, key: encodedKey, cursor, limit, full, direction } = params;
 			const key = decodeKeyParam(encodedKey);
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 
 			const [typeRaw, ttlMs, memoryRaw, dumpRaw] = await Promise.all([
 				client.callBuffer("TYPE", key),
@@ -699,7 +695,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		params: KeyRawQuerySchemaType & { key: string },
 	): Promise<KeyRawResultSchemaType> {
 		try {
-			const client = await getRedisClient(parseDbIndex(params.db));
+			const client = await connector("redis").client(parseDbIndex(params.db));
 			const key = decodeKeyParam(params.key);
 			const type = normalizeRedisKeyType(await client.callBuffer("TYPE", key));
 
@@ -742,7 +738,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		let client: Redis | null = null;
 
 		try {
-			client = await getIsolatedRedisClient(parseDbIndex(params.db));
+			client = await connector("redis").isolatedClient(parseDbIndex(params.db));
 			const key = decodeBinaryValue(params.key.base64);
 			await client.watch(key);
 
@@ -831,7 +827,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		let client: Redis | null = null;
 
 		try {
-			client = await getIsolatedRedisClient(parseDbIndex(params.db));
+			client = await connector("redis").isolatedClient(parseDbIndex(params.db));
 			const key = decodeKeyParam(params.key);
 
 			const newKey =
@@ -987,7 +983,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		let client: Redis | null = null;
 
 		try {
-			client = await getIsolatedRedisClient(parseDbIndex(params.db));
+			client = await connector("redis").isolatedClient(parseDbIndex(params.db));
 			const key = decodeKeyParam(params.key);
 			await client.watch(key);
 			const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
@@ -1012,7 +1008,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 
 	override async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const client = await getRedisClient(getRedisDefaultDb());
+			const client = await connector("redis").client(connector("redis").defaultDb);
 			let total = 1;
 			let supportsLogicalDatabases = false;
 			let configReply: unknown = null;
@@ -1044,7 +1040,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 
 			const databases = supportsLogicalDatabases
 				? Array.from({ length: total }, (_, index) => index)
-				: [getRedisDefaultDb()];
+				: [connector("redis").defaultDb];
 
 			return databases.map((index) => ({
 				name: String(index),
@@ -1058,12 +1054,12 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	override async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		return { db: String(getRedisDefaultDb()) };
+		return { db: String(connector("redis").defaultDb) };
 	}
 
 	override async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 		try {
-			const client = await getRedisClient(getRedisDefaultDb());
+			const client = await connector("redis").client(connector("redis").defaultDb);
 
 			const [serverInfo, clientsInfo] = await Promise.all([
 				client.info("server"),
@@ -1093,7 +1089,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				host: opts.host ?? null,
 				port: opts.port ?? null,
 				user: opts.username || "default",
-				database: String(opts.db ?? getRedisDefaultDb()),
+				database: String(opts.db ?? connector("redis").defaultDb),
 				version: server.redis_version ?? "unknown",
 				active_connections: Number.parseInt(clients.connected_clients ?? "0", 10) || 0,
 				max_connections: maxclients || 0,
@@ -1205,7 +1201,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			const table = assertRedisTable(tableName);
 			const redisType = TABLE_TO_REDIS_TYPE[table];
 			const dbIndex = parseDbIndex(db);
-			const client = await getRedisClient(dbIndex);
+			const client = await connector("redis").client(dbIndex);
 
 			let scanCursor = "0";
 
@@ -1348,7 +1344,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	private async getCachedCounts(dbIndex: number): Promise<Record<RedisTable, number>> {
-		const client = await getRedisClient(dbIndex);
+		const client = await connector("redis").client(dbIndex);
 		const cached = this.countCache.get(client);
 
 		if (cached && Date.now() - cached.timestamp < COUNT_CACHE_TTL_MS) {
@@ -1397,7 +1393,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			const table = assertRedisTable(tableName);
 			const key = extractKey(data);
 			const ttl = extractTtl(data);
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 
 			await this.writeRecord(client, table, key, data.value, { mode: "create", ttl });
 			this.countCache.delete(client);
@@ -1419,7 +1415,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			const { tableName, updates, primaryKey, primaryKeys } = params;
 			const table = assertRedisTable(tableName);
 			const pkField = primaryKeys?.[0] || primaryKey || "key";
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 
 			const updatesByKey = new Map<string, Record<string, unknown>>();
 
@@ -1474,7 +1470,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		try {
 			const { tableName, primaryKeys, db } = params;
 			assertRedisTable(tableName);
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 			const keys = primaryKeys.map((pk) => String(pk.value));
 
 			if (keys.length === 0)
@@ -1507,7 +1503,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			}
 
 			const table = assertRedisTable(tableName);
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 
 			const errors: Array<{ recordIndex: number; error: string }> = [];
 			let successCount = 0;
@@ -1555,7 +1551,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		try {
 			const table = assertRedisTable(tableName);
 			const dbIndex = parseDbIndex(db);
-			const client = await getRedisClient(dbIndex);
+			const client = await connector("redis").client(dbIndex);
 			const redisType = TABLE_TO_REDIS_TYPE[table];
 
 			const allKeys: string[] = [];
@@ -1755,7 +1751,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ServerLogsResult> {
 		try {
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 			const slowlog = (await client.call("SLOWLOG", "GET", "128")) as SlowlogEntry[];
 
 			// The latency monitor is optional; a server that refuses it still has a slow log.
@@ -1835,7 +1831,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				throw new HTTPException(400, { message: "Empty command" });
 			}
 
-			const client = await getRedisClient(parseDbIndex(db));
+			const client = await connector("redis").client(parseDbIndex(db));
 			const [cmd, ...rest] = argv;
 
 			let reply: unknown;

@@ -30,7 +30,7 @@ if (!dbType) throw new Error("Set DATABASE_URL to a disposable MySQL or SQL Serv
 
 const db = decodeURIComponent(databaseUrl.pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
-const { getMssqlPool, getMysqlPool } = await import("../src/db-manager.js");
+const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 
 const LARGE = "dbstudio_estimate_Large"; // mixed case
@@ -50,7 +50,7 @@ interface Dialect {
 
 const dialect = async (): Promise<Dialect> => {
 	if (dbType === "mysql") {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		return {
 			exec: async (sql) => {
@@ -78,7 +78,7 @@ const dialect = async (): Promise<Dialect> => {
 		};
 	}
 
-	const pool = await getMssqlPool(db);
+	const pool = await connector("mssql").pool(db);
 
 	return {
 		exec: async (sql) => {

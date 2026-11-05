@@ -2,9 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetDbPool = vi.hoisted(() => vi.fn());
 
-vi.mock("@/adapters/connections.js", () => ({
-	getDbPool: mockGetDbPool,
-}));
+vi.mock("@/open-connections.js", () => ({ connector: () => ({ pool: mockGetDbPool }) }));
 
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
 

@@ -41,10 +41,10 @@ import {
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
-import { getConnectionUrl, getMssqlPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
-import { parseConnectionUrl } from "@/connection-url.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
@@ -109,7 +109,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const request = pool.request();
 		values.forEach((val, idx) => {
 			request.input(`p${idx}`, val);
@@ -196,7 +196,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				filters = [],
 			} = params;
 
-			const pool = await getMssqlPool(db);
+			const pool = await connector("mssql").pool(db);
 
 			const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 
@@ -255,7 +255,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const pool = await getMssqlPool();
+			const pool = await connector("mssql").pool();
 
 			// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
 			// optional; HAS_DBACCESS drops databases the login cannot open.
@@ -283,7 +283,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const pool = await getMssqlPool();
+		const pool = await connector("mssql").pool();
 		const result = await pool.request().query("SELECT DB_NAME() AS db");
 
 		if (!result.recordset[0]) {
@@ -293,8 +293,8 @@ export class MsSqlAdapter extends BaseAdapter {
 		return result.recordset[0] as DatabaseSchemaType;
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = await getMssqlPool();
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
+		const pool = await connector("mssql").pool();
 
 		const result = await pool.request().query(`
 			SELECT
@@ -314,11 +314,10 @@ export class MsSqlAdapter extends BaseAdapter {
 		}
 
 		const info = result.recordset[0] as Record<string, string | number>;
-		const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 		return {
-			host: String(info.host || urlDefaults.host),
-			port: Number(info.port || urlDefaults.port),
+			host: String(info.host || server.host),
+			port: Number(info.port || server.port),
 			user: String(info.user),
 			database: String(info.database_name ?? ""),
 			version: String(info.version),
@@ -330,7 +329,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	// --- Tables ---
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const estimates = await this.rowEstimates(pool);
 
 		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
@@ -364,7 +363,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const columnDefs = fields.map((field: FieldDataType) => {
 			const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
@@ -412,7 +411,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, db, cascade } = params;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const tableCheck = await pool.request().input("tableName", tableName).query(`
 				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
@@ -467,7 +466,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		try {
 			const { tableName, newTableName, db } = params;
 			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await getMssqlPool(db);
+			const pool = await connector("mssql").pool(db);
 
 			await this.assertTableExists(pool, tableName);
 
@@ -499,7 +498,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const tableCheck = await pool.request().input("tableName", tableName).query(`
 				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
@@ -595,7 +594,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const result = await pool.request().input("tableName", tableName).query(`
 				SELECT
@@ -699,7 +698,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			db,
 		} = params;
 
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 
@@ -727,7 +726,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		const { tableName, columnName, db } = params;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 		await this.assertColumnExists(pool, tableName, columnName);
@@ -741,7 +740,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 		await this.assertColumnExists(pool, tableName, columnName);
@@ -785,7 +784,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, newColumnName, db } = params;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 		await this.assertColumnExists(pool, tableName, columnName);
@@ -812,7 +811,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	// --- Server logs ---
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		try {
 			const result = await pool
@@ -884,7 +883,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			return await this.listIndexes(await getMssqlPool(db), tableName);
+			return await this.listIndexes(await connector("mssql").pool(db), tableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -894,7 +893,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const { tableName, indexName, columns, isUnique, method, db } = params;
 
 		try {
-			const pool = await getMssqlPool(db);
+			const pool = await connector("mssql").pool(db);
 			await this.assertTableExists(pool, tableName);
 
 			const columnRows = await pool.request().input("tableName", tableName).query<{
@@ -934,7 +933,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
 		try {
-			const pool = await getMssqlPool(db);
+			const pool = await connector("mssql").pool(db);
 
 			const index = (await this.listIndexes(pool, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
@@ -970,7 +969,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
@@ -1024,7 +1023,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
@@ -1091,7 +1090,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 
 		if (!pkColumn)
@@ -1142,7 +1141,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 
 		if (!pkColumn)
@@ -1254,7 +1253,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: "At least one record is required" });
 		}
 
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const transaction = pool.transaction();
 
 		try {
@@ -1321,7 +1320,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
@@ -1370,7 +1369,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		tableName: string,
 		db: string,
 	): Promise<ForeignKeyConstraint[]> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const result = await pool.request().input("tableName", tableName).query(`
 				SELECT
@@ -1400,7 +1399,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const fks = await this.getForeignKeyReferences(tableName, db);
 
 		if (fks.length === 0) return [];
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const results: RelatedRecord[] = [];
 
 		for (const fk of fks) {
@@ -1429,7 +1428,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const fks = await this.getForeignKeyReferences(tableName, db);
 
 		if (fks.length === 0) return [];
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const results: RelatedRecord[] = [];
 
@@ -1528,7 +1527,7 @@ export class MsSqlAdapter extends BaseAdapter {
 	}
 
 	private async getTableRowCount(tableName: string, db: string): Promise<number> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		try {
 			const result = await pool

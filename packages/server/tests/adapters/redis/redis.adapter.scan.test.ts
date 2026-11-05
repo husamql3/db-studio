@@ -19,9 +19,8 @@ const mockPipeline = vi.hoisted(() => ({
 
 const mockGetRedisClient = vi.hoisted(() => vi.fn());
 
-vi.mock("@/adapters/connections.js", () => ({
-	getRedisClient: mockGetRedisClient,
-	getRedisDefaultDb: vi.fn(() => 0),
+vi.mock("@/open-connections.js", () => ({
+	connector: () => ({ client: mockGetRedisClient, defaultDb: 0 }),
 }));
 
 import { RedisAdapter } from "@/adapters/redis/redis.adapter.js";

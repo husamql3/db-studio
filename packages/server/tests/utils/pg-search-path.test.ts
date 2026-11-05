@@ -1,9 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 
-// db-manager is globally mocked in tests/setup.ts; this suite exercises the real one.
-vi.unmock("@/db-manager.js");
-
 type FakeClient = { query: (sql: string) => Promise<void> };
 
 class FakePool extends EventEmitter {
@@ -34,10 +31,11 @@ const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
 
-	const { DatabaseManager, getDbPool, openConnection } = await import("@/db-manager.js");
+	const { createConnection, registerConnection, connector } =
+		await import("@/open-connections.js");
 
-	openConnection("test", new DatabaseManager("postgresql://test:test@localhost:5432/testdb"));
-	await getDbPool();
+	registerConnection("test", createConnection("postgresql://test:test@localhost:5432/testdb"));
+	await connector("pg").pool();
 	const pool = FakePool.instances[0];
 	expect(pool).toBeDefined();
 

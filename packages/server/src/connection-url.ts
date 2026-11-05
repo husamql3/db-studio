@@ -28,12 +28,16 @@ export interface ConnectionUrl {
 	inMemory: boolean;
 }
 
+/** Where a server URL points. */
+export type ServerAddress = Pick<ConnectionUrl, "host" | "port">;
+
 const SCHEME = /^([a-z][a-z0-9+.-]*):\/\/(.*)$/is;
 
 const protocolOf = (url: string) => {
 	const [, typed = "", rest = ""] = url.match(SCHEME) ?? [];
 	const scheme = typed.toLowerCase();
 	const dbType = dbTypeFromProtocol(scheme);
+
 	const protocols: Readonly<Record<string, ProtocolTraits>> | undefined =
 		dbType && DATABASE_ENGINES[dbType].protocols;
 

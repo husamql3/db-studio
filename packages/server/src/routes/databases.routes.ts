@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { getAdapter } from "@/adapters/adapter.registry.js";
-import { getDbType } from "@/db-manager.js";
+import { requestConnection } from "@/open-connections.js";
 
 /**
  * /databases routes (at root level, no dbType required)
@@ -13,9 +13,9 @@ import { getDbType } from "@/db-manager.js";
  */
 export const databasesRoutes = new Elysia({ prefix: "/databases" })
 	.derive(() => {
-		const dbType = getDbType();
+		const { dbType, parsed } = requestConnection();
 
-		return { dbType, adapter: getAdapter(dbType) };
+		return { dbType, address: parsed, adapter: getAdapter(dbType) };
 	})
 
 	/**
@@ -38,6 +38,6 @@ export const databasesRoutes = new Elysia({ prefix: "/databases" })
 	 * GET /databases/connection
 	 * Returns connection details and server information
 	 */
-	.get("/connection", async ({ adapter }) => ({
-		data: await adapter.getDatabaseConnectionInfo(),
+	.get("/connection", async ({ adapter, address }) => ({
+		data: await adapter.getDatabaseConnectionInfo(address),
 	}));

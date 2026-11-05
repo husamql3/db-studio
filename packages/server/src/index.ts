@@ -74,7 +74,7 @@ export const main = async () => {
 					: `Found ${VAR_NAME} in environment`,
 		);
 		// Imported after the .env file is loaded: the database layer reads driver settings from it.
-		const { getDatabaseConnectionDetails } = await import("@/cmd/check-database.js");
+		const { getDatabaseConnectionDetails } = await import("@/cmd/connection-details.js");
 		const { connect } = await import("@/connection.js");
 		const details = getDatabaseConnectionDetails(DATABASE_URL);
 		const label = details ? `${details.name} at ${details.destination}` : "the database";
@@ -93,7 +93,7 @@ export const main = async () => {
 	}
 
 	const { createServer } = await import("./utils/create-server.js");
-	const { closeAllDbPools } = await import("@/db-manager.js");
+	const { closeAllConnections } = await import("@/open-connections.js");
 	const { app } = createServer();
 
 	// Ctrl+C or SIGTERM: let open requests finish, then close the database connections, whose
@@ -103,7 +103,7 @@ export const main = async () => {
 		const deadline = new Promise((resolve) => setTimeout(resolve, 5_000));
 		await Promise.race([app.server?.stop(), deadline]);
 		await Promise.race([
-			Promise.allSettled([closeAllDbPools(), flushServerObservability()]),
+			Promise.allSettled([closeAllConnections(), flushServerObservability()]),
 			deadline,
 		]);
 		process.exit(0);

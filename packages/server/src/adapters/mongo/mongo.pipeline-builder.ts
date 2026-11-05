@@ -1,6 +1,6 @@
 import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 import type { ObjectId } from "mongodb";
-import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { coerceObjectId } from "./object-id.js";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -16,9 +16,7 @@ const parseFilterValue = (raw: string): string | number | boolean | ObjectId | n
 
 	if (!Number.isNaN(asNumber) && trimmed !== "") return asNumber;
 
-	if (isValidObjectId(trimmed)) return coerceObjectId(trimmed);
-
-	return trimmed;
+	return coerceObjectId(trimmed);
 };
 
 export function buildMatchStage(filters: FilterType[]): Record<string, unknown> {

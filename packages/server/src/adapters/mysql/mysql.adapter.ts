@@ -36,6 +36,7 @@ import type {
 } from "@db-studio/shared/types";
 import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
 import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
+import type { Pool as MysqlPool } from "mysql2/promise";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
@@ -43,7 +44,6 @@ import {
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
-import { getConnectionUrl, getMysqlPool } from "@/adapters/connections.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -51,17 +51,16 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
-import { parseConnectionUrl } from "@/connection-url.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { isReadOnlyRefusal } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import {
 	buildCursorWhereClause,
 	buildMysqlColumnDefinition,
 	buildSortClause,
 	buildWhereClause,
 } from "./mysql.query-builder.js";
-
-type MysqlPool = Awaited<ReturnType<typeof getMysqlPool>>;
 
 const MYSQL_FK_VIOLATION = 1451;
 const MYSQL_FK_DEPENDENCY = 1217;
@@ -96,7 +95,7 @@ export class MySqlAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const [rows] = await pool.execute(sql, values as any);
 
 		return rows as T;
@@ -253,7 +252,7 @@ export class MySqlAdapter extends BaseAdapter {
 			filters = [],
 		} = params;
 
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		// The first queries to touch the table, so a dropped table or a stale URL fails here.
@@ -385,7 +384,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const pool = await getMysqlPool();
+			const pool = await connector("mysql").pool();
 
 			const [rows] = await pool.execute<RowDataPacket[]>(`
 				SELECT
@@ -410,7 +409,7 @@ export class MySqlAdapter extends BaseAdapter {
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const pool = await getMysqlPool();
+		const pool = await connector("mysql").pool();
 		const [rows] = await pool.execute<RowDataPacket[]>("SELECT DATABASE() AS db");
 
 		if (!rows[0])
@@ -419,8 +418,8 @@ export class MySqlAdapter extends BaseAdapter {
 		return (rows as Array<{ db: string }>)[0] as DatabaseSchemaType;
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = await getMysqlPool();
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
+		const pool = await connector("mysql").pool();
 
 		const [infoRows] = await pool.execute<RowDataPacket[]>(`
 			SELECT
@@ -442,11 +441,10 @@ export class MySqlAdapter extends BaseAdapter {
 			});
 
 		const info = (infoRows as Array<Record<string, string | number>>)[0];
-		const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 		return {
-			host: String(info.host || urlDefaults.host),
-			port: Number(info.port || urlDefaults.port),
+			host: String(info.host || server.host),
+			port: Number(info.port || server.port),
 			user: String(info.user),
 			database: String(info.database_name ?? ""),
 			version: String(info.version),
@@ -458,7 +456,7 @@ export class MySqlAdapter extends BaseAdapter {
 	// --- Tables ---
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const estimates = await this.rowEstimates(pool);
 
 		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
@@ -489,7 +487,7 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		const columnDefs = fields.map((field: FieldDataType) => buildMysqlColumnDefinition(field));
 
@@ -524,7 +522,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, db, cascade } = params;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		const [tableRows] = await pool.execute<RowDataPacket[]>(
 			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
@@ -583,7 +581,7 @@ export class MySqlAdapter extends BaseAdapter {
 		try {
 			const { tableName, newTableName, db } = params;
 			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await getMysqlPool(db);
+			const pool = await connector("mysql").pool(db);
 
 			await this.assertTableExists(pool, tableName);
 
@@ -613,7 +611,7 @@ export class MySqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		const [tableRows] = await pool.execute<RowDataPacket[]>(
 			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
@@ -646,7 +644,7 @@ export class MySqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		// MariaDB stores JSON as LONGTEXT guarded by a json_valid() column check.
 		const isJsonCheckedText = (await this.isMariaDb(pool))
@@ -739,7 +737,7 @@ export class MySqlAdapter extends BaseAdapter {
 			db,
 		} = params;
 
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 
@@ -773,7 +771,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		const { tableName, columnName, db } = params;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 		await this.assertColumnExists(pool, tableName, columnName);
@@ -787,7 +785,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 
@@ -816,7 +814,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, newColumnName, db } = params;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		await this.assertTableExists(pool, tableName);
 		await this.assertColumnExists(pool, tableName, columnName);
@@ -840,7 +838,7 @@ export class MySqlAdapter extends BaseAdapter {
 	// --- Server logs ---
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		try {
 			// UNIX_TIMESTAMP reads LOGGED independently of the session time zone.
@@ -894,7 +892,7 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			return await this.listIndexes(await getMysqlPool(db), tableName);
+			return await this.listIndexes(await connector("mysql").pool(db), tableName);
 		} catch (e) {
 			throw this.wrapError(e);
 		}
@@ -904,7 +902,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const { tableName, indexName, columns, isUnique, method, db } = params;
 
 		try {
-			const pool = await getMysqlPool(db);
+			const pool = await connector("mysql").pool(db);
 			await this.assertTableExists(pool, tableName);
 
 			const [columnRows] = await pool.execute<RowDataPacket[]>(
@@ -940,7 +938,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
 		try {
-			const pool = await getMysqlPool(db);
+			const pool = await connector("mysql").pool(db);
 
 			const index = (await this.listIndexes(pool, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
@@ -974,7 +972,7 @@ export class MySqlAdapter extends BaseAdapter {
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 		const columns = Object.keys(data);
@@ -1007,7 +1005,7 @@ export class MySqlAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
@@ -1074,7 +1072,7 @@ export class MySqlAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 
 		if (!pkColumn)
@@ -1119,7 +1117,7 @@ export class MySqlAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
 
 		if (!pkColumn)
@@ -1227,7 +1225,7 @@ export class MySqlAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: "At least one record is required" });
 		}
 
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const connection = await pool.getConnection();
 
 		try {
@@ -1291,7 +1289,7 @@ export class MySqlAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
@@ -1431,7 +1429,7 @@ export class MySqlAdapter extends BaseAdapter {
 		tableName: string,
 		db: string,
 	): Promise<ForeignKeyConstraint[]> {
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT
@@ -1468,7 +1466,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		if (fks.length === 0) return [];
 
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const results: RelatedRecord[] = [];
 
 		for (const fk of fks) {
@@ -1498,7 +1496,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		if (fks.length === 0) return [];
 
-		const pool = await getMysqlPool(db);
+		const pool = await connector("mysql").pool(db);
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const results: RelatedRecord[] = [];
 

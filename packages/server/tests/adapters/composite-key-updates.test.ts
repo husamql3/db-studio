@@ -13,17 +13,15 @@ const mocks = vi.hoisted(() => ({
 	getMongoDb: vi.fn(),
 }));
 
-vi.mock("@/adapters/connections.js", () => ({
-	getDbPool: mocks.getDbPool,
-	getMysqlPool: mocks.getMysqlPool,
-	getMssqlPool: mocks.getMssqlPool,
-	getSqliteClient: mocks.getSqliteClient,
-	getMongoDb: mocks.getMongoDb,
-	getMongoClient: vi.fn(),
-	getMongoDbName: vi.fn(),
-	getRedisClient: vi.fn(),
-	getIsolatedRedisClient: vi.fn(),
-	getRedisDefaultDb: vi.fn(),
+vi.mock("@/open-connections.js", () => ({
+	connector: (dbType: string) =>
+		({
+			pg: { pool: mocks.getDbPool },
+			mysql: { pool: mocks.getMysqlPool },
+			mssql: { pool: mocks.getMssqlPool },
+			sqlite: { client: mocks.getSqliteClient },
+			mongodb: { db: mocks.getMongoDb },
+		})[dbType],
 }));
 
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";

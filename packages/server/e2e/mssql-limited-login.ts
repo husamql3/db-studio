@@ -161,7 +161,7 @@ try {
 		);
 	} finally {
 		// Open app connections keep the login logged in, and DROP LOGIN refuses that.
-		await (await import("../src/db-manager.js")).closeAllDbPools();
+		await (await import("../src/open-connections.js")).closeAllConnections();
 		await cleanup().finally(() => admin.close());
 	}
 }

@@ -37,9 +37,9 @@ import type {
 } from "@duckdb/node-api";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { withDuckdbConnection } from "@/adapters/connections.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import {
 	buildFilterConditions,
 	buildKeysetPredicate,
@@ -190,7 +190,9 @@ export class DuckDbAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		return withDuckdbConnection((conn) => query(conn, sql, values)) as Promise<T>;
+		return connector("duckdb").withConnection((conn) =>
+			query(conn, sql, values),
+		) as Promise<T>;
 	}
 
 	protected quoteIdentifier(name: string): string {
@@ -244,9 +246,11 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	private withConnection<T>(fn: (conn: DuckDBConnection) => Promise<T>): Promise<T> {
-		return withDuckdbConnection(fn).catch((e) => {
-			throw this.wrapError(e);
-		});
+		return connector("duckdb")
+			.withConnection(fn)
+			.catch((e) => {
+				throw this.wrapError(e);
+			});
 	}
 
 	// =========================================================

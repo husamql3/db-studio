@@ -30,7 +30,7 @@ try {
 
 	const { createServer } = await import("../src/utils/create-server.js");
 	const { connect } = await import("../src/connection.js");
-	const { getDbPool } = await import("../src/db-manager.js");
+	const { connector } = await import("../src/open-connections.js");
 	const { app } = createServer();
 	await connect(databaseUrl);
 
@@ -73,7 +73,7 @@ try {
 		"GET",
 		`/tables/${TABLE}/data?${new URLSearchParams({ db, limit: "50", filters })}`,
 	);
-	await (await getDbPool(db)).end();
+	await (await connector("pg").pool(db)).end();
 
 	for (const label of [
 		"badDate",

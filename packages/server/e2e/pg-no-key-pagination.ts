@@ -13,7 +13,7 @@ if (!databaseUrl?.startsWith("postgresql://")) {
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
-const { getDbPool } = await import("../src/db-manager.js");
+const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 const table = "dbstudio_no_key_paging";
 const evidence: Record<string, unknown> = {};
@@ -87,5 +87,5 @@ try {
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
 	await query(`DROP TABLE IF EXISTS ${table}`);
-	await (await getDbPool(db)).end();
+	await (await connector("pg").pool(db)).end();
 }

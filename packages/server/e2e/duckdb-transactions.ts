@@ -7,7 +7,7 @@ process.env.DATABASE_URL = "duckdb://:memory:";
 process.env.DB_STUDIO_TELEMETRY = "0";
 
 const { createServer } = await import("../src/utils/create-server.js");
-const { withDuckdbConnection } = await import("../src/db-manager.js");
+const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 
 const rowsSchema = z.object({
@@ -72,7 +72,7 @@ try {
 		const result = await query(sql);
 		rejected.push({ sql, status: result.status });
 		// Reset leaked transactions on the broken version so every regression can be observed.
-		await withDuckdbConnection((conn) => conn.run("ROLLBACK").catch(() => {}));
+		await connector("duckdb").withConnection((conn) => conn.run("ROLLBACK").catch(() => {}));
 	}
 
 	evidence.rejected = rejected;

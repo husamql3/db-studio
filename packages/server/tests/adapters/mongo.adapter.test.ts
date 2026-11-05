@@ -4,14 +4,15 @@ const mockGetMongoClient = vi.hoisted(() => vi.fn());
 const mockGetMongoDb = vi.hoisted(() => vi.fn());
 const mockGetMongoDbName = vi.hoisted(() => vi.fn(() => "appdb"));
 
-vi.mock("@/adapters/connections.js", () => ({
-	getMongoClient: mockGetMongoClient,
-	getMongoDb: mockGetMongoDb,
-	getMongoDbName: mockGetMongoDbName,
+vi.mock("@/open-connections.js", () => ({
+	connector: () => ({
+		client: mockGetMongoClient,
+		db: mockGetMongoDb,
+		dbName: mockGetMongoDbName(),
+	}),
 }));
 
-vi.mock("@/db-manager.js", () => ({
-	isValidObjectId: vi.fn(() => false),
+vi.mock("@/adapters/mongo/object-id.js", () => ({
 	coerceObjectId: vi.fn((value: unknown) => value),
 }));
 

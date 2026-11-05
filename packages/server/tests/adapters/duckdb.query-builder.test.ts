@@ -25,7 +25,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const connections = vi.hoisted(() => ({ withDuckdbConnection: vi.fn() }));
 
-vi.mock("@/adapters/connections.js", () => connections);
+vi.mock("@/open-connections.js", () => ({
+	connector: () => ({ withConnection: connections.withDuckdbConnection }),
+}));
 
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
 import {
@@ -44,7 +46,7 @@ const ids = async (sql: string, values: unknown[] = []) =>
 		.map((r) => Number(r.id));
 
 beforeAll(async () => {
-	// The adapter reads DuckDB's type ids from the driver that db-manager loads.
+	// The adapter reads DuckDB's type ids from the driver its connector loads.
 	await loadDriver("duckdb");
 	instance = await DuckDBInstance.create(":memory:");
 	conn = await instance.connect();

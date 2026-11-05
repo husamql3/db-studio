@@ -1,8 +1,8 @@
 import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { adapterRegistry, getAdapter } from "@/adapters/adapter.registry.js";
-import { getDbType, getOpenConnection } from "@/db-manager.js";
 import { HTTPException } from "@/http-exception.js";
+import { getOpenConnection, requestConnection } from "@/open-connections.js";
 
 /**
  * Resolves the `/:dbType` path segment to its registered adapter. Runs before validation, so an
@@ -28,7 +28,7 @@ export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params, he
 		throw new HTTPException(409, { message: "The connection closed. Reload the page." });
 	}
 
-	const connected = getDbType();
+	const { dbType: connected } = requestConnection();
 
 	if (connected !== dbType) {
 		throw new HTTPException(409, {

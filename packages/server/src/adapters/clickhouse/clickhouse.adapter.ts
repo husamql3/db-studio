@@ -34,7 +34,6 @@ import {
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getClickhouseClient, getConnectionUrl } from "@/adapters/connections.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -42,8 +41,9 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
-import { parseConnectionUrl } from "@/connection-url.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import {
 	buildClickhouseColumnDefinition,
 	buildOrderByClause,
@@ -259,7 +259,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		}
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
 		try {
 			const [info] = await this.select<{
 				version: string;
@@ -281,11 +281,8 @@ export class ClickhouseAdapter extends BaseAdapter {
 				throw new HTTPException(500, { message: "No connection information returned" });
 			}
 
-			const { host, port } = parseConnectionUrl(getConnectionUrl());
-
 			return {
-				host,
-				port,
+				...server,
 				user: info.user,
 				database: info.database,
 				version: `ClickHouse ${info.version}`,
@@ -621,7 +618,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		const start = performance.now();
 
 		try {
-			const client = await getClickhouseClient(db);
+			const client = await connector("clickhouse").client(db);
 
 			const firstKeyword = cleaned
 				.replace(/^(\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/))*/, "")
@@ -673,7 +670,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 	 * the query handlers are left out: they repeat the query_log exceptions.
 	 */
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		const client = await getClickhouseClient(db);
+		const client = await connector("clickhouse").client(db);
 
 		// log_queries = 0 keeps these reads out of the query_log they read.
 		const read = async <T>(query: string): Promise<T[] | null> => {
@@ -771,7 +768,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		queryParams: Params = {},
 	): Promise<T[]> {
 		const result = await (
-			await getClickhouseClient(db)
+			await connector("clickhouse").client(db)
 		).query({
 			query,
 			query_params: queryParams,
@@ -788,7 +785,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		settings: Record<string, string> = {},
 	): Promise<void> {
 		await (
-			await getClickhouseClient(db)
+			await connector("clickhouse").client(db)
 		).command({
 			query,
 			query_params: queryParams,
@@ -886,7 +883,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 			);
 
 			await (
-				await getClickhouseClient(db)
+				await connector("clickhouse").client(db)
 			).insert({
 				table: q(tableName),
 				values,
@@ -899,7 +896,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 	}
 
 	private async isAtLeast(db: string, major: number, minor: number): Promise<boolean> {
-		const client = await getClickhouseClient(db);
+		const client = await connector("clickhouse").client(db);
 		let version = this.serverVersion.get(client);
 
 		if (!version) {

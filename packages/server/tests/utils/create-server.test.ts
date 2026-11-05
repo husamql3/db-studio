@@ -41,14 +41,13 @@ vi.mock("@/adapters/adapter.registry.js", () => ({
 	},
 }));
 
-vi.mock("@/db-manager.js", () => ({
-	getDbPool: vi.fn(() => ({
-		query: vi.fn(),
+vi.mock("@/open-connections.js", () => ({
+	requestConnection: vi.fn(() => ({
+		dbType: "pg",
+		parsed: { host: "localhost", port: 5432 },
 	})),
-	getDbType: vi.fn(() => "pg"),
+	getOpenConnection: vi.fn(),
 	latestConnectionId: vi.fn(() => null),
-	isValidObjectId: vi.fn(),
-	coerceObjectId: vi.fn(),
 }));
 
 import { createServer } from "@/utils/create-server.js";

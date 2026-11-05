@@ -8,7 +8,7 @@ import type {
 } from "@db-studio/shared/types";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { getAdapter } from "@/adapters/adapter.registry.js";
-import { getDbType } from "@/db-manager.js";
+import { requestConnection } from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 
 function convertColumnInfo(col: ColumnInfoSchemaType): Column {
@@ -71,7 +71,7 @@ async function getTableColumns(
 export async function getDetailedSchema(
 	db: DatabaseSchemaType["db"],
 ): Promise<DatabaseSchema> {
-	const dbType = getDbType();
+	const { dbType } = requestConnection();
 	const adapter = getAdapter(dbType);
 
 	try {

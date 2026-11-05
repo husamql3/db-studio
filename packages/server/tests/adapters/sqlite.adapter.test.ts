@@ -1,5 +1,5 @@
 /**
- * Runs SqliteAdapter against a real libSQL file database opened through db-manager.
+ * Runs SqliteAdapter against a real libSQL file database opened through its connector.
  * Failure modes:
  * - a `sqlite://` path containing a space is not turned into a valid file: URL, so nothing opens
  * - type affinity mapping sends BLOB/DATETIME columns to the wrong cell variant
@@ -18,8 +18,6 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 
-vi.unmock("@/db-manager.js");
-
 const dir = mkdtempSync(path.join(tmpdir(), "db-studio-sqlite-"));
 let adapter: SqliteAdapter;
 let exec: (...statements: string[]) => Promise<void>;
@@ -29,10 +27,11 @@ beforeAll(async () => {
 	vi.resetModules();
 	const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
 
-	const { DatabaseManager, getSqliteClient, openConnection } = await import("@/db-manager.js");
+	const { connector, createConnection, registerConnection } =
+		await import("@/open-connections.js");
 
-	openConnection("test", new DatabaseManager(`sqlite://${path.join(dir, "my db.sqlite")}`));
-	const client = await getSqliteClient();
+	registerConnection("test", createConnection(`sqlite://${path.join(dir, "my db.sqlite")}`));
+	const client = await connector("sqlite").client();
 	exec = async (...statements) => {
 		await client.batch(statements, "write");
 	};
@@ -49,8 +48,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	const { getSqliteClient } = await import("@/db-manager.js");
-	(await getSqliteClient()).close();
+	const { connector } = await import("@/open-connections.js");
+	(await connector("sqlite").client()).close();
 	rmSync(dir, { recursive: true, force: true });
 });
 

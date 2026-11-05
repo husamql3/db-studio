@@ -19,13 +19,13 @@ vi.mock("@/adapters/adapter.registry.js", () => ({
 	},
 }));
 
-vi.mock("@/db-manager.js", () => ({
-	getDbPool: vi.fn(() => ({ query: vi.fn() })),
-	getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
-	getDbType: vi.fn(() => "pg"),
+vi.mock("@/open-connections.js", () => ({
+	requestConnection: vi.fn(() => ({
+		dbType: "pg",
+		parsed: { host: "localhost", port: 5432 },
+	})),
+	getOpenConnection: vi.fn(),
 	latestConnectionId: vi.fn(() => null),
-	isValidObjectId: vi.fn(),
-	coerceObjectId: vi.fn(),
 }));
 
 describe("Records Routes", () => {

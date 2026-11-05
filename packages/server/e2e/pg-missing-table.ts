@@ -14,7 +14,7 @@ if (!databaseUrl?.startsWith("postgresql://")) {
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
-const { getDbPool } = await import("../src/db-manager.js");
+const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
 const evidence: Record<string, unknown> = {};
 
@@ -44,5 +44,5 @@ try {
 		new URL("./artifacts/pg-missing-table.json", import.meta.url),
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
-	await (await getDbPool(db)).end();
+	await (await connector("pg").pool(db)).end();
 }

@@ -30,6 +30,7 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
+import type { ServerAddress } from "@/connection-url.js";
 import {
 	isPgDatabaseError,
 	isPgDataException,
@@ -413,7 +414,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 	getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		return notImplemented("getCurrentDatabase");
 	}
-	getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
+	getDatabaseConnectionInfo(_server: ServerAddress): Promise<ConnectionInfoSchemaType> {
 		return notImplemented("getDatabaseConnectionInfo");
 	}
 	getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {

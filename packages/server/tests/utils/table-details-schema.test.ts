@@ -10,8 +10,8 @@ vi.mock("@/adapters/adapter.registry.js", () => ({
 	getAdapter: vi.fn(() => mocks),
 }));
 
-vi.mock("@/db-manager.js", () => ({
-	getDbType: vi.fn(() => "pg"),
+vi.mock("@/open-connections.js", () => ({
+	requestConnection: vi.fn(() => ({ dbType: "pg" })),
 }));
 
 import { getDetailedSchema } from "@/utils/table-details-schema.js";

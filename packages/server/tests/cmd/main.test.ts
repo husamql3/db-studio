@@ -43,7 +43,7 @@ vi.mock("@/cmd/get-db-url.js", () => ({
 	getDatabaseUrl: mocks.getDatabaseUrl,
 }));
 
-vi.mock("@/cmd/check-database.js", () => ({
+vi.mock("@/cmd/connection-details.js", () => ({
 	getDatabaseConnectionDetails: mocks.getDatabaseConnectionDetails,
 }));
 

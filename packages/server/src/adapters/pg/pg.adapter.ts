@@ -37,7 +37,7 @@ import {
 	mapPostgresToDataType,
 	standardizeDataTypeLabel,
 } from "@db-studio/shared/types";
-import type { PoolClient } from "pg";
+import type { Pool as PgPool, PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
@@ -45,9 +45,8 @@ import {
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
-import { getConnectionUrl, getDbPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
-import { parseConnectionUrl } from "@/connection-url.js";
+import type { ServerAddress } from "@/connection-url.js";
 import {
 	isPgConstraintViolation,
 	isPgDatabaseError,
@@ -55,6 +54,7 @@ import {
 	isReadOnlyRefusal,
 } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
 	buildKeysetPredicate,
@@ -64,8 +64,6 @@ import {
 	qualifiedTable,
 	schemaOf,
 } from "./pg.query-builder.js";
-
-type PgPool = Awaited<ReturnType<typeof getDbPool>>;
 
 /** A pool, or one connection checked out of it for a transaction. */
 type PgQueryable = Pick<PgPool, "query">;
@@ -103,7 +101,7 @@ export class PgAdapter extends BaseAdapter {
 	// =========================================================
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const result = await pool.query(sql, values);
 
 		return result.rows as T;
@@ -161,7 +159,7 @@ export class PgAdapter extends BaseAdapter {
 			filters = [],
 		} = params;
 
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
@@ -316,7 +314,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
-			const pool = await getDbPool();
+			const pool = await connector("pg").pool();
 
 			const size = (await this.supportsDatabaseSize(pool))
 				? "pg_size_pretty(pg_database_size(d.datname))"
@@ -344,7 +342,7 @@ export class PgAdapter extends BaseAdapter {
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const pool = await getDbPool();
+		const pool = await connector("pg").pool();
 		const { rows } = await pool.query<DatabaseSchemaType>("SELECT current_database() AS db;");
 
 		if (!rows[0])
@@ -353,8 +351,8 @@ export class PgAdapter extends BaseAdapter {
 		return rows[0];
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = await getDbPool();
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
+		const pool = await connector("pg").pool();
 
 		const { rows } = await pool.query(`
 			SELECT
@@ -374,11 +372,10 @@ export class PgAdapter extends BaseAdapter {
 
 		const { connectionInfoSchema } = await import("@db-studio/shared/types");
 		const result = connectionInfoSchema.parse(rows[0]);
-		const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 		return {
-			host: result.host || urlDefaults.host,
-			port: result.port || urlDefaults.port,
+			host: result.host || server.host,
+			port: result.port || server.port,
 			user: result.user,
 			database: result.database,
 			version: result.version.toString(),
@@ -390,7 +387,7 @@ export class PgAdapter extends BaseAdapter {
 	// --- Tables ---
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const escapeChar = (s: string) => s.replaceAll('"', '""');
 
 		// reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
@@ -464,7 +461,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 
@@ -503,7 +500,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
 		const { tableName, schemaName, db, cascade } = params;
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
 
 		await this.assertTableExists(pool, tableName, schemaName);
@@ -545,7 +542,7 @@ export class PgAdapter extends BaseAdapter {
 		try {
 			const { tableName, newTableName, schemaName: requestedSchema, db } = params;
 			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await getDbPool(db);
+			const pool = await connector("pg").pool(db);
 
 			// Tables are listed from every user schema, so resolve the actual schema
 			// instead of assuming "public".
@@ -598,7 +595,7 @@ export class PgAdapter extends BaseAdapter {
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const schema = schemaOf("$1", "$2");
 		const values = [tableName, schemaName ?? null];
 
@@ -774,7 +771,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 		schemaName?: string;
 	}): Promise<ColumnInfoSchemaType[]> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const schema = schemaOf("$1", "$2");
 
 		const { rows } = await pool.query(
@@ -850,7 +847,7 @@ export class PgAdapter extends BaseAdapter {
 			db,
 		} = params;
 
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		await this.assertTableExists(pool, tableName, schemaName);
 		const table = qualifiedTable(tableName, schemaName);
@@ -884,7 +881,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		const { tableName, schemaName, columnName, cascade, db } = params;
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		await this.assertTableExists(pool, tableName, schemaName);
 		const table = qualifiedTable(tableName, schemaName);
@@ -910,7 +907,7 @@ export class PgAdapter extends BaseAdapter {
 		const { tableName, schemaName, columnName, columnType, isNullable, defaultValue, db } =
 			params;
 
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		await this.assertTableExists(pool, tableName, schemaName);
 		const table = qualifiedTable(tableName, schemaName);
@@ -945,7 +942,7 @@ export class PgAdapter extends BaseAdapter {
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, schemaName, columnName, newColumnName, db } = params;
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`;
 
@@ -982,7 +979,7 @@ export class PgAdapter extends BaseAdapter {
 	// --- Server logs ---
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		try {
 			const {
@@ -1061,7 +1058,11 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
 		try {
-			const indexes = await this.listIndexes(await getDbPool(db), tableName, schemaName);
+			const indexes = await this.listIndexes(
+				await connector("pg").pool(db),
+				tableName,
+				schemaName,
+			);
 
 			return indexes.map(({ schemaName: _schemaName, ...index }) => index);
 		} catch (e) {
@@ -1081,7 +1082,7 @@ export class PgAdapter extends BaseAdapter {
 		} = params;
 
 		try {
-			const pool = await getDbPool(db);
+			const pool = await connector("pg").pool(db);
 			await this.assertTableExists(pool, tableName, schemaName);
 
 			const { rows: columnRows } = await pool.query<{ columnName: string }>(
@@ -1125,7 +1126,7 @@ export class PgAdapter extends BaseAdapter {
 		db,
 	}: DropIndexParamsSchemaType): Promise<void> {
 		try {
-			const pool = await getDbPool(db);
+			const pool = await connector("pg").pool(db);
 
 			const index = (await this.listIndexes(pool, tableName, schemaName)).find(
 				(candidate) => candidate.indexName === indexName,
@@ -1163,7 +1164,7 @@ export class PgAdapter extends BaseAdapter {
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const columns = Object.keys(data);
 		const values = Object.values(data);
 		const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
@@ -1190,7 +1191,7 @@ export class PgAdapter extends BaseAdapter {
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
 		const { tableName } = params;
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
 
 		const keyColumns = this.resolveKeyColumns(params);
@@ -1253,7 +1254,7 @@ export class PgAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
 		const pkColumn = primaryKeys[0]?.columnName;
 
@@ -1298,7 +1299,7 @@ export class PgAdapter extends BaseAdapter {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
 		const pkColumn = primaryKeys[0]?.columnName;
 
@@ -1390,7 +1391,7 @@ export class PgAdapter extends BaseAdapter {
 		if (!records || records.length === 0)
 			throw new HTTPException(400, { message: "At least one record is required" });
 
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		try {
 			return await inTransaction(pool, async (client) => {
@@ -1452,7 +1453,7 @@ export class PgAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
 		try {
-			const pool = await getDbPool(db);
+			const pool = await connector("pg").pool(db);
 
 			const { rows } = await pool.query<Record<string, unknown>>(
 				`SELECT * FROM ${qualifiedTable(tableName, schemaName)}`,
@@ -1478,7 +1479,7 @@ export class PgAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		const pool = await getDbPool(db);
+		const pool = await connector("pg").pool(db);
 
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 		const cleaned = query.trim().replace(/;+$/, "");

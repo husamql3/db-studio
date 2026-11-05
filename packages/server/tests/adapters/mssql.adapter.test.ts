@@ -2,9 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetMssqlPool = vi.hoisted(() => vi.fn());
 
-vi.mock("@/adapters/connections.js", () => ({
-	getMssqlPool: mockGetMssqlPool,
-}));
+vi.mock("@/open-connections.js", () => ({ connector: () => ({ pool: mockGetMssqlPool }) }));
 
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 

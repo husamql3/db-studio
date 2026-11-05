@@ -70,8 +70,9 @@ export const defaultConnectionName = (url: string): string => {
 	}
 };
 
-/** Two URLs name the same saved connection when they differ only in their secrets. */
-const identity = (url: string) => maskConnectionUrl(url);
+/** Two URLs name the same connection when they differ only in their secrets. */
+export const sameConnection = (a: string, b: string) =>
+	maskConnectionUrl(a) === maskConnectionUrl(b);
 
 const readAll = async (): Promise<SavedConnection[]> => {
 	let raw: string;
@@ -134,7 +135,7 @@ export const findSavedConnection = async (id: string): Promise<SavedConnection> 
 /** Saves a connection that just succeeded, or refreshes the entry it matches. */
 export const recordConnection = (url: string): Promise<SavedConnection> =>
 	mutate((connections) => {
-		const existing = connections.find((c) => identity(c.url) === identity(url));
+		const existing = connections.find((c) => sameConnection(c.url, url));
 
 		const saved: SavedConnection = existing
 			? { ...existing, url, lastUsedAt: Date.now() }

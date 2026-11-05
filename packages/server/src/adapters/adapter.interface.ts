@@ -29,6 +29,7 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
+import type { ServerAddress } from "@/connection-url.js";
 
 export interface GetTableDataParams {
 	tableName: string;
@@ -46,7 +47,8 @@ export interface IDbAdapter {
 	// --- Databases ---
 	getDatabasesList(): Promise<DatabaseInfoSchemaType[]>;
 	getCurrentDatabase(): Promise<DatabaseSchemaType>;
-	getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType>;
+	/** `server` is where the URL points, for engines whose server does not report it. */
+	getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType>;
 
 	// --- Tables ---
 	getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]>;

@@ -20,13 +20,13 @@ process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e
 
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
-const { getDbPool } = await import("../src/db-manager.js");
+const { connector } = await import("../src/open-connections.js");
 const { connect } = await import("../src/connection.js");
 const { app } = createServer();
 
 await connect(databaseUrl);
 
-const pool = await getDbPool(db);
+const pool = await connector("pg").pool(db);
 const evidence: Record<string, unknown> = {};
 
 const send = async (method: string, route: string, payload: Record<string, unknown>) => {

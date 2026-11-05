@@ -12,9 +12,9 @@ if (!databaseUrl?.startsWith("mongodb")) {
 }
 
 const { createServer } = await import("../src/utils/create-server.js");
-const { getMongoClient, getMongoDb, getMongoDbName } = await import("../src/db-manager.js");
+const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
-const db = getMongoDbName();
+const db = connector("mongodb").dbName;
 const collection = "dbstudio_e2e_indexes";
 const missingCollection = "dbstudio_e2e_indexes_missing";
 const evidence: Record<string, unknown> = {};
@@ -108,7 +108,7 @@ const step = async (name: string, run: () => Promise<void>) => {
 	}
 };
 
-const mongoDb = await getMongoDb(db);
+const mongoDb = await connector("mongodb").db(db);
 
 try {
 	await mongoDb.collection(collection).drop();
@@ -332,7 +332,7 @@ try {
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
 	await mongoDb.collection(collection).drop();
-	await (await getMongoClient()).close();
+	await (await connector("mongodb").client()).close();
 }
 
 if (failed) process.exit(1);

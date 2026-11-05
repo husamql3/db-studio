@@ -17,9 +17,6 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-// db-manager is globally mocked in tests/setup.ts; this suite exercises the real one.
-vi.unmock("@/db-manager.js");
-
 type Received = { user?: string; password?: string; database?: string };
 
 const received: Received[] = [];
@@ -78,20 +75,21 @@ vi.mock("@clickhouse/client", () => ({
 	},
 }));
 
-const { DatabaseManager } = await import("@/db-manager.js");
+const { parseConnectionUrl } = await import("@/connection-url.js");
+const { CONNECTORS } = await import("@/connectors/index.js");
 
 /** The fields the driver received for `url`. */
 const driverConfig = async (url: string): Promise<Received> => {
 	received.length = 0;
-	const manager = new DatabaseManager(url);
+	const parsed = parseConnectionUrl(url);
 
 	const connect = {
-		mysql: () => manager.getMysqlPool(),
-		mssql: () => manager.getMssqlPool(),
-		oracle: () => manager.getOraclePool(),
-		redis: () => manager.getRedisClient(),
-		clickhouse: () => manager.getClickhouseClient(),
-	}[manager.getDbType() as "mysql" | "mssql" | "oracle" | "redis" | "clickhouse"];
+		mysql: () => CONNECTORS.mysql(parsed, false).pool(),
+		mssql: () => CONNECTORS.mssql(parsed).pool(),
+		oracle: () => CONNECTORS.oracle(parsed).pool(),
+		redis: () => CONNECTORS.redis(parsed).client(),
+		clickhouse: () => CONNECTORS.clickhouse(parsed, false).client(),
+	}[parsed.dbType as "mysql" | "mssql" | "oracle" | "redis" | "clickhouse"];
 
 	await connect();
 	expect(received).toHaveLength(1);
@@ -141,7 +139,9 @@ describe("database names", () => {
 
 	it("keeps a name passed by the app as given", async () => {
 		received.length = 0;
-		await new DatabaseManager("mysql://u:p@localhost:3306/db").getMysqlPool("sales%41 db");
+		await CONNECTORS.mysql(parseConnectionUrl("mysql://u:p@localhost:3306/db"), false).pool(
+			"sales%41 db",
+		);
 		expect(received[0]).toMatchObject({ database: "sales%41 db" });
 	});
 });

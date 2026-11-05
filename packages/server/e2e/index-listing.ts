@@ -8,8 +8,8 @@ import { z } from "zod";
 // MySQL unique keys and unique indexes must retain uniqueness after refused API drops.
 process.env.DB_STUDIO_TELEMETRY = "0";
 
-const { getDbType } = await import("../src/db-manager.js");
-const engine = getDbType();
+const { requestConnection } = await import("../src/open-connections.js");
+const engine = requestConnection().dbType;
 
 assert.ok(
 	engine === "mssql" || engine === "sqlite" || engine === "mysql",
