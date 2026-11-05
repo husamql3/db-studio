@@ -6,9 +6,7 @@ const mocks = vi.hoisted(() => ({
 	getTableData: vi.fn(),
 }));
 
-vi.mock("@/adapters/adapter.registry.js", () => ({
-	getAdapter: vi.fn(() => mocks),
-}));
+vi.mock("@/adapters/adapter.registry.js", () => ({ ADAPTERS: { pg: mocks } }));
 
 vi.mock("@/open-connections.js", () => ({
 	requestConnection: vi.fn(() => ({ dbType: "pg" })),

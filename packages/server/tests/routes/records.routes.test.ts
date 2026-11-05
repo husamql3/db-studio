@@ -10,13 +10,8 @@ const mockDao = vi.hoisted(() => ({
 }));
 
 vi.mock("@/adapters/adapter.registry.js", () => ({
-	getAdapter: vi.fn(() => mockDao),
-	adapterRegistry: {
-		register: vi.fn(),
-		get: vi.fn(() => mockDao),
-		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
-		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
-	},
+	ADAPTERS: { pg: mockDao, mysql: mockDao, mssql: mockDao, mongodb: mockDao },
+	isDatabaseType: (type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type),
 }));
 
 vi.mock("@/open-connections.js", () => ({

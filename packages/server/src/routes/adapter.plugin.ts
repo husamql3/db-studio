@@ -1,6 +1,7 @@
 import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
-import { adapterRegistry, getAdapter } from "@/adapters/adapter.registry.js";
+import type { IDbAdapter } from "@/adapters/adapter.interface.js";
+import { ADAPTERS, isDatabaseType } from "@/adapters/adapter.registry.js";
 import { HTTPException } from "@/http-exception.js";
 import { getOpenConnection, requestConnection } from "@/open-connections.js";
 
@@ -15,9 +16,9 @@ import { getOpenConnection, requestConnection } from "@/open-connections.js";
 export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params, headers }) => {
 	const { dbType = "" } = params;
 
-	if (!adapterRegistry.has(dbType)) {
+	if (!isDatabaseType(dbType)) {
 		throw new HTTPException(400, {
-			message: `Invalid database type: "${dbType}". Supported types: ${adapterRegistry.getSupportedTypes().join(", ")}`,
+			message: `Invalid database type: "${dbType}". Supported types: ${Object.keys(ADAPTERS).join(", ")}`,
 		});
 	}
 
@@ -36,5 +37,7 @@ export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params, he
 		});
 	}
 
-	return { dbType, adapter: getAdapter(dbType) };
+	const adapter: IDbAdapter = ADAPTERS[dbType];
+
+	return { dbType, adapter };
 });

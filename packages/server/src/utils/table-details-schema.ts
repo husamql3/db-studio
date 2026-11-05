@@ -7,7 +7,7 @@ import type {
 	Table,
 } from "@db-studio/shared/types";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
-import { getAdapter } from "@/adapters/adapter.registry.js";
+import { ADAPTERS } from "@/adapters/adapter.registry.js";
 import { requestConnection } from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 
@@ -72,7 +72,7 @@ export async function getDetailedSchema(
 	db: DatabaseSchemaType["db"],
 ): Promise<DatabaseSchema> {
 	const { dbType } = requestConnection();
-	const adapter = getAdapter(dbType);
+	const adapter: IDbAdapter = ADAPTERS[dbType];
 
 	try {
 		const tablesList = await adapter.getTablesList(db);

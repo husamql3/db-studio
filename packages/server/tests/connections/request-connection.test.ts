@@ -28,13 +28,13 @@ it("keeps a request without X-Connection-Id on the connection that was latest wh
 	vi.resetModules();
 	const { createServer } = await import("@/utils/create-server.js");
 	const { createConnection, registerConnection } = await import("@/open-connections.js");
-	const { getAdapter } = await import("@/adapters/adapter.registry.js");
+	const { ADAPTERS } = await import("@/adapters/adapter.registry.js");
 	const a = await sqliteFile("a.sqlite", "only_in_a");
 	const b = await sqliteFile("b.sqlite", "only_in_b");
 
 	registerConnection("a", createConnection(`sqlite://${a}`));
 	const { app } = createServer();
-	const adapter = getAdapter("sqlite");
+	const adapter = ADAPTERS.sqlite;
 	const getTablesList = adapter.getTablesList.bind(adapter);
 	const entered = Promise.withResolvers<void>();
 	const resume = Promise.withResolvers<void>();

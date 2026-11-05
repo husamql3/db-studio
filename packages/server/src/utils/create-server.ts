@@ -7,8 +7,7 @@ import { DEFAULTS } from "@db-studio/shared/constants";
 import { cors } from "@elysiajs/cors";
 import { node } from "@elysiajs/node";
 import { Elysia } from "elysia";
-import { adapterRegistry } from "@/adapters/adapter.registry.js";
-import { registerAdapters } from "@/adapters/register.js";
+import { isDatabaseType } from "@/adapters/adapter.registry.js";
 import { HTTPException } from "@/http-exception.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import {
@@ -229,7 +228,7 @@ const trackRequest = (
 		}
 
 		const startedAt = performance.now();
-		const registeredType = dbType && adapterRegistry.has(dbType) ? dbType : undefined;
+		const registeredType = dbType && isDatabaseType(dbType) ? dbType : undefined;
 		const response = await startServerSpan(operation, registeredType, respond);
 		captureServerEvent({
 			event: "server_operation",
@@ -247,7 +246,6 @@ const trackRequest = (
 };
 
 export const createServer = () => {
-	registerAdapters();
 	const webDist = getWebDistPath();
 
 	const app = new Elysia({ adapter: node() })

@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
-import { getAdapter } from "@/adapters/adapter.registry.js";
+import type { IDbAdapter } from "@/adapters/adapter.interface.js";
+import { ADAPTERS } from "@/adapters/adapter.registry.js";
 import { requestConnection } from "@/open-connections.js";
 
 /**
@@ -15,7 +16,9 @@ export const databasesRoutes = new Elysia({ prefix: "/databases" })
 	.derive(() => {
 		const { dbType, parsed } = requestConnection();
 
-		return { dbType, address: parsed, adapter: getAdapter(dbType) };
+		const adapter: IDbAdapter = ADAPTERS[dbType];
+
+		return { dbType, address: parsed, adapter };
 	})
 
 	/**

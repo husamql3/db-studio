@@ -68,13 +68,13 @@ This is a **Bun + Turbo monorepo** with these packages:
 ### Server (`packages/server`)
 
 - **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
-- **Elysia app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
+- **Elysia app**: `src/utils/create-server.ts` — creates the app, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
 - **DB connections**: `src/connection-url.ts` parses a connection URL once (engine, host, port, credentials, database, file path) from the `DATABASE_ENGINES` protocol traits. `src/connectors/<engine>.ts` holds each engine's connection code: a connector opens its clients lazily, one per database where the engine has several, and has `ping()` and `close()`; concurrent first calls share one connect attempt. Adapters reach their database only through `connector("<engine>")` from `src/open-connections.ts`, e.g. `connector("pg").pool(db)`.
 - **Open connections**: the server can start without a database URL; until one opens, database routes answer 409 and the web app shows `/connect`. Several connections stay open at once, one per browser tab: a tab keeps its `connectionId` in `sessionStorage` and sends it as `X-Connection-Id` on every request, and `src/open-connections.ts`, the registry of open connections (each with its URL, read-only flag and connector), answers from that connection (a request without one gets the latest opened; one naming a closed connection gets 409). Adapters stay connection-agnostic, so keep any per-connection cache keyed by the client, not a module or adapter field. `src/connection.ts` tests a URL before it opens it (the connector's `ping()`, bounded by `STARTUP_TIMEOUT_MS`), reuses an already open URL, and saves it through `src/connections-store.ts` to `~/.dbstudio/connections.json` (`DB_STUDIO_CONFIG_DIR` overrides; owner-only file). Saved URLs never reach the browser: `/connections` returns masked URLs and takes ids. The server listens on `127.0.0.1` and refuses requests whose `Host` is not loopback unless `HOST` names another address.
-- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse all route through registered adapters.
+- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse each route through their adapter.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
-- **Adapter registry**: `src/adapters/adapter.registry.ts` exports `adapterRegistry` and `getAdapter(dbType)`. `src/adapters/register.ts` registers each adapter before routes mount.
-- **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against the adapter registry and adds `dbType` and `adapter` to the context.
+- **Adapters map**: `src/adapters/adapter.registry.ts` exports `ADAPTERS`, one instance per engine (`satisfies Record<DatabaseTypeSchema, IDbAdapter>`, so typecheck fails until a new engine has one), and `isDatabaseType`.
+- **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against `ADAPTERS`, checks it against the request's connection, and adds `dbType` and `adapter` to the context.
 - **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts`. It has no framework dependency; never import Elysia into adapters.
 
 **Multi-database routing pattern**: requests under `/:dbType/*` resolve their adapter through `adapterPlugin`, then handlers call methods on the `adapter` from the context. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
@@ -381,22 +381,21 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 ### Adapter Pattern
 
-**Architecture**: Strategy + Template Method. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`) registered at boot. SQL adapters extend `BaseAdapter`; MongoDB overrides the template methods that require document-store behavior.
+**Architecture**: Strategy + Template Method. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`) with one instance in `ADAPTERS`. SQL adapters extend `BaseAdapter`; MongoDB overrides the template methods that require document-store behavior.
 
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
 - `src/adapters/base.adapter.ts` — `BaseAdapter`: implements `getTableData()` and `exportTableData()` as template methods; provides `wrapError()`, `encodeCursor()`, `decodeCursor()`
-- `src/adapters/adapter.registry.ts` — `AdapterRegistry` singleton plus `getAdapter()`; `get()` throws `HTTPException(400)` for unregistered types
-- `src/adapters/register.ts` — `registerAdapters()` called at boot before routes mount
+- `src/adapters/adapter.registry.ts` — `ADAPTERS`, the adapter of each engine
 - `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
 - `src/adapters/[db]/[db].query-builder.ts` — SQL construction helpers (WHERE, ORDER BY, cursor clauses)
 - `src/adapters/mongo/mongo.pipeline-builder.ts` — MongoDB `$match`, `$sort`, skip/limit, and cursor helpers
 
 **Request flow**:
 ```
-Request → adapterPlugin validates dbType → getAdapter(dbType)
-  → adapterRegistry.get(dbType) returns the adapter
+Request → adapterPlugin validates dbType and the request's connection → ADAPTERS[dbType]
   → route calls adapter.someMethod(params)
+  → adapter reaches the database through connector("<engine>")
 ```
 
 **Implementing a method** (all adapters follow this structure):
@@ -434,7 +433,7 @@ export class PgAdapter extends BaseAdapter {
 1. Create `src/adapters/<dbname>/<dbname>.adapter.ts` implementing `IDbAdapter`.
 2. Create `src/adapters/<dbname>/<dbname>.query-builder.ts` for SQL databases, or a domain-specific builder like `mongo.pipeline-builder.ts` for non-SQL databases.
 3. Add `src/connectors/<dbname>.ts` (its clients, `ping()` and `close()`) and add it to `CONNECTORS` in `src/connectors/index.ts`; the adapter reads it with `connector("<dbname>")`.
-4. Register the adapter in `src/adapters/register.ts`: `adapterRegistry.register("<dbname>", new MyAdapter())`.
+4. Add the adapter to `ADAPTERS` in `src/adapters/adapter.registry.ts`: `<dbname>: new MyAdapter()`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
 6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols (each with its default port, or `file` / `hosted`), data model, editor language, Live mode support, schema selector, read-only sessions (`readOnly`), Indexes tab support (`indexes`) and Logs tab support (`serverLogs`); an engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
@@ -450,7 +449,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 import type { TableInfoSchemaType } from "@db-studio/shared/types";
 
 // server internal  →  @/ maps to ./src/
-import { getAdapter } from "@/adapters/adapter.registry.js"; // .js extension required (ESM)
+import { ADAPTERS } from "@/adapters/adapter.registry.js"; // .js extension required (ESM)
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";     // adapters follow the same rule
 ```
 
