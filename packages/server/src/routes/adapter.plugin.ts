@@ -6,7 +6,7 @@ import { HTTPException } from "@/http-exception.js";
 import { getOpenConnection, requestConnection } from "@/open-connections.js";
 
 /**
- * Resolves the `/:dbType` path segment to its registered adapter. Runs before validation, so an
+ * Resolves the `/:dbType` path segment to its adapter. Runs before validation, so an
  * unknown database type is reported ahead of any query or body error.
  *
  * Each request reaches the connection its tab names in `X-Connection-Id`. One naming a closed

@@ -13,19 +13,16 @@ import { sanitizeErrorMessage } from "@/sanitize-error.js";
 export const main = async () => {
 	const { env, port, databaseUrl, varName, open, status, help, version } = args();
 
-	// Handle help flag
 	if (help) {
 		showHelp();
 		process.exit(0);
 	}
 
-	// Handle version flag
 	if (version) {
 		showVersion();
 		process.exit(0);
 	}
 
-	// Handle status flag
 	if (status) {
 		await showStatus(env, databaseUrl, varName);
 		process.exit(0);

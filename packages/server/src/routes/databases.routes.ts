@@ -21,26 +21,14 @@ export const databasesRoutes = new Elysia({ prefix: "/databases" })
 		return { dbType, address: parsed, adapter };
 	})
 
-	/**
-	 * GET /databases
-	 * Returns list of user-visible databases on the server (name, size, owner, encoding) and the database type
-	 */
 	.get("/", async ({ adapter, dbType }) => ({
 		data: { databases: await adapter.getDatabasesList(), dbType },
 	}))
 
-	/**
-	 * GET /databases/current
-	 * Returns the name of the database we are currently connected to and the database type
-	 */
 	.get("/current", async ({ adapter, dbType }) => ({
 		data: { db: (await adapter.getCurrentDatabase()).db, dbType },
 	}))
 
-	/**
-	 * GET /databases/connection
-	 * Returns connection details and server information
-	 */
 	.get("/connection", async ({ adapter, address }) => ({
 		data: await adapter.getDatabaseConnectionInfo(address),
 	}));
