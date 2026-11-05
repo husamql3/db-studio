@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { COLOR_SCHEME_QUERY, type ResolvedTheme } from "@/lib/theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
@@ -52,26 +52,10 @@ export function useTheme() {
 	const resolvedTheme: ResolvedTheme =
 		theme === "system" ? (systemPrefersDark ? "dark" : "light") : theme;
 
-	const isDark = resolvedTheme === "dark";
-
-	useEffect(() => {
-		const root = window.document.documentElement;
-
-		if (isDark) {
-			root.classList.add("dark");
-			root.classList.remove("light");
-			document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#09090b");
-		} else {
-			root.classList.remove("dark");
-			root.classList.add("light");
-			document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#ffffff");
-		}
-	}, [isDark]);
-
 	return {
 		theme,
 		resolvedTheme,
-		isDark,
+		isDark: resolvedTheme === "dark",
 		setTheme,
 		toggleTheme,
 	};

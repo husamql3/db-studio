@@ -44,7 +44,6 @@
 		"cmdk": "^1.1.1",
 		"date-fns": "^4.4.0",
 		"lucide-react": "^1.66.0",
-		"next-themes": "^0.4.6",
 		"react-day-picker": "^10.0.2",
 		"sonner": "^2.0.8",
 		"tailwind-merge": "^3.7.0",

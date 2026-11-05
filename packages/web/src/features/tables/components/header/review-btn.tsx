@@ -5,6 +5,7 @@ import { cn } from "@db-studio/ui/utils";
 import { Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { isMac } from "@/lib/platform";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCell } from "../../hooks/use-update-cell";
 import {
@@ -13,8 +14,6 @@ import {
 	useUpdateCellStore,
 } from "../../stores/update-cell.store";
 import { stableStringify } from "../../utils/table-diff";
-
-const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /** One side of a change, like a diff line; NULL and empty text get the grid's markers. */
 const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {

@@ -1,10 +1,11 @@
 import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { useNavigate } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsKeyValue } from "@/hooks/use-is-schemaless";
 import { useQueriesStore } from "@/stores/queries.store";
+import type { CodeEditorHandle } from "../components/code-editor";
 import { QueryResultContainer } from "../components/query-result-container";
 import { RunnerHeader } from "../components/runner-header";
 import { useExecuteQuery } from "../hooks/use-execute-query";
@@ -29,6 +30,7 @@ export const RunnerScreen = ({
 	initialQuery?: string;
 }) => {
 	const navigate = useNavigate();
+	const editorRef = useRef<CodeEditorHandle>(null);
 	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
 	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
@@ -79,25 +81,11 @@ export const RunnerScreen = ({
 		[isKeyValue, executeQuery, queryId],
 	);
 
-	const handleButtonClick = useCallback(() => {
-		if (!currentQuery.trim()) {
-			toast.error("Query is empty!");
-
-			return;
-		}
-
-		handleExecuteQuery(currentQuery);
-	}, [handleExecuteQuery, currentQuery]);
-
 	const handleFavorite = useCallback(() => {
 		if (!queryId) return;
 		toggleFavorite(queryId);
 		toast.success(isFavorite ? "Query unfavorited" : "Query favorited");
 	}, [toggleFavorite, queryId, isFavorite]);
-
-	const handleFormatQuery = useCallback(() => {
-		// passed to Monaco component
-	}, []);
 
 	const handleSaveQuery = useCallback(() => {
 		if (!currentQuery) return;
@@ -121,8 +109,8 @@ export const RunnerScreen = ({
 		<div className="flex-1 relative w-full flex flex-col">
 			<RunnerHeader
 				isExecutingQuery={isExecutingQuery}
-				handleButtonClick={handleButtonClick}
-				handleFormatQuery={handleFormatQuery}
+				handleButtonClick={() => handleExecuteQuery(currentQuery)}
+				handleFormatQuery={() => editorRef.current?.format()}
 				handleSaveQuery={handleSaveQuery}
 				handleFavorite={handleFavorite}
 				isFavorite={isFavorite}
@@ -140,8 +128,8 @@ export const RunnerScreen = ({
 					language={editorLanguage}
 					onQueryChange={setCurrentQuery}
 					onUnsavedChanges={setHasUnsavedChanges}
+					ref={editorRef}
 					onExecuteQuery={handleExecuteQuery}
-					onFormatQuery={handleFormatQuery}
 					onSaveQuery={handleSaveQuery}
 				/>
 			</Suspense>

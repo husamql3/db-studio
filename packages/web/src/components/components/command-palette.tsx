@@ -41,6 +41,7 @@ import { useExportFile } from "@/features/tables";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { useTheme } from "@/hooks/use-theme";
+import { isMac } from "@/lib/platform";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
@@ -89,9 +90,6 @@ export function CommandPalette() {
 		schemaHint,
 		hasSection,
 	} = useCommandPaletteCapabilities();
-
-	const isMac =
-		typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
 
 	const handleNavigateToTable = (tableName: string, schemaName: string | undefined) => {
 		handleAction(() => {

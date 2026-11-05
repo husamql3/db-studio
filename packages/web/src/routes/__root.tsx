@@ -14,7 +14,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { toast } from "sonner";
 import { CommandPalette } from "@/components/components/command-palette";
 import { useConnectionChangeWatcher, useConnections } from "@/features/connections";
@@ -27,31 +27,6 @@ import { sectionOf } from "@/lib/sections";
 import { initSentry } from "@/lib/sentry";
 import type { ApiError } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
-
-const darkModeScript = `
-  try {
-    const stored = localStorage.getItem('db-studio-personal-preferences');
-    const theme = stored ? JSON.parse(stored)?.state?.theme : 'dark';
-    const isDark = theme === 'dark' || (theme === 'system' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#09090b');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#ffffff');
-    }
-  } catch (_) {
-    document.documentElement.classList.add('dark');
-  }
-
-  try {
-    if (/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
-      document.documentElement.classList.add('os-macos');
-    }
-  } catch (_) {}
-`;
 
 const connectDevtoolsServerBus =
 	import.meta.env.DEV && import.meta.env.VITE_TANSTACK_SERVER_BUS === "true";
@@ -106,7 +81,14 @@ const ConnectedApp = () => {
 
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
-		useTheme();
+		const { resolvedTheme } = useTheme();
+
+		// A layout effect, so the first frame already has the stored theme.
+		useLayoutEffect(() => {
+			const root = document.documentElement;
+			root.classList.toggle("dark", resolvedTheme === "dark");
+			root.classList.toggle("light", resolvedTheme === "light");
+		}, [resolvedTheme]);
 		const pathname = useLocation({ select: (location) => location.pathname });
 		const { active, isLoading, error } = useConnections();
 		useConnectionChangeWatcher();
@@ -164,11 +146,6 @@ export const Route = createRootRoute({
 
 		return (
 			<TooltipProvider>
-				<script
-					defer
-					src={`data:text/javascript;base64,${btoa(darkModeScript)}`}
-				/>
-
 				<NuqsAdapter
 					fullPageNavigationOnShallowFalseUpdates
 					defaultOptions={{ shallow: true, clearOnDefault: true }}
@@ -177,7 +154,10 @@ export const Route = createRootRoute({
 					{/* Inside the adapter: it reads the open table's schema from the URL. */}
 					{isInApp && <CommandPalette />}
 				</NuqsAdapter>
-				<Toaster position="top-right" />
+				<Toaster
+					position="top-right"
+					theme={resolvedTheme}
+				/>
 				{/* Global overlays */}
 				{isInApp && <TableBuilderOverlay />}
 				<SettingsOverlay />
