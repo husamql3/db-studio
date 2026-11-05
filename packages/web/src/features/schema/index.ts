@@ -17,7 +17,7 @@ export { PrimaryField } from "./components/column-fields/primary-field";
 
 export { EditTableSheet } from "./components/edit-table-sheet";
 
-export { useDeleteColumn } from "./hooks/use-delete-column";
+export { DropColumnDialog } from "./components/drop-column-dialog";
 
 export { SchemaScreen } from "./screens/schema-screen";
 

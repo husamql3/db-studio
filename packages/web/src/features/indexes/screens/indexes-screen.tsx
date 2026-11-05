@@ -2,18 +2,17 @@ import type { INDEX_KINDS, IndexInfoSchemaType } from "@db-studio/shared/types";
 import { Badge } from "@db-studio/ui/badge";
 import { Button } from "@db-studio/ui/button";
 import { DataGrid } from "@db-studio/ui/data-grid";
-import { Spinner } from "@db-studio/ui/spinner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { useMemo } from "react";
 import { CopyButton } from "@/components/copy-button";
+import { TableSubScreen } from "@/components/table-sub-screen";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { CreateIndexForm } from "../components/create-index-form";
 import { DropIndexDialog } from "../components/drop-index-dialog";
 import { IndexRowActions } from "../components/index-row-actions";
-import { IndexesToolbar } from "../components/indexes-toolbar";
 import { useTableIndexes } from "../hooks/use-table-indexes";
 
 const KIND_LABEL: Record<(typeof INDEX_KINDS)[number], string | null> = {
@@ -155,30 +154,16 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 		[hasMethods],
 	);
 
-	if (isLoadingTableIndexes) {
-		return (
-			<div className="size-full flex items-center justify-center">
-				<Spinner size="size-7" />
-			</div>
-		);
-	}
-
-	if (errorTableIndexes) {
-		return (
-			<div className="size-full flex flex-col items-center justify-center gap-2">
-				<div className="text-sm font-medium">Failed to load indexes</div>
-				<div className="text-sm text-muted-foreground">{errorTableIndexes.message}</div>
-			</div>
-		);
-	}
-
 	return (
-		<div className="flex-1 flex flex-col overflow-hidden">
-			<IndexesToolbar
-				tableName={tableName}
-				refetch={refetchTableIndexes}
-				isRefetching={isRefetchingTableIndexes}
-			/>
+		<TableSubScreen
+			tableName={tableName}
+			subject="indexes"
+			isLoading={isLoadingTableIndexes}
+			error={errorTableIndexes}
+			refetch={refetchTableIndexes}
+			isRefetching={isRefetchingTableIndexes}
+			action={{ label: "Create Index", onClick: () => openOverlay("indexes.create-index") }}
+		>
 			{tableIndexes?.length ? (
 				<DataGrid
 					columns={columns}
@@ -199,6 +184,6 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 			)}
 			<CreateIndexForm tableName={tableName} />
 			<DropIndexDialog tableName={tableName} />
-		</div>
+		</TableSubScreen>
 	);
 };

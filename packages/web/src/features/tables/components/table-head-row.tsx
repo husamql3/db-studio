@@ -1,15 +1,4 @@
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@db-studio/ui/alert-dialog";
 import { Button } from "@db-studio/ui/button";
-import { Checkbox } from "@db-studio/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,7 +7,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
-import { Label } from "@db-studio/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import {
@@ -40,7 +28,7 @@ import {
 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
-import { useDeleteColumn } from "@/features/schema";
+import { DropColumnDialog } from "@/features/schema";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
@@ -66,10 +54,7 @@ export const TableHeadRow = ({
 	const { table: activeTableName } = Route.useParams();
 	const isSchemaless = useIsSchemaless();
 
-	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
-	const [cascadeDelete, setCascadeDelete] = useState(false);
-	const { deleteColumn } = useDeleteColumn();
 	const schemaName = useTableSchemaName();
 
 	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
@@ -101,43 +86,6 @@ export const TableHeadRow = ({
 		},
 		[setColumnName, setSort, setOrder, setCursor, setDirection],
 	);
-
-	const handleDeleteClick = useCallback((columnId: string) => {
-		setColumnToDelete(columnId);
-		setCascadeDelete(false);
-		setDeleteDialogOpen(true);
-	}, []);
-
-	const handleDialogOpenChange = useCallback((open: boolean) => {
-		setDeleteDialogOpen(open);
-
-		if (!open) {
-			setColumnToDelete(null);
-			setCascadeDelete(false);
-		}
-	}, []);
-
-	const handleConfirmDelete = useCallback(async () => {
-		if (!columnToDelete || !activeTableName) return;
-
-		await deleteColumn({
-			db: activeTableName,
-			tableName: activeTableName,
-			schemaName,
-			columnName: columnToDelete,
-			cascade: cascadeDelete,
-		});
-
-		setDeleteDialogOpen(false);
-		setColumnToDelete(null);
-		setCascadeDelete(false);
-	}, [columnToDelete, activeTableName, deleteColumn, cascadeDelete]);
-
-	const handleCancelDelete = useCallback(() => {
-		setDeleteDialogOpen(false);
-		setColumnToDelete(null);
-		setCascadeDelete(false);
-	}, []);
 
 	return (
 		<>
@@ -273,22 +221,10 @@ export const TableHeadRow = ({
 														<DropdownMenuSeparator />
 													</>
 												)}
-												{/* TODO: #84 Add edit column button */}
-												{/* <DropdownMenuItem
-													onClick={() =>
-														handleEditColumn(header.column.id)
-													}
-												>
-													<IconPencil />
-													Edit column
-												</DropdownMenuItem>
-												<DropdownMenuSeparator /> */}
-
-												{/* Delete column button */}
 												<DropdownMenuItem
 													variant="destructive"
 													disabled={isSchemaless}
-													onClick={() => handleDeleteClick(header.column.id)}
+													onClick={() => setColumnToDelete(header.column.id)}
 												>
 													<Trash2 />
 													Delete column
@@ -315,46 +251,15 @@ export const TableHeadRow = ({
 				) : null}
 			</tr>
 
-			<AlertDialog
-				open={deleteDialogOpen}
-				onOpenChange={handleDialogOpenChange}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Column</AlertDialogTitle>
-						<AlertDialogDescription>
-							Are you sure you want to delete the column "{columnToDelete}
-							"? This action cannot be undone and will permanently remove all data in this
-							column.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-
-					<div className="flex gap-2 py-2">
-						<Checkbox
-							id="cascade-delete"
-							checked={cascadeDelete}
-							onCheckedChange={(checked) => setCascadeDelete(checked === true)}
-						/>
-						<Label
-							htmlFor="cascade-delete"
-							className="text-xs text-muted-foreground cursor-pointer"
-						>
-							Drop with CASCADE (also remove dependent indexes, constraints, and foreign key
-							references)
-						</Label>
-					</div>
-
-					<AlertDialogFooter>
-						<AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							variant="destructive"
-							onClick={handleConfirmDelete}
-						>
-							Delete
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<DropColumnDialog
+				tableName={activeTableName}
+				schemaName={schemaName}
+				columnName={columnToDelete ?? ""}
+				open={columnToDelete !== null}
+				onOpenChange={(open) => {
+					if (!open) setColumnToDelete(null);
+				}}
+			/>
 		</>
 	);
 };

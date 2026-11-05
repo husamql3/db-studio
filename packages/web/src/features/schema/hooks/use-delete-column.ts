@@ -9,6 +9,10 @@ import {
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
+type DeleteColumnParams = Omit<DeleteColumnParamsSchemaType, "db" | "schemaName"> & {
+	schemaName: string | undefined;
+};
+
 export const useDeleteColumn = () => {
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
@@ -16,21 +20,10 @@ export const useDeleteColumn = () => {
 	const { mutateAsync: deleteColumnAsync, isPending: isDeletingColumn } = useMutation<
 		string,
 		ApiError,
-		DeleteColumnParamsSchemaType
+		DeleteColumnParams
 	>({
-		mutationFn: async ({
-			tableName,
-			schemaName,
-			columnName,
-			cascade,
-		}: DeleteColumnParamsSchemaType) => {
-			const res = await deleteColumnRequest({
-				tableName,
-				schemaName,
-				columnName,
-				cascade,
-				db: selectedDatabase ?? "",
-			});
+		mutationFn: async (params) => {
+			const res = await deleteColumnRequest({ ...params, db: selectedDatabase ?? "" });
 
 			return res.data.data;
 		},
@@ -52,23 +45,12 @@ export const useDeleteColumn = () => {
 		},
 	});
 
-	const deleteColumn = async ({
-		tableName,
-		schemaName,
-		columnName,
-		cascade,
-	}: Omit<DeleteColumnParamsSchemaType, "schemaName"> & {
-		schemaName: string | undefined;
-	}) => {
-		return toast.promise(
-			deleteColumnAsync({ tableName, schemaName, columnName, cascade, db: "" }),
-			{
-				loading: "Deleting column...",
-				success: (message) => message || "Column deleted successfully",
-				error: (error: ApiError) => apiErrorMessage(error, "Failed to delete column"),
-			},
-		);
-	};
+	const deleteColumn = (params: DeleteColumnParams) =>
+		toast.promise(deleteColumnAsync(params), {
+			loading: "Deleting column...",
+			success: (message) => message || "Column deleted successfully",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to delete column"),
+		});
 
 	return {
 		deleteColumn,

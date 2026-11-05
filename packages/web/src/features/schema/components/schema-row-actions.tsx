@@ -1,6 +1,5 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
-import { Checkbox } from "@db-studio/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -23,9 +22,9 @@ import { EllipsisVertical, Pencil, Trash2, Type } from "lucide-react";
 import { useState } from "react";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { useDeleteColumn } from "../hooks/use-delete-column";
 import { useRenameColumn } from "../hooks/use-rename-column";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
+import { DropColumnDialog } from "./drop-column-dialog";
 
 export const SchemaRowActions = ({
 	col,
@@ -44,11 +43,9 @@ export const SchemaRowActions = ({
 		columnName: col.columnName,
 	});
 
-	const { deleteColumn, isDeletingColumn } = useDeleteColumn();
 	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 	const [isDropDialogOpen, setIsDropDialogOpen] = useState(false);
 	const [newColumnName, setNewColumnName] = useState(col.columnName);
-	const [cascadeDelete, setCascadeDelete] = useState(false);
 
 	const handleEditColumn = () => {
 		setEditingColumn(col);
@@ -63,28 +60,9 @@ export const SchemaRowActions = ({
 		}
 	};
 
-	const handleDropDialogChange = (open: boolean) => {
-		setIsDropDialogOpen(open);
-
-		if (!open) {
-			setCascadeDelete(false);
-		}
-	};
-
 	const handleRenameColumn = async () => {
 		await renameColumn({ newColumnName: newColumnName.trim() });
 		handleRenameDialogChange(false);
-	};
-
-	const handleDropColumn = async () => {
-		await deleteColumn({
-			db: "",
-			tableName,
-			schemaName,
-			columnName: col.columnName,
-			cascade: cascadeDelete,
-		});
-		handleDropDialogChange(false);
 	};
 
 	return (
@@ -114,7 +92,7 @@ export const SchemaRowActions = ({
 						<DropdownMenuSeparator />
 						<DropdownMenuItem
 							variant="destructive"
-							onClick={() => handleDropDialogChange(true)}
+							onClick={() => setIsDropDialogOpen(true)}
 						>
 							<Trash2 className="size-4" />
 							Drop Column
@@ -134,13 +112,11 @@ export const SchemaRowActions = ({
 			/>
 
 			<DropColumnDialog
+				tableName={tableName}
+				schemaName={schemaName}
 				columnName={col.columnName}
-				isOpen={isDropDialogOpen}
-				onOpenChange={handleDropDialogChange}
-				cascadeDelete={cascadeDelete}
-				setCascadeDelete={setCascadeDelete}
-				onDrop={handleDropColumn}
-				isDropping={isDeletingColumn}
+				open={isDropDialogOpen}
+				onOpenChange={setIsDropDialogOpen}
 			/>
 		</>
 	);
@@ -214,78 +190,6 @@ const RenameColumnDialog = ({
 						disabled={isDisabled || isRenaming}
 					>
 						{isRenaming ? "Renaming..." : "Rename Column"}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-};
-
-const DropColumnDialog = ({
-	columnName,
-	isOpen,
-	onOpenChange,
-	cascadeDelete,
-	setCascadeDelete,
-	onDrop,
-	isDropping,
-}: {
-	columnName: string;
-	isOpen: boolean;
-	onOpenChange: (open: boolean) => void;
-	cascadeDelete: boolean;
-	setCascadeDelete: (value: boolean) => void;
-	onDrop: () => void;
-	isDropping: boolean;
-}) => {
-	return (
-		<Dialog
-			open={isOpen}
-			onOpenChange={onOpenChange}
-		>
-			<DialogContent className="max-w-md">
-				<DialogHeader>
-					<DialogTitle>Drop Column</DialogTitle>
-					<DialogDescription>
-						Are you sure you want to drop the column{" "}
-						<span className="font-semibold text-foreground">"{columnName}"</span>? This action
-						cannot be undone and permanently removes the data stored in it.
-					</DialogDescription>
-				</DialogHeader>
-
-				<div className="flex gap-3 rounded-lg border border-border p-3">
-					<Checkbox
-						id={`drop-column-cascade-${columnName}`}
-						checked={cascadeDelete}
-						onCheckedChange={(checked) => setCascadeDelete(checked === true)}
-					/>
-					<div className="space-y-1">
-						<Label
-							htmlFor={`drop-column-cascade-${columnName}`}
-							className="cursor-pointer"
-						>
-							Drop with CASCADE
-						</Label>
-						<p className="text-xs text-muted-foreground">
-							Also remove dependent indexes, constraints, and foreign key references.
-						</p>
-					</div>
-				</div>
-
-				<DialogFooter className="gap-2">
-					<Button
-						variant="outline"
-						onClick={() => onOpenChange(false)}
-						disabled={isDropping}
-					>
-						Cancel
-					</Button>
-					<Button
-						variant="destructive"
-						onClick={onDrop}
-						disabled={isDropping}
-					>
-						{isDropping ? "Dropping..." : "Drop Column"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
