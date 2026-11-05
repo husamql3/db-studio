@@ -1,7 +1,7 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import {
 	getIdentityColumnNames,

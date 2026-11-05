@@ -34,8 +34,8 @@ import {
 	useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import type { NavigationDirection, TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { CELL_DEFAULT, useUpdateCellStore } from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";

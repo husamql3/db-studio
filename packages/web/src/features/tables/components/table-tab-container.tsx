@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
 import { useLiveTable } from "../hooks/use-live-table";
 import { useTableData } from "../hooks/use-table-data";
 import { useTableModel } from "../hooks/use-table-model";

@@ -4,7 +4,7 @@ import { SidebarContentQueriesList } from "@/components/sidebar/sidebar-content-
 import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-tables-list";
 import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
-import { RedisKeySidebar } from "@/features/redis-browser/components/redis-key-sidebar";
+import { RedisKeySidebar } from "@/features/redis-browser";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 
 export const Sidebar = () => {

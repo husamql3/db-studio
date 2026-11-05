@@ -1,5 +1,6 @@
 import { graphlib, layout } from "@dagrejs/dagre";
 import type { SchemaGraphTable } from "@/shared/api";
+import { tableId } from "@/utils/table-id";
 
 export type GraphTable = SchemaGraphTable & { id: string };
 
@@ -10,14 +11,6 @@ export type GraphEdge = {
 	target: string;
 	targetColumn: string;
 };
-
-export const tableId = ({
-	schemaName,
-	tableName,
-}: {
-	schemaName?: string;
-	tableName: string;
-}) => (schemaName ? `${schemaName}.${tableName}` : tableName);
 
 /**
  * Keeps the tables of the selected schema ("all" keeps every table) and turns each FK

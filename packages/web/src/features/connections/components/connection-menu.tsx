@@ -8,8 +8,8 @@ import {
 } from "@db-studio/ui/dropdown-menu";
 import { Link } from "@tanstack/react-router";
 import { Check, Lock, Settings2 } from "lucide-react";
-import { useDatabaseConnectionInfo } from "@/hooks/use-databases-list";
 import { useConnect, useConnections } from "../hooks/use-connections";
+import { useDatabaseConnectionInfo } from "../hooks/use-database-connection-info";
 import { formatLastUsed } from "../utils/format-last-used";
 import { ConnectionColorDot } from "./connection-color-dot";
 

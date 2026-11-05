@@ -1,11 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import {
-	getCurrentDatabase,
-	getDatabaseConnectionInfo,
-	getDatabases,
-	setDbType as setApiDbType,
-} from "@/shared/api";
+import { getCurrentDatabase, getDatabases, setDbType as setApiDbType } from "@/shared/api";
 import { databaseKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -124,22 +119,4 @@ export const useInitializeDatabase = () => {
 		isInitialized,
 		error: databasesError || currentDatabaseError,
 	};
-};
-
-/**
- * Fetch database connection information
- */
-export const useDatabaseConnectionInfo = () => {
-	const {
-		data: connectionInfo,
-		isLoading: isLoadingConnectionInfo,
-		error: connectionInfoError,
-	} = useQuery({
-		queryKey: databaseKeys.connectionInfo(),
-		queryFn: getDatabaseConnectionInfo,
-		select: (response) => response.data.data,
-		staleTime: 1000 * 60 * 5, // 5 minutes
-	});
-
-	return { connectionInfo, isLoadingConnectionInfo, connectionInfoError };
 };

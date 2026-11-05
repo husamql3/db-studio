@@ -1,9 +1,9 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";

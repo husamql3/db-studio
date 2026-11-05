@@ -8,8 +8,8 @@ import { useCallback, useRef, useState } from "react";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { parseBulkData } from "@/utils/parse-bulk-data";
 import { useBulkInsertRecords } from "../hooks/use-bulk-insert-records";
+import { parseBulkData } from "../utils/parse-bulk-data";
 
 export const BulkInsertJsonSheet = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();

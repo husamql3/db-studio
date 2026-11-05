@@ -1,7 +1,6 @@
 export { AdvancedOptions } from "./components/column-fields/advanced-options";
 
 export {
-	type ColumnFieldValues,
 	columnFieldSchema,
 	DEFAULT_COLUMN_FIELD,
 } from "./components/column-fields/column-field-values";

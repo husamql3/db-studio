@@ -41,10 +41,10 @@ import {
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
 import { useDeleteColumn } from "@/features/schema";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
-import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableColumnResizer } from "./table-col-resizer";
 

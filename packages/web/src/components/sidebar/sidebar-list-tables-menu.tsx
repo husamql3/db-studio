@@ -40,6 +40,7 @@ import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
+import { tableId } from "@/utils/table-id";
 
 export const SidebarListTablesMenu = ({
 	tableName,
@@ -63,7 +64,7 @@ export const SidebarListTablesMenu = ({
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
 	// Same-named tables in two schemas each get their own dialogs.
-	const overlayKey = schemaName ? `${schemaName}.${tableName}` : tableName;
+	const overlayKey = tableId({ schemaName, tableName });
 	const renameOverlayId = `tables.rename-table.${overlayKey}` as const;
 	const deleteOverlayId = `tables.delete-table.${overlayKey}` as const;
 	const forceDeleteOverlayId = `tables.force-delete-table.${overlayKey}` as const;

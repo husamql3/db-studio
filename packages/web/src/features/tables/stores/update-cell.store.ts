@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { EditScope } from "@/types/table.type";
+import type { EditScope } from "@/features/tables/table.type";
 import { stableStringify } from "../utils/table-diff";
 
 /** A pending value meaning "set this cell to its column default"; compared by identity. */

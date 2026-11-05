@@ -4,10 +4,10 @@ import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useQueriesStore } from "@/stores/queries.store";
-import { PLACEHOLDER_QUERIES } from "@/utils/constants/placeholders";
 import { QueryResultContainer } from "../components/query-result-container";
 import { RunnerHeader } from "../components/runner-header";
 import { useExecuteQuery } from "../hooks/use-execute-query";
+import { PLACEHOLDER_QUERIES } from "../placeholders";
 
 const CodeEditor = lazy(() =>
 	import("../components/code-editor").then((module) => ({

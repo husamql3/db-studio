@@ -1,7 +1,7 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { TableNumberCell } from "./table-cell-variant";
 

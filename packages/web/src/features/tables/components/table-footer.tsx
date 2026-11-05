@@ -11,8 +11,10 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-rea
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
+import { CONSTANTS } from "@/utils/constants";
 import { useTableData } from "../hooks/use-table-data";
+
+const PRESET_SIZES = [5, 10, 25, 50, 100, 500];
 
 export const TableFooter = ({
 	tableName,

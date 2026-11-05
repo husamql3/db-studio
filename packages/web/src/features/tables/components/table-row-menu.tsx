@@ -9,11 +9,11 @@ import { Braces, CopyPlus, FileCode } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { useAddRecordStore } from "@/features/records";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
 import { toDuplicateValues, toInsertStatement } from "../utils/row-actions";
 import { copyTextToClipboard } from "../utils/row-details-utils";
 

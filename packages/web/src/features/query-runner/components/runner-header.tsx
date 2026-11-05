@@ -15,7 +15,7 @@ import {
 import { useQueryState } from "nuqs";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { CONSTANTS } from "@/utils/constants";
+import { RUNNER_STATE_KEYS } from "../constants";
 import type { QueryResult } from "../screens/runner-screen";
 
 export const RunnerHeader = ({
@@ -41,7 +41,7 @@ export const RunnerHeader = ({
 	queryResult: QueryResult | null;
 	currentQuery: string;
 }) => {
-	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
+	const [showAs, setShowAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS);
 	const { requestAssistant } = useAssistantRequestStore();
 	const { openOverlay } = useOverlayStore();
 

@@ -40,7 +40,6 @@ import {
 import { useAssistantRequestStore } from "@/features/ai-assistant";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile } from "@/features/tables";
-import { tableId } from "@/features/visualizer";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { useTheme } from "@/hooks/use-theme";
@@ -48,6 +47,7 @@ import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
+import { tableId } from "@/utils/table-id";
 import {
 	NO_TABLE_HINT,
 	SCHEMALESS_HINT,

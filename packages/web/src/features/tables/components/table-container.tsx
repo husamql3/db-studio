@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useLayoutEffect, useRef } from "react";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useGridClipboard } from "../hooks/use-grid-clipboard";
 import { PastePreviewDialog } from "./paste-preview-dialog";
 import { TableBody } from "./table-body";

@@ -1,8 +1,8 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useMemo } from "react";
+import type { EditScope } from "@/features/tables/table.type";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useDatabaseStore } from "@/stores/database.store";
-import type { EditScope } from "@/types/table.type";
 import { getIdentityColumnNames } from "../utils/row-details-utils";
 
 /**

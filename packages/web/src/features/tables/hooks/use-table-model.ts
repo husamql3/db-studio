@@ -7,9 +7,13 @@ import {
 } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+	CellRange,
+	NavigationDirection,
+	TableRecord,
+} from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { CellRange, NavigationDirection, TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableCell } from "../components/table-cell";
 import { TableSelector } from "../components/table-selector";

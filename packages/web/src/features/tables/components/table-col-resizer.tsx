@@ -1,7 +1,7 @@
 import { cn } from "@db-studio/ui/utils";
 import type { Header, Table } from "@tanstack/react-table";
 import { memo, useCallback } from "react";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 
 export const TableColumnResizer = memo(TableColumnResizerImpl, (prev, next) => {
 	const prevColumn = prev.header.column;

@@ -6,6 +6,7 @@ import { EditTableSheet } from "@/features/schema";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTablesList } from "@/hooks/use-tables-list";
 import { CONSTANTS } from "@/utils/constants";
+import { tableId } from "@/utils/table-id";
 
 export const SidebarListTables = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
@@ -77,9 +78,7 @@ export const SidebarListTables = () => {
 					<ul>
 						{filteredTables?.map((table) => (
 							<SidebarListTablesItem
-								key={
-									table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
-								}
+								key={tableId(table)}
 								schemaName={table.schemaName}
 								showSchemaName={showSchemaName}
 								tableName={table.tableName}

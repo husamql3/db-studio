@@ -4,7 +4,7 @@ import type { VirtualItem } from "@tanstack/react-virtual";
 import { Maximize2 } from "lucide-react";
 import { memo } from "react";
 import { CopyButton } from "@/components/copy-button";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useLiveModeStore } from "../stores/live-mode.store";
 

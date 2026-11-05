@@ -1,6 +1,6 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { useMemo } from "react";
-import type { CellVariant, TableRecord } from "@/types/table.type";
+import type { CellVariant, TableRecord } from "@/features/tables/table.type";
 import {
 	CellContent,
 	TableBooleanCell,

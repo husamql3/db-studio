@@ -1,7 +1,7 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
-import type { TableRecord } from "@/types/table.type";
 import { useRowMutation } from "../../hooks/use-row-mutation";
 import { AddRecordMenu } from "./add-record-menu";
 import { ClearBtn } from "./clear-btn";

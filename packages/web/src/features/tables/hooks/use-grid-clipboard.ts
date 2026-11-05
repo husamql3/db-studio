@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table";
 import { type ClipboardEvent, useState } from "react";
 import { toast } from "sonner";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import {

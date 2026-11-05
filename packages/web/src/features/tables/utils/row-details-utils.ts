@@ -1,5 +1,5 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 
 // Column defaults that mean the database fills the value itself
 // (serial sequences, identities, auto-increment, generated UUIDs).

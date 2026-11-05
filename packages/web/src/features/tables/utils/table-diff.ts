@@ -1,4 +1,4 @@
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 
 export const stableStringify = (value: unknown): string => {
 	if (value === undefined) return "undefined";

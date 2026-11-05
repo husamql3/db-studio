@@ -1,5 +1,5 @@
 import type { ColumnMeta } from "@tanstack/react-table";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 
 type PasteColumn = Pick<
 	ColumnMeta<TableRecord, unknown>,

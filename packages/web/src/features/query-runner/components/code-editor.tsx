@@ -16,7 +16,7 @@ import {
 	KEYWORDS,
 	OPERATORS,
 	SUGGESTIONS,
-} from "@/utils/constants/runner-editor";
+} from "../runner-editor";
 
 interface CodeEditorProps {
 	initialQuery: string;

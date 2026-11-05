@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { EditScope } from "@/types/table.type";
+import type { EditScope } from "@/features/tables/table.type";
 import { useUpdateCellStore } from "./update-cell.store";
 
 // Failure modes:

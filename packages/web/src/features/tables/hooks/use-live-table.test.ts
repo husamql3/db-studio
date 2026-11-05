@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";

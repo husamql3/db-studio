@@ -1,6 +1,6 @@
 import type { Table } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { TableHeadRow } from "./table-head-row";
 
 interface TableHeadProps {

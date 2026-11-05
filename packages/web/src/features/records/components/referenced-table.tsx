@@ -13,7 +13,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
-import { useTableData } from "@/features/tables/hooks/use-table-data";
+import { useTableData } from "@/features/tables";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
