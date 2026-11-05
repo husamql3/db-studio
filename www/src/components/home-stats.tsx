@@ -1,3 +1,4 @@
+import { META } from "@db-studio/shared/constants";
 import { ArrowUpRightIcon, GitForkIcon, StarIcon } from "lucide-react";
 import { useState } from "react";
 import { IoLogoGithub } from "react-icons/io";
@@ -9,8 +10,6 @@ import type { getHomeStats, Week } from "@/utils/get-home-stats";
 type HomeStatsData = Awaited<ReturnType<typeof getHomeStats>>;
 
 const BRAND = "oklch(0.488 0.243 264.376)";
-const REPO = "https://github.com/husamql3/db-studio";
-const NPM = "https://www.npmjs.com/package/db-studio";
 
 const compact = (n: number) =>
 	new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
@@ -169,7 +168,7 @@ function LinkBadge({
 
 const NpmBadge = () => (
 	<LinkBadge
-		href={NPM}
+		href={META.SITE_NPM_LINK}
 		label={`db-studio v${changelog[0].version} on npm`}
 		icon={<IoLogoNpm className="size-5" />}
 		iconClassName="bg-[#CB3837] text-white"
@@ -218,7 +217,7 @@ export function BuiltInPublic({ stats }: { stats: HomeStatsData }) {
 				badges={
 					<>
 						<LinkBadge
-							href={REPO}
+							href={META.SITE_GITHUB_LINK}
 							label={`${stats.stars} GitHub stars, ${stats.forks} forks`}
 							icon={<IoLogoGithub className="size-4" />}
 							iconClassName="bg-foreground text-background"
@@ -260,7 +259,7 @@ export function HomeStats({ stats }: { stats: HomeStatsData }) {
 				)}
 			>
 				<a
-					href={REPO}
+					href={META.SITE_GITHUB_LINK}
 					target="_blank"
 					rel="noreferrer"
 					className={cn(cardClass, "group hover:bg-muted")}

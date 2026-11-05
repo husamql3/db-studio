@@ -15,6 +15,7 @@ export const supportedDatabases: SupportedDatabase[] = [
 	{ name: "MongoDB", slug: "mongodb", scheme: "mongodb://" },
 	{ name: "SQLite", slug: "sqlite", scheme: "sqlite://" },
 	{ name: "Turso", slug: "turso", scheme: "libsql://" },
+	{ name: "Cloudflare D1", slug: "cloudflare-d1", scheme: "d1://" },
 	{ name: "Redis", slug: "redis", scheme: "redis://" },
 	{ name: "DuckDB", slug: "duckdb", scheme: "duckdb://" },
 	{ name: "Oracle", slug: "oracle", scheme: "oracle://" },
