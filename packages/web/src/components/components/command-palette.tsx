@@ -90,7 +90,7 @@ export function CommandPalette() {
 		recordsHint,
 		canEditSchema,
 		schemaHint,
-		hasIndexes,
+		hasSection,
 	} = useCommandPaletteCapabilities();
 
 	const isMac =
@@ -226,7 +226,7 @@ export function CommandPalette() {
 
 						{/* Navigation */}
 						<CommandGroup heading="Go to">
-							{!isKeyValue && (
+							{hasSection("table") && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/" }))}
 									keywords={["go", "navigate", "home", "tables"]}
@@ -252,7 +252,7 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							{!isKeyValue && (
+							{hasSection("schema") && (
 								<CommandItem
 									disabled={!activeTable || isSchemaless}
 									onSelect={() => {
@@ -281,7 +281,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{hasIndexes && (
+							{hasSection("indexes") && (
 								<CommandItem
 									disabled={!activeTable}
 									onSelect={() => {
@@ -306,7 +306,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isKeyValue && (
+							{hasSection("browser") && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/browser" }))}
 									keywords={["go", "navigate", "redis", "browser", "keys"]}
@@ -465,7 +465,7 @@ export function CommandPalette() {
 											</span>
 										</div>
 									</CommandItem>
-									{hasIndexes && (
+									{hasSection("indexes") && (
 										<CommandItem
 											disabled={!activeTable}
 											onSelect={() => {

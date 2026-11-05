@@ -85,6 +85,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - TanStack Query for server state; Zustand for client state (`src/stores/`)
 - shadcn/ui primitives live in `packages/ui`; Monaco editor for JSON/query editing
 - API calls go through `src/shared/api/` — pure transport wrappers over Axios
+- App sections (`/table`, `/runner`, `/browser`, …) are listed once in `src/lib/sections.ts` with their icon, sidebar and the engines they apply to; the layout guard, nav rail, sidebar, command palette and page-view events read it
 - Cell rendering: `CellVariant` = `"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`
 
 **Feature-first structure** — domain logic lives in `src/features/`, not flat `src/hooks/` or `src/components/`:

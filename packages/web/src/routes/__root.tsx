@@ -23,6 +23,7 @@ import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
 import { initPosthog, posthogAnalytics } from "@/lib/posthog";
+import { sectionOf } from "@/lib/sections";
 import { initSentry } from "@/lib/sentry";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -131,20 +132,13 @@ export const Route = createRootRoute({
 		}, []);
 
 		useEffect(() => {
-			const firstSegment = pathname.split("/").filter(Boolean)[0];
+			const page =
+				pathname === "/connect"
+					? "connect"
+					: pathname === "/"
+						? "home"
+						: (sectionOf(pathname)?.id ?? "home");
 
-			const pages = [
-				"connect",
-				"browser",
-				"table",
-				"schema",
-				"runner",
-				"visualizer",
-				"logs",
-				"indexes",
-			] as const;
-
-			const page = pages.find((candidate) => candidate === firstSegment) ?? "home";
 			posthogAnalytics.capture("page_viewed", { page });
 		}, [pathname]);
 

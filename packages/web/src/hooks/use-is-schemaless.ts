@@ -10,3 +10,5 @@ export const useIsSchemaless = (): boolean => {
 
 	return engine !== undefined && engine.dataModel !== "relational";
 };
+
+export const useIsKeyValue = (): boolean => useDatabaseEngine()?.dataModel === "key-value";

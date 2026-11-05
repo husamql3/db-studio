@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useIsKeyValue } from "@/hooks/use-is-schemaless";
 import { useQueriesStore } from "@/stores/queries.store";
 import { QueryResultContainer } from "../components/query-result-container";
 import { RunnerHeader } from "../components/runner-header";
@@ -38,7 +39,7 @@ export const RunnerScreen = ({
 	const [lastExecutedQuery, setLastExecutedQuery] = useState("");
 	const engine = useDatabaseEngine();
 	const editorLanguage = engine?.editorLanguage ?? "pgsql";
-	const isKeyValue = engine?.dataModel === "key-value";
+	const isKeyValue = useIsKeyValue();
 
 	const getInitialQuery = useCallback(() => {
 		if (initialQuery) return initialQuery;

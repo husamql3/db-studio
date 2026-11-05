@@ -1,6 +1,3 @@
-//* header tabs routes
-export const TABS = ["table", "runner", "schema", "indexes", "logs", "visualizer"] as const;
-
 export const CONSTANTS = {
 	//* sidebar search query state key
 	SIDEBAR_SEARCH: "search",

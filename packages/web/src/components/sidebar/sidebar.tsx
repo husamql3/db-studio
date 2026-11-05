@@ -1,38 +1,25 @@
 import { useLocation } from "@tanstack/react-router";
-import { useMemo } from "react";
 import { SidebarContentQueriesList } from "@/components/sidebar/sidebar-content-queries-list";
 import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-tables-list";
 import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 import { RedisKeySidebar } from "@/features/redis-browser";
-import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useIsKeyValue } from "@/hooks/use-is-schemaless";
+import { sectionOf } from "@/lib/sections";
 
 export const Sidebar = () => {
 	const { pathname } = useLocation();
-	const path = pathname.split("/")[1];
-	const isKeyValue = useDatabaseEngine()?.dataModel === "key-value";
-
-	const renderContent = useMemo(() => {
-		if (isKeyValue && path !== "runner") return <RedisKeySidebar />;
-
-		switch (path) {
-			case "":
-			case "table":
-			case "schema":
-			case "indexes":
-				return <SidebarContentTablesList />;
-			case "runner":
-				return <SidebarContentQueriesList />;
-			default:
-				return <SidebarContentTablesList />;
-			// todo
-			// case "logs":
-		}
-	}, [isKeyValue, path]);
+	const isKeyValue = useIsKeyValue();
 
 	return (
 		<SidebarWrapper>
-			{renderContent}
+			{sectionOf(pathname)?.sidebar === "queries" ? (
+				<SidebarContentQueriesList />
+			) : isKeyValue ? (
+				<RedisKeySidebar />
+			) : (
+				<SidebarContentTablesList />
+			)}
 			<SidebarFooter />
 		</SidebarWrapper>
 	);

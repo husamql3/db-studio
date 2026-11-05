@@ -12,43 +12,17 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
-import {
-	Bug,
-	Check,
-	Columns3Cog,
-	Ellipsis,
-	FolderKey,
-	ListTree,
-	type LucideIcon,
-	Monitor,
-	Moon,
-	PanelLeft,
-	ScrollText,
-	Settings,
-	SquareTerminal,
-	Sun,
-	Table2,
-	Workflow,
-} from "lucide-react";
+import { Bug, Check, Ellipsis, Monitor, Moon, PanelLeft, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { LuGithub } from "react-icons/lu";
 import { Chat } from "@/components/chat/chat";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTheme } from "@/hooks/use-theme";
+import { SECTIONS, sectionOf } from "@/lib/sections";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import { CONSTANTS, TABS } from "@/utils/constants";
-
-const ICONS = {
-	table: Table2,
-	runner: SquareTerminal,
-	schema: Columns3Cog,
-	indexes: ListTree,
-	logs: ScrollText,
-	visualizer: Workflow,
-	browser: FolderKey,
-} satisfies Record<string, LucideIcon>;
+import { CONSTANTS } from "@/utils/constants";
 
 const railTile =
 	"relative flex size-12 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
@@ -66,29 +40,27 @@ const RailSections = () => {
 	const { pathname } = useLocation();
 	const params = useParams({ strict: false });
 	const engine = useDatabaseEngine();
-	const currentRoute = pathname.split("/")[1] || "table";
-
-	const routes =
-		engine?.dataModel === "key-value"
-			? (["browser", "runner", "logs"] as const)
-			: TABS.filter(
-					(route) =>
-						(route !== "indexes" || engine?.indexes) &&
-						(route !== "logs" || engine?.serverLogs),
-				);
-
+	const current = sectionOf(pathname);
 	const activeTable = (params as { table?: string }).table;
 	const openSchema = useTableSchemaName();
 
-	return routes.map((route) => {
-		const Icon = ICONS[route];
+	if (!engine) return null;
 
-		// Keep the selected table when switching between the per-table views (data, schema,
-		// indexes), so leaving schema mode doesn't drop the selection.
-		const keepTable =
-			(route === "table" || route === "schema" || route === "indexes") && activeTable;
+	return SECTIONS.filter((section) => section.appliesTo(engine)).map((section) => {
+		const route = section.id;
+		const Icon = section.icon;
+		const isActive = current === section;
 
-		const isActive = currentRoute === route;
+		// Keep the selected table when switching between the per-table views, so leaving schema
+		// mode doesn't drop the selection.
+		const link =
+			section.perTable && activeTable
+				? {
+						to: `/${section.id}/$table` as const,
+						params: { table: activeTable },
+						search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
+					}
+				: { to: `/${route}` as const };
 
 		return (
 			<RailTip
@@ -96,9 +68,7 @@ const RailSections = () => {
 				label={route}
 			>
 				<Link
-					to={keepTable ? `/${route}/$table` : `/${route}`}
-					params={keepTable ? { table: activeTable as string } : undefined}
-					search={keepTable ? { [CONSTANTS.TABLE_SCHEMA]: openSchema } : undefined}
+					{...link}
 					aria-label={route}
 					aria-current={isActive ? "page" : undefined}
 					className={cn(railTile, isActive && "bg-muted text-foreground")}
@@ -215,7 +185,7 @@ const Divider = () => <div className="h-px w-full shrink-0 bg-border" />;
 export const NavRail = () => {
 	const { openOverlay } = useOverlayStore();
 	const { pathname } = useLocation();
-	const hasSidebar = pathname.split("/")[1] !== "visualizer";
+	const hasSidebar = Boolean(sectionOf(pathname)?.sidebar);
 
 	return (
 		<nav
