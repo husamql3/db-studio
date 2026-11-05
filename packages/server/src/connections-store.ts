@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, join } from "node:path";
 import {
 	connectionColorSchema,
 	type UpdateConnectionSchemaType,
 } from "@db-studio/shared/types";
 import { z } from "zod";
+import { parseConnectionUrl } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -35,7 +36,6 @@ const configDir = () => process.env.DB_STUDIO_CONFIG_DIR ?? join(homedir(), ".db
 const connectionsFile = () => join(configDir(), "connections.json");
 
 const SECRET = "••••";
-const FILE_URL = /^(sqlite|duckdb):\/\/(.*)$/;
 
 const SECRET_PARAMS = new Set(["authtoken", "password", "token"]);
 
@@ -57,30 +57,14 @@ export const maskConnectionUrl = (url: string): string =>
 			SECRET_PARAMS.has(decodeParamName(name)) ? `${separator}${name}=${SECRET}` : param,
 		);
 
-/** Trims the URL and makes a relative SQLite or DuckDB path absolute against `cwd`. */
-export const normalizeConnectionUrl = (url: string, cwd = process.cwd()): string => {
-	const trimmed = url.trim();
-	const file = trimmed.match(FILE_URL);
-
-	if (!file) return trimmed;
-	const [, scheme, path = ""] = file;
-
-	if (path === ":memory:" || path.startsWith("/")) return trimmed;
-
-	return `${scheme}://${resolve(cwd, path)}`;
-};
-
 /** `host/database` for a server, the file name for a file. */
 export const defaultConnectionName = (url: string): string => {
-	const file = url.match(FILE_URL);
-
-	if (file) return basename(file[2] ?? "") || url;
-
 	try {
-		const parsed = new URL(url);
-		const database = decodeURIComponent(parsed.pathname.replace(/^\/+|\/+$/g, ""));
+		const { file, host, database } = parseConnectionUrl(url);
 
-		return database ? `${parsed.hostname}/${database}` : parsed.hostname;
+		if (file !== null) return basename(file) || url;
+
+		return database ? `${host}/${database}` : host;
 	} catch {
 		return maskConnectionUrl(url);
 	}

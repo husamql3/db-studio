@@ -47,6 +47,7 @@ import {
 } from "@/adapters/base.adapter.js";
 import { getConnectionUrl, getDbPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
+import { parseConnectionUrl } from "@/connection-url.js";
 import {
 	isPgConstraintViolation,
 	isPgDatabaseError,
@@ -54,7 +55,6 @@ import {
 	isReadOnlyRefusal,
 } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
 	buildKeysetPredicate,
@@ -374,7 +374,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const { connectionInfoSchema } = await import("@db-studio/shared/types");
 		const result = connectionInfoSchema.parse(rows[0]);
-		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
+		const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 		return {
 			host: result.host || urlDefaults.host,

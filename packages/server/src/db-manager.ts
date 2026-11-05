@@ -1,11 +1,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ClickHouseClient } from "@clickhouse/client";
-import {
-	DATABASE_ENGINES,
-	type DatabaseTypeSchema,
-	dbTypeFromProtocol,
-} from "@db-studio/shared/types";
+import { DATABASE_ENGINES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import type { Redis, RedisOptions } from "ioredis";
 import type { MongoClient, ObjectId } from "mongodb";
@@ -13,24 +9,12 @@ import type { config as MssqlConfig, ConnectionPool as MssqlPool } from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import type { Pool as OraclePool } from "oracledb";
 import type { Pool, PoolConfig } from "pg";
-import { createD1Client, parseD1Url } from "@/d1-client.js";
+import { type ConnectionUrl, parseConnectionUrl } from "@/connection-url.js";
+import { createD1Client, d1Target } from "@/d1-client.js";
 import { loadDriver, loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { currentConnectionId, errorFields, writeOperationalLog } from "@/operational-log.js";
 import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
-import { toDriverUrl } from "@/utils/parse-database-url.js";
-
-/**
- * Decode a URL's username, password or path segment, which `URL` keeps percent-encoded
- * (`p%40ss` for `p@ss`). A `%` that starts no escape is kept as typed.
- */
-const decodeUrlPart = (value: string): string => {
-	try {
-		return decodeURIComponent(value.replace(/%(?![0-9a-fA-F]{2})/g, "%25"));
-	} catch {
-		return value;
-	}
-};
 
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, SQLite / libSQL, DuckDB and Redis
@@ -48,14 +32,7 @@ export class DatabaseManager {
 	private redisClients: Map<number, Redis> = new Map();
 	private redisClusterChecked = false;
 	private clickhouseClients: Map<string, ClickHouseClient> = new Map();
-	private readonly baseConfig: {
-		url: string;
-		host: string;
-		port: number;
-		user: string;
-		password: string;
-		dbType: DatabaseTypeSchema;
-	} | null;
+	private readonly baseConfig: ConnectionUrl | null;
 
 	/**
 	 * Throws when `databaseUrl` is malformed or names an unsupported engine, or when `readOnly` is
@@ -65,7 +42,7 @@ export class DatabaseManager {
 		databaseUrl: string | null = null,
 		private readonly readOnly = false,
 	) {
-		this.baseConfig = databaseUrl ? this.parseConfig(databaseUrl) : null;
+		this.baseConfig = databaseUrl ? parseConnectionUrl(databaseUrl) : null;
 		const engine = this.baseConfig && DATABASE_ENGINES[this.baseConfig.dbType];
 
 		if (readOnly && engine && !engine.readOnly) {
@@ -73,63 +50,7 @@ export class DatabaseManager {
 		}
 	}
 
-	/**
-	 * Detect database type from URL protocol
-	 */
-	private detectDbType(url: URL): DatabaseTypeSchema {
-		const protocol = url.protocol.replace(":", "");
-		const dbType = dbTypeFromProtocol(protocol);
-
-		if (dbType) return dbType;
-
-		const supported = Object.values(DATABASE_ENGINES)
-			.map(({ label, protocols }) => `${label} (${protocols.join(", ")})`)
-			.join(", ");
-
-		throw new Error(`Unsupported database type: ${protocol}. Supported types: ${supported}.`);
-	}
-
-	/**
-	 * Parse a connection URL into connection details. Throws on an unsupported or malformed URL.
-	 */
-	private parseConfig(databaseUrl: string): NonNullable<DatabaseManager["baseConfig"]> {
-		// File-based engines (sqlite://, duckdb://) carry a file path that doesn't parse well as a standard URL
-		const fileDbType = dbTypeFromProtocol(databaseUrl.split("://")[0]);
-
-		if (fileDbType && DATABASE_ENGINES[fileDbType].defaultPort === null) {
-			return {
-				url: databaseUrl,
-				host: "localhost",
-				port: 0,
-				user: "",
-				password: "",
-				dbType: fileDbType,
-			};
-		}
-
-		let driverUrl: string;
-		let url: URL;
-
-		try {
-			driverUrl = toDriverUrl(databaseUrl);
-			url = new URL(driverUrl);
-		} catch {
-			throw new Error("The connection URL is not a valid URL");
-		}
-
-		const detectedType = this.detectDbType(url);
-
-		return {
-			url: driverUrl,
-			host: url.hostname,
-			port: Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
-			user: decodeUrlPart(url.username),
-			password: decodeUrlPart(url.password),
-			dbType: detectedType,
-		};
-	}
-
-	private config(): NonNullable<DatabaseManager["baseConfig"]> {
+	private config(): ConnectionUrl {
 		if (!this.baseConfig) {
 			throw new HTTPException(409, { message: "No database is connected" });
 		}
@@ -146,7 +67,7 @@ export class DatabaseManager {
 
 	/** The connection URL, with a wire-compatible alias rewritten to its driver's scheme */
 	getConnectionUrl(): string {
-		return this.config().url;
+		return this.config().driverUrl;
 	}
 
 	/**
@@ -155,13 +76,8 @@ export class DatabaseManager {
 	buildConnectionString(database?: string): string {
 		const config = this.config();
 
-		// File-based databases: the URL is already the full connection string
-		if (DATABASE_ENGINES[config.dbType].defaultPort === null) {
-			return config.url;
-		}
-
 		try {
-			const url = new URL(config.url);
+			const url = new URL(config.driverUrl);
 
 			// The name is literal; encoded, the drivers decode it back (`sales%41` stays `sales%41`).
 			if (database) url.pathname = `/${encodeURIComponent(database)}`;
@@ -179,13 +95,13 @@ export class DatabaseManager {
 	 * Cloudflare D1 database
 	 */
 	getSqliteClient(): Promise<SqliteClient> {
-		const { url, dbType } = this.config();
+		const config = this.config();
 
-		if (dbType !== "sqlite") {
+		if (config.dbType !== "sqlite") {
 			throw new Error("The connection is not a sqlite://, libsql:// or d1:// connection");
 		}
 
-		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
+		this.sqliteClient ??= this.openSqliteClient(config).catch((error: unknown) => {
 			this.sqliteClient = null;
 			throw error;
 		});
@@ -193,18 +109,16 @@ export class DatabaseManager {
 		return this.sqliteClient;
 	}
 
-	private async openSqliteClient(url: string): Promise<SqliteClient> {
-		if (url.startsWith("d1://")) return createD1Client(parseD1Url(url));
+	private async openSqliteClient(config: ConnectionUrl): Promise<SqliteClient> {
+		if (config.scheme === "d1") return createD1Client(d1Target(config));
 		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
 		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
-		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
-
 		const libsqlUrl =
-			sqlitePath === null
-				? url
-				: sqlitePath === ":memory:"
-					? sqlitePath
-					: pathToFileURL(resolve(sqlitePath)).href;
+			config.file === null
+				? config.driverUrl
+				: config.inMemory
+					? config.file
+					: pathToFileURL(resolve(config.file)).href;
 
 		const { createClient } = await loadDriver("sqlite");
 		const client = createClient({ url: libsqlUrl, intMode: "bigint" });
@@ -247,7 +161,7 @@ export class DatabaseManager {
 		}
 
 		if (!this.duckdb) {
-			const filePath = config.url.replace(/^duckdb:\/\//, "");
+			const filePath = config.file ?? "";
 			this.duckdb = (async () => {
 				try {
 					// Checkpoint on every commit. DuckDB (1.4 and 1.5) cannot replay an ALTER TABLE on a
@@ -292,13 +206,12 @@ export class DatabaseManager {
 	 * One pool per process: an Oracle service is a single database, so `db` never selects another pool.
 	 */
 	getOraclePool(): Promise<OraclePool> {
-		const { url, host, port, user, password, dbType } = this.config();
+		const { host, port, user, password, database: service, dbType } = this.config();
 
 		if (dbType !== "oracle") {
 			throw new Error("The connection is not an oracle:// connection");
 		}
 
-		const service = decodeURIComponent(new URL(url).pathname.slice(1));
 		this.oraclePool ??= loadDriver("oracle")
 			.then((oracledb) =>
 				oracledb.createPool({
@@ -417,8 +330,7 @@ export class DatabaseManager {
 		const { createPool } = await loadDriver("mysql");
 
 		if (!this.mysqlPools.has(connectionString)) {
-			const url = new URL(connectionString);
-			const dbName = decodeUrlPart(url.pathname.slice(1));
+			const dbName = database || config.database;
 
 			const pool = createPool({
 				host: config.host,
@@ -459,8 +371,7 @@ export class DatabaseManager {
 		const mssql = await loadDriver("mssql");
 
 		if (!this.mssqlPools.has(connectionString)) {
-			const url = new URL(connectionString);
-			const dbName = decodeUrlPart(url.pathname.slice(1));
+			const dbName = database || config.database;
 
 			const poolConfig: MssqlConfig = {
 				server: config.host,
@@ -502,18 +413,15 @@ export class DatabaseManager {
 	 */
 	async getClickhouseClient(database?: string): Promise<ClickHouseClient> {
 		const config = this.config();
-		const url = new URL(this.buildConnectionString(database));
-		const dbName = decodeUrlPart(url.pathname.slice(1)) || "default";
+		const dbName = database || config.database || "default";
 		const { ClickHouseLogLevel, createClient } = await loadDriver("clickhouse");
 
 		const existing = this.clickhouseClients.get(dbName);
 
 		if (existing) return existing;
 
-		const tls = url.protocol === "clickhouses:";
-
 		const client = createClient({
-			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
+			url: `${config.scheme === "clickhouses" ? "https" : "http"}://${config.host}:${config.port}`,
 			username: config.user || "default",
 			password: config.password,
 			database: dbName,
@@ -539,9 +447,9 @@ export class DatabaseManager {
 	 */
 	async getMongoClient(): Promise<MongoClient> {
 		if (!this.mongoClient) {
-			const { url } = this.config();
+			const { driverUrl } = this.config();
 			const { MongoClient } = await loadDriver("mongodb");
-			const nextClient = new MongoClient(url);
+			const nextClient = new MongoClient(driverUrl);
 
 			try {
 				await nextClient.connect();
@@ -564,9 +472,7 @@ export class DatabaseManager {
 	 * Get the MongoDB database name from the connection URL
 	 */
 	getMongoDbName(): string {
-		return (
-			decodeUrlPart(new URL(this.config().url).pathname.replace(/^\/+|\/+$/g, "")) || "admin"
-		);
+		return this.config().database || "admin";
 	}
 
 	/**
@@ -594,8 +500,6 @@ export class DatabaseManager {
 
 		if (existing) return existing;
 
-		const url = new URL(config.url);
-
 		const options: RedisOptions = {
 			host: config.host,
 			port: config.port,
@@ -610,7 +514,7 @@ export class DatabaseManager {
 
 		if (config.password) options.password = config.password;
 
-		if (url.protocol === "rediss:") options.tls = {};
+		if (config.scheme === "rediss") options.tls = {};
 
 		const { Redis } = await loadDriver("redis");
 		const client = new Redis(options);
@@ -661,19 +565,9 @@ export class DatabaseManager {
 	 * Get the default Redis logical DB from the URL (e.g. redis://host/3 → 3)
 	 */
 	getRedisDefaultDb(): number {
-		if (!this.baseConfig) return 0;
+		const parsed = Number.parseInt(this.baseConfig?.database ?? "", 10);
 
-		try {
-			const url = new URL(this.baseConfig.url);
-			const path = url.pathname.replace(/^\//, "");
-
-			if (!path) return 0;
-			const parsed = Number.parseInt(path, 10);
-
-			return Number.isFinite(parsed) ? parsed : 0;
-		} catch {
-			return 0;
-		}
+		return Number.isFinite(parsed) ? parsed : 0;
 	}
 
 	/**

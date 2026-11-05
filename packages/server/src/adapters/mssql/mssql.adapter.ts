@@ -43,8 +43,8 @@ import {
 } from "@/adapters/base.adapter.js";
 import { getConnectionUrl, getMssqlPool } from "@/adapters/connections.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { parseConnectionUrl } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
@@ -314,7 +314,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		}
 
 		const info = result.recordset[0] as Record<string, string | number>;
-		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
+		const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 		return {
 			host: String(info.host || urlDefaults.host),

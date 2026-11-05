@@ -38,11 +38,11 @@ import {
 	getMongoDbName,
 } from "@/adapters/connections.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { parseConnectionUrl } from "@/connection-url.js";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
 import { HTTPException } from "@/http-exception.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
 import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMatchStage,
 	buildSortStage,
@@ -617,7 +617,7 @@ export class MongoAdapter extends BaseAdapter {
 		try {
 			const client = await getMongoClient();
 			const admin = client.db().admin();
-			const urlDefaults = parseDatabaseUrl(getConnectionUrl());
+			const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 			let serverStatus: {
 				version?: string;

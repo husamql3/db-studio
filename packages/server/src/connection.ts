@@ -4,16 +4,20 @@ import {
 	type ConnectionSummarySchemaType,
 	type ConnectionsStateSchemaType,
 	DATABASE_ENGINES,
-	dbTypeFromProtocol,
 	type UpdateConnectionSchemaType,
 } from "@db-studio/shared/types";
 import { checkDatabaseConnection } from "@/cmd/check-database.js";
 import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 import {
+	type ConnectionUrl,
+	normalizeConnectionUrl,
+	parseConnectionUrl,
+	urlDbType,
+} from "@/connection-url.js";
+import {
 	findSavedConnection,
 	listSavedConnections,
 	maskConnectionUrl,
-	normalizeConnectionUrl,
 	recordConnection,
 	type SavedConnection,
 	updateSavedConnection,
@@ -44,8 +48,6 @@ const queued = <T>(run: () => Promise<T>): Promise<T> => {
 
 /** Each open connection's URL as the user gave it, before driver aliases are rewritten. */
 const openUrls = new Map<string, { url: string; readOnly: boolean }>();
-
-const FILE_URL = /^(?:sqlite|duckdb):\/\/(.+)$/;
 
 const message = (error: unknown) =>
 	sanitizeErrorMessage(error instanceof Error ? error.message : String(error));
@@ -95,9 +97,17 @@ export const connect = (
 	const url = normalizeConnectionUrl(rawUrl);
 
 	return queued(async () => {
-		const file = url.match(FILE_URL)?.[1];
+		let parsed: ConnectionUrl;
 
-		if (requireExistingFile && file && file !== ":memory:") {
+		try {
+			parsed = parseConnectionUrl(url);
+		} catch (error) {
+			throw new HTTPException(400, { message: message(error), cause: error });
+		}
+
+		const { file, inMemory } = parsed;
+
+		if (requireExistingFile && file && !inMemory) {
 			await access(file).catch(() => {
 				throw new HTTPException(400, { message: `No database file at ${file}` });
 			});
@@ -125,7 +135,7 @@ export const connectSaved = async (id: string) => {
 };
 
 const toSummary = (saved: SavedConnection): ConnectionSummarySchemaType | null => {
-	const dbType = dbTypeFromProtocol(saved.url.split("://")[0]?.toLowerCase() ?? "");
+	const dbType = urlDbType(saved.url);
 
 	if (!dbType) return null;
 	const { id, name, color, readOnly, lastUsedAt } = saved;
@@ -192,7 +202,7 @@ export const updateConnection = (id: string, change: UpdateConnectionSchemaType)
 		}
 
 		// Closing its only instance would delete its data, and DuckDB cannot reopen memory read-only.
-		if (change.readOnly && found.url.match(FILE_URL)?.[1] === ":memory:") {
+		if (change.readOnly && parseConnectionUrl(found.url).inMemory) {
 			throw new HTTPException(400, {
 				message: "An in-memory database cannot be opened read-only",
 			});

@@ -1,3 +1,4 @@
+import type { ConnectionUrl } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import {
 	formatFileSize,
@@ -7,7 +8,7 @@ import {
 	type SqlStatement,
 } from "@/sqlite-client.js";
 
-export interface D1Target {
+interface D1Target {
 	accountId: string;
 	databaseId: string;
 	token: string;
@@ -15,15 +16,13 @@ export interface D1Target {
 
 // The CLI redacts anything shaped like a connection URL from startup errors, so these
 // messages describe the URL instead of quoting an example.
-export const parseD1Url = (url: string): D1Target => {
-	const { host, pathname, searchParams } = new URL(url);
-	const databaseId = decodeURIComponent(pathname.slice(1));
-	const token = searchParams.get("authToken") || process.env.CLOUDFLARE_API_TOKEN;
+export const d1Target = ({ host, database, params }: ConnectionUrl): D1Target => {
+	const token = params.get("authToken") || process.env.CLOUDFLARE_API_TOKEN;
 
 	if (!host)
 		throw new Error("The Cloudflare D1 URL has no account id: put it where the host goes");
 
-	if (!databaseId)
+	if (!database)
 		throw new Error("The Cloudflare D1 URL has no database id: put it where the path goes");
 
 	if (!token)
@@ -31,7 +30,7 @@ export const parseD1Url = (url: string): D1Target => {
 			"The Cloudflare D1 URL has no authToken parameter and CLOUDFLARE_API_TOKEN is not set",
 		);
 
-	return { accountId: host, databaseId, token };
+	return { accountId: host, databaseId: database, token };
 };
 
 interface D1Response<T> {

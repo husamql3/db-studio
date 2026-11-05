@@ -51,9 +51,9 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { parseConnectionUrl } from "@/connection-url.js";
 import { isReadOnlyRefusal } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildCursorWhereClause,
 	buildMysqlColumnDefinition,
@@ -442,7 +442,7 @@ export class MySqlAdapter extends BaseAdapter {
 			});
 
 		const info = (infoRows as Array<Record<string, string | number>>)[0];
-		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
+		const urlDefaults = parseConnectionUrl(getConnectionUrl());
 
 		return {
 			host: String(info.host || urlDefaults.host),

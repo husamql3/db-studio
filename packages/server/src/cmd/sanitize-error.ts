@@ -1,7 +1,7 @@
 import { DATABASE_ENGINES } from "@db-studio/shared/types";
 
 const SCHEMES = Object.values(DATABASE_ENGINES)
-	.flatMap(({ protocols }) => protocols)
+	.flatMap(({ protocols }) => Object.keys(protocols))
 	.map((protocol) => protocol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
 	.join("|");
 

@@ -1,10 +1,6 @@
-import {
-	DATABASE_ENGINES,
-	type DatabaseTypeSchema,
-	dbTypeFromProtocol,
-} from "@db-studio/shared/types";
+import { DATABASE_ENGINES, type DatabaseTypeSchema } from "@db-studio/shared/types";
+import { parseConnectionUrl } from "@/connection-url.js";
 import type { DatabaseManager } from "@/db-manager.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 
 const STARTUP_TIMEOUT_MS = 2_000;
 
@@ -32,23 +28,26 @@ export type DatabaseConnectionDetails = {
 	destination: string;
 };
 
+/** What the CLI names while it connects; `null` for a URL that does not parse. */
 export const getDatabaseConnectionDetails = (
 	databaseUrl: string,
 ): DatabaseConnectionDetails | null => {
-	const type = dbTypeFromProtocol(databaseUrl.split("://")[0]?.toLowerCase() ?? "");
+	let url: ReturnType<typeof parseConnectionUrl>;
 
-	if (!type) return null;
-	const { label: name, defaultPort } = DATABASE_ENGINES[type];
+	try {
+		url = parseConnectionUrl(databaseUrl);
+	} catch {
+		return null;
+	}
 
-	if (databaseUrl.startsWith("sqlite://")) return { type, name, destination: "local file" };
+	const { dbType: type, scheme, file, host, port } = url;
+	const { label: name } = DATABASE_ENGINES[type];
 
-	if (databaseUrl.startsWith("d1://")) return { type, name, destination: "Cloudflare D1" };
+	if (file !== null) return { type, name, destination: "local file" };
 
-	if (defaultPort === null) return { type, name, destination: new URL(databaseUrl).host };
+	if (scheme === "d1") return { type, name, destination: "Cloudflare D1" };
 
-	const { host, port } = parseDatabaseUrl(databaseUrl);
-
-	return { type, name, destination: `${host}:${port}` };
+	return { type, name, destination: port ? `${host}:${port}` : host };
 };
 
 /** Run one trivial query through `manager`'s own clients. */

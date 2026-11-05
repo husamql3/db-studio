@@ -42,8 +42,8 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { parseConnectionUrl } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildClickhouseColumnDefinition,
 	buildOrderByClause,
@@ -281,7 +281,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				throw new HTTPException(500, { message: "No connection information returned" });
 			}
 
-			const { host, port } = parseDatabaseUrl(getConnectionUrl());
+			const { host, port } = parseConnectionUrl(getConnectionUrl());
 
 			return {
 				host,

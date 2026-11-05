@@ -40,9 +40,9 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { parseConnectionUrl } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	bindOracleValue,
 	buildFilterConditions,
@@ -476,7 +476,7 @@ export class OracleAdapter extends BaseAdapter {
 
 		return this.withConnection(async (conn) => {
 			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");
-			const { host, port } = parseDatabaseUrl(getConnectionUrl());
+			const { host, port } = parseConnectionUrl(getConnectionUrl());
 
 			return {
 				host,
