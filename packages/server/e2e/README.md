@@ -1,175 +1,88 @@
-# API contract E2E
+# Server E2E scripts
 
-Drives the real Elysia app in-process (`app.handle`, no port) against the SQL database in
-`DATABASE_URL`, through the same routes the web app calls, using a scratch table `dbstudio_e2e`.
+Each script drives the real server against a real database and writes a repeatable artifact to
+`e2e/artifacts/` (gitignored). Rerunning from the same state must produce the same file. Run
+them from `packages/server`. Each file's header lists the failures it covers.
 
-```bash
-bun run init-db:pgsql   # from the repo root; prints the DATABASE_URL it seeded
-cd packages/server
-DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bun run e2e -- pg
-```
+Two kinds of script:
 
-Prints PASS/FAIL per step and exits non-zero on any failure. Writes the normalized artifact to
-`e2e/artifacts/<label>.json`; rerunning from the same state must produce a byte-identical file.
-The scratch table names are fixed so the artifact stays repeatable, so run one contract at a time
-per database: two runs sharing a `DATABASE_URL` would drop each other's tables.
-MongoDB and Redis are out of scope. Dialect-specific SQL goes in `OVERRIDES` in `contract.ts`.
+- **In-process** scripts open `DATABASE_URL` the way the CLI opens `--database-url` and call the
+  Elysia app with `app.handle`, with no port and no build.
+- **CLI** scripts start the built CLI on a free port, so they can run side by side. Run
+  `bun run prepack` first (it builds the web app and the server into `dist/`). Those that take
+  `[build]` run a snapshot in `e2e/artifacts/builds/<build>/` instead of `dist/`. Browser scripts
+  use Chrome; set `PERF_BROWSER_CHANNEL` to use another Playwright channel.
 
-## Pin the HTTP surface
+`e2e/lib.ts` holds what they share: `inProcessApp`, `startCli`, `requireDatabaseUrl`,
+`normalize`, `writeArtifact` and `launchBrowser`.
 
-The surface probe boots the real CLI on port 4999 and records status, headers, and bodies for
-routing, validation, error, CORS, request ID, static file, SPA fallback, and chat streaming cases.
-It serves a fake AI proxy on port 4998 for the chat cases. Use it to compare old and new versions
-of the HTTP layer, such as a framework upgrade.
+Use a disposable database: most scripts create and drop `dbstudio_*` tables, and two runs
+sharing one database drop each other's tables. `bun run init-db:<engine>` from the repo root
+seeds one.
 
-```bash
-cd packages/server
-DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio sh e2e/http-surface.sh <label>
-```
+## Any SQL engine
 
-It writes `e2e/artifacts/http-surface-<label>.json`. Two runs against the same server produce the
-same file, so diff the files from the two versions.
+- `contract.ts`: the API contract the web app relies on, through a scratch table. `DATABASE_URL=<url> bun run e2e -- <label>`
+- `missing-table.ts`: opening a missing table answers 404. `DATABASE_URL=<url> bunx tsx e2e/missing-table.ts`
+- `lazy-loading.ts` (CLI, browser, any engine with tables): the assistant and telemetry SDKs load on demand. `DATABASE_URL=<url> bunx tsx e2e/lazy-loading.ts [build]`
 
-## Connect from the browser
+## PostgreSQL
 
-Starts the built CLI without a database URL, then connects, switches and fails a switch from the
-browser against two scratch SQLite files. It checks the saved file's permissions, that the
-browser never receives a password, and that a foreign `Host` header is refused.
+- `audit-regressions.ts`: force delete, rollback of a failed save, NULL-aware paging (also MySQL). `DATABASE_URL=postgresql://... bunx tsx e2e/audit-regressions.ts`
+- `row-estimates.ts`: large tables report estimates, others exact counts (also MySQL, SQL Server). `DATABASE_URL=postgresql://... bun run e2e:row-estimates`
+- `read-only-writes.ts`: writes on a read-only connection answer 403 (also MySQL, DuckDB). `DATABASE_URL=postgresql://... bunx tsx e2e/read-only-writes.ts`
+- `pg-constraint-violation.ts`: constraint violations answer 409. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-constraint-violation.ts`
+- `pg-invalid-data.ts`: values of the wrong type answer 400. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-invalid-data.ts`
+- `pg-no-key-pagination.ts`: paging a table without a key. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-no-key-pagination.ts`
+- `pg-oversized-query-result.ts`: a result too large for JSON answers 4xx. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-oversized-query-result.ts`
+- `pg-permission-denied.ts`: missing privileges answer 403 (superuser URL). `DATABASE_URL=postgresql://... bunx tsx e2e/pg-permission-denied.ts`
+- `http-surface.sh` (source server, ports 4999 and 4998): pins routing, errors, CORS, static files and chat streaming for diffing two versions. `DATABASE_URL=postgresql://... sh e2e/http-surface.sh <label>`
+- `shutdown.ts` (CLI): Ctrl+C and SIGTERM answer the request in flight and exit within 5 s. `DATABASE_URL=postgresql://... bunx tsx e2e/shutdown.ts [build]`
+- `grid-clipboard.ts` (CLI, browser): range selection, copy and paste in the grid. `DATABASE_URL=postgresql://... bun run e2e:grid-clipboard`
+- `schema-routing.ts` (CLI, browser, `init-db:pgsql` seed): same-named tables in two schemas. `DATABASE_URL=postgresql://... bun run e2e:schema-routing [build]`
+- `visualizer.ts` (CLI, browser, `init-db:pgsql` seed): the schema visualizer. `DATABASE_URL=postgresql://... bun run e2e:visualizer [build]`
+- `grid.ts` (CLI, browser, `perf-seed.sql`): each cell editor and page change. `DATABASE_URL=postgresql://.../dbstudio_perf bun run e2e:grid [build]`
+- `perf.ts` (CLI, browser, `perf-seed.sql`): benchmarks build snapshots run by run; see its header. `DATABASE_URL=postgresql://.../dbstudio_perf bun run e2e:perf <build> [build ...]`
 
-```bash
-cd packages/server
-bun run prepack
-bunx tsx e2e/connect-flow.ts
-```
+## MySQL
 
-Needs no database. Writes screenshots and `e2e/artifacts/connect-flow/summary.json`, which is
-identical across runs.
+- `index-listing.ts`: primary and unique indexes refuse drops (also SQL Server, SQLite). `DATABASE_URL=mysql://... bunx tsx e2e/index-listing.ts`
+- Also `audit-regressions.ts`, `row-estimates.ts`, `read-only-writes.ts` and `read-only.ts` (`MYSQL_URL`).
 
-## Stop the server
+## SQL Server
 
-Starts the built CLI, sends Ctrl+C (SIGINT) and then SIGTERM while a one-second query is in
-flight, and checks that the query is answered and the process exits within 5 s with code 0.
+- `mssql-limited-login.ts`: a login without server permissions lists databases and tables (`sa` URL). `DATABASE_URL='mssql://sa:...@127.0.0.1:1433/dbstudio' bunx tsx e2e/mssql-limited-login.ts`
+- Also `row-estimates.ts` and `index-listing.ts` (columnstore and INCLUDE columns).
 
-```bash
-cd packages/server
-DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/shutdown.ts
-```
+## SQLite and Cloudflare D1
 
-Writes `e2e/artifacts/shutdown-<build>.json`; pass a snapshot name from `e2e/artifacts/builds/` to
-check another build.
+- `d1-specifics.ts`: partial updates roll back, alters keep referenced rows, `_cf_*` tables stay hidden, blobs round-trip. `DATABASE_URL=sqlite:///tmp/scratch.sqlite bunx tsx e2e/d1-specifics.ts sqlite` (or a `d1://` URL with label `d1`)
+- Also `index-listing.ts` (expression keys with comments) and `missing-table.ts`.
 
-## MySQL and SQL Server row estimates
+## DuckDB
 
-Creates a 100,000-row table, a 100-row table and a table emptied after the database reported its
-size, then checks the table list and page totals: the large table reports the database's
-estimate, the others and every filtered total an exact count.
+- `duckdb-force-delete.ts`: a force delete of a referenced row refuses before writing (in-memory, no URL). `bunx tsx e2e/duckdb-force-delete.ts`
+- `duckdb-transactions.ts`: the query runner refuses transaction statements (in-memory, no URL). `bunx tsx e2e/duckdb-transactions.ts`
+- Also `read-only-writes.ts` and `read-only.ts`.
 
-```bash
-cd packages/server
-DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/row-estimates.ts
-DATABASE_URL='mssql://sa:DbStudio1!@127.0.0.1:1433/dbstudio' bunx tsx e2e/row-estimates.ts
-```
+## MongoDB
 
-The database must be disposable. Writes `e2e/artifacts/row-estimates-<mysql|mssql>.json`.
+- `mongo-indexes.ts`: the Indexes routes on a scratch collection and the seeded ones. `DATABASE_URL=mongodb://127.0.0.1:27017/dbstudio bunx tsx e2e/mongo-indexes.ts`
 
-## Record writes and paging regressions
+## Oracle
 
-Force deletes a user referenced twice from one table (as sender and as recipient) and checks that
-both messages go. On PostgreSQL it also saves an edit that fails halfway, 20 times while looping
-queries keep the pool busy, and checks the first change was rolled back and no save hung; then it
-pages one row at a time, forward and back, through NULL sort values and a mixed-direction sort.
+- `oracle-review.ts`: composite keys, nanosecond timestamps, temporal sorting and filters. `DATABASE_URL='oracle://user:pass@host:1521/SERVICE' bunx tsx e2e/oracle-review.ts`
 
-```bash
-cd packages/server
-DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/audit-regressions.ts
-DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/audit-regressions.ts
-```
+## ClickHouse
 
-The database must be disposable. Writes `e2e/artifacts/audit-regressions-<pg|mysql>.json`.
+- `clickhouse-regressions.ts` (Node 20): wide numbers, refused grid mutations, late failures. `DATABASE_URL=clickhouse://dbstudio:dbstudio@127.0.0.1:8123/dbstudio node --import tsx e2e/clickhouse-regressions.ts <label>`
 
-## Run the Oracle review probe
+## No database
 
-The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp
-keys, nullable temporal bulk inserts, mixed-offset timestamp sorting, temporal pattern filters,
-and the composite primary-key delete guard.
+- `read-only.ts`: read-only connections on scratch DuckDB and SQLite files; set `PG_URL`, `MYSQL_URL` or `CLICKHOUSE_URL` to add those engines. `bun run e2e:read-only`
+- `connect-flow.ts` (CLI, browser): connect and switch from the browser against scratch SQLite files. `bun run e2e:connect-flow`
+- `missing-web-build.ts`: a server without a web build answers 404 with build instructions. `bunx tsx e2e/missing-web-build.ts`
 
-```bash
-cd packages/server
-DATABASE_URL='oracle://user:pass@host:1521/SERVICE' bunx tsx e2e/oracle-review.ts
-```
+## Website
 
-The probe writes `e2e/artifacts/oracle-review.json`. A native Oracle `DATE` or
-`TIMESTAMP` query-runner result returns 400. Use `TO_CHAR` with an explicit format in that query.
-
-## ClickHouse regressions
-
-The ClickHouse probe requires Node 20 and checks exact wide-number values, refused grid
-mutations, inserts, explicit SQL mutations, and failures that arrive after response streaming
-starts.
-
-```bash
-DATABASE_URL=clickhouse://dbstudio:dbstudio@127.0.0.1:8123/dbstudio \
-  node --import tsx e2e/clickhouse-regressions.ts after
-```
-
-It writes `e2e/artifacts/clickhouse-regressions-<label>.json`. Use a new label for each run so
-before and after evidence can be compared directly.
-
-## Index listing regressions
-
-Checks SQL Server columnstore columns separately from B-tree INCLUDE columns, and SQLite
-expression keys containing SQL comments and quoted comment markers. On MySQL, checks that
-primary keys and both forms of unique index refuse drops, uniqueness remains enforced, and
-ordinary indexes can still be dropped. Uses and removes only
-the `dbstudio_e2e_index_listing` scratch table in a disposable database.
-
-```bash
-DATABASE_URL=sqlite:///tmp/dbstudio-index-review.sqlite bunx tsx e2e/index-listing.ts
-# Or set DATABASE_URL to a disposable SQL Server or MySQL database.
-```
-
-Writes `e2e/artifacts/<engine>-index-listing.json` (`sqlite`, `mssql`, or `mysql`).
-
-## MongoDB indexes
-
-MongoDB is outside the contract, so the Indexes routes have their own probe. It works on a
-scratch collection `dbstudio_e2e_indexes` that it creates and drops, then records the indexes
-of the seeded `contributors`, `projects` and `contributions` collections (`null` when absent).
-
-```bash
-cd packages/server
-DATABASE_URL='mongodb://127.0.0.1:27017/dbstudio' bunx tsx e2e/mongo-indexes.ts
-```
-
-It writes `e2e/artifacts/mongo-indexes.json`.
-
-## SQLite and Cloudflare D1 specifics
-
-Checks what the contract does not reach: an update naming one missing key answers 404 and rolls
-back the rows it did match, altering a table with mixed-case child references or self-references
-keeps the rows (SQLite rebuilds it; D1 refuses with 400 because it cannot suspend foreign keys),
-internal `_cf_*` tables stay hidden, and the returned blob bytes match the inserted bytes. It
-creates and drops `dbstudio_d1_Parent`, `dbstudio_d1_child`, and `dbstudio_d1_Self`.
-
-```bash
-cd packages/server
-DATABASE_URL=sqlite:///tmp/scratch.sqlite bunx tsx e2e/d1-specifics.ts sqlite
-DATABASE_URL='d1://<account id>/<database id>?authToken=<api token>' bunx tsx e2e/d1-specifics.ts d1
-```
-
-It writes `e2e/artifacts/d1-specifics-<label>.json`.
-
-## Read-only connections
-
-Marks a saved connection read-only and checks that reads work, query-runner writes and DDL fail,
-the tab's old read-write connection closes without moving that tab to another database, a
-connection opened during the switch cannot write, a pasted URL of the same connection opens
-read-only, and an in-memory DuckDB database refuses the switch and keeps its rows. DuckDB and SQLite run on scratch files; set `PG_URL`, `MYSQL_URL` or `CLICKHOUSE_URL`
-to include those engines.
-
-```bash
-cd packages/server
-MYSQL_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/read-only.ts
-```
-
-It writes `e2e/artifacts/read-only.json`.
+- `www-shots.ts`: screenshots of the marketing site in `www/`, not the server; see its header. `bunx tsx e2e/www-shots.ts <label> [shot ...]`
