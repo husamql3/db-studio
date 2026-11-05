@@ -28,7 +28,7 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import type { Db, IndexDescriptionInfo } from "mongodb";
+import type { CollectionInfo, Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
 import { visibleMongoDatabases } from "@/adapters/mongo/mongo-database-visibility.js";
@@ -44,10 +44,6 @@ import {
 	encodeMongoCursor,
 } from "./mongo.pipeline-builder.js";
 import { coerceObjectId } from "./object-id.js";
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 // oxlint-disable-next-line anti-slop/no-unknown-returns -- walks arbitrary BSON documents; anything it does not convert passes through
 const normalizeValue = (value: unknown): unknown => {
@@ -149,25 +145,6 @@ const inferValueType = (value: unknown): DataTypes => {
 	if (typeof value === "number" || typeof value === "bigint") return "number";
 
 	return "text";
-};
-
-const dataTypeLabel = (dt: DataTypes): string => {
-	switch (dt) {
-		case "number":
-			return "numeric";
-		case "boolean":
-			return "boolean";
-		case "json":
-			return "json";
-		case "date":
-			return "date";
-		case "array":
-			return "array";
-		case "enum":
-			return "enum";
-		default:
-			return "text";
-	}
 };
 
 const formatBytes = (bytes: number): string => {
@@ -299,6 +276,96 @@ const resolveFieldDefault = (
 	}
 };
 
+/** The collection's `listCollections` entry; 404 when there is none. */
+const assertCollection = async (mongoDb: Db, name: string) => {
+	const [info] = await mongoDb.listCollections<CollectionInfo>({ name }).toArray();
+
+	if (!info) throw new HTTPException(404, { message: `Collection "${name}" does not exist` });
+
+	return info;
+};
+
+interface CollectionValidator {
+	options?: {
+		validator?: {
+			$jsonSchema?: { properties?: Record<string, unknown>; required?: string[] };
+		};
+	};
+}
+
+/**
+ * Sets one field's type in the collection's `$jsonSchema` validator, keeping the rest of it, and
+ * lists the field as required unless it is nullable.
+ */
+const setFieldValidator = async (
+	mongoDb: Db,
+	tableName: string,
+	info: CollectionValidator,
+	{
+		columnName,
+		bsonType,
+		isNullable,
+	}: { columnName: string; bsonType: string; isNullable: boolean },
+) => {
+	const existingSchema = info.options?.validator?.$jsonSchema ?? {};
+
+	const required = (existingSchema.required ?? []).filter(
+		(name) => !isNullable || name !== columnName,
+	);
+
+	if (!isNullable && !required.includes(columnName)) required.push(columnName);
+
+	const jsonSchema: Record<string, unknown> = {
+		...existingSchema,
+		bsonType: "object",
+		properties: {
+			...existingSchema.properties,
+			[columnName]: { bsonType: isNullable ? [bsonType, "null"] : bsonType },
+		},
+	};
+
+	if (required.length > 0) jsonSchema.required = required;
+
+	// createTable sets validationAction "error"; changing a field has always set "warn".
+	await mongoDb.command({
+		collMod: tableName,
+		validator: { $jsonSchema: jsonSchema },
+		validationAction: "warn",
+	});
+};
+
+/**
+ * One pass over the first 200 documents: per field, in first-seen order, the first value seen,
+ * every BSON type seen, and whether some sampled document holds null or lacks the field.
+ */
+const sampleFields = async (mongoDb: Db, tableName: string) => {
+	const docs = await mongoDb.collection(tableName).find({}).limit(200).toArray();
+
+	const fields = new Map<
+		string,
+		{ first: unknown; bsonTypes: Set<string>; present: number }
+	>();
+
+	for (const doc of docs) {
+		for (const [key, value] of Object.entries(doc)) {
+			const field = fields.get(key) ?? { first: value, bsonTypes: new Set(), present: 0 };
+			field.bsonTypes.add(inferBsonType(value));
+			field.present += 1;
+			fields.set(key, field);
+		}
+	}
+
+	return {
+		sampled: docs.length,
+		fields: [...fields].map(([name, { first, bsonTypes, present }]) => ({
+			name,
+			first,
+			bsonTypes,
+			isNullable: bsonTypes.has("null") || present < docs.length,
+		})),
+	};
+};
+
 const normalizeIdFilter = (filter: Record<string, unknown>): Record<string, unknown> => {
 	if (filter._id && typeof filter._id === "string") {
 		return { ...filter, _id: coerceObjectId(filter._id) };
@@ -352,10 +419,6 @@ type MongoQueryPayload = {
 	limit?: number;
 	skip?: number;
 };
-
-// ---------------------------------------------------------------------------
-// MongoAdapter
-// ---------------------------------------------------------------------------
 
 const MONGO_UNAUTHORIZED = 13;
 const MONGO_ATLAS_ERROR = 8000;
@@ -432,10 +495,6 @@ export class MongoAdapter extends BaseAdapter {
 		return undefined;
 	}
 
-	// -----------------------------------------------------------------------
-	// getTableData — full override (skip/limit pagination)
-	// -----------------------------------------------------------------------
-
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		const { tableName, db, cursor, limit, direction = "asc", sort, order, filters } = params;
 
@@ -472,10 +531,6 @@ export class MongoAdapter extends BaseAdapter {
 		};
 	}
 
-	// -----------------------------------------------------------------------
-	// exportTableData — full override (no SELECT * in Mongo)
-	// -----------------------------------------------------------------------
-
 	override async exportTableData({
 		tableName,
 		db,
@@ -493,10 +548,6 @@ export class MongoAdapter extends BaseAdapter {
 
 		return { cols, rows: normalized };
 	}
-
-	// -----------------------------------------------------------------------
-	// Database operations
-	// -----------------------------------------------------------------------
 
 	override async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		const client = await connector("mongodb").client();
@@ -548,10 +599,6 @@ export class MongoAdapter extends BaseAdapter {
 				(serverStatus.connections?.current ?? 0) + (serverStatus.connections?.available ?? 0),
 		};
 	}
-
-	// -----------------------------------------------------------------------
-	// Table operations
-	// -----------------------------------------------------------------------
 
 	override async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const mongoDb = await connector("mongodb").db(db);
@@ -648,14 +695,7 @@ export class MongoAdapter extends BaseAdapter {
 		const { tableName, newTableName, db } = params;
 		this.assertDifferentTableName(tableName, newTableName);
 		const mongoDb = await connector("mongodb").db(db);
-		const existing = await mongoDb.listCollections({ name: tableName }).toArray();
-
-		if (existing.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
-
+		await assertCollection(mongoDb, tableName);
 		const target = await mongoDb.listCollections({ name: newTableName }).toArray();
 
 		if (target.length > 0) {
@@ -675,45 +715,18 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
 		const mongoDb = await connector("mongodb").db(db);
-		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-
-		if (collections.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
-
-		const collection = mongoDb.collection(tableName);
-		const docs = await collection.find({}).limit(200).toArray();
-		const totalDocs = await collection.estimatedDocumentCount();
-
-		const fieldTypes = new Map<string, Set<string>>();
-		const fieldPresence = new Map<string, number>();
-
-		for (const doc of docs) {
-			for (const [key, value] of Object.entries(doc)) {
-				const bsonType = inferBsonType(value);
-
-				if (!fieldTypes.has(key)) {
-					fieldTypes.set(key, new Set());
-					fieldPresence.set(key, 0);
-				}
-
-				fieldTypes.get(key)?.add(bsonType);
-				fieldPresence.set(key, (fieldPresence.get(key) ?? 0) + 1);
-			}
-		}
+		await assertCollection(mongoDb, tableName);
+		const { sampled, fields } = await sampleFields(mongoDb, tableName);
+		const totalDocs = await mongoDb.collection(tableName).estimatedDocumentCount();
 
 		const properties: Record<string, unknown> = {};
 		const required: string[] = [];
 
-		for (const [field, types] of fieldTypes.entries()) {
-			const presence = fieldPresence.get(field) ?? 0;
-			const typeList = Array.from(types).filter((t) => t !== "null");
-			const isNullable = types.has("null") || presence < docs.length;
+		for (const { name, bsonTypes, isNullable } of fields) {
+			const typeList = Array.from(bsonTypes).filter((t) => t !== "null");
 
-			if (presence === docs.length && docs.length > 0 && !isNullable) required.push(field);
-			properties[field] =
+			if (!isNullable) required.push(name);
+			properties[name] =
 				typeList.length === 1
 					? { bsonType: isNullable ? [typeList[0], "null"] : typeList[0] }
 					: { bsonType: isNullable ? [...typeList, "null"] : typeList };
@@ -722,7 +735,7 @@ export class MongoAdapter extends BaseAdapter {
 		const schema = {
 			collection: tableName,
 			estimatedDocumentCount: totalDocs,
-			sampledDocuments: docs.length,
+			sampledDocuments: sampled,
 			jsonSchema: {
 				bsonType: "object",
 				required: required.length > 0 ? required : undefined,
@@ -733,10 +746,6 @@ export class MongoAdapter extends BaseAdapter {
 		return JSON.stringify(schema, null, 2);
 	}
 
-	// -----------------------------------------------------------------------
-	// Column operations
-	// -----------------------------------------------------------------------
-
 	override async getTableColumns({
 		tableName,
 		db,
@@ -744,76 +753,20 @@ export class MongoAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const mongoDb = await connector("mongodb").db(db);
-		const collection = mongoDb.collection(tableName);
-		const documents = await collection.find({}).limit(200).toArray();
-		const totalDocs = documents.length;
+		const { fields } = await sampleFields(await connector("mongodb").db(db), tableName);
 
-		const columnMap = new Map<
-			string,
-			{ types: Set<DataTypes>; nullable: boolean; presentCount: number }
-		>();
+		if (!fields.some((field) => field.name === "_id"))
+			fields.push({ name: "_id", first: undefined, bsonTypes: new Set(), isNullable: false });
 
-		const ensureColumn = (columnName: string, value: unknown) => {
-			const dt = inferValueType(value);
-
-			if (!columnMap.has(columnName)) {
-				columnMap.set(columnName, {
-					types: new Set([dt]),
-					nullable: false,
-					presentCount: 1,
-				});
-			} else {
-				const entry = columnMap.get(columnName)!;
-				entry.types.add(dt);
-				entry.presentCount += 1;
-			}
-		};
-
-		for (const doc of documents) {
-			for (const [key, value] of Object.entries(doc)) {
-				if (value === null || value === undefined) {
-					if (!columnMap.has(key)) {
-						columnMap.set(key, {
-							types: new Set(["text"]),
-							nullable: true,
-							presentCount: 1,
-						});
-					} else {
-						const entry = columnMap.get(key)!;
-						entry.nullable = true;
-						entry.presentCount += 1;
-					}
-
-					continue;
-				}
-
-				ensureColumn(key, value);
-			}
-		}
-
-		if (totalDocs > 0) {
-			for (const entry of columnMap.values()) {
-				if (entry.presentCount < totalDocs) entry.nullable = true;
-			}
-		}
-
-		if (!columnMap.has("_id")) {
-			columnMap.set("_id", {
-				types: new Set(["text"]),
-				nullable: false,
-				presentCount: totalDocs,
-			});
-		}
-
-		return Array.from(columnMap.entries()).map(([columnName, meta]) => {
-			const dt = (meta.types.values().next().value ?? "text") as DataTypes;
+		return fields.map(({ name: columnName, first, isNullable }) => {
+			// A field reports the type of its first sampled value; one first seen null is text.
+			const dt = first === null || first === undefined ? "text" : inferValueType(first);
 
 			return {
 				columnName,
 				dataType: dt,
-				dataTypeLabel: dataTypeLabel(dt) as ColumnInfoSchemaType["dataTypeLabel"],
-				isNullable: meta.nullable,
+				dataTypeLabel: dt === "number" ? "numeric" : dt,
+				isNullable,
 				columnDefault: null,
 				isPrimaryKey: columnName === "_id",
 				isForeignKey: false,
@@ -825,15 +778,10 @@ export class MongoAdapter extends BaseAdapter {
 	}
 
 	override async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, columnType, defaultValue, isNullable, db } = params;
+		const { tableName, columnName, defaultValue, isNullable, db } = params;
+		const bsonType = mapBsonType(params.columnType);
 		const mongoDb = await connector("mongodb").db(db);
-		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-
-		if (collections.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
+		const info = await assertCollection(mongoDb, tableName);
 
 		const conflict = await mongoDb
 			.collection(tableName)
@@ -845,46 +793,12 @@ export class MongoAdapter extends BaseAdapter {
 			});
 		}
 
-		const resolvedDefault = resolveFieldDefault(defaultValue, columnType);
+		const resolvedDefault = resolveFieldDefault(defaultValue, bsonType);
 		await mongoDb
 			.collection(tableName)
 			.updateMany({}, { $set: { [columnName]: resolvedDefault } });
 
-		const collInfo = collections[0] as {
-			options?: {
-				validator?: {
-					$jsonSchema?: {
-						properties?: Record<string, unknown>;
-						required?: string[];
-					};
-				};
-			};
-		};
-
-		const existingSchema = collInfo.options?.validator?.$jsonSchema ?? {};
-
-		const properties: Record<string, unknown> = {
-			...existingSchema.properties,
-			[columnName]: { bsonType: isNullable ? [columnType, "null"] : columnType },
-		};
-
-		const required: string[] = [...(existingSchema.required ?? [])];
-
-		if (!isNullable && !required.includes(columnName)) required.push(columnName);
-
-		const jsonSchema: Record<string, unknown> = {
-			...existingSchema,
-			bsonType: "object",
-			properties,
-		};
-
-		if (required.length > 0) jsonSchema.required = required;
-
-		await mongoDb.command({
-			collMod: tableName,
-			validator: { $jsonSchema: jsonSchema },
-			validationAction: "warn",
-		});
+		await setFieldValidator(mongoDb, tableName, info, { columnName, bsonType, isNullable });
 	}
 
 	override async deleteColumn({
@@ -902,69 +816,23 @@ export class MongoAdapter extends BaseAdapter {
 	override async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, db } = params;
 		const mongoDb = await connector("mongodb").db(db);
-		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-
-		if (collections.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
+		const info = await assertCollection(mongoDb, tableName);
 
 		if (columnName === "_id") {
 			throw new HTTPException(400, { message: 'Cannot alter the "_id" field' });
 		}
 
-		const collInfo = collections[0] as {
-			options?: {
-				validator?: {
-					$jsonSchema?: {
-						properties?: Record<string, unknown>;
-						required?: string[];
-					};
-				};
-			};
-		};
-
-		const existingSchema = collInfo.options?.validator?.$jsonSchema ?? {};
-
-		const properties: Record<string, unknown> = { ...existingSchema.properties };
-
-		const required: string[] = [...(existingSchema.required ?? [])];
-
-		properties[columnName] = {
-			bsonType: isNullable ? [columnType, "null"] : columnType,
-		};
-
-		const reqIndex = required.indexOf(columnName);
-
-		if (!isNullable && reqIndex === -1) required.push(columnName);
-		else if (isNullable && reqIndex !== -1) required.splice(reqIndex, 1);
-
-		const jsonSchema: Record<string, unknown> = {
-			...existingSchema,
-			bsonType: "object",
-			properties,
-		};
-
-		if (required.length > 0) jsonSchema.required = required;
-
-		await mongoDb.command({
-			collMod: tableName,
-			validator: { $jsonSchema: jsonSchema },
-			validationAction: "warn",
+		await setFieldValidator(mongoDb, tableName, info, {
+			columnName,
+			bsonType: mapBsonType(columnType),
+			isNullable,
 		});
 	}
 
 	override async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, newColumnName, db } = params;
 		const mongoDb = await connector("mongodb").db(db);
-		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-
-		if (collections.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
+		await assertCollection(mongoDb, tableName);
 
 		if (columnName === "_id") {
 			throw new HTTPException(400, { message: 'Cannot rename the "_id" field' });
@@ -997,10 +865,6 @@ export class MongoAdapter extends BaseAdapter {
 				{ $rename: { [columnName]: newColumnName } },
 			);
 	}
-
-	// -----------------------------------------------------------------------
-	// Indexes
-	// -----------------------------------------------------------------------
 
 	override async getServerLogs(): Promise<ServerLogsResult> {
 		try {
@@ -1042,13 +906,7 @@ export class MongoAdapter extends BaseAdapter {
 	}
 
 	private async listIndexes(mongoDb: Db, tableName: string): Promise<IndexInfoSchemaType[]> {
-		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-
-		if (collections.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
+		await assertCollection(mongoDb, tableName);
 
 		const indexes = (await mongoDb.collection(tableName).listIndexes().toArray()).map(
 			toIndexInfo,
@@ -1134,10 +992,6 @@ export class MongoAdapter extends BaseAdapter {
 			});
 		await mongoDb.collection(tableName).dropIndex(indexName);
 	}
-
-	// -----------------------------------------------------------------------
-	// Record operations
-	// -----------------------------------------------------------------------
 
 	override async addRecord({
 		db,
@@ -1268,10 +1122,6 @@ export class MongoAdapter extends BaseAdapter {
 			failureCount: records.length - result.insertedCount,
 		};
 	}
-
-	// -----------------------------------------------------------------------
-	// Query execution
-	// -----------------------------------------------------------------------
 
 	override async executeQuery({
 		query,
