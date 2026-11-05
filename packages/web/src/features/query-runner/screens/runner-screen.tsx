@@ -91,8 +91,7 @@ export const RunnerScreen = ({
 		if (!currentQuery) return;
 
 		if (!queryId) {
-			const newQueryId = addQuery();
-			updateQuery(newQueryId, { query: currentQuery });
+			const newQueryId = addQuery(currentQuery);
 			navigate({
 				to: "/runner/$queryId",
 				params: { queryId: newQueryId },

@@ -18,9 +18,6 @@ type PersonalPreferencesState = {
 		isOpen: boolean;
 		isPinned: boolean;
 	};
-	runnerResults: {
-		height: number;
-	};
 	editor: {
 		tabSize: TabSize;
 		fontSize: EditorFontSize;
@@ -34,7 +31,6 @@ type PersonalPreferencesState = {
 	setSidebarPinned: (isPinned: boolean) => void;
 	toggleSidebarOpen: () => void;
 	toggleSidebarPinned: () => void;
-	setRunnerResultsHeight: (height: number) => void;
 	setTabSize: (tabSize: TabSize) => void;
 	setEditorFontSize: (fontSize: EditorFontSize) => void;
 	setEditorWordWrap: (wordWrap: boolean) => void;
@@ -47,9 +43,6 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 				width: SIDEBAR_DEFAULT_WIDTH,
 				isOpen: true,
 				isPinned: true,
-			},
-			runnerResults: {
-				height: 300,
 			},
 			editor: {
 				tabSize: 2,
@@ -86,13 +79,6 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 					sidebar: {
 						...state.sidebar,
 						isPinned: !state.sidebar.isPinned,
-					},
-				})),
-			setRunnerResultsHeight: (height) =>
-				set((state) => ({
-					runnerResults: {
-						...state.runnerResults,
-						height: Math.max(150, Math.min(800, height)),
 					},
 				})),
 			setTabSize: (tabSize) =>

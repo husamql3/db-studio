@@ -9,7 +9,3 @@ export { FilterPopup } from "./components/header/filter-popup";
 export { useTableData } from "./hooks/use-table-data";
 
 export { TableScreen } from "./screens/table-screen";
-
-export { useRowDetailsStore } from "./stores/row-details.store";
-
-export { useUpdateCellStore } from "./stores/update-cell.store";

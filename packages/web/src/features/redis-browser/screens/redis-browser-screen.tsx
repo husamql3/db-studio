@@ -72,7 +72,7 @@ export const RedisBrowserScreen = () => {
 	const navigate = useNavigate();
 	const { selectedDatabase } = useDatabaseStore();
 	const { openOverlay } = useOverlayStore();
-	const { addQuery, updateQuery } = useQueriesStore();
+	const { addQuery } = useQueriesStore();
 	const [selectedKey, setSelectedKey] = useQueryState("key");
 	const [fullKey, setFullKey] = useState<string | null>(null);
 	const [reverseStreamKey, setReverseStreamKey] = useState<string | null>(null);
@@ -147,8 +147,7 @@ export const RedisBrowserScreen = () => {
 
 	const openInRunner = () => {
 		if (!command) return;
-		const queryId = addQuery(`redis: ${label.slice(0, 40)}`);
-		updateQuery(queryId, { query: command });
+		const queryId = addQuery(command, { name: `redis: ${label.slice(0, 40)}` });
 		navigate({ to: "/runner/$queryId", params: { queryId } });
 	};
 

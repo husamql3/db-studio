@@ -56,7 +56,7 @@ export const useTableData = (params: TablePageParams) => {
 		getTableData({
 			tableName: target.tableName,
 			schemaName: target.schemaName,
-			limit: target.limit?.toString() || CONSTANTS.CACHE_KEYS.TABLE_DEFAULT_LIMIT.toString(),
+			limit: target.limit || "50",
 			db: target.db ?? undefined,
 			cursor: target.cursor,
 			direction: target.direction,

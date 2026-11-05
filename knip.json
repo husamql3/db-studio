@@ -3,7 +3,6 @@
 	"ignore": ["t3-*/**"],
 	"ignoreBinaries": ["lipo", "strip"],
 	"ignoreIssues": {
-		"packages/web/src/components/ai-elements/**": ["exports", "types"],
 		"www/src/components/ui/**": ["exports", "types"]
 	},
 	"workspaces": {

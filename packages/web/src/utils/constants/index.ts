@@ -4,20 +4,11 @@ export const CONSTANTS = {
 
 	ACTIVE_TABLE: "table", // query state key for active table
 	ACTIVE_SCHEMA: "schema", // query state key for selected schema
+	// The ACTIVE_SCHEMA value that selects every schema.
+	ALL_SCHEMAS: "all",
 	// The open table's schema on engines that list schemas, so same-named tables stay apart.
 	TABLE_SCHEMA: "tableSchema" as const,
 	COLUMN_NAME: "columnName", // query state key for column name
-
-	//* cache keys
-	CACHE_KEYS: {
-		TABLES_LIST: "tablesList",
-		TABLE_COLUMNS: "tableColumns",
-		TABLE_DATA: "tableData",
-		TABLE_DEFAULT_LIMIT: 50,
-		DATABASES_LIST: "databasesList",
-		CURRENT_DATABASE: "currentDatabase",
-		DATABASE_CONNECTION_INFO: "databaseConnectionInfo",
-	},
 
 	//* table state keys (cursor-based pagination)
 	TABLE_STATE_KEYS: {

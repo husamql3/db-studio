@@ -3,7 +3,6 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
 		"./data-grid": "./src/data-display/data-grid/data-grid.tsx",
 		"./styles.css": "./src/styles.css",
 		"./utils": "./src/utils.ts",

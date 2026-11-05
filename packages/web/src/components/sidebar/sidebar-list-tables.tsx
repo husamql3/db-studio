@@ -14,7 +14,7 @@ export const SidebarListTables = () => {
 	});
 
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
-		defaultValue: "all",
+		defaultValue: CONSTANTS.ALL_SCHEMAS,
 	});
 
 	const engine = useDatabaseEngine();
@@ -38,21 +38,27 @@ export const SidebarListTables = () => {
 	const showSchemaDropdown = (engine?.schemaSelector ?? false) && schemas.length > 1;
 
 	// One schema in view: the dropdown already names it, so the prefix only widens rows.
-	const showSchemaName = selectedSchema === "all" && schemas.length > 1;
+	const showSchemaName = selectedSchema === CONSTANTS.ALL_SCHEMAS && schemas.length > 1;
 
 	const filteredTables = tablesList?.filter((table) => {
-		const matchesSchema = selectedSchema === "all" || table.schemaName === selectedSchema;
+		const matchesSchema =
+			selectedSchema === CONSTANTS.ALL_SCHEMAS || table.schemaName === selectedSchema;
+
 		const matchesSearch = table.tableName.toLowerCase().includes(searchTerm.toLowerCase());
 
 		return matchesSchema && matchesSearch;
 	});
 
 	useEffect(() => {
-		if (!showSchemaDropdown || selectedSchema === "all" || schemas.includes(selectedSchema)) {
+		if (
+			!showSchemaDropdown ||
+			selectedSchema === CONSTANTS.ALL_SCHEMAS ||
+			schemas.includes(selectedSchema)
+		) {
 			return;
 		}
 
-		void setSelectedSchema("all");
+		void setSelectedSchema(CONSTANTS.ALL_SCHEMAS);
 	}, [schemas, selectedSchema, setSelectedSchema, showSchemaDropdown]);
 
 	if (isLoadingTablesList) {

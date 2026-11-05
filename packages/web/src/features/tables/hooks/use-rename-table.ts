@@ -8,7 +8,6 @@ import {
 } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
-import { CONSTANTS } from "@/utils/constants";
 
 export const useRenameTable = ({
 	tableName,
@@ -39,10 +38,10 @@ export const useRenameTable = ({
 				queryKey: tableKeys.lists(),
 			});
 			await queryClient.removeQueries({
-				queryKey: [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName],
+				queryKey: tableKeys.dataByTable(tableName),
 			});
 			await queryClient.removeQueries({
-				queryKey: [CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName],
+				queryKey: tableKeys.columnsByTable(tableName),
 			});
 		},
 	});

@@ -243,7 +243,7 @@ Location: `packages/web/src/hooks/use-[name].ts`
 ```ts
 export const useDatabasesList = () => {
   const { data, isLoading } = useQuery({
-    queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
+    queryKey: databaseKeys.list(),
     queryFn: () => rootApi.get<BaseResponse<DatabaseListSchemaType>>("/databases"),
     select: (res) => res.data.data,
     staleTime: 1000 * 60 * 5,

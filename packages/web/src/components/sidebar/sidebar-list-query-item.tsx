@@ -81,7 +81,7 @@ export const SidebarListQueryItem = ({
 
 	const handleDuplicate = useCallback(() => {
 		const query = getQuery(id);
-		const newQueryId = addQuery(`${query?.name} (Copy)`);
+		const newQueryId = addQuery(query?.query, { name: `${query?.name} (Copy)` });
 		navigate({ to: "/runner/$queryId", params: { queryId: newQueryId } });
 		toast.success("Query duplicated successfully");
 	}, [addQuery, getQuery, navigate, id]);
