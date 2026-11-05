@@ -11,9 +11,14 @@ if (!databaseUrl?.startsWith("mongodb")) {
 	throw new Error("Set DATABASE_URL to a disposable MongoDB database");
 }
 
+const { connector, createConnection, registerConnection } =
+	await import("../src/open-connections.js");
+
+registerConnection("e2e", createConnection(databaseUrl));
+
 const { createServer } = await import("../src/app.js");
-const { connector } = await import("../src/open-connections.js");
 const { app } = createServer();
+
 const db = connector("mongodb").dbName;
 const collection = "dbstudio_e2e_indexes";
 const missingCollection = "dbstudio_e2e_indexes_missing";
