@@ -10,7 +10,6 @@ export const FormContent = () => {
 	const { control } = useFormContext<AddTableFormData>();
 
 	const { fields, append, remove } = useFieldArray({ control, name: "fields" });
-	const { remove: removeForeignKeys } = useFieldArray({ control, name: "foreignKeys" });
 
 	const watchedFields = useWatch({ control, name: "fields" });
 
@@ -21,7 +20,6 @@ export const FormContent = () => {
 	const removeField = (index: number) => {
 		if (fields.length > 1) {
 			remove(index);
-			removeForeignKeys(index);
 		}
 	};
 

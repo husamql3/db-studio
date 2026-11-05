@@ -39,10 +39,7 @@ export const useCreateTable = () => {
 
 	const createTable = async (
 		data: CreateTableSchemaType,
-		options: {
-			onSuccess?: () => void;
-			onError?: (error: ApiError) => void;
-		},
+		options: { onSuccess?: () => void },
 	) => {
 		return toast.promise(createTableMutation(data, options), {
 			loading: "Creating table...",

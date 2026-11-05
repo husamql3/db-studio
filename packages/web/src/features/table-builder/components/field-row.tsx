@@ -32,7 +32,11 @@ export const FieldRow = ({
 	} = useFormContext<AddTableFormData>();
 
 	const values = useWatch({ control, name: `fields.${index}` });
-	const referencedTable = useWatch({ control, name: `foreignKeys.${index}.referencedTable` });
+
+	const referencedTable = useWatch({
+		control,
+		name: `fields.${index}.foreignKey.referencedTable`,
+	});
 
 	return (
 		<div className="grid grid-cols-4 gap-4">

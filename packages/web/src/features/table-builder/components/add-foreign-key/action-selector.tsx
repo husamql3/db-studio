@@ -10,24 +10,37 @@ import { Controller, useFormContext } from "react-hook-form";
 import type { AddTableFormData } from "@/features/table-builder/types";
 import { FOREIGN_KEY_ACTION_OPTIONS } from "../../constants";
 
-export const RemoveActionSelector = ({ index }: { index: number }) => {
+const ACTION_LABELS = {
+	onUpdate: "Action if referenced row is updated",
+	onDelete: "Action if referenced row is deleted",
+};
+
+export const ActionSelector = ({
+	index,
+	action,
+}: {
+	index: number;
+	action: keyof typeof ACTION_LABELS;
+}) => {
 	const { control } = useFormContext<AddTableFormData>();
+	const name = `fields.${index}.foreignKey.${action}` as const;
 
 	return (
 		<Controller
 			control={control}
-			name={`foreignKeys.${index}.onDelete`}
+			name={name}
 			defaultValue="NO ACTION"
 			render={({ field }) => (
 				<div className="flex flex-col gap-2">
-					<Label htmlFor={`foreignKeys.${index}.onDelete`}>
-						Action if referenced row is deleted
-					</Label>
+					<Label htmlFor={name}>{ACTION_LABELS[action]}</Label>
 					<Select
 						value={field.value}
-						onValueChange={(value) => field.onChange(value)}
+						onValueChange={field.onChange}
 					>
-						<SelectTrigger className="w-full flex-1">
+						<SelectTrigger
+							id={name}
+							className="w-full flex-1"
+						>
 							<SelectValue placeholder="Select an action" />
 						</SelectTrigger>
 						<SelectContent>
