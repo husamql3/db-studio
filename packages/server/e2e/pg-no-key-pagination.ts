@@ -1,56 +1,32 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
 import { tableDataResultSchema } from "@db-studio/shared/types";
 import { z } from "zod";
+import { inProcessApp, requireDatabaseUrl, writeArtifact } from "./lib.js";
 
-process.env.DB_STUDIO_TELEMETRY = "0";
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to a disposable PostgreSQL database");
-}
-
-const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-const { createServer } = await import("../src/app.js");
-const { connector } = await import("../src/open-connections.js");
-const { app } = createServer();
+// A table without a primary key pages by its physical row location (ctid) as the tie-breaker:
+// rows that share a sort value must each appear once, forward and backward, and the location
+// must not reach the rows the grid shows.
+const { call, close, query } = await inProcessApp(requireDatabaseUrl("pg").url);
 const table = "dbstudio_no_key_paging";
 const evidence: Record<string, unknown> = {};
 const pageSchema = z.object({ data: tableDataResultSchema });
 
-const query = async (sql: string) => {
-	const response = await app.handle(
-		new Request(new URL(`/api/pg/query?db=${encodeURIComponent(db)}`, "http://localhost"), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ query: sql }),
-		}),
-	);
-
-	assert.equal(response.status, 200, await response.text());
-};
-
 const page = async (name: string, order: string, cursor?: string, direction = "asc") => {
-	const params = new URLSearchParams({ db, limit: "2", sort: "label", order, direction });
+	const params = new URLSearchParams({ limit: "2", sort: "label", order, direction });
 
 	if (cursor) params.set("cursor", cursor);
 
-	const response = await app.handle(
-		new Request(new URL(`/api/pg/tables/${table}/data?${params}`, "http://localhost")),
-	);
-
-	const body: unknown = await response.json();
+	const { status, body } = await call("GET", `/tables/${table}/data?${params}`);
 
 	// Cursor values contain physical tuple locations; retain visible rows and flags only.
-	if (response.status !== 200) {
-		evidence[name] = { status: response.status, body };
+	if (status !== 200) {
+		evidence[name] = { status, body };
 		assert.fail(`${name}: ${JSON.stringify(body)}`);
 	}
 
 	const result = pageSchema.parse(body).data;
 	evidence[name] = {
-		status: response.status,
+		status,
 		rows: result.data,
 		hasNextPage: result.meta.hasNextPage,
 		hasPreviousPage: result.meta.hasPreviousPage,
@@ -81,11 +57,7 @@ try {
 
 	console.log("PASS PostgreSQL no-key sorting and forward/backward pagination");
 } finally {
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL("./artifacts/pg-no-key-pagination.json", import.meta.url),
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
+	await writeArtifact("pg-no-key-pagination.json", evidence);
 	await query(`DROP TABLE IF EXISTS ${table}`);
-	await (await connector("pg").pool(db)).end();
+	await close();
 }
