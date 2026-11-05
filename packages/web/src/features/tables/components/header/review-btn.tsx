@@ -8,12 +8,8 @@ import { toast } from "sonner";
 import { isMac } from "@/lib/platform";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCell } from "../../hooks/use-update-cell";
-import {
-	type CellUpdate,
-	getRowIdentity,
-	useUpdateCellStore,
-} from "../../stores/update-cell.store";
-import { stableStringify } from "../../utils/table-diff";
+import { type CellUpdate, useUpdateCellStore } from "../../stores/update-cell.store";
+import { getRecordKey } from "../../utils/table-diff";
 
 /** One side of a change, like a diff line; NULL and empty text get the grid's markers. */
 const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {
@@ -86,7 +82,7 @@ export const ReviewBtn = () => {
 	const rows = new Map<string, CellUpdate[]>();
 
 	for (const update of updates) {
-		const key = stableStringify(getRowIdentity(update.rowData, editScope));
+		const key = getRecordKey(update.rowData, editScope.keyColumns);
 		rows.set(key, [...(rows.get(key) ?? []), update]);
 	}
 
@@ -134,7 +130,7 @@ export const ReviewBtn = () => {
 				</div>
 				<div className="max-h-96 overflow-auto font-mono">
 					{[...rows.values()].map((cells, index) => (
-						<section key={stableStringify(getRowIdentity(cells[0].rowData, editScope))}>
+						<section key={getRecordKey(cells[0].rowData, editScope.keyColumns)}>
 							<h3 className="sticky top-0 z-10 flex min-h-6 items-center py-1 border-b bg-popover px-3 text-[0.625rem] text-muted-foreground">
 								{rowLabel(cells[0].rowData, index)}
 							</h3>

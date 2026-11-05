@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { EditScope } from "@/features/tables/table.type";
 import { onConnectionReset } from "@/stores/connection-reset";
-import { stableStringify } from "../utils/table-diff";
+import { getRowIdentity, stableStringify } from "../utils/table-diff";
 
 /** A pending value meaning "set this cell to its column default"; compared by identity. */
 export const CELL_DEFAULT = Object.freeze({ default: true });
@@ -60,19 +60,12 @@ type UpdateCellStore = {
 
 const GLOBAL_SCOPE: EditScope = { id: "global", keyColumns: [] };
 
-/** The key values that identify a row's drafts within a scope. */
-export const getRowIdentity = (rowData: Record<string, unknown>, scope = GLOBAL_SCOPE) =>
-	scope.keyColumns.length > 0
-		? scope.keyColumns.map((column) => rowData[column])
-		: (rowData.id ?? rowData._id ?? rowData);
-
 const getCellKey = (
 	rowData: Record<string, unknown>,
 	columnName: string,
 	scope = GLOBAL_SCOPE,
 ): string =>
-	// Keeps each key value's type, so a MongoDB `_id` of 1 and one of "1" stay two rows.
-	stableStringify([scope.id, getRowIdentity(rowData, scope), columnName]);
+	stableStringify([scope.id, getRowIdentity(rowData, scope.keyColumns), columnName]);
 
 const toChange = (
 	{ rowData, columnName, newValue, originalValue }: StagedEdit,

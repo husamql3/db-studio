@@ -4,7 +4,7 @@ import { diffTableRows, getRecordKey } from "./table-diff";
 describe("getRecordKey", () => {
 	it("uses primary key columns when provided", () => {
 		const row = { id: 1, email: "alice@example.com", name: "Alice" };
-		expect(getRecordKey(row, ["email"])).toBe("alice@example.com");
+		expect(getRecordKey(row, ["email"])).toBe('["alice@example.com"]');
 	});
 
 	it("supports composite primary keys", () => {
@@ -29,7 +29,7 @@ describe("getRecordKey", () => {
 
 	it("falls back to _id when id is absent", () => {
 		const row = { _id: "mongo-123", name: "Doc" };
-		expect(getRecordKey(row)).toBe("mongo-123");
+		expect(getRecordKey(row)).toBe('"mongo-123"');
 	});
 
 	it("falls back to stableStringify when neither id nor _id is present", () => {

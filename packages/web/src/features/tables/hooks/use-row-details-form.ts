@@ -7,9 +7,9 @@ import {
 	getIdentityColumnNames,
 	getPrimaryKeyColumn,
 	getPrimaryKeyColumns,
-	getRecordIdentity,
 	toFormValues,
 } from "../utils/row-details-utils";
+import { getRecordKey } from "../utils/table-diff";
 
 /**
  * The row-details draft: the form itself, how it re-syncs against refreshed
@@ -67,7 +67,8 @@ export const useRowDetailsForm = ({
 	// the refreshed row so displayed values stay consistent. Dirty edits are preserved
 	// only when the refreshed row has the same stable record identity.
 	useEffect(() => {
-		const currentIdentity = getRecordIdentity(row, tableCols);
+		const currentIdentity =
+			row && tableCols ? getRecordKey(row, identityColumnNames) : undefined;
 
 		const isSameSelection =
 			tableName === lastTableNameRef.current &&
@@ -111,7 +112,16 @@ export const useRowDetailsForm = ({
 			lastRecordIdentityRef.current = currentIdentity;
 			methods.reset(freshValues);
 		}
-	}, [row, tableCols, tableName, rowIndex, columnsSignature, methods, isDirty]);
+	}, [
+		row,
+		tableCols,
+		identityColumnNames,
+		tableName,
+		rowIndex,
+		columnsSignature,
+		methods,
+		isDirty,
+	]);
 
 	return {
 		methods,

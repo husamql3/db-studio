@@ -15,21 +15,16 @@ export const stableStringify = (value: unknown): string => {
 		.join(",")}}`;
 };
 
-export const getRecordKey = (row: TableRecord, primaryKeyCols: string[] = []): string => {
-	if (primaryKeyCols.length === 1) {
-		return String(row[primaryKeyCols[0]] ?? "");
-	}
+/** What identifies a row: its key columns' values, else its `id` or `_id`, else the whole row. */
+export const getRowIdentity = (row: TableRecord, keyColumns: string[]) =>
+	keyColumns.length > 0 ? keyColumns.map((column) => row[column]) : (row.id ?? row._id ?? row);
 
-	if (primaryKeyCols.length > 1) {
-		return stableStringify(primaryKeyCols.map((col) => row[col]));
-	}
-
-	if (row.id !== undefined && row.id !== null) return String(row.id);
-
-	if (row._id !== undefined && row._id !== null) return String(row._id);
-
-	return stableStringify(row);
-};
+/**
+ * The row's identity as a string: the grid's row id, and the key of its drafts and diffs. Keeps
+ * each value's type, so a MongoDB `_id` of 1 and one of "1" stay two rows.
+ */
+export const getRecordKey = (row: TableRecord, keyColumns: string[] = []): string =>
+	stableStringify(getRowIdentity(row, keyColumns));
 
 const isValueEqual = (a: unknown, b: unknown): boolean => {
 	if (a === b) return true;
