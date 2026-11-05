@@ -37,18 +37,23 @@ import type {
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import {
+	decodeCursor,
+	keysetOrderBy,
+	keysetPage,
+	keysetPredicate,
+	orderTerms,
+} from "@/adapters/sql-pagination.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
-	buildKeysetPredicate,
-	buildOrderBy,
 	duckdbFilters,
+	duckdbKeyset,
 	quoteDuckdbIdent as ident,
 	isSerialType,
 	mapColumnTypeToDuckdb,
-	type OrderTerm,
 } from "./duckdb.query-builder.js";
 
 type Row = Record<string, Json>;
@@ -211,10 +216,6 @@ export class DuckDbAdapter extends SqlAdapter {
 		return undefined;
 	}
 
-	// =========================================================
-	// Records — paginated read
-	// =========================================================
-
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		const {
 			tableName,
@@ -229,77 +230,44 @@ export class DuckDbAdapter extends SqlAdapter {
 		return connector("duckdb").withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
 			const primaryKey = await this.primaryKey(conn, tableName);
-
-			const terms: OrderTerm[] = this.orderTerms(
-				sort,
-				order,
-				primaryKey.length ? primaryKey : ["rowid"],
-			);
-
+			const terms = orderTerms(sort, order, primaryKey.length ? primaryKey : ["rowid"]);
 			const backward = direction === "desc";
-			const binds = createBinds(() => "?");
-
-			const filter = {
-				conditions: buildFilterConditions(filters, binds.bind, duckdbFilters),
-				values: binds.values,
-			};
-
-			const cursorData = cursor ? this.decodeCursor(cursor) : null;
-
-			const keyset = cursorData
-				? buildKeysetPredicate(terms, cursorData.values, backward)
-				: null;
-
-			const orderBy = buildOrderBy(terms, backward);
-			const select = primaryKey.length ? "*" : "*, rowid";
-
-			const where = whereSql(
-				keyset ? [...filter.conditions, keyset.clause] : filter.conditions,
-			);
+			const { values, bind } = createBinds(() => "?");
+			const filterConditions = buildFilterConditions(filters, bind, duckdbFilters);
 
 			const [countRow] = await query(
 				conn,
-				`SELECT COUNT(*) AS total FROM ${ident(tableName)} ${whereSql(filter.conditions)}`,
-				filter.values,
+				`SELECT COUNT(*) AS total FROM ${ident(tableName)} ${whereSql(filterConditions)}`,
+				[...values],
+			);
+
+			const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
+
+			const where = whereSql(
+				cursorValues
+					? [
+							...filterConditions,
+							keysetPredicate(terms, cursorValues, backward, bind, duckdbKeyset),
+						]
+					: filterConditions,
 			);
 
 			const fetched = await query(
 				conn,
-				`SELECT ${select} FROM ${ident(tableName)} ${where} ${orderBy} LIMIT ?`,
-				[...filter.values, ...(keyset?.values ?? []), limit + 1],
+				`SELECT ${primaryKey.length ? "*" : "*, rowid"} FROM ${ident(tableName)} ${where} ${keysetOrderBy(terms, backward, duckdbKeyset)} LIMIT ${bind(limit + 1)}`,
+				values,
 			);
 
-			const hasMore = fetched.length > limit;
-			const page = fetched.slice(0, limit);
-
-			if (backward) page.reverse();
-
-			const cursorOf = (row: Row) =>
-				this.encodeCursor({
-					values: Object.fromEntries(terms.map((t) => [t.column, row[t.column]])),
-					sortColumns: terms.map((t) => t.column),
-				});
-
-			const first = page[0];
-			const last = page.at(-1);
-			const hasNextPage = backward ? !!cursor : hasMore;
-			const hasPreviousPage = backward ? hasMore : !!cursor;
+			const { rows, ...page } = keysetPage(fetched, { limit, cursor, backward, terms });
 
 			return {
-				data: page.map((row) => {
+				data: rows.map((row) => {
 					if (primaryKey.length) return this.normalizeRow(row);
 					const { rowid: _rowid, ...rest } = row;
 
 					return this.normalizeRow(rest);
 				}),
-				meta: {
-					limit,
-					total: Number(countRow?.total ?? 0),
-					hasNextPage,
-					hasPreviousPage,
-					nextCursor: hasNextPage && last ? cursorOf(last) : null,
-					prevCursor: hasPreviousPage && first ? cursorOf(first) : null,
-				},
+				meta: { limit, total: Number(countRow?.total ?? 0), ...page },
 			};
 		});
 	}

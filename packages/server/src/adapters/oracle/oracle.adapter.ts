@@ -39,6 +39,7 @@ import {
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
@@ -46,7 +47,6 @@ import { connector } from "@/open-connections.js";
 import {
 	bindOracleValue,
 	buildOracleSelectList,
-	buildOrderBy,
 	formatOracleDefault,
 	groupOracleForeignKeys,
 	IDENTITY_CLAUSE,
@@ -57,7 +57,6 @@ import {
 	type OracleForeignKeyRow,
 	oracleFilters,
 	oraclePlaceholder,
-	type OrderTerm,
 } from "./oracle.query-builder.js";
 import { toJsonNumber } from "./oracle.values.js";
 
@@ -315,14 +314,16 @@ export class OracleAdapter extends BaseAdapter {
 			);
 
 			const primaryKey = await this.primaryKey(conn, tableName);
+			const tableAlias = "t";
 
-			const terms: OrderTerm[] = this.orderTerms<string | null>(
+			// ROWID breaks ties for a table without a key.
+			const terms = orderTerms(
 				sort,
 				order,
-				primaryKey.length ? primaryKey : [null],
+				primaryKey.length ? primaryKey : [{ raw: `${tableAlias}.ROWID` }],
 			);
 
-			const offset = cursor ? Number(this.decodeCursor(cursor)?.values._offset ?? 0) : 0;
+			const offset = offsetOf(cursor);
 			const { values, bind } = createBinds(oraclePlaceholder);
 
 			const where = whereSql(
@@ -337,29 +338,17 @@ export class OracleAdapter extends BaseAdapter {
 				filterValues,
 			);
 
-			const tableAlias = "t";
-
 			const fetched = await this.query(
 				conn,
-				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${buildOrderBy(terms, tableAlias)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
+				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${offsetOrderBy(terms, (name) => `${tableAlias}.${ident(name)}`)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
 				values,
 			);
 
-			const hasMore = fetched.length > limit;
-
-			const offsetCursor = (at: number) =>
-				this.encodeCursor({ values: { _offset: at }, sortColumns: ["_offset"] });
+			const { rows, ...page } = offsetPage(fetched, offset, limit);
 
 			return {
-				data: fetched.slice(0, limit).map((row) => this.normalizeRow(row)),
-				meta: {
-					limit,
-					total: Number(countRow?.total ?? 0),
-					hasNextPage: hasMore,
-					hasPreviousPage: offset > 0,
-					nextCursor: hasMore ? offsetCursor(offset + limit) : null,
-					prevCursor: offset > 0 ? offsetCursor(Math.max(0, offset - limit)) : null,
-				},
+				data: rows.map((row) => this.normalizeRow(row)),
+				meta: { limit, total: Number(countRow?.total ?? 0), ...page },
 			};
 		});
 	}

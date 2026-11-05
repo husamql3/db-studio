@@ -9,7 +9,6 @@ import type {
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
-	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -23,7 +22,6 @@ import type {
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
-	SortDirection,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -169,30 +167,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 		return [...groups.values()];
 	}
 
-	/**
-	 * ORDER BY terms for a page: the requested sorts, then every key column not already
-	 * sorted on, as tie-breakers in the leading sort's direction so paging stays stable.
-	 */
-	protected orderTerms<K>(
-		sort: GetTableDataParams["sort"] = [],
-		order: SortDirection,
-		keyColumns: K[],
-	): Array<{ column: string | K; direction: SortDirection }> {
-		const sorts =
-			typeof sort === "string" ? (sort ? [{ columnName: sort, direction: order }] : []) : sort;
-
-		const tieBreakerDirection = sorts[0]?.direction ?? order;
-
-		return [
-			...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
-			...keyColumns.flatMap((column) =>
-				sorts.some((s) => s.columnName === column)
-					? []
-					: [{ column, direction: tieBreakerDirection }],
-			),
-		];
-	}
-
 	/** Human-readable `col = value` list used in "record not found" errors. */
 	protected describeKey(keyColumns: string[], keyValues: unknown[]): string {
 		return keyColumns.map((column, i) => `${column} = ${keyValues[i]}`).join(", ");
@@ -203,20 +177,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 			throw new HTTPException(400, {
 				message: `New table name must be different from "${tableName}"`,
 			});
-		}
-	}
-
-	/** Encode cursor data to a URL-safe base64 string. */
-	protected encodeCursor(data: CursorData): string {
-		return Buffer.from(JSON.stringify(data)).toString("base64url");
-	}
-
-	/** Decode a base64url cursor string; returns null if malformed. */
-	protected decodeCursor(cursor: string): CursorData | null {
-		try {
-			return JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
-		} catch {
-			return null;
 		}
 	}
 

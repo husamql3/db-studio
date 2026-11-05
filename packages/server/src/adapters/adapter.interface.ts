@@ -38,7 +38,8 @@ export interface GetTableDataParams {
 	cursor?: string;
 	limit?: number;
 	direction?: SortDirection;
-	sort?: string | SortType[];
+	sort?: SortType[];
+	/** The key's direction when nothing is sorted. */
 	order?: SortDirection;
 	filters?: FilterType[];
 }

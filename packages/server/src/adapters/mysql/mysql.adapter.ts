@@ -8,7 +8,6 @@ import type {
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
-	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -29,7 +28,6 @@ import type {
 	RenameTableParamsSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
-	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
@@ -50,15 +48,21 @@ import {
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import {
+	decodeCursor,
+	keysetOrderBy,
+	keysetPage,
+	keysetPredicate,
+	orderTerms,
+} from "@/adapters/sql-pagination.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
-	buildCursorWhereClause,
 	buildMysqlColumnDefinition,
-	buildSortClause,
 	mysqlFilters,
+	mysqlKeyset,
 	quoteMysqlIdent,
 } from "./mysql.query-builder.js";
 
@@ -123,10 +127,6 @@ export class MySqlAdapter extends SqlAdapter {
 
 	protected readonly quoteIdentifier = quoteMysqlIdent;
 
-	// =========================================================
-	// Override getTableData to incorporate primary-key cursor columns
-	// =========================================================
-
 	override async getTableData(params: GetTableDataParams) {
 		const {
 			tableName,
@@ -140,127 +140,47 @@ export class MySqlAdapter extends SqlAdapter {
 		} = params;
 
 		const pool = await connector("mysql").pool(db);
-		const { values: filterValues, bind } = createBinds(() => "?");
-		const filterWhere = whereSql(buildFilterConditions(filters, bind, mysqlFilters));
+		const { values, bind } = createBinds(() => "?");
+		const filterConditions = buildFilterConditions(filters, bind, mysqlFilters);
 
 		// The first queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, tableName),
-			this.countRows(pool, tableName, filterWhere, filterValues),
+			this.countRows(pool, tableName, whereSql(filterConditions), [...values]),
 		]).catch((e: unknown) => {
 			if ((e as { errno?: number }).errno === MYSQL_NO_SUCH_TABLE)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			throw e;
 		});
 
-		let sortColumns: string[] = [];
-		let effectiveSortDirection: SortDirection = order;
+		const terms = orderTerms(sort, order, pkColumns);
+		const backward = direction === "desc";
+		const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
 
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-			effectiveSortDirection = sort[0].direction;
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-
-		const cursorColumns = [
-			...sortColumns,
-			...pkColumns.filter((pk) => !sortColumns.includes(pk)),
-		];
-
-		let cursorWhere = "";
-		let cursorValues: unknown[] = [];
-
-		if (cursor) {
-			const cursorData = this.decodeCursor(cursor);
-
-			if (cursorData) {
-				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
-				cursorWhere = res.clause;
-				cursorValues = res.values;
-			}
-		}
-
-		let combinedWhere = "";
-
-		if (filterWhere && cursorWhere) {
-			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
-		} else if (filterWhere) {
-			combinedWhere = filterWhere;
-		} else if (cursorWhere) {
-			combinedWhere = `WHERE ${cursorWhere}`;
-		}
-
-		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
-		const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
-		let effectiveSortClause = sortClause;
-
-		if (direction === "desc") {
-			if (sortClause) {
-				effectiveSortClause = sortClause
-					.replace(/\bASC\b/gi, "TEMP_DESC")
-					.replace(/\bDESC\b/gi, "ASC")
-					.replace(/TEMP_DESC/g, "DESC");
-
-				if (pkTieBreakerCols.length) {
-					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteMysqlIdent(col)} ${tbDir}`).join(", ")}`;
-				}
-			} else if (cursorColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteMysqlIdent(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
-			}
-		} else if (!sortClause && cursorColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteMysqlIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-		} else if (pkTieBreakerCols.length) {
-			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteMysqlIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-		}
-
-		const [dataRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT * FROM ${quoteMysqlIdent(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
-			[...filterValues, ...cursorValues] as any,
+		const where = whereSql(
+			cursorValues && terms.length
+				? [
+						...filterConditions,
+						keysetPredicate(terms, cursorValues, backward, bind, mysqlKeyset),
+					]
+				: filterConditions,
 		);
 
-		let rows = dataRows as Record<string, unknown>[];
-		const hasMore = rows.length > limit;
+		const [dataRows] = await pool.execute<RowDataPacket[]>(
+			`SELECT * FROM ${quoteMysqlIdent(tableName)} ${where} ${keysetOrderBy(terms, backward, mysqlKeyset)} LIMIT ${Math.floor(limit) + 1}`,
+			values as any,
+		);
 
-		if (hasMore) rows = rows.slice(0, limit);
-
-		if (direction === "desc") rows = rows.reverse();
-
-		let nextCursor: string | null = null;
-		let prevCursor: string | null = null;
-
-		if (rows.length > 0 && cursorColumns.length > 0) {
-			const firstRow = rows[0];
-			const lastRow = rows[rows.length - 1];
-
-			const makeCursor = (row: Record<string, unknown>): CursorData => ({
-				values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
-				sortColumns: cursorColumns,
-			});
-
-			if (direction === "asc") {
-				if (hasMore) nextCursor = this.encodeCursor(makeCursor(lastRow));
-
-				if (cursor) prevCursor = this.encodeCursor(makeCursor(firstRow));
-			} else {
-				if (cursor) nextCursor = this.encodeCursor(makeCursor(lastRow));
-
-				if (hasMore) prevCursor = this.encodeCursor(makeCursor(firstRow));
-			}
-		}
+		const { rows, ...page } = keysetPage(dataRows as Record<string, unknown>[], {
+			limit,
+			cursor,
+			backward,
+			terms,
+		});
 
 		return {
 			data: rows,
-			meta: {
-				limit,
-				total,
-				...(estimated && { totalEstimated: true }),
-				hasNextPage: direction === "asc" ? hasMore : !!cursor,
-				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
-				nextCursor,
-				prevCursor,
-			},
+			meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
 		};
 	}
 

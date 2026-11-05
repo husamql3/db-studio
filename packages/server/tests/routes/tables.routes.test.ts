@@ -170,9 +170,9 @@ describe("Tables Routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			// Invalid JSON should be kept as a single-column sort string
+			// Invalid JSON is a single column name, sorted ascending
 			expect(mockDao.getTableData).toHaveBeenCalledWith(
-				expect.objectContaining({ sort: "invalid-json" }),
+				expect.objectContaining({ sort: [{ columnName: "invalid-json", direction: "asc" }] }),
 			);
 		});
 	});

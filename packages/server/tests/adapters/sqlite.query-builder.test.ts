@@ -2,8 +2,6 @@ import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import {
-	buildCursorWhereClause,
-	buildSortClause,
 	hasMultipleStatements,
 	isTransactionControl,
 	sqliteFilters,
@@ -126,106 +124,6 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 
 		expect(clause).toContain(`"status" = ?`);
 		expect(values).toEqual(["active"]);
-	});
-});
-
-describe("sqlite.query-builder — buildSortClause", () => {
-	it("returns empty string for empty sorts array", () => {
-		expect(buildSortClause([], "asc")).toBe("");
-	});
-
-	it("returns empty string for empty string sort", () => {
-		expect(buildSortClause("", "asc")).toBe("");
-	});
-
-	it("builds ORDER BY from array of sorts", () => {
-		const clause = buildSortClause(
-			[
-				{ columnName: "name", direction: "asc" },
-				{ columnName: "age", direction: "desc" },
-			],
-			"asc",
-		);
-
-		expect(clause).toBe(`ORDER BY "name" ASC, "age" DESC`);
-	});
-
-	it("builds ORDER BY from string sort column", () => {
-		const clause = buildSortClause("id", "asc");
-		expect(clause).toBe(`ORDER BY "id" ASC`);
-	});
-
-	it("respects desc order for string sort", () => {
-		const clause = buildSortClause("created_at", "desc");
-		expect(clause).toBe(`ORDER BY "created_at" DESC`);
-	});
-});
-
-describe("sqlite.query-builder — buildCursorWhereClause", () => {
-	it("returns empty clause when sortColumns is empty", () => {
-		const { clause, values } = buildCursorWhereClause(
-			{ values: {}, sortColumns: [] },
-			"asc",
-			"asc",
-		);
-
-		expect(clause).toBe("");
-		expect(values).toEqual([]);
-	});
-
-	it("uses > operator for asc sort + asc direction (forward)", () => {
-		const { clause, values } = buildCursorWhereClause(
-			{ values: { id: 5 }, sortColumns: ["id"] },
-			"asc",
-			"asc",
-		);
-
-		expect(clause).toBe(`("id") > (?)`);
-		expect(values).toEqual([5]);
-	});
-
-	it("uses < operator for asc sort + desc direction (backward)", () => {
-		const { clause, values } = buildCursorWhereClause(
-			{ values: { id: 5 }, sortColumns: ["id"] },
-			"desc",
-			"asc",
-		);
-
-		expect(clause).toBe(`("id") < (?)`);
-		expect(values).toEqual([5]);
-	});
-
-	it("uses < operator for desc sort + asc direction", () => {
-		const { clause, values } = buildCursorWhereClause(
-			{ values: { id: 5 }, sortColumns: ["id"] },
-			"asc",
-			"desc",
-		);
-
-		expect(clause).toBe(`("id") < (?)`);
-		expect(values).toEqual([5]);
-	});
-
-	it("uses > operator for desc sort + desc direction (forward backward paging)", () => {
-		const { clause, values } = buildCursorWhereClause(
-			{ values: { id: 5 }, sortColumns: ["id"] },
-			"desc",
-			"desc",
-		);
-
-		expect(clause).toBe(`("id") > (?)`);
-		expect(values).toEqual([5]);
-	});
-
-	it("handles composite cursor columns", () => {
-		const { clause, values } = buildCursorWhereClause(
-			{ values: { name: "Ada", id: 1 }, sortColumns: ["name", "id"] },
-			"asc",
-			"asc",
-		);
-
-		expect(clause).toBe(`("name", "id") > (?, ?)`);
-		expect(values).toEqual(["Ada", 1]);
 	});
 });
 

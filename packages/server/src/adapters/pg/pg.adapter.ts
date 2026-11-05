@@ -8,7 +8,6 @@ import type {
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
-	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -46,16 +45,21 @@ import {
 } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import {
+	decodeCursor,
+	keysetOrderBy,
+	keysetPage,
+	keysetPredicate,
+	orderTerms,
+} from "@/adapters/sql-pagination.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
-	buildKeysetPredicate,
-	buildOrderBy,
-	type OrderTerm,
 	pgFilters,
+	pgKeyset,
 	pgPlaceholder,
 	qualifiedTable,
 	quotePgIdent,
@@ -137,114 +141,55 @@ export class PgAdapter extends BaseAdapter {
 
 		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
-		const { values: filterValues, bind } = createBinds(pgPlaceholder);
-		const filterWhere = whereSql(buildFilterConditions(filters, bind, pgFilters));
+		const { values, bind } = createBinds(pgPlaceholder);
+		const filterConditions = buildFilterConditions(filters, bind, pgFilters);
+		const filterValues = [...values];
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
 		// on the page, so it is counted at the same time instead of after. These are the first
 		// queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, table),
-			this.countRows(pool, table, filterWhere, filterValues),
+			this.countRows(pool, table, whereSql(filterConditions), filterValues),
 		]).catch((e: unknown) => {
 			if (isPgError(e) && e.code === "42P01")
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			throw e;
 		});
 
-		const sortTerms: OrderTerm[] = Array.isArray(sort)
-			? sort.map((s) => ({ column: s.columnName, direction: s.direction }))
-			: sort
-				? [{ column: sort, direction: order }]
-				: [];
-
-		// The key breaks ties between equal sort values, so every row has one place in the order.
-		const keyColumns = pkColumns.length ? pkColumns : ["ctid"];
-		const keyDirection = sortTerms[0]?.direction ?? order;
-
-		const terms = [
-			...sortTerms,
-			...keyColumns
-				.filter((key) => !sortTerms.some((term) => term.column === key))
-				.map((column) => ({ column, direction: keyDirection })),
-		];
-
-		const cursorColumns = terms.map((term) => term.column);
+		const terms = orderTerms(sort, order, pkColumns.length ? pkColumns : ["ctid"]);
 		const backward = direction === "desc";
+		const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
 
-		const cursorData = cursor ? this.decodeCursor(cursor) : null;
-
-		const { clause: cursorWhere, values: cursorValues } = cursorData
-			? buildKeysetPredicate(terms, cursorData.values, backward, filterValues.length + 1)
-			: { clause: "", values: [] };
-
-		const where = [filterWhere.replace(/^WHERE\s+/i, ""), cursorWhere].filter(Boolean);
-		const combinedWhere = where.length ? `WHERE ${where.join(" AND ")}` : "";
+		const where = whereSql(
+			cursorValues
+				? [...filterConditions, keysetPredicate(terms, cursorValues, backward, bind, pgKeyset)]
+				: filterConditions,
+		);
 
 		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
 		// selected explicitly; ctid is a reserved system column name, so selecting it by name
 		// cannot shadow a user column.
-		const usesCtid = cursorColumns.includes("ctid");
-
+		const usesCtid = terms.some((term) => term.column === "ctid");
 		const extraSelect = [...pkColumns.map(quotePgIdent), ...(usesCtid ? ["ctid"] : [])];
 
-		const limitParamIndex = filterValues.length + cursorValues.length + 1;
-
 		const dataRes = await pool.query(
-			`SELECT ${["*", ...extraSelect].join(", ")} FROM ${table} ${combinedWhere} ${buildOrderBy(terms, backward)} LIMIT $${limitParamIndex}`,
-			[...filterValues, ...cursorValues, limit + 1],
+			`SELECT ${["*", ...extraSelect].join(", ")} FROM ${table} ${where} ${keysetOrderBy(terms, backward, pgKeyset)} LIMIT ${bind(limit + 1)}`,
+			values,
 		);
 
-		let rawRows: Record<string, unknown>[] = dataRes.rows;
-		const hasMore = rawRows.length > limit;
-
-		if (hasMore) rawRows = rawRows.slice(0, limit);
-
-		if (direction === "desc") rawRows = rawRows.reverse();
-
-		const rows = rawRows
-			.map((row) => {
-				if (!usesCtid) return row;
-				const { ctid: _ctid, ...rest } = row;
-
-				return rest;
-			})
-			.filter((row) => Object.keys(row).length > 0);
-
-		const createCursor = (row: Record<string, unknown>): CursorData => ({
-			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
-			sortColumns: cursorColumns,
-		});
-
-		let nextCursor: string | null = null;
-		let prevCursor: string | null = null;
-
-		if (rawRows.length > 0) {
-			const firstRow = rawRows[0];
-			const lastRow = rawRows[rawRows.length - 1];
-
-			if (direction === "asc") {
-				if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
-
-				if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
-			} else {
-				if (cursor) nextCursor = this.encodeCursor(createCursor(lastRow));
-
-				if (hasMore) prevCursor = this.encodeCursor(createCursor(firstRow));
-			}
-		}
+		const { rows, ...page } = keysetPage(dataRes.rows, { limit, cursor, backward, terms });
 
 		return {
-			data: rows,
-			meta: {
-				limit,
-				total,
-				...(estimated && { totalEstimated: true }),
-				hasNextPage: direction === "asc" ? hasMore : !!cursor,
-				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
-				nextCursor,
-				prevCursor,
-			},
+			data: rows
+				.map((row) => {
+					if (!usesCtid) return row;
+					const { ctid: _ctid, ...rest } = row;
+
+					return rest;
+				})
+				.filter((row) => Object.keys(row).length > 0),
+			meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
 		};
 	}
 

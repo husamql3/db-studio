@@ -1,5 +1,5 @@
-import type { CursorData, SortDirection, SortType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
+import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
 export const quoteSqliteIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -9,47 +9,7 @@ export const sqliteFilters: FilterDialect = {
 	ilike: "nocase",
 };
 
-export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
-	if (Array.isArray(sorts)) {
-		if (!sorts.length) return "";
-
-		return `ORDER BY ${sorts.map((s) => `${quoteSqliteIdent(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
-	}
-
-	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quoteSqliteIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
-	}
-
-	return "";
-}
-
-/**
- * Builds cursor WHERE clause using SQLite row-value comparison (supported since 3.15.0).
- * Uses `?` positional placeholders.
- */
-export function buildCursorWhereClause(
-	cursorData: CursorData,
-	direction: SortDirection,
-	sortDirection: SortDirection,
-): { clause: string; values: unknown[] } {
-	const { values, sortColumns } = cursorData;
-
-	if (!sortColumns.length) return { clause: "", values: [] };
-
-	const isAscending = sortDirection === "asc";
-	const isForward = direction === "asc";
-	const useGreaterThan = isAscending === isForward;
-	const operator = useGreaterThan ? ">" : "<";
-
-	const columnList = sortColumns.map(quoteSqliteIdent).join(", ");
-	const placeholders = sortColumns.map(() => "?").join(", ");
-	const queryValues = sortColumns.map((col) => values[col]);
-
-	return {
-		clause: `(${columnList}) ${operator} (${placeholders})`,
-		values: queryValues,
-	};
-}
+export const sqliteKeyset: KeysetDialect = { quote: quoteSqliteIdent, nulls: "keyword" };
 
 const CLOSING_QUOTE: Record<string, string> = { "'": "'", '"': '"', "`": "`", "[": "]" };
 

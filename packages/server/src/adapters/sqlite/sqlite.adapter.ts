@@ -8,7 +8,6 @@ import type {
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
-	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -25,7 +24,6 @@ import type {
 	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
-	SortDirection,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
@@ -34,19 +32,25 @@ import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import {
+	decodeCursor,
+	keysetOrderBy,
+	keysetPage,
+	keysetPredicate,
+	orderTerms,
+} from "@/adapters/sql-pagination.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import { D1TokenRefused } from "@/d1-client.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import type { SqliteClient, SqlParam, SqlResult, SqlStatement } from "@/sqlite-client.js";
 import {
-	buildCursorWhereClause,
-	buildSortClause,
 	hasMultipleStatements,
 	isTransactionControl,
 	quoteSqliteIdent,
 	recreateTableWithColumn,
 	sqliteFilters,
+	sqliteKeyset,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
@@ -212,14 +216,9 @@ export class SqliteAdapter extends SqlAdapter {
 
 	protected readonly quoteIdentifier = quoteSqliteIdent;
 
-	// =========================================================
-	// Override getTableData to use primary key columns for stable pagination
-	// =========================================================
-
 	override async getTableData(params: GetTableDataParams) {
 		const {
 			tableName,
-			db,
 			limit = 50,
 			direction = "asc",
 			sort = [],
@@ -244,135 +243,43 @@ export class SqliteAdapter extends SqlAdapter {
 			.sort((a, b) => a.pk - b.pk)
 			.map((c) => c.name);
 
-		let sortColumns: string[] = [];
-		let effectiveSortDirection: SortDirection = order;
+		// A table without a key pages by rowid when unsorted. A view has no rowid, so a sorted
+		// table without a key gets no tie-breaker.
+		const useRowid = pkColumns.length === 0 && sort.length === 0;
+		const terms = orderTerms(sort, order, useRowid ? ["rowid"] : pkColumns);
+		const backward = direction === "desc";
 
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-			effectiveSortDirection = sort[0].direction;
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-
-		const cursorColumns = [
-			...sortColumns,
-			...pkColumns.filter((pk) => !sortColumns.includes(pk)),
-		];
-
-		const useRowid = cursorColumns.length === 0;
-
-		if (useRowid) cursorColumns.push("rowid");
-
-		const { values: filterValues, bind } = createBinds(() => "?");
-		const filterWhere = whereSql(buildFilterConditions(filters, bind, sqliteFilters));
-
-		let cursorWhere = "";
-		let cursorValues: unknown[] = [];
-
-		if (cursor) {
-			const cursorData = this.decodeCursor(cursor);
-
-			if (cursorData) {
-				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
-				cursorWhere = res.clause;
-				cursorValues = res.values;
-			}
-		}
-
-		let combinedWhere = "";
-
-		if (filterWhere && cursorWhere) {
-			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
-		} else if (filterWhere) {
-			combinedWhere = filterWhere;
-		} else if (cursorWhere) {
-			combinedWhere = `WHERE ${cursorWhere}`;
-		}
-
-		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
-		const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
-		let effectiveSortClause = sortClause;
-
-		if (direction === "desc") {
-			if (sortClause) {
-				effectiveSortClause = sortClause
-					.replace(/\bASC\b/gi, "TEMP_DESC")
-					.replace(/\bDESC\b/gi, "ASC")
-					.replace(/TEMP_DESC/g, "DESC");
-
-				if (pkTieBreakerCols.length) {
-					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteSqliteIdent(col)} ${tbDir}`).join(", ")}`;
-				}
-			} else {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteSqliteIdent(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
-			}
-		} else if (!sortClause) {
-			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteSqliteIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-		} else if (pkTieBreakerCols.length) {
-			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteSqliteIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-		}
+		const { values, bind } = createBinds(() => "?");
+		const filterConditions = buildFilterConditions(filters, bind, sqliteFilters);
 
 		const [countRow] = await all<{ total: number }>(
 			client,
-			`SELECT COUNT(*) as total FROM ${quoteSqliteIdent(tableName)} ${filterWhere}`,
-			filterValues,
+			`SELECT COUNT(*) as total FROM ${quoteSqliteIdent(tableName)} ${whereSql(filterConditions)}`,
+			[...values],
 		);
 
-		const total = Number(countRow?.total ?? 0);
+		const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
 
-		// When falling back to rowid for cursor, include it in SELECT so buildCursors can read it
-		const selectClause = useRowid ? "*, rowid" : "*";
+		const where = whereSql(
+			cursorValues
+				? [
+						...filterConditions,
+						keysetPredicate(terms, cursorValues, backward, bind, sqliteKeyset),
+					]
+				: filterConditions,
+		);
 
-		const dataRows = await all(
+		const fetched = await all(
 			client,
-			`SELECT ${selectClause} FROM ${quoteSqliteIdent(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
-			[...filterValues, ...cursorValues, limit + 1],
+			`SELECT ${useRowid ? "*, rowid" : "*"} FROM ${quoteSqliteIdent(tableName)} ${where} ${keysetOrderBy(terms, backward, sqliteKeyset)} LIMIT ${bind(limit + 1)}`,
+			values,
 		);
 
-		const hasMore = dataRows.length > limit;
-		let rows = hasMore ? dataRows.slice(0, limit) : dataRows;
-
-		if (direction === "desc") rows = rows.reverse();
-
-		const createCursor = (row: Record<string, unknown>): CursorData => ({
-			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
-			sortColumns: cursorColumns,
-		});
-
-		let nextCursor: string | null = null;
-		let prevCursor: string | null = null;
-
-		if (rows.length > 0) {
-			const firstRow = rows[0];
-			const lastRow = rows[rows.length - 1];
-
-			if (direction === "asc") {
-				if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
-
-				if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
-			} else {
-				if (cursor) nextCursor = this.encodeCursor(createCursor(lastRow));
-
-				if (hasMore) prevCursor = this.encodeCursor(createCursor(firstRow));
-			}
-		}
-
-		// Strip the synthetic rowid from output rows if we added it
-		const finalRows = useRowid ? rows.map(({ rowid: _r, ...rest }) => rest) : rows;
-
-		void db;
+		const { rows, ...page } = keysetPage(fetched, { limit, cursor, backward, terms });
 
 		return {
-			data: finalRows as NormalizedRow[],
-			meta: {
-				limit,
-				total,
-				hasNextPage: direction === "asc" ? hasMore : !!cursor,
-				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
-				nextCursor,
-				prevCursor,
-			},
+			data: (useRowid ? rows.map(({ rowid: _r, ...rest }) => rest) : rows) as NormalizedRow[],
+			meta: { limit, total: Number(countRow?.total ?? 0), ...page },
 		};
 	}
 

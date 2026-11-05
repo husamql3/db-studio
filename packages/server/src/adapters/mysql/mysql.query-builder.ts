@@ -1,47 +1,12 @@
-import type { CursorData, SortDirection, SortType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
+import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
 export const quoteMysqlIdent = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
 export const mysqlFilters: FilterDialect = { quote: quoteMysqlIdent, ilike: "like" };
 
-export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
-	if (Array.isArray(sorts)) {
-		if (sorts.length === 0) return "";
-
-		return `ORDER BY ${sorts.map((s) => `${quoteMysqlIdent(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
-	}
-
-	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quoteMysqlIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
-	}
-
-	return "";
-}
-
-export function buildCursorWhereClause(
-	cursorData: CursorData,
-	direction: SortDirection,
-	sortDirection: SortDirection,
-): { clause: string; values: unknown[] } {
-	const { values, sortColumns } = cursorData;
-
-	if (sortColumns.length === 0) return { clause: "", values: [] };
-
-	const isAscending = sortDirection === "asc";
-	const isForward = direction === "asc";
-	const useGreaterThan = isAscending === isForward;
-	const operator = useGreaterThan ? ">" : "<";
-
-	const columnList = sortColumns.map(quoteMysqlIdent).join(", ");
-	const placeholders = sortColumns.map(() => "?").join(", ");
-	const queryValues = sortColumns.map((col) => values[col]);
-
-	return {
-		clause: `(${columnList}) ${operator} (${placeholders})`,
-		values: queryValues,
-	};
-}
+/** MySQL has no `NULLS LAST`; it orders by `col IS NULL` first instead. */
+export const mysqlKeyset: KeysetDialect = { quote: quoteMysqlIdent, nulls: "is-null" };
 
 type MysqlColumnDefinitionInput = {
 	columnName: string;

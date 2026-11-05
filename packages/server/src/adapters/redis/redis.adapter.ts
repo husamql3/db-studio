@@ -1035,7 +1035,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			throw new HTTPException(400, { message: PREV_UNSUPPORTED_MESSAGE });
 		}
 
-		if (sort && sort.length > 0) {
+		if (sort?.length) {
 			throw new HTTPException(400, { message: SORT_UNSUPPORTED_MESSAGE });
 		}
 

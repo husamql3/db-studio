@@ -1,4 +1,3 @@
-import type { SortDirection } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import { HTTPException } from "@/http-exception.js";
 
@@ -176,20 +175,6 @@ export const oracleFilters = (
 	bindComparison: (value, columnName) =>
 		bindOracleValue(value, columnTypes.get(columnName), bind),
 });
-
-/** One ORDER BY term; `column: null` orders by ROWID, the tie-breaker for tables without a key. */
-export interface OrderTerm {
-	column: string | null;
-	direction: SortDirection;
-}
-
-export const buildOrderBy = (terms: OrderTerm[], tableAlias?: string) =>
-	`ORDER BY ${terms
-		.map(
-			(t) =>
-				`${tableAlias ? `${tableAlias}.` : ""}${t.column === null ? "ROWID" : quoteOracleIdent(t.column)} ${t.direction.toUpperCase()}`,
-		)
-		.join(", ")}`;
 
 const SERIAL_TYPES = new Set([
 	"serial",

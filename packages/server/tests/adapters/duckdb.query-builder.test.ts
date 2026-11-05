@@ -1,5 +1,5 @@
 /**
- * DuckDB keyset pagination: `buildOrderBy` orders a page and `buildKeysetPredicate` selects
+ * DuckDB keyset pagination: `keysetOrderBy` orders a page and `keysetPredicate` selects
  * the rows after the cursor row in that order. Ways it can fail, each run against a real
  * in-memory DuckDB:
  *
@@ -30,11 +30,9 @@ vi.mock("@/open-connections.js", () => ({
 }));
 
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
-import {
-	buildKeysetPredicate,
-	buildOrderBy,
-	type OrderTerm,
-} from "@/adapters/duckdb/duckdb.query-builder.js";
+import { duckdbKeyset } from "@/adapters/duckdb/duckdb.query-builder.js";
+import { createBinds } from "@/adapters/sql-filters.js";
+import { keysetOrderBy, keysetPredicate, type OrderTerm } from "@/adapters/sql-pagination.js";
 import { loadDriver } from "@/drivers.js";
 
 let instance: DuckDBInstance;
@@ -72,10 +70,11 @@ const pageAfter = async (
 	limit: number,
 	backward = false,
 ) => {
-	const { clause, values } = buildKeysetPredicate(terms, cursor, backward);
+	const { values, bind } = createBinds(() => "?");
+	const clause = keysetPredicate(terms, cursor, backward, bind, duckdbKeyset);
 
 	const page = await ids(
-		`SELECT id FROM ${table} WHERE ${clause} ${buildOrderBy(terms, backward)} LIMIT ${limit}`,
+		`SELECT id FROM ${table} WHERE ${clause} ${keysetOrderBy(terms, backward, duckdbKeyset)} LIMIT ${limit}`,
 		values,
 	);
 
@@ -119,7 +118,9 @@ describe("duckdb keyset predicate", () => {
 	});
 
 	it("puts NULLs last when ascending as well", async () => {
-		expect(await ids(`SELECT id FROM nulls ${buildOrderBy(vAsc)}`)).toEqual([2, 1, 3, 4]);
+		expect(
+			await ids(`SELECT id FROM nulls ${keysetOrderBy(vAsc, false, duckdbKeyset)}`),
+		).toEqual([2, 1, 3, 4]);
 		expect(await pageAfter("nulls", vAsc, { v: 5, id: 1 }, 2)).toEqual([3, 4]);
 	});
 

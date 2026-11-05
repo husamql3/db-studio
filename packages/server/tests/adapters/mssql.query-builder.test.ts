@@ -4,7 +4,6 @@ import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
 	formatMssqlDefaultValue,
-	buildSortClause,
 	mapColumnTypeToMssql,
 	mssqlFilters,
 } from "@/adapters/mssql/mssql.query-builder.js";
@@ -52,15 +51,6 @@ describe("MSSQL query builder", () => {
 			nextIdx: 3,
 		});
 		expect(buildWhereClause([], 2)).toEqual({ clause: "", values: [], nextIdx: 2 });
-	});
-
-	it("builds ORDER BY clauses for OFFSET/FETCH queries", () => {
-		expect(buildSortClause([{ columnName: "created_at", direction: "desc" }], "asc")).toBe(
-			"ORDER BY [created_at] DESC",
-		);
-		expect(buildSortClause("id", "asc")).toBe("ORDER BY [id] ASC");
-		expect(buildSortClause([], "asc")).toBe("");
-		expect(buildSortClause("", "asc")).toBe("");
 	});
 
 	it("maps portable column definitions to MSSQL syntax", () => {
@@ -123,7 +113,7 @@ describe("MSSQL buildOrderByClause", () => {
 		expect(
 			buildOrderByClause([{ columnName: "created_at", direction: "desc" }], "asc", ["id"]),
 		).toBe("ORDER BY [created_at] DESC, [id] DESC");
-		expect(buildOrderByClause("name", "desc", ["id"])).toBe("ORDER BY [name] DESC, [id] DESC");
+		expect(buildOrderByClause([], "desc", ["id"])).toBe("ORDER BY [id] DESC");
 	});
 
 	it("does not repeat a key column that is already sorted", () => {

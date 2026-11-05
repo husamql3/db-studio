@@ -28,7 +28,7 @@ import {
 	unwrapClickhouseType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
+import type { DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -37,13 +37,13 @@ import {
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
 	buildClickhouseColumnDefinition,
-	buildOrderByClause,
 	clickhouseFilters,
 	clickhousePlaceholder,
 	quoteClickhouseIdentifier as q,
@@ -125,14 +125,6 @@ const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	Warning: "warning",
 };
 
-/** A page query and the COUNT query of the same filters (no cursor). */
-interface QueryBundle {
-	sql: string;
-	values: unknown[];
-	countSql: string;
-	countValues: unknown[];
-}
-
 export class ClickhouseAdapter extends SqlAdapter {
 	// Keyed by client: tabs can work with two ClickHouse servers at once.
 	private serverVersion = new WeakMap<ClickHouseClient, number[]>();
@@ -160,59 +152,53 @@ export class ClickhouseAdapter extends SqlAdapter {
 
 	protected readonly quoteIdentifier = q;
 
-	private buildTableDataQuery(params: GetTableDataParams): QueryBundle {
-		return this.buildPageQuery(params, []);
-	}
-
-	private normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
-	}
-
-	private buildCursors(
-		params: GetTableDataParams,
-		_rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null } {
-		const { cursor, limit = 50 } = params;
-		const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-
-		return {
-			nextCursor: hasMore ? this.makeCursor(offset + limit) : null,
-			prevCursor: offset > 0 ? this.makeCursor(Math.max(0, offset - limit)) : null,
-		};
-	}
-
-	// =========================================================
-	// Offset pagination: the sorting key is not unique, so keyset paging could skip rows
-	// =========================================================
-
+	/** Offset pagination: the sorting key is not unique, so keyset paging could skip rows. */
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		const { db, tableName, limit = 50, cursor } = params;
+		const {
+			db,
+			tableName,
+			filters = [],
+			sort = [],
+			order = "asc",
+			limit = 50,
+			cursor,
+		} = params;
+
 		const table = await this.getTable(db, tableName);
 		const tieBreakers = table.sorting_key ? [`(${table.sorting_key})`] : [];
 
 		if (table.engine.endsWith("MergeTree")) tieBreakers.push("_part", "_part_offset");
 
-		const bundle = this.buildPageQuery(params, tieBreakers);
+		const { values, bind } = createBinds(clickhousePlaceholder);
+		const where = whereSql(buildFilterConditions(filters, bind, clickhouseFilters));
 
-		const [countRows, rawRows] = await Promise.all([
-			this.runQuery<{ total: string | number }[]>(db, bundle.countSql, bundle.countValues),
-			this.runQuery<Record<string, unknown>[]>(db, bundle.sql, bundle.values),
+		const terms = orderTerms(
+			sort,
+			order,
+			tieBreakers.map((raw) => ({ raw })),
+		);
+
+		const offset = offsetOf(cursor);
+		const n = values.length;
+
+		const [countRows, fetched] = await Promise.all([
+			this.runQuery<{ total: string | number }[]>(
+				db,
+				`SELECT count() AS total FROM ${q(tableName)} ${where}`,
+				values,
+			),
+			this.runQuery<Record<string, unknown>[]>(
+				db,
+				`SELECT * FROM ${q(tableName)} ${where} ${offsetOrderBy(terms, q)} LIMIT {p${n + 1}:UInt64} OFFSET {p${n}:UInt64}`,
+				[...values, offset, limit + 1],
+			),
 		]);
 
-		const hasMore = rawRows.length > limit;
-		const rows = this.normalizeRows(hasMore ? rawRows.slice(0, limit) : rawRows);
-		const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
+		const { rows, ...page } = offsetPage(fetched, offset, limit);
 
 		return {
-			data: rows,
-			meta: {
-				limit,
-				total: Number(countRows[0]?.total ?? 0),
-				hasNextPage: hasMore,
-				hasPreviousPage: offset > 0,
-				...this.buildCursors(params, rows, hasMore),
-			},
+			data: rows.map((row) => this.normalizeRow(row)),
+			meta: { limit, total: Number(countRows[0]?.total ?? 0), ...page },
 		};
 	}
 
@@ -715,22 +701,6 @@ export class ClickhouseAdapter extends SqlAdapter {
 		});
 	}
 
-	private buildPageQuery(params: GetTableDataParams, tieBreakers: string[]): QueryBundle {
-		const { tableName, filters = [], sort = [], order = "asc", limit = 50, cursor } = params;
-		const { values, bind } = createBinds(clickhousePlaceholder);
-		const clause = whereSql(buildFilterConditions(filters, bind, clickhouseFilters));
-		const orderBy = buildOrderByClause(sort, order, tieBreakers);
-		const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-		const n = values.length;
-
-		return {
-			sql: `SELECT * FROM ${q(tableName)} ${clause} ${orderBy} LIMIT {p${n + 1}:UInt64} OFFSET {p${n}:UInt64}`,
-			values: [...values, offset, limit + 1],
-			countSql: `SELECT count() AS total FROM ${q(tableName)} ${clause}`,
-			countValues: values,
-		};
-	}
-
 	private async findTable(db: string, tableName: string): Promise<TableRow | undefined> {
 		const [row] = await this.select<TableRow>(
 			db,
@@ -825,13 +795,5 @@ export class ClickhouseAdapter extends SqlAdapter {
 		const [actualMajor = 0, actualMinor = 0] = version;
 
 		return actualMajor > major || (actualMajor === major && actualMinor >= minor);
-	}
-
-	private makeCursor(offset: number): string {
-		return this.encodeCursor({ values: { _offset: offset }, sortColumns: ["_offset"] });
-	}
-
-	private decodeOffsetCursor(cursor: string): number {
-		return Number(this.decodeCursor(cursor)?.values._offset ?? 0);
 	}
 }

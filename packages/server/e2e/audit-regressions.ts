@@ -220,10 +220,9 @@ const writeArtifact = async () => {
 try {
 	await forceDeleteTwoForeignKeys();
 
-	if (dbType === "pg") {
-		await failedSaveRollsBack();
-		await pagingVisitsEveryRow();
-	}
+	// pg_sleep keeps the pool busy, so only PostgreSQL runs this one.
+	if (dbType === "pg") await failedSaveRollsBack();
+	await pagingVisitsEveryRow();
 } catch (error) {
 	await writeArtifact();
 	console.error(error);

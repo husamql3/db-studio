@@ -1,5 +1,5 @@
-import type { SortDirection } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
+import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
 export const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -11,65 +11,7 @@ export const pgFilters: FilterDialect = {
 
 export const pgPlaceholder = (position: number) => `$${position}`;
 
-export interface OrderTerm {
-	column: string;
-	direction: SortDirection;
-}
-
-/** NULLs sort last in either direction; a backward page reads that order reversed. */
-const placement = (term: OrderTerm, backward: boolean) => ({
-	descending: (term.direction === "desc") !== backward,
-	nullsLast: !backward,
-});
-
-export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
-	`ORDER BY ${terms
-		.map((term) => {
-			const { descending, nullsLast } = placement(term, backward);
-
-			return `${quotePgIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
-		})
-		.join(", ")}`;
-
-/**
- * Rows after the `cursor` row in `buildOrderBy(terms, backward)` order:
- * `(c1 after v1) OR (c1 = v1 AND c2 after v2) OR …`, where "after" follows each column's own
- * direction and NULL placement. A row-value comparison `(c1, c2) > (v1, v2)` cannot express
- * mixed directions and never matches NULL. Each non-NULL cursor value is one parameter,
- * numbered from `startParamIndex`, that later branches reference again.
- */
-export function buildKeysetPredicate(
-	terms: OrderTerm[],
-	cursor: Record<string, unknown>,
-	backward: boolean,
-	startParamIndex: number,
-): { clause: string; values: unknown[] } {
-	const branches: string[] = [];
-	const equal: string[] = [];
-	const values: unknown[] = [];
-
-	for (const term of terms) {
-		const col = quotePgIdent(term.column);
-		const value = cursor[term.column] ?? null;
-		const { descending, nullsLast } = placement(term, backward);
-
-		if (value !== null) values.push(value);
-		const param = `$${startParamIndex + values.length - 1}`;
-
-		const after =
-			value === null
-				? nullsLast
-					? null
-					: `${col} IS NOT NULL`
-				: `${col} ${descending ? "<" : ">"} ${param}${nullsLast ? ` OR ${col} IS NULL` : ""}`;
-
-		if (after) branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
-
-		equal.push(value === null ? `${col} IS NULL` : `${col} = ${param}`);
-	}
-
-	return { clause: branches.length ? `(${branches.join(" OR ")})` : "FALSE", values };
-}
+export const pgKeyset: KeysetDialect = { quote: quotePgIdent, nulls: "keyword" };
 
 /**
  * Postgres resolves a bare table name through search_path, but catalog queries

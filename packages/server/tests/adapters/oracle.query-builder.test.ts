@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
 	bindOracleValue,
-	buildOrderBy,
 	buildOracleSelectList,
 	groupOracleForeignKeys,
 	oracleFilters,
 	oraclePlaceholder,
+	quoteOracleIdent,
 } from "@/adapters/oracle/oracle.query-builder.js";
 import { buildFilterConditions, createBinds } from "@/adapters/sql-filters.js";
+import { offsetOrderBy } from "@/adapters/sql-pagination.js";
 /**
  * Oracle temporal and foreign-key failure modes covered here:
  *
@@ -92,12 +93,12 @@ describe("Oracle temporal SQL", () => {
 
 	it("qualifies native ordering when a temporal projection keeps the column name", () => {
 		expect(
-			buildOrderBy(
+			offsetOrderBy(
 				[
 					{ column: "zoned_at", direction: "asc" },
-					{ column: null, direction: "asc" },
+					{ column: "source.ROWID", direction: "asc", raw: true },
 				],
-				"source",
+				(name) => `source.${quoteOracleIdent(name)}`,
 			),
 		).toBe('ORDER BY source."zoned_at" ASC, source.ROWID ASC');
 	});

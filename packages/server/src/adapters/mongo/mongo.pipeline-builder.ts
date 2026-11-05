@@ -1,4 +1,4 @@
-import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { FilterType, SortType } from "@db-studio/shared/types";
 import type { ObjectId } from "mongodb";
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "@/adapters/cursor.js";
@@ -82,25 +82,10 @@ export function buildMatchStage(filters: FilterType[]): Record<string, unknown> 
 	return andConditions.length ? { $and: andConditions } : {};
 }
 
-export function buildSortStage(
-	sort: string | SortType[] | undefined,
-	order?: SortDirection,
-): Record<string, 1 | -1> {
-	if (!sort) return { _id: 1 };
+export function buildSortStage(sort: SortType[]): Record<string, 1 | -1> {
+	if (sort.length === 0) return { _id: 1 };
 
-	if (Array.isArray(sort)) {
-		if (sort.length === 0) return { _id: 1 };
-
-		return Object.fromEntries(
-			sort.map((s) => [s.columnName, s.direction === "desc" ? -1 : 1]),
-		);
-	}
-
-	if (typeof sort === "string" && sort.length > 0) {
-		return { [sort]: order === "desc" ? -1 : 1 };
-	}
-
-	return { _id: 1 };
+	return Object.fromEntries(sort.map((s) => [s.columnName, s.direction === "desc" ? -1 : 1]));
 }
 
 const offsetCursorSchema = z.object({ offset: z.number() });

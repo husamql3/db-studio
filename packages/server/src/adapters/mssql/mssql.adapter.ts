@@ -37,6 +37,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, EXACT_COUNT_LIMIT } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
@@ -127,10 +128,6 @@ export class MsSqlAdapter extends SqlAdapter {
 
 	protected readonly quoteIdentifier = quoteMssqlIdent;
 
-	// =========================================================
-	// Override getTableData for MSSQL OFFSET/FETCH pagination
-	// =========================================================
-
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		const {
 			tableName,
@@ -144,8 +141,7 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		const pool = await connector("mssql").pool(db);
 
-		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-
+		const offset = offsetOf(cursor);
 		const { values, bind } = createBinds(mssqlPlaceholder);
 		const filterWhere = whereSql(buildFilterConditions(filters, bind, mssqlFilters));
 
@@ -154,7 +150,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			this.countRows(pool, tableName, filterWhere, [...values]),
 		]);
 
-		const sql = `SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${buildOrderByClause(sort, order, pkColumns)} OFFSET ${bind(currentOffset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`;
+		const sql = `SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${buildOrderByClause(sort, order, pkColumns)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`;
 
 		const dataRequest = pool.request();
 		values.forEach((val, idx) => {
@@ -163,23 +159,15 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		const dataResult = await dataRequest.query(sql);
 
-		let rows = dataResult.recordset as Record<string, unknown>[];
-		const hasMore = rows.length > limit;
-
-		if (hasMore) rows = rows.slice(0, limit);
+		const { rows, ...page } = offsetPage(
+			dataResult.recordset as Record<string, unknown>[],
+			offset,
+			limit,
+		);
 
 		return {
 			data: rows,
-			meta: {
-				limit,
-				total,
-				...(estimated && { totalEstimated: true }),
-				hasNextPage: hasMore,
-				hasPreviousPage: currentOffset > 0,
-				nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
-				prevCursor:
-					currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
-			},
+			meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
 		};
 	}
 
@@ -1601,15 +1589,5 @@ export class MsSqlAdapter extends SqlAdapter {
 		if (!matches || matches.length === 0) return null;
 
 		return matches.map((m) => m.slice(1, -1));
-	}
-
-	private makeCursor(offset: number): string {
-		return this.encodeCursor({ values: { _offset: offset }, sortColumns: ["_offset"] });
-	}
-
-	private decodeOffsetCursor(cursor: string): number {
-		const data = this.decodeCursor(cursor);
-
-		return Number(data?.values._offset ?? 0);
 	}
 }

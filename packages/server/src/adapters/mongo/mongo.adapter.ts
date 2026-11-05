@@ -505,12 +505,12 @@ export class MongoAdapter extends BaseAdapter {
 	}
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		const { tableName, db, cursor, limit, direction = "asc", sort, order, filters } = params;
+		const { tableName, db, cursor, limit, direction = "asc", sort = [], filters } = params;
 
 		const mongoDb = await connector("mongodb").db(db);
 		const collection = mongoDb.collection(tableName);
 		const filterObj = buildMatchStage(filters ?? []);
-		const sortObj = buildSortStage(sort ?? "", order);
+		const sortObj = buildSortStage(sort);
 
 		const safeLimit = limit && limit > 0 ? limit : 50;
 		const decodedOffset = decodeMongoCursor(cursor);
@@ -1156,7 +1156,7 @@ export class MongoAdapter extends BaseAdapter {
 			case "find": {
 				const filter = normalizeIdFilter(payload.filter ?? {});
 				const cursor = collection.find(filter, payload.options ?? {});
-				cursor.sort(payload.sort ?? buildSortStage("", undefined));
+				cursor.sort(payload.sort ?? buildSortStage([]));
 
 				if (payload.skip) cursor.skip(payload.skip);
 

@@ -1,4 +1,3 @@
-import type { SortDirection, SortType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteClickhouseIdentifier = (name: string): string =>
@@ -18,31 +17,6 @@ export const clickhouseFilters: FilterDialect = {
 };
 
 export const clickhousePlaceholder = (position: number) => `{p${position - 1}:String}`;
-
-/**
- * User sort first, then `tieBreakers` (raw expressions such as the table's sorting
- * key) in the leading sort direction, so OFFSET pages stay stable.
- */
-export function buildOrderByClause(
-	sort: SortType[] | string,
-	order: SortDirection,
-	tieBreakers: string[],
-): string {
-	const sorts: SortType[] = Array.isArray(sort)
-		? sort
-		: sort
-			? [{ columnName: sort, direction: order }]
-			: [];
-
-	const direction = (sorts[0]?.direction ?? order).toUpperCase();
-
-	const terms = [
-		...sorts.map((s) => `${q(s.columnName)} ${s.direction.toUpperCase()}`),
-		...tieBreakers.map((expr) => `${expr} ${direction}`),
-	];
-
-	return terms.length ? `ORDER BY ${terms.join(", ")}` : "";
-}
 
 /** Postgres types (from the web form) to ClickHouse. Unknown names pass through as native ClickHouse types. */
 function mapColumnTypeToClickhouse(

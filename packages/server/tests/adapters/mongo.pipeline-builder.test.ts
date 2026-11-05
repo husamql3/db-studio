@@ -55,10 +55,10 @@ describe("Mongo pipeline builder", () => {
 	});
 
 	it("builds sort stages and defaults to _id ascending", () => {
-		expect(buildSortStage(undefined)).toEqual({ _id: 1 });
 		expect(buildSortStage([])).toEqual({ _id: 1 });
-		expect(buildSortStage("")).toEqual({ _id: 1 });
-		expect(buildSortStage("createdAt", "desc")).toEqual({ createdAt: -1 });
+		expect(buildSortStage([{ columnName: "createdAt", direction: "desc" }])).toEqual({
+			createdAt: -1,
+		});
 		expect(
 			buildSortStage([
 				{ columnName: "score", direction: "desc" },

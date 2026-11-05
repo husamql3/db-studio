@@ -1,17 +1,28 @@
 import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
-import {
-	buildKeysetPredicate,
-	buildOrderBy,
-	pgFilters,
-	pgPlaceholder,
-} from "@/adapters/pg/pg.query-builder.js";
+import { pgFilters, pgKeyset, pgPlaceholder } from "@/adapters/pg/pg.query-builder.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import { keysetOrderBy, keysetPredicate, type OrderTerm } from "@/adapters/sql-pagination.js";
 
 const buildWhereClause = (filters: FilterType[]) => {
 	const { values, bind } = createBinds(pgPlaceholder);
 
 	return { clause: whereSql(buildFilterConditions(filters, bind, pgFilters)), values };
+};
+
+const buildOrderBy = (terms: OrderTerm[], backward = false) =>
+	keysetOrderBy(terms, backward, pgKeyset);
+
+/** The predicate with parameters numbered from `startParamIndex`, after the filters'. */
+const buildKeysetPredicate = (
+	terms: OrderTerm[],
+	cursor: Record<string, unknown>,
+	backward: boolean,
+	startParamIndex: number,
+) => {
+	const { values, bind } = createBinds((n) => `$${startParamIndex + n - 1}`);
+
+	return { clause: keysetPredicate(terms, cursor, backward, bind, pgKeyset), values };
 };
 
 // Keyset paging failure modes: a NULL sort value ends paging early (a row-value comparison
@@ -89,9 +100,9 @@ describe("PostgreSQL query builder", () => {
 		);
 
 		expect(result.clause).toBe(
-			'((("created_at" < $3 OR "created_at" IS NULL)) OR ("created_at" = $3 AND ("id" > $4 OR "id" IS NULL)))',
+			'((("created_at" < $3 OR "created_at" IS NULL)) OR ("created_at" = $4 AND ("id" > $5 OR "id" IS NULL)))',
 		);
-		expect(result.values).toEqual(["2026-01-01", 10]);
+		expect(result.values).toEqual(["2026-01-01", "2026-01-01", 10]);
 	});
 
 	it("continues past a cursor whose sort value is NULL, in both directions", () => {

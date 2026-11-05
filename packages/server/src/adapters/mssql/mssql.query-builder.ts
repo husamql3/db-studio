@@ -1,5 +1,6 @@
 import type { SortDirection, SortType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
+import { offsetOrderBy, orderTerms } from "@/adapters/sql-pagination.js";
 
 export const quoteMssqlIdent = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
@@ -8,42 +9,14 @@ export const mssqlFilters: FilterDialect = { quote: quoteMssqlIdent, ilike: "lik
 /** `mssql` binds each value by name: `@p0`, `@p1`, … */
 export const mssqlPlaceholder = (position: number) => `@p${position - 1}`;
 
-export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
-	if (Array.isArray(sorts)) {
-		if (sorts.length === 0) return "";
-
-		return `ORDER BY ${sorts.map((s) => `${quoteMssqlIdent(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
-	}
-
-	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quoteMssqlIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
-	}
-
-	return "";
-}
-
-export function buildOrderByClause(
-	sorts: SortType[] | string,
+/** OFFSET/FETCH requires an ORDER BY, so an unsorted table without a key gets a no-op one. */
+export const buildOrderByClause = (
+	sorts: SortType[],
 	order: SortDirection,
 	keyColumns: string[],
-): string {
-	const sortClause = buildSortClause(sorts, order);
-	const sortColumns = Array.isArray(sorts) ? sorts.map((s) => s.columnName) : [sorts];
-
-	const direction = (
-		Array.isArray(sorts) ? (sorts[0]?.direction ?? order) : order
-	).toUpperCase();
-
-	const tieBreakers = keyColumns
-		.flatMap((col) =>
-			sortColumns.includes(col) ? [] : [`${quoteMssqlIdent(col)} ${direction}`],
-		)
-		.join(", ");
-
-	if (!tieBreakers) return sortClause || "ORDER BY (SELECT NULL)";
-
-	return sortClause ? `${sortClause}, ${tieBreakers}` : `ORDER BY ${tieBreakers}`;
-}
+) =>
+	offsetOrderBy(orderTerms(sorts, order, keyColumns), quoteMssqlIdent) ||
+	"ORDER BY (SELECT NULL)";
 
 export function mapColumnTypeToMssql(columnType: string, isArray: boolean): string {
 	if (isArray) return "NVARCHAR(MAX)";
