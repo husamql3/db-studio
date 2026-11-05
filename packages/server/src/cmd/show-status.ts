@@ -2,30 +2,14 @@ import { intro, note, outro } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
 import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import color from "picocolors";
+import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
 
-/**
- * Show connection status
- */
 export const showStatus = async (env?: string, databaseUrl?: string, varName?: string) => {
 	intro(color.inverse(" db-studio "));
 
 	const envVarName = varName || DEFAULTS.VAR_NAME;
-	let foundUrl: string | null = null;
-
-	// Check if DATABASE_URL is provided via CLI
-	if (databaseUrl) {
-		foundUrl = databaseUrl;
-	} else {
-		// Try .env file, then process.env
-		const ENV = env ? await loadEnv(env) : await loadEnv();
-
-		if (ENV?.[envVarName]) {
-			foundUrl = ENV[envVarName];
-		} else if (process.env[envVarName]) {
-			foundUrl = process.env[envVarName] ?? null;
-		}
-	}
+	const foundUrl = databaseUrl || getDatabaseUrl(await loadEnv(env), envVarName);
 
 	if (foundUrl) {
 		outro(color.green(`✓ Database connection configured (using ${envVarName})`));

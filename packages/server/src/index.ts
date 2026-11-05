@@ -31,7 +31,7 @@ export const main = async () => {
 
 	intro(color.inverse(" db-studio "));
 
-	const ENV = env ? await loadEnv(env) : await loadEnv();
+	const ENV = await loadEnv(env);
 
 	// Populate other env variables from .env if not already set in process.env
 	if (ENV) {
