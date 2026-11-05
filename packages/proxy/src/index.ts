@@ -1,5 +1,10 @@
 import { LIMIT } from "@db-studio/shared/constants";
-import { AI_PROVIDER_OPTIONS, type AiProvider } from "@db-studio/shared/types";
+import {
+	AI_PROVIDER_OPTIONS,
+	type AiModel,
+	type AiProvider,
+	BYOK_HEADERS,
+} from "@db-studio/shared/types";
 import { chat, EventType, type ModelMessage, toServerSentEventsResponse } from "@tanstack/ai";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
@@ -12,7 +17,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { errorType, type ProxyEnv, requestId, writeLog } from "./log";
-import { getRedis } from "./redis";
+import { getRedis, RATE_LIMIT_PREFIX } from "./redis";
 
 const app = new Hono<ProxyEnv>();
 
@@ -23,29 +28,14 @@ app.use(
 	cors({
 		origin: "*",
 		allowMethods: ["POST", "GET", "OPTIONS"],
-		allowHeaders: [
-			"Content-Type",
-			"x-api-key",
-			"x-request-id",
-			"cf-connecting-ip",
-			"x-real-ip",
-			"x-forwarded-for",
-			"x-byok-gemini",
-			"x-byok-openai",
-			"x-byok-anthropic",
-			"x-byok-grok",
-			"x-byok-openrouter",
-		],
+		allowHeaders: ["Content-Type", "x-api-key", "x-request-id", ...BYOK_HEADERS],
 		exposeHeaders: ["x-request-id"],
 	}),
 );
 
-//* Apply rate limiters
 app.use("/chat", createProxyLimiter());
 
-/**
- * POST /chat - Proxy chat requests to Gemini API
- */
+/** POST /chat streams a chat completion from the requested provider. */
 app.post("/chat", async (c) => {
 	// Declared out here so a failure log can say which provider and model it was for.
 	let provider: AiProvider | undefined;
@@ -86,24 +76,15 @@ app.post("/chat", async (c) => {
 		const adapter = (() => {
 			switch (provider) {
 				case "gemini":
-					return createGeminiChat(
-						model as "gemini-3-flash-preview" | "gemini-2.5-pro",
-						apiKey,
-					);
+					return createGeminiChat(model as AiModel<"gemini">, apiKey);
 				case "openai":
-					return createOpenaiChat(model as "gpt-5.2" | "gpt-5-mini", apiKey);
+					return createOpenaiChat(model as AiModel<"openai">, apiKey);
 				case "anthropic":
-					return createAnthropicChat(
-						model as "claude-sonnet-4-6" | "claude-haiku-4-5",
-						apiKey,
-					);
+					return createAnthropicChat(model as AiModel<"anthropic">, apiKey);
 				case "grok":
-					return createGrokText(model as "grok-4.6" | "grok-4.5", apiKey);
+					return createGrokText(model as AiModel<"grok">, apiKey);
 				case "openrouter":
-					return createOpenRouterText(
-						model as "openai/gpt-5.2" | "anthropic/claude-sonnet-4.6",
-						apiKey,
-					);
+					return createOpenRouterText(model as AiModel<"openrouter">, apiKey);
 			}
 		})();
 
@@ -153,45 +134,21 @@ app.post("/chat", async (c) => {
 	}
 });
 
-/**
- * GET /chat/limit - Get remaining message limit for user
- */
+/** GET /chat/limit reports how many hosted-key messages the caller has left today. */
 app.get("/chat/limit", async (c) => {
 	try {
-		if (!c.env.UPSTASH_REDIS_REST_URL || !c.env.UPSTASH_REDIS_REST_TOKEN) {
+		if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
 			return c.json({ limit: LIMIT, used: 0, remaining: LIMIT });
 		}
 
-		const key = keyGenerator(c);
-		const usageKey = `rate:proxy:${key}`;
+		const used = (await getRedis().get<number>(`${RATE_LIMIT_PREFIX}${keyGenerator(c)}`)) ?? 0;
 
-		// Get current usage from Redis
-		const redis = getRedis(c);
-		const currentUsage = (await redis.get<number>(usageKey)) ?? 0;
-		const remaining = Math.max(0, LIMIT - currentUsage);
-
-		return c.json({
-			limit: LIMIT,
-			used: currentUsage,
-			remaining,
-		});
+		return c.json({ limit: LIMIT, used, remaining: Math.max(0, LIMIT - used) });
 	} catch (error) {
 		writeLog(c, "error", "chat_limit_failed", { error_type: errorType(error) });
 
-		return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 });
+		return c.json({ error: "Message limit unavailable", requestId: c.get("requestId") }, 503);
 	}
-});
-
-app.get("/", (c) => {
-	return c.json({
-		status: "ok",
-		service: "db-studio-proxy",
-		endpoints: ["/chat", "/chat/limit"],
-	});
-});
-
-app.get("/favicon.ico", (c) => {
-	return c.body(null, 204);
 });
 
 export default app;
