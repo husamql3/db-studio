@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
  */
 
 const [baseUrl, label] = process.argv.slice(2);
+
 if (!baseUrl || !label) {
 	console.error("usage: tsx e2e/http-surface.ts <baseUrl> <label>");
 	process.exit(2);
@@ -20,6 +21,7 @@ if (!baseUrl || !label) {
 const REQUEST_ID = "pin-request-0001";
 const DB = "dbstudio";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 const RECORDED_HEADERS = [
 	"content-type",
 	"content-disposition",
@@ -47,14 +49,21 @@ type Probe = {
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");
 const asset = (await readdir(path.join(webDist, "assets"))).sort()[0];
 
-const shape = (value: unknown): unknown => {
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
+type JsonOutline = string | JsonOutline[] | { [key: string]: JsonOutline };
+
+const shape = (value: Json): JsonOutline => {
 	if (Array.isArray(value)) return value.length ? [shape(value[0])] : [];
+
 	if (value && typeof value === "object")
 		return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shape(v)]));
+
 	return typeof value;
 };
 
 const STREAM_GAP_MS = 300;
+
 const fakeProxy = createServer(async (req, res) => {
 	if (req.url === "/chat/limit") {
 		res.writeHead(200, { "content-type": "application/json" });
@@ -66,16 +75,22 @@ const fakeProxy = createServer(async (req, res) => {
 				requestId: req.headers["x-request-id"],
 			}),
 		);
+
 		return;
 	}
+
 	let raw = "";
+
 	for await (const chunk of req) raw += chunk;
 	const payload = JSON.parse(raw);
+
 	if (payload.messages[0]?.content === "reject") {
 		res.writeHead(401, { "content-type": "application/json" });
 		res.end(JSON.stringify({ error: "bad key" }));
+
 		return;
 	}
+
 	res.writeHead(200, {
 		"content-type": "text/event-stream",
 		"cache-control": "no-cache",
@@ -87,6 +102,7 @@ const fakeProxy = createServer(async (req, res) => {
 	await new Promise((r) => setTimeout(r, STREAM_GAP_MS));
 	res.end("data: [DONE]\n\n");
 });
+
 await new Promise<void>((resolve) => fakeProxy.listen(4998, "127.0.0.1", resolve));
 
 const chatBody = (content: string) => ({
@@ -268,47 +284,60 @@ const probes: Probe[] = [
 	{ name: "drop scratch table", method: "DELETE", path: `/api/pg/tables/http_pin?db=${DB}` },
 ];
 
-const dropTimings = (value: unknown): unknown => {
+const dropTimings = (value: Json): Json => {
 	if (Array.isArray(value)) return value.map(dropTimings);
+
 	if (value && typeof value === "object")
 		return Object.fromEntries(
 			Object.entries(value).map(([k, v]) => [k, k === "duration" ? "<ms>" : dropTimings(v)]),
 		);
+
 	return value;
 };
 
 const normalizeRequestId = (value: string | null, sent: string | undefined) => {
 	if (value === null) return null;
+
 	if (value === sent) return "<echoed>";
+
 	return UUID.test(value) ? "<generated uuid>" : value;
 };
 
 const results = [];
+
 for (const probe of probes) {
 	const sentId = probe.headers?.["x-request-id"] ?? REQUEST_ID;
 	const headers: Record<string, string> = { "x-request-id": REQUEST_ID, ...probe.headers };
+
 	if (probe.body !== undefined) headers["content-type"] = "application/json";
+
 	const res = await fetch(`${baseUrl}${probe.path}`, {
 		method: probe.method ?? "GET",
 		headers,
 		body: probe.rawBody ?? (probe.body === undefined ? undefined : JSON.stringify(probe.body)),
 		redirect: "manual",
 	});
+
 	const startedAt = performance.now();
 	let firstChunkAt = 0;
 	let text = "";
 	const decoder = new TextDecoder();
+
 	for await (const chunk of res.body ?? []) {
 		firstChunkAt ||= performance.now();
 		text += decoder.decode(chunk, { stream: true });
 	}
+
 	const streamed =
 		firstChunkAt - startedAt < STREAM_GAP_MS &&
 		performance.now() - firstChunkAt >= STREAM_GAP_MS - 50;
+
 	let body: unknown;
+
 	try {
 		const json = JSON.parse(text);
 		body = probe.shapeOnly ? shape(json) : dropTimings(json);
+
 		if (body && typeof body === "object" && "requestId" in body) {
 			const { requestId } = body as { requestId: string };
 			(body as { requestId: string }).requestId = normalizeRequestId(requestId, sentId) ?? "";
@@ -318,6 +347,7 @@ for (const probe of probes) {
 			? `<html ${text.length > 0 ? "non-empty" : "empty"}>`
 			: text.slice(0, 400);
 	}
+
 	results.push({
 		name: probe.name,
 		status: res.status,
@@ -325,28 +355,35 @@ for (const probe of probes) {
 		headers: Object.fromEntries(
 			RECORDED_HEADERS.flatMap((h) => {
 				const v = res.headers.get(h);
+
 				return v === null
 					? []
 					: [[h, h === "content-disposition" || h === "content-type" ? v : v.toLowerCase()]];
 			}),
 		),
 		body,
-		...(probe.name === "chat stream" ? { streamed } : {}),
+		// JSON.stringify drops an undefined value, so other probes record no `streamed` key.
+		streamed: probe.name === "chat stream" ? streamed : undefined,
 	});
 	console.log(`${res.status}  ${probe.name}`);
 }
 
 const CONCURRENT = 40;
+
 const concurrent = await Promise.all(
 	Array.from({ length: CONCURRENT }, async (_, i) => {
 		const id = `pin-concurrent-${String(i).padStart(4, "0")}`;
+
 		const res = await fetch(`${baseUrl}/api/pg/tables/http_pin_missing_${i}/data?db=${DB}`, {
 			headers: { "x-request-id": id },
 		});
+
 		const body = (await res.json()) as { requestId?: string };
+
 		return body.requestId === id && res.headers.get("x-request-id") === id;
 	}),
 );
+
 results.push({
 	name: "concurrent requests keep their own request id",
 	requests: CONCURRENT,
@@ -354,8 +391,13 @@ results.push({
 });
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
+
 await mkdir(outDir, { recursive: true });
+
 const out = path.join(outDir, `http-surface-${label}.json`);
+
 await writeFile(out, `${JSON.stringify(results, null, 2)}\n`);
+
 console.log(`wrote ${path.relative(process.cwd(), out)}`);
+
 fakeProxy.close();

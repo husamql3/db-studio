@@ -25,6 +25,7 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 				schemaName,
 				params: { tableName, data },
 			});
+
 			return {
 				data: `Record inserted into "${tableName}" with ${insertedCount} rows inserted`,
 			};
@@ -44,6 +45,7 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 					message: `${DATABASE_ENGINES[dbType].label} cannot set a cell to its column default`,
 				});
 			const { updatedCount } = await adapter.updateRecords({ params: body, schemaName, db });
+
 			return { data: `Updated ${updatedCount} records in "${body.tableName}"` };
 		},
 		{ query: tableQuerySchema, body: updateRecordsSchema },
@@ -67,9 +69,11 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 				primaryKeys,
 				db,
 			});
+
 			if (fkViolation) {
 				return status(409, { data: { deletedCount: 0, fkViolation: true, relatedRecords } });
 			}
+
 			return { data: { deletedCount, fkViolation: false, relatedRecords: [] } };
 		},
 		{ query: tableQuerySchema, body: deleteRecordSchema },

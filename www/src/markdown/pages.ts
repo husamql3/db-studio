@@ -9,6 +9,7 @@ import { mdxToMarkdown } from "./mdx-to-markdown";
 const SITE_URL = "https://dbstudio.sh";
 
 const docsMarkdown = new Map<string, string>();
+
 for (const [slug, raw] of Object.entries(rawDocs)) {
 	docsMarkdown.set(slug === "index" ? "/docs" : `/docs/${slug}`, mdxToMarkdown(raw));
 }
@@ -16,20 +17,27 @@ for (const [slug, raw] of Object.entries(rawDocs)) {
 const changelogEntryLine = ({ text, username }: ChangelogEntry): string => {
 	const usernames = username ? (Array.isArray(username) ? username : [username]) : [];
 	const credit = usernames.map((u) => `[@${u}](https://github.com/${u})`).join(", ");
+
 	return `- ${text}${credit ? ` — ${credit}` : ""}`;
 };
 
 const changelogMarkdown = (): string => {
 	const sections = changelog.map((item) => {
 		const lines = [`## v${item.version} — ${item.title} (${item.date})`];
+
 		if (item.tags?.length) lines.push(`Tags: ${item.tags.join(", ")}`);
+
 		if (item.image) lines.push(`![v${item.version}](${SITE_URL}${item.image})`);
+
 		if (item.features?.length)
 			lines.push("### Features", item.features.map(changelogEntryLine).join("\n"));
+
 		if (item.improvements?.length)
 			lines.push("### Improvements", item.improvements.map(changelogEntryLine).join("\n"));
+
 		if (item.bugsFixed?.length)
 			lines.push("### Bug fixes", item.bugsFixed.map(changelogEntryLine).join("\n"));
+
 		return lines.join("\n\n");
 	});
 
@@ -46,6 +54,7 @@ const roadmapMarkdown = (): string => {
 					}`,
 			)
 			.join("\n");
+
 		return `## ${section.title} (${section.status})\n\n${tasks}`;
 	});
 
@@ -99,6 +108,7 @@ ${supportedDatabases
 ${sponsorTiers
 	.map(({ id, label, price, spots }) => {
 		const inTier = sponsors.filter((s) => s.tier === id);
+
 		return `- **${label}** (${price}, ${Math.max(0, spots - inTier.length)} of ${spots} open)${inTier.map((s) => `\n  - [${s.name}](${s.url})`).join("")}`;
 	})
 	.join("\n")}
@@ -114,7 +124,10 @@ export const getMarkdownForPath = async (pathname: string): Promise<string | nul
 	const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
 	if (path === "/") return landingMarkdown(await readSponsors());
+
 	if (path === "/changelog") return changelogMarkdown();
+
 	if (path === "/roadmap") return roadmapMarkdown();
+
 	return docsMarkdown.get(path) ?? null;
 };

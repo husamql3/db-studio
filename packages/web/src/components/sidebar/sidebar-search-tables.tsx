@@ -11,9 +11,11 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarSearchTables = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
+
 	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
+
 	const { openOverlay } = useOverlayStore();
 	const engine = useDatabaseEngine();
 
@@ -22,6 +24,7 @@ export const SidebarSearchTables = () => {
 		"/",
 		(event) => {
 			event.preventDefault();
+
 			if (inputRef.current) {
 				inputRef.current.focus();
 			}

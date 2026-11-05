@@ -68,6 +68,7 @@ const MYSQL_FK_DEPENDENCY = 1217;
 const MYSQL_DUP_KEYNAME = 1061;
 const MYSQL_DUP_ENTRY = 1062;
 const MYSQL_DROP_INDEX_FK = 1553;
+
 /**
  * The column or name cannot be indexed: identifier too long (1059), key too long (1071),
  * engine cannot index the column (1167), TEXT/BLOB without a prefix length (1170),
@@ -96,8 +97,8 @@ export class MySqlAdapter extends BaseAdapter {
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
 		const pool = await getMysqlPool(db);
-		// biome-ignore lint/suspicious/noExplicitAny: mysql2 execute doesn't accept unknown[]
 		const [rows] = await pool.execute(sql, values as any);
+
 		return rows as T;
 	}
 
@@ -119,6 +120,7 @@ export class MySqlAdapter extends BaseAdapter {
 			array: "JSON",
 			enum: "TEXT",
 		};
+
 		return map[universalType] ?? "LONGTEXT";
 	}
 
@@ -135,6 +137,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
+
 		if (Array.isArray(sort) && sort.length > 0) {
 			sortColumns = sort.map((s) => s.columnName);
 			effectiveSortDirection = sort[0].direction;
@@ -146,8 +149,10 @@ export class MySqlAdapter extends BaseAdapter {
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];
+
 		if (cursor) {
 			const cursorData = this.decodeCursor(cursor);
+
 			if (cursorData) {
 				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
 				cursorWhere = res.clause;
@@ -156,6 +161,7 @@ export class MySqlAdapter extends BaseAdapter {
 		}
 
 		let combinedWhere = "";
+
 		if (filterWhere && cursorWhere) {
 			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
 		} else if (filterWhere) {
@@ -166,6 +172,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
 		let effectiveSortClause = sortClause;
+
 		if (direction === "desc") {
 			if (sortClause) {
 				effectiveSortClause = sortClause
@@ -199,6 +206,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		const { direction = "asc", sort = [], cursor } = params;
 		let sortColumns: string[] = [];
+
 		if (Array.isArray(sort) && sort.length > 0) {
 			sortColumns = sort.map((s) => s.columnName);
 		} else if (typeof sort === "string" && sort) {
@@ -218,9 +226,11 @@ export class MySqlAdapter extends BaseAdapter {
 
 		if (direction === "asc") {
 			if (hasMore) nextCursor = createCursor(lastRow);
+
 			if (cursor) prevCursor = createCursor(firstRow);
 		} else {
 			if (cursor) nextCursor = createCursor(lastRow);
+
 			if (hasMore) prevCursor = createCursor(firstRow);
 		}
 
@@ -242,6 +252,7 @@ export class MySqlAdapter extends BaseAdapter {
 			cursor,
 			filters = [],
 		} = params;
+
 		const pool = await getMysqlPool(db);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
@@ -257,6 +268,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
+
 		if (Array.isArray(sort) && sort.length > 0) {
 			sortColumns = sort.map((s) => s.columnName);
 			effectiveSortDirection = sort[0].direction;
@@ -271,8 +283,10 @@ export class MySqlAdapter extends BaseAdapter {
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];
+
 		if (cursor) {
 			const cursorData = this.decodeCursor(cursor);
+
 			if (cursorData) {
 				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
 				cursorWhere = res.clause;
@@ -281,6 +295,7 @@ export class MySqlAdapter extends BaseAdapter {
 		}
 
 		let combinedWhere = "";
+
 		if (filterWhere && cursorWhere) {
 			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
 		} else if (filterWhere) {
@@ -292,12 +307,14 @@ export class MySqlAdapter extends BaseAdapter {
 		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
 		const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
 		let effectiveSortClause = sortClause;
+
 		if (direction === "desc") {
 			if (sortClause) {
 				effectiveSortClause = sortClause
 					.replace(/\bASC\b/gi, "TEMP_DESC")
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
+
 				if (pkTieBreakerCols.length) {
 					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
 					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${tbDir}`).join(", ")}`;
@@ -318,7 +335,9 @@ export class MySqlAdapter extends BaseAdapter {
 
 		let rows = dataRows as Record<string, unknown>[];
 		const hasMore = rows.length > limit;
+
 		if (hasMore) rows = rows.slice(0, limit);
+
 		if (direction === "desc") rows = rows.reverse();
 
 		let nextCursor: string | null = null;
@@ -327,6 +346,7 @@ export class MySqlAdapter extends BaseAdapter {
 		if (rows.length > 0 && cursorColumns.length > 0) {
 			const firstRow = rows[0];
 			const lastRow = rows[rows.length - 1];
+
 			const makeCursor = (row: Record<string, unknown>): CursorData => ({
 				values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
 				sortColumns: cursorColumns,
@@ -334,9 +354,11 @@ export class MySqlAdapter extends BaseAdapter {
 
 			if (direction === "asc") {
 				if (hasMore) nextCursor = this.encodeCursor(makeCursor(lastRow));
+
 				if (cursor) prevCursor = this.encodeCursor(makeCursor(firstRow));
 			} else {
 				if (cursor) nextCursor = this.encodeCursor(makeCursor(lastRow));
+
 				if (hasMore) prevCursor = this.encodeCursor(makeCursor(firstRow));
 			}
 		}
@@ -364,6 +386,7 @@ export class MySqlAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const pool = await getMysqlPool();
+
 			const [rows] = await pool.execute<RowDataPacket[]>(`
 				SELECT
 				  s.SCHEMA_NAME AS name,
@@ -376,8 +399,10 @@ export class MySqlAdapter extends BaseAdapter {
 				GROUP BY s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME
 				ORDER BY s.SCHEMA_NAME
 			`);
+
 			if (!rows[0])
 				throw new HTTPException(500, { message: "No databases returned from server" });
+
 			return rows as DatabaseInfoSchemaType[];
 		} catch (e) {
 			throw this.wrapError(e);
@@ -387,13 +412,16 @@ export class MySqlAdapter extends BaseAdapter {
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		const pool = await getMysqlPool();
 		const [rows] = await pool.execute<RowDataPacket[]>("SELECT DATABASE() AS db");
+
 		if (!rows[0])
 			throw new HTTPException(500, { message: "No current database returned from server" });
+
 		return (rows as Array<{ db: string }>)[0] as DatabaseSchemaType;
 	}
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 		const pool = await getMysqlPool();
+
 		const [infoRows] = await pool.execute<RowDataPacket[]>(`
 			SELECT
 			  VERSION()        AS version,
@@ -403,9 +431,11 @@ export class MySqlAdapter extends BaseAdapter {
 			  @@port           AS port,
 			  @@max_connections AS max_connections
 		`);
+
 		const [connRows] = await pool.execute<RowDataPacket[]>(
 			"SELECT COUNT(*) AS cnt FROM information_schema.PROCESSLIST",
 		);
+
 		if (!infoRows[0])
 			throw new HTTPException(500, {
 				message: "No connection information returned from server",
@@ -438,9 +468,11 @@ export class MySqlAdapter extends BaseAdapter {
 				if (estimate >= EXACT_COUNT_LIMIT) {
 					return { tableName, rowCount: estimate, rowCountEstimated: true };
 				}
+
 				const [countRows] = await pool.execute<RowDataPacket[]>(
 					`SELECT COUNT(*) as count FROM ${quote(tableName)}`,
 				);
+
 				return {
 					tableName,
 					rowCount: Number((countRows as Array<{ count: number }>)[0]?.count ?? 0),
@@ -463,11 +495,13 @@ export class MySqlAdapter extends BaseAdapter {
 
 		const constraintDefs: string[] = [];
 		const primaryKeyFields = fields.filter((f: FieldDataType) => f.isPrimaryKey);
+
 		if (primaryKeyFields.length > 0) {
 			constraintDefs.push(
 				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => `\`${f.columnName}\``).join(", ")})`,
 			);
 		}
+
 		for (const field of fields as FieldDataType[]) {
 			if (field.isUnique && !field.isPrimaryKey) {
 				constraintDefs.push(
@@ -479,6 +513,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const fkDefs =
 			foreignKeys?.map((fk: ForeignKeyDataType) => {
 				const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
+
 				return `CONSTRAINT \`${name}\` FOREIGN KEY (\`${fk.columnName}\`) REFERENCES \`${fk.referencedTable}\` (\`${fk.referencedColumn}\`) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
 			}) ?? [];
 
@@ -495,6 +530,7 @@ export class MySqlAdapter extends BaseAdapter {
 			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
 			[tableName],
 		);
+
 		if (Number((tableRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 		}
@@ -503,6 +539,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 		if (!cascade) {
 			const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
+
 			if (relatedRecords.length > 0) {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -511,6 +548,7 @@ export class MySqlAdapter extends BaseAdapter {
 		try {
 			if (cascade) {
 				const connection = await pool.getConnection();
+
 				try {
 					await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
 					await connection.execute(`DROP TABLE \`${tableName}\``);
@@ -521,17 +559,21 @@ export class MySqlAdapter extends BaseAdapter {
 			} else {
 				await pool.execute(`DROP TABLE \`${tableName}\``);
 			}
+
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
 			await pool.execute("SET FOREIGN_KEY_CHECKS = 1").catch(() => {});
 			const mysqlError = error as { errno?: number };
+
 			if (
 				mysqlError.errno === MYSQL_FK_DEPENDENCY ||
 				mysqlError.errno === MYSQL_FK_VIOLATION
 			) {
 				const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
+
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
+
 			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
@@ -549,6 +591,7 @@ export class MySqlAdapter extends BaseAdapter {
 				`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
 				[newTableName],
 			);
+
 			if (Number((targetRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
 				throw new HTTPException(409, {
 					message: `Table "${newTableName}" already exists`,
@@ -571,10 +614,12 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
 		const pool = await getMysqlPool(db);
+
 		const [tableRows] = await pool.execute<RowDataPacket[]>(
 			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
 			[tableName],
 		);
+
 		if (Number((tableRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 		}
@@ -582,11 +627,13 @@ export class MySqlAdapter extends BaseAdapter {
 		const [rows] = await pool.execute<RowDataPacket[]>(`SHOW CREATE TABLE \`${tableName}\``);
 		const row = (rows as Array<Record<string, string>>)[0];
 		const createTableSql = row?.["Create Table"] ?? row?.create_table ?? "";
+
 		if (!createTableSql) {
 			throw new HTTPException(500, {
 				message: `Failed to retrieve schema for table "${tableName}"`,
 			});
 		}
+
 		return createTableSql;
 	}
 
@@ -600,6 +647,7 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
 		const pool = await getMysqlPool(db);
+
 		// MariaDB stores JSON as LONGTEXT guarded by a json_valid() column check.
 		const isJsonCheckedText = (await this.isMariaDb(pool))
 			? `EXISTS (
@@ -609,6 +657,7 @@ export class MySqlAdapter extends BaseAdapter {
 			      AND cc.CHECK_CLAUSE = CONCAT('json_valid(\`', c.COLUMN_NAME, '\`)')
 			  )`
 			: "FALSE";
+
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT
 			  c.COLUMN_NAME            AS columnName,
@@ -655,9 +704,11 @@ export class MySqlAdapter extends BaseAdapter {
 			}>
 		).map((r) => {
 			const isEnum = r.dataType === "enum" || r.dataType === "set";
+
 			const [dataType, columnType] = r.isJsonText
 				? ["json", "json"]
 				: [r.dataType, r.columnType];
+
 			return {
 				columnName: r.columnName,
 				dataType: mapMysqlToDataType(dataType, columnType),
@@ -687,6 +738,7 @@ export class MySqlAdapter extends BaseAdapter {
 			isArray,
 			db,
 		} = params;
+
 		const pool = await getMysqlPool(db);
 
 		await this.assertTableExists(pool, tableName);
@@ -695,6 +747,7 @@ export class MySqlAdapter extends BaseAdapter {
 			`SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
 			[tableName, columnName],
 		);
+
 		if (Number((colRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
 			throw new HTTPException(409, {
 				message: `Column "${columnName}" already exists in table "${tableName}"`,
@@ -714,6 +767,7 @@ export class MySqlAdapter extends BaseAdapter {
 			},
 			{ includePrimaryKey: true, includeUnique: true },
 		);
+
 		await pool.execute<ResultSetHeader>(`ALTER TABLE \`${tableName}\` ADD COLUMN ${colDef}`);
 	}
 
@@ -727,6 +781,7 @@ export class MySqlAdapter extends BaseAdapter {
 		const [result] = await pool.execute<ResultSetHeader>(
 			`ALTER TABLE \`${tableName}\` DROP COLUMN \`${columnName}\``,
 		);
+
 		return { deletedCount: result.affectedRows };
 	}
 
@@ -740,7 +795,9 @@ export class MySqlAdapter extends BaseAdapter {
 			`SELECT EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
 			[tableName, columnName],
 		);
+
 		const colRow = (colRows as Array<{ EXTRA?: string | null }>)[0];
+
 		if (!colRow) {
 			throw new HTTPException(404, {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -751,6 +808,7 @@ export class MySqlAdapter extends BaseAdapter {
 			{ columnName, columnType, defaultValue, isNullable },
 			{ preserveAutoIncrement: colRow.EXTRA?.toLowerCase().includes("auto_increment") },
 		);
+
 		await pool.execute<ResultSetHeader>(
 			`ALTER TABLE \`${tableName}\` MODIFY COLUMN ${colDef}`,
 		);
@@ -767,6 +825,7 @@ export class MySqlAdapter extends BaseAdapter {
 			`SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
 			[tableName, newColumnName],
 		);
+
 		if (Number((newColRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
 			throw new HTTPException(409, {
 				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
@@ -782,6 +841,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		const pool = await getMysqlPool(db);
+
 		try {
 			// UNIX_TIMESTAMP reads LOGGED independently of the session time zone.
 			const [rows] = await pool.query<RowDataPacket[]>(
@@ -789,6 +849,7 @@ export class MySqlAdapter extends BaseAdapter {
 					ERROR_CODE, SUBSYSTEM, DATA
 				FROM performance_schema.error_log ORDER BY LOGGED DESC LIMIT ${SERVER_LOGS_LIMIT}`,
 			);
+
 			return {
 				available: true,
 				source: "performance_schema.error_log",
@@ -806,16 +867,19 @@ export class MySqlAdapter extends BaseAdapter {
 			};
 		} catch (e) {
 			const errno = (e as { errno?: number }).errno;
+
 			if (errno === MYSQL_TABLE_ACCESS_DENIED) {
 				return logsUnavailable(
 					"Reading the server log needs: GRANT SELECT ON performance_schema.error_log TO <user>;",
 				);
 			}
+
 			if (errno === MYSQL_NO_SUCH_TABLE) {
 				return logsUnavailable(
 					"The server keeps no error_log table. It needs MySQL 8.0.22 or later; MariaDB has no equivalent.",
 				);
 			}
+
 			throw this.wrapError(e);
 		}
 	}
@@ -838,6 +902,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
 		const { tableName, indexName, columns, isUnique, method, db } = params;
+
 		try {
 			const pool = await getMysqlPool(db);
 			await this.assertTableExists(pool, tableName);
@@ -846,8 +911,10 @@ export class MySqlAdapter extends BaseAdapter {
 				`SELECT COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
 				[tableName],
 			);
+
 			const existing = new Set(columnRows.map((row) => String(row.columnName)));
 			const missing = columns.find((column) => !existing.has(column));
+
 			if (missing !== undefined)
 				throw new HTTPException(400, {
 					message: `Column "${missing}" does not exist in table "${tableName}"`,
@@ -861,8 +928,10 @@ export class MySqlAdapter extends BaseAdapter {
 			);
 		} catch (e) {
 			const errno = (e as { errno?: number }).errno;
+
 			if (e instanceof Error && (errno === MYSQL_DUP_KEYNAME || errno === MYSQL_DUP_ENTRY))
 				throw new HTTPException(409, { message: e.message, cause: e });
+
 			if (e instanceof Error && errno !== undefined && MYSQL_CANNOT_INDEX.has(errno))
 				throw new HTTPException(400, { message: e.message, cause: e });
 			throw this.wrapError(e);
@@ -872,13 +941,16 @@ export class MySqlAdapter extends BaseAdapter {
 	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
 		try {
 			const pool = await getMysqlPool(db);
+
 			const index = (await this.listIndexes(pool, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
 			);
+
 			if (!index)
 				throw new HTTPException(404, {
 					message: `Index "${indexName}" does not exist on table "${tableName}"`,
 				});
+
 			if (index.kind !== "index")
 				throw new HTTPException(400, {
 					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
@@ -906,10 +978,12 @@ export class MySqlAdapter extends BaseAdapter {
 
 		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 		const columns = Object.keys(data);
+
 		const values = Object.values(data).map((value, i) => {
 			if (booleanColumns.has(columns[i]) && typeof value === "string") {
 				return value === "true" ? 1 : 0;
 			}
+
 			return value;
 		});
 
@@ -917,9 +991,11 @@ export class MySqlAdapter extends BaseAdapter {
 			`INSERT INTO \`${tableName}\` (${columns.map((c) => `\`${c}\``).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
 			values as any,
 		);
+
 		if (result.affectedRows === 0) {
 			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
 		}
+
 		return { insertedCount: result.affectedRows };
 	}
 
@@ -944,20 +1020,25 @@ export class MySqlAdapter extends BaseAdapter {
 
 		try {
 			let total = 0;
+
 			for (const { keyValues, rowUpdates } of groups) {
 				const setClauses = rowUpdates.map(
 					(u) => `\`${u.columnName}\` = ${u.useDefault ? "DEFAULT" : "?"}`,
 				);
+
 				const values: unknown[] = rowUpdates
 					.filter((u) => !u.useDefault)
 					.map((u) => {
 						if (u.value !== null && typeof u.value === "object")
 							return JSON.stringify(u.value);
+
 						if (booleanColumns.has(u.columnName) && typeof u.value === "string") {
 							return u.value === "true" ? 1 : 0;
 						}
+
 						return u.value;
 					});
+
 				values.push(...keyValues);
 				const whereClauses = keyColumns.map((column) => `\`${column}\` = ?`);
 
@@ -965,17 +1046,22 @@ export class MySqlAdapter extends BaseAdapter {
 					`UPDATE \`${tableName}\` SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
 					values as any,
 				);
+
 				if (result.affectedRows === 0) {
 					throw new HTTPException(404, {
 						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 					});
 				}
+
 				total += result.affectedRows;
 			}
+
 			await connection.commit();
+
 			return { updatedCount: total };
 		} catch (error) {
 			await connection.rollback();
+
 			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
 		} finally {
@@ -990,6 +1076,7 @@ export class MySqlAdapter extends BaseAdapter {
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
 		const pool = await getMysqlPool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
@@ -1004,15 +1091,20 @@ export class MySqlAdapter extends BaseAdapter {
 				`DELETE FROM \`${tableName}\` WHERE \`${pkColumn}\` IN (${placeholders})`,
 				pkValues as any,
 			);
+
 			await connection.commit();
+
 			return { deletedCount: result.affectedRows, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
 			await connection.rollback();
 			const mysqlError = error as { errno?: number };
+
 			if (mysqlError.errno === MYSQL_FK_VIOLATION) {
 				const relatedRecords = await this.getRelatedRecords(tableName, primaryKeys, db);
+
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
+
 			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to delete records from "${tableName}"`,
@@ -1029,6 +1121,7 @@ export class MySqlAdapter extends BaseAdapter {
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const pool = await getMysqlPool(db);
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
@@ -1055,19 +1148,25 @@ export class MySqlAdapter extends BaseAdapter {
 				const seen = handled.get(key) ?? new Set<string>();
 				handled.set(key, seen);
 				const values = reached.filter((value) => !seen.has(String(value)));
+
 				if (values.length === 0) return;
+
 				for (const value of values) seen.add(String(value));
 
 				const nestedFks = await this.getForeignKeyReferences(targetTable, db);
+
 				for (const nestedFk of nestedFks) {
 					const nestedPh = values.map(() => "?").join(", ");
+
 					const [selectRows] = await connection.execute<RowDataPacket[]>(
 						`SELECT \`${nestedFk.referencedColumn}\` FROM \`${targetTable}\` WHERE \`${targetColumn}\` IN (${nestedPh})`,
 						values as any[],
 					);
+
 					const nestedValues = (selectRows as Record<string, unknown>[]).map(
 						(row) => row[nestedFk.referencedColumn],
 					);
+
 					if (nestedValues.length > 0) {
 						await deleteRelatedRecursively(
 							nestedFk.referencingTable,
@@ -1078,10 +1177,12 @@ export class MySqlAdapter extends BaseAdapter {
 				}
 
 				const ph = values.map(() => "?").join(", ");
+
 				const [deleteResult] = await connection.execute<ResultSetHeader>(
 					`DELETE FROM \`${targetTable}\` WHERE \`${targetColumn}\` IN (${ph})`,
 					values as any[],
 				);
+
 				totalRelated += deleteResult.affectedRows;
 			};
 
@@ -1096,15 +1197,18 @@ export class MySqlAdapter extends BaseAdapter {
 			}
 
 			const mainPh = pkValues.map(() => "?").join(", ");
+
 			const [result] = await connection.execute<ResultSetHeader>(
 				`DELETE FROM \`${tableName}\` WHERE \`${pkColumn}\` IN (${mainPh})`,
 				pkValues as any,
 			);
 
 			await connection.commit();
+
 			return { deletedCount: result.affectedRows + totalRelated };
 		} catch (error) {
 			await connection.rollback();
+
 			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to force delete records from "${tableName}"`,
@@ -1135,10 +1239,13 @@ export class MySqlAdapter extends BaseAdapter {
 
 			for (let i = 0; i < records.length; i++) {
 				const record = records[i];
+
 				const values = columns.map((col) => {
 					const value = record[col];
+
 					if (booleanColumns.has(col) && typeof value === "string")
 						return value === "true" ? 1 : 0;
+
 					return value;
 				});
 
@@ -1156,6 +1263,7 @@ export class MySqlAdapter extends BaseAdapter {
 			}
 
 			await connection.commit();
+
 			return {
 				success: true,
 				message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
@@ -1164,6 +1272,7 @@ export class MySqlAdapter extends BaseAdapter {
 			};
 		} catch (error) {
 			await connection.rollback();
+
 			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to bulk insert records into "${tableName}"`,
@@ -1183,19 +1292,23 @@ export class MySqlAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
 		const pool = await getMysqlPool(db);
+
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
 		const cleaned = query.trim().replace(/;+$/, "");
 		const start = performance.now();
+
 		const [result, fields] = (await pool.execute(cleaned)) as [
 			RowDataPacket[] | ResultSetHeader,
 			FieldPacket[],
 		];
+
 		const duration = performance.now() - start;
 
 		if (Array.isArray(result)) {
 			const rows = result as RowDataPacket[];
 			const columns = fields ? fields.map((f) => f.name) : Object.keys(rows[0] ?? {});
+
 			return {
 				columns,
 				rows: rows as Record<string, unknown>[],
@@ -1206,6 +1319,7 @@ export class MySqlAdapter extends BaseAdapter {
 		}
 
 		const dmlResult = result as ResultSetHeader;
+
 		return {
 			columns: [],
 			rows: [],
@@ -1230,10 +1344,12 @@ export class MySqlAdapter extends BaseAdapter {
 		tableName?: string,
 	): Promise<Map<string, number>> {
 		const connection = await pool.getConnection();
+
 		try {
 			await connection
 				.query("SET SESSION information_schema_stats_expiry = 0")
 				.catch(() => {});
+
 			const [rows] = await connection.query<RowDataPacket[]>(
 				`SELECT table_name AS tableName, table_rows AS estimate
 				FROM information_schema.tables
@@ -1242,6 +1358,7 @@ export class MySqlAdapter extends BaseAdapter {
 				ORDER BY table_name`,
 				tableName === undefined ? [] : [tableName],
 			);
+
 			return new Map(
 				(rows as Array<{ tableName: string; estimate: number | null }>).map((row) => [
 					row.tableName,
@@ -1266,12 +1383,15 @@ export class MySqlAdapter extends BaseAdapter {
 	): Promise<{ total: number; estimated: boolean }> {
 		if (!filterWhere) {
 			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+
 			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
 		}
+
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
 			filterValues as any,
 		);
+
 		return {
 			total: Number((rows as Array<{ total: number }>)[0]?.total ?? 0),
 			estimated: false,
@@ -1280,6 +1400,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 	private isMariaDb(pool: MysqlPool): Promise<boolean> {
 		let mariaDb = this.mariaDb.get(pool);
+
 		if (!mariaDb) {
 			mariaDb = pool
 				.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
@@ -1290,6 +1411,7 @@ export class MySqlAdapter extends BaseAdapter {
 				});
 			this.mariaDb.set(pool, mariaDb);
 		}
+
 		return mariaDb;
 	}
 
@@ -1301,6 +1423,7 @@ export class MySqlAdapter extends BaseAdapter {
 			 ORDER BY ORDINAL_POSITION`,
 			[tableName],
 		);
+
 		return (rows as Array<{ column_name: string }>).map((r) => r.column_name);
 	}
 
@@ -1309,6 +1432,7 @@ export class MySqlAdapter extends BaseAdapter {
 		db: string,
 	): Promise<ForeignKeyConstraint[]> {
 		const pool = await getMysqlPool(db);
+
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT
 				kcu.CONSTRAINT_NAME        AS constraint_name,
@@ -1326,6 +1450,7 @@ export class MySqlAdapter extends BaseAdapter {
 			  AND kcu.REFERENCED_TABLE_NAME = ?`,
 			[tableName],
 		);
+
 		return (rows as ForeignKeyConstraintRow[]).map((row) => ({
 			constraintName: row.constraint_name,
 			referencingTable: row.referencing_table,
@@ -1340,14 +1465,17 @@ export class MySqlAdapter extends BaseAdapter {
 		db: string,
 	): Promise<RelatedRecord[]> {
 		const fks = await this.getForeignKeyReferences(tableName, db);
+
 		if (fks.length === 0) return [];
 
 		const pool = await getMysqlPool(db);
 		const results: RelatedRecord[] = [];
+
 		for (const fk of fks) {
 			const [relatedRows] = await pool.execute<RowDataPacket[]>(
 				`SELECT * FROM \`${fk.referencingTable}\` LIMIT 100`,
 			);
+
 			if (relatedRows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,
@@ -1357,6 +1485,7 @@ export class MySqlAdapter extends BaseAdapter {
 				});
 			}
 		}
+
 		return results;
 	}
 
@@ -1366,6 +1495,7 @@ export class MySqlAdapter extends BaseAdapter {
 		db: string,
 	): Promise<RelatedRecord[]> {
 		const fks = await this.getForeignKeyReferences(tableName, db);
+
 		if (fks.length === 0) return [];
 
 		const pool = await getMysqlPool(db);
@@ -1373,23 +1503,29 @@ export class MySqlAdapter extends BaseAdapter {
 		const results: RelatedRecord[] = [];
 
 		const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
+
 		for (const fk of fks) {
 			const key = `${fk.referencingTable}.${fk.referencingColumn}`;
+
 			if (!constraintsByTable.has(key)) constraintsByTable.set(key, []);
 			constraintsByTable.get(key)?.push(fk);
 		}
 
 		for (const [, constraints] of constraintsByTable) {
 			const fk = constraints[0];
+
 			if (!fk) continue;
 			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
+
 			if (!matchingPk) continue;
 
 			const placeholders = pkValues.map(() => "?").join(", ");
+
 			const [relatedRows] = await pool.execute<RowDataPacket[]>(
 				`SELECT * FROM \`${fk.referencingTable}\` WHERE \`${fk.referencingColumn}\` IN (${placeholders}) LIMIT 100`,
 				pkValues as any,
 			);
+
 			if (relatedRows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,
@@ -1399,6 +1535,7 @@ export class MySqlAdapter extends BaseAdapter {
 				});
 			}
 		}
+
 		return results;
 	}
 
@@ -1406,11 +1543,13 @@ export class MySqlAdapter extends BaseAdapter {
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT COUNT(*) as count FROM \`${tableName}\``,
 		);
+
 		return Number((rows as Array<{ count: number }>)[0]?.count ?? 0);
 	}
 
 	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
 		const cols = await this.getTableColumns({ tableName, db });
+
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
 	}
 
@@ -1419,6 +1558,7 @@ export class MySqlAdapter extends BaseAdapter {
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
 		await this.assertTableExists(pool, tableName);
+
 		// SELECT *, because EXPRESSION (a functional key part) exists only on MySQL 8.0.13+ and TiDB.
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT * FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
@@ -1429,8 +1569,10 @@ export class MySqlAdapter extends BaseAdapter {
 			string,
 			{ index: IndexInfoSchemaType; parts: string[]; hasExpression: boolean }
 		>();
+
 		for (const row of rows) {
 			const indexName = String(row.INDEX_NAME);
+
 			const entry = byName.get(indexName) ?? {
 				index: {
 					indexName,
@@ -1448,9 +1590,11 @@ export class MySqlAdapter extends BaseAdapter {
 				parts: [],
 				hasExpression: false,
 			};
+
 			byName.set(indexName, entry);
 
 			const expression: string | null = row.EXPRESSION ?? null;
+
 			if (row.COLUMN_NAME === null && expression !== null) {
 				entry.index.columns.push(expression);
 				entry.parts.push(`(${expression})${row.COLLATION === "D" ? " DESC" : ""}`);
@@ -1483,6 +1627,7 @@ export class MySqlAdapter extends BaseAdapter {
 			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
 			[tableName],
 		);
+
 		if (Number((rows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 		}
@@ -1497,6 +1642,7 @@ export class MySqlAdapter extends BaseAdapter {
 			`SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
 			[tableName, columnName],
 		);
+
 		if (Number((rows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
 			throw new HTTPException(404, {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -1506,7 +1652,9 @@ export class MySqlAdapter extends BaseAdapter {
 
 	private parseMysqlEnumValues(columnType: string): string[] | null {
 		const match = columnType.match(/^(?:enum|set)\((.+)\)$/i);
+
 		if (!match?.[1]) return null;
+
 		return match[1].split(",").map((v) => v.trim().replace(/^'|'$/g, ""));
 	}
 }

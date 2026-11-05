@@ -24,6 +24,7 @@ describe("useLiveTable", () => {
 
 	it("polls every 1 second when Live mode is enabled", async () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
+
 		const { result } = renderHook(() =>
 			useLiveTable({
 				tableName: "users",
@@ -155,6 +156,7 @@ describe("useLiveTable", () => {
 
 	it("pauses Live mode when the row details sheet has unsaved changes", () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
+
 		const { rerender } = renderHook(() =>
 			useLiveTable({ tableName: "users", tableDataRows: [], refetchTableData: refetch }),
 		);
@@ -172,12 +174,14 @@ describe("useLiveTable", () => {
 
 	it("never overlaps slow polls", async () => {
 		let resolvePoll: ((value: unknown) => void) | undefined;
+
 		const refetch = vi.fn(
 			() =>
 				new Promise((resolve) => {
 					resolvePoll = resolve;
 				}),
 		);
+
 		const { result } = renderHook(() =>
 			useLiveTable({ tableName: "users", tableDataRows: [], refetchTableData: refetch }),
 		);
@@ -221,6 +225,7 @@ describe("useLiveTable", () => {
 
 	it("cleans up Live state on unmount", () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
+
 		const { unmount } = renderHook(() =>
 			useLiveTable({
 				tableName: "users",
@@ -240,6 +245,7 @@ describe("useLiveTable", () => {
 
 	it("stops polling when tab is hidden and polls immediately when tab becomes visible", async () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
+
 		const { result } = renderHook(() =>
 			useLiveTable({
 				tableName: "users",
@@ -280,6 +286,7 @@ describe("useLiveTable", () => {
 
 	it("cleans up Live state when database switches", () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
+
 		const { rerender } = renderHook(() =>
 			useLiveTable({
 				tableName: "users",
@@ -306,12 +313,14 @@ describe("useLiveTable", () => {
 
 	it("ignores in-flight poll completion after editing pauses Live mode", async () => {
 		let resolvePoll: ((value: unknown) => void) | null = null;
+
 		const refetch = vi.fn().mockImplementation(
 			() =>
 				new Promise((resolve) => {
 					resolvePoll = resolve;
 				}),
 		);
+
 		let isEditingCell = false;
 
 		const { rerender } = renderHook(() =>
@@ -348,6 +357,7 @@ describe("useLiveTable", () => {
 
 	it("ignores in-flight poll completion after database switch", async () => {
 		let resolvePoll: ((value: unknown) => void) | null = null;
+
 		const refetch = vi.fn().mockImplementation(
 			() =>
 				new Promise((resolve) => {

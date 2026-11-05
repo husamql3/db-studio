@@ -9,19 +9,24 @@ import { fileURLToPath } from "node:url";
 // reported each one to Sentry. It must answer 404 and say how to build the web app, while the
 // API keeps working.
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 // getWebDistPath falls back to <cwd>/../web/dist; an empty temp directory has none.
 process.chdir(await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-")));
+
 const { createServer } = await import("../src/utils/create-server.js");
 const { app } = createServer();
 const evidence: Record<string, unknown> = {};
 
 // A failing run captures the error body; keep the artifact free of machine paths and request IDs.
 const serverDir = fileURLToPath(new URL("../", import.meta.url));
+
 const get = async (pathname: string) => {
 	const response = await app.handle(new Request(new URL(pathname, "http://localhost")));
+
 	const body = (await response.text())
 		.replaceAll(serverDir, "<server>/")
 		.replace(/"requestId":"[^"]*"/, '"requestId":"<id>"');
+
 	return { status: response.status, contentType: response.headers.get("content-type"), body };
 };
 
@@ -35,12 +40,14 @@ try {
 		assert.equal(status, 404, `${label}: ${body}`);
 		assert.match(body, /bun run build/, `${label}: ${body}`);
 	}
+
 	// The API keeps its JSON 404 instead of getting the plain-text build instructions.
 	const unknownApi = evidence.unknownApi as {
 		status: number;
 		contentType: string;
 		body: string;
 	};
+
 	assert.equal(unknownApi.status, 404);
 	assert.match(unknownApi.contentType, /^application\/json/);
 	assert.deepEqual(JSON.parse(unknownApi.body), { error: "Not found" });

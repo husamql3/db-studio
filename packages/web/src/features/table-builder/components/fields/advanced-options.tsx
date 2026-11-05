@@ -68,6 +68,7 @@ export const AdvancedOptions = ({
 		return ADD_TABLE_OPTIONS.filter((option) => {
 			if (!shouldShowOption(option.name)) return false;
 			const value = field[option.name as keyof typeof field];
+
 			return Boolean(value);
 		}).length;
 	}, [isNullable, isUnique, isIdentity, isArray, shouldShowOption]);

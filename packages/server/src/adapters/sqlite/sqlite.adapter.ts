@@ -96,17 +96,22 @@ const indexKeyParts = (sql: string): string[] => {
 	const parts: string[] = [];
 	let depth = 0;
 	let start = -1;
+
 	for (let i = 0; i < sql.length; i++) {
 		const char = sql[i] ?? "";
 		const end = QUOTE_END[char];
+
 		if (end) {
 			i = sql.indexOf(end, i + 1);
+
 			if (i === -1) break;
 		} else if (char === "-" && sql[i + 1] === "-") {
 			i = sql.indexOf("\n", i + 2);
+
 			if (i === -1) break;
 		} else if (char === "/" && sql[i + 1] === "*") {
 			const endComment = sql.indexOf("*/", i + 2);
+
 			if (endComment === -1) break;
 			i = endComment + 1;
 		} else if (char === "(") {
@@ -119,6 +124,7 @@ const indexKeyParts = (sql: string): string[] => {
 			start = i + 1;
 		}
 	}
+
 	return parts;
 };
 
@@ -127,10 +133,14 @@ const allNamed = (columns: (string | null)[]): columns is string[] =>
 
 const toSqliteValue = (value: unknown): SqlParam => {
 	if (value === null || value === undefined) return null;
+
 	if (typeof value === "boolean") return value ? 1 : 0;
+
 	if (typeof value === "string" || typeof value === "number" || typeof value === "bigint")
 		return value;
+
 	if (value instanceof Date) return value.toISOString();
+
 	return JSON.stringify(value);
 };
 
@@ -144,10 +154,12 @@ const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
 
 // The client runs in intMode "bigint" so integers past 2^53 don't throw; JSON can't carry
 // bigint or ArrayBuffer, and the export writer renders Buffers as hex.
-const fromSqliteValue = (value: Value): unknown => {
+const fromSqliteValue = (value: Value): string | number | Buffer | null => {
 	if (typeof value === "bigint")
 		return value >= MIN_SAFE && value <= MAX_SAFE ? Number(value) : value.toString();
+
 	if (value instanceof ArrayBuffer) return Buffer.from(value);
+
 	return value;
 };
 
@@ -175,6 +187,7 @@ export class SqliteAdapter extends BaseAdapter {
 	private serializeSchemaChange<T>(change: () => Promise<T>): Promise<T> {
 		const run = this.schemaChange.then(change);
 		this.schemaChange = run.catch(() => {});
+
 		return run;
 	}
 
@@ -204,6 +217,7 @@ export class SqliteAdapter extends BaseAdapter {
 			array: "TEXT",
 			enum: "TEXT",
 		};
+
 		return map[universalType] ?? "TEXT";
 	}
 
@@ -220,20 +234,24 @@ export class SqliteAdapter extends BaseAdapter {
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
+
 		if (Array.isArray(sort) && sort.length > 0) {
 			sortColumns = sort.map((s) => s.columnName);
 			effectiveSortDirection = sort[0].direction;
 		} else if (typeof sort === "string" && sort) {
 			sortColumns = [sort];
 		}
+
 		if (!sortColumns.length) sortColumns = ["rowid"];
 
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];
+
 		if (cursor) {
 			const cursorData = this.decodeCursor(cursor);
+
 			if (cursorData) {
 				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
 				cursorWhere = res.clause;
@@ -242,6 +260,7 @@ export class SqliteAdapter extends BaseAdapter {
 		}
 
 		let combinedWhere = "";
+
 		if (filterWhere && cursorWhere) {
 			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
 		} else if (filterWhere) {
@@ -286,11 +305,13 @@ export class SqliteAdapter extends BaseAdapter {
 
 		const { direction = "asc", sort = [], cursor } = params;
 		let sortColumns: string[] = [];
+
 		if (Array.isArray(sort) && sort.length > 0) {
 			sortColumns = sort.map((s) => s.columnName);
 		} else if (typeof sort === "string" && sort) {
 			sortColumns = [sort];
 		}
+
 		if (!sortColumns.length) sortColumns = ["rowid"];
 
 		const createCursor = (row: NormalizedRow): string => {
@@ -298,6 +319,7 @@ export class SqliteAdapter extends BaseAdapter {
 				values: Object.fromEntries(sortColumns.map((col) => [col, row[col]])),
 				sortColumns,
 			};
+
 			return this.encodeCursor(data);
 		};
 
@@ -308,9 +330,11 @@ export class SqliteAdapter extends BaseAdapter {
 
 		if (direction === "asc") {
 			if (hasMore) nextCursor = createCursor(lastRow);
+
 			if (cursor) prevCursor = createCursor(firstRow);
 		} else {
 			if (cursor) nextCursor = createCursor(lastRow);
+
 			if (hasMore) prevCursor = createCursor(firstRow);
 		}
 
@@ -340,9 +364,11 @@ export class SqliteAdapter extends BaseAdapter {
 				client,
 				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 			);
+
 			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
 			if (colInfoRows.length === 0)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
 			const pkColumns: string[] = colInfoRows
 				.filter((c) => c.pk > 0)
 				.sort((a, b) => a.pk - b.pk)
@@ -350,6 +376,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 			let sortColumns: string[] = [];
 			let effectiveSortDirection: SortDirection = order;
+
 			if (Array.isArray(sort) && sort.length > 0) {
 				sortColumns = sort.map((s) => s.columnName);
 				effectiveSortDirection = sort[0].direction;
@@ -361,15 +388,19 @@ export class SqliteAdapter extends BaseAdapter {
 				...sortColumns,
 				...pkColumns.filter((pk) => !sortColumns.includes(pk)),
 			];
+
 			const useRowid = cursorColumns.length === 0;
+
 			if (useRowid) cursorColumns.push("rowid");
 
 			const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
 			let cursorWhere = "";
 			let cursorValues: unknown[] = [];
+
 			if (cursor) {
 				const cursorData = this.decodeCursor(cursor);
+
 				if (cursorData) {
 					const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
 					cursorWhere = res.clause;
@@ -378,6 +409,7 @@ export class SqliteAdapter extends BaseAdapter {
 			}
 
 			let combinedWhere = "";
+
 			if (filterWhere && cursorWhere) {
 				combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
 			} else if (filterWhere) {
@@ -396,6 +428,7 @@ export class SqliteAdapter extends BaseAdapter {
 						.replace(/\bASC\b/gi, "TEMP_DESC")
 						.replace(/\bDESC\b/gi, "ASC")
 						.replace(/TEMP_DESC/g, "DESC");
+
 					if (pkTieBreakerCols.length) {
 						const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
 						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
@@ -414,10 +447,12 @@ export class SqliteAdapter extends BaseAdapter {
 				`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
 				filterValues,
 			);
+
 			const total = Number(countRow?.total ?? 0);
 
 			// When falling back to rowid for cursor, include it in SELECT so buildCursors can read it
 			const selectClause = useRowid ? "*, rowid" : "*";
+
 			const dataRows = await all(
 				client,
 				`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
@@ -426,6 +461,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 			const hasMore = dataRows.length > limit;
 			let rows = hasMore ? dataRows.slice(0, limit) : dataRows;
+
 			if (direction === "desc") rows = rows.reverse();
 
 			const createCursor = (row: Record<string, unknown>): CursorData => ({
@@ -439,11 +475,14 @@ export class SqliteAdapter extends BaseAdapter {
 			if (rows.length > 0) {
 				const firstRow = rows[0];
 				const lastRow = rows[rows.length - 1];
+
 				if (direction === "asc") {
 					if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
+
 					if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
 				} else {
 					if (cursor) nextCursor = this.encodeCursor(createCursor(lastRow));
+
 					if (hasMore) prevCursor = this.encodeCursor(createCursor(firstRow));
 				}
 			}
@@ -452,6 +491,7 @@ export class SqliteAdapter extends BaseAdapter {
 			const finalRows = useRowid ? rows.map(({ rowid: _r, ...rest }) => rest) : rows;
 
 			void db;
+
 			return {
 				data: finalRows as NormalizedRow[],
 				meta: {
@@ -475,6 +515,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		try {
 			const { name, size } = await (await getSqliteClient()).info();
+
 			return [{ name, size, owner: "", encoding: "UTF-8" }];
 		} catch (e) {
 			throw this.wrapError(e);
@@ -492,6 +533,7 @@ export class SqliteAdapter extends BaseAdapter {
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
 		try {
 			const { name, version } = await (await getSqliteClient()).info();
+
 			return {
 				host: null,
 				port: null,
@@ -513,12 +555,14 @@ export class SqliteAdapter extends BaseAdapter {
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		try {
 			const client = await getSqliteClient();
+
 			const tables = await all<{ name: string }>(
 				client,
 				`SELECT name FROM sqlite_master
 				WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*'
 				ORDER BY name`,
 			);
+
 			if (!tables.length) return [];
 
 			// One round trip for every count; matters against a remote server.
@@ -526,6 +570,7 @@ export class SqliteAdapter extends BaseAdapter {
 				tables.map((t) => `SELECT COUNT(*) as count FROM ${this.quoteIdentifier(t.name)}`),
 				"read",
 			);
+
 			return tables.map((t, i) => ({
 				tableName: t.name,
 				rowCount: toRows<{ count: number }>(counts[i])[0]?.count ?? 0,
@@ -545,19 +590,27 @@ export class SqliteAdapter extends BaseAdapter {
 		const { tableName, fields, foreignKeys } = tableData;
 
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+
 		const columnDefs = fields.map((field: FieldDataType) => {
 			// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
 			if (primaryKey.length === 1 && field.isPrimaryKey && field.isIdentity) {
 				return `"${field.columnName}" INTEGER PRIMARY KEY AUTOINCREMENT`;
 			}
+
 			let def = `"${field.columnName}" ${field.columnType}`;
+
 			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
+
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+
 			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
+
 			if (field.defaultValue?.trim() && !field.isIdentity)
 				def += ` DEFAULT ${field.defaultValue.trim()}`;
+
 			return def;
 		});
+
 		if (primaryKey.length > 1)
 			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
 
@@ -586,10 +639,12 @@ export class SqliteAdapter extends BaseAdapter {
 			client,
 			`SELECT COUNT(*) as count FROM "${tableName}"`,
 		);
+
 		const rowCount = countRow?.count ?? 0;
 
 		if (!cascade) {
 			const related = await this.getFkReferencesForTable(client, tableName);
+
 			if (related.length > 0) {
 				return {
 					deletedCount: 0,
@@ -601,9 +656,11 @@ export class SqliteAdapter extends BaseAdapter {
 
 		try {
 			await client.execute(`DROP TABLE "${tableName}"`);
+
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
 			const errMsg = error instanceof Error ? error.message : String(error);
+
 			if (errMsg.includes("FOREIGN KEY constraint")) {
 				return {
 					deletedCount: 0,
@@ -611,6 +668,7 @@ export class SqliteAdapter extends BaseAdapter {
 					relatedRecords: await this.getRelatedRecordsForTable(client, tableName),
 				};
 			}
+
 			if (error instanceof HTTPException) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
@@ -653,9 +711,11 @@ export class SqliteAdapter extends BaseAdapter {
 				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
 				[tableName],
 			);
+
 			if (!row)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			void db;
+
 			return row.sql;
 		} catch (e) {
 			if (e instanceof HTTPException) throw e;
@@ -684,17 +744,21 @@ export class SqliteAdapter extends BaseAdapter {
 				client,
 				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 			);
+
 			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
 
 			const fkMap = new Map<string, FkRow>();
+
 			for (const fk of fks) {
 				fkMap.set(fk.from, fk);
 			}
 
 			void db;
+
 			return columns.map((col) => {
 				const fk = fkMap.get(col.name);
 				const nativeType = col.type.toLowerCase();
+
 				return {
 					columnName: col.name,
 					dataType: mapSqliteToDataType(nativeType),
@@ -718,6 +782,7 @@ export class SqliteAdapter extends BaseAdapter {
 		return this.serializeSchemaChange(async () => {
 			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
 				params;
+
 			const client = await getSqliteClient();
 
 			if (!(await this.tableExists(client, tableName)))
@@ -727,6 +792,7 @@ export class SqliteAdapter extends BaseAdapter {
 				client,
 				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 			);
+
 			if (colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
@@ -734,8 +800,11 @@ export class SqliteAdapter extends BaseAdapter {
 			}
 
 			let def = `"${columnName}" ${columnType}`;
+
 			if (isUnique) def += " UNIQUE";
+
 			if (!isNullable) def += " NOT NULL";
+
 			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
 			try {
@@ -760,6 +829,7 @@ export class SqliteAdapter extends BaseAdapter {
 				client,
 				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 			);
+
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -773,6 +843,7 @@ export class SqliteAdapter extends BaseAdapter {
 			}
 
 			void db;
+
 			return { deletedCount: 1 };
 		});
 	}
@@ -788,6 +859,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info(${q(tableName)})`);
 			const target = colInfo.find((c) => c.name === columnName);
+
 			if (!target) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -798,26 +870,31 @@ export class SqliteAdapter extends BaseAdapter {
 			// Rebuilding it from PRAGMA output instead would drop UNIQUE, CHECK, COLLATE,
 			// AUTOINCREMENT and generated columns, which the PRAGMAs do not report.
 			const tempName = `${tableName}_alter_${Date.now()}`;
+
 			const [table] = await all<{ sql: string }>(
 				client,
 				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
 				[tableName],
 			);
+
 			const createTemp = recreateTableWithColumn(table?.sql ?? "", tempName, columnName, {
 				type: columnType,
 				notNull: !isNullable && !target.pk,
 				defaultValue: defaultValue?.trim() || null,
 			});
+
 			if (!createTemp) {
 				throw new HTTPException(400, {
 					message: `Cannot edit columns of "${tableName}": its definition could not be read`,
 				});
 			}
+
 			// Generated columns are absent from table_info and are computed again on insert.
 			const colNames = colInfo.map((c) => q(c.name)).join(", ");
 			// Copying rows sets the AUTOINCREMENT counter to the highest id copied; carry the old
 			// one over so ids of rows deleted earlier are never handed out again.
 			const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
+
 			const keepSequence = /\bAUTOINCREMENT\b/i.test(createTemp)
 				? [
 						`DELETE FROM sqlite_sequence WHERE name = ${literal(tempName)}`,
@@ -830,6 +907,7 @@ export class SqliteAdapter extends BaseAdapter {
 				`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`,
 				[tableName],
 			);
+
 			const existingTriggers = await all<{ sql: string }>(
 				client,
 				`SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?`,
@@ -844,6 +922,7 @@ export class SqliteAdapter extends BaseAdapter {
 					(fk) => fk.referencingTable,
 				),
 			);
+
 			try {
 				await client.rebuildTable(
 					[
@@ -877,11 +956,13 @@ export class SqliteAdapter extends BaseAdapter {
 				client,
 				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 			);
+
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
 				});
 			}
+
 			if (colInfo.some((c) => c.name === newColumnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
@@ -921,8 +1002,10 @@ export class SqliteAdapter extends BaseAdapter {
 		// Serialized with column changes: alterColumn rebuilds the table from the indexes it read.
 		return this.serializeSchemaChange(async () => {
 			const { tableName, indexName, columns, isUnique, method } = params;
+
 			try {
 				const client = await getSqliteClient();
+
 				if (!(await this.tableExists(client, tableName)))
 					throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
@@ -930,7 +1013,9 @@ export class SqliteAdapter extends BaseAdapter {
 					client,
 					`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 				);
+
 				const missing = columns.find((column) => !colInfo.some((c) => c.name === column));
+
 				if (missing !== undefined)
 					throw new HTTPException(400, {
 						message: `Column "${missing}" does not exist in table "${tableName}"`,
@@ -949,6 +1034,7 @@ export class SqliteAdapter extends BaseAdapter {
 					/already exists|there is already|UNIQUE constraint failed/.test(e.message)
 				)
 					throw new HTTPException(409, { message: e.message, cause: e });
+
 				if (e instanceof Error && e.message.includes("reserved for internal use"))
 					throw new HTTPException(400, { message: e.message, cause: e });
 				throw this.wrapError(e);
@@ -960,13 +1046,16 @@ export class SqliteAdapter extends BaseAdapter {
 		return this.serializeSchemaChange(async () => {
 			try {
 				const client = await getSqliteClient();
+
 				const index = (await this.listIndexes(client, tableName)).find(
 					(candidate) => candidate.indexName === indexName,
 				);
+
 				if (!index)
 					throw new HTTPException(404, {
 						message: `Index "${indexName}" does not exist on table "${tableName}"`,
 					});
+
 				if (index.kind !== "index")
 					throw new HTTPException(400, {
 						message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
@@ -990,6 +1079,7 @@ export class SqliteAdapter extends BaseAdapter {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const columns = Object.keys(data);
+
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
@@ -998,16 +1088,19 @@ export class SqliteAdapter extends BaseAdapter {
 
 		try {
 			const client = await getSqliteClient();
+
 			const result = await client.execute(
 				stmt(
 					`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`,
 					Object.values(data),
 				),
 			);
+
 			if (result.rowsAffected === 0)
 				throw new HTTPException(500, {
 					message: `Failed to insert record into "${tableName}"`,
 				});
+
 			return { insertedCount: result.rowsAffected };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -1027,9 +1120,11 @@ export class SqliteAdapter extends BaseAdapter {
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const where = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
+
 		try {
 			const client = await getSqliteClient();
 			this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
+
 			// A batch is one transaction, and the guard after each UPDATE fails it with an integer
 			// overflow when that UPDATE matched no row, rolling back every earlier UPDATE. RAISE()
 			// would name the row but only works inside a trigger.
@@ -1040,9 +1135,11 @@ export class SqliteAdapter extends BaseAdapter {
 				),
 				"SELECT CASE WHEN changes() = 0 THEN abs(-9223372036854775808) END",
 			]);
+
 			try {
 				const results = await client.batch(statements, "write");
 				void db;
+
 				return {
 					updatedCount: results.reduce(
 						(total, result, i) => (i % 2 === 0 ? total + result.rowsAffected : total),
@@ -1051,13 +1148,16 @@ export class SqliteAdapter extends BaseAdapter {
 				};
 			} catch (e) {
 				if (!(e instanceof Error && e.message.includes("integer overflow"))) throw e;
+
 				const found = await client.batch(
 					groups.map(({ keyValues }) =>
 						stmt(`SELECT 1 FROM "${tableName}" WHERE ${where} LIMIT 1`, keyValues),
 					),
 					"read",
 				);
+
 				const missing = groups.find((_, i) => found[i].rows.length === 0);
+
 				if (!missing) throw e;
 				throw new HTTPException(404, {
 					message: `Record with ${this.describeKey(keyColumns, missing.keyValues)} not found in table "${tableName}"`,
@@ -1074,6 +1174,7 @@ export class SqliteAdapter extends BaseAdapter {
 		db,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
@@ -1083,17 +1184,22 @@ export class SqliteAdapter extends BaseAdapter {
 
 		try {
 			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
+
 			const result = await client.execute(
 				stmt(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`, pkValues),
 			);
+
 			void db;
+
 			return { deletedCount: result.rowsAffected, fkViolation: false, relatedRecords: [] };
 		} catch (e) {
 			if (isFkViolation(e)) {
 				const relatedRecords = await this.getRelatedRecords(client, tableName, primaryKeys);
 				void db;
+
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
+
 			throw this.wrapError(e);
 		}
 	}
@@ -1111,6 +1217,7 @@ export class SqliteAdapter extends BaseAdapter {
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
@@ -1127,18 +1234,23 @@ export class SqliteAdapter extends BaseAdapter {
 			const plan = async (table: string, predicate: string, path: string[]) => {
 				for (const fk of fksByParent.get(table) ?? []) {
 					if (path.includes(fk.childTable)) continue;
+
 					const parentCols = allNamed(fk.parentColumns)
 						? fk.parentColumns
 						: await this.getPrimaryKeyColumns(client, table);
+
 					const childPredicate = `(${fk.childColumns.map(q).join(", ")}) IN (SELECT ${parentCols.map(q).join(", ")} FROM ${q(table)} WHERE ${predicate})`;
 					await plan(fk.childTable, childPredicate, [...path, fk.childTable]);
 				}
+
 				deletes.push(stmt(`DELETE FROM ${q(table)} WHERE ${predicate}`, pkValues));
 			};
+
 			await plan(tableName, rootPredicate, [tableName]);
 
 			const results = await client.batch(deletes, "write");
 			void db;
+
 			return { deletedCount: results.reduce((sum, r) => sum + r.rowsAffected, 0) };
 		} catch (e) {
 			if (isFkViolation(e))
@@ -1174,6 +1286,7 @@ export class SqliteAdapter extends BaseAdapter {
 				"write",
 			);
 			void db;
+
 			return {
 				success: true,
 				message: `Bulk insert completed: ${records.length} records inserted`,
@@ -1199,11 +1312,13 @@ export class SqliteAdapter extends BaseAdapter {
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
 		const cleaned = query.trim().replace(/;+$/, "");
+
 		if (isTransactionControl(cleaned))
 			throw new HTTPException(400, {
 				message:
 					"Transaction statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE) are not supported in the query runner: each query runs on its own connection, so a transaction cannot span queries.",
 			});
+
 		if (hasMultipleStatements(cleaned))
 			throw new HTTPException(400, {
 				message:
@@ -1215,9 +1330,11 @@ export class SqliteAdapter extends BaseAdapter {
 			const result = await (await getSqliteClient()).execute(cleaned);
 			const duration = performance.now() - start;
 			void db;
+
 			// Statements that return rows report their columns even when no row matches.
 			if (result.columns.length > 0) {
 				const rows = toRows(result);
+
 				return {
 					columns: result.columns,
 					rows,
@@ -1226,6 +1343,7 @@ export class SqliteAdapter extends BaseAdapter {
 					message: rows.length === 0 ? "OK" : undefined,
 				};
 			}
+
 			return {
 				columns: [],
 				rows: [],
@@ -1248,6 +1366,7 @@ export class SqliteAdapter extends BaseAdapter {
 			`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
 			[tableName],
 		);
+
 		return rows.length > 0;
 	}
 
@@ -1271,6 +1390,7 @@ export class SqliteAdapter extends BaseAdapter {
 		);
 
 		const byName = new Map<string, IndexInfoSchemaType>();
+
 		for (const row of rows) {
 			const index = byName.get(row.indexName) ?? {
 				indexName: row.indexName,
@@ -1281,7 +1401,9 @@ export class SqliteAdapter extends BaseAdapter {
 					row.origin === "pk" ? "primary" : row.origin === "u" ? "unique-constraint" : "index",
 				definition: row.partial === 1 ? row.sql : null,
 			};
+
 			byName.set(row.indexName, index);
+
 			if (row.columnName !== null) {
 				index.columns.push(row.columnName);
 			} else {
@@ -1289,6 +1411,7 @@ export class SqliteAdapter extends BaseAdapter {
 				index.definition = row.sql;
 			}
 		}
+
 		return [...byName.values()];
 	}
 
@@ -1297,6 +1420,7 @@ export class SqliteAdapter extends BaseAdapter {
 			client,
 			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
 		);
+
 		return cols
 			.filter((c) => c.pk > 0)
 			.sort((a, b) => a.pk - b.pk)
@@ -1320,19 +1444,24 @@ export class SqliteAdapter extends BaseAdapter {
 			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
 			ORDER BY m.name, f.id, f.seq`,
 		);
+
 		const byConstraint = new Map<string, ForeignKeyEdge>();
 		const byParent = new Map<string, ForeignKeyEdge[]>();
+
 		for (const row of rows) {
 			const key = `${row.child}\u0000${row.id}`;
 			let fk = byConstraint.get(key);
+
 			if (!fk) {
 				fk = { childTable: row.child, childColumns: [], parentColumns: [] };
 				byConstraint.set(key, fk);
 				byParent.set(row.parent, [...(byParent.get(row.parent) ?? []), fk]);
 			}
+
 			fk.childColumns.push(row.from);
 			fk.parentColumns.push(row.to);
 		}
+
 		return byParent;
 	}
 
@@ -1349,6 +1478,7 @@ export class SqliteAdapter extends BaseAdapter {
 				AND (m.name != ? COLLATE NOCASE OR ?) AND f."table" = ? COLLATE NOCASE`,
 			[tableName, includeSelf ? 1 : 0, tableName],
 		);
+
 		return fks.map((fk) => ({
 			constraintName: `fk_${fk.child}_${fk.from}_${tableName}_${fk.to}`,
 			referencingTable: fk.child,
@@ -1364,8 +1494,10 @@ export class SqliteAdapter extends BaseAdapter {
 	): Promise<RelatedRecord[]> {
 		const fks = await this.getFkReferencesForTable(client, tableName);
 		const results: RelatedRecord[] = [];
+
 		for (const fk of fks) {
 			const rows = await all(client, `SELECT * FROM "${fk.referencingTable}" LIMIT 100`);
+
 			if (rows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,
@@ -1375,6 +1507,7 @@ export class SqliteAdapter extends BaseAdapter {
 				});
 			}
 		}
+
 		return results;
 	}
 
@@ -1385,16 +1518,20 @@ export class SqliteAdapter extends BaseAdapter {
 	): Promise<RelatedRecord[]> {
 		const fks = await this.getFkReferencesForTable(client, tableName);
 		const results: RelatedRecord[] = [];
+
 		for (const fk of fks) {
 			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
+
 			if (!matchingPk) continue;
 			const pkValues = primaryKeys.map((pk) => pk.value);
 			const ph = pkValues.map(() => "?").join(", ");
+
 			const rows = await all(
 				client,
 				`SELECT * FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
 				pkValues,
 			);
+
 			if (rows.length > 0) {
 				results.push({
 					tableName: fk.referencingTable,
@@ -1404,6 +1541,7 @@ export class SqliteAdapter extends BaseAdapter {
 				});
 			}
 		}
+
 		return results;
 	}
 }

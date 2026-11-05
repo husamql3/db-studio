@@ -41,8 +41,11 @@ jobs:
         run: bun run build --filter='!@db-studio/desktop'
 
       - parallel:
-          - name: Biome checks
-            run: bunx biome ci .
+          - name: Format
+            run: bunx oxfmt --check
+
+          - name: Lint
+            run: bunx oxlint -f github
 
           - name: Type check
             run: bun run typecheck

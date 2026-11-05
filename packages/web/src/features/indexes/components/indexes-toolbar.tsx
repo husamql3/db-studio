@@ -9,7 +9,7 @@ export const IndexesToolbar = ({
 	isRefetching = false,
 }: {
 	tableName: string;
-	refetch: () => Promise<unknown>;
+	refetch: () => void;
 	isRefetching?: boolean;
 }) => {
 	const { openOverlay } = useOverlayStore();

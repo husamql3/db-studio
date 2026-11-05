@@ -69,9 +69,11 @@ const ChatSidebarContent = ({
 	const isByokReady = useAiByokReady();
 	const keyStatus = byok.status[provider];
 	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
+
 	const { rateLimit } = useRateLimit({
 		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
 	});
+
 	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
 	const canSend = hasPersonalKey || (provider === "gemini" && remaining > 0);
 
@@ -153,6 +155,7 @@ const ChatSidebarContent = ({
 						<>
 							{messages.map((message) => {
 								const thinkingParts = message.parts.filter((part) => part.type === "thinking");
+
 								const textContent = message.parts.reduce<string>(
 									(acc, part) => (part.type === "text" ? acc + (part.content ?? "") : acc),
 									"",
@@ -279,9 +282,11 @@ export const ChatSidebar = () => {
 	const isByokReady = useAiByokReady();
 	const keyStatus = byok.status[provider];
 	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
+
 	const { rateLimit, refetchRateLimit } = useRateLimit({
 		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
 	});
+
 	const [controller, setController] = useState<ChatController | null>(null);
 	const controllerSetterRef = useRef((next: ChatController) => setController(next));
 

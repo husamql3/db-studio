@@ -32,6 +32,7 @@ export const useDropIndex = ({
 				indexName,
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {

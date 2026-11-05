@@ -20,10 +20,13 @@ import { tableDataResultSchema, tableInfoSchema } from "@db-studio/shared/types"
 import { z } from "zod";
 
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL database");
 }
+
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
 const { getDbPool } = await import("../src/db-manager.js");
@@ -39,14 +42,18 @@ const get = async (path: string) => {
 	const response = await app.handle(
 		new Request(new URL(`/api/pg${path}`, "http://localhost")),
 	);
+
 	const body: unknown = await response.json();
 	assert.equal(response.status, 200, JSON.stringify(body));
+
 	return body;
 };
+
 const listed = async () => {
 	const { data } = z
 		.object({ data: z.array(tableInfoSchema) })
 		.parse(await get(`/tables?db=${encodeURIComponent(db)}`));
+
 	return Object.fromEntries(
 		data
 			.filter((table) => table.tableName.startsWith("dbstudio_estimate_"))
@@ -56,21 +63,28 @@ const listed = async () => {
 			]),
 	);
 };
+
 const pageTotal = async (table: string, filters?: unknown[]) => {
 	const params = new URLSearchParams({ db, limit: "5" });
+
 	if (filters) params.set("filters", JSON.stringify(filters));
+
 	const { meta } = z
 		.object({ data: tableDataResultSchema })
 		.parse(await get(`/tables/${encodeURIComponent(table)}/data?${params}`)).data;
+
 	return { total: meta.total, totalEstimated: meta.totalEstimated };
 };
+
 const within = (value: number, expected: number) =>
 	Math.abs(value - expected) / expected < 0.1;
 
 const drop = () => pool.query(`DROP TABLE IF EXISTS "${LARGE}", "${SMALL}", "${UNANALYZED}"`);
 const evidence: Record<string, unknown> = {};
+
 try {
 	await drop();
+
 	for (const [table, rows] of [
 		[LARGE, ROWS],
 		[SMALL, 100],
@@ -84,6 +98,7 @@ try {
 			`INSERT INTO "${table}" SELECT g, g % 10 FROM generate_series(1, ${rows}) g`,
 		);
 	}
+
 	await pool.query(`ANALYZE "${LARGE}", "${SMALL}"`);
 
 	const list = await listed();

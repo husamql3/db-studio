@@ -25,26 +25,34 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const dir = await mkdtemp(path.join(tmpdir(), "db-studio-read-only-"));
+
 process.env.DB_STUDIO_CONFIG_DIR = path.join(dir, "config");
+
 const { createServer } = await import("../src/utils/create-server.js");
 const { app } = createServer();
 
 const call = async (method: string, route: string, body?: unknown, connectionId?: string) => {
+	const headers: Record<string, string> = {};
+
+	if (body !== undefined) headers["Content-Type"] = "application/json";
+
+	if (connectionId) headers["X-Connection-Id"] = connectionId;
+
 	const res = await app.handle(
 		new Request(new URL(`/api${route}`, "http://localhost"), {
 			method,
-			headers: {
-				...(body === undefined ? {} : { "Content-Type": "application/json" }),
-				...(connectionId ? { "X-Connection-Id": connectionId } : {}),
-			},
+			headers,
 			body: body === undefined ? undefined : JSON.stringify(body),
 		}),
 	);
+
 	const text = await res.text();
+
 	return { status: res.status, text, json: JSON.parse(text) };
 };
 
 type Engine = { dbType: string; url: string; db: string; supported: boolean };
+
 const engines: Engine[] = [
 	{
 		dbType: "duckdb",
@@ -59,12 +67,14 @@ const engines: Engine[] = [
 		supported: false,
 	},
 ];
+
 for (const [env, dbType] of [
 	["PG_URL", "pg"],
 	["MYSQL_URL", "mysql"],
 	["CLICKHOUSE_URL", "clickhouse"],
 ] as const) {
 	const url = process.env[env];
+
 	if (url) engines.push({ dbType, url, db: new URL(url).pathname.slice(1), supported: true });
 }
 
@@ -75,19 +85,23 @@ let failures = 0;
 for (const engine of engines) {
 	const steps: Record<string, unknown> = {};
 	report[engine.dbType] = steps;
+
 	const query = (sql: string, connectionId: string) =>
 		call("POST", `/${engine.dbType}/query?db=${engine.db}`, { query: sql }, connectionId);
-	const step = async (name: string, run: () => Promise<unknown>) => {
+
+	const step = async <T>(name: string, run: () => Promise<T>) => {
 		try {
 			steps[name] = (await run()) ?? "ok";
 		} catch (error) {
 			failures++;
 			steps[name] = `FAIL: ${error instanceof Error ? error.message : String(error)}`;
 		}
+
 		console.log(
 			`${String(steps[name]).startsWith("FAIL") ? "FAIL" : "PASS"}  ${engine.dbType}: ${name}`,
 		);
 	};
+
 	const create =
 		engine.dbType === "clickhouse"
 			? `CREATE TABLE ${TABLE} (id Int32) ENGINE = MergeTree ORDER BY id`
@@ -99,9 +113,11 @@ for (const engine of engines) {
 			engine.dbType === "duckdb"
 				? (await import("@duckdb/node-api")).DuckDBInstance.create(engine.url.slice(9))
 				: null;
+
 		if (seed) (await seed).closeSync();
 		else await writeFile(engine.url.slice(9), "");
 	}
+
 	const opened = await call("POST", "/connections", { url: engine.url });
 	assert.equal(opened.status, 200, opened.text);
 	const savedId: string = opened.json.data.active.id;
@@ -111,6 +127,7 @@ for (const engine of engines) {
 		await step("refuses read-only", async () => {
 			const res = await call("PATCH", `/connections/${savedId}`, { readOnly: true });
 			assert.equal(res.status, 400, res.text);
+
 			return { status: res.status, message: res.json.message ?? res.json.error };
 		});
 		continue;
@@ -118,6 +135,7 @@ for (const engine of engines) {
 
 	await step("seed read-write", async () => {
 		await query(`DROP TABLE IF EXISTS ${TABLE}`, rw);
+
 		for (const sql of [create, `INSERT INTO ${TABLE} VALUES (1)`]) {
 			const res = await query(sql, rw);
 			assert.equal(res.status, 200, res.text);
@@ -130,20 +148,24 @@ for (const engine of engines) {
 		await writeFile(other, "");
 		const tab = await call("POST", "/connections", { url: `sqlite://${other}` });
 		assert.equal(tab.status, 200, tab.text);
+
 		const res = await call(
 			"PATCH",
 			`/connections/${savedId}`,
 			{ readOnly: true },
 			tab.json.data.active.connectionId,
 		);
+
 		assert.equal(res.status, 200, res.text);
 		assert.equal(res.json.data.readOnly, true);
+
 		return { readOnly: res.json.data.readOnly };
 	});
 
 	await step("old read-write connection is closed", async () => {
 		const res = await query(`INSERT INTO ${TABLE} VALUES (2)`, rw);
 		assert.equal(res.status, 409, res.text);
+
 		return { status: res.status };
 	});
 
@@ -151,24 +173,29 @@ for (const engine of engines) {
 		const res = await call("GET", "/connections", undefined, rw);
 		assert.equal(res.status, 200, res.text);
 		assert.equal(res.json.data.active, null, res.text);
+
 		return { active: res.json.data.active };
 	});
 
 	// Nothing of this URL is open now, so the racing open makes a new session.
 	await step("connection opened during the switch cannot write", async () => {
 		await call("PATCH", `/connections/${savedId}`, { readOnly: false });
+
 		const [opening, res] = await Promise.all([
 			call("POST", `/connections/${savedId}/connect`),
 			call("PATCH", `/connections/${savedId}`, { readOnly: true }),
 		]);
+
 		assert.equal(res.status, 200, res.text);
 		// Closed by the switch (409, or no connection at all) or opened read-only (refused),
 		// depending on which request ran first.
 		const id: string | undefined = opening.json.data?.active?.connectionId;
+
 		if (id) {
 			const insert = await query(`INSERT INTO ${TABLE} VALUES (2)`, id);
 			assert.ok(insert.status >= 400, `wrote: ${insert.text}`);
 		}
+
 		return { wrote: false };
 	});
 
@@ -178,6 +205,7 @@ for (const engine of engines) {
 	await step("reads work", async () => {
 		const res = await query(`SELECT COUNT(*) AS n FROM ${TABLE}`, ro);
 		assert.equal(res.status, 200, res.text);
+
 		return { status: res.status, rows: res.json.data.rows };
 	});
 
@@ -188,17 +216,21 @@ for (const engine of engines) {
 		await step(name, async () => {
 			const res = await query(sql, ro);
 			assert.ok(res.status >= 400, `wrote: ${res.text}`);
+
 			return { status: res.status, mentionsReadOnly: /read.?only/i.test(res.text) };
 		});
 	}
 
 	await step("pasted URL opens read-only too", async () => {
 		const pasted = await call("POST", "/connections", { url: engine.url });
+
 		const res = await query(
 			`INSERT INTO ${TABLE} VALUES (4)`,
 			pasted.json.data.active.connectionId,
 		);
+
 		assert.ok(res.status >= 400, `wrote: ${res.text}`);
+
 		return { status: res.status };
 	});
 
@@ -210,6 +242,7 @@ for (const engine of engines) {
 		assert.equal(res.status, 200, res.text);
 		const count = await query(`SELECT COUNT(*) AS n FROM ${TABLE}`, id);
 		await query(`DROP TABLE ${TABLE}`, id);
+
 		// Only the seed row and this one: none of the refused writes landed.
 		return { rows: count.json.data.rows };
 	});
@@ -219,24 +252,33 @@ for (const engine of engines) {
 			const memory = await call("POST", "/connections", { url: "duckdb://:memory:" });
 			assert.equal(memory.status, 200, memory.text);
 			const id: string = memory.json.data.active.connectionId;
+
 			for (const sql of [create, `INSERT INTO ${TABLE} VALUES (1)`]) {
 				const res = await query(sql, id);
 				assert.equal(res.status, 200, res.text);
 			}
+
 			const res = await call("PATCH", `/connections/${memory.json.data.active.id}`, {
 				readOnly: true,
 			});
+
 			assert.equal(res.status, 400, res.text);
 			const count = await query(`SELECT COUNT(*) AS n FROM ${TABLE}`, id);
 			assert.equal(count.status, 200, count.text);
+
 			return { status: res.status, message: res.json.message, rows: count.json.data.rows };
 		});
 	}
 }
 
 const out = new URL("./artifacts/read-only.json", import.meta.url);
+
 await mkdir(new URL(".", out), { recursive: true });
+
 await writeFile(out, `${JSON.stringify(report, null, "\t")}\n`);
+
 await rm(dir, { recursive: true, force: true });
+
 console.log(failures ? `${failures} failed` : "all passed");
+
 process.exit(failures ? 1 : 0);

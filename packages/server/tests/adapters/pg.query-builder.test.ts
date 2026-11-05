@@ -20,7 +20,8 @@ describe("PostgreSQL query builder", () => {
 			`ORDER BY ${escaped} ASC NULLS LAST`,
 		);
 		expect(
-			buildKeysetPredicate([{ column: name, direction: "asc" }], { [name]: 1 }, false, 1).clause,
+			buildKeysetPredicate([{ column: name, direction: "asc" }], { [name]: 1 }, false, 1)
+				.clause,
 		).toBe(`(((${escaped} > $1 OR ${escaped} IS NULL)))`);
 	});
 
@@ -47,7 +48,9 @@ describe("PostgreSQL query builder", () => {
 		expect(result.clause).toContain('"deleted_at" IS NULL');
 		expect(result.clause).toContain('"created_at" IS NOT NULL');
 		expect(result.values).toEqual(["active", "90", "100", "%sam%", "%bot%", "user", "true"]);
-		expect(buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }]).clause).toBe("");
+		expect(
+			buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }]).clause,
+		).toBe("");
 		expect(buildWhereClause([])).toEqual({ clause: "", values: [] });
 	});
 
@@ -56,7 +59,10 @@ describe("PostgreSQL query builder", () => {
 			{ column: "created_at", direction: "desc" as const },
 			{ column: "id", direction: "asc" as const },
 		];
-		expect(buildOrderBy(terms)).toBe('ORDER BY "created_at" DESC NULLS LAST, "id" ASC NULLS LAST');
+
+		expect(buildOrderBy(terms)).toBe(
+			'ORDER BY "created_at" DESC NULLS LAST, "id" ASC NULLS LAST',
+		);
 		expect(buildOrderBy(terms, true)).toBe(
 			'ORDER BY "created_at" ASC NULLS FIRST, "id" DESC NULLS FIRST',
 		);
@@ -72,6 +78,7 @@ describe("PostgreSQL query builder", () => {
 			false,
 			3,
 		);
+
 		expect(result.clause).toBe(
 			'((("created_at" < $3 OR "created_at" IS NULL)) OR ("created_at" = $3 AND ("id" > $4 OR "id" IS NULL)))',
 		);
@@ -83,6 +90,7 @@ describe("PostgreSQL query builder", () => {
 			{ column: "label", direction: "asc" as const },
 			{ column: "id", direction: "asc" as const },
 		];
+
 		const cursor = { label: null, id: 2 };
 		expect(buildKeysetPredicate(terms, cursor, false, 1)).toEqual({
 			clause: '(("label" IS NULL AND ("id" > $1 OR "id" IS NULL)))',

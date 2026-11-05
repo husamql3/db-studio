@@ -46,12 +46,14 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 		defaultValues: { indexName: "", columns: [], isUnique: false, method: methods[0] },
 		resolver: zodResolver(createIndexSchema),
 	});
+
 	const selectedColumns = watch("columns");
 	// Document engines list only the fields found in sampled documents, so any other
 	// path has to be typed in.
 	const allowsFieldPaths = engine?.dataModel === "document";
 	const [addedPaths, setAddedPaths] = useState<string[]>([]);
 	const [fieldPath, setFieldPath] = useState("");
+
 	const columnNames = [
 		...new Set([...(tableCols?.map(({ columnName }) => columnName) ?? []), ...addedPaths]),
 	];
@@ -60,7 +62,9 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 		const next = selectedColumns.includes(columnName)
 			? selectedColumns.filter((column) => column !== columnName)
 			: [...selectedColumns, columnName];
+
 		setValue("columns", next, { shouldValidate: isSubmitted });
+
 		// The suggested name follows the columns until the user types their own.
 		if (!dirtyFields.indexName) {
 			setValue(
@@ -73,8 +77,11 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 
 	const addFieldPath = () => {
 		const path = fieldPath.trim();
+
 		if (!path) return;
+
 		if (!columnNames.includes(path)) setAddedPaths([...addedPaths, path]);
+
 		if (!selectedColumns.includes(path)) toggleColumn(path);
 		setFieldPath("");
 	};
@@ -93,6 +100,7 @@ const CreateIndexFormContent = ({ tableName }: { tableName: string }) => {
 						{columnNames.map((columnName) => {
 							const position = selectedColumns.indexOf(columnName);
 							const id = `create-index-column-${columnName}`;
+
 							return (
 								<div
 									key={columnName}

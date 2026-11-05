@@ -24,6 +24,7 @@ export const TableFooter = ({
 	const [limit, setLimit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
+
 	const { tableData, prefetchPage } = useTableData({
 		tableName,
 		schemaName: useTableSchemaName(),
@@ -39,6 +40,7 @@ export const TableFooter = ({
 
 	const handleLimitChange = (value: string) => {
 		const num = parseInt(value, 10);
+
 		if (Number.isNaN(num) || num < 1) return;
 		const clamped = Math.min(num, 10000).toString();
 		setLimit(clamped);

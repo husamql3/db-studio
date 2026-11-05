@@ -67,6 +67,7 @@ const RailSections = () => {
 	const params = useParams({ strict: false });
 	const engine = useDatabaseEngine();
 	const currentRoute = pathname.split("/")[1] || "table";
+
 	const routes =
 		engine?.dataModel === "key-value"
 			? (["browser", "runner", "logs"] as const)
@@ -75,15 +76,18 @@ const RailSections = () => {
 						(route !== "indexes" || engine?.indexes) &&
 						(route !== "logs" || engine?.serverLogs),
 				);
+
 	const activeTable = (params as { table?: string }).table;
 	const openSchema = useTableSchemaName();
 
 	return routes.map((route) => {
 		const Icon = ICONS[route];
+
 		// Keep the selected table when switching between the per-table views (data, schema,
 		// indexes), so leaving schema mode doesn't drop the selection.
 		const keepTable =
 			(route === "table" || route === "schema" || route === "indexes") && activeTable;
+
 		const isActive = currentRoute === route;
 
 		return (

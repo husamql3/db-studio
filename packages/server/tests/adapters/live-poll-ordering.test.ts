@@ -23,8 +23,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SortType } from "@db-studio/shared/types";
-import { type Client as LibsqlClient, createClient as createLibsqlClient } from "@libsql/client";
 import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
+import {
+	type Client as LibsqlClient,
+	createClient as createLibsqlClient,
+} from "@libsql/client";
 import sql from "mssql";
 import mysql from "mysql2/promise";
 import oracledb from "oracledb";
@@ -104,7 +107,7 @@ const engines: Engine[] = [
 			const connection = await duckdbInstance.connect();
 			duckdb = connection;
 			connections.withDuckdbConnection.mockImplementation(
-				(fn: (c: DuckDBConnection) => Promise<unknown>) => fn(connection),
+				<T>(fn: (c: DuckDBConnection) => Promise<T>) => fn(connection),
 			);
 		},
 		exec: async (statement) => {
@@ -181,6 +184,7 @@ const engines: Engine[] = [
 		// Oracle folds unquoted names to uppercase; the adapter quotes the lowercase names used here.
 		exec: async (statement) => {
 			const connection = await oraclePool?.getConnection();
+
 			try {
 				await connection?.execute(
 					statement.replace(/(?<!")\b(live_poll_items|id|grp|rnk|name)\b(?!")/g, '"$1"'),
@@ -207,8 +211,10 @@ for (const engine of engines) {
 	describe.skipIf(!engine.url)(`${engine.name} live polling`, () => {
 		const { adapter } = engine;
 		const ids = (rows: Record<string, unknown>[]) => rows.map((row) => Number(row.id));
-		const page = (params: Omit<Parameters<IDbAdapter["getTableData"]>[0], "tableName" | "db">) =>
-			adapter.getTableData({ tableName: TABLE, db: "", ...params });
+
+		const page = (
+			params: Omit<Parameters<IDbAdapter["getTableData"]>[0], "tableName" | "db">,
+		) => adapter.getTableData({ tableName: TABLE, db: "", ...params });
 
 		beforeAll(async () => {
 			await engine.connect(engine.url as string);
@@ -221,6 +227,7 @@ for (const engine of engines) {
 
 		beforeEach(async () => {
 			for (const statement of engine.schema) await engine.exec(statement);
+
 			for (const id of INSERT_ORDER) {
 				await engine.exec(
 					`INSERT INTO ${TABLE} (id, grp, rnk, name) VALUES (${id}, 1, ${rankOf(id)}, 'row ${id}')`,
@@ -249,11 +256,13 @@ for (const engine of engines) {
 
 		it("pages through tied rows without repeating or skipping any", async () => {
 			const first = await page({ sort: bySharedGroup, limit: 2 });
+
 			const second = await page({
 				sort: bySharedGroup,
 				limit: 2,
 				cursor: first.meta.nextCursor as string,
 			});
+
 			const third = await page({
 				sort: bySharedGroup,
 				limit: 2,
@@ -268,11 +277,13 @@ for (const engine of engines) {
 
 		it("pages back to the same rows it came from", async () => {
 			const first = await page({ sort: bySharedGroup, limit: 2 });
+
 			const second = await page({
 				sort: bySharedGroup,
 				limit: 2,
 				cursor: first.meta.nextCursor as string,
 			});
+
 			const back = await page({
 				sort: bySharedGroup,
 				limit: 2,
@@ -291,6 +302,7 @@ for (const engine of engines) {
 				);
 				await engine.exec(`DROP TABLE IF EXISTS live_audit.${TABLE}`);
 				await engine.exec(`CREATE TABLE live_audit.${TABLE} (audit_id INT PRIMARY KEY)`);
+
 				try {
 					const { data } = await page({ limit: 3 });
 					expect(ids(data)).toEqual([1, 2, 3]);
@@ -305,6 +317,7 @@ for (const engine of engines) {
 				sort: [{ columnName: "grp", direction: "desc" }],
 				limit: 3,
 			});
+
 			expect(ids(data)).toEqual([5, 4, 3]);
 		});
 	});

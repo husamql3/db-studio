@@ -9,6 +9,7 @@ const COMMANDS = {
 	yarn: "yarn dlx db-studio",
 	bun: "bunx db-studio",
 };
+
 type Runner = keyof typeof COMMANDS;
 
 // Both icons share one grid cell; blur during the cross-fade hides the moment they overlap.

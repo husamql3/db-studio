@@ -28,17 +28,15 @@ let select: (sql: string) => Promise<Record<string, unknown>[]>;
 beforeAll(async () => {
 	vi.resetModules();
 	const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
-	const { DatabaseManager, getSqliteClient, openConnection } = await import(
-		"@/db-manager.js"
-	);
-	openConnection(
-		"test",
-		new DatabaseManager(`sqlite://${path.join(dir, "my db.sqlite")}`),
-	);
+
+	const { DatabaseManager, getSqliteClient, openConnection } = await import("@/db-manager.js");
+
+	openConnection("test", new DatabaseManager(`sqlite://${path.join(dir, "my db.sqlite")}`));
 	const client = await getSqliteClient();
 	exec = async (...statements) => {
 		await client.batch(statements, "write");
 	};
+
 	select = async (sql) => (await client.execute(sql)).rows.map((row) => ({ ...row }));
 	adapter = new SqliteAdapter();
 
@@ -68,7 +66,11 @@ describe("SqliteAdapter", () => {
 	});
 
 	it("reports a referenced table instead of dropping it", async () => {
-		const result = await adapter.deleteTable({ db: "main", tableName: "users", cascade: false });
+		const result = await adapter.deleteTable({
+			db: "main",
+			tableName: "users",
+			cascade: false,
+		});
 
 		expect(result).toMatchObject({ deletedCount: 0, fkViolation: true });
 		expect(result.relatedRecords).toEqual([
@@ -135,8 +137,13 @@ describe("SqliteAdapter", () => {
 			exec("INSERT INTO records (email, quantity, label) VALUES ('c@x.io', -1, 'neg')"),
 		).rejects.toThrow(/CHECK/);
 		// AUTOINCREMENT never reuses an id, including 3, deleted before the edit.
-		await exec("DELETE FROM records WHERE id = 2", "INSERT INTO records (email, quantity) VALUES ('d@x.io', 5)");
-		expect(await select("SELECT id, quantity, doubled, label FROM records ORDER BY id")).toEqual([
+		await exec(
+			"DELETE FROM records WHERE id = 2",
+			"INSERT INTO records (email, quantity) VALUES ('d@x.io', 5)",
+		);
+		expect(
+			await select("SELECT id, quantity, doubled, label FROM records ORDER BY id"),
+		).toEqual([
 			{ id: 1n, quantity: 2n, doubled: 4n, label: "one" },
 			{ id: 4n, quantity: 5n, doubled: 10n, label: null },
 		]);
@@ -157,8 +164,13 @@ describe("SqliteAdapter", () => {
 			defaultValue: "'none'",
 		});
 
-		await expect(exec("INSERT INTO stock (id, sku) VALUES (2, 'abc')")).rejects.toThrow(/UNIQUE/);
-		await exec("INSERT INTO stock (id, sku) VALUES (3, NULL)", "INSERT INTO stock (id, qty) VALUES (4, 1)");
+		await expect(exec("INSERT INTO stock (id, sku) VALUES (2, 'abc')")).rejects.toThrow(
+			/UNIQUE/,
+		);
+		await exec(
+			"INSERT INTO stock (id, sku) VALUES (3, NULL)",
+			"INSERT INTO stock (id, qty) VALUES (4, 1)",
+		);
 		expect(await select("SELECT id, sku FROM stock ORDER BY id")).toEqual([
 			{ id: 1n, sku: "ABC" },
 			{ id: 3n, sku: null },
@@ -182,6 +194,8 @@ describe("SqliteAdapter", () => {
 
 		await expect(exec("INSERT INTO notes (id, x) VALUES (1, '')")).rejects.toThrow(/CHECK/);
 		await exec("INSERT INTO notes (id, x) VALUES (2, 'ok')");
-		expect(await select("SELECT id, x, y FROM notes")).toEqual([{ id: 2n, x: "ok", y: "none" }]);
+		expect(await select("SELECT id, x, y FROM notes")).toEqual([
+			{ id: 2n, x: "ok", y: "none" },
+		]);
 	});
 });

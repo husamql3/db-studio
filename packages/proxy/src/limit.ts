@@ -1,5 +1,5 @@
-import { env } from "cloudflare:workers";
 import { BYOK_LIMIT, LIMIT, ONE_DAY } from "@db-studio/shared/constants";
+import { env } from "cloudflare:workers";
 import type { Context, MiddlewareHandler } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { writeLog } from "./log";
@@ -11,6 +11,7 @@ export const keyGenerator = (c: Context) => {
 	const xForwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
 
 	const identifier = cfConnectingIp ?? xRealIp ?? xForwardedFor ?? "anonymous";
+
 	return identifier;
 };
 
@@ -18,6 +19,7 @@ export const createProxyLimiter = (): MiddlewareHandler => {
 	return async (c, next) => {
 		if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
 			writeLog(c, "warn", "rate_limiter_disabled");
+
 			return next();
 		}
 
@@ -27,11 +29,13 @@ export const createProxyLimiter = (): MiddlewareHandler => {
 		// the requested provider's header counts: any other one would leave the
 		// request on the hosted key while granting the higher ceiling.
 		const body = await c.req.json<{ provider?: unknown }>().catch(() => null);
+
 		const hasPersonalKey =
 			typeof body?.provider === "string" &&
 			Boolean(c.req.header(`x-byok-${body.provider}`)?.trim());
 
 		const prefix = hasPersonalKey ? "rate:proxy:byok:" : "rate:proxy:";
+
 		const limiter = rateLimiter({
 			windowMs: ONE_DAY,
 			limit: hasPersonalKey ? BYOK_LIMIT : LIMIT,
@@ -41,6 +45,7 @@ export const createProxyLimiter = (): MiddlewareHandler => {
 			statusCode: 429,
 			message: "Too many requests",
 		});
+
 		return limiter(c, next);
 	};
 };

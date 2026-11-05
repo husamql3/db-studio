@@ -34,10 +34,12 @@ describe("RedisAdapter — executeQuery", () => {
 
 	it("shapes HGETALL as field/value pairs", async () => {
 		mockClient.call.mockResolvedValue(["name", "alice", "age", "30"]);
+
 		const result = await adapter.executeQuery({
 			db: "0",
 			query: "HGETALL user:1",
 		});
+
 		expect(result.columns).toEqual(["field", "value"]);
 		expect(result.rows).toEqual([
 			{ field: "name", value: "alice" },
@@ -57,10 +59,12 @@ describe("RedisAdapter — executeQuery", () => {
 
 	it("shapes ZRANGE WITHSCORES as member/score pairs", async () => {
 		mockClient.call.mockResolvedValue(["alice", "100", "bob", "250"]);
+
 		const result = await adapter.executeQuery({
 			db: "0",
 			query: "ZRANGE lb 0 -1 WITHSCORES",
 		});
+
 		expect(result.columns).toEqual(["member", "score"]);
 		expect(result.rows).toEqual([
 			{ member: "alice", score: "100" },

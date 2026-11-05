@@ -46,6 +46,7 @@ export type TelemetryConfig = {
 };
 
 let config: TelemetryConfig | undefined;
+
 /** The PostHog client, loaded the first time telemetry turns out to be enabled. */
 let posthog: PostHog | undefined;
 let initialized = false;
@@ -61,6 +62,7 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 		const response = await fetch("/api/telemetry/config", {
 			headers: globalPrivacyControlEnabled() ? { "x-db-studio-gpc": "1" } : undefined,
 		});
+
 		const body = (await response.json()) as { data?: TelemetryConfig };
 		config = body.data;
 	} catch {
@@ -68,13 +70,17 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	}
 
 	const key = import.meta.env.VITE_POSTHOG_KEY ?? OFFICIAL_POSTHOG_KEY;
+
 	if (!config?.enabled || !key) return config;
+
 	if (initialized) return config;
 	posthog ??= (await import("posthog-js")).default;
+
 	if (everInitialized) {
 		posthog.opt_in_capturing();
 		posthog.identify(config.installationId);
 		initialized = true;
+
 		return config;
 	}
 
@@ -92,6 +98,7 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	});
 	initialized = true;
 	everInitialized = true;
+
 	return config;
 };
 

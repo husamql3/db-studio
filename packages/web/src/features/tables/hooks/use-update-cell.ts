@@ -19,10 +19,12 @@ export const useUpdateCell = () => {
 	const schemaName = useTableSchemaName();
 	const { removeUpdates } = useUpdateCellStore();
 	const { selectedDatabase } = useDatabaseStore();
+
 	const { tableCols } = useTableCols({
 		tableName: table,
 		schemaName: schemaName ?? undefined,
 	});
+
 	const editScope = useEditScope(table, tableCols);
 
 	const { mutateAsync: updateCellMutation, isPending: isUpdatingCell } = useMutation({
@@ -34,8 +36,11 @@ export const useUpdateCell = () => {
 			// Transform updates into the format the API expects. Composite keys are
 			// sent in full so an edit can never match more than its own record.
 			const identityColumnNames = editScope.keyColumns;
-			const payload = {
+
+			const payload: Parameters<typeof updateRecords>[0] = {
 				tableName: table,
+				schemaName,
+				db: selectedDatabase,
 				updates: updates.map((update) => ({
 					rowData: update.rowData,
 					columnName: update.columnName,
@@ -43,32 +48,30 @@ export const useUpdateCell = () => {
 						? { value: null, useDefault: true }
 						: { value: update.newValue }),
 				})),
-				...(identityColumnNames.length > 0
-					? { primaryKey: identityColumnNames[0], primaryKeys: identityColumnNames }
-					: {}),
 			};
 
-			const res = await updateRecords({
-				...payload,
-				schemaName,
-				db: selectedDatabase,
-			});
+			if (identityColumnNames.length > 0) {
+				payload.primaryKey = identityColumnNames[0];
+				payload.primaryKeys = identityColumnNames;
+			}
+
+			const res = await updateRecords(payload);
+
 			return res.data.data;
 		},
 		onSuccess: async (_data, updates) => {
 			removeUpdates(updates);
 
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(table),
-					exact: false,
-				}),
-			]);
+			await queryClient.invalidateQueries({
+				queryKey: tableKeys.dataByTable(table),
+				exact: false,
+			});
 		},
 	});
 
 	const updateCell = async (updates: CellUpdate[]) => {
 		const count = updates.length;
+
 		return toast.promise(updateCellMutation(updates), {
 			loading: "Saving changes...",
 			success: (message) =>

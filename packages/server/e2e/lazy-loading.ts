@@ -23,14 +23,18 @@ import { fileURLToPath } from "node:url";
 import { type Browser, chromium } from "playwright-core";
 
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl) throw new Error("Set DATABASE_URL to the database the app should open");
+
 const build = process.argv[2];
+
 const cli = fileURLToPath(
 	new URL(
 		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
 		import.meta.url,
 	),
 );
+
 const PORT = 4527;
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -39,11 +43,14 @@ const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databa
 	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
 	stdio: "ignore",
 });
+
 for (;;) {
 	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
+
 	const ready = await fetch(`${BASE}/api/databases`)
 		.then((response) => response.ok)
 		.catch(() => false);
+
 	if (ready) break;
 	await new Promise((resolve) => setTimeout(resolve, 50));
 }
@@ -54,6 +61,7 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 	let telemetryRequests = 0;
 	await context.route(/posthog\.com|sentry\.io/, (route) => {
 		telemetryRequests++;
+
 		return route.abort();
 	});
 	await context.route("**/api/telemetry/config", (route) =>
@@ -73,6 +81,7 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 	// Telemetry starts after the config request; give it time to load and initialize.
 	await page.waitForTimeout(2_000);
 	const startupScripts = scripts.length;
+
 	return {
 		context,
 		page,
@@ -85,10 +94,12 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 };
 
 const summary: Record<string, unknown> = {};
+
 const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 try {
 	const off = await openApp(browser, false);
 	summary.telemetryOff = {

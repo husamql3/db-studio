@@ -30,16 +30,20 @@ import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a PostgreSQL database seeded by e2e/perf-seed.sql");
 }
+
 const build = process.argv[2];
+
 const cli = fileURLToPath(
 	new URL(
 		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
 		import.meta.url,
 	),
 );
+
 const outDir = new URL(`./artifacts/grid-${build ?? "dist"}/`, import.meta.url);
 const PORT = 4524;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -49,11 +53,14 @@ const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databa
 	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
 	stdio: "ignore",
 });
+
 for (;;) {
 	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
+
 	const ready = await fetch(`${BASE}/api/databases`)
 		.then((response) => response.ok)
 		.catch(() => false);
+
 	if (ready) break;
 	await new Promise((resolve) => setTimeout(resolve, 50));
 }
@@ -70,25 +77,33 @@ const cellSelector = async (page: Page, column: string) => {
 				) + 1,
 			column,
 		);
+
 	for (let attempt = 0; attempt < 50; attempt++) {
 		const position = await positionOf();
 		await page.waitForTimeout(200);
+
 		if (position > 0 && position === (await positionOf())) {
 			return `tbody tr[data-index="0"] td:nth-child(${position}) > [role="button"]`;
 		}
 	}
+
 	throw new Error(`column ${column} not found`);
 };
 
 const summary: Record<string, unknown> = {};
+
 await mkdir(outDir, { recursive: true });
+
 const shot = (page: Page, name: string) =>
 	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
+
 const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
 try {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -126,6 +141,7 @@ try {
 	await page.waitForSelector("tbody tr[data-index]");
 	await page.evaluate(() => {
 		const grid = document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto");
+
 		if (grid) grid.scrollLeft = grid.scrollWidth;
 	});
 	const shipping = await cellSelector(page, "shipping");
@@ -147,6 +163,7 @@ try {
 	// Foreign-key cell: the badge opens the referenced row in a drawer.
 	await page.evaluate(() => {
 		const grid = document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto");
+
 		if (grid) grid.scrollLeft = 0;
 	});
 	const customer = await cellSelector(page, "customer_id");
@@ -168,9 +185,11 @@ try {
 	await quantityInput.waitFor();
 	await page.keyboard.type("5");
 	const typed = await quantityInput.inputValue();
+
 	const focusedInput = await quantityInput.evaluate(
 		(input) => input === document.activeElement,
 	);
+
 	await page.keyboard.press("Tab");
 	await quantityInput.waitFor({ state: "detached" });
 	summary.numberCell = {
@@ -217,11 +236,14 @@ try {
 	await page.waitForSelector("tbody tr[data-index]");
 	const firstRowCheckbox = 'tbody tr[data-index="0"] button[role="checkbox"]';
 	await page.click(firstRowCheckbox);
+
 	const scrollGrid = (top: number) =>
 		page.evaluate((top) => {
 			const grid = document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto");
+
 			if (grid) grid.scrollTop = top;
 		}, top);
+
 	await scrollGrid(5_000);
 	await page.waitForSelector('tbody tr[data-index="0"]', { state: "detached" });
 	await scrollGrid(0);
@@ -248,10 +270,13 @@ try {
 	await page.waitForSelector("tbody tr[data-index]");
 	await page.evaluate(() => {
 		const grid = document.querySelector("tbody")?.closest<HTMLElement>(".overflow-auto");
+
 		if (grid) grid.scrollTop = grid.scrollHeight;
 	});
+
 	const isPageRequest = (url: string) =>
 		url.includes("/tables/orders/data") && url.includes("cursor=");
+
 	const prefetched = page.waitForResponse((response) => isPageRequest(response.url()));
 	await page.hover('button[aria-label="Go to next page"]');
 	await prefetched;
@@ -260,8 +285,10 @@ try {
 		if (isPageRequest(request.url())) requestsAfterClick++;
 	});
 	await page.click('button[aria-label="Go to next page"]');
+
 	const firstRowId =
 		'tbody tr[data-index="0"] td:nth-child(2) [data-slot="grid-cell-content"]';
+
 	await page.waitForFunction(
 		(selector) => document.querySelector(selector)?.textContent === "51",
 		firstRowId,

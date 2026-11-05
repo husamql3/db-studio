@@ -29,9 +29,11 @@ function cursor(data: Record<string, unknown>[] = docs) {
 		limit: vi.fn(),
 		toArray: vi.fn(async () => data),
 	};
+
 	chain.sort.mockReturnValue(chain);
 	chain.skip.mockReturnValue(chain);
 	chain.limit.mockReturnValue(chain);
+
 	return chain;
 }
 
@@ -43,6 +45,7 @@ function createMongoMocks() {
 		aggregate: vi.fn(() => cursor([{ total: docs.length }])),
 		findOne: vi.fn(async (filter: Record<string, unknown>) => {
 			if ("name" in filter) return { name: "Ada" };
+
 			return null;
 		}),
 		updateMany: vi.fn(async () => ({ matchedCount: 2, modifiedCount: 2 })),
@@ -61,8 +64,16 @@ function createMongoMocks() {
 		command: vi.fn(async () => ({ ok: 1 })),
 		listCollections: vi.fn((filter?: { name?: string }) => ({
 			toArray: vi.fn(async () => {
-				if (filter?.name === "new_users" || filter?.name === "empty" || filter?.name === "other") return [];
-				return [{ name: filter?.name ?? "users", options: { validator: { $jsonSchema: {} } } }];
+				if (
+					filter?.name === "new_users" ||
+					filter?.name === "empty" ||
+					filter?.name === "other"
+				)
+					return [];
+
+				return [
+					{ name: filter?.name ?? "users", options: { validator: { $jsonSchema: {} } } },
+				];
 			}),
 		})),
 	};
@@ -76,6 +87,7 @@ function createMongoMocks() {
 			connections: { current: 3, available: 97 },
 		})),
 	};
+
 	const client = {
 		db: vi.fn(() => ({
 			admin: vi.fn(() => admin),
@@ -159,7 +171,10 @@ describe("MongoAdapter.exportTableData", () => {
 	});
 
 	const mockCollectionWith = (docs: unknown[]) => {
-		const collection = { find: vi.fn(() => ({ limit: vi.fn(() => ({ toArray: vi.fn(async () => docs) })) })) };
+		const collection = {
+			find: vi.fn(() => ({ limit: vi.fn(() => ({ toArray: vi.fn(async () => docs) })) })),
+		};
+
 		mockGetMongoDb.mockResolvedValue({ collection: vi.fn(() => collection) });
 	};
 

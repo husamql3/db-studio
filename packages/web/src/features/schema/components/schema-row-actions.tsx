@@ -37,11 +37,13 @@ export const SchemaRowActions = ({
 	const { openOverlay } = useOverlayStore();
 	const { setEditingColumn } = useSchemaEditStore();
 	const schemaName = useTableSchemaName();
+
 	const { renameColumn, isRenamingColumn } = useRenameColumn({
 		tableName,
 		schemaName,
 		columnName: col.columnName,
 	});
+
 	const { deleteColumn, isDeletingColumn } = useDeleteColumn();
 	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 	const [isDropDialogOpen, setIsDropDialogOpen] = useState(false);
@@ -55,6 +57,7 @@ export const SchemaRowActions = ({
 
 	const handleRenameDialogChange = (open: boolean) => {
 		setIsRenameDialogOpen(open);
+
 		if (!open) {
 			setNewColumnName(col.columnName);
 		}
@@ -62,6 +65,7 @@ export const SchemaRowActions = ({
 
 	const handleDropDialogChange = (open: boolean) => {
 		setIsDropDialogOpen(open);
+
 		if (!open) {
 			setCascadeDelete(false);
 		}

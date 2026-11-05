@@ -43,6 +43,7 @@ export const useAlterColumn = ({
 				data: normalizeAlterColumnPayload(data),
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {

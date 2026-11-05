@@ -17,8 +17,11 @@ bun run build
 # Run all tests
 bun run test
 
-# Lint & format (Biome)
+# Format (oxfmt) and lint (oxlint), with fixes
 bun run format
+
+# Lint only
+bun run lint
 
 # Type checking
 bun run typecheck
@@ -149,10 +152,11 @@ Three export paths:
 
 ## Tooling
 
-- **Linter/Formatter**: Biome (tabs, 95-char width). Run `bun run format` to auto-fix.
+- **Formatter**: oxfmt (`.oxfmtrc.json`: tabs, 95-char width, sorted imports), JS/TS only.
+- **Linter**: oxlint (`.oxlintrc.json`) with the vendored [anti-slop](https://github.com/dmmulroy/anti-slop) rules in `tools/oxlint/anti-slop/` (ours to edit; `UPSTREAM.md` records the source commit). Rules set to `warn` are being worked down; turn one to `error` once it reaches zero. `bun run format` formats and applies lint fixes.
 - **Tests**: Vitest (`server`, `web`, `www`). Deliberately minimal — see [Testing](#testing) before adding any. Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in each `vitest.config.ts`.
 - **Pre-commit hook**: runs `bun run format && bun run typecheck && bun run test && bun run build` via Husky.
-- **CI**: GitHub Actions on push to `stage` — build → biome format → tests.
+- **CI**: GitHub Actions on push to `stage` — build → oxfmt check, oxlint, typecheck, knip, tests.
 
 ## Conventions
 
@@ -267,7 +271,7 @@ export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaTy
 export const MyComponent = ({ id, label }: SomeSchemaType) => { ... };
 ```
 
-**Imports order** (enforced by Biome):
+**Imports order** (sorted by oxfmt):
 1. External packages
 2. `@db-studio/shared/types`
 3. Local `@/` aliases

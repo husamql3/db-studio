@@ -33,6 +33,7 @@ describe("RedisAdapter — databases", () => {
 				if (cmd === "CONFIG" && args[0] === "GET" && args[1] === "databases") {
 					return ["databases", "4"];
 				}
+
 				return null;
 			});
 			mockClient.info.mockResolvedValue(
@@ -58,8 +59,10 @@ describe("RedisAdapter — databases", () => {
 		it("pulls host/port/version/connection counts from INFO", async () => {
 			mockClient.info.mockImplementation(async (section: string) => {
 				if (section === "server") return "# Server\r\nredis_version:7.4.0\r\n";
+
 				if (section === "clients")
 					return "# Clients\r\nconnected_clients:3\r\nmaxclients:10000\r\n";
+
 				return "";
 			});
 			mockClient.call.mockResolvedValue([]);
@@ -79,12 +82,14 @@ describe("RedisAdapter — databases", () => {
 		it("falls back to CONFIG GET maxclients when INFO omits it", async () => {
 			mockClient.info.mockImplementation(async (section: string) => {
 				if (section === "server") return "# Server\r\nredis_version:7.0.0\r\n";
+
 				return "# Clients\r\nconnected_clients:1\r\n";
 			});
 			mockClient.call.mockImplementation(async (cmd: string, sub: string, key: string) => {
 				if (cmd === "CONFIG" && sub === "GET" && key === "maxclients") {
 					return ["maxclients", "200"];
 				}
+
 				return null;
 			});
 

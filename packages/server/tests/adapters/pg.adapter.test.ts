@@ -23,6 +23,7 @@ function createPgPool() {
 	const client = {
 		query: vi.fn(async (sql: string) => {
 			if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") return result();
+
 			return result([{ id: 1 }], 1);
 		}),
 		release: vi.fn(),
@@ -36,6 +37,7 @@ function createPgPool() {
 			if (sql.includes("pg_catalog.pg_database")) {
 				return result([{ name: "appdb", size: "1 MB", owner: "postgres", encoding: "UTF8" }]);
 			}
+
 			if (sql.includes("version() as version")) {
 				return result([
 					{
@@ -49,25 +51,35 @@ function createPgPool() {
 					},
 				]);
 			}
+
 			if (sql.includes("current_database() as database")) return result([{ db: "appdb" }]);
+
 			if (sql.includes("table_schema as") && sql.includes("information_schema.tables")) {
 				return result([{ schemaName: "public", tableName: "users" }]);
 			}
+
 			if (sql.includes("COUNT(*)::integer")) return result([{ count: 2 }]);
+
 			if (sql.includes("pg_index")) return result([{ column_name: "id" }]);
+
 			if (sql.includes("SELECT COUNT(*) as total")) return result([{ total: 2 }]);
+
 			if (sql.includes("COUNT(*)") && sql.includes('FROM "users"')) {
 				return result([{ count: 2 }]);
 			}
+
 			if (sql.includes('SELECT * FROM "users"')) return result(tableDataRows);
+
 			// The columns check is tested first: its schema resolver subquery also
 			// mentions information_schema.tables, so the table branch would swallow it.
 			if (sql.includes("SELECT EXISTS") && sql.includes("information_schema.columns")) {
 				return result([{ exists: values?.[1] !== "age" && values?.[1] !== "fullName" }]);
 			}
+
 			if (sql.includes("SELECT EXISTS") && sql.includes("information_schema.tables")) {
 				return result([{ exists: true }]);
 			}
+
 			if (sql.includes('c.column_name as "columnName"')) {
 				return result([
 					{
@@ -96,6 +108,7 @@ function createPgPool() {
 					},
 				]);
 			}
+
 			if (sql.includes("SELECT column_name, data_type")) {
 				return result([
 					{
@@ -130,7 +143,9 @@ function createPgPool() {
 					},
 				]);
 			}
+
 			if (sql.includes("ccu.table_name = $1")) return result([]);
+
 			if (sql.includes("tc.constraint_name")) {
 				return result([
 					{
@@ -156,17 +171,28 @@ function createPgPool() {
 					},
 				]);
 			}
+
 			if (sql.includes("pg_indexes")) {
 				return result([
-					{ indexname: "users_name_idx", indexdef: "CREATE INDEX users_name_idx ON users (name)" },
+					{
+						indexname: "users_name_idx",
+						indexdef: "CREATE INDEX users_name_idx ON users (name)",
+					},
 				]);
 			}
+
 			if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") return result();
+
 			if (sql.startsWith("INSERT INTO")) return result([{ id: 1 }], 1);
+
 			if (sql.startsWith("UPDATE")) return result([{ id: 1 }], 1);
+
 			if (sql.startsWith("DELETE")) return result([{ id: 1 }], 1);
+
 			if (sql.startsWith("DROP TABLE") || sql.startsWith("CREATE TABLE")) return result();
+
 			if (sql.startsWith("ALTER TABLE")) return result([], 1);
+
 			if (sql === "SELECT 1") return result([{ id: 1 }], 1, [{ name: "id" }]);
 
 			return result([]);
@@ -203,9 +229,11 @@ describe("PgAdapter integration scaffold", () => {
 	describe("getDatabasesList system filtering", () => {
 		it("sends a query that excludes postgres but keeps the current database", async () => {
 			await adapter.getDatabasesList();
+
 			const dbQuery = pool.query.mock.calls
 				.map((call) => String(call[0]))
 				.find((sql) => sql.includes("pg_catalog.pg_database"));
+
 			expect(dbQuery).toContain("NOT IN ('postgres', 'rdsadmin')");
 			expect(dbQuery).toContain("current_database()");
 		});
@@ -230,21 +258,28 @@ describe("PgAdapter.renameTable", () => {
 		vi.clearAllMocks();
 		adapter = new PgAdapter();
 		statements = [];
+
 		const pool = {
 			query: vi.fn(async (sql: string, values?: unknown[]) => {
 				const text = String(sql);
 				statements.push(text);
+
 				if (text.includes('table_schema as "schemaName"')) {
 					const name = values?.[0] as string;
+
 					return result((schemasByTable[name] ?? []).map((s) => ({ schemaName: s })));
 				}
+
 				if (text.includes("SELECT EXISTS") && text.includes("information_schema.tables")) {
 					const [target, schema] = values as [string, string];
+
 					return result([{ exists: (schemasByTable[target] ?? []).includes(schema) }]);
 				}
+
 				return result([]);
 			}),
 		};
+
 		mockGetDbPool.mockReturnValue(pool);
 	});
 

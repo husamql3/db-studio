@@ -12,12 +12,16 @@ import { chromium } from "playwright-core";
 
 const BASE = process.env.WWW_BASE ?? "http://127.0.0.1:3100";
 const [label, ...only] = process.argv.slice(2);
+
 if (!label) throw new Error("Usage: www-shots.ts <label> [shot ...]");
+
 const outDir = new URL(`./artifacts/www/${label}/`, import.meta.url);
+
 await mkdir(outDir, { recursive: true });
 
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
+
 const shots = [
 	{ name: "home", path: "/", viewport: DESKTOP, fullPage: true },
 	{ name: "home-mobile", path: "/", viewport: MOBILE, fullPage: true },
@@ -31,12 +35,14 @@ const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 for (const shot of shots) {
 	const context = await browser.newContext({
 		viewport: shot.viewport,
 		deviceScaleFactor: 2,
 		reducedMotion: "reduce",
 	});
+
 	const page = await context.newPage();
 	await page.goto(`${BASE}${shot.path}`, { waitUntil: "load", timeout: 60_000 });
 	// The TanStack devtools trigger only exists in dev (a goober-styled button around its logo) and
@@ -53,4 +59,5 @@ for (const shot of shots) {
 	console.log(`${label}/${shot.name}.png`);
 	await context.close();
 }
+
 await browser.close();

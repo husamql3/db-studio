@@ -24,6 +24,7 @@ const GROUPS = [
 function Usernames({ username }: { username?: string | string[] }) {
 	if (!username) return null;
 	const usernames = Array.isArray(username) ? username : [username];
+
 	return (
 		<span className="text-muted-foreground/70">
 			{" — "}
@@ -119,7 +120,9 @@ function RouteComponent() {
 
 							{GROUPS.map(({ key, label, dot }) => {
 								const entries = item[key];
+
 								if (!entries?.length) return null;
+
 								return (
 									<section
 										key={key}

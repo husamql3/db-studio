@@ -24,6 +24,7 @@ export const useBulkInsertRecords = ({
 				records,
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
@@ -60,16 +61,20 @@ export const useBulkInsertRecords = ({
 			loading: `Inserting ${records.length} record${records.length !== 1 ? "s" : ""}...`,
 			success: (result) => {
 				options?.onSuccess?.(result);
+
 				if (dbType && options?.format) {
 					posthogAnalytics.capture("bulk_insert", { db_type: dbType, format: options.format });
 				}
+
 				if (result.failureCount > 0) {
 					return `${result.successCount} records inserted, ${result.failureCount} failed`;
 				}
+
 				return result.message;
 			},
 			error: (error: Error & { detail?: string }) => {
 				options?.onError?.(error);
+
 				return error.detail || error.message || "Failed to insert records";
 			},
 		});

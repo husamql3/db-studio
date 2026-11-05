@@ -13,6 +13,7 @@ export const ColumnNameField = ({
 	showForeignKeyButton?: boolean;
 }) => {
 	const { openOverlay } = useOverlayStore();
+
 	const {
 		control,
 		register,

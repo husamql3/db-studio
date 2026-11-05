@@ -122,25 +122,31 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
+
 vi.mock("@/features/schema", () => ({
 	useTableCols: () => ({ tableCols: fixtures.cols, isLoadingTableCols: false }),
 }));
+
 vi.mock("@/features/tables/hooks/use-update-record", () => ({
 	useUpdateRecord: () => ({
 		updateRecord: fixtures.updateRecord,
 		isUpdatingRecord: false,
 	}),
 }));
+
 vi.mock("@/features/tables/hooks/use-delete-cell", () => ({
 	useDeleteCells: () => ({
 		deleteCells: fixtures.deleteCells,
 		isDeletingCells: false,
 	}),
 }));
+
 vi.mock("@/features/records", async (importOriginal) => {
 	const mod = await importOriginal<typeof import("@/features/records")>();
+
 	return { ...mod, RecordReferenceSheet: () => null };
 });
+
 vi.mock("nuqs", () => ({
 	useQueryState: () => [null, vi.fn()],
 }));
@@ -287,12 +293,14 @@ describe("RowDetailsSheet", () => {
 	it("asks before dropping a dirty row that falls off the page", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		useRowDetailsStore.getState().setRowDetails("users", 2);
+
 		const { rerender } = render(
 			<RowDetailsSheet
 				tableName="users"
 				rows={fixtures.rows}
 			/>,
 		);
+
 		expect(await screen.findByDisplayValue("Cy")).toBeInTheDocument();
 
 		const nameInput = screen.getByDisplayValue("Cy");
@@ -310,6 +318,7 @@ describe("RowDetailsSheet", () => {
 		const dialog = screen
 			.getByText("Discard unsaved changes?")
 			.closest("[role='alertdialog']");
+
 		await user.click(
 			within(dialog as HTMLElement).getByRole("button", { name: "Discard changes" }),
 		);
@@ -321,6 +330,7 @@ describe("RowDetailsSheet", () => {
 	it("resets all fields when untouched draft receives refreshed row data", () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		useRowDetailsStore.getState().setRowDetails("users", 0);
+
 		const { rerender } = render(
 			<RowDetailsSheet
 				tableName="users"
@@ -345,6 +355,7 @@ describe("RowDetailsSheet", () => {
 	it("preserves dirty fields when refreshed row has the same record identity", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		useRowDetailsStore.getState().setRowDetails("users", 0);
+
 		const { rerender } = render(
 			<RowDetailsSheet
 				tableName="users"
@@ -372,6 +383,7 @@ describe("RowDetailsSheet", () => {
 	it("resets to new record values when row identity changes underneath", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		useRowDetailsStore.getState().setRowDetails("users", 0);
+
 		const { rerender } = render(
 			<RowDetailsSheet
 				tableName="users"

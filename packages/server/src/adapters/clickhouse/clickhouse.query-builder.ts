@@ -16,11 +16,13 @@ export function buildWhereClause(filters: FilterType[]): { clause: string; value
 
 	const bind = (value: string) => {
 		values.push(value);
+
 		return `{p${values.length - 1}:String}`;
 	};
 
 	for (const { columnName, operator, value } of filters) {
 		const col = q(columnName);
+
 		switch (operator) {
 			case "=":
 			case "!=":
@@ -72,11 +74,14 @@ export function buildOrderByClause(
 		: sort
 			? [{ columnName: sort, direction: order }]
 			: [];
+
 	const direction = (sorts[0]?.direction ?? order).toUpperCase();
+
 	const terms = [
 		...sorts.map((s) => `${q(s.columnName)} ${s.direction.toUpperCase()}`),
 		...tieBreakers.map((expr) => `${expr} ${direction}`),
 	];
+
 	return terms.length ? `ORDER BY ${terms.join(", ")}` : "";
 }
 
@@ -138,6 +143,7 @@ function mapColumnTypeToClickhouse(
 	};
 
 	const base = typeMap[columnType.toLowerCase().trim()] ?? columnType.trim();
+
 	return isArray ? `Array(${base})` : base;
 }
 
@@ -170,6 +176,7 @@ export function buildClickhouseColumnDefinition(
 	supportsJsonType: boolean,
 ): string {
 	const name = q(field.columnName);
+
 	if (field.isIdentity || /serial/i.test(field.columnType)) {
 		return `${name} UInt64 DEFAULT generateSnowflakeID()`;
 	}
@@ -179,12 +186,15 @@ export function buildClickhouseColumnDefinition(
 		field.isArray ?? false,
 		supportsJsonType,
 	);
+
 	const nullable = field.isNullable && !field.isPrimaryKey && !field.isArray;
 	let def = `${name} ${nullable ? `Nullable(${type})` : type}`;
 
 	const defaultValue = field.defaultValue?.trim();
+
 	if (defaultValue) {
 		def += ` DEFAULT ${DEFAULT_FUNCTIONS[defaultValue.toLowerCase()] ?? defaultValue}`;
 	}
+
 	return def;
 }

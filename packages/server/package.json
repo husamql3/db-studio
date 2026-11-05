@@ -45,7 +45,6 @@
     "build": "tsup --minify",
     "prepack": "cd ../web && bun run build && cd ../server && bun run build",
     "start": "sh -c 'APP_PORT=${PORT:-3333}; portless proxy start >/dev/null && portless alias db-studio \"$APP_PORT\" --force >/dev/null && HOST=127.0.0.1 PORT=\"$APP_PORT\" DB_STUDIO_SERVER_URL=https://db-studio.localhost node dist/index.js'",
-    "format": "biome check --write --unsafe",
     "typecheck": "bun check",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -84,7 +83,6 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@db-studio/shared": "workspace:*",
     "@sentry/esbuild-plugin": "^5.4.0",
     "@types/mssql": "^12.3.0",

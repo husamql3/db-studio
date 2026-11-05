@@ -25,6 +25,7 @@ export const useRedisKeys = ({
 	type: string;
 }) => {
 	const { selectedDatabase } = useDatabaseStore();
+
 	return useInfiniteQuery({
 		queryKey: redisKeyBrowserKeys.list(selectedDatabase, search, exactPattern, type),
 		queryFn: async ({ pageParam }) => {
@@ -36,6 +37,7 @@ export const useRedisKeys = ({
 				exactPattern,
 				type: (type || undefined) as Exclude<RedisKeyTypeSchemaType, "unknown"> | undefined,
 			});
+
 			return response.data.data;
 		},
 		initialPageParam: "",
@@ -51,6 +53,7 @@ export const useRedisKey = (
 	direction: "forward" | "backward" = "forward",
 ) => {
 	const { selectedDatabase } = useDatabaseStore();
+
 	return useInfiniteQuery({
 		queryKey: redisKeyBrowserKeys.detail(selectedDatabase, key, full, direction),
 		queryFn: async ({ pageParam }) => {
@@ -61,6 +64,7 @@ export const useRedisKey = (
 				full,
 				direction,
 			});
+
 			return response.data.data;
 		},
 		initialPageParam: "",
@@ -79,6 +83,7 @@ const mutationError = (error: Error & { details?: unknown }): string =>
 export const useRedisKeyMutations = () => {
 	const { selectedDatabase } = useDatabaseStore();
 	const queryClient = useQueryClient();
+
 	const refresh = async () =>
 		queryClient.invalidateQueries({ queryKey: redisKeyBrowserKeys.all });
 
@@ -89,6 +94,7 @@ export const useRedisKeyMutations = () => {
 			),
 		onSuccess: refresh,
 	});
+
 	const actionMutation = useMutation({
 		mutationFn: ({ key, data }: { key: string; data: KeyActionSchemaType }) =>
 			applyRedisKeyAction({ db: selectedDatabase ?? "", key, data }).then(
@@ -96,6 +102,7 @@ export const useRedisKeyMutations = () => {
 			),
 		onSuccess: refresh,
 	});
+
 	const deleteMutation = useMutation({
 		mutationFn: ({
 			key,

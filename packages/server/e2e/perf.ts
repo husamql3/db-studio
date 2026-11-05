@@ -23,17 +23,23 @@ import { fileURLToPath } from "node:url";
 import { type Browser, chromium, type Page } from "playwright-core";
 
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a PostgreSQL database seeded by e2e/perf-seed.sql");
 }
+
 const db = encodeURIComponent(decodeURIComponent(new URL(databaseUrl).pathname.slice(1)));
 const builds = process.argv.slice(2);
+
 if (builds.length === 0) throw new Error("Name at least one build in e2e/artifacts/builds/");
+
 const cliFor = (build: string) =>
 	fileURLToPath(new URL(`./artifacts/builds/${build}/index.js`, import.meta.url));
+
 for (const build of builds) {
 	if (!existsSync(cliFor(build))) throw new Error(`Missing ${cliFor(build)}`);
 }
+
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
 const DB_LATENCY_MS = Number(process.env.PERF_DB_LATENCY_MS ?? 0);
 
@@ -45,22 +51,28 @@ const startLatencyRelay = async (target: URL) => {
 		from.on("close", () => setTimeout(() => to.destroy(), DB_LATENCY_MS));
 		from.on("error", () => to.destroy());
 	};
+
 	const server = createServer((client) => {
 		const upstream = connect(Number(target.port || 5432), target.hostname);
 		relay(client, upstream);
 		relay(upstream, client);
 	});
+
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	server.unref();
 	const address = server.address();
+
 	if (!address || typeof address === "string") throw new Error("relay has no port");
 	const relayed = new URL(target);
 	relayed.hostname = "127.0.0.1";
 	relayed.port = String(address.port);
+
 	return relayed.toString();
 };
+
 const serverDatabaseUrl =
 	DB_LATENCY_MS > 0 ? await startLatencyRelay(new URL(databaseUrl)) : databaseUrl;
+
 const CPU_THROTTLE = Number(process.env.PERF_CPU_THROTTLE ?? 1);
 const PORT = 4517;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -68,13 +80,16 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const median = (values: number[]) => {
 	const sorted = [...values].sort((a, b) => a - b);
 	const mid = Math.floor(sorted.length / 2);
+
 	const value =
 		sorted.length % 2 ? (sorted[mid] ?? 0) : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+
 	return Math.round(value * 10) / 10;
 };
 
 const startServer = async (cli: string) => {
 	const startedAt = performance.now();
+
 	// A temporary cwd keeps the CLI from picking up a developer's .env.
 	const child = spawn(
 		"node",
@@ -90,17 +105,21 @@ const startServer = async (cli: string) => {
 			stdio: ["ignore", "ignore", "pipe"],
 		},
 	);
+
 	let stderr = "";
 	child.stderr?.on("data", (chunk) => {
 		stderr += chunk;
 	});
+
 	for (;;) {
 		if (child.exitCode !== null) {
 			throw new Error(`server exited with ${child.exitCode}: ${stderr.slice(-2000)}`);
 		}
+
 		const ready = await fetch(`${BASE}/api/databases`)
 			.then((response) => response.ok)
 			.catch(() => false);
+
 		if (ready) return { child, startupMs: performance.now() - startedAt };
 		await new Promise((resolve) => setTimeout(resolve, 5));
 	}
@@ -117,12 +136,14 @@ const processCpuMs = (pid: number) => {
 		.toString()
 		.trim()
 		.split(":");
+
 	return (Number(minutes) * 60 + Number(seconds)) * 1000;
 };
 
 const stopServer = async (child: ChildProcess) => {
 	// Shutdown is not measured here; SIGKILL skips waiting for open requests.
 	child.kill("SIGKILL");
+
 	if (child.exitCode === null) await once(child, "exit");
 };
 
@@ -130,7 +151,9 @@ const timeFetch = async (path: string) => {
 	const startedAt = performance.now();
 	const response = await fetch(`${BASE}${path}`);
 	const body = await response.text();
+
 	if (!response.ok) throw new Error(`${path}: ${response.status} ${body}`);
+
 	return { ms: performance.now() - startedAt, body };
 };
 
@@ -141,6 +164,7 @@ type PerfHelpers = {
 	firstRowText: () => string | undefined;
 	scrollGrid: () => Promise<number[]>;
 };
+
 declare global {
 	interface Window {
 		__perf: PerfHelpers;
@@ -158,12 +182,14 @@ const installPerfHelpers = () => {
 			new Promise((resolve, reject) => {
 				if (check()) return resolve(performance.now());
 				const timeout = setTimeout(() => reject(new Error("timed out")), 30_000);
+
 				const observer = new MutationObserver(() => {
 					if (!check()) return;
 					observer.disconnect();
 					clearTimeout(timeout);
 					resolve(performance.now());
 				});
+
 				observer.observe(document, {
 					subtree: true,
 					childList: true,
@@ -173,9 +199,11 @@ const installPerfHelpers = () => {
 			}),
 		clickAndWait: async (selector, check) => {
 			const element = document.querySelector<HTMLElement>(selector);
+
 			if (!element) throw new Error(`missing ${selector}`);
 			const startedAt = performance.now();
 			element.click();
+
 			return (await helpers.waitFor(check)) - startedAt;
 		},
 		firstRowText: () =>
@@ -185,6 +213,7 @@ const installPerfHelpers = () => {
 			const container = document
 				.querySelector("tbody")
 				?.closest<HTMLElement>(".overflow-auto");
+
 			if (!container) throw new Error("missing grid container");
 			const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 			container.scrollTop = 0;
@@ -192,6 +221,7 @@ const installPerfHelpers = () => {
 			await nextFrame();
 			const frames: number[] = [];
 			let last = performance.now();
+
 			while (container.scrollTop + container.clientHeight < container.scrollHeight - 1) {
 				container.scrollTop += 100;
 				await nextFrame();
@@ -199,9 +229,11 @@ const installPerfHelpers = () => {
 				frames.push(now - last);
 				last = now;
 			}
+
 			return frames;
 		},
 	};
+
 	window.__perf = helpers;
 };
 
@@ -223,6 +255,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 	// Starting takes half a second, so a few extra starts per pass are cheap and steady the best.
 	metrics.serverStartupMs = Number.POSITIVE_INFINITY;
 	metrics.serverStartupCpuMs = Number.POSITIVE_INFINITY;
+
 	for (let start = 0; start < 4; start++) {
 		const extra = await startServer(cli);
 		metrics.serverStartupMs = Math.min(metrics.serverStartupMs, extra.startupMs);
@@ -230,34 +263,42 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 		metrics.serverStartupCpuMs = Math.min(metrics.serverStartupCpuMs, cpu);
 		await stopServer(extra.child);
 	}
+
 	const { child, startupMs } = await startServer(cli);
 	metrics.serverStartupMs = Math.min(metrics.serverStartupMs, startupMs);
+
 	if (child.pid) {
 		metrics.serverStartupCpuMs = Math.min(metrics.serverStartupCpuMs, processCpuMs(child.pid));
 	}
+
 	try {
 		// API latency without the browser; the first request warms the connection pool.
 		await timeFetch(`/api/pg/tables?db=${db}`);
 		const tablesList: number[] = [];
 		const firstPage: number[] = [];
 		const nextPage: number[] = [];
+
 		for (let repeat = 0; repeat < 3; repeat++) {
 			tablesList.push((await timeFetch(`/api/pg/tables?db=${db}`)).ms);
 			const first = await timeFetch(`/api/pg/tables/orders/data?db=${db}&limit=50`);
 			firstPage.push(first.ms);
+
 			const { nextCursor } = (
 				JSON.parse(first.body) as { data: { meta: { nextCursor: string } } }
 			).data.meta;
+
 			nextPage.push(
 				(await timeFetch(`/api/pg/tables/orders/data?db=${db}&limit=50&cursor=${nextCursor}`))
 					.ms,
 			);
 		}
+
 		metrics.apiTablesListMs = Math.min(...tablesList);
 		metrics.apiFirstPageMs = Math.min(...firstPage);
 		metrics.apiNextPageMs = Math.min(...nextPage);
 
 		const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+
 		try {
 			// tsx wraps named functions in `__name(...)`, which the page does not define.
 			await context.addInitScript("globalThis.__name = (fn) => fn;");
@@ -267,6 +308,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			const cdp = await context.newCDPSession(page);
 			await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_THROTTLE });
 			await cdp.send("Performance.enable");
+
 			/**
 			 * Chrome's counters for the page. ThreadTime is main-thread CPU time, which grows less
 			 * than wall time while other processes hold the CPU. LayoutCount and RecalcStyleCount
@@ -274,14 +316,17 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			 */
 			const counters = async () => {
 				const { metrics: list } = await cdp.send("Performance.getMetrics");
+
 				const value = (name: string) =>
 					list.find((metric) => metric.name === name)?.value ?? 0;
+
 				return {
 					cpuMs: value("ThreadTime") * 1000,
 					layouts: value("LayoutCount"),
 					styleRecalcs: value("RecalcStyleCount"),
 				};
 			};
+
 			/**
 			 * Repeats a step, keeping its fastest wall and CPU time, and the layouts and style
 			 * recalculations of its last attempt.
@@ -289,6 +334,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			const bestOf = async (name: string, times: number, step: () => Promise<number>) => {
 				let wall = Number.POSITIVE_INFINITY;
 				let cpu = Number.POSITIVE_INFINITY;
+
 				for (let attempt = 0; attempt < times; attempt++) {
 					const before = await counters();
 					wall = Math.min(wall, await step());
@@ -297,15 +343,18 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 					metrics[`${name}Layouts`] = after.layouts - before.layouts;
 					metrics[`${name}StyleRecalcs`] = after.styleRecalcs - before.styleRecalcs;
 				}
+
 				metrics[`${name}Ms`] = wall;
 				metrics[`${name}CpuMs`] = cpu;
 			};
+
 			const sidebarReady = () =>
 				page.evaluate(() =>
 					window.__perf.waitFor(
 						() => document.querySelector('a[href="/table/orders"]') !== null,
 					),
 				);
+
 			const showTable = (table: string, column: string) =>
 				page.evaluate(
 					([table, column]) =>
@@ -325,6 +374,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			// Warm start: same browser cache, reload.
 			await bestOf("warmLoad", 3, async () => {
 				await page.reload({ waitUntil: "commit" });
+
 				return sidebarReady();
 			});
 
@@ -335,8 +385,10 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			await bestOf("nextPage", 5, () =>
 				page.evaluate(() => {
 					const before = window.__perf.firstRowText();
+
 					return window.__perf.clickAndWait('button[aria-label="Go to next page"]', () => {
 						const now = window.__perf.firstRowText();
+
 						return now !== undefined && now !== before;
 					});
 				}),
@@ -346,10 +398,13 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			await bestOf("nextPageAfterHover", 5, async () => {
 				await page.hover('button[aria-label="Go to next page"]');
 				await page.waitForTimeout(150);
+
 				return page.evaluate(() => {
 					const before = window.__perf.firstRowText();
+
 					return window.__perf.clickAndWait('button[aria-label="Go to next page"]', () => {
 						const now = window.__perf.firstRowText();
+
 						return now !== undefined && now !== before;
 					});
 				});
@@ -359,6 +414,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 			// Leave for another table, then come back to one already seen.
 			await bestOf("revisitTable", 5, async () => {
 				await showTable("customers", "email");
+
 				return showTable("orders", "customer_id");
 			});
 
@@ -380,9 +436,11 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 				() => document.querySelectorAll("table *").length,
 			);
 			const { result } = await cdp.send("Runtime.evaluate", { expression: "document" });
+
 			const { listeners } = await cdp.send("DOMDebugger.getEventListeners", {
 				objectId: result.objectId as string,
 			});
+
 			metrics.documentKeydownListeners = listeners.filter(
 				(listener) => listener.type === "keydown",
 			).length;
@@ -392,6 +450,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 	} finally {
 		await stopServer(child);
 	}
+
 	return metrics;
 };
 
@@ -399,15 +458,19 @@ const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 const samples = new Map(builds.map((build) => [build, [] as Record<string, number>[]]));
 const pageErrors = new Set<string>();
+
 try {
 	// A discarded first pass warms the OS file cache, Postgres buffers and the browser.
 	console.error(`[perf] warm-up ${builds[0]}`);
 	await measure(browser, cliFor(builds[0] ?? ""), pageErrors);
+
 	for (let run = 0; run < RUNS; run++) {
 		// Alternate the order so neither build always runs first.
 		const order = run % 2 ? [...builds].reverse() : builds;
+
 		for (const build of order) {
 			console.error(`[perf] run ${run + 1}/${RUNS} ${build}`);
 			samples.get(build)?.push(await measure(browser, cliFor(build), pageErrors));
@@ -426,14 +489,17 @@ const summarize = (pick: (values: number[]) => number) =>
 		builds.map((build) => {
 			const runs = samples.get(build) ?? [];
 			const names = Object.keys(runs[0] ?? {});
+
 			return [
 				build,
 				Object.fromEntries(names.map((name) => [name, pick(runs.map((r) => r[name] ?? 0))])),
 			];
 		}),
 	);
+
 const best = summarize((values) => Math.round(Math.min(...values) * 10) / 10);
 const medians = summarize(median);
+
 /**
  * Paired change of each build against the build listed before it: the % difference between
  * the two passes of the same run, which ran back to back, then the median over runs.
@@ -443,6 +509,7 @@ const pairedChange = Object.fromEntries(
 		const before = samples.get(builds[index] ?? "") ?? [];
 		const after = samples.get(build) ?? [];
 		const names = Object.keys(after[0] ?? {});
+
 		return [
 			`${build} vs ${builds[index]} (%)`,
 			Object.fromEntries(
@@ -451,6 +518,7 @@ const pairedChange = Object.fromEntries(
 					median(
 						after.map((run, i) => {
 							const base = before[i]?.[name] ?? 0;
+
 							return base === 0 ? 0 : (((run[name] ?? 0) - base) / base) * 100;
 						}),
 					),
@@ -459,6 +527,7 @@ const pairedChange = Object.fromEntries(
 		];
 	}),
 );
+
 const results = {
 	runs: RUNS,
 	cpuThrottle: CPU_THROTTLE,
@@ -469,7 +538,9 @@ const results = {
 	samples: Object.fromEntries(samples),
 	pageErrors: [...pageErrors],
 };
+
 await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
+
 await writeFile(
 	new URL(
 		`./artifacts/perf-${builds.join("-vs-")}${CPU_THROTTLE > 1 ? `-${CPU_THROTTLE}x-cpu` : ""}${DB_LATENCY_MS ? `-${DB_LATENCY_MS}ms-db` : ""}.json`,
@@ -477,6 +548,7 @@ await writeFile(
 	),
 	`${JSON.stringify(results, null, 2)}\n`,
 );
+
 const transpose = (table: Record<string, Record<string, number>>) =>
 	Object.fromEntries(
 		Object.keys(table[builds[0] ?? ""] ?? {}).map((name) => [
@@ -484,10 +556,15 @@ const transpose = (table: Record<string, Record<string, number>>) =>
 			Object.fromEntries(builds.map((build) => [build, table[build]?.[name]])),
 		]),
 	);
+
 console.log("Best of", RUNS);
+
 console.table(transpose(best));
+
 console.log("Median of", RUNS);
+
 console.table(transpose(medians));
+
 if (builds.length > 1) {
 	console.log("Paired change, median over runs (%)");
 	console.table(
@@ -501,4 +578,5 @@ if (builds.length > 1) {
 		),
 	);
 }
+
 if (pageErrors.size > 0) console.error("Page errors:", [...pageErrors]);

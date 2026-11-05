@@ -25,11 +25,13 @@ export const useTableData = ({
 			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR
 			: CONSTANTS.TABLE_STATE_KEYS.CURSOR,
 	);
+
 	const [limit] = useQueryState(
 		isReferencedTable
 			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString()
 			: CONSTANTS.TABLE_STATE_KEYS.LIMIT,
 	);
+
 	const [direction] = useQueryState(
 		isReferencedTable
 			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION
@@ -61,6 +63,7 @@ export const useTableData = ({
 		isReferencedTable && referencedSort?.length > 0
 			? JSON.stringify(referencedSort)
 			: regularSort;
+
 	const serializedFilters = filters?.length > 0 ? JSON.stringify(filters) : undefined;
 
 	const page = {
@@ -74,6 +77,7 @@ export const useTableData = ({
 		db: selectedDatabase,
 		schemaName,
 	};
+
 	const fetchPage = (target: typeof page) =>
 		getTableData({
 			tableName: target.tableName,
@@ -101,6 +105,7 @@ export const useTableData = ({
 	});
 
 	const queryClient = useQueryClient();
+
 	/**
 	 * Loads a neighbouring page into the cache, e.g. while the pointer is on its button, so the
 	 * page shows without waiting on the database once it is clicked.

@@ -48,6 +48,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 
 		// Remove overlay
 		const overlay = document.getElementById("resize-overlay");
+
 		if (overlay) overlay.remove();
 	}, []);
 
@@ -110,6 +111,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	// Attach mouse enter/leave handlers to the Sheet content
 	useEffect(() => {
 		const element = sheetContentRef.current;
+
 		if (!element) return;
 
 		const onMouseEnter = () => handleMouseEnterRef.current();

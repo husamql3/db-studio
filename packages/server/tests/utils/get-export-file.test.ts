@@ -2,17 +2,19 @@ import { describe, expect, it } from "vitest";
 import { read, utils } from "xlsx";
 import { getExportFile } from "@/utils/get-export-file.js";
 
-const decode = (body: BodyInit): string =>
-	Buffer.from(body as Uint8Array).toString("utf-8");
+const decode = (body: BodyInit): string => Buffer.from(body as Uint8Array).toString("utf-8");
 
 const cols = ["id", "name", "profile", "tags"];
+
 const rows = [
 	{ id: 1, name: "Ada", profile: { role: "admin", active: true }, tags: ["a", "b"] },
 ];
 
 describe("getExportFile", () => {
 	it("keeps compound values structured in the JSON export", async () => {
-		const parsed = JSON.parse(decode(await getExportFile({ cols, rows, format: "json", tableName: "users" })));
+		const parsed = JSON.parse(
+			decode(await getExportFile({ cols, rows, format: "json", tableName: "users" })),
+		);
 
 		expect(parsed).toEqual(rows);
 		expect(parsed[0].profile).toEqual({ role: "admin", active: true });
@@ -30,6 +32,7 @@ describe("getExportFile", () => {
 	it("serializes compound values for XLSX rather than emitting [object Object]", async () => {
 		const buffer = await getExportFile({ cols, rows, format: "xlsx", tableName: "users" });
 		const sheet = read(Buffer.from(buffer as Uint8Array), { type: "buffer" });
+
 		const [first] = utils.sheet_to_json<Record<string, unknown>>(
 			sheet.Sheets[sheet.SheetNames[0]],
 		);
@@ -45,6 +48,7 @@ describe("getExportFile", () => {
 		const csv = decode(
 			await getExportFile({ cols: binCols, rows: binRows, format: "csv", tableName: "blobs" }),
 		);
+
 		expect(csv).toContain("0x6869");
 		expect(csv).not.toContain('"type":"Buffer"');
 	});
@@ -54,15 +58,27 @@ describe("getExportFile", () => {
 		const scalarRows = [{ id: 1, name: "Ada", active: true, missing: null }];
 
 		const csv = decode(
-			await getExportFile({ cols: scalarCols, rows: scalarRows, format: "csv", tableName: "users" }),
+			await getExportFile({
+				cols: scalarCols,
+				rows: scalarRows,
+				format: "csv",
+				tableName: "users",
+			}),
 		);
+
 		expect(csv).toContain("1,Ada,TRUE");
 
 		const parsed = JSON.parse(
 			decode(
-				await getExportFile({ cols: scalarCols, rows: scalarRows, format: "json", tableName: "users" }),
+				await getExportFile({
+					cols: scalarCols,
+					rows: scalarRows,
+					format: "json",
+					tableName: "users",
+				}),
 			),
 		);
+
 		expect(parsed).toEqual(scalarRows);
 	});
 });

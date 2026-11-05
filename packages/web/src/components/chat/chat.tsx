@@ -15,6 +15,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 // The chat, its markdown renderer and its model client are a large share of the app's code, so
 // they load when the assistant first opens instead of with every page.
 const loadChatSidebar = () => import("@/components/chat/chat-sidebar");
+
 const ChatSidebar = lazy(() =>
 	loadChatSidebar().then((module) => ({ default: module.ChatSidebar })),
 );
@@ -23,6 +24,7 @@ export const Chat = () => {
 	const { openOverlay, isOverlayOpen } = useOverlayStore();
 	// Once opened, the assistant stays mounted so it can animate closed and keep the conversation.
 	const [assistantMounted, setAssistantMounted] = useState(false);
+
 	if (isOverlayOpen("chat.assistant") && !assistantMounted) setAssistantMounted(true);
 	const { dbType } = useDatabaseStore();
 	const { provider } = useAiSettingsStore();
@@ -30,17 +32,24 @@ export const Chat = () => {
 	const isByokReady = useAiByokReady();
 	const keyStatus = byok.status[provider];
 	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
+
 	const { rateLimit, isLoadingRateLimit, errorRateLimit } = useRateLimit({
 		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
 	});
+
 	const { remaining = 0, limit = 0 } = rateLimit ?? { remaining: 0, limit: 0 };
 
 	const getIndicatorColor = () => {
 		if (hasPersonalKey) return "bg-emerald-500";
+
 		if (isLoadingRateLimit || errorRateLimit) return "bg-zinc-500";
+
 		if (provider !== "gemini") return "bg-red-500";
+
 		if (remaining === 0) return "bg-red-500";
+
 		if (remaining <= 5) return "bg-yellow-500";
+
 		return "bg-emerald-500";
 	};
 
@@ -58,6 +67,7 @@ export const Chat = () => {
 						onFocus={loadChatSidebar}
 						onClick={() => {
 							openOverlay("chat.assistant");
+
 							if (dbType) posthogAnalytics.capture("chat_opened", { db_type: dbType });
 						}}
 					>

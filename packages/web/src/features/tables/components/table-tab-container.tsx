@@ -24,8 +24,10 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const schemaName = useTableSchemaName();
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
+
 	const { tableData, pageKey, isLoadingTableData, errorTableData, refetchTableData } =
 		useTableData({ tableName, schemaName });
+
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
 		tableName,
 		schemaName,
@@ -43,6 +45,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	// table instance (setOptions per render), so the memo must key on the
 	// row-model output itself, not the table, or the sheet keeps stale rows.
 	const rowModel = table.getRowModel();
+
 	const visibleRows = useMemo(
 		() => rowModel.rows.map((gridRow) => gridRow.original),
 		[rowModel],
@@ -70,6 +73,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 				{ queryKey: tableKeys.list(selectedDatabase), exact: true },
 				{ cancelRefetch: false },
 			);
+
 			return refetchTableData();
 		},
 		isEditingCell,

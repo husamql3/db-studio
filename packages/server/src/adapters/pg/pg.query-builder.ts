@@ -34,6 +34,7 @@ export function buildWhereClause(filters: FilterType[]): {
 					conditions.push(`${columnName} = $${paramIndex}`);
 					values.push(filter.value);
 				}
+
 				break;
 			case "is not":
 				if (filter.value.toLowerCase() === "null") {
@@ -42,6 +43,7 @@ export function buildWhereClause(filters: FilterType[]): {
 					conditions.push(`${columnName} != $${paramIndex}`);
 					values.push(filter.value);
 				}
+
 				break;
 			case "like":
 				conditions.push(`${columnName}::text LIKE $${paramIndex}`);
@@ -86,6 +88,7 @@ export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
 	`ORDER BY ${terms
 		.map((term) => {
 			const { descending, nullsLast } = placement(term, backward);
+
 			return `${quotePgIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
 		})
 		.join(", ")}`;
@@ -111,6 +114,7 @@ export function buildKeysetPredicate(
 		const col = quotePgIdent(term.column);
 		const value = cursor[term.column] ?? null;
 		const { descending, nullsLast } = placement(term, backward);
+
 		if (value !== null) values.push(value);
 		const param = `$${startParamIndex + values.length - 1}`;
 
@@ -120,6 +124,7 @@ export function buildKeysetPredicate(
 					? null
 					: `${col} IS NOT NULL`
 				: `${col} ${descending ? "<" : ">"} ${param}${nullsLast ? ` OR ${col} IS NULL` : ""}`;
+
 		if (after) branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
 
 		equal.push(value === null ? `${col} IS NULL` : `${col} = ${param}`);

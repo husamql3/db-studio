@@ -13,8 +13,7 @@
     "cf-typegen": "wrangler types",
     "check-meta": "bunx check-site-meta",
     "typecheck": "bun check",
-    "test": "vitest run",
-    "format": "biome check --write --unsafe"
+    "test": "vitest run"
   },
   "portless": {
     "name": "www.db-studio",
@@ -49,7 +48,6 @@
     "vite-tsconfig-paths": "^6.1.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@cloudflare/vite-plugin": "^1.66.0",
     "@tanstack/devtools-vite": "^0.8.6",
     "@types/node": "^26.6.6",

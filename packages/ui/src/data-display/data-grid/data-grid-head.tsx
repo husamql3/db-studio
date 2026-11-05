@@ -34,6 +34,7 @@ export const DataGridHead = <TRow,>({
 					) : null}
 					{virtualColumns.map((virtualColumn) => {
 						const header = headerGroup.headers[virtualColumn.index];
+
 						return (
 							<th
 								key={header.id}

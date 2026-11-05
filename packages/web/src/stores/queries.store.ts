@@ -80,6 +80,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			addQuery: (name?: string, folderId?: string) => {
 				const newId = Math.random().toString(36).substring(2, 15);
+
 				const newQuery: Query = {
 					id: newId,
 					name: name ?? "Untitled Query",
@@ -88,9 +89,11 @@ export const useQueriesStore = create<QueriesStore>()(
 					isSelected: false,
 					folderId: folderId ?? undefined,
 				};
+
 				set((state) => ({
 					queries: [...state.queries, newQuery],
 				}));
+
 				return newId;
 			},
 
@@ -118,6 +121,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			getQueriesByFolder: (folderId) => {
 				const state = get();
+
 				return state.queries
 					.filter((q) => q.folderId === folderId && !q.isFavorite)
 					.sort((a, b) => a.name.localeCompare(b.name));
@@ -125,6 +129,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			getFavoriteQueries: () => {
 				const state = get();
+
 				return state.queries
 					.filter((q) => q.isFavorite)
 					.sort((a, b) => a.name.localeCompare(b.name));
@@ -132,11 +137,13 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			getFavoriteFolders: () => {
 				const state = get();
+
 				return state.folders.filter((f) => f.isFavorite);
 			},
 
 			getQuery: (id) => {
 				const state = get();
+
 				return state.queries.find((q) => q.id === id);
 			},
 
@@ -149,6 +156,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			getSelectedQuery: () => {
 				const state = get();
+
 				return state.queries.find((q) => q.isSelected);
 			},
 		}),

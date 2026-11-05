@@ -31,11 +31,15 @@ export const buildSchemaGraph = (tables: SchemaGraphTable[], schema: string) => 
 	const edges: GraphEdge[] = visible.flatMap((table) =>
 		table.columns.flatMap((column) => {
 			const { referencedTable, referencedSchema, referencedColumn } = column;
+
 			if (!referencedTable || !referencedColumn) return [];
+
 			const target = visible.find(
 				(t) => t.tableName === referencedTable && t.schemaName === referencedSchema,
 			);
+
 			if (!target) return [];
+
 			return {
 				id: `${table.id}.${column.columnName}->${target.id}`,
 				source: table.id,
@@ -57,7 +61,9 @@ export const layoutGraph = (
 	const graph = new graphlib.Graph();
 	graph.setDefaultEdgeLabel(() => ({}));
 	graph.setGraph({ rankdir: "LR", ranksep: 160, nodesep: 60 });
+
 	for (const node of nodes) graph.setNode(node.id, { width: node.width, height: node.height });
+
 	// Reversed so dagre ranks a referenced table left of the tables referencing it.
 	for (const edge of edges) graph.setEdge(edge.target, edge.source);
 	layout(graph);
@@ -65,6 +71,7 @@ export const layoutGraph = (
 	return new Map(
 		nodes.map((node) => {
 			const { x, y } = graph.node(node.id);
+
 			return [node.id, { x: x - node.width / 2, y: y - node.height / 2 }];
 		}),
 	);
@@ -75,6 +82,7 @@ export const neighbourhood = (edges: GraphEdge[], id: string) => {
 	const tables = new Set([id]);
 	const columns = new Set<string>();
 	const edgeIds = new Set<string>();
+
 	for (const edge of edges) {
 		if (edge.source !== id && edge.target !== id) continue;
 		tables.add(edge.source).add(edge.target);
@@ -83,6 +91,7 @@ export const neighbourhood = (edges: GraphEdge[], id: string) => {
 			.add(`${edge.target}.${edge.targetColumn}`);
 		edgeIds.add(edge.id);
 	}
+
 	return { tables, columns, edgeIds };
 };
 
@@ -92,5 +101,6 @@ export const tableWidth = (table: SchemaGraphTable) => {
 		table.tableName.length,
 		...table.columns.map((c) => c.columnName.length + c.dataTypeLabel.length + 4),
 	);
+
 	return Math.min(Math.max(longest * 7.5 + 72, 220), 420);
 };

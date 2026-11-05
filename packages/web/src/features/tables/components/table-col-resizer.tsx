@@ -32,6 +32,7 @@ function TableColumnResizerImpl({ header, table, label }: TableColumnResizerProp
 		table.setColumnSizing((old) => {
 			const newSizing = { ...old };
 			delete newSizing[header.column.id];
+
 			return newSizing;
 		});
 	}, [header.column.id, table]);

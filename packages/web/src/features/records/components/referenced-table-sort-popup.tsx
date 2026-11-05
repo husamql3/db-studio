@@ -20,12 +20,14 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) => {
 	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
+
 	const [sorts, setSorts] = useQueryState<Sort[]>(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT,
 		parseAsJson((value) => value as Sort[])
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
+
 	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
 
@@ -71,6 +73,7 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 		if (open) {
 			setLocalSort(sorts);
 		}
+
 		setIsOpen(open);
 	};
 

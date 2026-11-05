@@ -1,4 +1,5 @@
 "use client";
+
 import { Badge } from "@db-studio/ui/badge";
 import { Button } from "@db-studio/ui/button";
 import { DatePicker } from "@db-studio/ui/date-picker";
@@ -58,6 +59,7 @@ export const CellContent = ({
 				: value === ""
 					? "EMPTY"
 					: null;
+
 	return (
 		<span
 			data-slot="grid-cell-content"
@@ -93,8 +95,11 @@ const CellPopover = ({
 	children: ReactNode;
 }) => {
 	const [mounted, setMounted] = useState(active);
+
 	if (active && !mounted) setMounted(true);
+
 	if (!mounted) return anchor;
+
 	return (
 		<Popover
 			open={open}
@@ -172,6 +177,7 @@ export const TableTextCell = memo(
 		const onSave = useCallback(
 			(direction?: NavigationDirection) => {
 				if (!editingRef.current) return;
+
 				if (editorValue === editorStart) close(direction);
 				else commit(editorValue, direction);
 			},
@@ -200,6 +206,7 @@ export const TableTextCell = memo(
 			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
 		> = useCallback((event) => {
 			event.preventDefault();
+
 			if (textareaRef.current) {
 				textareaRef.current.focus();
 				const length = textareaRef.current.value.length;
@@ -241,6 +248,7 @@ export const TableTextCell = memo(
 					event.preventDefault();
 					onSave(event.shiftKey ? "left" : "right");
 				}
+
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
 			},
@@ -326,6 +334,7 @@ export const TableTextCell = memo(
 						<span className="px-1 text-[0.625rem] text-muted-foreground/70">Set</span>
 						{valueActions.map((action) => {
 							const isCurrent = (currentValue ?? null) === action.value;
+
 							return (
 								<Button
 									key={action.label}
@@ -456,6 +465,7 @@ export const TableNumberCell = memo(
 					event.preventDefault();
 					onSave(event.shiftKey ? "left" : "right");
 				}
+
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
 			},
@@ -467,6 +477,7 @@ export const TableNumberCell = memo(
 			if (value !== initialValue) {
 				setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
 			}
+
 			setOpen(false);
 			meta?.onCellEditingStop?.();
 		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
@@ -551,6 +562,7 @@ export const TableBooleanCell = memo(
 
 		// Get the current value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
+
 		const currentValue = pendingUpdate
 			? (pendingUpdate.newValue as boolean | null)
 			: initialValue;
@@ -558,6 +570,7 @@ export const TableBooleanCell = memo(
 		// Convert boolean value to string for the select component
 		const value = useMemo(() => {
 			if (currentValue === null || currentValue === undefined) return "null";
+
 			return currentValue ? "true" : "false";
 		}, [currentValue]);
 
@@ -565,6 +578,7 @@ export const TableBooleanCell = memo(
 			(newValue: string) => {
 				// Convert string value back to boolean or null
 				let boolValue: boolean | null;
+
 				if (newValue === "null") {
 					boolValue = null;
 				} else {
@@ -635,6 +649,7 @@ export const TableBooleanCell = memo(
 						}, 0);
 					}
 				}, 0);
+
 				return () => {
 					clearTimeout(openTimer);
 					// Cleanup: close select when component unmounts or isEditing changes
@@ -736,6 +751,7 @@ export const TableEnumCell = memo(
 
 		// Get the current value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
+
 		const currentValue = pendingUpdate
 			? (pendingUpdate.newValue as string | null)
 			: initialValue;
@@ -805,6 +821,7 @@ export const TableEnumCell = memo(
 						}, 0);
 					}
 				}, 0);
+
 				return () => {
 					clearTimeout(openTimer);
 					// Cleanup: close select when component unmounts or isEditing changes
@@ -903,6 +920,7 @@ export const TableDateCell = memo(
 
 		// Get the current value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
+
 		const currentValue = pendingUpdate
 			? (pendingUpdate.newValue as string | null)
 			: initialValue;
@@ -1019,6 +1037,7 @@ export const TableJsonCell = memo(
 		// If the value is a string (which shouldn't happen but might due to pg driver issues),
 		// parse it to an object
 		let initialValue: Record<string, unknown>;
+
 		if (typeof rawValue === "string") {
 			try {
 				initialValue = JSON.parse(rawValue) as Record<string, unknown>;
@@ -1042,6 +1061,7 @@ export const TableJsonCell = memo(
 		const [editorValue, setEditorValue] = useState(
 			() => JSON.stringify(initialValue, null, editorPreferences.tabSize) ?? "",
 		);
+
 		const [open, setOpen] = useState(false);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
@@ -1052,14 +1072,17 @@ export const TableJsonCell = memo(
 
 		// Get the current display value from store or use initial value (compact format)
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
+
 		const currentJsonValue = pendingUpdate
 			? (pendingUpdate.newValue as Record<string, unknown>)
 			: initialValue;
+
 		const displayValue = JSON.stringify(currentJsonValue);
 
 		const parseError = useMemo(() => {
 			try {
 				JSON.parse(editorValue);
+
 				return null;
 			} catch (error) {
 				return error instanceof Error ? error.message : "Invalid JSON";
@@ -1070,6 +1093,7 @@ export const TableJsonCell = memo(
 		// matches the original value. Returns false when the JSON can't be parsed.
 		const commit = useCallback(() => {
 			let parsedValue: unknown;
+
 			try {
 				parsedValue = JSON.parse(editorValue);
 			} catch {
@@ -1087,6 +1111,7 @@ export const TableJsonCell = memo(
 					table.options.meta?.editScope,
 				);
 			}
+
 			return true;
 		}, [editorValue, initialValue, columnName, rowData, setUpdate, clearUpdate]);
 
@@ -1113,6 +1138,7 @@ export const TableJsonCell = memo(
 		const onOpenChange = useCallback(
 			(isOpen: boolean) => {
 				setOpen(isOpen);
+
 				if (!isOpen) {
 					commit();
 					meta?.onCellEditingStop?.();
@@ -1257,6 +1283,7 @@ export const TableForeignKeyCell = memo(
 		const [drawerOpen, setDrawerOpen] = useState(false);
 		// Like CellPopover: no idle drawer per cell; mount it on first open and keep it.
 		const [drawerMounted, setDrawerMounted] = useState(false);
+
 		if (drawerOpen && !drawerMounted) setDrawerMounted(true);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
 		const containerRef = useRef<HTMLDivElement>(null);
@@ -1267,6 +1294,7 @@ export const TableForeignKeyCell = memo(
 		const columnName = columnId;
 
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
+
 		const displayValue = pendingUpdate
 			? formatCellValue(pendingUpdate.newValue)
 			: (initialValue ?? "");
@@ -1297,6 +1325,7 @@ export const TableForeignKeyCell = memo(
 		const onOpenChange = useCallback(
 			(isOpen: boolean) => {
 				setOpen(isOpen);
+
 				if (!isOpen) {
 					if (editorValue !== initialValue) {
 						setUpdate(
@@ -1307,6 +1336,7 @@ export const TableForeignKeyCell = memo(
 							table.options.meta?.editScope,
 						);
 					}
+
 					meta?.onCellEditingStop?.();
 				}
 			},
@@ -1317,6 +1347,7 @@ export const TableForeignKeyCell = memo(
 			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
 		> = useCallback((event) => {
 			event.preventDefault();
+
 			if (textareaRef.current) {
 				textareaRef.current.focus();
 				const length = textareaRef.current.value.length;
@@ -1350,6 +1381,7 @@ export const TableForeignKeyCell = memo(
 					event.preventDefault();
 					onSave();
 				}
+
 				event.stopPropagation();
 			},
 			[onCancel, onSave],
@@ -1365,6 +1397,7 @@ export const TableForeignKeyCell = memo(
 					table.options.meta?.editScope,
 				);
 			}
+
 			meta?.onCellEditingStop?.();
 			setOpen(false);
 		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);

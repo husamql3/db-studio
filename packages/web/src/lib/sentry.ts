@@ -25,15 +25,19 @@ const browserTag = (): string => {
 		["Chrome", "chrome"],
 		["Version", "safari"],
 	];
+
 	for (const [token, family] of families) {
 		const major = navigator.userAgent.match(new RegExp(`${token}/(\\d+)`))?.[1];
+
 		if (major) return `${family}-${major}`;
 	}
+
 	return "other";
 };
 
 export const initSentry = async (): Promise<void> => {
 	const dsn = import.meta.env.VITE_SENTRY_DSN ?? OFFICIAL_SENTRY_DSN;
+
 	if (!dsn || import.meta.env.DEV) return;
 
 	sentry ??= await import("@sentry/react");
@@ -66,12 +70,14 @@ export const initSentry = async (): Promise<void> => {
 						request_id: breadcrumb.data?.request_id,
 					},
 				}));
+
 			// Only the network report builds its message from fixed vocabulary; any
 			// other message may quote a table or database name.
 			if (event.tags?.error_kind !== "network") {
 				for (const exception of event.exception?.values ?? [])
 					exception.value = "Client error";
 			}
+
 			return event;
 		},
 		beforeSendSpan(span) {
@@ -79,6 +85,7 @@ export const initSentry = async (): Promise<void> => {
 				?.replace(/[?#].*$/, "")
 				.replace(DB_SCOPED_API_PATH, "/api/$1")
 				.replace(/\/(table|schema|runner)\/[^/\s]+/g, "/$1/:id");
+
 			return { ...span, description, data: {} };
 		},
 		beforeSendTransaction(event) {
@@ -88,6 +95,7 @@ export const initSentry = async (): Promise<void> => {
 					"/$1/:id",
 				);
 			}
+
 			return event;
 		},
 	});

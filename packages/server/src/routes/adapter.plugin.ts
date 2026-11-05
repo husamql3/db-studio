@@ -14,21 +14,27 @@ import { HTTPException } from "@/http-exception.js";
  */
 export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params, headers }) => {
 	const { dbType = "" } = params;
+
 	if (!adapterRegistry.has(dbType)) {
 		throw new HTTPException(400, {
 			message: `Invalid database type: "${dbType}". Supported types: ${adapterRegistry.getSupportedTypes().join(", ")}`,
 		});
 	}
+
 	// The server restarted since this tab connected.
 	const sent = headers["x-connection-id"];
+
 	if (sent && !getOpenConnection(sent)) {
 		throw new HTTPException(409, { message: "The connection closed. Reload the page." });
 	}
+
 	const connected = getDbType();
+
 	if (connected !== dbType) {
 		throw new HTTPException(409, {
 			message: `The open connection is ${DATABASE_ENGINES[connected].label}. Reload the page.`,
 		});
 	}
+
 	return { dbType, adapter: getAdapter(dbType) };
 });

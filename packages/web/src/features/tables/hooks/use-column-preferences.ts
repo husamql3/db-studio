@@ -49,6 +49,7 @@ export const useColumnPreferences = ({
 		if (schemaKey.length === 0) return;
 		const current = getColumnPrefs(key);
 		const reconciled = reconcileColumnPrefs(schemaColsRef.current, current);
+
 		if (sameColumnPrefs(current, reconciled)) return;
 		setColumnPrefs(key, reconciled);
 	}, [key, schemaKey, setColumnPrefs]);
@@ -58,6 +59,7 @@ export const useColumnPreferences = ({
 	const update = useCallback(
 		(next: ColumnPrefs) => {
 			const reconciled = reconcileColumnPrefs(schemaColsRef.current, next);
+
 			if (sameColumnPrefs(getColumnPrefs(key), reconciled)) return;
 			setColumnPrefs(key, reconciled);
 		},
@@ -73,11 +75,13 @@ export const useColumnPreferences = ({
 		(columnName: string) => {
 			const reconciled = reconciledPrefs();
 			const hiddenSet = new Set(reconciled.hidden);
+
 			if (hiddenSet.has(columnName)) {
 				hiddenSet.delete(columnName);
 			} else {
 				hiddenSet.add(columnName);
 			}
+
 			update({ ...reconciled, hidden: [...hiddenSet] });
 		},
 		[reconciledPrefs, update],
@@ -89,14 +93,17 @@ export const useColumnPreferences = ({
 			const list = scopeCols ?? reconciled.order;
 			const index = list.indexOf(columnName);
 			const targetIndex = index + direction;
+
 			if (index === -1 || targetIndex < 0 || targetIndex >= list.length) return;
 			const targetCol = list[targetIndex];
+
 			const order = reorderColumns(
 				reconciled.order,
 				columnName,
 				targetCol,
 				direction === -1 ? "before" : "after",
 			);
+
 			update({ ...reconciled, order });
 		},
 		[reconciledPrefs, update],

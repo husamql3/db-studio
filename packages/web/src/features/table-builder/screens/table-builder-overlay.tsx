@@ -29,6 +29,7 @@ const defaultValues = {
 export const TableBuilderOverlay = () => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { createTable, isCreatingTable } = useCreateTable();
+
 	const methods = useForm({
 		mode: "onSubmit",
 		defaultValues,
@@ -40,6 +41,7 @@ export const TableBuilderOverlay = () => {
 			...data,
 			foreignKeys: data.foreignKeys?.filter((fk) => {
 				if (fk === null) return true;
+
 				return fk.columnName && fk.referencedTable && fk.referencedColumn;
 			}),
 		};
@@ -61,6 +63,7 @@ export const TableBuilderOverlay = () => {
 	const onError = (errors: FieldErrors<AddTableFormData>) => {
 		if (errors.tableName?.message) {
 			toast.error(errors.tableName.message);
+
 			return;
 		}
 
@@ -68,10 +71,13 @@ export const TableBuilderOverlay = () => {
 			for (const field of errors.fields) {
 				if (field?.columnName?.message) {
 					toast.error(field.columnName.message);
+
 					return;
 				}
+
 				if (field?.columnType?.message) {
 					toast.error(field.columnType.message);
+
 					return;
 				}
 			}
@@ -81,14 +87,19 @@ export const TableBuilderOverlay = () => {
 			for (const fk of errors.foreignKeys) {
 				if (fk?.columnName?.message) {
 					toast.error(fk.columnName.message);
+
 					return;
 				}
+
 				if (fk?.referencedTable?.message) {
 					toast.error(fk.referencedTable.message);
+
 					return;
 				}
+
 				if (fk?.referencedColumn?.message) {
 					toast.error(fk.referencedColumn.message);
+
 					return;
 				}
 			}

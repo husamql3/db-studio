@@ -13,6 +13,7 @@ const hexToNormalizedRGB = (hex: string): NormalizedRGB => {
 	const r = parseInt(clean.slice(0, 2), 16) / 255;
 	const g = parseInt(clean.slice(2, 4), 16) / 255;
 	const b = parseInt(clean.slice(4, 6), 16) / 255;
+
 	return [r, g, b];
 };
 
@@ -97,6 +98,7 @@ function SilkPlane({ uniforms, ref }: SilkPlaneProps) {
 
 	useLayoutEffect(() => {
 		const mesh = ref as React.MutableRefObject<Mesh | null>;
+
 		if (mesh?.current) {
 			mesh.current.scale.set(viewport.width, viewport.height, 1);
 		}
@@ -104,10 +106,12 @@ function SilkPlane({ uniforms, ref }: SilkPlaneProps) {
 
 	useFrame((_state: RootState, delta: number) => {
 		const mesh = ref as React.MutableRefObject<Mesh | null>;
+
 		if (mesh?.current) {
 			const material = mesh.current.material as ShaderMaterial & {
 				uniforms: SilkUniforms;
 			};
+
 			material.uniforms.uTime.value += 0.1 * delta;
 		}
 	});

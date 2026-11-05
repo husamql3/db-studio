@@ -67,7 +67,10 @@ describe("createServer", () => {
 
 	describe("Database type validation middleware", () => {
 		it("should reject an unsupported database type with a 400 error payload", async () => {
-			const res = await server.app.handle(new Request(new URL("/api/invalid/tables?db=x", "http://localhost")));
+			const res = await server.app.handle(
+				new Request(new URL("/api/invalid/tables?db=x", "http://localhost")),
+			);
+
 			const json = await res.json();
 
 			expect(res.status).toBe(400);
@@ -78,9 +81,12 @@ describe("createServer", () => {
 			// A browser refresh on a client route like /table/:name must NOT be
 			// interpreted as a /:dbType API request. Pre-fix this returned 400
 			// "Invalid database type: table"; now it falls through to the SPA.
-			const res = await server.app.handle(new Request(new URL("/table/users", "http://localhost"), {
-				headers: { Accept: "text/html" },
-			}));
+			const res = await server.app.handle(
+				new Request(new URL("/table/users", "http://localhost"), {
+					headers: { Accept: "text/html" },
+				}),
+			);
+
 			expect(res.status).not.toBe(400);
 			const body = await res.text();
 			expect(body).not.toContain("Invalid database type");
@@ -89,7 +95,9 @@ describe("createServer", () => {
 
 	describe("CORS middleware", () => {
 		it("should NOT emit a wildcard Access-Control-Allow-Origin for a same-origin/no-origin request", async () => {
-			const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost")));
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", "http://localhost")),
+			);
 
 			// Same-origin default: no allowlist configured means no allow-origin
 			// header is reflected. A cross-origin caller therefore gets no CORS
@@ -98,18 +106,25 @@ describe("createServer", () => {
 		});
 
 		it("should NOT emit an Access-Control-Allow-Origin for a disallowed cross-origin request", async () => {
-			const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
-				headers: { Origin: "https://evil.example" },
-			}));
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", "http://localhost"), {
+					headers: { Origin: "https://evil.example" },
+				}),
+			);
 
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
 		});
 
 		it("should advertise allowed methods on a CORS preflight", async () => {
-			const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
+			const res = await server.app.handle(
+				new Request(new URL("/api/databases", "http://localhost"), {
 					method: "OPTIONS",
-					headers: { Origin: "https://web.db-studio.localhost", "Access-Control-Request-Method": "PUT" },
-				}));
+					headers: {
+						Origin: "https://web.db-studio.localhost",
+						"Access-Control-Request-Method": "PUT",
+					},
+				}),
+			);
 
 			const methods = res.headers.get("Access-Control-Allow-Methods");
 			expect(methods).toContain("GET");
@@ -121,14 +136,16 @@ describe("createServer", () => {
 		});
 
 		it("should advertise allowed headers on a CORS preflight", async () => {
-			const res = await server.app.handle(new Request(new URL("/api/chat", "http://localhost"), {
-				method: "OPTIONS",
-				headers: {
-					Origin: "https://web.db-studio.localhost",
-					"Access-Control-Request-Method": "POST",
-					"Access-Control-Request-Headers": "content-type,x-run-id,x-byok-anthropic",
-				},
-			}));
+			const res = await server.app.handle(
+				new Request(new URL("/api/chat", "http://localhost"), {
+					method: "OPTIONS",
+					headers: {
+						Origin: "https://web.db-studio.localhost",
+						"Access-Control-Request-Method": "POST",
+						"Access-Control-Request-Headers": "content-type,x-run-id,x-byok-anthropic",
+					},
+				}),
+			);
 
 			const headers = res.headers.get("Access-Control-Allow-Headers");
 			expect(headers).toContain("Content-Type");
@@ -139,29 +156,43 @@ describe("createServer", () => {
 		it("should allow localhost and *.localhost origins when NODE_ENV is development", async () => {
 			const originalEnv = process.env.NODE_ENV;
 			const originalOrigins = process.env.ALLOWED_ORIGINS;
+
 			try {
 				process.env.NODE_ENV = "development";
 				delete process.env.ALLOWED_ORIGINS;
-				const res1 = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
-					headers: { Origin: "https://web.db-studio.localhost" },
-				}));
+
+				const res1 = await server.app.handle(
+					new Request(new URL("/api/databases", "http://localhost"), {
+						headers: { Origin: "https://web.db-studio.localhost" },
+					}),
+				);
+
 				expect(res1.headers.get("Access-Control-Allow-Origin")).toBe(
 					"https://web.db-studio.localhost",
 				);
 
-				const res2 = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
-					headers: { Origin: "http://localhost:3000" },
-				}));
+				const res2 = await server.app.handle(
+					new Request(new URL("/api/databases", "http://localhost"), {
+						headers: { Origin: "http://localhost:3000" },
+					}),
+				);
+
 				expect(res2.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:3000");
 
-				const res3 = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
-					headers: { Origin: "http://127.0.0.1:5173" },
-				}));
+				const res3 = await server.app.handle(
+					new Request(new URL("/api/databases", "http://localhost"), {
+						headers: { Origin: "http://127.0.0.1:5173" },
+					}),
+				);
+
 				expect(res3.headers.get("Access-Control-Allow-Origin")).toBe("http://127.0.0.1:5173");
 
-				const resEvil = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
-					headers: { Origin: "https://evil.example" },
-				}));
+				const resEvil = await server.app.handle(
+					new Request(new URL("/api/databases", "http://localhost"), {
+						headers: { Origin: "https://evil.example" },
+					}),
+				);
+
 				expect(resEvil.headers.get("Access-Control-Allow-Origin")).toBeNull();
 			} finally {
 				if (originalEnv === undefined) {
@@ -169,6 +200,7 @@ describe("createServer", () => {
 				} else {
 					process.env.NODE_ENV = originalEnv;
 				}
+
 				if (originalOrigins === undefined) {
 					delete process.env.ALLOWED_ORIGINS;
 				} else {
@@ -179,11 +211,16 @@ describe("createServer", () => {
 
 		it("should allow origins configured in ALLOWED_ORIGINS", async () => {
 			const originalOrigins = process.env.ALLOWED_ORIGINS;
+
 			try {
 				process.env.ALLOWED_ORIGINS = "https://custom.dbstudio.sh, https://admin.dbstudio.sh";
-				const res = await server.app.handle(new Request(new URL("/api/databases", "http://localhost"), {
-					headers: { Origin: "https://custom.dbstudio.sh" },
-				}));
+
+				const res = await server.app.handle(
+					new Request(new URL("/api/databases", "http://localhost"), {
+						headers: { Origin: "https://custom.dbstudio.sh" },
+					}),
+				);
+
 				expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
 					"https://custom.dbstudio.sh",
 				);
@@ -215,6 +252,7 @@ describe("createServer", () => {
 			const res = await server.app.handle(
 				new Request(new URL("/api/databases", `http://${host}`)),
 			);
+
 			return res.status;
 		};
 
@@ -269,8 +307,10 @@ describe("createServer", () => {
 					headers: authorization ? { authorization } : {},
 				}),
 			);
+
 			return res;
 		};
+
 		const basic = (user: string, password: string) =>
 			`Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`;
 

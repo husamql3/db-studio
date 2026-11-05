@@ -12,11 +12,13 @@ class AdapterRegistry {
 
 	get(type: DatabaseTypeSchema): IDbAdapter {
 		const adapter = this.adapters.get(type);
+
 		if (!adapter) {
 			throw new HTTPException(400, {
 				message: `Unsupported database type: "${type}". Supported types: ${this.getSupportedTypes().join(", ")}`,
 			});
 		}
+
 		return adapter;
 	}
 
@@ -51,5 +53,6 @@ export function assertKeyValueAdapter(
 			message: `Key browsing is not supported for database type: "${dbType}"`,
 		});
 	}
+
 	return adapter;
 }

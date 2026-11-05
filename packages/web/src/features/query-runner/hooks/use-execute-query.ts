@@ -14,12 +14,14 @@ export const useExecuteQuery = () => {
 	} = useMutation<ExecuteQueryResult, Error, { query: string }>({
 		mutationFn: async ({ query }) => {
 			const res = await executeQueryRequest({ query, db: selectedDatabase });
+
 			return res.data.data;
 		},
 		onSuccess: () => {
 			if (dbType) posthogAnalytics.capture("query_executed", { db_type: dbType });
 		},
 	});
+
 	const executeQuery = async ({ query }: { query: string }) => {
 		try {
 			return await executeQueryMutation({ query });

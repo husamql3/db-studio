@@ -14,6 +14,7 @@ import { getDbType } from "@/db-manager.js";
 export const databasesRoutes = new Elysia({ prefix: "/databases" })
 	.derive(() => {
 		const dbType = getDbType();
+
 		return { dbType, adapter: getAdapter(dbType) };
 	})
 

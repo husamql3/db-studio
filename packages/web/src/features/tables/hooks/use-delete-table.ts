@@ -29,6 +29,7 @@ export const useDeleteTable = () => {
 				db: selectedDatabase,
 				cascade,
 			});
+
 			return response.data.data;
 		},
 		onSuccess: async () => {
@@ -51,6 +52,7 @@ export const useDeleteTable = () => {
 					: `Deleted table "${tableName}" with ${result.deletedCount} rows`,
 			error: (error: Error) => error.message || "Failed to delete table",
 		});
+
 		return promise;
 	};
 
@@ -65,6 +67,7 @@ export const useDeleteTable = () => {
 				`Force deleted table "${tableName}" with ${result.deletedCount} rows`,
 			error: (error: Error) => error.message || "Failed to delete table",
 		});
+
 		return promise;
 	};
 

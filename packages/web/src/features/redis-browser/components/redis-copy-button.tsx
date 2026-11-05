@@ -17,6 +17,7 @@ export const RedisCopyButton = ({
 	className?: string;
 }) => {
 	const [copied, setCopied] = useState(false);
+
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>

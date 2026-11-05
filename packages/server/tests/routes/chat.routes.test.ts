@@ -47,14 +47,16 @@ describe("Chat routes", () => {
 	});
 
 	it("forwards a Gemini BYOK header without putting the key in the body", async () => {
-		const response = await app.handle(new Request(new URL("/api/pg/chat", "http://localhost"), {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"x-byok-gemini": "personal-secret",
-			},
-			body: JSON.stringify(requestBody(true)),
-		}));
+		const response = await app.handle(
+			new Request(new URL("/api/pg/chat", "http://localhost"), {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-byok-gemini": "personal-secret",
+				},
+				body: JSON.stringify(requestBody(true)),
+			}),
+		);
 
 		expect(response.status).toBe(200);
 		const [, init] = vi.mocked(fetch).mock.calls[0];
@@ -63,15 +65,17 @@ describe("Chat routes", () => {
 	});
 
 	it("defaults the model to the selected provider's first model", async () => {
-		const response = await app.handle(new Request(new URL("/api/pg/chat", "http://localhost"), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				provider: "openai",
-				messages: [{ id: "message-1", role: "user", content: "Hello" }],
-				data: { db: "example", includeSchema: false },
+		const response = await app.handle(
+			new Request(new URL("/api/pg/chat", "http://localhost"), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					provider: "openai",
+					messages: [{ id: "message-1", role: "user", content: "Hello" }],
+					data: { db: "example", includeSchema: false },
+				}),
 			}),
-		}));
+		);
 
 		expect(response.status).toBe(200);
 		const [, init] = vi.mocked(fetch).mock.calls[0];
@@ -82,7 +86,9 @@ describe("Chat routes", () => {
 	it("reports hosted quota as unavailable when the proxy limit check fails", async () => {
 		vi.mocked(fetch).mockRejectedValueOnce(new Error("proxy unavailable"));
 
-		const response = await app.handle(new Request(new URL("/api/pg/chat/limit", "http://localhost")));
+		const response = await app.handle(
+			new Request(new URL("/api/pg/chat/limit", "http://localhost")),
+		);
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ limit: LIMIT, used: LIMIT, remaining: 0 });

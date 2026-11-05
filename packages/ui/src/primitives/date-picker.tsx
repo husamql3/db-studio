@@ -74,10 +74,12 @@ export function DatePicker({
 }: DatePickerProps) {
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
 	const open = openProp ?? uncontrolledOpen;
+
 	const setOpen = (next: boolean) => {
 		setUncontrolledOpen(next);
 		onOpenChange?.(next);
 	};
+
 	const [today] = useState<Date>(() => new Date());
 
 	const hours = value ? value.getHours() : 0;
@@ -90,7 +92,9 @@ export function DatePicker({
 			date.setMinutes(value.getMinutes());
 			date.setSeconds(value.getSeconds());
 		}
+
 		onChange?.(date);
+
 		if (!showTime) {
 			setOpen(false);
 		}
@@ -98,14 +102,18 @@ export function DatePicker({
 
 	const handleTimeChange = (type: "hours" | "minutes" | "seconds", val: number) => {
 		const newDate = value ? new Date(value) : new Date();
+
 		if (type === "hours") newDate.setHours(val);
+
 		if (type === "minutes") newDate.setMinutes(val);
+
 		if (type === "seconds") newDate.setSeconds(val);
 		onChange?.(newDate);
 	};
 
 	const handlePreset = (preset: "NULL" | "NOW" | "TODAY" | "YESTERDAY" | "TOMORROW") => {
 		const today = startOfDay(new Date());
+
 		switch (preset) {
 			case "NULL":
 				onChange?.(null);
@@ -262,6 +270,7 @@ function TimeColumn({
 
 	useEffect(() => {
 		const selectedRef = itemRefs.current.get(selected);
+
 		if (selectedRef) {
 			selectedRef.scrollIntoView({ block: "center", behavior: "auto" });
 		}

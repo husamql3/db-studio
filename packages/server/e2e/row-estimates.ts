@@ -22,9 +22,12 @@ import { tableDataResultSchema, tableInfoSchema } from "@db-studio/shared/types"
 import { z } from "zod";
 
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = new URL(process.env.DATABASE_URL ?? "");
 const dbType = { "mysql:": "mysql", "mssql:": "mssql" }[databaseUrl.protocol];
+
 if (!dbType) throw new Error("Set DATABASE_URL to a disposable MySQL or SQL Server database");
+
 const db = decodeURIComponent(databaseUrl.pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
 const { getMssqlPool, getMysqlPool } = await import("../src/db-manager.js");
@@ -36,23 +39,27 @@ const SHRUNK = "dbstudio_estimate_shrunk";
 const ROWS = 100_000;
 
 interface Dialect {
-	exec: (sql: string) => Promise<unknown>;
+	exec: (sql: string) => Promise<void>;
 	quote: (name: string) => string;
 	/** Fills ids 1..rows, with bucket = id % 10. */
-	seed: (table: string, rows: number) => Promise<unknown>;
+	seed: (table: string, rows: number) => Promise<void>;
 	/** Has the database report the table's size, which MySQL 8 then caches. */
-	readSize: (table: string) => Promise<unknown>;
-	end: () => Promise<unknown>;
+	readSize: (table: string) => Promise<void>;
+	end: () => Promise<void>;
 }
 
 const dialect = async (): Promise<Dialect> => {
 	if (dbType === "mysql") {
 		const pool = await getMysqlPool(db);
+
 		return {
-			exec: (sql) => pool.query(sql),
+			exec: async (sql) => {
+				await pool.query(sql);
+			},
 			quote: (name) => `\`${name}\``,
 			seed: async (table, rows) => {
 				const connection = await pool.getConnection();
+
 				try {
 					await connection.query(`SET SESSION cte_max_recursion_depth = ${rows}`);
 					await connection.query(
@@ -62,44 +69,56 @@ const dialect = async (): Promise<Dialect> => {
 					connection.release();
 				}
 			},
-			readSize: (table) =>
-				pool.query(
+			readSize: async (table) => {
+				await pool.query(
 					`SELECT table_rows FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '${table}'`,
-				),
+				);
+			},
 			end: () => pool.end(),
 		};
 	}
+
 	const pool = await getMssqlPool(db);
+
 	return {
-		exec: (sql) => pool.request().query(sql),
+		exec: async (sql) => {
+			await pool.request().query(sql);
+		},
 		quote: (name) => `[${name}]`,
-		seed: (table, rows) =>
-			pool
+		seed: async (table, rows) => {
+			await pool
 				.request()
 				.query(
 					`INSERT INTO [${table}] SELECT value, value % 10 FROM GENERATE_SERIES(1, ${rows})`,
-				),
-		readSize: (table) =>
-			pool
+				);
+		},
+		readSize: async (table) => {
+			await pool
 				.request()
-				.query(`SELECT SUM(rows) FROM sys.partitions WHERE object_id = OBJECT_ID('${table}')`),
+				.query(`SELECT SUM(rows) FROM sys.partitions WHERE object_id = OBJECT_ID('${table}')`);
+		},
 		end: () => pool.close(),
 	};
 };
+
 const { exec, quote, seed, readSize, end } = await dialect();
 
 const get = async (path: string) => {
 	const response = await app.handle(
 		new Request(new URL(`/api/${dbType}${path}`, "http://localhost")),
 	);
+
 	const body: unknown = await response.json();
 	assert.equal(response.status, 200, JSON.stringify(body));
+
 	return body;
 };
+
 const listed = async () => {
 	const { data } = z
 		.object({ data: z.array(tableInfoSchema) })
 		.parse(await get(`/tables?db=${encodeURIComponent(db)}`));
+
 	return Object.fromEntries(
 		data
 			.filter((table) => table.tableName.startsWith("dbstudio_estimate_"))
@@ -109,23 +128,31 @@ const listed = async () => {
 			]),
 	);
 };
+
 const pageTotal = async (table: string, filters?: unknown[]) => {
 	const params = new URLSearchParams({ db, limit: "5" });
+
 	if (filters) params.set("filters", JSON.stringify(filters));
+
 	const { meta } = z
 		.object({ data: tableDataResultSchema })
 		.parse(await get(`/tables/${encodeURIComponent(table)}/data?${params}`)).data;
+
 	return { total: meta.total, totalEstimated: meta.totalEstimated };
 };
+
 // Estimates are close but not always exact (InnoDB samples index pages).
 const within = (value: number, expected: number) =>
 	Math.abs(value - expected) / expected < 0.2;
 
 const drop = () =>
 	exec(`DROP TABLE IF EXISTS ${[LARGE, SMALL, SHRUNK].map(quote).join(", ")}`);
+
 const evidence: Record<string, unknown> = {};
+
 try {
 	await drop();
+
 	for (const [table, rows] of [
 		[LARGE, ROWS],
 		[SMALL, 100],
@@ -134,6 +161,7 @@ try {
 		await exec(`CREATE TABLE ${quote(table)} (id INT PRIMARY KEY, bucket INT)`);
 		await seed(table, rows);
 	}
+
 	await readSize(SHRUNK);
 	await exec(`DELETE FROM ${quote(SHRUNK)} WHERE id > 100`);
 

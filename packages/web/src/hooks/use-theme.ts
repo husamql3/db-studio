@@ -6,19 +6,25 @@ function subscribeToSystemTheme(callback: () => void) {
 	if (typeof window === "undefined" || !window.matchMedia) {
 		return () => {};
 	}
+
 	const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY);
+
 	if (typeof mediaQuery.addEventListener === "function") {
 		mediaQuery.addEventListener("change", callback);
+
 		return () => {
 			mediaQuery.removeEventListener("change", callback);
 		};
 	}
+
 	if (typeof mediaQuery.addListener === "function") {
 		mediaQuery.addListener(callback);
+
 		return () => {
 			mediaQuery.removeListener(callback);
 		};
 	}
+
 	return () => {};
 }
 
@@ -26,6 +32,7 @@ function getSystemThemeSnapshot(): boolean {
 	if (typeof window === "undefined" || !window.matchMedia) {
 		return false;
 	}
+
 	return window.matchMedia(COLOR_SCHEME_QUERY).matches;
 }
 
@@ -44,10 +51,12 @@ export function useTheme() {
 
 	const resolvedTheme: ResolvedTheme =
 		theme === "system" ? (systemPrefersDark ? "dark" : "light") : theme;
+
 	const isDark = resolvedTheme === "dark";
 
 	useEffect(() => {
 		const root = window.document.documentElement;
+
 		if (isDark) {
 			root.classList.add("dark");
 			root.classList.remove("light");

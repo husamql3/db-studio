@@ -21,7 +21,9 @@ export const planColumnChanges = (
 ): ColumnChange[] =>
 	tableCols.flatMap((col, i) => {
 		const value = values.fields[i];
+
 		if (!value) return [];
+
 		const alter =
 			value.columnType !== col.dataTypeLabel
 				? {
@@ -30,8 +32,10 @@ export const planColumnChanges = (
 						defaultValue: col.columnDefault,
 					}
 				: undefined;
+
 		const trimmedName = value.columnName.trim();
 		const newColumnName = trimmedName !== col.columnName ? trimmedName : undefined;
+
 		return alter || newColumnName !== undefined
 			? [{ columnName: col.columnName, alter, newColumnName }]
 			: [];
@@ -63,6 +67,7 @@ export const useEditTable = ({
 						db: selectedDatabase,
 					});
 				}
+
 				if (newColumnName !== undefined) {
 					await renameColumn({
 						tableName,
@@ -73,6 +78,7 @@ export const useEditTable = ({
 					});
 				}
 			}
+
 			return changes.length;
 		},
 		// Earlier columns may have applied before a failure, so refresh either way.

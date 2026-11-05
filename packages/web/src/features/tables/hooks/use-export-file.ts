@@ -24,17 +24,21 @@ export const useExportFile = () => {
 			});
 
 			const contentDispositionHeader = response.headers["content-disposition"];
+
 			const contentDisposition =
 				typeof contentDispositionHeader === "string" ? contentDispositionHeader : undefined;
+
 			const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
 			const filename = filenameMatch?.[1] || `${tableName}_export.${format}`;
 			const contentTypeHeader = response.headers["content-type"];
+
 			const contentType =
 				typeof contentTypeHeader === "string" ? contentTypeHeader : "application/octet-stream";
 
 			const blob = new Blob([response.data], {
 				type: contentType,
 			});
+
 			const url = window.URL.createObjectURL(blob);
 			const link = document.createElement("a");
 			link.href = url;

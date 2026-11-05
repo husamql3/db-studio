@@ -82,6 +82,7 @@ const IN_CURRENT_SCHEMA =
 
 const isBigInteger = (typeId: DuckDBTypeId) => {
 	const { DuckDBTypeId } = loadedDriver("duckdb");
+
 	return (
 		typeId === DuckDBTypeId.BIGINT ||
 		typeId === DuckDBTypeId.UBIGINT ||
@@ -99,19 +100,23 @@ const toRows = (reader: DuckDBResultReader): Row[] => {
 	const types = reader.columnTypes();
 	const bigColumns = reader.columnNames().filter((_, i) => isBigInteger(types[i].typeId));
 	const rows = reader.getRowObjectsJson();
+
 	for (const row of rows) {
 		for (const column of bigColumns) {
 			const value = row[column];
+
 			if (typeof value === "string" && Number.isSafeInteger(Number(value)))
 				row[column] = Number(value);
 		}
 	}
+
 	return rows;
 };
 
 /** The driver boundary for writes. DuckDB casts the bound value to the column type. */
 const toDuckdbValue = (value: unknown): DuckDBValue => {
 	if (value === null || value === undefined) return null;
+
 	if (
 		typeof value === "string" ||
 		typeof value === "number" ||
@@ -119,7 +124,9 @@ const toDuckdbValue = (value: unknown): DuckDBValue => {
 		typeof value === "bigint"
 	)
 		return value;
+
 	if (value instanceof Date) return value.toISOString();
+
 	return JSON.stringify(value);
 };
 
@@ -134,9 +141,11 @@ const execute = async (conn: DuckDBConnection, sql: string, values: unknown[] = 
 
 const inTransaction = async <T>(conn: DuckDBConnection, fn: () => Promise<T>): Promise<T> => {
 	await conn.run("BEGIN TRANSACTION");
+
 	try {
 		const result = await fn();
 		await conn.run("COMMIT");
+
 		return result;
 	} catch (e) {
 		await conn.run("ROLLBACK").catch(() => {});
@@ -202,6 +211,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			array: "VARCHAR[]",
 			enum: "VARCHAR",
 		};
+
 		return map[universalType] ?? "VARCHAR";
 	}
 
@@ -222,12 +232,14 @@ export class DuckDbAdapter extends BaseAdapter {
 	protected override wrapError(e: unknown): HTTPException {
 		if (e instanceof Error) {
 			const limitation = LIMITATIONS.find(([signature]) => e.message.includes(signature));
+
 			if (limitation)
 				return new HTTPException(400, {
 					message: `${limitation[1]} (${e.message})`,
 					cause: e,
 				});
 		}
+
 		return super.wrapError(e);
 	}
 
@@ -255,6 +267,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
 			const primaryKey = await this.primaryKey(conn, tableName);
+
 			const terms: OrderTerm[] = this.orderTerms(
 				sort,
 				order,
@@ -264,11 +277,14 @@ export class DuckDbAdapter extends BaseAdapter {
 			const backward = direction === "desc";
 			const filter = buildFilterConditions(filters);
 			const cursorData = cursor ? this.decodeCursor(cursor) : null;
+
 			const keyset = cursorData
 				? buildKeysetPredicate(terms, cursorData.values, backward)
 				: null;
+
 			const orderBy = buildOrderBy(terms, backward);
 			const select = primaryKey.length ? "*" : "*, rowid";
+
 			const where = whereSql(
 				keyset ? [...filter.conditions, keyset.clause] : filter.conditions,
 			);
@@ -278,6 +294,7 @@ export class DuckDbAdapter extends BaseAdapter {
 				`SELECT COUNT(*) AS total FROM ${ident(tableName)} ${whereSql(filter.conditions)}`,
 				filter.values,
 			);
+
 			const fetched = await query(
 				conn,
 				`SELECT ${select} FROM ${ident(tableName)} ${where} ${orderBy} LIMIT ?`,
@@ -286,6 +303,7 @@ export class DuckDbAdapter extends BaseAdapter {
 
 			const hasMore = fetched.length > limit;
 			const page = fetched.slice(0, limit);
+
 			if (backward) page.reverse();
 
 			const cursorOf = (row: Row) =>
@@ -293,6 +311,7 @@ export class DuckDbAdapter extends BaseAdapter {
 					values: Object.fromEntries(terms.map((t) => [t.column, row[t.column]])),
 					sortColumns: terms.map((t) => t.column),
 				});
+
 			const first = page[0];
 			const last = page.at(-1);
 			const hasNextPage = backward ? !!cursor : hasMore;
@@ -302,6 +321,7 @@ export class DuckDbAdapter extends BaseAdapter {
 				data: page.map((row) => {
 					if (primaryKey.length) return this.normalizeRow(row);
 					const { rowid: _rowid, ...rest } = row;
+
 					return this.normalizeRow(rest);
 				}),
 				meta: {
@@ -326,6 +346,7 @@ export class DuckDbAdapter extends BaseAdapter {
 				conn,
 				"SELECT database_name, path FROM duckdb_databases() WHERE database_name = current_database()",
 			);
+
 			return rows.map((row) => ({
 				name: row.database_name,
 				size: this.getFileSize(row.path),
@@ -338,6 +359,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
 		return this.withConnection(async (conn) => {
 			const [row] = await query<{ db: string }>(conn, "SELECT current_database() AS db");
+
 			return { db: row.db };
 		});
 	}
@@ -348,6 +370,7 @@ export class DuckDbAdapter extends BaseAdapter {
 				conn,
 				"SELECT current_database() AS db, version() AS version",
 			);
+
 			return {
 				host: null,
 				port: null,
@@ -370,14 +393,18 @@ export class DuckDbAdapter extends BaseAdapter {
 				conn,
 				`SELECT table_name FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND NOT temporary ORDER BY table_name`,
 			);
+
 			const result: TableInfoSchemaType[] = [];
+
 			for (const { table_name } of tables) {
 				const [row] = await query<{ count: number }>(
 					conn,
 					`SELECT COUNT(*) AS count FROM ${ident(table_name)}`,
 				);
+
 				result.push({ tableName: table_name, rowCount: Number(row?.count ?? 0) });
 			}
+
 			return result;
 		});
 	}
@@ -389,6 +416,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			const rejected = [fk.onUpdate, fk.onDelete].find((a) =>
 				FK_ACTIONS_DUCKDB_REJECTS.has(a),
 			);
+
 			if (rejected)
 				throw new HTTPException(400, {
 					message: `DuckDB foreign keys do not support ${rejected} (on "${fk.columnName}"). Use NO ACTION or RESTRICT.`,
@@ -397,11 +425,16 @@ export class DuckDbAdapter extends BaseAdapter {
 
 		const sequences: string[] = [];
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+
 		const columnDefs = fields.map((field) => {
 			let def = `${ident(field.columnName)} ${mapColumnTypeToDuckdb(field.columnType, field.isArray)}`;
+
 			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
+
 			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+
 			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
+
 			if (field.isIdentity || isSerialType(field.columnType)) {
 				const sequence = `${tableName}_${field.columnName}_seq`;
 				sequences.push(sequence);
@@ -409,10 +442,13 @@ export class DuckDbAdapter extends BaseAdapter {
 			} else if (field.defaultValue?.trim()) {
 				def += ` DEFAULT ${field.defaultValue.trim()}`;
 			}
+
 			return def;
 		});
+
 		if (primaryKey.length > 1)
 			columnDefs.push(`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`);
+
 		const fkDefs = foreignKeys.map(
 			(fk) =>
 				`FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
@@ -431,14 +467,17 @@ export class DuckDbAdapter extends BaseAdapter {
 	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
+
 			const referencing = (await this.foreignKeys(conn, "referenced_table", tableName)).filter(
 				(fk) => fk.table !== tableName,
 			);
+
 			if (referencing.length) {
 				if (cascade)
 					throw new HTTPException(400, {
 						message: `DuckDB cannot drop "${tableName}" while ${[...new Set(referencing.map((fk) => `"${fk.table}"`))].join(", ")} reference it, and it cannot remove those foreign keys. Delete the referencing tables first.`,
 					});
+
 				return {
 					deletedCount: 0,
 					fkViolation: true,
@@ -450,11 +489,14 @@ export class DuckDbAdapter extends BaseAdapter {
 				conn,
 				`SELECT COUNT(*) AS count FROM ${ident(tableName)}`,
 			);
+
 			await conn.run(`DROP TABLE ${ident(tableName)}`);
+
 			for (const sequence of sequenceNamesIn(columns)) {
 				// A sequence another table still uses stays; DuckDB refuses with a Dependency Error.
 				await conn.run(`DROP SEQUENCE IF EXISTS ${ident(sequence)}`).catch(() => {});
 			}
+
 			return { deletedCount: Number(row?.count ?? 0), fkViolation: false, relatedRecords: [] };
 		});
 	}
@@ -463,6 +505,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		this.assertDifferentTableName(tableName, newTableName);
 		await this.withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
+
 			if ((await this.columns(conn, newTableName)).length)
 				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
 			await conn.run(`ALTER TABLE ${ident(tableName)} RENAME TO ${ident(newTableName)}`);
@@ -476,8 +519,10 @@ export class DuckDbAdapter extends BaseAdapter {
 				`SELECT sql FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND table_name = ?`,
 				[tableName],
 			);
+
 			if (!row)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
 			return row.sql;
 		});
 	}
@@ -494,6 +539,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 			const primaryKey = new Set(await this.primaryKey(conn, tableName));
+
 			const references = new Map(
 				(await this.foreignKeys(conn, "table_name", tableName)).flatMap((fk) =>
 					fk.columns.map((column, i) => [
@@ -506,6 +552,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			return columns.map((col) => {
 				const fk = references.get(col.column_name);
 				const isPrimaryKey = primaryKey.has(col.column_name);
+
 				return {
 					columnName: col.column_name,
 					dataType: mapDuckdbToDataType(col.data_type),
@@ -536,6 +583,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			isUnique,
 			isPrimaryKey,
 		} = params;
+
 		if (isUnique || isPrimaryKey)
 			throw new HTTPException(400, {
 				message: `DuckDB cannot add a ${isPrimaryKey ? "PRIMARY KEY" : "UNIQUE"} column to an existing table. Add the column without it, or recreate the table.`,
@@ -543,12 +591,15 @@ export class DuckDbAdapter extends BaseAdapter {
 
 		const sequence =
 			params.isIdentity || isSerialType(columnType) ? `${tableName}_${columnName}_seq` : null;
+
 		let def = `${ident(columnName)} ${mapColumnTypeToDuckdb(columnType, params.isArray)}`;
+
 		if (sequence) def += ` DEFAULT nextval('${sequence.replaceAll("'", "''")}')`;
 		else if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
 		await this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
+
 			if (columns.some((c) => c.column_name === columnName))
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
@@ -557,6 +608,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			await inTransaction(conn, async () => {
 				if (sequence) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
 				await conn.run(`ALTER TABLE ${ident(tableName)} ADD COLUMN ${def}`);
+
 				if (!isNullable)
 					await conn
 						.run(
@@ -580,6 +632,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			await this.requireColumn(conn, tableName, columnName);
 			await conn.run(`ALTER TABLE ${ident(tableName)} DROP COLUMN ${ident(columnName)}`);
 		});
+
 		return { deletedCount: 1 };
 	}
 
@@ -607,6 +660,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}: RenameColumnParamsSchemaType): Promise<void> {
 		await this.withConnection(async (conn) => {
 			const columns = await this.requireColumn(conn, tableName, columnName);
+
 			if (columns.some((c) => c.column_name === newColumnName))
 				throw new HTTPException(409, {
 					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
@@ -630,10 +684,12 @@ export class DuckDbAdapter extends BaseAdapter {
 		await this.withConnection(async (conn) => {
 			const existing = await this.requireColumns(conn, tableName);
 			const missing = columns.find((c) => !existing.some((e) => e.column_name === c));
+
 			if (missing !== undefined)
 				throw new HTTPException(400, {
 					message: `Column "${missing}" does not exist in table "${tableName}"`,
 				});
+
 			if (method !== undefined)
 				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
 
@@ -655,6 +711,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			// The indexes behind PRIMARY KEY and UNIQUE constraints are never listed, so
 			// everything found here was made by CREATE INDEX and can be dropped.
 			const indexes = await this.listIndexes(conn, tableName);
+
 			if (!indexes.some((index) => index.indexName === indexName))
 				throw new HTTPException(404, {
 					message: `Index "${indexName}" does not exist on table "${tableName}"`,
@@ -674,6 +731,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const columns = Object.keys(data);
+
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
@@ -684,6 +742,7 @@ export class DuckDbAdapter extends BaseAdapter {
 				Object.values(data),
 			),
 		);
+
 		return { insertedCount };
 	}
 
@@ -700,21 +759,25 @@ export class DuckDbAdapter extends BaseAdapter {
 			inTransaction(conn, async () => {
 				this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
 				let total = 0;
+
 				for (const { keyValues, rowUpdates } of groups) {
 					const changed = await execute(
 						conn,
 						`UPDATE ${ident(tableName)} SET ${rowUpdates.map((u) => `${ident(u.columnName)} = ${u.useDefault ? "DEFAULT" : "?"}`).join(", ")} WHERE ${keyColumns.map((c) => `${ident(c)} = ?`).join(" AND ")}`,
 						[...rowUpdates.filter((u) => !u.useDefault).map((u) => u.value), ...keyValues],
 					);
+
 					if (changed === 0)
 						throw new HTTPException(404, {
 							message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 						});
 					total += changed;
 				}
+
 				return total;
 			}),
 		);
+
 		return { updatedCount };
 	}
 
@@ -723,29 +786,34 @@ export class DuckDbAdapter extends BaseAdapter {
 		primaryKeys,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 		const values = primaryKeys.map((pk) => pk.value);
 
 		return this.withConnection(async (conn) => {
 			this.assertDeletableKey(await this.primaryKey(conn, tableName));
+
 			try {
 				const deletedCount = await execute(
 					conn,
 					`DELETE FROM ${ident(tableName)} WHERE ${ident(pkColumn)} IN (${placeholders(values)})`,
 					values,
 				);
+
 				return { deletedCount, fkViolation: false, relatedRecords: [] };
 			} catch (e) {
 				if (!(e instanceof Error) || !e.message.includes("Violates foreign key constraint"))
 					throw e;
 				const relatedRecords: RelatedRecord[] = [];
+
 				for (const fk of await this.foreignKeys(conn, "referenced_table", tableName)) {
 					const records = await query(
 						conn,
 						`SELECT c.* FROM ${ident(fk.table)} c JOIN ${ident(tableName)} p ON ${joinOn(fk)} WHERE p.${ident(pkColumn)} IN (${placeholders(values)}) LIMIT 100`,
 						values,
 					);
+
 					if (records.length)
 						relatedRecords.push({
 							tableName: fk.table,
@@ -754,6 +822,7 @@ export class DuckDbAdapter extends BaseAdapter {
 							records,
 						});
 				}
+
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 		});
@@ -761,12 +830,14 @@ export class DuckDbAdapter extends BaseAdapter {
 
 	async forceDeleteRecords(params: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const result = await this.deleteRecords(params);
+
 		if (result.fkViolation) {
 			throw new HTTPException(400, {
 				message:
 					"DuckDB cannot atomically delete a row and its dependent rows. Delete the dependent rows explicitly, then retry. Nothing was deleted.",
 			});
 		}
+
 		return { deletedCount: result.deletedCount };
 	}
 
@@ -778,18 +849,22 @@ export class DuckDbAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: "At least one record is required" });
 
 		const columns = Object.keys(records[0]);
+
 		const successCount = await this.withConnection((conn) =>
 			inTransaction(conn, async () => {
 				const statement = await conn.prepare(
 					`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
 				);
+
 				for (const record of records) {
 					statement.bind(columns.map((col) => toDuckdbValue(record[col])));
 					await statement.run();
 				}
+
 				return records.length;
 			}),
 		);
+
 		return {
 			success: true,
 			message: `Bulk insert completed: ${successCount} records inserted`,
@@ -809,13 +884,16 @@ export class DuckDbAdapter extends BaseAdapter {
 			const { ResultReturnType, StatementType } = loadedDriver("duckdb");
 			const start = performance.now();
 			const statements = await conn.extractStatements(sql);
+
 			if (statements.count !== 1) {
 				throw new HTTPException(400, {
 					message:
 						"The query runner runs one statement at a time. Run each statement separately.",
 				});
 			}
+
 			const statement = await statements.prepare(0);
+
 			try {
 				if (statement.statementType === StatementType.TRANSACTION) {
 					throw new HTTPException(400, {
@@ -823,6 +901,7 @@ export class DuckDbAdapter extends BaseAdapter {
 							"Transactions cannot span query-runner requests. BEGIN, COMMIT, and ROLLBACK are not supported.",
 					});
 				}
+
 				const reader = await statement.runAndReadAll();
 				const duration = performance.now() - start;
 
@@ -834,10 +913,12 @@ export class DuckDbAdapter extends BaseAdapter {
 						duration,
 						message: `OK (${reader.rowsChanged} rows affected)`,
 					};
+
 				if (reader.returnType === ResultReturnType.NOTHING)
 					return { columns: [], rows: [], rowCount: 0, duration, message: "OK" };
 
 				const rows = toRows(reader);
+
 				return {
 					columns: reader.columnNames(),
 					rows,
@@ -857,10 +938,14 @@ export class DuckDbAdapter extends BaseAdapter {
 
 	private getFileSize(filePath: string | null): string {
 		if (!filePath) return "in-memory";
+
 		try {
 			const bytes = statSync(filePath).size;
+
 			if (bytes < 1024) return `${bytes} B`;
+
 			if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
 			return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 		} catch {
 			return "N/A";
@@ -880,8 +965,10 @@ export class DuckDbAdapter extends BaseAdapter {
 		tableName: string,
 	): Promise<ColumnRow[]> {
 		const columns = await this.columns(conn, tableName);
+
 		if (!columns.length)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
 		return columns;
 	}
 
@@ -891,10 +978,12 @@ export class DuckDbAdapter extends BaseAdapter {
 		columnName: string,
 	): Promise<ColumnRow[]> {
 		const columns = await this.requireColumns(conn, tableName);
+
 		if (!columns.some((c) => c.column_name === columnName))
 			throw new HTTPException(404, {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
+
 		return columns;
 	}
 
@@ -903,11 +992,13 @@ export class DuckDbAdapter extends BaseAdapter {
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
 		await this.requireColumns(conn, tableName);
+
 		const rows = await query<IndexRow>(
 			conn,
 			`SELECT index_name, is_unique, expressions::VARCHAR[] AS keys, sql FROM duckdb_indexes() WHERE ${IN_CURRENT_SCHEMA} AND table_name = ? ORDER BY index_name`,
 			[tableName],
 		);
+
 		return rows.map((row) => ({
 			indexName: row.index_name,
 			columns: row.keys.map((key) =>
@@ -930,6 +1021,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			`SELECT constraint_column_names AS columns FROM duckdb_constraints() WHERE ${IN_CURRENT_SCHEMA} AND table_name = ? AND constraint_type = 'PRIMARY KEY'`,
 			[tableName],
 		);
+
 		return row?.columns ?? [];
 	}
 
@@ -951,11 +1043,13 @@ export class DuckDbAdapter extends BaseAdapter {
 		references: ForeignKey[],
 	): Promise<RelatedRecord[]> {
 		const related: RelatedRecord[] = [];
+
 		for (const fk of references) {
 			const records = await query(
 				conn,
 				`SELECT * FROM ${ident(fk.table)} WHERE ${fk.columns.map((c) => `${ident(c)} IS NOT NULL`).join(" AND ")} LIMIT 100`,
 			);
+
 			if (records.length)
 				related.push({
 					tableName: fk.table,
@@ -964,6 +1058,7 @@ export class DuckDbAdapter extends BaseAdapter {
 					records,
 				});
 		}
+
 		return related;
 	}
 }

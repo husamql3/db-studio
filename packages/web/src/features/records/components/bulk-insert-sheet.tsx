@@ -13,6 +13,7 @@ import { useBulkInsertRecords } from "../hooks/use-bulk-insert-records";
 
 export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
+
 	const { bulkInsertRecords, isInserting } = useBulkInsertRecords({
 		tableName,
 		schemaName: useTableSchemaName(),
@@ -30,6 +31,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 		try {
 			if (!inputValue.trim()) {
 				setParseError("Input is empty");
+
 				return;
 			}
 
@@ -43,6 +45,7 @@ export const BulkInsertSheet = ({ tableName }: { tableName: string }) => {
 	const handleInsert = async () => {
 		if (parsedRecords.length === 0) {
 			setParseError("No records to insert");
+
 			return;
 		}
 

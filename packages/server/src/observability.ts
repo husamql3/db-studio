@@ -10,6 +10,7 @@ import { currentRequestId, diagnosticErrorFor, errorFields } from "@/operational
 import packageJson from "../package.json" with { type: "json" };
 
 type DurationBucket = "under_100ms" | "100ms_1s" | "1s_5s" | "over_5s";
+
 type Outcome = "success" | "client_error" | "server_error";
 
 type TelemetryState = {
@@ -41,6 +42,7 @@ const telemetryStatePath = () => {
 		(process.platform === "win32"
 			? process.env.LOCALAPPDATA
 			: path.join(homedir(), ".local", "state"));
+
 	return path.join(base || path.join(homedir(), ".db-studio"), "db-studio", "telemetry.json");
 };
 
@@ -58,9 +60,11 @@ const createState = (): TelemetryState => ({ installationId: randomUUID(), enabl
 
 const readState = (): TelemetryState => {
 	const file = telemetryStatePath();
+
 	try {
 		if (existsSync(file)) {
 			const value = JSON.parse(readFileSync(file, "utf8")) as Partial<TelemetryState>;
+
 			if (typeof value.installationId === "string" && typeof value.enabled === "boolean") {
 				return {
 					installationId: value.installationId,
@@ -73,15 +77,19 @@ const readState = (): TelemetryState => {
 	} catch {
 		// A damaged local telemetry file must never prevent DB Studio from starting.
 	}
+
 	const value = createState();
 	writeState(value);
+
 	return value;
 };
 
 let state: TelemetryState | undefined;
 let posthog: PostHog | undefined;
+
 const OFFICIAL_SENTRY_DSN =
 	"https://a1e890d1105f1f27fcb1dbead71c30dd@o4509725125181440.ingest.de.sentry.io/4512040493383760";
+
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
 const currentState = (): TelemetryState => (state ??= readState());
 
@@ -97,6 +105,7 @@ export const getTelemetryConfig = () => ({
 export const setTelemetryEnabled = (enabled: boolean): void => {
 	state = { ...currentState(), enabled };
 	writeState(state);
+
 	if (enabled) {
 		void posthog?.enable();
 		initServerObservability();
@@ -109,19 +118,25 @@ export const setTelemetryEnabled = (enabled: boolean): void => {
 export const resetTelemetryId = (): string => {
 	state = { ...currentState(), installationId: randomUUID(), lastActiveAt: undefined };
 	writeState(state);
+
 	return state.installationId;
 };
 
 export const durationBucket = (durationMs: number): DurationBucket => {
 	if (durationMs < 100) return "under_100ms";
+
 	if (durationMs < 1_000) return "100ms_1s";
+
 	if (durationMs < 5_000) return "1s_5s";
+
 	return "over_5s";
 };
 
 export const outcomeForStatus = (status: number): Outcome => {
 	if (status >= 500) return "server_error";
+
 	if (status >= 400) return "client_error";
+
 	return "success";
 };
 
@@ -129,6 +144,7 @@ const DB_TYPE_PATH = new RegExp(`^/api/(${DATABASE_TYPES.join("|")})(?=/|$)`);
 
 export const operationForRequest = (method: string, pathname: string): string => {
 	const pathWithoutType = pathname.replace(DB_TYPE_PATH, "/api");
+
 	const rules: Array<[RegExp, string]> = [
 		[/^\/api\/databases(?:\/|$)/, "databases"],
 		[/^\/api\/tables(?:\/|$)/, "tables"],
@@ -137,7 +153,9 @@ export const operationForRequest = (method: string, pathname: string): string =>
 		[/^\/api\/keys(?:\/|$)/, "keys"],
 		[/^\/api\/chat(?:\/|$)/, "chat"],
 	];
+
 	const resource = rules.find(([pattern]) => pattern.test(pathWithoutType))?.[1] ?? "other";
+
 	return `${method.toLowerCase()}_${resource}`;
 };
 
@@ -147,6 +165,7 @@ export const databaseTypeForRequest = (pathname: string): DatabaseTypeSchema | u
 export const initServerObservability = (): void => {
 	if (!isTelemetryEnabled()) return;
 	const sentryDsn = process.env.DB_STUDIO_SENTRY_DSN ?? OFFICIAL_SENTRY_DSN;
+
 	if (
 		sentryDsn &&
 		(!Sentry.isInitialized() || Sentry.getClient()?.getOptions().enabled === false)
@@ -166,6 +185,7 @@ export const initServerObservability = (): void => {
 				delete event.breadcrumbs;
 				// Defaults to the machine's hostname, which is often its owner's name.
 				delete event.server_name;
+
 				return event;
 			},
 			beforeSendSpan(span) {
@@ -180,6 +200,7 @@ export const initServerObservability = (): void => {
 	}
 
 	const posthogKey = process.env.DB_STUDIO_POSTHOG_KEY ?? OFFICIAL_POSTHOG_KEY;
+
 	if (posthogKey && !posthog) {
 		posthog = new PostHog(posthogKey, {
 			host: process.env.DB_STUDIO_POSTHOG_HOST ?? "https://eu.i.posthog.com",
@@ -212,6 +233,7 @@ export const captureInstallationActive = (): void => {
 	if (!isTelemetryEnabled()) return;
 	const current = currentState();
 	const lastActive = current.lastActiveAt ? Date.parse(current.lastActiveAt) : 0;
+
 	if (Date.now() - lastActive < 86_400_000) return;
 	state = { ...current, lastActiveAt: new Date().toISOString() };
 	writeState(state);
@@ -225,11 +247,13 @@ export const captureInstallationActive = (): void => {
 const sanitizedError = (error: unknown, errorType: string, message: string): Error => {
 	const sanitized = new Error(message);
 	sanitized.name = errorType;
+
 	if (error instanceof Error && error.stack) {
 		// npx installs under the home directory, whose path names the account. ESM
 		// frames name it as a file URL, with forward slashes and percent-encoding.
 		const home = homedir();
 		const forwardSlashed = home.replaceAll("\\", "/");
+
 		// A decoded home ending in % is a prefix of its longer %25-encoded form.
 		const homeForms = home
 			? [
@@ -240,13 +264,16 @@ const sanitizedError = (error: unknown, errorType: string, message: string): Err
 					}).pathname.replace(/^\/(?=[a-z]:\/)/i, ""),
 				].sort((a, b) => b.length - a.length)
 			: [];
+
 		const frames = error.stack
 			.split("\n")
 			.slice(1)
 			.filter((line) => /^\s*at\s/.test(line))
 			.map((line) => homeForms.reduce((frame, form) => frame.replaceAll(form, "~"), line));
+
 		sanitized.stack = [`${errorType}: ${message}`, ...frames].join("\n");
 	}
+
 	return sanitized;
 };
 
@@ -262,17 +289,24 @@ export const captureServerError = (
 	const { error_type: errorType, error_code: errorCode } = errorFields(error);
 	const requestId = currentRequestId();
 	const message = `${operation} failed with ${status}${errorCode ? ` ${errorCode}` : ""}`;
+
+	const tags: Record<string, string> = {
+		operation,
+		source: "server",
+		release: packageJson.version,
+		status: String(status),
+	};
+
+	if (dbType) tags.db_type = dbType;
+
+	tags.error_type = errorType;
+
+	if (errorCode) tags.error_code = errorCode;
+
+	if (requestId) tags.request_id = requestId;
+
 	Sentry.captureException(sanitizedError(diagnosticErrorFor(error), errorType, message), {
-		tags: {
-			operation,
-			source: "server",
-			release: packageJson.version,
-			status: String(status),
-			...(dbType ? { db_type: dbType } : {}),
-			error_type: errorType,
-			...(errorCode ? { error_code: errorCode } : {}),
-			...(requestId ? { request_id: requestId } : {}),
-		},
+		tags,
 		fingerprint: [operation, String(status), errorType, errorCode ?? "unknown"],
 	});
 };
@@ -281,15 +315,10 @@ export const startServerSpan = <T>(
 	operation: string,
 	dbType: DatabaseTypeSchema | undefined,
 	callback: () => T,
-): T =>
-	Sentry.startSpan(
-		{
-			name: operation,
-			op: "http.server",
-			attributes: {
-				"db_studio.operation": operation,
-				...(dbType ? { "db_studio.db_type": dbType } : {}),
-			},
-		},
-		callback,
-	);
+): T => {
+	const attributes: Record<string, string> = { "db_studio.operation": operation };
+
+	if (dbType) attributes["db_studio.db_type"] = dbType;
+
+	return Sentry.startSpan({ name: operation, op: "http.server", attributes }, callback);
+};

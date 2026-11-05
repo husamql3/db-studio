@@ -11,6 +11,7 @@ export const DRIVER_ALIASES: Record<string, { driverScheme: string; defaultPort:
 const defaultPortFor = (url: URL): number => {
 	const scheme = url.protocol.replace(":", "");
 	const dbType = dbTypeFromProtocol(scheme);
+
 	return (
 		DRIVER_ALIASES[scheme]?.defaultPort ??
 		(dbType && DATABASE_ENGINES[dbType].defaultPort) ??
@@ -25,9 +26,11 @@ const defaultPortFor = (url: URL): number => {
 export const toDriverUrl = (databaseUrl: string): string => {
 	const url = new URL(databaseUrl);
 	const alias = DRIVER_ALIASES[url.protocol.replace(":", "")];
+
 	if (!alias) return databaseUrl;
 	url.port ||= String(alias.defaultPort);
 	url.protocol = alias.driverScheme;
+
 	return url.toString();
 };
 
@@ -40,12 +43,14 @@ export function parseDatabaseUrl(databaseUrl: string): {
 } {
 	try {
 		const url = new URL(databaseUrl);
+
 		return {
 			host: url.hostname || "localhost",
 			port: Number.parseInt(url.port, 10) || defaultPortFor(url),
 		};
 	} catch (error) {
 		writeOperationalLog("error", "database_url_unparseable", errorFields(error));
+
 		return { host: "localhost", port: 5432 };
 	}
 }

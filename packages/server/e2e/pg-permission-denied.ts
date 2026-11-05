@@ -10,13 +10,18 @@ import pg from "pg";
 // 42501 and the error went to Sentry, though the user's role caused it. Writes and reads must
 // answer 403 with the driver's message, which names the table or policy.
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL database (superuser)");
 }
+
 // Saving the connection must not touch the user's ~/.dbstudio.
 process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+
 // Roles are cluster-wide: a per-run name means cleanup never drops a role this run did not create.
 const ROLE = `dbstudio_e2e_limited_${randomUUID().slice(0, 8)}`;
 const admin = new pg.Pool({ connectionString: databaseUrl });
@@ -64,15 +69,20 @@ try {
 				body: body ? JSON.stringify(body) : undefined,
 			}),
 		);
+
 		const { requestId: _requestId, ...json } = (await response.json()) as Record<
 			string,
 			unknown
 		>;
+
 		return { status: response.status, body: json };
 	};
+
 	const params = new URLSearchParams({ db });
+
 	const insert = (tableName: string) =>
 		call("POST", `/records?${params}`, { tableName, data: { id: 1, name: "a" } });
+
 	const read = (tableName: string) =>
 		call("GET", `/tables/${tableName}/data?${new URLSearchParams({ db, limit: "50" })}`);
 
@@ -86,6 +96,7 @@ try {
 		const { status, body } = evidence[label] as { status: number; body: unknown };
 		assert.equal(status, 403, `${label}: ${JSON.stringify(body)}`);
 	}
+
 	assert.equal((evidence.readAllowedByPolicy as { status: number }).status, 200);
 	console.log("PASS PostgreSQL permission errors answer 403");
 } finally {

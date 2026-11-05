@@ -1,3 +1,12 @@
+import { describe, expect, it } from "vitest";
+import {
+	bindOracleValue,
+	buildFilterConditions,
+	buildOrderBy,
+	buildOracleSelectList,
+	createBinds,
+	groupOracleForeignKeys,
+} from "@/adapters/oracle/oracle.query-builder.js";
 /**
  * Oracle temporal and foreign-key failure modes covered here:
  *
@@ -17,15 +26,6 @@
  *    instead of matching the canonical string returned by table reads.
  */
 import { HTTPException } from "@/http-exception.js";
-import { describe, expect, it } from "vitest";
-import {
-	bindOracleValue,
-	buildFilterConditions,
-	buildOrderBy,
-	buildOracleSelectList,
-	createBinds,
-	groupOracleForeignKeys,
-} from "@/adapters/oracle/oracle.query-builder.js";
 
 describe("Oracle temporal SQL", () => {
 	it.each([
@@ -53,11 +53,14 @@ describe("Oracle temporal SQL", () => {
 			expectedValue: "2026-10-07T12:34:56.100000000+00:00",
 			expectedSql: `TO_TIMESTAMP_TZ(:1, 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')`,
 		},
-	])("binds $type through an explicit format", ({ type, input, expectedValue, expectedSql }) => {
-		const { values, bind } = createBinds();
-		expect(bindOracleValue(input, type, bind)).toBe(expectedSql);
-		expect(values).toEqual([expectedValue]);
-	});
+	])(
+		"binds $type through an explicit format",
+		({ type, input, expectedValue, expectedSql }) => {
+			const { values, bind } = createBinds();
+			expect(bindOracleValue(input, type, bind)).toBe(expectedSql);
+			expect(values).toEqual([expectedValue]);
+		},
+	);
 
 	it("rejects an invalid temporal value before Oracle can guess its format", () => {
 		const { bind } = createBinds();
@@ -119,11 +122,7 @@ describe("Oracle temporal SQL", () => {
 			`UPPER(TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')) NOT LIKE UPPER(:2)`,
 			`"zoned_at" >= TO_TIMESTAMP_TZ(:3, 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')`,
 		]);
-		expect(values).toEqual([
-			"2026-01%",
-			"%+05:00",
-			"2026-01-01T00:00:00.000000000+00:00",
-		]);
+		expect(values).toEqual(["2026-01%", "%+05:00", "2026-01-01T00:00:00.000000000+00:00"]);
 	});
 });
 

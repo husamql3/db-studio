@@ -13,10 +13,12 @@ const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
  */
 export const requestId: MiddlewareHandler<ProxyEnv> = async (c, next) => {
 	const incoming = c.req.header("x-request-id");
+
 	const id =
 		incoming && REQUEST_ID.test(incoming)
 			? incoming
 			: (c.req.header("cf-ray") ?? crypto.randomUUID());
+
 	c.set("requestId", id);
 	await next();
 	c.header("x-request-id", id);

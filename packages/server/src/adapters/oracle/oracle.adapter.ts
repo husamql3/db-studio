@@ -85,6 +85,7 @@ const toHex = (value: unknown) => (Buffer.isBuffer(value) ? value.toString("hex"
 /** Thin mode converts native timestamps to millisecond-only Date, so adapter reads use TO_CHAR. */
 const fetchTypeHandler = (meta: Metadata<unknown>) => {
 	const oracledb = loadedDriver("oracle");
+
 	switch (meta.dbType) {
 		case oracledb.DB_TYPE_NUMBER:
 			return { type: oracledb.STRING, converter: toJsonNumber };
@@ -97,20 +98,31 @@ const fetchTypeHandler = (meta: Metadata<unknown>) => {
 		case oracledb.DB_TYPE_LONG_RAW:
 			return { converter: toHex };
 	}
+
 	return undefined;
 };
 
-const toOracleValue = (value: unknown, columnType?: string): unknown => {
+const toOracleValue = (
+	value: unknown,
+	columnType?: string,
+): string | number | boolean | Date | null => {
 	if (value === null || value === undefined) return null;
+
 	if (typeof value === "boolean") return columnType === "BOOLEAN" ? value : Number(value);
+
 	if (typeof value === "bigint") return value.toString();
-	if (value instanceof Date || typeof value !== "object") return value;
+
+	if (value instanceof Date || typeof value === "string" || typeof value === "number") {
+		return value;
+	}
+
 	return JSON.stringify(value);
 };
 
 /** `DEFAULT NULL` is how Oracle clears a default, and it stays visible as the text "NULL". */
 const defaultOf = (c: ColumnRow) => {
 	const value = c.DATA_DEFAULT?.trim();
+
 	return value && value.toUpperCase() !== "NULL" ? value : null;
 };
 
@@ -118,6 +130,7 @@ const formatColumnType = (c: ColumnRow) => {
 	switch (c.DATA_TYPE) {
 		case "NUMBER":
 			if (c.DATA_PRECISION === null) return c.DATA_SCALE === 0 ? "INTEGER" : "NUMBER";
+
 			return c.DATA_SCALE
 				? `NUMBER(${c.DATA_PRECISION},${c.DATA_SCALE})`
 				: `NUMBER(${c.DATA_PRECISION})`;
@@ -161,6 +174,7 @@ const matchesAny = (
 
 const isTemporalMetadata = <T>(meta: Metadata<T>) => {
 	const oracledb = loadedDriver("oracle");
+
 	return (
 		meta.dbType === oracledb.DB_TYPE_DATE ||
 		meta.dbType === oracledb.DB_TYPE_TIMESTAMP ||
@@ -199,11 +213,13 @@ type IndexKeyRow = {
 
 /** The new index repeats an existing one: name taken, same column list, or duplicate keys. */
 const INDEX_CONFLICTS = ["ORA-00955", "ORA-01408", "ORA-01452"];
+
 /**
  * The column or name cannot be indexed: identifier too long (ORA-00972), key too long
  * (ORA-01450), LOB or JSON column (ORA-02327), type that cannot be unique (ORA-02329).
  */
 const CANNOT_INDEX = ["ORA-00972", "ORA-01450", "ORA-02327", "ORA-02329"];
+
 /** The index enforces a primary key or unique constraint. */
 const INDEX_IN_USE = "ORA-02429";
 
@@ -253,6 +269,7 @@ export class OracleAdapter extends BaseAdapter {
 			array: "JSON",
 			enum: "VARCHAR2(255)",
 		};
+
 		return map[universalType] ?? "VARCHAR2(4000)";
 	}
 
@@ -273,20 +290,24 @@ export class OracleAdapter extends BaseAdapter {
 	protected override wrapError(e: unknown): HTTPException {
 		if (e instanceof Error && !(e instanceof HTTPException)) {
 			const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));
+
 			if (limitation)
 				return new HTTPException(400, {
 					message: `${limitation[1]} (${e.message.split("\n")[0]})`,
 					cause: e,
 				});
+
 			if (e.message.startsWith("ORA-00955"))
 				return new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
 		}
+
 		return super.wrapError(e);
 	}
 
 	private async withConnection<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
 		try {
 			const conn = await (await getOraclePool()).getConnection();
+
 			try {
 				return await fn(conn);
 			} finally {
@@ -303,6 +324,7 @@ export class OracleAdapter extends BaseAdapter {
 			try {
 				const result = await fn(conn);
 				await conn.commit();
+
 				return result;
 			} catch (e) {
 				await conn.rollback().catch(() => {});
@@ -316,6 +338,7 @@ export class OracleAdapter extends BaseAdapter {
 			outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
 			fetchTypeHandler,
 		});
+
 		return result.rows ?? [];
 	}
 
@@ -332,9 +355,11 @@ export class OracleAdapter extends BaseAdapter {
 
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
+
 			const columnTypes = new Map(
 				columns.map((column) => [column.COLUMN_NAME, column.DATA_TYPE]),
 			);
+
 			const primaryKey = await this.primaryKey(conn, tableName);
 
 			const terms: OrderTerm[] = this.orderTerms<string | null>(
@@ -353,7 +378,9 @@ export class OracleAdapter extends BaseAdapter {
 				`SELECT COUNT(*) AS "total" FROM ${ident(tableName)} ${where}`,
 				filterValues,
 			);
+
 			const tableAlias = "t";
+
 			const fetched = await this.query(
 				conn,
 				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${buildOrderBy(terms, tableAlias)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
@@ -361,6 +388,7 @@ export class OracleAdapter extends BaseAdapter {
 			);
 
 			const hasMore = fetched.length > limit;
+
 			const offsetCursor = (at: number) =>
 				this.encodeCursor({ values: { _offset: at }, sortColumns: ["_offset"] });
 
@@ -386,14 +414,17 @@ export class OracleAdapter extends BaseAdapter {
 	}): Promise<{ cols: string[]; rows: Row[] }> {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
+
 			const rows = await this.query(
 				conn,
 				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(tableName)}`,
 			);
+
 			if (!rows.length)
 				throw new HTTPException(404, {
 					message: `Table "${tableName}" does not exist or has no data`,
 				});
+
 			return { cols: columns.map((column) => column.COLUMN_NAME), rows };
 		});
 	}
@@ -420,7 +451,9 @@ export class OracleAdapter extends BaseAdapter {
 					(SELECT value FROM nls_database_parameters WHERE parameter = 'NLS_CHARACTERSET') AS encoding
 				FROM dual`,
 			);
+
 			if (!row) return [];
+
 			return [
 				{
 					name: row.NAME,
@@ -440,9 +473,11 @@ export class OracleAdapter extends BaseAdapter {
 		const pool = await getOraclePool().catch((e) => {
 			throw this.wrapError(e);
 		});
+
 		return this.withConnection(async (conn) => {
 			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");
 			const { host, port } = parseDatabaseUrl(getConnectionUrl());
+
 			return {
 				host,
 				port,
@@ -472,8 +507,10 @@ export class OracleAdapter extends BaseAdapter {
 				WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
 				ORDER BY table_name`,
 			);
+
 			const toCount = tables.filter((t) => t.NUM_ROWS === null || t.NUM_ROWS < 100_000);
 			const counts = new Map<string, number>();
+
 			if (toCount.length) {
 				const rows = await this.query<{ N: number; C: number }>(
 					conn,
@@ -481,8 +518,10 @@ export class OracleAdapter extends BaseAdapter {
 						.map((t, i) => `SELECT ${i} AS n, COUNT(*) AS c FROM ${ident(t.TABLE_NAME)}`)
 						.join(" UNION ALL "),
 				);
+
 				for (const row of rows) counts.set(toCount[row.N].TABLE_NAME, Number(row.C));
 			}
+
 			return tables.map((t) => ({
 				tableName: t.TABLE_NAME,
 				rowCount: counts.get(t.TABLE_NAME) ?? Number(t.NUM_ROWS ?? 0),
@@ -499,6 +538,7 @@ export class OracleAdapter extends BaseAdapter {
 				throw new HTTPException(400, {
 					message: `Oracle foreign keys have no ON UPDATE actions (${fk.onUpdate} on "${fk.columnName}"). Use NO ACTION.`,
 				});
+
 			if (!(fk.onDelete in FK_DELETE_ACTIONS))
 				throw new HTTPException(400, {
 					message: `Oracle foreign keys do not support ON DELETE ${fk.onDelete} (on "${fk.columnName}"). Use CASCADE, SET NULL or NO ACTION.`,
@@ -508,20 +548,25 @@ export class OracleAdapter extends BaseAdapter {
 		await this.withConnection(async (conn) => {
 			const native = supportsNativeTypes(conn);
 			const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+
 			const definitions = fields.map((field) =>
 				this.columnDefinition(field, { withConstraints: false, native }),
 			);
+
 			if (primaryKey.length)
 				definitions.push(`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`);
+
 			for (const field of fields) {
 				if (field.isUnique && !field.isPrimaryKey)
 					definitions.push(`UNIQUE (${ident(field.columnName)})`);
 			}
+
 			for (const fk of foreignKeys) {
 				definitions.push(
 					`FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)})${FK_DELETE_ACTIONS[fk.onDelete]}`,
 				);
 			}
+
 			await conn.execute(`CREATE TABLE ${ident(tableName)} (${definitions.join(", ")})`);
 		});
 	}
@@ -529,9 +574,11 @@ export class OracleAdapter extends BaseAdapter {
 	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
 		return this.withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
+
 			const referencing = (await this.foreignKeys(conn, "referenced", tableName)).filter(
 				(fk) => fk.referencingTable !== tableName,
 			);
+
 			if (referencing.length && !cascade)
 				return {
 					deletedCount: 0,
@@ -543,10 +590,12 @@ export class OracleAdapter extends BaseAdapter {
 				conn,
 				`SELECT COUNT(*) AS c FROM ${ident(tableName)}`,
 			);
+
 			// CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows.
 			await conn.execute(
 				`DROP TABLE ${ident(tableName)}${cascade ? " CASCADE CONSTRAINTS" : ""}`,
 			);
+
 			return { deletedCount: Number(row?.C ?? 0), fkViolation: false, relatedRecords: [] };
 		});
 	}
@@ -555,6 +604,7 @@ export class OracleAdapter extends BaseAdapter {
 		this.assertDifferentTableName(tableName, newTableName);
 		await this.withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
+
 			if ((await this.columns(conn, newTableName)).length)
 				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
 			await conn.execute(`ALTER TABLE ${ident(tableName)} RENAME TO ${ident(newTableName)}`);
@@ -570,11 +620,13 @@ export class OracleAdapter extends BaseAdapter {
 					DBMS_METADATA.SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM, 'SQLTERMINATOR', TRUE);
 				END;`,
 			);
+
 			const [row] = await this.query<{ DDL: string }>(
 				conn,
 				"SELECT DBMS_METADATA.GET_DDL('TABLE', :1) AS ddl FROM dual",
 				[tableName],
 			);
+
 			return row?.DDL.trim() ?? "";
 		});
 	}
@@ -591,6 +643,7 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 			const primaryKey = new Set(await this.primaryKey(conn, tableName));
+
 			const references = new Map(
 				(await this.foreignKeys(conn, "referencing", tableName)).flatMap((fk) =>
 					fk.columns.map(
@@ -609,6 +662,7 @@ export class OracleAdapter extends BaseAdapter {
 			return columns.map((col) => {
 				const fk = references.get(col.COLUMN_NAME);
 				const type = formatColumnType(col);
+
 				return {
 					columnName: col.COLUMN_NAME,
 					dataType: mapOracleToDataType(type),
@@ -633,14 +687,17 @@ export class OracleAdapter extends BaseAdapter {
 		const { tableName, columnName } = params;
 		await this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
+
 			if (columns.some((c) => c.COLUMN_NAME === columnName))
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
 				});
+
 			const definition = this.columnDefinition(params, {
 				withConstraints: true,
 				native: supportsNativeTypes(conn),
 			});
+
 			await conn.execute(`ALTER TABLE ${ident(tableName)} ADD (${definition})`);
 		});
 	}
@@ -653,6 +710,7 @@ export class OracleAdapter extends BaseAdapter {
 			await this.requireColumn(conn, tableName, columnName);
 			await conn.execute(`ALTER TABLE ${ident(tableName)} DROP COLUMN ${ident(columnName)}`);
 		});
+
 		return { deletedCount: 1 };
 	}
 
@@ -665,14 +723,18 @@ export class OracleAdapter extends BaseAdapter {
 		const { tableName, columnName, columnType, isNullable, defaultValue } = params;
 		await this.withConnection(async (conn) => {
 			const native = supportsNativeTypes(conn);
+
 			const column = (await this.requireColumn(conn, tableName, columnName)).find(
 				(c) => c.COLUMN_NAME === columnName,
 			);
+
 			let definition = `${ident(columnName)} ${mapColumnTypeToOracle(columnType, false, native)}`;
+
 			if (defaultValue?.trim())
 				definition += ` DEFAULT ${formatOracleDefault(defaultValue, native)}`;
 			else if (column && !column.GENERATION_TYPE && defaultOf(column))
 				definition += " DEFAULT NULL";
+
 			if ((column?.NULLABLE === "Y") !== isNullable)
 				definition += isNullable ? " NULL" : " NOT NULL";
 			await conn.execute(`ALTER TABLE ${ident(tableName)} MODIFY (${definition})`);
@@ -686,6 +748,7 @@ export class OracleAdapter extends BaseAdapter {
 	}: RenameColumnParamsSchemaType): Promise<void> {
 		await this.withConnection(async (conn) => {
 			const columns = await this.requireColumn(conn, tableName, columnName);
+
 			if (columns.some((c) => c.COLUMN_NAME === newColumnName))
 				throw new HTTPException(409, {
 					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
@@ -718,6 +781,7 @@ export class OracleAdapter extends BaseAdapter {
 					FROM V$DIAG_ALERT_EXT
 					ORDER BY ORIGINATING_TIMESTAMP DESC FETCH FIRST ${SERVER_LOGS_LIMIT} ROWS ONLY`,
 				);
+
 				return {
 					available: true,
 					source: "V$DIAG_ALERT_EXT (alert log)",
@@ -739,6 +803,7 @@ export class OracleAdapter extends BaseAdapter {
 						"Reading the alert log needs: GRANT SELECT ON V_$DIAG_ALERT_EXT TO <user>; or SELECT ANY DICTIONARY.",
 					);
 				}
+
 				throw e;
 			}
 		});
@@ -757,19 +822,23 @@ export class OracleAdapter extends BaseAdapter {
 		await this.withConnection(async (conn) => {
 			const existing = await this.requireColumns(conn, tableName);
 			const missing = columns.find((c) => !existing.some((e) => e.COLUMN_NAME === c));
+
 			if (missing !== undefined)
 				throw new HTTPException(400, {
 					message: `Column "${missing}" does not exist in table "${tableName}"`,
 				});
+
 			if (method !== undefined)
 				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
 
 			const sql = `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${ident(indexName)} ON ${ident(tableName)} (${columns.map((c) => ident(c)).join(", ")})`;
+
 			try {
 				await conn.execute(sql);
 			} catch (e) {
 				if (startsWithAny(e, INDEX_CONFLICTS))
 					throw new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
+
 				if (startsWithAny(e, CANNOT_INDEX))
 					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
 				throw e;
@@ -782,10 +851,12 @@ export class OracleAdapter extends BaseAdapter {
 			const index = (await this.listIndexes(conn, tableName)).find(
 				(candidate) => candidate.indexName === indexName,
 			);
+
 			if (!index)
 				throw new HTTPException(404, {
 					message: `Index "${indexName}" does not exist on table "${tableName}"`,
 				});
+
 			if (index.kind !== "index")
 				throw new HTTPException(400, {
 					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
@@ -812,12 +883,14 @@ export class OracleAdapter extends BaseAdapter {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const columns = Object.keys(data);
+
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
 		const insertedCount = await this.inTransaction(async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
 			const { values, bind } = createBinds();
+
 			const expressions = columns.map((column) =>
 				bindOracleValue(
 					toOracleValue(data[column], types.get(column)),
@@ -825,12 +898,14 @@ export class OracleAdapter extends BaseAdapter {
 					bind,
 				),
 			);
+
 			return this.execute(
 				conn,
 				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
 				values,
 			);
 		});
+
 		return { insertedCount };
 	}
 
@@ -847,8 +922,10 @@ export class OracleAdapter extends BaseAdapter {
 			this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
 			const types = await this.columnTypes(conn, tableName);
 			let total = 0;
+
 			for (const { keyValues, rowUpdates } of groups) {
 				const { values, bind } = createBinds();
+
 				const set = rowUpdates
 					.map(
 						(u) =>
@@ -863,6 +940,7 @@ export class OracleAdapter extends BaseAdapter {
 							}`,
 					)
 					.join(", ");
+
 				const where = keyColumns
 					.map(
 						(c, i) =>
@@ -873,19 +951,23 @@ export class OracleAdapter extends BaseAdapter {
 							)}`,
 					)
 					.join(" AND ");
+
 				const changed = await this.execute(
 					conn,
 					`UPDATE ${ident(tableName)} SET ${set} WHERE ${where}`,
 					values,
 				);
+
 				if (changed === 0)
 					throw new HTTPException(404, {
 						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 					});
 				total += changed;
 			}
+
 			return total;
 		});
+
 		return { updatedCount };
 	}
 
@@ -894,8 +976,10 @@ export class OracleAdapter extends BaseAdapter {
 		primaryKeys,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
+
 		const selection: RowSelection = {
 			columns: [pkColumn],
 			keys: primaryKeys.map((key) => [key.value]),
@@ -904,33 +988,43 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			this.assertDeletableKey(await this.primaryKey(conn, tableName));
 			const types = await this.columnTypes(conn, tableName);
+
 			try {
 				const { values, bind } = createBinds();
+
 				const where = matchesAny(selection, undefined, (value, column) =>
 					bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
 				);
+
 				const deletedCount = await this.execute(
 					conn,
 					`DELETE FROM ${ident(tableName)} WHERE ${where}`,
 					values,
 				);
+
 				await conn.commit();
+
 				return { deletedCount, fkViolation: false, relatedRecords: [] };
 			} catch (e) {
 				await conn.rollback().catch(() => {});
+
 				if (!(e instanceof Error) || !e.message.startsWith("ORA-02292")) throw e;
 				const relatedRecords: RelatedRecord[] = [];
+
 				for (const fk of await this.foreignKeys(conn, "referenced", tableName)) {
 					const childColumns = await this.requireColumns(conn, fk.referencingTable);
 					const { values, bind } = createBinds();
+
 					const where = matchesAny(selection, "p", (value, column) =>
 						bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
 					);
+
 					const records = await this.query(
 						conn,
 						`SELECT ${buildOracleSelectList(childColumns, "c")} FROM ${ident(fk.referencingTable)} c JOIN ${ident(tableName)} p ON ${joinOn(fk)} WHERE ${where} FETCH FIRST 100 ROWS ONLY`,
 						values,
 					);
+
 					if (records.length)
 						relatedRecords.push({
 							tableName: fk.referencingTable,
@@ -939,6 +1033,7 @@ export class OracleAdapter extends BaseAdapter {
 							records,
 						});
 				}
+
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 		});
@@ -950,6 +1045,7 @@ export class OracleAdapter extends BaseAdapter {
 		primaryKeys,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const pkColumn = primaryKeys[0]?.columnName;
+
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
@@ -960,14 +1056,17 @@ export class OracleAdapter extends BaseAdapter {
 			path: string[],
 		): Promise<number> => {
 			if (!selection.keys.length) return 0;
+
 			if (path.includes(table))
 				throw new HTTPException(400, {
 					message: `Cannot force delete: the foreign keys ${[...path, table].map((t) => `"${t}"`).join(" -> ")} form a cycle.`,
 				});
 			const types = await this.columnTypes(conn, table);
 			let deleted = 0;
+
 			for (const fk of await this.foreignKeys(conn, "referenced", table)) {
 				const { values, bind } = createBinds();
+
 				const where = matchesAny(selection, "p", (value, column) =>
 					column === "ROWID"
 						? `CHARTOROWID(${bind(value)})`
@@ -977,11 +1076,13 @@ export class OracleAdapter extends BaseAdapter {
 								bind,
 							),
 				);
+
 				const referenced = await this.query<{ __rowid: string }>(
 					conn,
 					`SELECT DISTINCT ROWIDTOCHAR(c.ROWID) AS "__rowid" FROM ${ident(fk.referencingTable)} c JOIN ${ident(table)} p ON ${joinOn(fk)} WHERE ${where}`,
 					values,
 				);
+
 				deleted += await purge(
 					conn,
 					fk.referencingTable,
@@ -989,12 +1090,15 @@ export class OracleAdapter extends BaseAdapter {
 					[...path, table],
 				);
 			}
+
 			const { values, bind } = createBinds();
+
 			const where = matchesAny(selection, undefined, (value, column) =>
 				column === "ROWID"
 					? `CHARTOROWID(${bind(value)})`
 					: bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
 			);
+
 			return (
 				deleted +
 				(await this.execute(conn, `DELETE FROM ${ident(table)} WHERE ${where}`, values))
@@ -1003,6 +1107,7 @@ export class OracleAdapter extends BaseAdapter {
 
 		const deletedCount = await this.inTransaction(async (conn) => {
 			this.assertDeletableKey(await this.primaryKey(conn, tableName));
+
 			return purge(
 				conn,
 				tableName,
@@ -1010,6 +1115,7 @@ export class OracleAdapter extends BaseAdapter {
 				[],
 			);
 		});
+
 		return { deletedCount };
 	}
 
@@ -1021,11 +1127,14 @@ export class OracleAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: "At least one record is required" });
 
 		const columns = Object.keys(records[0]);
+
 		const successCount = await this.inTransaction(async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
 			let expressions: string[] = [];
+
 			const rows = records.map((record, index) => {
 				const { values, bind } = createBinds();
+
 				const rowExpressions = columns.map((column) =>
 					bindOracleValue(
 						toOracleValue(record[column], types.get(column)),
@@ -1033,15 +1142,20 @@ export class OracleAdapter extends BaseAdapter {
 						bind,
 					),
 				);
+
 				if (index === 0) expressions = rowExpressions;
+
 				return values;
 			});
+
 			const result = await conn.executeMany(
 				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
 				rows,
 			);
+
 			return result.rowsAffected ?? records.length;
 		});
+
 		return {
 			success: true,
 			message: `Bulk insert completed: ${successCount} records inserted`,
@@ -1067,20 +1181,24 @@ export class OracleAdapter extends BaseAdapter {
 			.trim()
 			.replace(/\n\s*\/$/, "")
 			.trim();
+
 		const isPlsql =
 			/^(BEGIN|DECLARE|CREATE\s+(OR\s+REPLACE\s+)?((NON)?EDITIONABLE\s+)?(PROCEDURE|FUNCTION|PACKAGE|TRIGGER|TYPE))\b/i.test(
 				trimmed,
 			);
+
 		const statement = isPlsql ? trimmed : trimmed.replace(/;\s*$/, "");
 
 		return this.withConnection(async (conn) => {
 			const start = performance.now();
+
 			const result = await conn.execute<Row>(statement, [], {
 				outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
 				fetchTypeHandler,
 				autoCommit: true,
 				resultSet: true,
 			});
+
 			const duration = performance.now() - start;
 
 			if (result.resultSet) {
@@ -1091,12 +1209,15 @@ export class OracleAdapter extends BaseAdapter {
 							"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
 					});
 				}
+
 				let rows: Row[];
+
 				try {
 					rows = await result.resultSet.getRows();
 				} finally {
 					await result.resultSet.close();
 				}
+
 				return {
 					columns: result.metaData?.map((meta) => meta.name) ?? [],
 					rows,
@@ -1105,7 +1226,9 @@ export class OracleAdapter extends BaseAdapter {
 					message: rows.length === 0 ? "OK" : undefined,
 				};
 			}
+
 			const affected = result.rowsAffected ?? 0;
+
 			return {
 				columns: [],
 				rows: [],
@@ -1134,20 +1257,26 @@ export class OracleAdapter extends BaseAdapter {
 		{ withConstraints, native }: { withConstraints: boolean; native: boolean },
 	): string {
 		let def = `${ident(field.columnName)} ${mapColumnTypeToOracle(field.columnType, field.isArray ?? false, native)}`;
+
 		if (field.isIdentity || isSerialType(field.columnType)) def += ` ${IDENTITY_CLAUSE}`;
 		else if (field.defaultValue?.trim())
 			def += ` DEFAULT ${formatOracleDefault(field.defaultValue, native)}`;
+
 		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
+
 		if (withConstraints) {
 			if (field.isPrimaryKey) def += " PRIMARY KEY";
 			else if (field.isUnique) def += " UNIQUE";
 		}
+
 		return def;
 	}
 
 	private formatBytes(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
+
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
@@ -1156,6 +1285,7 @@ export class OracleAdapter extends BaseAdapter {
 			conn,
 			"SELECT SYS_CONTEXT('USERENV', 'CON_NAME') AS db FROM dual",
 		);
+
 		return row?.DB ?? "";
 	}
 
@@ -1173,13 +1303,16 @@ export class OracleAdapter extends BaseAdapter {
 
 	private async columnTypes(conn: Connection, tableName: string) {
 		const columns = await this.requireColumns(conn, tableName);
+
 		return new Map(columns.map((c) => [c.COLUMN_NAME, c.DATA_TYPE]));
 	}
 
 	private async requireColumns(conn: Connection, tableName: string): Promise<ColumnRow[]> {
 		const columns = await this.columns(conn, tableName);
+
 		if (!columns.length)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
 		return columns;
 	}
 
@@ -1189,10 +1322,12 @@ export class OracleAdapter extends BaseAdapter {
 		columnName: string,
 	): Promise<ColumnRow[]> {
 		const columns = await this.requireColumns(conn, tableName);
+
 		if (!columns.some((c) => c.COLUMN_NAME === columnName))
 			throw new HTTPException(404, {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
+
 		return columns;
 	}
 
@@ -1201,6 +1336,7 @@ export class OracleAdapter extends BaseAdapter {
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
 		await this.requireColumns(conn, tableName);
+
 		// LOB indexes are the storage of a CLOB, BLOB or JSON column: Oracle creates them with
 		// the column and refuses to drop them, so they are not listed.
 		const rows = await this.query<IndexKeyRow>(
@@ -1220,6 +1356,7 @@ export class OracleAdapter extends BaseAdapter {
 			string,
 			{ index: IndexInfoSchemaType; row: IndexKeyRow; keys: string[]; hasExpression: boolean }
 		>();
+
 		for (const row of rows) {
 			const entry = byName.get(row.INDEX_NAME) ?? {
 				index: {
@@ -1239,14 +1376,17 @@ export class OracleAdapter extends BaseAdapter {
 				keys: [],
 				hasExpression: false,
 			};
+
 			byName.set(row.INDEX_NAME, entry);
 
 			const direction = row.DESCEND === "DESC" ? " DESC" : "";
+
 			// A descending key is stored as a hidden expression column holding the quoted column name.
 			const plainColumn =
 				row.COLUMN_EXPRESSION === null
 					? row.COLUMN_NAME
 					: (/^"([^"]+)"$/.exec(row.COLUMN_EXPRESSION.trim())?.[1] ?? null);
+
 			if (plainColumn !== null) {
 				entry.index.columns.push(plainColumn);
 				entry.keys.push(`${ident(plainColumn)}${direction}`);
@@ -1278,6 +1418,7 @@ export class OracleAdapter extends BaseAdapter {
 			ORDER BY cc.position`,
 			[tableName],
 		);
+
 		return rows.map((r) => r.COLUMN_NAME);
 	}
 
@@ -1299,6 +1440,7 @@ export class OracleAdapter extends BaseAdapter {
 			ORDER BY c.constraint_name, cc.position`,
 			[tableName],
 		);
+
 		return groupOracleForeignKeys(rows);
 	}
 
@@ -1307,12 +1449,15 @@ export class OracleAdapter extends BaseAdapter {
 		references: OracleForeignKey[],
 	): Promise<RelatedRecord[]> {
 		const related: RelatedRecord[] = [];
+
 		for (const fk of references) {
 			const columns = await this.requireColumns(conn, fk.referencingTable);
+
 			const records = await this.query(
 				conn,
 				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(fk.referencingTable)} WHERE ${fk.columns.map((column) => `${ident(column)} IS NOT NULL`).join(" AND ")} FETCH FIRST 100 ROWS ONLY`,
 			);
+
 			if (records.length)
 				related.push({
 					tableName: fk.referencingTable,
@@ -1321,6 +1466,7 @@ export class OracleAdapter extends BaseAdapter {
 					records,
 				});
 		}
+
 		return related;
 	}
 }

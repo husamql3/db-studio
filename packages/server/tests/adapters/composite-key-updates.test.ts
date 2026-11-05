@@ -38,6 +38,7 @@ import { fromLibsql } from "@/sqlite-client.js";
  * other records. Matching on `tenant_id` alone would hit every user of tenant 7.
  */
 const compositeRow = { tenant_id: 7, user_id: 42, name: "Ada" };
+
 const compositeParams = {
 	tableName: "members",
 	primaryKey: "tenant_id",
@@ -49,8 +50,10 @@ const compositeParams = {
 const recordingPgPool = (statements: Array<{ sql: string; values: unknown[] }>) => {
 	const query = vi.fn(async (sql: string, values: unknown[] = []) => {
 		statements.push({ sql, values });
+
 		return { rows: [], rowCount: 1, fields: [] };
 	});
+
 	return { query, connect: async () => ({ query, release: () => {} }) };
 };
 
@@ -94,7 +97,9 @@ describe("composite primary key updates", () => {
 		});
 
 		it("rejects a row that is missing one component of the key", async () => {
-			mocks.getDbPool.mockReturnValue({ query: vi.fn(async () => ({ rows: [], rowCount: 1 })) });
+			mocks.getDbPool.mockReturnValue({
+				query: vi.fn(async () => ({ rows: [], rowCount: 1 })),
+			});
 
 			const adapter = new PgAdapter();
 			await expect(
@@ -138,6 +143,7 @@ describe("composite primary key updates", () => {
 	describe("MySqlAdapter", () => {
 		it("matches on every key column", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
+
 			const connection = {
 				beginTransaction: vi.fn(),
 				commit: vi.fn(),
@@ -145,9 +151,11 @@ describe("composite primary key updates", () => {
 				release: vi.fn(),
 				execute: vi.fn(async (sql: string, values: unknown[] = []) => {
 					statements.push({ sql, values });
+
 					return [{ affectedRows: 1 }];
 				}),
 			};
+
 			mocks.getMysqlPool.mockReturnValue({
 				getConnection: vi.fn(async () => connection),
 				execute: vi.fn(async () => [[]]),
@@ -168,10 +176,12 @@ describe("composite primary key updates", () => {
 	describe("SqliteAdapter", () => {
 		it("updates only the row matching every key column", async () => {
 			const dir = mkdtempSync(path.join(tmpdir(), "db-studio-composite-"));
+
 			const client = createLibsqlClient({
 				url: pathToFileURL(path.join(dir, "members.db")).href,
 				intMode: "bigint",
 			});
+
 			try {
 				await client.executeMultiple(`
 					CREATE TABLE members (tenant_id INTEGER, user_id INTEGER, name TEXT, PRIMARY KEY (tenant_id, user_id));
@@ -184,7 +194,10 @@ describe("composite primary key updates", () => {
 					adapter.updateRecords({ db: "main", params: compositeParams } as never),
 				).resolves.toEqual({ updatedCount: 1 });
 
-				const { rows } = await client.execute("SELECT user_id, name FROM members ORDER BY user_id");
+				const { rows } = await client.execute(
+					"SELECT user_id, name FROM members ORDER BY user_id",
+				);
+
 				expect(rows.map((r) => [Number(r.user_id), r.name])).toEqual([
 					[42, "Grace"],
 					[43, "Bob"],
@@ -200,22 +213,27 @@ describe("composite primary key updates", () => {
 		it("binds and matches on every key column", async () => {
 			const inputs: Array<[string, unknown]> = [];
 			const queries: string[] = [];
+
 			const request = {
 				input: vi.fn((name: string, value: unknown) => {
 					inputs.push([name, value]);
+
 					return request;
 				}),
 				query: vi.fn(async (sql: string) => {
 					queries.push(sql);
+
 					return { rowsAffected: [1] };
 				}),
 			};
+
 			const transaction = {
 				begin: vi.fn(),
 				commit: vi.fn(),
 				rollback: vi.fn(),
 				request: () => request,
 			};
+
 			// the primary-key lookup that guards against partial-key updates
 			const keyLookup = {
 				input: () => keyLookup,
@@ -223,6 +241,7 @@ describe("composite primary key updates", () => {
 					recordset: [{ columnName: "tenant_id" }, { columnName: "user_id" }],
 				}),
 			};
+
 			mocks.getMssqlPool.mockResolvedValue({
 				transaction: () => transaction,
 				request: () => keyLookup,
@@ -272,7 +291,11 @@ describe("composite primary key updates", () => {
 						tableName: "users",
 						primaryKey: "_id",
 						updates: [
-							{ columnName: "_id", value: "other", rowData: { _id: "507f1f77bcf86cd799439011" } },
+							{
+								columnName: "_id",
+								value: "other",
+								rowData: { _id: "507f1f77bcf86cd799439011" },
+							},
 						],
 					},
 				} as never),
