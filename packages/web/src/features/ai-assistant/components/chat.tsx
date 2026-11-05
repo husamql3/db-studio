@@ -1,20 +1,16 @@
-"use client";
-
 import { Button } from "@db-studio/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
-import { useByok } from "@tanstack/ai-react";
 import { Sparkles } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-import { aiByok, useAiByokReady, useAiSettingsStore } from "@/features/settings";
-import { useRateLimit } from "@/hooks/use-rate-limit";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { useAiQuota } from "../hooks/use-ai-quota";
 
 // The chat, its markdown renderer and its model client are a large share of the app's code, so
 // they load when the assistant first opens instead of with every page.
-const loadChatSidebar = () => import("@/components/chat/chat-sidebar");
+const loadChatSidebar = () => import("./chat-sidebar");
 
 const ChatSidebar = lazy(() =>
 	loadChatSidebar().then((module) => ({ default: module.ChatSidebar })),
@@ -27,24 +23,25 @@ export const Chat = () => {
 
 	if (isOverlayOpen("chat.assistant") && !assistantMounted) setAssistantMounted(true);
 	const { dbType } = useDatabaseStore();
-	const { provider } = useAiSettingsStore();
-	const byok = useByok(aiByok);
-	const isByokReady = useAiByokReady();
-	const keyStatus = byok.status[provider];
-	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
 
-	const { rateLimit, isLoadingRateLimit, errorRateLimit } = useRateLimit({
-		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
-	});
+	const {
+		provider,
+		hasPersonalKey,
+		usesHostedQuota,
+		rateLimit,
+		remaining,
+		isLoadingRateLimit,
+		errorRateLimit,
+	} = useAiQuota();
 
-	const { remaining = 0, limit = 0 } = rateLimit ?? { remaining: 0, limit: 0 };
+	const limit = rateLimit?.limit ?? 0;
 
 	const getIndicatorColor = () => {
 		if (hasPersonalKey) return "bg-emerald-500";
 
 		if (isLoadingRateLimit || errorRateLimit) return "bg-zinc-500";
 
-		if (provider !== "gemini") return "bg-red-500";
+		if (!usesHostedQuota) return "bg-red-500";
 
 		if (remaining === 0) return "bg-red-500";
 

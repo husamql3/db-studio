@@ -1,5 +1,3 @@
-"use client";
-
 import { Button } from "@db-studio/ui/button";
 import { cn } from "@db-studio/ui/utils";
 import { ArrowDownIcon } from "lucide-react";

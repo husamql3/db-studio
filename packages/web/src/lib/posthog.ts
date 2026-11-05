@@ -1,5 +1,6 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import type { PostHog } from "posthog-js";
+import { fetchTelemetryConfig, type TelemetryConfig } from "@/shared/api";
 
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
 
@@ -39,12 +40,6 @@ type AnalyticsEvent =
 			};
 	  };
 
-export type TelemetryConfig = {
-	enabled: boolean;
-	installationId: string;
-	appVersion: string;
-};
-
 let config: TelemetryConfig | undefined;
 
 /** The PostHog client, loaded the first time telemetry turns out to be enabled. */
@@ -59,12 +54,7 @@ export const getTelemetryConfig = (): TelemetryConfig | undefined => config;
 
 export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	try {
-		const response = await fetch("/api/telemetry/config", {
-			headers: globalPrivacyControlEnabled() ? { "x-db-studio-gpc": "1" } : undefined,
-		});
-
-		const body = (await response.json()) as { data?: TelemetryConfig };
-		config = body.data;
+		config = (await fetchTelemetryConfig(globalPrivacyControlEnabled())).data.data;
 	} catch {
 		return undefined;
 	}

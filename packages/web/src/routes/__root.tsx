@@ -25,6 +25,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { initPosthog, posthogAnalytics } from "@/lib/posthog";
 import { sectionOf } from "@/lib/sections";
 import { initSentry } from "@/lib/sentry";
+import type { ApiError } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
 const darkModeScript = `
@@ -72,7 +73,8 @@ const ConnectedApp = () => {
 
 	useEffect(() => {
 		if (error && dbType) {
-			const status = (error as { status?: number })?.status;
+			// SAFETY: both queries are API requests, and every failed request rejects with ApiError.
+			const { status } = error as ApiError;
 			posthogAnalytics.capture("connection_error", {
 				db_type: dbType,
 				status_bucket: status ? (status >= 500 ? "5xx" : "4xx") : "network",
@@ -87,7 +89,7 @@ const ConnectedApp = () => {
 			<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
 				<p className="text-destructive font-medium">Failed to connect to the database</p>
 				<p className="text-muted-foreground text-sm max-w-sm">
-					{(error as { message?: string })?.message ?? "An unexpected error occurred"}
+					{error.message || "An unexpected error occurred"}
 				</p>
 				<Link
 					to="/connect"

@@ -1,5 +1,3 @@
-"use client";
-
 import { Badge } from "@db-studio/ui/badge";
 import { Button } from "@db-studio/ui/button";
 import { DatePicker } from "@db-studio/ui/date-picker";

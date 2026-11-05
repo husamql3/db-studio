@@ -15,7 +15,7 @@ import { Link, useLocation, useParams } from "@tanstack/react-router";
 import { Bug, Check, Ellipsis, Monitor, Moon, PanelLeft, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { LuGithub } from "react-icons/lu";
-import { Chat } from "@/components/chat/chat";
+import { Chat } from "@/features/ai-assistant";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTheme } from "@/hooks/use-theme";

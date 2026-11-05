@@ -1,4 +1,4 @@
-export { aiByok } from "./byok";
+export { aiByok, HOSTED_AI_PROVIDER } from "./byok";
 
 export { SettingsOverlay } from "./components/settings-overlay";
 

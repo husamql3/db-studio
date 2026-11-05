@@ -20,9 +20,19 @@ const CONNECTION_ID_KEY = "dbstudio-connection-id";
 /** The server connection this tab works with. Per tab: another tab can work with another one. */
 let connectionId = sessionStorage.getItem(CONNECTION_ID_KEY);
 
-/** Every request names this tab's connection; the server answers from that connection. */
-export const connectionHeaders = (): Record<string, string> =>
-	connectionId ? { "X-Connection-Id": connectionId } : {};
+/**
+ * Headers for one request. The server adopts the request ID, so its log line and error report
+ * name the same request, and answers from the named connection.
+ */
+export const requestHeaders = () => {
+	const headers: { "X-Request-Id": string; "X-Connection-Id"?: string } = {
+		"X-Request-Id": newRequestId(),
+	};
+
+	if (connectionId) headers["X-Connection-Id"] = connectionId;
+
+	return headers;
+};
 
 export const setConnectionId = (id: string | null): void => {
 	connectionId = id;
@@ -47,10 +57,9 @@ export const apiErrorMessage = (
 const setupInterceptors = (instance: AxiosInstance) => {
 	instance.interceptors.request.use(
 		(config) => {
-			// The server adopts this ID, so its log line and error report name the same request.
-			const requestId = newRequestId();
-			config.headers.set("X-Request-Id", requestId);
-			config.headers.set(connectionHeaders());
+			const headers = requestHeaders();
+			const requestId = headers["X-Request-Id"];
+			config.headers.set(headers);
 			(
 				config as InternalAxiosRequestConfig & {
 					metadata?: { startTime: number };
@@ -160,7 +169,9 @@ const isStackFrame = (line: string): boolean => /^\s*at\s/.test(line);
 export const apiOperationForRequest = (method?: string, url?: string): string => {
 	const resource = url
 		?.replace(/[?#].*$/, "")
-		.match(/\/(databases|tables|records|query|keys|chat)(?:\/|$)/)?.[1];
+		.match(
+			/\/(databases|tables|records|query|keys|chat|logs|connections|indexes|telemetry)(?:\/|$)/,
+		)?.[1];
 
 	return `${method?.toLowerCase() ?? "unknown"}_${resource ?? "other"}`;
 };

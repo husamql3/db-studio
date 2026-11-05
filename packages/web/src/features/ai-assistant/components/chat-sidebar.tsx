@@ -1,9 +1,7 @@
-"use client";
-
-import { CHAT_SUGGESTIONS, DEFAULTS } from "@db-studio/shared/constants";
+import { CHAT_SUGGESTIONS } from "@db-studio/shared/constants";
 import { Button } from "@db-studio/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
-import { fetchServerSentEvents, useByok, useChat } from "@tanstack/ai-react";
+import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -34,12 +32,12 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { useAssistantRequestStore } from "@/features/ai-assistant";
-import { aiByok, useAiByokReady, useAiSettingsStore } from "@/features/settings";
-import { useRateLimit } from "@/hooks/use-rate-limit";
-import { connectionHeaders, getBaseUrl } from "@/shared/api/client";
+import { aiByok, HOSTED_AI_PROVIDER, useAiSettingsStore } from "@/features/settings";
+import { chatUrl, requestHeaders } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { useAiQuota } from "../hooks/use-ai-quota";
+import { useAssistantRequestStore } from "../stores/assistant-request.store";
 
 interface ChatController {
 	clear: () => void;
@@ -48,50 +46,31 @@ interface ChatController {
 
 interface ChatSidebarContentProps {
 	db: string;
-	onRateLimitRefetch: () => void;
 	onControllerReady: (controller: ChatController) => void;
 }
 
 // `useChat` captures `body` only at initial mount (via useMemo([clientId])).
 // Keying this inner component on `db` forces a remount when the database
 // changes, so the ChatClient is rebuilt with a fresh body.
-const ChatSidebarContent = ({
-	db,
-	onRateLimitRefetch,
-	onControllerReady,
-}: ChatSidebarContentProps) => {
+const ChatSidebarContent = ({ db, onControllerReady }: ChatSidebarContentProps) => {
 	const [text, setText] = useState("");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const { openOverlay } = useOverlayStore();
 	const { pendingPrompt, consumePrompt } = useAssistantRequestStore();
-	const { includeSchemaInAiContext, provider, model } = useAiSettingsStore();
-	const byok = useByok(aiByok);
-	const isByokReady = useAiByokReady();
-	const keyStatus = byok.status[provider];
-	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
-
-	const { rateLimit } = useRateLimit({
-		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
-	});
-
-	const { remaining } = rateLimit ?? { remaining: 0, limit: 0 };
-	const canSend = hasPersonalKey || (provider === "gemini" && remaining > 0);
+	const { includeSchemaInAiContext, model } = useAiSettingsStore();
+	const { provider, isByokReady, usesHostedQuota, refetchRateLimit, canSend } = useAiQuota();
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
-		connection: fetchServerSentEvents(`${getBaseUrl()}${DEFAULTS.API_PREFIX}/chat`, () => ({
-			headers: connectionHeaders(),
-		})),
+		connection: fetchServerSentEvents(chatUrl(), () => ({ headers: requestHeaders() })),
 		body: { db, includeSchema: includeSchemaInAiContext },
 		byok: aiByok,
 		forwardedProps: { provider, model },
 		onError: (error) => setErrorMessage(error.message),
 		onFinish: () => {
-			// Only the hosted Gemini path spends the shared quota. React Query's
-			// manual `refetch()` runs even while the query is disabled, so refetching
+			// Only the hosted provider spends the shared quota. React Query's manual
+			// `refetch()` runs even while the query is disabled, so refetching
 			// unconditionally would hit /chat/limit on every BYOK response too.
-			if (provider === "gemini" && !hasPersonalKey) {
-				onRateLimitRefetch();
-			}
+			if (usesHostedQuota) void refetchRateLimit();
 		},
 	});
 
@@ -215,7 +194,7 @@ const ChatSidebarContent = ({
 				{!canSend && (
 					<div className="mx-4 rounded-lg border p-3 text-sm">
 						<p className="text-muted-foreground">
-							{provider === "gemini"
+							{provider === HOSTED_AI_PROVIDER
 								? "The hosted AI limit is exhausted. Add a personal Gemini key to continue."
 								: `Add a ${provider} API key to use this provider.`}
 						</p>
@@ -278,14 +257,7 @@ export const ChatSidebar = () => {
 	const { isOverlayOpen, closeOverlay } = useOverlayStore();
 	const { selectedDatabase } = useDatabaseStore();
 	const { includeSchemaInAiContext, provider, model } = useAiSettingsStore();
-	const byok = useByok(aiByok);
-	const isByokReady = useAiByokReady();
-	const keyStatus = byok.status[provider];
-	const hasPersonalKey = keyStatus?.state === "set" || keyStatus?.state === "locked";
-
-	const { rateLimit, refetchRateLimit } = useRateLimit({
-		enabled: isByokReady && provider === "gemini" && !hasPersonalKey,
-	});
+	const { rateLimit, hasPersonalKey } = useAiQuota();
 
 	const [controller, setController] = useState<ChatController | null>(null);
 	const controllerSetterRef = useRef((next: ChatController) => setController(next));
@@ -336,7 +308,6 @@ export const ChatSidebar = () => {
 				<ChatSidebarContent
 					key={`${selectedDatabase}:${includeSchemaInAiContext}:${provider}:${model}`}
 					db={selectedDatabase}
-					onRateLimitRefetch={refetchRateLimit}
 					onControllerReady={controllerSetterRef.current}
 				/>
 			) : (

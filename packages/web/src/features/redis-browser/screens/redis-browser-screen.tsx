@@ -17,7 +17,7 @@ import { DatabaseZap, Plus } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { getRedisStringChunk } from "@/shared/api";
+import { type ApiError, getRedisStringChunk } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useQueriesStore } from "@/stores/queries.store";
@@ -138,8 +138,8 @@ export const RedisBrowserScreen = () => {
 			return true;
 		} catch (error) {
 			// toast.promise in the mutation hook already surfaced the failure.
-			if ((error as Error & { status?: number }).status === 409)
-				setConflictOperation(operation);
+			// SAFETY: `applyAction` is an API request, and every failed request rejects with ApiError.
+			if ((error as ApiError).status === 409) setConflictOperation(operation);
 
 			return false;
 		}

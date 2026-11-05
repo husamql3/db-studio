@@ -1,5 +1,3 @@
-"use client";
-
 import { cn } from "@db-studio/ui/utils";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, use, useEffect, useState } from "react";

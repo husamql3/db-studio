@@ -1,5 +1,3 @@
-"use client";
-
 import { Button } from "@db-studio/ui/button";
 import { ScrollArea, ScrollBar } from "@db-studio/ui/scroll-area";
 import { cn } from "@db-studio/ui/utils";

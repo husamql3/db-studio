@@ -13,7 +13,7 @@ import { Switch } from "@db-studio/ui/switch";
 import { useByok } from "@tanstack/ai-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { aiByok } from "../byok";
+import { aiByok, HOSTED_AI_PROVIDER } from "../byok";
 import { useAiSettingsStore } from "../stores/ai-settings.store";
 
 export const AiSettingsSection = () => {
@@ -23,7 +23,7 @@ export const AiSettingsSection = () => {
 	const providerOption = AI_PROVIDER_OPTIONS.find((option) => option.id === settings.provider);
 	const status = snapshot.status[settings.provider];
 	const maskedKey = status && "masked" in status ? status.masked : null;
-	const hasHostedFallback = settings.provider === "gemini";
+	const hasHostedFallback = settings.provider === HOSTED_AI_PROVIDER;
 
 	const saveApiKey = async () => {
 		const nextKey = apiKey.trim();

@@ -13,8 +13,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { useAssistantRequestStore } from "@/features/ai-assistant";
-import { useOverlayStore } from "@/stores/overlay.store";
+import { askAssistant } from "@/features/ai-assistant";
 import { RUNNER_STATE_KEYS } from "../constants";
 import type { QueryResult } from "../screens/runner-screen";
 
@@ -42,13 +41,6 @@ export const RunnerHeader = ({
 	currentQuery: string;
 }) => {
 	const [showAs, setShowAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS);
-	const { requestAssistant } = useAssistantRequestStore();
-	const { openOverlay } = useOverlayStore();
-
-	const askAssistant = (prompt: string) => {
-		requestAssistant(prompt);
-		openOverlay("chat.assistant");
-	};
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background text-foreground sticky top-0 left-0 right-0 z-0">

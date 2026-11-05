@@ -1,5 +1,3 @@
-"use client";
-
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -37,7 +35,7 @@ import {
 	Table2,
 	Upload,
 } from "lucide-react";
-import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { askAssistant } from "@/features/ai-assistant";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile } from "@/features/tables";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
@@ -64,7 +62,6 @@ export function CommandPalette() {
 	const { tablesList, isLoadingTablesList, errorTablesList } = useTablesList();
 	const { exportFile, isExportingFile } = useExportFile();
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
-	const { requestAssistant } = useAssistantRequestStore();
 
 	const {
 		open,
@@ -109,13 +106,6 @@ export function CommandPalette() {
 				params: { table: tableName },
 				search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
 			});
-		});
-	};
-
-	const askAssistant = (prompt: string) => {
-		handleAction(() => {
-			requestAssistant(prompt);
-			openOverlay("chat.assistant");
 		});
 	};
 
@@ -340,8 +330,10 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									askAssistant(
-										"Generate a query for this database. Ask me for the goal if it is unclear.",
+									handleAction(() =>
+										askAssistant(
+											"Generate a query for this database. Ask me for the goal if it is unclear.",
+										),
 									)
 								}
 								keywords={["ai", "generate", "sql", "query", "write"]}
@@ -358,8 +350,11 @@ export function CommandPalette() {
 								disabled={!activeTable || isSchemaless}
 								onSelect={() => {
 									if (!activeTable || isSchemaless) return;
-									askAssistant(
-										`Explain the schema of table "${activeTable}": what each column stores and how it relates to other tables.`,
+									const table = activeTable;
+									handleAction(() =>
+										askAssistant(
+											`Explain the schema of table "${table}": what each column stores and how it relates to other tables.`,
+										),
 									);
 								}}
 								keywords={["ai", "explain", "schema", "table", "understand"]}

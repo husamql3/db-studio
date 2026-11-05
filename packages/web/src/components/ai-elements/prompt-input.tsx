@@ -1,5 +1,3 @@
-"use client";
-
 type ChatStatus = "submitted" | "streaming" | "ready" | "error";
 
 type FileUIPart = {

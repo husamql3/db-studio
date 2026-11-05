@@ -98,13 +98,14 @@ src/
     table-builder/  — create table form, foreign key builder
     tables/         — table grid, cell editing, pagination, exports
     records/        — add record form, bulk insert sheets, FK reference picker
+    ai-assistant/   — chat sidebar, askAssistant(prompt), hosted quota (useAiQuota)
   shared/
     api/            — endpoint functions (pure transport wrappers)
     query/          — query-key factories
   stores/           — app-wide Zustand: database, overlay registry, preferences
-  hooks/            — cross-cutting hooks (databases list, rate limit, theme)
+  hooks/            — cross-cutting hooks (databases list, engine, theme)
   routes/           — file-based routes; each renders a feature screen only
-  components/       — shell components (sidebar, chat, command palette)
+  components/       — shell components (sidebar, nav rail, command palette)
 ```
 
 Each feature folder follows this shape:
@@ -235,7 +236,7 @@ declare module "@tanstack/react-table" {
 **Feature hooks** (query, mutation, derived state scoped to one feature):
 Location: `packages/web/src/features/[feature]/hooks/use-[name].ts`
 
-**Cross-cutting hooks** (app-wide concerns: databases list, rate limit, theme):
+**Cross-cutting hooks** (app-wide concerns: databases list, engine, theme):
 Location: `packages/web/src/hooks/use-[name].ts`
 
 **Pattern** — return a named object (not a tuple):
@@ -484,7 +485,7 @@ src/shared/api/
   tables.ts      — table data, schema, export endpoints
   records.ts     — record CRUD endpoints
   query.ts       — SQL query execution endpoint
-  chat.ts        — AI assistant endpoint
+  chat.ts        — AI assistant rate limit and stream URL
   index.ts       — barrel re-export
 ```
 
