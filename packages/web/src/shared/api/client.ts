@@ -34,6 +34,8 @@ export const requestHeaders = () => {
 	return headers;
 };
 
+export const getConnectionId = () => connectionId;
+
 export const setConnectionId = (id: string | null): void => {
 	connectionId = id;
 

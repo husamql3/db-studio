@@ -6,21 +6,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useRowDetailsStore, useUpdateCellStore } from "@/features/tables";
 import {
 	connectSavedConnection,
 	connectUrl,
+	getConnectionId,
 	getConnections,
 	setConnectionId,
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
 import { connectionKeys } from "@/shared/query/keys";
-import { useDatabaseStore } from "@/stores/database.store";
-import { useOverlayStore } from "@/stores/overlay.store";
+import { resetConnectionState } from "@/stores/connection-reset";
 
-/** `connectionId` this tab works with; `undefined` until the server first answers. */
-let ownConnectionId: string | null | undefined;
+/** Whether this tab took the connection the server first named; once per page load. */
+let hasAdoptedConnection = false;
 
 /**
  * The saved connections and the one this tab has open. Refetched on focus to notice that the
@@ -34,9 +33,9 @@ export const useConnections = () => {
 
 			// The first answer names this tab's connection, or the latest for a new tab. Adopted
 			// here, before the app renders and sends database requests.
-			if (ownConnectionId === undefined) {
-				ownConnectionId = state.active?.connectionId ?? null;
-				setConnectionId(ownConnectionId);
+			if (!hasAdoptedConnection) {
+				hasAdoptedConnection = true;
+				setConnectionId(state.active?.connectionId ?? null);
 			}
 
 			return state;
@@ -62,18 +61,14 @@ const useResetToConnection = () => {
 	const navigate = useNavigate();
 
 	return async (state: ConnectionsStateSchemaType) => {
-		ownConnectionId = state.active?.connectionId ?? null;
-		setConnectionId(ownConnectionId);
+		setConnectionId(state.active?.connectionId ?? null);
 		// A focus refetch still in flight would answer for the previous connection after this.
 		await queryClient.cancelQueries({ queryKey: connectionKeys.state() });
 		queryClient.removeQueries({
 			predicate: (query) => query.queryKey[0] !== connectionKeys.state()[0],
 		});
 		queryClient.setQueryData(connectionKeys.state(), state);
-		useDatabaseStore.setState({ selectedDatabase: null, dbType: null });
-		useUpdateCellStore.getState().clearUpdates();
-		useRowDetailsStore.getState().clearRowDetails();
-		useOverlayStore.getState().closeAllOverlays();
+		resetConnectionState();
 		void navigate({ to: "/", search: {} });
 	};
 };
@@ -149,7 +144,7 @@ export const useConnectionChangeWatcher = () => {
 		if (
 			previous === undefined ||
 			previous === connectionId ||
-			connectionId === ownConnectionId
+			connectionId === getConnectionId()
 		) {
 			return;
 		}

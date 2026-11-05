@@ -242,8 +242,6 @@ Location: `packages/web/src/hooks/use-[name].ts`
 **Pattern** — return a named object (not a tuple):
 ```ts
 export const useDatabasesList = () => {
-  const { setDbType } = useDatabaseStore();
-
   const { data, isLoading } = useQuery({
     queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
     queryFn: () => rootApi.get<BaseResponse<DatabaseListSchemaType>>("/databases"),
@@ -257,7 +255,7 @@ export const useDatabasesList = () => {
 
 **Categories**:
 - **Data fetching**: `useQuery` from TanStack Query, return `{ data, isLoading, error, refetch }`
-- **Initialization**: use `useRef` guard to prevent double-init
+- **Initialization**: derive "initialized" from store state set in effects, not from a ref
 - **State helpers**: wrap store + derived logic, expose clean API
 
 ### Components
@@ -311,6 +309,7 @@ Rules:
 - Updates always produce new objects (immutable pattern via `set`)
 - Use `get()` for reading state inside derived/computed functions
 - No selectors — consumers destructure from the hook directly
+- A store holding state of the open connection (selections, edits, open sheets) registers its reset with `onConnectionReset` from `src/stores/connection-reset.ts`; switching connection runs them all
 
 ### Overlay Registry (`src/stores/overlay.store.ts`)
 
@@ -479,13 +478,7 @@ src/shared/api/
 
 Two Axios instances in `client.ts`:
 - `rootApi` — unscoped base URL, used for `/databases` etc.
-- `api` — scoped to `/{dbType}`, base URL updated via `setDbType()`
-
-```ts
-export const setDbType = (type: DatabaseTypeSchema): void => {
-  api.defaults.baseURL = `${getBaseUrl()}/${type}`;
-};
-```
+- `api` — scoped to `/{dbType}`; `useDatabaseStore`'s `setDbType` moves its base URL, so set the engine only through the store.
 
 `src/lib/api.ts` is a legacy compatibility facade — do not add new code there.
 

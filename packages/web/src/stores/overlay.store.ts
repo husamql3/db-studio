@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
 
 type OverlayId =
 	| "table-builder.create-table"
@@ -75,3 +76,5 @@ export const useOverlayStore = create<OverlayState>()((set, get) => ({
 
 	getOverlayIndex: (id) => get().openOverlays.indexOf(id),
 }));
+
+onConnectionReset(() => useOverlayStore.getState().closeAllOverlays());

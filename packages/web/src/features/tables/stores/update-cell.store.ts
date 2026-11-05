@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { EditScope } from "@/features/tables/table.type";
+import { onConnectionReset } from "@/stores/connection-reset";
 import { stableStringify } from "../utils/table-diff";
 
 /** A pending value meaning "set this cell to its column default"; compared by identity. */
@@ -186,3 +187,5 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 
 	getUpdateCount: (scopeId) => get().getUpdates(scopeId).length,
 }));
+
+onConnectionReset(() => useUpdateCellStore.getState().clearUpdates());

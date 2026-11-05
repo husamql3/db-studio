@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
 
 type RowDetailsStore = {
 	tableName: string | null;
@@ -23,3 +24,5 @@ export const useRowDetailsStore = create<RowDetailsStore>()((set) => ({
 
 	setDirty: (isDirty) => set({ isDirty }),
 }));
+
+onConnectionReset(() => useRowDetailsStore.getState().clearRowDetails());

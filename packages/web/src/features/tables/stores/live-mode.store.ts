@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
 
 type LiveModeStatus = "idle" | "healthy" | "disconnected" | "paused";
 
@@ -144,3 +145,5 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 		});
 	},
 }));
+
+onConnectionReset(() => useLiveModeStore.getState().reset());

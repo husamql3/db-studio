@@ -44,7 +44,7 @@ const FullPageSpinner = () => (
 const ConnectedApp = () => {
 	const { dbType } = useDatabaseStore();
 	// Fetches the databases list and the current database, then selects one.
-	const { isLoading, isInitialized, error } = useInitializeDatabase();
+	const { isInitialized, error } = useInitializeDatabase();
 
 	useEffect(() => {
 		if (error && dbType) {
@@ -57,7 +57,7 @@ const ConnectedApp = () => {
 		}
 	}, [error, dbType]);
 
-	if ((isLoading || !isInitialized) && !error) return <FullPageSpinner />;
+	if (!isInitialized && !error) return <FullPageSpinner />;
 
 	if (error) {
 		return (

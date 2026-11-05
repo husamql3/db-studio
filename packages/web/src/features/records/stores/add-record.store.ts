@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 type AddRecordStore = {
@@ -16,3 +17,5 @@ export const openAddRecord = (prefill?: Record<string, string>) => {
 	useAddRecordStore.setState({ prefill: prefill ?? null });
 	useOverlayStore.getState().openOverlay("records.add-record");
 };
+
+onConnectionReset(() => useAddRecordStore.setState(useAddRecordStore.getInitialState(), true));

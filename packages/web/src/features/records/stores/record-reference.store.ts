@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 type RecordReference = {
@@ -23,3 +24,7 @@ export const openRecordReference = (reference: RecordReference) => {
 	useRecordReferenceStore.setState({ reference });
 	useOverlayStore.getState().openOverlay("records.record-reference");
 };
+
+onConnectionReset(() =>
+	useRecordReferenceStore.setState(useRecordReferenceStore.getInitialState(), true),
+);
