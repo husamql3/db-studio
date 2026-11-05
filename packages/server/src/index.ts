@@ -8,6 +8,7 @@ import { openBrowser, shouldOpenBrowser } from "@/cmd/open-browser.js";
 import { showHelp } from "@/cmd/show-help.js";
 import { showStatus } from "@/cmd/show-status.js";
 import { showVersion } from "@/cmd/show-version.js";
+import { isLoopbackAddress } from "@/loopback.js";
 import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 export const main = async () => {
@@ -46,7 +47,7 @@ export const main = async () => {
 	const HOST = process.env.HOST ?? "127.0.0.1";
 
 	// Off loopback, anyone who reaches the port could use the API, so require a password.
-	if (!["127.0.0.1", "localhost", "::1"].includes(HOST) && !process.env.DB_STUDIO_PASSWORD) {
+	if (!isLoopbackAddress(HOST) && !process.env.DB_STUDIO_PASSWORD) {
 		const { randomBytes } = await import("node:crypto");
 		process.env.DB_STUDIO_PASSWORD = randomBytes(18).toString("base64url");
 		log.warn(

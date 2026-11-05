@@ -4,11 +4,13 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULTS } from "@db-studio/shared/constants";
+import { BYOK_HEADERS } from "@db-studio/shared/types";
 import { cors } from "@elysiajs/cors";
 import { node } from "@elysiajs/node";
 import { Elysia } from "elysia";
 import { isDatabaseType } from "@/adapters/adapter.registry.js";
 import { HTTPException } from "@/http-exception.js";
+import { isLoopbackHostname } from "@/loopback.js";
 import { handleError } from "@/middlewares/error-handler.js";
 import {
 	captureServerEvent,
@@ -144,8 +146,6 @@ const isAllowedOrigin = (origin: string | null): boolean => {
 	}
 };
 
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
-
 /**
  * The server holds saved database passwords. A web page can still reach it through DNS
  * rebinding (its own domain resolving to 127.0.0.1), so a request must name an allowed host in
@@ -156,7 +156,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const isAllowedHost = (hostHeader: string): boolean => {
 	const hostname = hostHeader.replace(/:\d+$/, "").toLowerCase();
 
-	if (LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost")) return true;
+	if (isLoopbackHostname(hostname)) return true;
 
 	const allowed =
 		process.env.ALLOWED_HOSTS?.split(",")
@@ -294,11 +294,7 @@ export const createServer = () => {
 					"X-Request-Id",
 					"X-Connection-Id",
 					"X-DB-Studio-GPC",
-					"x-byok-gemini",
-					"x-byok-openai",
-					"x-byok-anthropic",
-					"x-byok-grok",
-					"x-byok-openrouter",
+					...BYOK_HEADERS,
 				],
 				exposeHeaders: ["X-Request-Id"],
 				credentials: false,

@@ -1,7 +1,8 @@
 import { LIMIT } from "@db-studio/shared/constants";
-import { chatSchema } from "@db-studio/shared/types";
+import { BYOK_HEADERS, chatSchema } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
+import { isLoopbackHostname } from "@/loopback.js";
 import { currentRequestId, writeOperationalLog } from "@/operational-log.js";
 import { generateSystemPrompt } from "@/routes/chat/system-prompt-generator.js";
 import { getDetailedSchema } from "@/routes/chat/table-details-schema.js";
@@ -14,8 +15,6 @@ const HOP_BY_HOP_HEADERS = new Set([
 	"content-length",
 	"content-encoding",
 ]);
-
-const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 /**
  * BYOK API keys are forwarded to the proxy as request headers, so the
@@ -41,8 +40,7 @@ const resolveProxyUrl = (): string => {
 		});
 	}
 
-	const isLoopback =
-		LOOPBACK_HOSTNAMES.has(url.hostname) || url.hostname.endsWith(".localhost");
+	const isLoopback = isLoopbackHostname(url.hostname);
 
 	if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
 		throw new HTTPException(500, {
@@ -53,10 +51,24 @@ const resolveProxyUrl = (): string => {
 	return url.origin;
 };
 
+/**
+ * The headers the proxy reads from the browser's request: the client IP headers, so its rate
+ * limiter keys on the real user, the API key, and `extra` (the BYOK keys for a chat request).
+ */
+const proxyHeaders = (
+	headers: Record<string, string | undefined>,
+	extra: readonly string[] = [],
+): Record<string, string> => ({
+	...Object.fromEntries(
+		["cf-connecting-ip", "x-real-ip", "x-forwarded-for", "x-api-key", ...extra].map((name) => [
+			name,
+			headers[name] ?? "",
+		]),
+	),
+	"x-request-id": currentRequestId() ?? "",
+});
+
 export const chatRoutes = new Elysia({ prefix: "/chat" })
-	/**
-	 * GET /chat/limit - Proxy rate limit check to Cloudflare Worker
-	 */
 	.get("/limit", async ({ headers }) => {
 		// Outside the try: a misconfigured proxy URL is a server error, not an
 		// exhausted quota, so it must not be masked by the fallback below.
@@ -65,11 +77,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 		try {
 			const proxyResponse = await fetch(`${proxyUrl}/chat/limit`, {
 				headers: {
-					"cf-connecting-ip": headers["cf-connecting-ip"] ?? "",
-					"x-real-ip": headers["x-real-ip"] ?? "",
-					"x-forwarded-for": headers["x-forwarded-for"] ?? "",
-					"x-api-key": headers["x-api-key"] ?? "",
-					"x-request-id": currentRequestId() ?? "",
+					...proxyHeaders(headers),
 				},
 			});
 
@@ -88,10 +96,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 		}
 	})
 
-	/**
-	 * POST /chat - Handle AI chat requests with streaming
-	 * Proxies to the Cloudflare Worker which has the Gemini API key
-	 */
+	/** Streams the proxy's answer; the proxy holds the hosted provider's API key. */
 	.post(
 		"/",
 		async ({ body: { messages, data, provider, model }, headers, set }) => {
@@ -109,22 +114,11 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 				model,
 			};
 
-			// Forward request to the proxy with the system prompt.
-			// Pass through IP headers so the proxy rate-limiter keys on the real user IP.
 			const proxyResponse = await fetch(`${resolveProxyUrl()}/chat`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					"cf-connecting-ip": headers["cf-connecting-ip"] ?? "",
-					"x-real-ip": headers["x-real-ip"] ?? "",
-					"x-forwarded-for": headers["x-forwarded-for"] ?? "",
-					"x-api-key": headers["x-api-key"] ?? "",
-					"x-byok-gemini": headers["x-byok-gemini"] ?? "",
-					"x-byok-openai": headers["x-byok-openai"] ?? "",
-					"x-byok-anthropic": headers["x-byok-anthropic"] ?? "",
-					"x-byok-grok": headers["x-byok-grok"] ?? "",
-					"x-byok-openrouter": headers["x-byok-openrouter"] ?? "",
-					"x-request-id": currentRequestId() ?? "",
+					...proxyHeaders(headers, BYOK_HEADERS),
 				},
 				body: JSON.stringify(payload),
 			});
