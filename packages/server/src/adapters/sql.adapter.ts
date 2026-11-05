@@ -1,11 +1,19 @@
-import type {
-	DatabaseSchemaType,
-	DeleteRecordParams,
-	DeleteRecordResult,
-	RelatedRecord,
-	UpdateRecordsSchemaType,
+import {
+	type CreateIndexParamsSchemaType,
+	DATABASE_ENGINES,
+	type DatabaseSchemaType,
+	type DeleteRecordParams,
+	type DeleteRecordResult,
+	type DropIndexParamsSchemaType,
+	type IndexInfoSchemaType,
+	type RelatedRecord,
+	type UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { BaseAdapter, notImplemented } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	type DriverErrorClass,
+	notImplemented,
+} from "@/adapters/base.adapter.js";
 import { createBinds } from "@/adapters/sql-filters.js";
 import { HTTPException } from "@/http-exception.js";
 
@@ -65,7 +73,17 @@ export const groupKeyColumns = (rows: KeyColumnRow[]) => {
  * A relational engine. Each one supplies its connection, quoting and catalog hooks; the
  * operations every engine does the same way are written once here.
  */
+/** An index as an engine lists it; PostgreSQL adds the schema it lives in. */
+type ListedIndex = IndexInfoSchemaType & { schemaName?: string };
+
 export abstract class SqlAdapter<Conn> extends BaseAdapter {
+	protected abstract readonly engine:
+		| "pg"
+		| "mysql"
+		| "mssql"
+		| "sqlite"
+		| "duckdb"
+		| "oracle";
 	protected abstract readonly quoteIdentifier: (name: string) => string;
 	/** The n-th bound value's placeholder, counting from 1. */
 	protected abstract readonly placeholder: (position: number) => string;
@@ -119,6 +137,158 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		tableName: string,
 		schemaName?: string,
 	): Promise<ReferencingKey[]>;
+
+	/** The column names of `tableName`, in order, or undefined when there is no such table. */
+	protected abstract columnNames(
+		conn: Conn,
+		tableName: string,
+		schemaName?: string,
+	): Promise<string[] | undefined>;
+
+	protected tableMissing(tableName: string) {
+		return new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+	}
+
+	/** The column names of `tableName`; 404 when there is no such table. */
+	protected async requireTable(
+		conn: Conn,
+		tableName: string,
+		schemaName?: string,
+	): Promise<string[]> {
+		const columns = await this.columnNames(conn, tableName, schemaName);
+
+		if (!columns) throw this.tableMissing(tableName);
+
+		return columns;
+	}
+
+	/** The column names of `tableName`; 404 when the table or `columnName` is missing. */
+	protected async requireColumn(
+		conn: Conn,
+		tableName: string,
+		columnName: string,
+		schemaName?: string,
+	): Promise<string[]> {
+		const columns = await this.requireTable(conn, tableName, schemaName);
+
+		if (!columns.includes(columnName))
+			throw new HTTPException(404, {
+				message: `Column "${columnName}" does not exist in table "${tableName}"`,
+			});
+
+		return columns;
+	}
+
+	/** 409 when `columns` of `tableName` already hold `columnName`. */
+	protected assertColumnAbsent(columns: string[], tableName: string, columnName: string) {
+		if (columns.includes(columnName))
+			throw new HTTPException(409, {
+				message: `Column "${columnName}" already exists in table "${tableName}"`,
+			});
+	}
+
+	/** The indexes of `tableName`, its primary key first; 404 when there is no such table. */
+	protected abstract listIndexes(
+		conn: Conn,
+		tableName: string,
+		schemaName?: string,
+	): Promise<ListedIndex[]>;
+
+	protected createIndexSql({
+		tableName,
+		schemaName,
+		indexName,
+		columns,
+		isUnique,
+	}: CreateIndexParamsSchemaType): string {
+		const q = this.quoteIdentifier;
+
+		return `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${q(indexName)} ON ${this.tableRef(tableName, schemaName)} (${columns.map(q).join(", ")})`;
+	}
+
+	protected dropIndexSql(index: ListedIndex, _tableName: string): string {
+		return `DROP INDEX ${this.quoteIdentifier(index.indexName)}`;
+	}
+
+	/** The answer to a driver error of CREATE or DROP INDEX: a name taken, a column that cannot be indexed. */
+	protected indexError(_e: Error): DriverErrorClass | undefined {
+		return undefined;
+	}
+
+	async getTableIndexes({
+		tableName,
+		schemaName,
+		db,
+	}: {
+		tableName: string;
+		schemaName?: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<IndexInfoSchemaType[]> {
+		const indexes = await this.connect(db, (conn) =>
+			this.listIndexes(conn, tableName, schemaName),
+		);
+
+		return indexes.map(({ schemaName: _schemaName, ...index }) => index);
+	}
+
+	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		const { tableName, schemaName, columns, method, db } = params;
+		const { indexes } = DATABASE_ENGINES[this.engine];
+
+		await this.connect(db, async (conn) => {
+			const existing = await this.requireTable(conn, tableName, schemaName);
+			const missing = columns.find((column) => !existing.includes(column));
+
+			if (missing !== undefined)
+				throw new HTTPException(400, {
+					message: `Column "${missing}" does not exist in table "${tableName}"`,
+				});
+
+			if (method !== undefined && !indexes.methods.some((offered) => offered === method))
+				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
+			await this.runIndexDdl(conn, this.createIndexSql(params));
+		});
+	}
+
+	async dropIndex({
+		tableName,
+		schemaName,
+		indexName,
+		db,
+	}: DropIndexParamsSchemaType): Promise<void> {
+		await this.connect(db, async (conn) => {
+			const index = (await this.listIndexes(conn, tableName, schemaName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
+
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
+
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
+
+			await this.runIndexDdl(conn, this.dropIndexSql(index, tableName));
+		});
+	}
+
+	private async runIndexDdl(conn: Conn, sql: string) {
+		try {
+			await this.execute(conn, sql);
+		} catch (e) {
+			const answer = e instanceof Error ? this.indexError(e) : undefined;
+
+			if (!answer || !(e instanceof Error)) throw e;
+			throw new HTTPException(answer.status, {
+				message: answer.message ?? e.message,
+				cause: e,
+			});
+		}
+	}
 
 	/** `tableName` as SQL: quoted, and schema-qualified on an engine that has schemas. */
 	protected tableRef(tableName: string, _schemaName?: string): string {

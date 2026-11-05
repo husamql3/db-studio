@@ -232,12 +232,10 @@ describe("MsSqlAdapter.renameTable", () => {
 						const text = String(sql);
 						statements.push(text);
 
-						if (
-							text.includes("INFORMATION_SCHEMA.TABLES") &&
-							text.includes("COUNT(*) as cnt")
-						) {
+						// The column lookup that tells whether a table exists.
+						if (text.includes("INFORMATION_SCHEMA.COLUMNS")) {
 							return {
-								recordset: [{ cnt: existing.includes(params.tableName as string) ? 1 : 0 }],
+								recordset: existing.includes(params.p0 as string) ? [{ name: "id" }] : [],
 								rowsAffected: [0],
 							};
 						}

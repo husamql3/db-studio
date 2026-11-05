@@ -7,7 +7,6 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
-	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -15,7 +14,6 @@ import type {
 	DeleteRecordParams,
 	DeleteTableParams,
 	DeleteTableResult,
-	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
@@ -173,6 +171,7 @@ const FK_ACTIONS_DUCKDB_REJECTS = new Set(["CASCADE", "SET NULL", "SET DEFAULT"]
 
 export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	protected readonly quoteIdentifier = ident;
+	protected readonly engine = "duckdb";
 	protected readonly placeholder = () => "?";
 
 	protected connect<T>(_db: string, work: (conn: DuckDBConnection) => Promise<T>) {
@@ -221,7 +220,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		} = params;
 
 		return connector("duckdb").withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+			await this.requireTable(conn, tableName);
 			const primaryKey = await this.primaryKey(conn, tableName);
 			const terms = orderTerms(sort, order, primaryKey.length ? primaryKey : ["rowid"]);
 			const backward = direction === "desc";
@@ -433,7 +432,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {
 		this.assertDifferentTableName(tableName, newTableName);
 		await connector("duckdb").withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+			await this.requireTable(conn, tableName);
 
 			if ((await this.columns(conn, newTableName)).length)
 				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
@@ -527,12 +526,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		else if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
 		await connector("duckdb").withConnection(async (conn) => {
-			const columns = await this.requireColumns(conn, tableName);
-
-			if (columns.some((c) => c.column_name === columnName))
-				throw new HTTPException(409, {
-					message: `Column "${columnName}" already exists in table "${tableName}"`,
-				});
+			this.assertColumnAbsent(await this.requireTable(conn, tableName), tableName, columnName);
 			// DuckDB rejects constraints inside ADD COLUMN, so NOT NULL is applied afterwards.
 			await inTransaction(conn, async () => {
 				if (sequence) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
@@ -588,12 +582,11 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		newColumnName,
 	}: RenameColumnParamsSchemaType): Promise<void> {
 		await connector("duckdb").withConnection(async (conn) => {
-			const columns = await this.requireColumn(conn, tableName, columnName);
-
-			if (columns.some((c) => c.column_name === newColumnName))
-				throw new HTTPException(409, {
-					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-				});
+			this.assertColumnAbsent(
+				await this.requireColumn(conn, tableName, columnName),
+				tableName,
+				newColumnName,
+			);
 			await conn.run(
 				`ALTER TABLE ${ident(tableName)} RENAME COLUMN ${ident(columnName)} TO ${ident(newColumnName)}`,
 			);
@@ -603,51 +596,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	// =========================================================
 	// Indexes
 	// =========================================================
-
-	async getTableIndexes({ tableName }: { tableName: string }): Promise<IndexInfoSchemaType[]> {
-		return connector("duckdb").withConnection((conn) => this.listIndexes(conn, tableName));
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method } = params;
-		await connector("duckdb").withConnection(async (conn) => {
-			const existing = await this.requireColumns(conn, tableName);
-			const missing = columns.find((c) => !existing.some((e) => e.column_name === c));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (method !== undefined)
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			try {
-				await conn.run(
-					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${ident(indexName)} ON ${ident(tableName)} (${columns.map(ident).join(", ")})`,
-				);
-			} catch (e) {
-				// The name is taken, or existing rows break the new unique index.
-				if (e instanceof Error && /already exists|Data contains duplicates/.test(e.message))
-					throw new HTTPException(409, { message: e.message, cause: e });
-				throw e;
-			}
-		});
-	}
-
-	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
-		await connector("duckdb").withConnection(async (conn) => {
-			// The indexes behind PRIMARY KEY and UNIQUE constraints are never listed, so
-			// everything found here was made by CREATE INDEX and can be dropped.
-			const indexes = await this.listIndexes(conn, tableName);
-
-			if (!indexes.some((index) => index.indexName === indexName))
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-			await conn.run(`DROP INDEX ${ident(indexName)}`);
-		});
-	}
 
 	// =========================================================
 	// Records
@@ -810,32 +758,30 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	): Promise<ColumnRow[]> {
 		const columns = await this.columns(conn, tableName);
 
-		if (!columns.length)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!columns.length) throw this.tableMissing(tableName);
 
 		return columns;
 	}
 
-	private async requireColumn(
-		conn: DuckDBConnection,
-		tableName: string,
-		columnName: string,
-	): Promise<ColumnRow[]> {
-		const columns = await this.requireColumns(conn, tableName);
+	protected async columnNames(conn: DuckDBConnection, tableName: string) {
+		const columns = await this.columns(conn, tableName);
 
-		if (!columns.some((c) => c.column_name === columnName))
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-
-		return columns;
+		return columns.length ? columns.map((c) => c.column_name) : undefined;
 	}
 
-	private async listIndexes(
+	protected override indexError(e: Error) {
+		// The name is taken, or existing rows break the new unique index.
+		return /already exists|Data contains duplicates/.test(e.message)
+			? { status: 409 }
+			: undefined;
+	}
+
+	/** The indexes behind PRIMARY KEY and UNIQUE constraints are not listed: all are droppable. */
+	protected async listIndexes(
 		conn: DuckDBConnection,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		await this.requireColumns(conn, tableName);
+		await this.requireTable(conn, tableName);
 
 		const rows = await query<IndexRow>(
 			conn,

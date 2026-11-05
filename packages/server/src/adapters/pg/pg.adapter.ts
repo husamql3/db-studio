@@ -13,7 +13,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
-	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -23,11 +22,7 @@ import type {
 	ServerLogsResult,
 	TableInfoSchemaType,
 } from "@db-studio/shared/types";
-import {
-	DATABASE_ENGINES,
-	mapPostgresToDataType,
-	standardizeDataTypeLabel,
-} from "@db-studio/shared/types";
+import { mapPostgresToDataType, standardizeDataTypeLabel } from "@db-studio/shared/types";
 import type { DatabaseError, Pool as PgPool, PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
@@ -103,6 +98,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	private databaseSizeSupport = new WeakMap<PgPool, Promise<boolean>>();
 
 	protected readonly quoteIdentifier = quotePgIdent;
+	protected readonly engine = "pg";
 	protected readonly placeholder = pgPlaceholder;
 
 	protected async connect<T>(db: string, work: (conn: PgQueryable) => Promise<T>) {
@@ -452,7 +448,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
 
-		await this.assertTableExists(pool, tableName, schemaName);
+		await this.requireTable(pool, tableName, schemaName);
 
 		const rowCount = await this.getTableRowCount(pool, table);
 
@@ -793,18 +789,12 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 		const pool = await connector("pg").pool(db);
 
-		await this.assertTableExists(pool, tableName, schemaName);
-		const table = qualifiedTable(tableName, schemaName);
-
-		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`,
-			[tableName, columnName, schemaName ?? null],
+		this.assertColumnAbsent(
+			await this.requireTable(pool, tableName, schemaName),
+			tableName,
+			columnName,
 		);
-
-		if (colRows[0]?.exists)
-			throw new HTTPException(409, {
-				message: `Column "${columnName}" already exists in table "${tableName}"`,
-			});
+		const table = qualifiedTable(tableName, schemaName);
 
 		let def = `${quotePgIdent(columnName)} ${columnType}`;
 
@@ -827,18 +817,8 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		const { tableName, schemaName, columnName, cascade, db } = params;
 		const pool = await connector("pg").pool(db);
 
-		await this.assertTableExists(pool, tableName, schemaName);
+		await this.requireColumn(pool, tableName, columnName, schemaName);
 		const table = qualifiedTable(tableName, schemaName);
-
-		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`,
-			[tableName, columnName, schemaName ?? null],
-		);
-
-		if (!colRows[0]?.exists)
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
 
 		const { rowCount } = await pool.query(
 			`ALTER TABLE ${table} DROP COLUMN ${quotePgIdent(columnName)} ${cascade ? "CASCADE" : "RESTRICT"}`,
@@ -853,18 +833,8 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 		const pool = await connector("pg").pool(db);
 
-		await this.assertTableExists(pool, tableName, schemaName);
+		await this.requireColumn(pool, tableName, columnName, schemaName);
 		const table = qualifiedTable(tableName, schemaName);
-
-		const { rows: colRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`,
-			[tableName, columnName, schemaName ?? null],
-		);
-
-		if (!colRows[0]?.exists)
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
 
 		await inTransaction(pool, async (client) => {
 			await client.query(
@@ -890,32 +860,12 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		const { tableName, schemaName, columnName, newColumnName, db } = params;
 		const pool = await connector("pg").pool(db);
 
-		const colExistsQuery = `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 AND table_schema = ${schemaOf("$1", "$3")}) as exists;`;
-
-		await this.assertTableExists(pool, tableName, schemaName);
-		const table = qualifiedTable(tableName, schemaName);
-
-		const { rows: curRows } = await pool.query(colExistsQuery, [
-			tableName,
-			columnName,
-			schemaName ?? null,
-		]);
-
-		if (!curRows[0]?.exists)
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-
-		const { rows: nextRows } = await pool.query(colExistsQuery, [
+		this.assertColumnAbsent(
+			await this.requireColumn(pool, tableName, columnName, schemaName),
 			tableName,
 			newColumnName,
-			schemaName ?? null,
-		]);
-
-		if (nextRows[0]?.exists)
-			throw new HTTPException(409, {
-				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-			});
+		);
+		const table = qualifiedTable(tableName, schemaName);
 
 		await pool.query(
 			`ALTER TABLE ${table} RENAME COLUMN ${quotePgIdent(columnName)} TO ${quotePgIdent(newColumnName)}`,
@@ -993,102 +943,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	}
 
 	// --- Indexes ---
-
-	async getTableIndexes({
-		tableName,
-		schemaName,
-		db,
-	}: {
-		tableName: string;
-		schemaName?: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<IndexInfoSchemaType[]> {
-		const indexes = await this.listIndexes(
-			await connector("pg").pool(db),
-			tableName,
-			schemaName,
-		);
-
-		return indexes.map(({ schemaName: _schemaName, ...index }) => index);
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const {
-			tableName,
-			schemaName,
-			indexName,
-			columns,
-			isUnique,
-			method = "btree",
-			db,
-		} = params;
-
-		try {
-			const pool = await connector("pg").pool(db);
-			await this.assertTableExists(pool, tableName, schemaName);
-
-			const { rows: columnRows } = await pool.query<{ columnName: string }>(
-				`SELECT column_name as "columnName" FROM information_schema.columns WHERE table_name = $1 AND table_schema = ${schemaOf("$1", "$2")}`,
-				[tableName, schemaName ?? null],
-			);
-
-			const existing = new Set(columnRows.map((row) => row.columnName));
-			const missing = columns.find((column) => !existing.has(column));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (!DATABASE_ENGINES.pg.indexes.methods.includes(method))
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			await pool.query(
-				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quotePgIdent(indexName)} ON ${qualifiedTable(tableName, schemaName)} USING ${method} (${columns.map(quotePgIdent).join(", ")})`,
-			);
-		} catch (e) {
-			// 42P07: the name is taken; 23505: existing rows break the new unique index.
-			// 0A000 and 42704: the method cannot index these columns (hash on two columns,
-			// gin on a type with no operator class).
-			const code = (e as { code?: string }).code;
-
-			if (e instanceof Error && (code === "42P07" || code === "23505"))
-				throw new HTTPException(409, { message: e.message, cause: e });
-
-			if (e instanceof Error && (code === "0A000" || code === "42704"))
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw e;
-		}
-	}
-
-	async dropIndex({
-		tableName,
-		schemaName,
-		indexName,
-		db,
-	}: DropIndexParamsSchemaType): Promise<void> {
-		const pool = await connector("pg").pool(db);
-
-		const index = (await this.listIndexes(pool, tableName, schemaName)).find(
-			(candidate) => candidate.indexName === indexName,
-		);
-
-		if (!index)
-			throw new HTTPException(404, {
-				message: `Index "${indexName}" does not exist on table "${tableName}"`,
-			});
-
-		if (index.kind !== "index")
-			throw new HTTPException(400, {
-				message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-			});
-
-		// Qualified, because a bare name would resolve through search_path and could
-		// hit a same-named index that belongs to another schema's table.
-		await pool.query(
-			`DROP INDEX ${quotePgIdent(index.schemaName)}.${quotePgIdent(indexName)}`,
-		);
-	}
 
 	// --- Records ---
 
@@ -1198,26 +1052,60 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return supported;
 	}
 
-	private async assertTableExists(
-		pool: PgPool,
-		tableName: string,
-		schemaName: string | undefined,
-	): Promise<void> {
-		const { rows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = ${schemaOf("$1", "$2")}) as exists;`,
+	/** A table with no columns still has a row here, with a NULL column. */
+	protected async columnNames(conn: PgQueryable, tableName: string, schemaName?: string) {
+		const rows = await this.rows<{ name: string | null }>(
+			conn,
+			`SELECT c.column_name AS name FROM information_schema.tables t
+			 LEFT JOIN information_schema.columns c ON c.table_schema = t.table_schema AND c.table_name = t.table_name
+			 WHERE t.table_name = $1 AND t.table_schema = ${schemaOf("$1", "$2")}
+			 ORDER BY c.ordinal_position`,
 			[tableName, schemaName ?? null],
 		);
 
-		if (!rows[0]?.exists)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		return rows.length
+			? rows.flatMap((row) => (row.name === null ? [] : [row.name]))
+			: undefined;
 	}
 
-	private async listIndexes(
-		pool: PgPool,
+	protected override createIndexSql({
+		tableName,
+		schemaName,
+		indexName,
+		columns,
+		isUnique,
+		method = "btree",
+	}: CreateIndexParamsSchemaType) {
+		return `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quotePgIdent(indexName)} ON ${qualifiedTable(tableName, schemaName)} USING ${method} (${columns.map(quotePgIdent).join(", ")})`;
+	}
+
+	/**
+	 * Qualified, because a bare name would resolve through search_path and could hit a
+	 * same-named index that belongs to another schema's table.
+	 */
+	protected override dropIndexSql(index: IndexInfoSchemaType & { schemaName?: string }) {
+		return `DROP INDEX ${quotePgIdent(index.schemaName ?? "")}.${quotePgIdent(index.indexName)}`;
+	}
+
+	protected override indexError(e: Error) {
+		const code = (e as { code?: string }).code;
+
+		// 42P07: the name is taken; 23505: existing rows break the new unique index.
+		if (code === "42P07" || code === "23505") return { status: 409 };
+
+		// 0A000 and 42704: the method cannot index these columns (hash on two columns, gin on a
+		// type with no operator class).
+		if (code === "0A000" || code === "42704") return { status: 400 };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
+		pool: PgQueryable,
 		tableName: string,
 		schemaName: string | undefined,
 	): Promise<Array<IndexInfoSchemaType & { schemaName: string }>> {
-		await this.assertTableExists(pool, tableName, schemaName);
+		await this.requireTable(pool, tableName, schemaName);
 
 		const { rows } = await pool.query(
 			`SELECT

@@ -78,7 +78,10 @@ describe("PgAdapter schema resolution", () => {
 			} as never)
 			.catch(() => {});
 
-		const colCheck = statements.find((s) => s.includes("column_name = $2"));
+		const colCheck = statements.find((s) =>
+			s.includes("LEFT JOIN information_schema.columns"),
+		);
+
 		expect(colCheck).toBeDefined();
 		expect(colCheck).not.toContain("ANY(current_schemas(false))");
 		expect(colCheck).toContain("unnest(current_schemas(false))");

@@ -41,6 +41,16 @@ class HarnessAdapter extends SqlAdapter<null> {
 		return false;
 	}
 
+	protected readonly engine = "pg";
+
+	protected async columnNames() {
+		return undefined;
+	}
+
+	protected async listIndexes() {
+		return [];
+	}
+
 	getTableData(): never {
 		throw new Error("not used");
 	}

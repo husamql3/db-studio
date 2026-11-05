@@ -6,14 +6,12 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
-	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
-	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -109,6 +107,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}
 
 	protected readonly quoteIdentifier = quoteMysqlIdent;
+	protected readonly engine = "mysql";
 	protected readonly placeholder = () => "?";
 
 	protected async connect<T>(db: string, work: (conn: Connection) => Promise<T>) {
@@ -364,14 +363,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		const { tableName, db, cascade } = params;
 		const pool = await connector("mysql").pool(db);
 
-		const [tableRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-			[tableName],
-		);
-
-		if (Number((tableRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
+		await this.requireTable(pool, tableName);
 
 		const rowCount = await this.getTableRowCount(pool, tableName);
 
@@ -427,14 +419,9 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		this.assertDifferentTableName(tableName, newTableName);
 		const pool = await connector("mysql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
+		await this.requireTable(pool, tableName);
 
-		const [targetRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-			[newTableName],
-		);
-
-		if (Number((targetRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
+		if (await this.columnNames(pool, newTableName)) {
 			throw new HTTPException(409, {
 				message: `Table "${newTableName}" already exists`,
 			});
@@ -454,14 +441,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}): Promise<string> {
 		const pool = await connector("mysql").pool(db);
 
-		const [tableRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-			[tableName],
-		);
-
-		if (Number((tableRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
+		await this.requireTable(pool, tableName);
 
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SHOW CREATE TABLE ${quoteMysqlIdent(tableName)}`,
@@ -583,18 +563,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		const pool = await connector("mysql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-
-		const [colRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
-			[tableName, columnName],
-		);
-
-		if (Number((colRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
-			throw new HTTPException(409, {
-				message: `Column "${columnName}" already exists in table "${tableName}"`,
-			});
-		}
+		this.assertColumnAbsent(await this.requireTable(pool, tableName), tableName, columnName);
 
 		const colDef = buildMysqlColumnDefinition(
 			{
@@ -619,8 +588,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		const { tableName, columnName, db } = params;
 		const pool = await connector("mysql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
+		await this.requireColumn(pool, tableName, columnName);
 
 		const [result] = await pool.execute<ResultSetHeader>(
 			`ALTER TABLE ${quoteMysqlIdent(tableName)} DROP COLUMN ${quoteMysqlIdent(columnName)}`,
@@ -633,7 +601,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
 		const pool = await connector("mysql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
+		await this.requireTable(pool, tableName);
 
 		const [colRows] = await pool.execute<RowDataPacket[]>(
 			`SELECT EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
@@ -662,19 +630,11 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		const { tableName, columnName, newColumnName, db } = params;
 		const pool = await connector("mysql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
-
-		const [newColRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
-			[tableName, newColumnName],
+		this.assertColumnAbsent(
+			await this.requireColumn(pool, tableName, columnName),
+			tableName,
+			newColumnName,
 		);
-
-		if (Number((newColRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
-			throw new HTTPException(409, {
-				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-			});
-		}
 
 		await pool.execute<ResultSetHeader>(
 			`ALTER TABLE ${quoteMysqlIdent(tableName)} RENAME COLUMN ${quoteMysqlIdent(columnName)} TO ${quoteMysqlIdent(newColumnName)}`,
@@ -729,82 +689,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}
 
 	// --- Indexes ---
-
-	async getTableIndexes({
-		tableName,
-		db,
-	}: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<IndexInfoSchemaType[]> {
-		return await this.listIndexes(await connector("mysql").pool(db), tableName);
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method, db } = params;
-
-		try {
-			const pool = await connector("mysql").pool(db);
-			await this.assertTableExists(pool, tableName);
-
-			const [columnRows] = await pool.execute<RowDataPacket[]>(
-				`SELECT COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-				[tableName],
-			);
-
-			const existing = new Set(columnRows.map((row) => String(row.columnName)));
-			const missing = columns.find((column) => !existing.has(column));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (method !== undefined)
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			await pool.query(
-				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteMysqlIdent(indexName)} ON ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")})`,
-			);
-		} catch (e) {
-			const errno = (e as { errno?: number }).errno;
-
-			if (e instanceof Error && (errno === MYSQL_DUP_KEYNAME || errno === MYSQL_DUP_ENTRY))
-				throw new HTTPException(409, { message: e.message, cause: e });
-
-			if (e instanceof Error && errno !== undefined && MYSQL_CANNOT_INDEX.has(errno))
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw e;
-		}
-	}
-
-	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
-		try {
-			const pool = await connector("mysql").pool(db);
-
-			const index = (await this.listIndexes(pool, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
-
-			await pool.query(
-				`DROP INDEX ${quoteMysqlIdent(indexName)} ON ${quoteMysqlIdent(tableName)}`,
-			);
-		} catch (e) {
-			if (e instanceof Error && (e as { errno?: number }).errno === MYSQL_DROP_INDEX_FK)
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw e;
-		}
-	}
 
 	// --- Records ---
 
@@ -1048,11 +932,39 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
 	}
 
-	private async listIndexes(
-		pool: MysqlPool,
+	protected async columnNames(conn: Connection, tableName: string) {
+		const rows = await this.rows<{ name: string }>(
+			conn,
+			"SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+			[tableName],
+		);
+
+		return rows.length ? rows.map((row) => row.name) : undefined;
+	}
+
+	protected override dropIndexSql(index: IndexInfoSchemaType, tableName: string) {
+		return `DROP INDEX ${quoteMysqlIdent(index.indexName)} ON ${quoteMysqlIdent(tableName)}`;
+	}
+
+	protected override indexError(e: Error) {
+		const { errno } = e as { errno?: number };
+
+		if (errno === MYSQL_DUP_KEYNAME || errno === MYSQL_DUP_ENTRY) return { status: 409 };
+
+		if (
+			errno === MYSQL_DROP_INDEX_FK ||
+			(errno !== undefined && MYSQL_CANNOT_INDEX.has(errno))
+		)
+			return { status: 400 };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
+		pool: Connection,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		await this.assertTableExists(pool, tableName);
+		await this.requireTable(pool, tableName);
 
 		// SELECT *, because EXPRESSION (a functional key part) exists only on MySQL 8.0.13+ and TiDB.
 		const [rows] = await pool.execute<RowDataPacket[]>(
@@ -1115,34 +1027,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 					Number(b.kind === "primary") - Number(a.kind === "primary") ||
 					(a.indexName < b.indexName ? -1 : 1),
 			);
-	}
-
-	private async assertTableExists(pool: MysqlPool, tableName: string): Promise<void> {
-		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-			[tableName],
-		);
-
-		if (Number((rows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
-	}
-
-	private async assertColumnExists(
-		pool: MysqlPool,
-		tableName: string,
-		columnName: string,
-	): Promise<void> {
-		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
-			[tableName, columnName],
-		);
-
-		if (Number((rows as Array<{ cnt: number }>)[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
 	}
 
 	private parseMysqlEnumValues(columnType: string): string[] | null {

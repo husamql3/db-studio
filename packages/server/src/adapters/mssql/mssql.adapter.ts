@@ -13,7 +13,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
-	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -107,6 +106,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}
 
 	protected readonly quoteIdentifier = quoteMssqlIdent;
+	protected readonly engine = "mssql";
 	protected readonly placeholder = mssqlPlaceholder;
 
 	protected async connect<T>(db: string, work: (conn: MssqlConn) => Promise<T>) {
@@ -381,14 +381,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		const { tableName, db, cascade } = params;
 		const pool = await connector("mssql").pool(db);
 
-		const tableCheck = await pool.request().input("tableName", tableName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(tableCheck.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
+		await this.requireTable(pool, tableName);
 
 		const rowCount = await this.getTableRowCount(tableName, db);
 
@@ -437,14 +430,9 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		this.assertDifferentTableName(tableName, newTableName);
 		const pool = await connector("mssql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
+		await this.requireTable(pool, tableName);
 
-		const targetCheck = await pool.request().input("tableName", newTableName).query(`
-					SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-				`);
-
-		if (Number(targetCheck.recordset[0]?.cnt ?? 0) > 0) {
+		if (await this.columnNames(pool, newTableName)) {
 			throw new HTTPException(409, {
 				message: `Table "${newTableName}" already exists`,
 			});
@@ -467,14 +455,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}): Promise<string> {
 		const pool = await connector("mssql").pool(db);
 
-		const tableCheck = await pool.request().input("tableName", tableName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(tableCheck.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
+		await this.requireTable(pool, tableName);
 
 		const schemaResult = await pool.request().input("tableName", tableName).query(`
 				SELECT
@@ -667,21 +648,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 		const pool = await connector("mssql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-
-		const colCheck = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", columnName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND COLUMN_NAME = @columnName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(colCheck.recordset[0]?.cnt ?? 0) > 0) {
-			throw new HTTPException(409, {
-				message: `Column "${columnName}" already exists in table "${tableName}"`,
-			});
-		}
+		this.assertColumnAbsent(await this.requireTable(pool, tableName), tableName, columnName);
 
 		const colDef = buildMssqlColumnDefinition(
 			{ columnName, columnType, defaultValue, isPrimaryKey, isNullable, isUnique, isIdentity },
@@ -695,8 +662,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		const { tableName, columnName, db } = params;
 		const pool = await connector("mssql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
+		await this.requireColumn(pool, tableName, columnName);
 
 		const result = await pool
 			.request()
@@ -711,8 +677,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
 		const pool = await connector("mssql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
+		await this.requireColumn(pool, tableName, columnName);
 
 		const defaultConstraintResult = await pool
 			.request()
@@ -757,22 +722,11 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		const { tableName, columnName, newColumnName, db } = params;
 		const pool = await connector("mssql").pool(db);
 
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
-
-		const newColCheck = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", newColumnName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND COLUMN_NAME = @columnName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(newColCheck.recordset[0]?.cnt ?? 0) > 0) {
-			throw new HTTPException(409, {
-				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-			});
-		}
+		this.assertColumnAbsent(
+			await this.requireColumn(pool, tableName, columnName),
+			tableName,
+			newColumnName,
+		);
 
 		// sp_rename parses the old name, so its parts are quoted; the new name is taken as written.
 		await pool
@@ -848,88 +802,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}
 
 	// --- Indexes ---
-
-	async getTableIndexes({
-		tableName,
-		db,
-	}: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<IndexInfoSchemaType[]> {
-		return await this.listIndexes(await connector("mssql").pool(db), tableName);
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method, db } = params;
-
-		try {
-			const pool = await connector("mssql").pool(db);
-			await this.assertTableExists(pool, tableName);
-
-			const columnRows = await pool.request().input("tableName", tableName).query<{
-				columnName: string;
-			}>(`
-					SELECT COLUMN_NAME AS columnName FROM INFORMATION_SCHEMA.COLUMNS
-					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-				`);
-
-			const existing = new Set(columnRows.recordset.map((row) => row.columnName));
-			const missing = columns.find((column) => !existing.has(column));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (method !== undefined)
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			await pool
-				.request()
-				.query(
-					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteMssqlIdent(indexName)} ON [dbo].${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")})`,
-				);
-		} catch (e) {
-			const number = (e as { number?: number }).number;
-
-			if (e instanceof Error && (number === MSSQL_DUP_INDEX_NAME || number === MSSQL_DUP_KEY))
-				throw new HTTPException(409, { message: e.message, cause: e });
-
-			if (e instanceof Error && number !== undefined && MSSQL_CANNOT_INDEX.has(number))
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw e;
-		}
-	}
-
-	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
-		try {
-			const pool = await connector("mssql").pool(db);
-
-			const index = (await this.listIndexes(pool, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
-
-			await pool
-				.request()
-				.query(
-					`DROP INDEX ${quoteMssqlIdent(indexName)} ON [dbo].${quoteMssqlIdent(tableName)}`,
-				);
-		} catch (e) {
-			if (e instanceof Error && (e as { number?: number }).number === MSSQL_INDEX_IN_USE)
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw e;
-		}
-	}
 
 	// --- Records ---
 
@@ -1179,11 +1051,50 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
 	}
 
-	private async listIndexes(
-		pool: MssqlPool,
+	protected async columnNames(conn: MssqlConn, tableName: string) {
+		const rows = await this.rows<{ name: string }>(
+			conn,
+			`SELECT COLUMN_NAME AS name FROM INFORMATION_SCHEMA.COLUMNS
+			WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @p0 AND TABLE_SCHEMA = 'dbo'
+			ORDER BY ORDINAL_POSITION`,
+			[tableName],
+		);
+
+		return rows.length ? rows.map((row) => row.name) : undefined;
+	}
+
+	protected override createIndexSql({
+		tableName,
+		indexName,
+		columns,
+		isUnique,
+	}: CreateIndexParamsSchemaType) {
+		return `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteMssqlIdent(indexName)} ON [dbo].${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")})`;
+	}
+
+	protected override dropIndexSql(index: IndexInfoSchemaType, tableName: string) {
+		return `DROP INDEX ${quoteMssqlIdent(index.indexName)} ON [dbo].${quoteMssqlIdent(tableName)}`;
+	}
+
+	protected override indexError(e: Error) {
+		const { number } = e as { number?: number };
+
+		if (number === MSSQL_DUP_INDEX_NAME || number === MSSQL_DUP_KEY) return { status: 409 };
+
+		if (
+			number === MSSQL_INDEX_IN_USE ||
+			(number !== undefined && MSSQL_CANNOT_INDEX.has(number))
+		)
+			return { status: 400 };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
+		pool: MssqlConn,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		await this.assertTableExists(pool, tableName);
+		await this.requireTable(pool, tableName);
 
 		// type 0 is the heap, which is the table itself rather than an index.
 		const result = await pool.request().input("tableName", tableName).query<IndexColumnRow>(`
@@ -1252,37 +1163,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 					? null
 					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quoteMssqlIdent(row.indexName)} ON ${quoteMssqlIdent(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
 		}));
-	}
-
-	private async assertTableExists(pool: MssqlPool, tableName: string): Promise<void> {
-		const result = await pool.request().input("tableName", tableName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(result.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
-	}
-
-	private async assertColumnExists(
-		pool: MssqlPool,
-		tableName: string,
-		columnName: string,
-	): Promise<void> {
-		const result = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", columnName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND COLUMN_NAME = @columnName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(result.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
 	}
 
 	private parseCheckConstraintValues(checkClause: string): string[] | null {

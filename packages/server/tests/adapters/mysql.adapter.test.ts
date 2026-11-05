@@ -223,8 +223,9 @@ describe("MySqlAdapter.renameTable", () => {
 				const text = String(sql);
 				statements.push(text);
 
-				if (text.includes("information_schema.TABLES") && text.includes("COUNT(*) as cnt")) {
-					return rows([{ cnt: existing.includes(values?.[0] as string) ? 1 : 0 }]);
+				// The column lookup that tells whether a table exists.
+				if (text.includes("information_schema.COLUMNS")) {
+					return rows(existing.includes(values?.[0] as string) ? [{ name: "id" }] : []);
 				}
 
 				return ok(1);

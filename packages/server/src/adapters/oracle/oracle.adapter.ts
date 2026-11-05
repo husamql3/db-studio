@@ -6,7 +6,6 @@ import type {
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
-	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
@@ -15,7 +14,6 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
-	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
@@ -250,6 +248,7 @@ const ORACLE_LOG_LEVELS: Record<number, ServerLogLevel> = {
 
 export class OracleAdapter extends SqlAdapter<Connection> {
 	protected readonly quoteIdentifier = ident;
+	protected readonly engine = "oracle";
 	protected readonly placeholder = oraclePlaceholder;
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
@@ -538,7 +537,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
 		return this.withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+			await this.requireTable(conn, tableName);
 
 			const referencing = (await this.foreignKeys(conn, "referenced", tableName)).filter(
 				(fk) => fk.table !== tableName,
@@ -568,7 +567,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {
 		this.assertDifferentTableName(tableName, newTableName);
 		await this.withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+			await this.requireTable(conn, tableName);
 
 			if ((await this.columns(conn, newTableName)).length)
 				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
@@ -578,7 +577,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 	async getTableSchema({ tableName }: { tableName: string }): Promise<string> {
 		return this.withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+			await this.requireTable(conn, tableName);
 			await conn.execute(
 				`BEGIN
 					DBMS_METADATA.SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM, 'SEGMENT_ATTRIBUTES', FALSE);
@@ -651,12 +650,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName } = params;
 		await this.withConnection(async (conn) => {
-			const columns = await this.requireColumns(conn, tableName);
-
-			if (columns.some((c) => c.COLUMN_NAME === columnName))
-				throw new HTTPException(409, {
-					message: `Column "${columnName}" already exists in table "${tableName}"`,
-				});
+			this.assertColumnAbsent(await this.requireTable(conn, tableName), tableName, columnName);
 
 			const definition = this.columnDefinition(params, {
 				withConstraints: true,
@@ -689,7 +683,9 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		await this.withConnection(async (conn) => {
 			const native = supportsNativeTypes(conn);
 
-			const column = (await this.requireColumn(conn, tableName, columnName)).find(
+			await this.requireColumn(conn, tableName, columnName);
+
+			const column = (await this.columns(conn, tableName)).find(
 				(c) => c.COLUMN_NAME === columnName,
 			);
 
@@ -712,12 +708,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		newColumnName,
 	}: RenameColumnParamsSchemaType): Promise<void> {
 		await this.withConnection(async (conn) => {
-			const columns = await this.requireColumn(conn, tableName, columnName);
-
-			if (columns.some((c) => c.COLUMN_NAME === newColumnName))
-				throw new HTTPException(409, {
-					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-				});
+			this.assertColumnAbsent(
+				await this.requireColumn(conn, tableName, columnName),
+				tableName,
+				newColumnName,
+			);
 			await conn.execute(
 				`ALTER TABLE ${ident(tableName)} RENAME COLUMN ${ident(columnName)} TO ${ident(newColumnName)}`,
 			);
@@ -777,65 +772,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	// =========================================================
 	// Indexes
 	// =========================================================
-
-	async getTableIndexes({ tableName }: { tableName: string }): Promise<IndexInfoSchemaType[]> {
-		return this.withConnection((conn) => this.listIndexes(conn, tableName));
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method } = params;
-		await this.withConnection(async (conn) => {
-			const existing = await this.requireColumns(conn, tableName);
-			const missing = columns.find((c) => !existing.some((e) => e.COLUMN_NAME === c));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (method !== undefined)
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			const sql = `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${ident(indexName)} ON ${ident(tableName)} (${columns.map((c) => ident(c)).join(", ")})`;
-
-			try {
-				await conn.execute(sql);
-			} catch (e) {
-				if (startsWithAny(e, INDEX_CONFLICTS))
-					throw new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
-
-				if (startsWithAny(e, CANNOT_INDEX))
-					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
-				throw e;
-			}
-		});
-	}
-
-	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
-		await this.withConnection(async (conn) => {
-			const index = (await this.listIndexes(conn, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
-
-			try {
-				await conn.execute(`DROP INDEX ${ident(indexName)}`);
-			} catch (e) {
-				if (startsWithAny(e, [INDEX_IN_USE]))
-					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
-				throw e;
-			}
-		});
-	}
 
 	// =========================================================
 	// Records
@@ -1194,32 +1130,33 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	private async requireColumns(conn: Connection, tableName: string): Promise<ColumnRow[]> {
 		const columns = await this.columns(conn, tableName);
 
-		if (!columns.length)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!columns.length) throw this.tableMissing(tableName);
 
 		return columns;
 	}
 
-	private async requireColumn(
-		conn: Connection,
-		tableName: string,
-		columnName: string,
-	): Promise<ColumnRow[]> {
-		const columns = await this.requireColumns(conn, tableName);
+	protected async columnNames(conn: Connection, tableName: string) {
+		const columns = await this.columns(conn, tableName);
 
-		if (!columns.some((c) => c.COLUMN_NAME === columnName))
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-
-		return columns;
+		return columns.length ? columns.map((c) => c.COLUMN_NAME) : undefined;
 	}
 
-	private async listIndexes(
+	protected override indexError(e: Error) {
+		const firstLine = e.message.split("\n")[0];
+
+		if (startsWithAny(e, INDEX_CONFLICTS)) return { status: 409, message: firstLine };
+
+		if (startsWithAny(e, [...CANNOT_INDEX, INDEX_IN_USE]))
+			return { status: 400, message: firstLine };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
 		conn: Connection,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		await this.requireColumns(conn, tableName);
+		await this.requireTable(conn, tableName);
 
 		// LOB indexes are the storage of a CLOB, BLOB or JSON column: Oracle creates them with
 		// the column and refuses to drop them, so they are not listed.

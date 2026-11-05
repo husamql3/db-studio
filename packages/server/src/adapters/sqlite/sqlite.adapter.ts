@@ -190,6 +190,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	protected readonly quoteIdentifier = quoteSqliteIdent;
+	protected readonly engine = "sqlite";
 	protected readonly placeholder = () => "?";
 
 	protected async connect<T>(_db: string, work: (client: SqliteClient) => Promise<T>) {
@@ -383,8 +384,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		const { tableName, cascade } = params;
 		const client = await connector("sqlite").client();
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.requireTable(client, tableName);
 
 		const [countRow] = await all<{ count: number }>(
 			client,
@@ -429,10 +429,9 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		this.assertDifferentTableName(tableName, newTableName);
 		const client = await connector("sqlite").client();
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.requireTable(client, tableName);
 
-		if (await this.tableExists(client, newTableName))
+		if (await this.columnNames(client, newTableName))
 			throw new HTTPException(409, {
 				message: `Table "${newTableName}" already exists`,
 			});
@@ -476,8 +475,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}): Promise<ColumnInfoSchemaType[]> {
 		const client = await connector("sqlite").client();
 
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.requireTable(client, tableName);
 
 		const columns = await all<TableInfoRow>(
 			client,
@@ -523,19 +521,11 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 			const client = await connector("sqlite").client();
 
-			if (!(await this.tableExists(client, tableName)))
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-
-			const colInfo = await all<TableInfoRow>(
-				client,
-				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
+			this.assertColumnAbsent(
+				await this.requireTable(client, tableName),
+				tableName,
+				columnName,
 			);
-
-			if (colInfo.some((c) => c.name === columnName)) {
-				throw new HTTPException(409, {
-					message: `Column "${columnName}" already exists in table "${tableName}"`,
-				});
-			}
 
 			let def = `${quoteSqliteIdent(columnName)} ${columnType}`;
 
@@ -556,19 +546,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			const { tableName, columnName, db } = params;
 			const client = await connector("sqlite").client();
 
-			if (!(await this.tableExists(client, tableName)))
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-
-			const colInfo = await all<TableInfoRow>(
-				client,
-				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
-			);
-
-			if (!colInfo.some((c) => c.name === columnName)) {
-				throw new HTTPException(404, {
-					message: `Column "${columnName}" does not exist in table "${tableName}"`,
-				});
-			}
+			await this.requireColumn(client, tableName, columnName);
 
 			await client.execute(
 				`ALTER TABLE ${quoteSqliteIdent(tableName)} DROP COLUMN ${quoteSqliteIdent(columnName)}`,
@@ -585,8 +563,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
 			const client = await connector("sqlite").client();
 
-			if (!(await this.tableExists(client, tableName)))
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			await this.requireColumn(client, tableName, columnName);
 
 			const colInfo = await all<TableInfoRow>(
 				client,
@@ -594,12 +571,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			);
 
 			const target = colInfo.find((c) => c.name === columnName);
-
-			if (!target) {
-				throw new HTTPException(404, {
-					message: `Column "${columnName}" does not exist in table "${tableName}"`,
-				});
-			}
 
 			// SQLite has no ALTER COLUMN, so the table is recreated from its own CREATE TABLE.
 			// Rebuilding it from PRAGMA output instead would drop UNIQUE, CHECK, COLLATE,
@@ -614,7 +585,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 			const createTemp = recreateTableWithColumn(table?.sql ?? "", tempName, columnName, {
 				type: columnType,
-				notNull: !isNullable && !target.pk,
+				notNull: !isNullable && !target?.pk,
 				defaultValue: defaultValue?.trim() || null,
 			});
 
@@ -678,25 +649,11 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			const { tableName, columnName, newColumnName, db } = params;
 			const client = await connector("sqlite").client();
 
-			if (!(await this.tableExists(client, tableName)))
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-
-			const colInfo = await all<TableInfoRow>(
-				client,
-				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
+			this.assertColumnAbsent(
+				await this.requireColumn(client, tableName, columnName),
+				tableName,
+				newColumnName,
 			);
-
-			if (!colInfo.some((c) => c.name === columnName)) {
-				throw new HTTPException(404, {
-					message: `Column "${columnName}" does not exist in table "${tableName}"`,
-				});
-			}
-
-			if (colInfo.some((c) => c.name === newColumnName)) {
-				throw new HTTPException(409, {
-					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-				});
-			}
 
 			await client.execute(
 				`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME COLUMN ${quoteSqliteIdent(columnName)} TO ${quoteSqliteIdent(newColumnName)}`,
@@ -709,81 +666,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// =========================================================
 	// IDbAdapter — Indexes
 	// =========================================================
-
-	async getTableIndexes({
-		tableName,
-	}: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<IndexInfoSchemaType[]> {
-		return await this.listIndexes(await connector("sqlite").client(), tableName);
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		// Serialized with column changes: alterColumn rebuilds the table from the indexes it read.
-		return this.serializeSchemaChange(async () => {
-			const { tableName, indexName, columns, isUnique, method } = params;
-
-			try {
-				const client = await connector("sqlite").client();
-
-				if (!(await this.tableExists(client, tableName)))
-					throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-
-				const colInfo = await all<TableInfoRow>(
-					client,
-					`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
-				);
-
-				const missing = columns.find((column) => !colInfo.some((c) => c.name === column));
-
-				if (missing !== undefined)
-					throw new HTTPException(400, {
-						message: `Column "${missing}" does not exist in table "${tableName}"`,
-					});
-
-				if (method !== undefined)
-					throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-				await client.execute(
-					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteSqliteIdent(indexName)} ON ${quoteSqliteIdent(tableName)} (${columns.map(quoteSqliteIdent).join(", ")})`,
-				);
-			} catch (e) {
-				// Indexes share one namespace with tables, so either can already hold the name.
-				if (
-					e instanceof Error &&
-					/already exists|there is already|UNIQUE constraint failed/.test(e.message)
-				)
-					throw new HTTPException(409, { message: e.message, cause: e });
-
-				if (e instanceof Error && e.message.includes("reserved for internal use"))
-					throw new HTTPException(400, { message: e.message, cause: e });
-				throw e;
-			}
-		});
-	}
-
-	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
-		return this.serializeSchemaChange(async () => {
-			const client = await connector("sqlite").client();
-
-			const index = (await this.listIndexes(client, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
-
-			await client.execute(`DROP INDEX ${quoteSqliteIdent(indexName)}`);
-		});
-	}
 
 	// =========================================================
 	// IDbAdapter — Records
@@ -1018,22 +900,40 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// Private helpers
 	// =========================================================
 
-	private async tableExists(client: SqliteClient, tableName: string): Promise<boolean> {
-		const rows = await all(
+	protected async columnNames(client: SqliteClient, tableName: string) {
+		const rows = await all<{ name: string }>(
 			client,
-			`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+			"SELECT c.name FROM sqlite_master m JOIN pragma_table_info(m.name) c WHERE m.type = 'table' AND m.name = ? ORDER BY c.cid",
 			[tableName],
 		);
 
-		return rows.length > 0;
+		return rows.length ? rows.map((row) => row.name) : undefined;
 	}
 
-	private async listIndexes(
+	// Serialized with column changes: alterColumn rebuilds the table from the indexes it read.
+	override createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
+		return this.serializeSchemaChange(() => super.createIndex(params));
+	}
+
+	override dropIndex(params: DropIndexParamsSchemaType): Promise<void> {
+		return this.serializeSchemaChange(() => super.dropIndex(params));
+	}
+
+	protected override indexError(e: Error) {
+		// Indexes share one namespace with tables, so either can already hold the name.
+		if (/already exists|there is already|UNIQUE constraint failed/.test(e.message))
+			return { status: 409 };
+
+		if (e.message.includes("reserved for internal use")) return { status: 400 };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
 		client: SqliteClient,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		if (!(await this.tableExists(client, tableName)))
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		await this.requireTable(client, tableName);
 
 		// A rowid table's INTEGER PRIMARY KEY is the rowid itself, so it has no index to list.
 		const rows = await all<IndexKeyRow>(
