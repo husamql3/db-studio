@@ -56,6 +56,7 @@ import {
 	buildWhereClause,
 	type OrderTerm,
 	qualifiedTable,
+	quotePgIdent,
 	schemaOf,
 } from "./pg.query-builder.js";
 
@@ -117,10 +118,6 @@ export class PgAdapter extends BaseAdapter {
 		const status = STATUS_BY_SQLSTATE_CLASS[e.code?.slice(0, 2) ?? ""];
 
 		return status ? { status } : undefined;
-	}
-
-	private quoteIdentifier(name: string): string {
-		return `"${name.replaceAll('"', '""')}"`;
 	}
 
 	override async getTableData(params: GetTableDataParams) {
@@ -186,10 +183,7 @@ export class PgAdapter extends BaseAdapter {
 		// cannot shadow a user column.
 		const usesCtid = cursorColumns.includes("ctid");
 
-		const extraSelect = [
-			...pkColumns.map((col) => this.quoteIdentifier(col)),
-			...(usesCtid ? ["ctid"] : []),
-		];
+		const extraSelect = [...pkColumns.map(quotePgIdent), ...(usesCtid ? ["ctid"] : [])];
 
 		const limitParamIndex = filterValues.length + cursorValues.length + 1;
 
@@ -361,7 +355,6 @@ export class PgAdapter extends BaseAdapter {
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const pool = await connector("pg").pool(db);
-		const escapeChar = (s: string) => s.replaceAll('"', '""');
 
 		// reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
 		// before PostgreSQL 14) for a table never analyzed.
@@ -396,7 +389,7 @@ export class PgAdapter extends BaseAdapter {
 		const countSelects: string[][] = Array.from({ length: COUNT_STATEMENTS }, () => []);
 		counted.forEach((t, position) => {
 			countSelects[position % COUNT_STATEMENTS]?.push(
-				`SELECT ${t.index} AS index, COUNT(*) AS count FROM "${escapeChar(t.schemaName)}"."${escapeChar(t.tableName)}"`,
+				`SELECT ${t.index} AS index, COUNT(*) AS count FROM ${quotePgIdent(t.schemaName)}.${quotePgIdent(t.tableName)}`,
 			);
 		});
 
@@ -439,7 +432,7 @@ export class PgAdapter extends BaseAdapter {
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 
 		const columnDefs = fields.map((field: FieldDataType) => {
-			let def = `"${field.columnName}" ${field.columnType}`;
+			let def = `${quotePgIdent(field.columnName)} ${field.columnType}`;
 
 			if (field.isArray) def += "[]";
 
@@ -457,17 +450,17 @@ export class PgAdapter extends BaseAdapter {
 		});
 
 		if (primaryKey.length > 1)
-			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map(quotePgIdent).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map((fk: ForeignKeyDataType) => {
 				const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
 
-				return `CONSTRAINT "${name}" FOREIGN KEY ("${fk.columnName}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
+				return `CONSTRAINT ${quotePgIdent(name)} FOREIGN KEY (${quotePgIdent(fk.columnName)}) REFERENCES ${quotePgIdent(fk.referencedTable)} (${quotePgIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
 			}) ?? [];
 
 		await pool.query(
-			`CREATE TABLE "${tableName}" (\n\t\t\t\t${[...columnDefs, ...fkDefs].join(",\n\t\t\t\t")}\n\t\t\t);`,
+			`CREATE TABLE ${quotePgIdent(tableName)} (\n\t\t\t\t${[...columnDefs, ...fkDefs].join(",\n\t\t\t\t")}\n\t\t\t);`,
 		);
 	}
 
@@ -550,7 +543,7 @@ export class PgAdapter extends BaseAdapter {
 			});
 
 		await pool.query(
-			`ALTER TABLE "${schemaName.replaceAll('"', '""')}"."${tableName.replaceAll('"', '""')}" RENAME TO "${newTableName.replaceAll('"', '""')}"`,
+			`ALTER TABLE ${quotePgIdent(schemaName)}.${quotePgIdent(tableName)} RENAME TO ${quotePgIdent(newTableName)}`,
 		);
 	}
 
@@ -830,7 +823,7 @@ export class PgAdapter extends BaseAdapter {
 				message: `Column "${columnName}" already exists in table "${tableName}"`,
 			});
 
-		let def = `"${columnName}" ${columnType}`;
+		let def = `${quotePgIdent(columnName)} ${columnType}`;
 
 		if (isArray) def += "[]";
 
@@ -865,7 +858,7 @@ export class PgAdapter extends BaseAdapter {
 			});
 
 		const { rowCount } = await pool.query(
-			`ALTER TABLE ${table} DROP COLUMN "${columnName}" ${cascade ? "CASCADE" : "RESTRICT"}`,
+			`ALTER TABLE ${table} DROP COLUMN ${quotePgIdent(columnName)} ${cascade ? "CASCADE" : "RESTRICT"}`,
 		);
 
 		return { deletedCount: rowCount ?? 0 };
@@ -892,18 +885,20 @@ export class PgAdapter extends BaseAdapter {
 
 		await inTransaction(pool, async (client) => {
 			await client.query(
-				`ALTER TABLE ${table} ALTER COLUMN "${columnName}" TYPE ${columnType}`,
+				`ALTER TABLE ${table} ALTER COLUMN ${quotePgIdent(columnName)} TYPE ${columnType}`,
 			);
 			await client.query(
-				`ALTER TABLE ${table} ALTER COLUMN "${columnName}" ${isNullable ? "DROP" : "SET"} NOT NULL`,
+				`ALTER TABLE ${table} ALTER COLUMN ${quotePgIdent(columnName)} ${isNullable ? "DROP" : "SET"} NOT NULL`,
 			);
 
 			if (defaultValue?.trim()) {
 				await client.query(
-					`ALTER TABLE ${table} ALTER COLUMN "${columnName}" SET DEFAULT ${defaultValue.trim()}`,
+					`ALTER TABLE ${table} ALTER COLUMN ${quotePgIdent(columnName)} SET DEFAULT ${defaultValue.trim()}`,
 				);
 			} else {
-				await client.query(`ALTER TABLE ${table} ALTER COLUMN "${columnName}" DROP DEFAULT`);
+				await client.query(
+					`ALTER TABLE ${table} ALTER COLUMN ${quotePgIdent(columnName)} DROP DEFAULT`,
+				);
 			}
 		});
 	}
@@ -940,7 +935,7 @@ export class PgAdapter extends BaseAdapter {
 			});
 
 		await pool.query(
-			`ALTER TABLE ${table} RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
+			`ALTER TABLE ${table} RENAME COLUMN ${quotePgIdent(columnName)} TO ${quotePgIdent(newColumnName)}`,
 		);
 	}
 
@@ -1066,7 +1061,7 @@ export class PgAdapter extends BaseAdapter {
 				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
 
 			await pool.query(
-				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${qualifiedTable(tableName, schemaName)} USING ${method} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
+				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quotePgIdent(indexName)} ON ${qualifiedTable(tableName, schemaName)} USING ${method} (${columns.map(quotePgIdent).join(", ")})`,
 			);
 		} catch (e) {
 			// 42P07: the name is taken; 23505: existing rows break the new unique index.
@@ -1108,7 +1103,7 @@ export class PgAdapter extends BaseAdapter {
 		// Qualified, because a bare name would resolve through search_path and could
 		// hit a same-named index that belongs to another schema's table.
 		await pool.query(
-			`DROP INDEX ${this.quoteIdentifier(index.schemaName)}.${this.quoteIdentifier(indexName)}`,
+			`DROP INDEX ${quotePgIdent(index.schemaName)}.${quotePgIdent(indexName)}`,
 		);
 	}
 
@@ -1128,7 +1123,7 @@ export class PgAdapter extends BaseAdapter {
 		const columns = Object.keys(data);
 		const values = Object.values(data);
 		const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
-		const colNames = columns.map((c) => `"${c}"`).join(", ");
+		const colNames = columns.map(quotePgIdent).join(", ");
 
 		const result = await pool.query(
 			`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
@@ -1165,18 +1160,18 @@ export class PgAdapter extends BaseAdapter {
 				const values: unknown[] = [];
 
 				const setClauses = rowUpdates.map((u) => {
-					if (u.useDefault) return `"${u.columnName}" = DEFAULT`;
+					if (u.useDefault) return `${quotePgIdent(u.columnName)} = DEFAULT`;
 					values.push(
 						u.value !== null && typeof u.value === "object"
 							? JSON.stringify(u.value)
 							: u.value,
 					);
 
-					return `"${u.columnName}" = $${values.length}`;
+					return `${quotePgIdent(u.columnName)} = $${values.length}`;
 				});
 
 				const whereClauses = keyColumns.map(
-					(column, i) => `"${column}" = $${values.length + i + 1}`,
+					(column, i) => `${quotePgIdent(column)} = $${values.length + i + 1}`,
 				);
 
 				values.push(...keyValues);
@@ -1216,7 +1211,7 @@ export class PgAdapter extends BaseAdapter {
 
 		try {
 			const result = await pool.query(
-				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${placeholders}) RETURNING *`,
+				`DELETE FROM ${table} WHERE ${quotePgIdent(pkColumn)} IN (${placeholders}) RETURNING *`,
 				pkValues,
 			);
 
@@ -1272,7 +1267,7 @@ export class PgAdapter extends BaseAdapter {
 					const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
 
 					const { rows } = await client.query(
-						`SELECT "${nfk.referencedColumn}" FROM ${target} WHERE "${targetColumn}" IN (${placeholders})`,
+						`SELECT ${quotePgIdent(nfk.referencedColumn)} FROM ${target} WHERE ${quotePgIdent(targetColumn)} IN (${placeholders})`,
 						values,
 					);
 
@@ -1290,7 +1285,7 @@ export class PgAdapter extends BaseAdapter {
 				const ph = values.map((_, i) => `$${i + 1}`).join(", ");
 
 				const res = await client.query(
-					`DELETE FROM ${target} WHERE "${targetColumn}" IN (${ph})`,
+					`DELETE FROM ${target} WHERE ${quotePgIdent(targetColumn)} IN (${ph})`,
 					values,
 				);
 
@@ -1311,7 +1306,7 @@ export class PgAdapter extends BaseAdapter {
 			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
 
 			const result = await client.query(
-				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
+				`DELETE FROM ${table} WHERE ${quotePgIdent(pkColumn)} IN (${ph}) RETURNING *`,
 				pkValues,
 			);
 
@@ -1332,7 +1327,7 @@ export class PgAdapter extends BaseAdapter {
 
 		return await inTransaction(pool, async (client) => {
 			const columns = Object.keys(records[0]);
-			const colNames = columns.map((c) => `"${c}"`).join(", ");
+			const colNames = columns.map(quotePgIdent).join(", ");
 			let successCount = 0;
 
 			for (const record of records) {
@@ -1576,7 +1571,7 @@ export class PgAdapter extends BaseAdapter {
 			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
 
 			const { rows } = await pool.query(
-				`SELECT * FROM ${qualifiedTable(fk.referencingTable, fk.referencingSchema)} WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
+				`SELECT * FROM ${qualifiedTable(fk.referencingTable, fk.referencingSchema)} WHERE ${quotePgIdent(fk.referencingColumn)} IN (${ph}) LIMIT 100`,
 				pkValues,
 			);
 

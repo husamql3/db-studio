@@ -6,7 +6,7 @@ import { HTTPException } from "@/http-exception.js";
 export abstract class SqlAdapter extends BaseAdapter {
 	protected abstract runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T>;
 
-	protected abstract quoteIdentifier(name: string): string;
+	protected abstract readonly quoteIdentifier: (name: string) => string;
 
 	async exportTableData({
 		tableName,

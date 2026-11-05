@@ -1,6 +1,6 @@
 import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
-const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+export const quoteSqliteIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
 export function buildWhereClause(filters: FilterType[]): {
 	clause: string;
@@ -12,7 +12,7 @@ export function buildWhereClause(filters: FilterType[]): {
 	const values: unknown[] = [];
 
 	for (const filter of filters) {
-		const col = quote(filter.columnName);
+		const col = quoteSqliteIdent(filter.columnName);
 
 		switch (filter.operator) {
 			case "=":
@@ -72,11 +72,11 @@ export function buildSortClause(sorts: SortType[] | string, order: SortDirection
 	if (Array.isArray(sorts)) {
 		if (!sorts.length) return "";
 
-		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
+		return `ORDER BY ${sorts.map((s) => `${quoteSqliteIdent(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
 
 	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
+		return `ORDER BY ${quoteSqliteIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
 
 	return "";
@@ -100,7 +100,7 @@ export function buildCursorWhereClause(
 	const useGreaterThan = isAscending === isForward;
 	const operator = useGreaterThan ? ">" : "<";
 
-	const columnList = sortColumns.map(quote).join(", ");
+	const columnList = sortColumns.map(quoteSqliteIdent).join(", ");
 	const placeholders = sortColumns.map(() => "?").join(", ");
 	const queryValues = sortColumns.map((col) => values[col]);
 
@@ -356,5 +356,8 @@ export function recreateTableWithColumn(
 
 	const options = tokens.slice(bodyIndex + 1).map((token) => token.text);
 
-	return [`CREATE TABLE ${quote(newName)} (${definitions.join(", ")})`, ...options].join(" ");
+	return [
+		`CREATE TABLE ${quoteSqliteIdent(newName)} (${definitions.join(", ")})`,
+		...options,
+	].join(" ");
 }

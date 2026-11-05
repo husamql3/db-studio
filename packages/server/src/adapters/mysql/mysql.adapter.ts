@@ -58,6 +58,7 @@ import {
 	buildMysqlColumnDefinition,
 	buildSortClause,
 	buildWhereClause,
+	quoteMysqlIdent,
 } from "./mysql.query-builder.js";
 
 const MYSQL_FK_VIOLATION = 1451;
@@ -90,8 +91,6 @@ const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	Note: "info",
 };
 
-const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
-
 export class MySqlAdapter extends SqlAdapter {
 	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
 	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
@@ -121,9 +120,7 @@ export class MySqlAdapter extends SqlAdapter {
 		return rows as T;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return quote(name);
-	}
+	protected readonly quoteIdentifier = quoteMysqlIdent;
 
 	// =========================================================
 	// Override getTableData to incorporate primary-key cursor columns
@@ -205,19 +202,19 @@ export class MySqlAdapter extends SqlAdapter {
 
 				if (pkTieBreakerCols.length) {
 					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${tbDir}`).join(", ")}`;
+					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteMysqlIdent(col)} ${tbDir}`).join(", ")}`;
 				}
 			} else if (cursorColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quote(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteMysqlIdent(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause && cursorColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteMysqlIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		} else if (pkTieBreakerCols.length) {
-			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteMysqlIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
 		const [dataRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT * FROM ${quote(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
+			`SELECT * FROM ${quoteMysqlIdent(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
 			[...filterValues, ...cursorValues] as any,
 		);
 
@@ -353,7 +350,7 @@ export class MySqlAdapter extends SqlAdapter {
 				}
 
 				const [countRows] = await pool.execute<RowDataPacket[]>(
-					`SELECT COUNT(*) as count FROM ${quote(tableName)}`,
+					`SELECT COUNT(*) as count FROM ${quoteMysqlIdent(tableName)}`,
 				);
 
 				return {
@@ -381,14 +378,14 @@ export class MySqlAdapter extends SqlAdapter {
 
 		if (primaryKeyFields.length > 0) {
 			constraintDefs.push(
-				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => `\`${f.columnName}\``).join(", ")})`,
+				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => quoteMysqlIdent(f.columnName)).join(", ")})`,
 			);
 		}
 
 		for (const field of fields as FieldDataType[]) {
 			if (field.isUnique && !field.isPrimaryKey) {
 				constraintDefs.push(
-					`UNIQUE KEY \`uq_${tableName}_${field.columnName}\` (\`${field.columnName}\`)`,
+					`UNIQUE KEY ${quoteMysqlIdent(`uq_${tableName}_${field.columnName}`)} (${quoteMysqlIdent(field.columnName)})`,
 				);
 			}
 		}
@@ -397,11 +394,11 @@ export class MySqlAdapter extends SqlAdapter {
 			foreignKeys?.map((fk: ForeignKeyDataType) => {
 				const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
 
-				return `CONSTRAINT \`${name}\` FOREIGN KEY (\`${fk.columnName}\`) REFERENCES \`${fk.referencedTable}\` (\`${fk.referencedColumn}\`) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
+				return `CONSTRAINT ${quoteMysqlIdent(name)} FOREIGN KEY (${quoteMysqlIdent(fk.columnName)}) REFERENCES ${quoteMysqlIdent(fk.referencedTable)} (${quoteMysqlIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
 			}) ?? [];
 
 		await pool.execute<ResultSetHeader>(
-			`CREATE TABLE \`${tableName}\` (\n\t\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t\t")}\n\t\t\t) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+			`CREATE TABLE ${quoteMysqlIdent(tableName)} (\n\t\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t\t")}\n\t\t\t) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 		);
 	}
 
@@ -434,13 +431,13 @@ export class MySqlAdapter extends SqlAdapter {
 
 				try {
 					await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
-					await connection.execute(`DROP TABLE \`${tableName}\``);
+					await connection.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
 					await connection.execute("SET FOREIGN_KEY_CHECKS = 1");
 				} finally {
 					connection.release();
 				}
 			} else {
-				await pool.execute(`DROP TABLE \`${tableName}\``);
+				await pool.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
 			}
 
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
@@ -480,7 +477,7 @@ export class MySqlAdapter extends SqlAdapter {
 		}
 
 		await pool.execute<ResultSetHeader>(
-			`RENAME TABLE \`${tableName.replaceAll("`", "``")}\` TO \`${newTableName.replaceAll("`", "``")}\``,
+			`RENAME TABLE ${quoteMysqlIdent(tableName)} TO ${quoteMysqlIdent(newTableName)}`,
 		);
 	}
 
@@ -502,7 +499,10 @@ export class MySqlAdapter extends SqlAdapter {
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 		}
 
-		const [rows] = await pool.execute<RowDataPacket[]>(`SHOW CREATE TABLE \`${tableName}\``);
+		const [rows] = await pool.execute<RowDataPacket[]>(
+			`SHOW CREATE TABLE ${quoteMysqlIdent(tableName)}`,
+		);
+
 		const row = (rows as Array<Record<string, string>>)[0];
 		const createTableSql = row?.["Create Table"] ?? row?.create_table ?? "";
 
@@ -646,7 +646,9 @@ export class MySqlAdapter extends SqlAdapter {
 			{ includePrimaryKey: true, includeUnique: true },
 		);
 
-		await pool.execute<ResultSetHeader>(`ALTER TABLE \`${tableName}\` ADD COLUMN ${colDef}`);
+		await pool.execute<ResultSetHeader>(
+			`ALTER TABLE ${quoteMysqlIdent(tableName)} ADD COLUMN ${colDef}`,
+		);
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
@@ -657,7 +659,7 @@ export class MySqlAdapter extends SqlAdapter {
 		await this.assertColumnExists(pool, tableName, columnName);
 
 		const [result] = await pool.execute<ResultSetHeader>(
-			`ALTER TABLE \`${tableName}\` DROP COLUMN \`${columnName}\``,
+			`ALTER TABLE ${quoteMysqlIdent(tableName)} DROP COLUMN ${quoteMysqlIdent(columnName)}`,
 		);
 
 		return { deletedCount: result.affectedRows };
@@ -688,7 +690,7 @@ export class MySqlAdapter extends SqlAdapter {
 		);
 
 		await pool.execute<ResultSetHeader>(
-			`ALTER TABLE \`${tableName}\` MODIFY COLUMN ${colDef}`,
+			`ALTER TABLE ${quoteMysqlIdent(tableName)} MODIFY COLUMN ${colDef}`,
 		);
 	}
 
@@ -711,7 +713,7 @@ export class MySqlAdapter extends SqlAdapter {
 		}
 
 		await pool.execute<ResultSetHeader>(
-			`ALTER TABLE \`${tableName}\` RENAME COLUMN \`${columnName}\` TO \`${newColumnName}\``,
+			`ALTER TABLE ${quoteMysqlIdent(tableName)} RENAME COLUMN ${quoteMysqlIdent(columnName)} TO ${quoteMysqlIdent(newColumnName)}`,
 		);
 	}
 
@@ -798,7 +800,7 @@ export class MySqlAdapter extends SqlAdapter {
 				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
 
 			await pool.query(
-				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quote(indexName)} ON ${quote(tableName)} (${columns.map(quote).join(", ")})`,
+				`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteMysqlIdent(indexName)} ON ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")})`,
 			);
 		} catch (e) {
 			const errno = (e as { errno?: number }).errno;
@@ -830,7 +832,9 @@ export class MySqlAdapter extends SqlAdapter {
 					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
 				});
 
-			await pool.query(`DROP INDEX ${quote(indexName)} ON ${quote(tableName)}`);
+			await pool.query(
+				`DROP INDEX ${quoteMysqlIdent(indexName)} ON ${quoteMysqlIdent(tableName)}`,
+			);
 		} catch (e) {
 			if (e instanceof Error && (e as { errno?: number }).errno === MYSQL_DROP_INDEX_FK)
 				throw new HTTPException(400, { message: e.message, cause: e });
@@ -862,7 +866,7 @@ export class MySqlAdapter extends SqlAdapter {
 		});
 
 		const [result] = await pool.execute<ResultSetHeader>(
-			`INSERT INTO \`${tableName}\` (${columns.map((c) => `\`${c}\``).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+			`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
 			values as any,
 		);
 
@@ -897,7 +901,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 			for (const { keyValues, rowUpdates } of groups) {
 				const setClauses = rowUpdates.map(
-					(u) => `\`${u.columnName}\` = ${u.useDefault ? "DEFAULT" : "?"}`,
+					(u) => `${quoteMysqlIdent(u.columnName)} = ${u.useDefault ? "DEFAULT" : "?"}`,
 				);
 
 				const values: unknown[] = rowUpdates
@@ -914,10 +918,10 @@ export class MySqlAdapter extends SqlAdapter {
 					});
 
 				values.push(...keyValues);
-				const whereClauses = keyColumns.map((column) => `\`${column}\` = ?`);
+				const whereClauses = keyColumns.map((column) => `${quoteMysqlIdent(column)} = ?`);
 
 				const [result] = await connection.execute<ResultSetHeader>(
-					`UPDATE \`${tableName}\` SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
+					`UPDATE ${quoteMysqlIdent(tableName)} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
 					values as any,
 				);
 
@@ -960,7 +964,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 		try {
 			const [result] = await connection.execute<ResultSetHeader>(
-				`DELETE FROM \`${tableName}\` WHERE \`${pkColumn}\` IN (${placeholders})`,
+				`DELETE FROM ${quoteMysqlIdent(tableName)} WHERE ${quoteMysqlIdent(pkColumn)} IN (${placeholders})`,
 				pkValues as any,
 			);
 
@@ -1028,7 +1032,7 @@ export class MySqlAdapter extends SqlAdapter {
 					const nestedPh = values.map(() => "?").join(", ");
 
 					const [selectRows] = await connection.execute<RowDataPacket[]>(
-						`SELECT \`${nestedFk.referencedColumn}\` FROM \`${targetTable}\` WHERE \`${targetColumn}\` IN (${nestedPh})`,
+						`SELECT ${quoteMysqlIdent(nestedFk.referencedColumn)} FROM ${quoteMysqlIdent(targetTable)} WHERE ${quoteMysqlIdent(targetColumn)} IN (${nestedPh})`,
 						values as any[],
 					);
 
@@ -1048,7 +1052,7 @@ export class MySqlAdapter extends SqlAdapter {
 				const ph = values.map(() => "?").join(", ");
 
 				const [deleteResult] = await connection.execute<ResultSetHeader>(
-					`DELETE FROM \`${targetTable}\` WHERE \`${targetColumn}\` IN (${ph})`,
+					`DELETE FROM ${quoteMysqlIdent(targetTable)} WHERE ${quoteMysqlIdent(targetColumn)} IN (${ph})`,
 					values as any[],
 				);
 
@@ -1068,7 +1072,7 @@ export class MySqlAdapter extends SqlAdapter {
 			const mainPh = pkValues.map(() => "?").join(", ");
 
 			const [result] = await connection.execute<ResultSetHeader>(
-				`DELETE FROM \`${tableName}\` WHERE \`${pkColumn}\` IN (${mainPh})`,
+				`DELETE FROM ${quoteMysqlIdent(tableName)} WHERE ${quoteMysqlIdent(pkColumn)} IN (${mainPh})`,
 				pkValues as any,
 			);
 
@@ -1097,7 +1101,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 		try {
 			const columns = Object.keys(records[0]);
-			const colNames = columns.map((c) => `\`${c}\``).join(", ");
+			const colNames = columns.map(quoteMysqlIdent).join(", ");
 			const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
 			await connection.beginTransaction();
@@ -1116,7 +1120,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 				try {
 					await connection.execute<ResultSetHeader>(
-						`INSERT INTO \`${tableName}\` (${colNames}) VALUES (${columns.map(() => "?").join(", ")})`,
+						`INSERT INTO ${quoteMysqlIdent(tableName)} (${colNames}) VALUES (${columns.map(() => "?").join(", ")})`,
 						values as any,
 					);
 				} catch (error) {
@@ -1252,7 +1256,7 @@ export class MySqlAdapter extends SqlAdapter {
 		}
 
 		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
+			`SELECT COUNT(*) as total FROM ${quoteMysqlIdent(tableName)} ${filterWhere}`,
 			filterValues as any,
 		);
 
@@ -1337,7 +1341,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 		for (const fk of fks) {
 			const [relatedRows] = await pool.execute<RowDataPacket[]>(
-				`SELECT * FROM \`${fk.referencingTable}\` LIMIT 100`,
+				`SELECT * FROM ${quoteMysqlIdent(fk.referencingTable)} LIMIT 100`,
 			);
 
 			if (relatedRows.length > 0) {
@@ -1386,7 +1390,7 @@ export class MySqlAdapter extends SqlAdapter {
 			const placeholders = pkValues.map(() => "?").join(", ");
 
 			const [relatedRows] = await pool.execute<RowDataPacket[]>(
-				`SELECT * FROM \`${fk.referencingTable}\` WHERE \`${fk.referencingColumn}\` IN (${placeholders}) LIMIT 100`,
+				`SELECT * FROM ${quoteMysqlIdent(fk.referencingTable)} WHERE ${quoteMysqlIdent(fk.referencingColumn)} IN (${placeholders}) LIMIT 100`,
 				pkValues as any,
 			);
 
@@ -1405,7 +1409,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 	private async getTableRowCount(pool: MysqlPool, tableName: string): Promise<number> {
 		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as count FROM \`${tableName}\``,
+			`SELECT COUNT(*) as count FROM ${quoteMysqlIdent(tableName)}`,
 		);
 
 		return Number((rows as Array<{ count: number }>)[0]?.count ?? 0);
@@ -1466,7 +1470,7 @@ export class MySqlAdapter extends SqlAdapter {
 			} else {
 				entry.index.columns.push(String(row.COLUMN_NAME));
 				entry.parts.push(
-					`${quote(String(row.COLUMN_NAME))}${row.SUB_PART === null ? "" : `(${row.SUB_PART})`}${row.COLLATION === "D" ? " DESC" : ""}`,
+					`${quoteMysqlIdent(String(row.COLUMN_NAME))}${row.SUB_PART === null ? "" : `(${row.SUB_PART})`}${row.COLLATION === "D" ? " DESC" : ""}`,
 				);
 			}
 		}
@@ -1477,7 +1481,7 @@ export class MySqlAdapter extends SqlAdapter {
 				// MySQL has no stored CREATE INDEX text; this rebuilds it from the catalog rows.
 				definition: !hasExpression
 					? null
-					: `CREATE ${index.isUnique ? "UNIQUE " : ""}INDEX ${quote(index.indexName)} ON ${quote(tableName)} (${parts.join(", ")})`,
+					: `CREATE ${index.isUnique ? "UNIQUE " : ""}INDEX ${quoteMysqlIdent(index.indexName)} ON ${quoteMysqlIdent(tableName)} (${parts.join(", ")})`,
 			}))
 			.sort(
 				(a, b) =>

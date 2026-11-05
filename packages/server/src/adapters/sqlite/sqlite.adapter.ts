@@ -44,6 +44,7 @@ import {
 	buildWhereClause,
 	hasMultipleStatements,
 	isTransactionControl,
+	quoteSqliteIdent,
 	recreateTableWithColumn,
 } from "./sqlite.query-builder.js";
 
@@ -208,9 +209,7 @@ export class SqliteAdapter extends SqlAdapter {
 		return (await all(await connector("sqlite").client(), sql, values)) as T;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return `"${name.replaceAll('"', '""')}"`;
-	}
+	protected readonly quoteIdentifier = quoteSqliteIdent;
 
 	// =========================================================
 	// Override getTableData to use primary key columns for stable pagination
@@ -232,7 +231,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 		const colInfoRows = await all<TableInfoRow>(
 			client,
-			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 		);
 
 		// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
@@ -301,20 +300,20 @@ export class SqliteAdapter extends SqlAdapter {
 
 				if (pkTieBreakerCols.length) {
 					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
+					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteSqliteIdent(col)} ${tbDir}`).join(", ")}`;
 				}
 			} else {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteSqliteIdent(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause) {
-			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quoteSqliteIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		} else if (pkTieBreakerCols.length) {
-			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quoteSqliteIdent(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
 		const [countRow] = await all<{ total: number }>(
 			client,
-			`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
+			`SELECT COUNT(*) as total FROM ${quoteSqliteIdent(tableName)} ${filterWhere}`,
 			filterValues,
 		);
 
@@ -325,7 +324,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 		const dataRows = await all(
 			client,
-			`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
+			`SELECT ${selectClause} FROM ${quoteSqliteIdent(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
 			[...filterValues, ...cursorValues, limit + 1],
 		);
 
@@ -421,7 +420,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 		// One round trip for every count; matters against a remote server.
 		const counts = await client.batch(
-			tables.map((t) => `SELECT COUNT(*) as count FROM ${this.quoteIdentifier(t.name)}`),
+			tables.map((t) => `SELECT COUNT(*) as count FROM ${quoteSqliteIdent(t.name)}`),
 			"read",
 		);
 
@@ -445,10 +444,10 @@ export class SqliteAdapter extends SqlAdapter {
 		const columnDefs = fields.map((field: FieldDataType) => {
 			// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
 			if (primaryKey.length === 1 && field.isPrimaryKey && field.isIdentity) {
-				return `"${field.columnName}" INTEGER PRIMARY KEY AUTOINCREMENT`;
+				return `${quoteSqliteIdent(field.columnName)} INTEGER PRIMARY KEY AUTOINCREMENT`;
 			}
 
-			let def = `"${field.columnName}" ${field.columnType}`;
+			let def = `${quoteSqliteIdent(field.columnName)} ${field.columnType}`;
 
 			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
 
@@ -463,17 +462,17 @@ export class SqliteAdapter extends SqlAdapter {
 		});
 
 		if (primaryKey.length > 1)
-			columnDefs.push(`PRIMARY KEY (${primaryKey.map((c) => `"${c}"`).join(", ")})`);
+			columnDefs.push(`PRIMARY KEY (${primaryKey.map(quoteSqliteIdent).join(", ")})`);
 
 		const fkDefs =
 			foreignKeys?.map(
 				(fk: ForeignKeyDataType) =>
-					`FOREIGN KEY ("${fk.columnName}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
+					`FOREIGN KEY (${quoteSqliteIdent(fk.columnName)}) REFERENCES ${quoteSqliteIdent(fk.referencedTable)} (${quoteSqliteIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
 			) ?? [];
 
 		const client = await connector("sqlite").client();
 		await client.execute(
-			`CREATE TABLE "${tableName}" (${[...columnDefs, ...fkDefs].join(", ")})`,
+			`CREATE TABLE ${quoteSqliteIdent(tableName)} (${[...columnDefs, ...fkDefs].join(", ")})`,
 		);
 
 		void db;
@@ -488,7 +487,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 		const [countRow] = await all<{ count: number }>(
 			client,
-			`SELECT COUNT(*) as count FROM "${tableName}"`,
+			`SELECT COUNT(*) as count FROM ${quoteSqliteIdent(tableName)}`,
 		);
 
 		const rowCount = countRow?.count ?? 0;
@@ -506,7 +505,7 @@ export class SqliteAdapter extends SqlAdapter {
 		}
 
 		try {
-			await client.execute(`DROP TABLE "${tableName}"`);
+			await client.execute(`DROP TABLE ${quoteSqliteIdent(tableName)}`);
 
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
@@ -538,7 +537,7 @@ export class SqliteAdapter extends SqlAdapter {
 			});
 
 		await client.execute(
-			`ALTER TABLE ${this.quoteIdentifier(tableName)} RENAME TO ${this.quoteIdentifier(newTableName)}`,
+			`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME TO ${quoteSqliteIdent(newTableName)}`,
 		);
 
 		void db;
@@ -581,10 +580,13 @@ export class SqliteAdapter extends SqlAdapter {
 
 		const columns = await all<TableInfoRow>(
 			client,
-			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 		);
 
-		const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
+		const fks = await all<FkRow>(
+			client,
+			`PRAGMA foreign_key_list(${quoteSqliteIdent(tableName)})`,
+		);
 
 		const fkMap = new Map<string, FkRow>();
 
@@ -625,7 +627,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 			const colInfo = await all<TableInfoRow>(
 				client,
-				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 			);
 
 			if (colInfo.some((c) => c.name === columnName)) {
@@ -634,7 +636,7 @@ export class SqliteAdapter extends SqlAdapter {
 				});
 			}
 
-			let def = `"${columnName}" ${columnType}`;
+			let def = `${quoteSqliteIdent(columnName)} ${columnType}`;
 
 			if (isUnique) def += " UNIQUE";
 
@@ -642,7 +644,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
-			await client.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
+			await client.execute(`ALTER TABLE ${quoteSqliteIdent(tableName)} ADD COLUMN ${def}`);
 
 			void db;
 		});
@@ -658,7 +660,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 			const colInfo = await all<TableInfoRow>(
 				client,
-				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 			);
 
 			if (!colInfo.some((c) => c.name === columnName)) {
@@ -667,7 +669,9 @@ export class SqliteAdapter extends SqlAdapter {
 				});
 			}
 
-			await client.execute(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`);
+			await client.execute(
+				`ALTER TABLE ${quoteSqliteIdent(tableName)} DROP COLUMN ${quoteSqliteIdent(columnName)}`,
+			);
 
 			void db;
 
@@ -679,12 +683,15 @@ export class SqliteAdapter extends SqlAdapter {
 		return this.serializeSchemaChange(async () => {
 			const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
 			const client = await connector("sqlite").client();
-			const q = (name: string) => this.quoteIdentifier(name);
 
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info(${q(tableName)})`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
+			);
+
 			const target = colInfo.find((c) => c.name === columnName);
 
 			if (!target) {
@@ -717,7 +724,7 @@ export class SqliteAdapter extends SqlAdapter {
 			}
 
 			// Generated columns are absent from table_info and are computed again on insert.
-			const colNames = colInfo.map((c) => q(c.name)).join(", ");
+			const colNames = colInfo.map((c) => quoteSqliteIdent(c.name)).join(", ");
 			// Copying rows sets the AUTOINCREMENT counter to the highest id copied; carry the old
 			// one over so ids of rows deleted earlier are never handed out again.
 			const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -753,10 +760,10 @@ export class SqliteAdapter extends SqlAdapter {
 			await client.rebuildTable(
 				[
 					createTemp,
-					`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
+					`INSERT INTO ${quoteSqliteIdent(tempName)} (${colNames}) SELECT ${colNames} FROM ${quoteSqliteIdent(tableName)}`,
 					...keepSequence,
-					`DROP TABLE ${q(tableName)}`,
-					`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
+					`DROP TABLE ${quoteSqliteIdent(tableName)}`,
+					`ALTER TABLE ${quoteSqliteIdent(tempName)} RENAME TO ${quoteSqliteIdent(tableName)}`,
 					...existingIndexes.map(({ sql }) => sql),
 					...existingTriggers.map(({ sql }) => sql),
 				],
@@ -777,7 +784,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 			const colInfo = await all<TableInfoRow>(
 				client,
-				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+				`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 			);
 
 			if (!colInfo.some((c) => c.name === columnName)) {
@@ -793,7 +800,7 @@ export class SqliteAdapter extends SqlAdapter {
 			}
 
 			await client.execute(
-				`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
+				`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME COLUMN ${quoteSqliteIdent(columnName)} TO ${quoteSqliteIdent(newColumnName)}`,
 			);
 
 			void db;
@@ -826,7 +833,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 				const colInfo = await all<TableInfoRow>(
 					client,
-					`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+					`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 				);
 
 				const missing = columns.find((column) => !colInfo.some((c) => c.name === column));
@@ -840,7 +847,7 @@ export class SqliteAdapter extends SqlAdapter {
 					throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
 
 				await client.execute(
-					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${this.quoteIdentifier(indexName)} ON ${this.quoteIdentifier(tableName)} (${columns.map((column) => this.quoteIdentifier(column)).join(", ")})`,
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteSqliteIdent(indexName)} ON ${quoteSqliteIdent(tableName)} (${columns.map(quoteSqliteIdent).join(", ")})`,
 				);
 			} catch (e) {
 				// Indexes share one namespace with tables, so either can already hold the name.
@@ -875,7 +882,7 @@ export class SqliteAdapter extends SqlAdapter {
 					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
 				});
 
-			await client.execute(`DROP INDEX ${this.quoteIdentifier(indexName)}`);
+			await client.execute(`DROP INDEX ${quoteSqliteIdent(indexName)}`);
 		});
 	}
 
@@ -894,14 +901,14 @@ export class SqliteAdapter extends SqlAdapter {
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
-		const colNames = columns.map((c) => `"${c}"`).join(", ");
+		const colNames = columns.map(quoteSqliteIdent).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
 
 		const client = await connector("sqlite").client();
 
 		const result = await client.execute(
 			stmt(
-				`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`,
+				`INSERT INTO ${quoteSqliteIdent(tableName)} (${colNames}) VALUES (${placeholders})`,
 				Object.values(data),
 			),
 		);
@@ -926,7 +933,7 @@ export class SqliteAdapter extends SqlAdapter {
 		const keyColumns = this.resolveKeyColumns(params);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
-		const where = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
+		const where = keyColumns.map((column) => `${quoteSqliteIdent(column)} = ?`).join(" AND ");
 
 		const client = await connector("sqlite").client();
 		this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
@@ -936,7 +943,7 @@ export class SqliteAdapter extends SqlAdapter {
 		// would name the row but only works inside a trigger.
 		const statements = groups.flatMap(({ keyValues, rowUpdates }) => [
 			stmt(
-				`UPDATE "${tableName}" SET ${rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ")} WHERE ${where}`,
+				`UPDATE ${quoteSqliteIdent(tableName)} SET ${rowUpdates.map((u) => `${quoteSqliteIdent(u.columnName)} = ?`).join(", ")} WHERE ${where}`,
 				[...rowUpdates.map((u) => u.value), ...keyValues],
 			),
 			"SELECT CASE WHEN changes() = 0 THEN abs(-9223372036854775808) END",
@@ -957,7 +964,10 @@ export class SqliteAdapter extends SqlAdapter {
 
 			const found = await client.batch(
 				groups.map(({ keyValues }) =>
-					stmt(`SELECT 1 FROM "${tableName}" WHERE ${where} LIMIT 1`, keyValues),
+					stmt(
+						`SELECT 1 FROM ${quoteSqliteIdent(tableName)} WHERE ${where} LIMIT 1`,
+						keyValues,
+					),
 				),
 				"read",
 			);
@@ -989,7 +999,10 @@ export class SqliteAdapter extends SqlAdapter {
 			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
 
 			const result = await client.execute(
-				stmt(`DELETE FROM "${tableName}" WHERE "${pkColumn}" IN (${placeholders})`, pkValues),
+				stmt(
+					`DELETE FROM ${quoteSqliteIdent(tableName)} WHERE ${quoteSqliteIdent(pkColumn)} IN (${placeholders})`,
+					pkValues,
+				),
 			);
 
 			void db;
@@ -1024,9 +1037,8 @@ export class SqliteAdapter extends SqlAdapter {
 		if (!pkColumn)
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 
-		const q = (name: string) => this.quoteIdentifier(name);
 		const pkValues = primaryKeys.map((pk) => pk.value);
-		const rootPredicate = `${q(pkColumn)} IN (${pkValues.map(() => "?").join(", ")})`;
+		const rootPredicate = `${quoteSqliteIdent(pkColumn)} IN (${pkValues.map(() => "?").join(", ")})`;
 
 		try {
 			const client = await connector("sqlite").client();
@@ -1042,11 +1054,13 @@ export class SqliteAdapter extends SqlAdapter {
 						? fk.parentColumns
 						: await this.getPrimaryKeyColumns(client, table);
 
-					const childPredicate = `(${fk.childColumns.map(q).join(", ")}) IN (SELECT ${parentCols.map(q).join(", ")} FROM ${q(table)} WHERE ${predicate})`;
+					const childPredicate = `(${fk.childColumns.map(quoteSqliteIdent).join(", ")}) IN (SELECT ${parentCols.map(quoteSqliteIdent).join(", ")} FROM ${quoteSqliteIdent(table)} WHERE ${predicate})`;
 					await plan(fk.childTable, childPredicate, [...path, fk.childTable]);
 				}
 
-				deletes.push(stmt(`DELETE FROM ${q(table)} WHERE ${predicate}`, pkValues));
+				deletes.push(
+					stmt(`DELETE FROM ${quoteSqliteIdent(table)} WHERE ${predicate}`, pkValues),
+				);
 			};
 
 			await plan(tableName, rootPredicate, [tableName]);
@@ -1073,9 +1087,9 @@ export class SqliteAdapter extends SqlAdapter {
 			throw new HTTPException(400, { message: "At least one record is required" });
 
 		const columns = Object.keys(records[0]);
-		const colNames = columns.map((c) => `"${c}"`).join(", ");
+		const colNames = columns.map(quoteSqliteIdent).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
-		const sql = `INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`;
+		const sql = `INSERT INTO ${quoteSqliteIdent(tableName)} (${colNames}) VALUES (${placeholders})`;
 
 		const client = await connector("sqlite").client();
 		await client.batch(
@@ -1213,7 +1227,7 @@ export class SqliteAdapter extends SqlAdapter {
 	private async getPrimaryKeyColumns(client: SqliteClient, tableName: string) {
 		const cols = await all<TableInfoRow>(
 			client,
-			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
 		);
 
 		return cols
@@ -1291,7 +1305,10 @@ export class SqliteAdapter extends SqlAdapter {
 		const results: RelatedRecord[] = [];
 
 		for (const fk of fks) {
-			const rows = await all(client, `SELECT * FROM "${fk.referencingTable}" LIMIT 100`);
+			const rows = await all(
+				client,
+				`SELECT * FROM ${quoteSqliteIdent(fk.referencingTable)} LIMIT 100`,
+			);
 
 			if (rows.length > 0) {
 				results.push({
@@ -1323,7 +1340,7 @@ export class SqliteAdapter extends SqlAdapter {
 
 			const rows = await all(
 				client,
-				`SELECT * FROM "${fk.referencingTable}" WHERE "${fk.referencingColumn}" IN (${ph}) LIMIT 100`,
+				`SELECT * FROM ${quoteSqliteIdent(fk.referencingTable)} WHERE ${quoteSqliteIdent(fk.referencingColumn)} IN (${ph}) LIMIT 100`,
 				pkValues,
 			);
 

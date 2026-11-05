@@ -1,6 +1,6 @@
 import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
-const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
+export const quoteMysqlIdent = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
 export function buildWhereClause(filters: FilterType[]): {
 	clause: string;
@@ -12,7 +12,7 @@ export function buildWhereClause(filters: FilterType[]): {
 	const values: unknown[] = [];
 
 	for (const filter of filters) {
-		const col = quote(filter.columnName);
+		const col = quoteMysqlIdent(filter.columnName);
 
 		switch (filter.operator) {
 			case "=":
@@ -66,11 +66,11 @@ export function buildSortClause(sorts: SortType[] | string, order: SortDirection
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
 
-		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
+		return `ORDER BY ${sorts.map((s) => `${quoteMysqlIdent(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
 
 	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
+		return `ORDER BY ${quoteMysqlIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
 
 	return "";
@@ -90,7 +90,7 @@ export function buildCursorWhereClause(
 	const useGreaterThan = isAscending === isForward;
 	const operator = useGreaterThan ? ">" : "<";
 
-	const columnList = sortColumns.map(quote).join(", ");
+	const columnList = sortColumns.map(quoteMysqlIdent).join(", ");
 	const placeholders = sortColumns.map(() => "?").join(", ");
 	const queryValues = sortColumns.map((col) => values[col]);
 
@@ -215,7 +215,7 @@ export function buildMysqlColumnDefinition(
 	options: BuildMysqlColumnDefinitionOptions = {},
 ): string {
 	const mappedType = mapColumnTypeToMysql(field.columnType, field.isArray ?? false);
-	let def = `\`${field.columnName}\` ${mappedType}`;
+	let def = `${quoteMysqlIdent(field.columnName)} ${mappedType}`;
 
 	if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 

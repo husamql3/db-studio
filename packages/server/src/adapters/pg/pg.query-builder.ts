@@ -1,6 +1,6 @@
 import type { FilterType, SortDirection } from "@db-studio/shared/types";
 
-const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
+export const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
 export function buildWhereClause(filters: FilterType[]): {
 	clause: string;

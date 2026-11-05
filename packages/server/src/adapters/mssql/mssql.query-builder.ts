@@ -1,6 +1,6 @@
 import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 
-const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
+export const quoteMssqlIdent = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
 export function buildWhereClause(
 	filters: FilterType[],
@@ -13,7 +13,7 @@ export function buildWhereClause(
 	let idx = startIdx;
 
 	for (const filter of filters) {
-		const col = quote(filter.columnName);
+		const col = quoteMssqlIdent(filter.columnName);
 
 		switch (filter.operator) {
 			case "=":
@@ -72,11 +72,11 @@ export function buildSortClause(sorts: SortType[] | string, order: SortDirection
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
 
-		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
+		return `ORDER BY ${sorts.map((s) => `${quoteMssqlIdent(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
 
 	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
+		return `ORDER BY ${quoteMssqlIdent(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
 
 	return "";
@@ -95,7 +95,9 @@ export function buildOrderByClause(
 	).toUpperCase();
 
 	const tieBreakers = keyColumns
-		.flatMap((col) => (sortColumns.includes(col) ? [] : [`${quote(col)} ${direction}`]))
+		.flatMap((col) =>
+			sortColumns.includes(col) ? [] : [`${quoteMssqlIdent(col)} ${direction}`],
+		)
 		.join(", ");
 
 	if (!tieBreakers) return sortClause || "ORDER BY (SELECT NULL)";
@@ -201,7 +203,7 @@ export function buildMssqlColumnDefinition(
 	options: { includePrimaryKey?: boolean; includeUnique?: boolean } = {},
 ): string {
 	const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
-	let def = `[${field.columnName}] ${mappedType}`;
+	let def = `${quoteMssqlIdent(field.columnName)} ${mappedType}`;
 
 	if (field.isIdentity && !mappedType.includes("IDENTITY")) {
 		def += " IDENTITY(1,1)";

@@ -18,9 +18,7 @@ class HarnessAdapter extends SqlAdapter {
 		return this.queryRows as T;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return `"${name}"`;
-	}
+	protected readonly quoteIdentifier = (name: string) => `"${name}"`;
 
 	getTableData(): never {
 		throw new Error("not used");

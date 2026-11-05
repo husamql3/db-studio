@@ -46,6 +46,7 @@ import {
 	buildWhereClause,
 	formatMssqlDefaultValue,
 	mapColumnTypeToMssql,
+	quoteMssqlIdent,
 } from "./mssql.query-builder.js";
 
 const MSSQL_FK_VIOLATION = 547;
@@ -74,8 +75,6 @@ const MSSQL_CANNOT_INDEX = new Set([1919, 1978]);
 
 /** The index enforces a constraint, or a foreign key references it. */
 const MSSQL_INDEX_IN_USE = 3723;
-
-const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
 interface IndexColumnRow {
 	indexName: string;
@@ -124,9 +123,7 @@ export class MsSqlAdapter extends SqlAdapter {
 		return result.recordset as T;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return quote(name);
-	}
+	protected readonly quoteIdentifier = quoteMssqlIdent;
 
 	// =========================================================
 	// Override getTableData for MSSQL OFFSET/FETCH pagination
@@ -168,7 +165,7 @@ export class MsSqlAdapter extends SqlAdapter {
 		dataRequest.input(`p${nextIdx + 1}`, limit + 1);
 
 		const dataResult = await dataRequest.query(
-			`SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
+			`SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
 		);
 
 		let rows = dataResult.recordset as Record<string, unknown>[];
@@ -283,7 +280,7 @@ export class MsSqlAdapter extends SqlAdapter {
 				try {
 					const countResult = await pool
 						.request()
-						.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
+						.query(`SELECT COUNT(*) as count FROM ${quoteMssqlIdent(tableName)}`);
 
 					return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
 				} catch (e) {
@@ -307,7 +304,7 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		const columnDefs = fields.map((field: FieldDataType) => {
 			const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
-			let colDef = `[${field.columnName}] ${mappedType}`;
+			let colDef = `${quoteMssqlIdent(field.columnName)} ${mappedType}`;
 
 			if (!field.isNullable && !field.isPrimaryKey) colDef += " NOT NULL";
 
@@ -325,13 +322,13 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		if (primaryKeyFields.length > 0) {
 			constraintDefs.push(
-				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => `[${f.columnName}]`).join(", ")})`,
+				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => quoteMssqlIdent(f.columnName)).join(", ")})`,
 			);
 		}
 
 		for (const field of fields as FieldDataType[]) {
 			if (field.isUnique && !field.isPrimaryKey) {
-				constraintDefs.push(`UNIQUE ([${field.columnName}])`);
+				constraintDefs.push(`UNIQUE (${quoteMssqlIdent(field.columnName)})`);
 			}
 		}
 
@@ -339,13 +336,13 @@ export class MsSqlAdapter extends SqlAdapter {
 			foreignKeys?.map((fk: ForeignKeyDataType) => {
 				const name = `FK_${tableName}_${fk.columnName}`;
 
-				return `CONSTRAINT [${name}] FOREIGN KEY ([${fk.columnName}]) REFERENCES [${fk.referencedTable}] ([${fk.referencedColumn}]) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
+				return `CONSTRAINT ${quoteMssqlIdent(name)} FOREIGN KEY (${quoteMssqlIdent(fk.columnName)}) REFERENCES ${quoteMssqlIdent(fk.referencedTable)} (${quoteMssqlIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
 			}) ?? [];
 
 		await pool
 			.request()
 			.query(
-				`CREATE TABLE [${tableName}] (\n\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t")}\n\t\t)`,
+				`CREATE TABLE ${quoteMssqlIdent(tableName)} (\n\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t")}\n\t\t)`,
 			);
 	}
 
@@ -380,12 +377,12 @@ export class MsSqlAdapter extends SqlAdapter {
 					await pool
 						.request()
 						.query(
-							`ALTER TABLE [${fk.referencingTable}] DROP CONSTRAINT [${fk.constraintName}]`,
+							`ALTER TABLE ${quoteMssqlIdent(fk.referencingTable)} DROP CONSTRAINT ${quoteMssqlIdent(fk.constraintName)}`,
 						);
 				}
 			}
 
-			await pool.request().query(`DROP TABLE [${tableName}]`);
+			await pool.request().query(`DROP TABLE ${quoteMssqlIdent(tableName)}`);
 
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error: unknown) {
@@ -421,7 +418,8 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		await pool
 			.request()
-			.input("oldName", tableName)
+			// sp_rename parses the old name, so it is quoted; the new name is taken as written.
+			.input("oldName", quoteMssqlIdent(tableName))
 			.input("newName", newTableName)
 			.query("EXEC sp_rename @oldName, @newName");
 	}
@@ -499,7 +497,7 @@ export class MsSqlAdapter extends SqlAdapter {
 				COLUMN_DEFAULT: string | null;
 			}>
 		).map((col) => {
-			let colDef = `  [${col.COLUMN_NAME}] ${col.DATA_TYPE}`;
+			let colDef = `  ${quoteMssqlIdent(col.COLUMN_NAME)} ${col.DATA_TYPE}`;
 
 			if (col.CHARACTER_MAXIMUM_LENGTH) {
 				colDef +=
@@ -517,7 +515,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			return colDef;
 		});
 
-		return `CREATE TABLE [${tableName}] (\n${columns.join(",\n")}\n)`;
+		return `CREATE TABLE ${quoteMssqlIdent(tableName)} (\n${columns.join(",\n")}\n)`;
 	}
 
 	// --- Columns ---
@@ -656,7 +654,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			{ includePrimaryKey: true, includeUnique: true },
 		);
 
-		await pool.request().query(`ALTER TABLE [${tableName}] ADD ${colDef}`);
+		await pool.request().query(`ALTER TABLE ${quoteMssqlIdent(tableName)} ADD ${colDef}`);
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
@@ -668,7 +666,9 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		const result = await pool
 			.request()
-			.query(`ALTER TABLE [${tableName}] DROP COLUMN [${columnName}]`);
+			.query(
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} DROP COLUMN ${quoteMssqlIdent(columnName)}`,
+			);
 
 		return { deletedCount: result.rowsAffected[0] ?? 1 };
 	}
@@ -698,21 +698,23 @@ export class MsSqlAdapter extends SqlAdapter {
 		if (constraintName) {
 			await pool
 				.request()
-				.query(`ALTER TABLE [${tableName}] DROP CONSTRAINT [${constraintName}]`);
+				.query(
+					`ALTER TABLE ${quoteMssqlIdent(tableName)} DROP CONSTRAINT ${quoteMssqlIdent(constraintName)}`,
+				);
 		}
 
 		const nullability = isNullable ? "NULL" : "NOT NULL";
 		await pool
 			.request()
 			.query(
-				`ALTER TABLE [${tableName}] ALTER COLUMN [${columnName}] ${columnType} ${nullability}`,
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} ALTER COLUMN ${quoteMssqlIdent(columnName)} ${columnType} ${nullability}`,
 			);
 
 		if (defaultValue?.trim()) {
 			await pool
 				.request()
 				.query(
-					`ALTER TABLE [${tableName}] ADD DEFAULT ${defaultValue.trim()} FOR [${columnName}]`,
+					`ALTER TABLE ${quoteMssqlIdent(tableName)} ADD DEFAULT ${defaultValue.trim()} FOR ${quoteMssqlIdent(columnName)}`,
 				);
 		}
 	}
@@ -738,9 +740,12 @@ export class MsSqlAdapter extends SqlAdapter {
 			});
 		}
 
+		// sp_rename parses the old name, so its parts are quoted; the new name is taken as written.
 		await pool
 			.request()
-			.query(`EXEC sp_rename '${tableName}.${columnName}', '${newColumnName}', 'COLUMN'`);
+			.input("oldName", `${quoteMssqlIdent(tableName)}.${quoteMssqlIdent(columnName)}`)
+			.input("newName", newColumnName)
+			.query("EXEC sp_rename @oldName, @newName, 'COLUMN'");
 	}
 
 	// --- Server logs ---
@@ -848,7 +853,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			await pool
 				.request()
 				.query(
-					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quote(indexName)} ON [dbo].${quote(tableName)} (${columns.map(quote).join(", ")})`,
+					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteMssqlIdent(indexName)} ON [dbo].${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")})`,
 				);
 		} catch (e) {
 			const number = (e as { number?: number }).number;
@@ -882,7 +887,9 @@ export class MsSqlAdapter extends SqlAdapter {
 
 			await pool
 				.request()
-				.query(`DROP INDEX ${quote(indexName)} ON [dbo].${quote(tableName)}`);
+				.query(
+					`DROP INDEX ${quoteMssqlIdent(indexName)} ON [dbo].${quoteMssqlIdent(tableName)}`,
+				);
 		} catch (e) {
 			if (e instanceof Error && (e as { number?: number }).number === MSSQL_INDEX_IN_USE)
 				throw new HTTPException(400, { message: e.message, cause: e });
@@ -927,7 +934,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			return value;
 		});
 
-		const columnNames = columns.map((col) => `[${col}]`).join(", ");
+		const columnNames = columns.map(quoteMssqlIdent).join(", ");
 		const paramNames = columns.map((_col, idx) => `@param${idx}`).join(", ");
 
 		const request = pool.request();
@@ -936,7 +943,7 @@ export class MsSqlAdapter extends SqlAdapter {
 		});
 
 		const result = await request.query(
-			`INSERT INTO [${tableName}] (${columnNames}) VALUES (${paramNames})`,
+			`INSERT INTO ${quoteMssqlIdent(tableName)} (${columnNames}) VALUES (${paramNames})`,
 		);
 
 		if (result.rowsAffected[0] === 0) {
@@ -972,7 +979,8 @@ export class MsSqlAdapter extends SqlAdapter {
 				const request = transaction.request();
 
 				const setClauses = rowUpdates.map(
-					(u, idx) => `[${u.columnName}] = ${u.useDefault ? "DEFAULT" : `@value${idx}`}`,
+					(u, idx) =>
+						`${quoteMssqlIdent(u.columnName)} = ${u.useDefault ? "DEFAULT" : `@value${idx}`}`,
 				);
 
 				rowUpdates.forEach((u, idx) => {
@@ -990,10 +998,13 @@ export class MsSqlAdapter extends SqlAdapter {
 				keyValues.forEach((value, idx) => {
 					request.input(`pkValue${idx}`, value);
 				});
-				const whereClauses = keyColumns.map((column, idx) => `[${column}] = @pkValue${idx}`);
+
+				const whereClauses = keyColumns.map(
+					(column, idx) => `${quoteMssqlIdent(column)} = @pkValue${idx}`,
+				);
 
 				const result = await request.query(
-					`UPDATE [${tableName}] SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
+					`UPDATE ${quoteMssqlIdent(tableName)} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
 				);
 
 				if (result.rowsAffected[0] === 0) {
@@ -1038,7 +1049,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			const paramList = pkValues.map((_, idx) => `@pk${idx}`).join(", ");
 
 			const result = await request.query(
-				`DELETE FROM [${tableName}] WHERE [${pkColumn}] IN (${paramList})`,
+				`DELETE FROM ${quoteMssqlIdent(tableName)} WHERE ${quoteMssqlIdent(pkColumn)} IN (${paramList})`,
 			);
 
 			await transaction.commit();
@@ -1105,7 +1116,7 @@ export class MsSqlAdapter extends SqlAdapter {
 					const selectParamList = values.map((_, idx) => `@val${idx}`).join(", ");
 
 					const selectResult = await selectRequest.query(
-						`SELECT [${nestedFk.referencedColumn}] FROM [${targetTable}] WHERE [${targetColumn}] IN (${selectParamList})`,
+						`SELECT ${quoteMssqlIdent(nestedFk.referencedColumn)} FROM ${quoteMssqlIdent(targetTable)} WHERE ${quoteMssqlIdent(targetColumn)} IN (${selectParamList})`,
 					);
 
 					const nestedValues = (selectResult.recordset as Record<string, unknown>[]).map(
@@ -1129,7 +1140,7 @@ export class MsSqlAdapter extends SqlAdapter {
 				const deleteParamList = values.map((_, idx) => `@delVal${idx}`).join(", ");
 
 				const deleteResult = await deleteRequest.query(
-					`DELETE FROM [${targetTable}] WHERE [${targetColumn}] IN (${deleteParamList})`,
+					`DELETE FROM ${quoteMssqlIdent(targetTable)} WHERE ${quoteMssqlIdent(targetColumn)} IN (${deleteParamList})`,
 				);
 
 				totalRelated += deleteResult.rowsAffected[0] ?? 0;
@@ -1154,7 +1165,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			const mainParamList = pkValues.map((_, idx) => `@mainPk${idx}`).join(", ");
 
 			const result = await mainRequest.query(
-				`DELETE FROM [${tableName}] WHERE [${pkColumn}] IN (${mainParamList})`,
+				`DELETE FROM ${quoteMssqlIdent(tableName)} WHERE ${quoteMssqlIdent(pkColumn)} IN (${mainParamList})`,
 			);
 
 			await transaction.commit();
@@ -1180,7 +1191,7 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		try {
 			const columns = Object.keys(records[0]);
-			const columnNames = columns.map((col) => `[${col}]`).join(", ");
+			const columnNames = columns.map(quoteMssqlIdent).join(", ");
 			const booleanColumns = await this.getBooleanColumnSet(tableName, db);
 
 			await transaction.begin();
@@ -1206,7 +1217,7 @@ export class MsSqlAdapter extends SqlAdapter {
 
 				try {
 					await request.query(
-						`INSERT INTO [${tableName}] (${columnNames}) VALUES (${paramNames})`,
+						`INSERT INTO ${quoteMssqlIdent(tableName)} (${columnNames}) VALUES (${paramNames})`,
 					);
 				} catch (error) {
 					const failure = this.classifyError(error);
@@ -1322,7 +1333,7 @@ export class MsSqlAdapter extends SqlAdapter {
 		for (const fk of fks) {
 			const relatedResult = await pool
 				.request()
-				.query(`SELECT TOP 100 * FROM [${fk.referencingTable}]`);
+				.query(`SELECT TOP 100 * FROM ${quoteMssqlIdent(fk.referencingTable)}`);
 
 			if (relatedResult.recordset.length > 0) {
 				results.push({
@@ -1373,7 +1384,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			const paramList = pkValues.map((_, idx) => `@pk${idx}`).join(", ");
 
 			const relatedResult = await request.query(
-				`SELECT TOP 100 * FROM [${fk.referencingTable}] WHERE [${fk.referencingColumn}] IN (${paramList})`,
+				`SELECT TOP 100 * FROM ${quoteMssqlIdent(fk.referencingTable)} WHERE ${quoteMssqlIdent(fk.referencingColumn)} IN (${paramList})`,
 			);
 
 			if (relatedResult.recordset.length > 0) {
@@ -1437,7 +1448,7 @@ export class MsSqlAdapter extends SqlAdapter {
 		});
 
 		const result = await request.query(
-			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
+			`SELECT COUNT(*) as total FROM ${quoteMssqlIdent(tableName)} ${filterWhere}`,
 		);
 
 		return { total: Number(result.recordset[0]?.total ?? 0), estimated: false };
@@ -1449,7 +1460,7 @@ export class MsSqlAdapter extends SqlAdapter {
 		try {
 			const result = await pool
 				.request()
-				.query(`SELECT COUNT(*) as count FROM [${tableName}]`);
+				.query(`SELECT COUNT(*) as count FROM ${quoteMssqlIdent(tableName)}`);
 
 			return Number(result.recordset[0]?.count ?? 0);
 		} catch (e) {
@@ -1539,10 +1550,12 @@ export class MsSqlAdapter extends SqlAdapter {
 
 			// SQL Server marks every columnstore column as included, not only B-tree INCLUDEs.
 			if (row.isIncluded && !row.typeDesc.endsWith("COLUMNSTORE")) {
-				entry.included.push(quote(row.columnName));
+				entry.included.push(quoteMssqlIdent(row.columnName));
 			} else {
 				entry.index.columns.push(row.columnName);
-				entry.keys.push(`${quote(row.columnName)}${row.isDescending ? " DESC" : ""}`);
+				entry.keys.push(
+					`${quoteMssqlIdent(row.columnName)}${row.isDescending ? " DESC" : ""}`,
+				);
 			}
 		}
 
@@ -1552,7 +1565,7 @@ export class MsSqlAdapter extends SqlAdapter {
 			definition:
 				row.filterDefinition === null
 					? null
-					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quote(row.indexName)} ON ${quote(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
+					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quoteMssqlIdent(row.indexName)} ON ${quoteMssqlIdent(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
 		}));
 	}
 

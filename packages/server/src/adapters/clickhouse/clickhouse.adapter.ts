@@ -156,9 +156,7 @@ export class ClickhouseAdapter extends SqlAdapter {
 		return (await this.select(db, sql, params)) as T;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return q(name);
-	}
+	protected readonly quoteIdentifier = q;
 
 	private buildTableDataQuery(params: GetTableDataParams): QueryBundle {
 		return this.buildPageQuery(params, []);

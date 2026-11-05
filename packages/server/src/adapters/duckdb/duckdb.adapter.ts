@@ -195,9 +195,7 @@ export class DuckDbAdapter extends SqlAdapter {
 		) as Promise<T>;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return ident(name);
-	}
+	protected readonly quoteIdentifier = ident;
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		const limitation = LIMITATIONS.find(([signature]) => e.message.includes(signature));
