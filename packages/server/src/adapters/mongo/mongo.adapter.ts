@@ -447,6 +447,8 @@ export class MongoAdapter extends BaseAdapter {
 		const safeLimit = limit && limit > 0 ? limit : 50;
 		const decodedOffset = decodeMongoCursor(cursor);
 		const offset = Number.isFinite(decodedOffset) && decodedOffset >= 0 ? decodedOffset : 0;
+		// A cursor is the offset of a page boundary: `asc` reads the page starting there,
+		// `desc` the page ending just before it.
 		const skip = direction === "desc" ? Math.max(offset - safeLimit, 0) : offset;
 
 		const [total, rows] = await Promise.all([
@@ -456,7 +458,6 @@ export class MongoAdapter extends BaseAdapter {
 
 		const normalizedRows = rows.map((row) => normalizeDoc(row));
 		const nextOffset = skip + safeLimit;
-		const prevOffset = Math.max(skip - safeLimit, 0);
 
 		return {
 			data: normalizedRows,
@@ -466,7 +467,7 @@ export class MongoAdapter extends BaseAdapter {
 				hasNextPage: nextOffset < total,
 				hasPreviousPage: skip > 0,
 				nextCursor: nextOffset < total ? encodeMongoCursor(nextOffset) : null,
-				prevCursor: skip > 0 ? encodeMongoCursor(prevOffset) : null,
+				prevCursor: skip > 0 ? encodeMongoCursor(skip) : null,
 			},
 		};
 	}
