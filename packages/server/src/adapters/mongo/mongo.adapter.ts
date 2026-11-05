@@ -74,6 +74,15 @@ const normalizeValue = (value: unknown): unknown => {
 const normalizeDoc = (doc: unknown): Record<string, unknown> =>
 	normalizeValue(doc) as Record<string, unknown>;
 
+/** A record from the grid as a document to insert: an empty `_id` lets MongoDB assign one. */
+const toInsertDoc = (record: Record<string, unknown>): Record<string, unknown> => {
+	const doc = normalizeDoc(record);
+
+	if (doc._id === "" || doc._id === null) delete doc._id;
+
+	return doc;
+};
+
 const INDEX_DEFINITION_OPTIONS = [
 	"sparse",
 	"expireAfterSeconds",
@@ -623,7 +632,7 @@ export class MongoAdapter extends BaseAdapter {
 		tableData: CreateTableSchemaType;
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
-		const tableName = tableData?.tableName ?? "";
+		const { tableName, fields } = tableData;
 		const mongoDb = await connector("mongodb").db(db);
 		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
@@ -632,8 +641,6 @@ export class MongoAdapter extends BaseAdapter {
 				message: `Collection "${tableName}" already exists`,
 			});
 		}
-
-		const fields = tableData?.fields ?? [];
 
 		if (fields.length === 0) {
 			await mongoDb.createCollection(tableName);
@@ -1003,10 +1010,7 @@ export class MongoAdapter extends BaseAdapter {
 		const { tableName, data } = params;
 		const mongoDb = await connector("mongodb").db(db);
 		const collection = mongoDb.collection(tableName);
-		const payload = normalizeDoc(data);
-
-		if (payload._id === "" || payload._id === null) delete payload._id;
-		const result = await collection.insertOne(payload);
+		const result = await collection.insertOne(toInsertDoc(data));
 
 		if (!result.insertedId) {
 			throw new HTTPException(500, {
@@ -1079,7 +1083,7 @@ export class MongoAdapter extends BaseAdapter {
 		const result = await collection.deleteMany({ [pkColumn]: { $in: pkValues } });
 
 		return {
-			deletedCount: result.deletedCount ?? 0,
+			deletedCount: result.deletedCount,
 			fkViolation: false,
 			relatedRecords: [],
 		};
@@ -1098,22 +1102,14 @@ export class MongoAdapter extends BaseAdapter {
 	): Promise<BulkInsertResult> {
 		const { tableName, records, db } = params;
 
-		if (!records || records.length === 0) {
+		if (records.length === 0) {
 			throw new HTTPException(400, { message: "At least one record is required" });
 		}
 
 		const mongoDb = await connector("mongodb").db(db);
 		const collection = mongoDb.collection(tableName);
 
-		const docs = records.map((record) => {
-			const normalized = normalizeDoc(record);
-
-			if (normalized._id === "" || normalized._id === null) delete normalized._id;
-
-			return normalized;
-		});
-
-		const result = await collection.insertMany(docs, { ordered: false });
+		const result = await collection.insertMany(records.map(toInsertDoc), { ordered: false });
 
 		return {
 			success: true,
@@ -1130,7 +1126,7 @@ export class MongoAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		if (!query?.trim()) {
+		if (!query.trim()) {
 			throw new HTTPException(400, { message: "Query is required" });
 		}
 
@@ -1194,7 +1190,7 @@ export class MongoAdapter extends BaseAdapter {
 				if (!Array.isArray(docs))
 					throw new HTTPException(400, { message: "document array is required" });
 				const result = await collection.insertMany(docs);
-				rowCount = result.insertedCount ?? 0;
+				rowCount = result.insertedCount;
 				message = "OK";
 				break;
 			}
@@ -1210,8 +1206,8 @@ export class MongoAdapter extends BaseAdapter {
 					payload.options ?? {},
 				);
 
-				rowCount = result.matchedCount ?? 0;
-				message = `OK (${result.modifiedCount ?? 0} modified)`;
+				rowCount = result.matchedCount;
+				message = `OK (${result.modifiedCount} modified)`;
 				break;
 			}
 
@@ -1226,15 +1222,15 @@ export class MongoAdapter extends BaseAdapter {
 					payload.options ?? {},
 				);
 
-				rowCount = result.matchedCount ?? 0;
-				message = `OK (${result.modifiedCount ?? 0} modified)`;
+				rowCount = result.matchedCount;
+				message = `OK (${result.modifiedCount} modified)`;
 				break;
 			}
 
 			case "deleteOne": {
 				const filter = normalizeIdFilter(payload.filter ?? {});
 				const result = await collection.deleteOne(filter, payload.options ?? {});
-				rowCount = result.deletedCount ?? 0;
+				rowCount = result.deletedCount;
 				message = "OK";
 				break;
 			}
@@ -1242,7 +1238,7 @@ export class MongoAdapter extends BaseAdapter {
 			case "deleteMany": {
 				const filter = normalizeIdFilter(payload.filter ?? {});
 				const result = await collection.deleteMany(filter, payload.options ?? {});
-				rowCount = result.deletedCount ?? 0;
+				rowCount = result.deletedCount;
 				message = "OK";
 				break;
 			}

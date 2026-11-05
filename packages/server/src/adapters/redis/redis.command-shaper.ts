@@ -217,7 +217,8 @@ const COMMAND_SHAPES: Record<string, ShapeFn> = {
 	HVALS: flatArrayShape,
 	"CONFIG GET": pairArrayShape,
 
-	ZRANGE: flatArrayShape, // becomes pair-shaped only with WITHSCORES; caller can post-process
+	// shapeReply answers ZRANGE … WITHSCORES with member/score rows before this table.
+	ZRANGE: flatArrayShape,
 	INFO: infoShape,
 	XRANGE: xrangeShape,
 	XREVRANGE: xrangeShape,
