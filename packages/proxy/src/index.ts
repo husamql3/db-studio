@@ -151,4 +151,10 @@ app.get("/chat/limit", async (c) => {
 	}
 });
 
+app.get("/", (c) =>
+	c.json({ status: "ok", service: "db-studio-proxy", endpoints: ["/chat", "/chat/limit"] }),
+);
+
+app.get("/favicon.ico", (c) => c.body(null, 204));
+
 export default app;
