@@ -19,7 +19,9 @@ export const createLogger = (): Logger => {
 
 		try {
 			appendFileSync(file, line);
-		} catch {}
+		} catch {
+			// A full disk or a locked log file must not take the app down with it.
+		}
 
 		if (!app.isPackaged) process.stdout.write(line);
 	};

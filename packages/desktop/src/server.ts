@@ -54,8 +54,8 @@ export const startServer = async (
 			NODE_ENV: dev ? "development" : "production",
 			HOST: "127.0.0.1",
 			PORT: String(port),
-			FORCE_COLOR: "0",
-			// picocolors (the CLI's colors) turns colors on when FORCE_COLOR is set at all.
+			// The log file wants plain text; picocolors (the CLI's colors) lets NO_COLOR win over
+			// an inherited FORCE_COLOR.
 			NO_COLOR: "1",
 		},
 	});
