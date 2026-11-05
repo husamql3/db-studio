@@ -49,6 +49,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
@@ -57,7 +58,7 @@ import {
 	buildCursorWhereClause,
 	buildMysqlColumnDefinition,
 	buildSortClause,
-	buildWhereClause,
+	mysqlFilters,
 	quoteMysqlIdent,
 } from "./mysql.query-builder.js";
 
@@ -139,7 +140,8 @@ export class MySqlAdapter extends SqlAdapter {
 		} = params;
 
 		const pool = await connector("mysql").pool(db);
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
+		const { values: filterValues, bind } = createBinds(() => "?");
+		const filterWhere = whereSql(buildFilterConditions(filters, bind, mysqlFilters));
 
 		// The first queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([

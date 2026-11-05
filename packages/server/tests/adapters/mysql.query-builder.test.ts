@@ -1,12 +1,20 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
 import {
 	buildCursorWhereClause,
 	buildMysqlColumnDefinition,
 	formatMysqlDefaultValue,
 	buildSortClause,
-	buildWhereClause,
 	mapColumnTypeToMysql,
+	mysqlFilters,
 } from "@/adapters/mysql/mysql.query-builder.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+
+const buildWhereClause = (filters: FilterType[]) => {
+	const { values, bind } = createBinds(() => "?");
+
+	return { clause: whereSql(buildFilterConditions(filters, bind, mysqlFilters)), values };
+};
 
 describe("MySQL query builder", () => {
 	it("builds WHERE clauses with backtick identifiers and ? placeholders", () => {

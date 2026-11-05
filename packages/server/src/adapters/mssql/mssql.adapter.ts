@@ -36,6 +36,7 @@ import type { ConnectionPool as MssqlPool } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, EXACT_COUNT_LIMIT } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
@@ -43,9 +44,10 @@ import { connector } from "@/open-connections.js";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
-	buildWhereClause,
 	formatMssqlDefaultValue,
 	mapColumnTypeToMssql,
+	mssqlFilters,
+	mssqlPlaceholder,
 	quoteMssqlIdent,
 } from "./mssql.query-builder.js";
 
@@ -144,29 +146,22 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 
-		const {
-			clause: filterWhere,
-			values: filterValues,
-			nextIdx,
-		} = buildWhereClause(filters, 0);
+		const { values, bind } = createBinds(mssqlPlaceholder);
+		const filterWhere = whereSql(buildFilterConditions(filters, bind, mssqlFilters));
 
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, tableName),
-			this.countRows(pool, tableName, filterWhere, filterValues),
+			this.countRows(pool, tableName, filterWhere, [...values]),
 		]);
 
-		const sortClause = buildOrderByClause(sort, order, pkColumns);
+		const sql = `SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${buildOrderByClause(sort, order, pkColumns)} OFFSET ${bind(currentOffset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`;
 
 		const dataRequest = pool.request();
-		filterValues.forEach((val, idx) => {
+		values.forEach((val, idx) => {
 			dataRequest.input(`p${idx}`, val);
 		});
-		dataRequest.input(`p${nextIdx}`, currentOffset);
-		dataRequest.input(`p${nextIdx + 1}`, limit + 1);
 
-		const dataResult = await dataRequest.query(
-			`SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
-		);
+		const dataResult = await dataRequest.query(sql);
 
 		let rows = dataResult.recordset as Record<string, unknown>[];
 		const hasMore = rows.length > limit;

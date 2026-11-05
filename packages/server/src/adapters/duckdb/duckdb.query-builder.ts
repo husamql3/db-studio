@@ -1,61 +1,13 @@
-import type { FilterType, SortDirection } from "@db-studio/shared/types";
+import type { SortDirection } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteDuckdbIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-export const whereSql = (conditions: string[]) =>
-	conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-export function buildFilterConditions(filters: FilterType[]): {
-	conditions: string[];
-	values: unknown[];
-} {
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-
-	for (const filter of filters) {
-		const col = quoteDuckdbIdent(filter.columnName);
-		const isNull = filter.value.toLowerCase() === "null";
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${filter.operator} ?`);
-				values.push(filter.value);
-				break;
-			case "is":
-				if (isNull) {
-					conditions.push(`${col} IS NULL`);
-				} else {
-					conditions.push(`${col} = ?`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "is not":
-				if (isNull) {
-					conditions.push(`${col} IS NOT NULL`);
-				} else {
-					conditions.push(`${col} != ?`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "like":
-			case "not like":
-			case "ilike":
-			case "not ilike":
-				conditions.push(`CAST(${col} AS VARCHAR) ${filter.operator.toUpperCase()} ?`);
-				values.push(filter.value);
-				break;
-		}
-	}
-
-	return { conditions, values };
-}
+export const duckdbFilters: FilterDialect = {
+	quote: quoteDuckdbIdent,
+	likeOperand: (column) => `CAST(${column} AS VARCHAR)`,
+	ilike: "keyword",
+};
 
 export interface OrderTerm {
 	column: string;

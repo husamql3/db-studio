@@ -1,4 +1,5 @@
-import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { SortDirection, SortType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteClickhouseIdentifier = (name: string): string =>
 	`\`${name.replaceAll("\\", "\\\\").replaceAll("`", "\\`")}\``;
@@ -10,55 +11,13 @@ const q = quoteClickhouseIdentifier;
  * string operand to the column's type for comparisons. LIKE needs a string column,
  * so it compares the column's text form.
  */
-export function buildWhereClause(filters: FilterType[]): { clause: string; values: string[] } {
-	const conditions: string[] = [];
-	const values: string[] = [];
+export const clickhouseFilters: FilterDialect = {
+	quote: quoteClickhouseIdentifier,
+	likeOperand: (column) => `toString(${column})`,
+	ilike: "keyword",
+};
 
-	const bind = (value: string) => {
-		values.push(value);
-
-		return `{p${values.length - 1}:String}`;
-	};
-
-	for (const { columnName, operator, value } of filters) {
-		const col = q(columnName);
-
-		switch (operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${operator} ${bind(value)}`);
-				break;
-			case "is":
-				conditions.push(
-					value.toLowerCase() === "null" ? `${col} IS NULL` : `${col} = ${bind(value)}`,
-				);
-				break;
-			case "is not":
-				conditions.push(
-					value.toLowerCase() === "null" ? `${col} IS NOT NULL` : `${col} != ${bind(value)}`,
-				);
-				break;
-			case "like":
-				conditions.push(`toString(${col}) LIKE ${bind(value)}`);
-				break;
-			case "not like":
-				conditions.push(`toString(${col}) NOT LIKE ${bind(value)}`);
-				break;
-			case "ilike":
-				conditions.push(`toString(${col}) ILIKE ${bind(value)}`);
-				break;
-			case "not ilike":
-				conditions.push(`toString(${col}) NOT ILIKE ${bind(value)}`);
-				break;
-		}
-	}
-
-	return { clause: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", values };
-}
+export const clickhousePlaceholder = (position: number) => `{p${position - 1}:String}`;
 
 /**
  * User sort first, then `tieBreakers` (raw expressions such as the table's sorting

@@ -33,6 +33,7 @@ import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/
 import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import { D1TokenRefused } from "@/d1-client.js";
 import { HTTPException } from "@/http-exception.js";
@@ -41,11 +42,11 @@ import type { SqliteClient, SqlParam, SqlResult, SqlStatement } from "@/sqlite-c
 import {
 	buildCursorWhereClause,
 	buildSortClause,
-	buildWhereClause,
 	hasMultipleStatements,
 	isTransactionControl,
 	quoteSqliteIdent,
 	recreateTableWithColumn,
+	sqliteFilters,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
@@ -262,7 +263,8 @@ export class SqliteAdapter extends SqlAdapter {
 
 		if (useRowid) cursorColumns.push("rowid");
 
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
+		const { values: filterValues, bind } = createBinds(() => "?");
+		const filterWhere = whereSql(buildFilterConditions(filters, bind, sqliteFilters));
 
 		let cursorWhere = "";
 		let cursorValues: unknown[] = [];

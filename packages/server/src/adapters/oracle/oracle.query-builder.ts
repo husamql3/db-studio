@@ -1,4 +1,5 @@
-import type { FilterType, SortDirection } from "@db-studio/shared/types";
+import type { SortDirection } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -15,18 +16,7 @@ export const quoteOracleIdent = (name: string) => {
 	return `"${name}"`;
 };
 
-/** Collects positional binds and returns the `:n` placeholder for each value. */
-export const createBinds = () => {
-	const values: unknown[] = [];
-
-	const bind = (value: unknown) => {
-		values.push(value);
-
-		return `:${values.length}`;
-	};
-
-	return { values, bind };
-};
+export const oraclePlaceholder = (position: number) => `:${position}`;
 
 type OracleTemporalType = "date" | "timestamp" | "timestampTz" | "timestampLtz";
 
@@ -171,69 +161,21 @@ export const groupOracleForeignKeys = (rows: OracleForeignKeyRow[]): OracleForei
 	return [...constraints.values()];
 };
 
-export const whereSql = (conditions: string[]) =>
-	conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-export function buildFilterConditions(
-	filters: FilterType[],
-	bind: (value: unknown) => string,
+/**
+ * Comparisons bind through `bindOracleValue`, so a temporal value gets an explicit format;
+ * LIKE compares the canonical string a table read returns.
+ */
+export const oracleFilters = (
 	columnTypes: ReadonlyMap<string, string>,
-): string[] {
-	const conditions: string[] = [];
-
-	for (const filter of filters) {
-		const col = quoteOracleIdent(filter.columnName);
-		const columnType = columnTypes.get(filter.columnName);
-		const isNull = filter.value.toLowerCase() === "null";
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(
-					`${col} ${filter.operator} ${bindOracleValue(filter.value, columnType, bind)}`,
-				);
-				break;
-			case "is":
-				conditions.push(
-					isNull
-						? `${col} IS NULL`
-						: `${col} = ${bindOracleValue(filter.value, columnType, bind)}`,
-				);
-				break;
-			case "is not":
-				conditions.push(
-					isNull
-						? `${col} IS NOT NULL`
-						: `${col} != ${bindOracleValue(filter.value, columnType, bind)}`,
-				);
-				break;
-			case "like":
-				conditions.push(`${formatTemporalColumn(col, columnType)} LIKE ${bind(filter.value)}`);
-				break;
-			case "not like":
-				conditions.push(
-					`${formatTemporalColumn(col, columnType)} NOT LIKE ${bind(filter.value)}`,
-				);
-				break;
-			case "ilike":
-				conditions.push(
-					`UPPER(${formatTemporalColumn(col, columnType)}) LIKE UPPER(${bind(filter.value)})`,
-				);
-				break;
-			case "not ilike":
-				conditions.push(
-					`UPPER(${formatTemporalColumn(col, columnType)}) NOT LIKE UPPER(${bind(filter.value)})`,
-				);
-				break;
-		}
-	}
-
-	return conditions;
-}
+	bind: (value: unknown) => string,
+): FilterDialect => ({
+	quote: quoteOracleIdent,
+	likeOperand: (column, columnName) =>
+		formatTemporalColumn(column, columnTypes.get(columnName)),
+	ilike: "upper",
+	bindComparison: (value, columnName) =>
+		bindOracleValue(value, columnTypes.get(columnName), bind),
+});
 
 /** One ORDER BY term; `column: null` orders by ROWID, the tie-breaker for tables without a key. */
 export interface OrderTerm {

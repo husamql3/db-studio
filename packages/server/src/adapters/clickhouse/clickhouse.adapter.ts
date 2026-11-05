@@ -36,6 +36,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
@@ -43,7 +44,8 @@ import { connector } from "@/open-connections.js";
 import {
 	buildClickhouseColumnDefinition,
 	buildOrderByClause,
-	buildWhereClause,
+	clickhouseFilters,
+	clickhousePlaceholder,
 	quoteClickhouseIdentifier as q,
 } from "./clickhouse.query-builder.js";
 
@@ -715,7 +717,8 @@ export class ClickhouseAdapter extends SqlAdapter {
 
 	private buildPageQuery(params: GetTableDataParams, tieBreakers: string[]): QueryBundle {
 		const { tableName, filters = [], sort = [], order = "asc", limit = 50, cursor } = params;
-		const { clause, values } = buildWhereClause(filters);
+		const { values, bind } = createBinds(clickhousePlaceholder);
+		const clause = whereSql(buildFilterConditions(filters, bind, clickhouseFilters));
 		const orderBy = buildOrderByClause(sort, order, tieBreakers);
 		const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 		const n = values.length;

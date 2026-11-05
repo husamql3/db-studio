@@ -38,16 +38,15 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
 	bindOracleValue,
-	buildFilterConditions,
 	buildOracleSelectList,
 	buildOrderBy,
-	createBinds,
 	formatOracleDefault,
 	groupOracleForeignKeys,
 	IDENTITY_CLAUSE,
@@ -56,8 +55,9 @@ import {
 	mapColumnTypeToOracle,
 	type OracleForeignKey,
 	type OracleForeignKeyRow,
+	oracleFilters,
+	oraclePlaceholder,
 	type OrderTerm,
-	whereSql,
 } from "./oracle.query-builder.js";
 import { toJsonNumber } from "./oracle.values.js";
 
@@ -323,8 +323,12 @@ export class OracleAdapter extends BaseAdapter {
 			);
 
 			const offset = cursor ? Number(this.decodeCursor(cursor)?.values._offset ?? 0) : 0;
-			const { values, bind } = createBinds();
-			const where = whereSql(buildFilterConditions(filters, bind, columnTypes));
+			const { values, bind } = createBinds(oraclePlaceholder);
+
+			const where = whereSql(
+				buildFilterConditions(filters, bind, oracleFilters(columnTypes, bind)),
+			);
+
 			const filterValues = [...values];
 
 			const [countRow] = await this.query<{ total: number }>(
@@ -839,7 +843,7 @@ export class OracleAdapter extends BaseAdapter {
 
 		const insertedCount = await this.inTransaction(async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
-			const { values, bind } = createBinds();
+			const { values, bind } = createBinds(oraclePlaceholder);
 
 			const expressions = columns.map((column) =>
 				bindOracleValue(
@@ -874,7 +878,7 @@ export class OracleAdapter extends BaseAdapter {
 			let total = 0;
 
 			for (const { keyValues, rowUpdates } of groups) {
-				const { values, bind } = createBinds();
+				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const set = rowUpdates
 					.map(
@@ -940,7 +944,7 @@ export class OracleAdapter extends BaseAdapter {
 			const types = await this.columnTypes(conn, tableName);
 
 			try {
-				const { values, bind } = createBinds();
+				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const where = matchesAny(selection, undefined, (value, column) =>
 					bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
@@ -963,7 +967,7 @@ export class OracleAdapter extends BaseAdapter {
 
 				for (const fk of await this.foreignKeys(conn, "referenced", tableName)) {
 					const childColumns = await this.requireColumns(conn, fk.referencingTable);
-					const { values, bind } = createBinds();
+					const { values, bind } = createBinds(oraclePlaceholder);
 
 					const where = matchesAny(selection, "p", (value, column) =>
 						bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
@@ -1015,7 +1019,7 @@ export class OracleAdapter extends BaseAdapter {
 			let deleted = 0;
 
 			for (const fk of await this.foreignKeys(conn, "referenced", table)) {
-				const { values, bind } = createBinds();
+				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const where = matchesAny(selection, "p", (value, column) =>
 					column === "ROWID"
@@ -1041,7 +1045,7 @@ export class OracleAdapter extends BaseAdapter {
 				);
 			}
 
-			const { values, bind } = createBinds();
+			const { values, bind } = createBinds(oraclePlaceholder);
 
 			const where = matchesAny(selection, undefined, (value, column) =>
 				column === "ROWID"
@@ -1083,7 +1087,7 @@ export class OracleAdapter extends BaseAdapter {
 			let expressions: string[] = [];
 
 			const rows = records.map((record, index) => {
-				const { values, bind } = createBinds();
+				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const rowExpressions = columns.map((column) =>
 					bindOracleValue(

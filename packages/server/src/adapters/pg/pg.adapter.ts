@@ -45,6 +45,7 @@ import {
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
@@ -53,8 +54,9 @@ import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
 	buildKeysetPredicate,
 	buildOrderBy,
-	buildWhereClause,
 	type OrderTerm,
+	pgFilters,
+	pgPlaceholder,
 	qualifiedTable,
 	quotePgIdent,
 	schemaOf,
@@ -135,7 +137,8 @@ export class PgAdapter extends BaseAdapter {
 
 		const pool = await connector("pg").pool(db);
 		const table = qualifiedTable(tableName, schemaName);
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
+		const { values: filterValues, bind } = createBinds(pgPlaceholder);
+		const filterWhere = whereSql(buildFilterConditions(filters, bind, pgFilters));
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
 		// on the page, so it is counted at the same time instead of after. These are the first

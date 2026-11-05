@@ -1,12 +1,22 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
 	formatMssqlDefaultValue,
 	buildSortClause,
-	buildWhereClause,
 	mapColumnTypeToMssql,
+	mssqlFilters,
 } from "@/adapters/mssql/mssql.query-builder.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+
+/** Filters after `startIdx` values already bound, as the data query binds them. */
+const buildWhereClause = (filters: FilterType[], startIdx: number) => {
+	const { values, bind } = createBinds((n) => `@p${startIdx + n - 1}`);
+	const clause = whereSql(buildFilterConditions(filters, bind, mssqlFilters));
+
+	return { clause, values, nextIdx: startIdx + values.length };
+};
 
 describe("MSSQL query builder", () => {
 	it("builds WHERE clauses with bracket identifiers and named params", () => {

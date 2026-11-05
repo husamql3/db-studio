@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
 	bindOracleValue,
-	buildFilterConditions,
 	buildOrderBy,
 	buildOracleSelectList,
-	createBinds,
 	groupOracleForeignKeys,
+	oracleFilters,
+	oraclePlaceholder,
 } from "@/adapters/oracle/oracle.query-builder.js";
+import { buildFilterConditions, createBinds } from "@/adapters/sql-filters.js";
 /**
  * Oracle temporal and foreign-key failure modes covered here:
  *
@@ -56,19 +57,19 @@ describe("Oracle temporal SQL", () => {
 	])(
 		"binds $type through an explicit format",
 		({ type, input, expectedValue, expectedSql }) => {
-			const { values, bind } = createBinds();
+			const { values, bind } = createBinds(oraclePlaceholder);
 			expect(bindOracleValue(input, type, bind)).toBe(expectedSql);
 			expect(values).toEqual([expectedValue]);
 		},
 	);
 
 	it("rejects an invalid temporal value before Oracle can guess its format", () => {
-		const { bind } = createBinds();
+		const { bind } = createBinds(oraclePlaceholder);
 		expect(() => bindOracleValue("07/10/2026", "TIMESTAMP", bind)).toThrow(HTTPException);
 	});
 
 	it("keeps the temporal SQL shape when a nullable value is null", () => {
-		const { values, bind } = createBinds();
+		const { values, bind } = createBinds(oraclePlaceholder);
 		expect(bindOracleValue(null, "TIMESTAMP(9)", bind)).toBe(
 			`TO_TIMESTAMP(:1, 'YYYY-MM-DD"T"HH24:MI:SS.FF9')`,
 		);
@@ -102,7 +103,7 @@ describe("Oracle temporal SQL", () => {
 	});
 
 	it("formats temporal LIKE operands but keeps range comparisons native", () => {
-		const { values, bind } = createBinds();
+		const { values, bind } = createBinds(oraclePlaceholder);
 		expect(
 			buildFilterConditions(
 				[
@@ -115,7 +116,7 @@ describe("Oracle temporal SQL", () => {
 					},
 				],
 				bind,
-				new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]),
+				oracleFilters(new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]), bind),
 			),
 		).toEqual([
 			`TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM') LIKE :1`,

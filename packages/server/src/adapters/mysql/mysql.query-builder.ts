@@ -1,66 +1,9 @@
-import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { CursorData, SortDirection, SortType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteMysqlIdent = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
-export function buildWhereClause(filters: FilterType[]): {
-	clause: string;
-	values: unknown[];
-} {
-	if (filters.length === 0) return { clause: "", values: [] };
-
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-
-	for (const filter of filters) {
-		const col = quoteMysqlIdent(filter.columnName);
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${filter.operator} ?`);
-				values.push(filter.value);
-				break;
-			case "is":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NULL`);
-				} else {
-					conditions.push(`${col} = ?`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "is not":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NOT NULL`);
-				} else {
-					conditions.push(`${col} != ?`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "like":
-			case "ilike":
-				conditions.push(`${col} LIKE ?`);
-				values.push(filter.value);
-				break;
-			case "not like":
-			case "not ilike":
-				conditions.push(`${col} NOT LIKE ?`);
-				values.push(filter.value);
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (conditions.length === 0) return { clause: "", values: [] };
-
-	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
-}
+export const mysqlFilters: FilterDialect = { quote: quoteMysqlIdent, ilike: "like" };
 
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {

@@ -36,19 +36,19 @@ import type {
 } from "@duckdb/node-api";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
-	buildFilterConditions,
 	buildKeysetPredicate,
 	buildOrderBy,
+	duckdbFilters,
 	quoteDuckdbIdent as ident,
 	isSerialType,
 	mapColumnTypeToDuckdb,
 	type OrderTerm,
-	whereSql,
 } from "./duckdb.query-builder.js";
 
 type Row = Record<string, Json>;
@@ -237,7 +237,13 @@ export class DuckDbAdapter extends SqlAdapter {
 			);
 
 			const backward = direction === "desc";
-			const filter = buildFilterConditions(filters);
+			const binds = createBinds(() => "?");
+
+			const filter = {
+				conditions: buildFilterConditions(filters, binds.bind, duckdbFilters),
+				values: binds.values,
+			};
+
 			const cursorData = cursor ? this.decodeCursor(cursor) : null;
 
 			const keyset = cursorData

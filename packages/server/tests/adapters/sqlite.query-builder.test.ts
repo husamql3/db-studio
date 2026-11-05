@@ -1,11 +1,19 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import {
 	buildCursorWhereClause,
 	buildSortClause,
-	buildWhereClause,
 	hasMultipleStatements,
 	isTransactionControl,
+	sqliteFilters,
 } from "@/adapters/sqlite/sqlite.query-builder.js";
+
+const buildWhereClause = (filters: FilterType[]) => {
+	const { values, bind } = createBinds(() => "?");
+
+	return { clause: whereSql(buildFilterConditions(filters, bind, sqliteFilters)), values };
+};
 
 describe("sqlite.query-builder — buildWhereClause", () => {
 	it("returns empty clause for empty filter list", () => {

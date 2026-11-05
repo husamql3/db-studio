@@ -1,77 +1,15 @@
-import type { FilterType, SortDirection } from "@db-studio/shared/types";
+import type { SortDirection } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-export function buildWhereClause(filters: FilterType[]): {
-	clause: string;
-	values: unknown[];
-} {
-	if (filters.length === 0) {
-		return { clause: "", values: [] };
-	}
+export const pgFilters: FilterDialect = {
+	quote: quotePgIdent,
+	likeOperand: (column) => `${column}::text`,
+	ilike: "keyword",
+};
 
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-
-	for (const filter of filters) {
-		const paramIndex = values.length + 1;
-		const columnName = quotePgIdent(filter.columnName);
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${columnName} ${filter.operator} $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "is":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${columnName} IS NULL`);
-				} else {
-					conditions.push(`${columnName} = $${paramIndex}`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "is not":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${columnName} IS NOT NULL`);
-				} else {
-					conditions.push(`${columnName} != $${paramIndex}`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "like":
-				conditions.push(`${columnName}::text LIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "not like":
-				conditions.push(`${columnName}::text NOT LIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "ilike":
-				conditions.push(`${columnName}::text ILIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "not ilike":
-				conditions.push(`${columnName}::text NOT ILIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (conditions.length === 0) {
-		return { clause: "", values: [] };
-	}
-
-	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
-}
+export const pgPlaceholder = (position: number) => `$${position}`;
 
 export interface OrderTerm {
 	column: string;

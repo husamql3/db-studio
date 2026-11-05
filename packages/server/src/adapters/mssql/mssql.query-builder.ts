@@ -1,72 +1,12 @@
-import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { SortDirection, SortType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteMssqlIdent = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
-export function buildWhereClause(
-	filters: FilterType[],
-	startIdx = 0,
-): { clause: string; values: unknown[]; nextIdx: number } {
-	if (filters.length === 0) return { clause: "", values: [], nextIdx: startIdx };
+export const mssqlFilters: FilterDialect = { quote: quoteMssqlIdent, ilike: "like" };
 
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-	let idx = startIdx;
-
-	for (const filter of filters) {
-		const col = quoteMssqlIdent(filter.columnName);
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${filter.operator} @p${idx}`);
-				values.push(filter.value);
-				idx++;
-				break;
-			case "is":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NULL`);
-				} else {
-					conditions.push(`${col} = @p${idx}`);
-					values.push(filter.value);
-					idx++;
-				}
-
-				break;
-			case "is not":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NOT NULL`);
-				} else {
-					conditions.push(`${col} != @p${idx}`);
-					values.push(filter.value);
-					idx++;
-				}
-
-				break;
-			case "like":
-			case "ilike":
-				conditions.push(`${col} LIKE @p${idx}`);
-				values.push(filter.value);
-				idx++;
-				break;
-			case "not like":
-			case "not ilike":
-				conditions.push(`${col} NOT LIKE @p${idx}`);
-				values.push(filter.value);
-				idx++;
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (conditions.length === 0) return { clause: "", values: [], nextIdx: startIdx };
-
-	return { clause: `WHERE ${conditions.join(" AND ")}`, values, nextIdx: idx };
-}
+/** `mssql` binds each value by name: `@p0`, `@p1`, … */
+export const mssqlPlaceholder = (position: number) => `@p${position - 1}`;
 
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {

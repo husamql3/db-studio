@@ -1,9 +1,18 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
 import {
 	buildKeysetPredicate,
 	buildOrderBy,
-	buildWhereClause,
+	pgFilters,
+	pgPlaceholder,
 } from "@/adapters/pg/pg.query-builder.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+
+const buildWhereClause = (filters: FilterType[]) => {
+	const { values, bind } = createBinds(pgPlaceholder);
+
+	return { clause: whereSql(buildFilterConditions(filters, bind, pgFilters)), values };
+};
 
 // Keyset paging failure modes: a NULL sort value ends paging early (a row-value comparison
 // never matches NULL), mixed sort directions skip rows, a backward page reads the wrong side,
