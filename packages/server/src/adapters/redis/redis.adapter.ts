@@ -316,6 +316,15 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		return undefined;
 	}
 
+	/** Runs a key-browser write on a connection of its own, then drops the counts it may change. */
+	private async writeKey<T>(db: string, write: (client: Redis) => Promise<T>): Promise<T> {
+		const dbIndex = parseDbIndex(db);
+		const result = await connector("redis").withIsolatedClient(dbIndex, write);
+		this.countCache.delete(await connector("redis").client(dbIndex));
+
+		return result;
+	}
+
 	async scanKeys(params: KeyScanQuerySchemaType): Promise<KeyScanResultSchemaType> {
 		const { db, limit, search, exactPattern, type, cursor } = params;
 		const dbIndex = parseDbIndex(db);
@@ -630,7 +639,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	async createKey(
 		params: CreateKeySchemaType & { db: string },
 	): Promise<KeyWriteResultSchemaType> {
-		return connector("redis").withIsolatedClient(parseDbIndex(params.db), async (client) => {
+		return this.writeKey(params.db, async (client) => {
 			const key = decodeBinaryValue(params.key.base64);
 			await client.watch(key);
 
@@ -712,7 +721,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	async applyKeyAction(
 		params: KeyActionSchemaType & { db: string; key: string },
 	): Promise<KeyWriteResultSchemaType> {
-		return connector("redis").withIsolatedClient(parseDbIndex(params.db), async (client) => {
+		return this.writeKey(params.db, async (client) => {
 			const key = decodeKeyParam(params.key);
 
 			const newKey =
@@ -856,7 +865,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	async deleteKey(
 		params: DeleteKeyQuerySchemaType & { key: string },
 	): Promise<DeleteKeyResultSchemaType> {
-		return connector("redis").withIsolatedClient(parseDbIndex(params.db), async (client) => {
+		return this.writeKey(params.db, async (client) => {
 			const key = decodeKeyParam(params.key);
 			await client.watch(key);
 			await loadKeyForWrite(client, key, params);
