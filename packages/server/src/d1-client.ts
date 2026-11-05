@@ -33,6 +33,9 @@ export const d1Target = ({ host, database, params }: ConnectionUrl): D1Target =>
 	return { accountId: host, databaseId: database, token };
 };
 
+/** Cloudflare answered 401 or 403: the API token is wrong or may not reach this database. */
+export class D1TokenRefused extends Error {}
+
 interface D1Response<T> {
 	success: boolean;
 	errors?: { code: number; message: string }[];
@@ -99,11 +102,8 @@ export const createD1Client = ({ accountId, databaseId, token }: D1Target): Sqli
 
 		const message = parsed?.errors?.[0]?.message;
 
-		// BaseAdapter.wrapError maps "HTTP status 401/403" to 503, as for a bad libSQL token.
 		if (res.status === 401 || res.status === 403)
-			throw new Error(
-				`${message ?? "Cloudflare D1 refused the API token"} (HTTP status ${res.status})`,
-			);
+			throw new D1TokenRefused(message ?? "Cloudflare D1 refused the API token");
 
 		if (!parsed?.success || parsed.result === null)
 			throw new Error(

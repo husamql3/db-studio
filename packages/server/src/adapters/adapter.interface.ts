@@ -30,6 +30,7 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import type { ServerAddress } from "@/connection-url.js";
+import type { HTTPException } from "@/http-exception.js";
 
 export interface GetTableDataParams {
 	tableName: string;
@@ -114,6 +115,9 @@ export interface IDbAdapter {
 	// --- Server logs ---
 	/** The newest entries of the server's own log, or why the server keeps it out of reach. */
 	getServerLogs(params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult>;
+
+	/** The status and message the API answers a failure of this engine's request with. */
+	classifyError(e: unknown): HTTPException;
 
 	// --- Type system ---
 	/**

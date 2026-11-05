@@ -37,6 +37,7 @@ import type { ConnectionPool as MssqlPool } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
+	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
 	type NormalizedRow,
 	type QueryBundle,
@@ -104,6 +105,17 @@ interface FkConstraintRow {
 }
 
 export class MsSqlAdapter extends BaseAdapter {
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		// Before the message check below, whose words a table name in this message can contain.
+		if (e.name === "RequestError" && isSelectDenied(e)) return { status: 403 };
+
+		// A login failure, connect timeout or socket error.
+		if (e.name === "ConnectionError" || e.message.includes("Login failed"))
+			return { status: 503 };
+
+		return undefined;
+	}
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
@@ -185,66 +197,62 @@ export class MsSqlAdapter extends BaseAdapter {
 	// =========================================================
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		try {
-			const {
-				tableName,
-				db,
-				limit = 50,
-				sort = [],
-				order = "asc",
-				cursor,
-				filters = [],
-			} = params;
+		const {
+			tableName,
+			db,
+			limit = 50,
+			sort = [],
+			order = "asc",
+			cursor,
+			filters = [],
+		} = params;
 
-			const pool = await connector("mssql").pool(db);
+		const pool = await connector("mssql").pool(db);
 
-			const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
+		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 
-			const {
-				clause: filterWhere,
-				values: filterValues,
-				nextIdx,
-			} = buildWhereClause(filters, 0);
+		const {
+			clause: filterWhere,
+			values: filterValues,
+			nextIdx,
+		} = buildWhereClause(filters, 0);
 
-			const [pkColumns, { total, estimated }] = await Promise.all([
-				this.getPrimaryKeyColumns(pool, tableName),
-				this.countRows(pool, tableName, filterWhere, filterValues),
-			]);
+		const [pkColumns, { total, estimated }] = await Promise.all([
+			this.getPrimaryKeyColumns(pool, tableName),
+			this.countRows(pool, tableName, filterWhere, filterValues),
+		]);
 
-			const sortClause = buildOrderByClause(sort, order, pkColumns);
+		const sortClause = buildOrderByClause(sort, order, pkColumns);
 
-			const dataRequest = pool.request();
-			filterValues.forEach((val, idx) => {
-				dataRequest.input(`p${idx}`, val);
-			});
-			dataRequest.input(`p${nextIdx}`, currentOffset);
-			dataRequest.input(`p${nextIdx + 1}`, limit + 1);
+		const dataRequest = pool.request();
+		filterValues.forEach((val, idx) => {
+			dataRequest.input(`p${idx}`, val);
+		});
+		dataRequest.input(`p${nextIdx}`, currentOffset);
+		dataRequest.input(`p${nextIdx + 1}`, limit + 1);
 
-			const dataResult = await dataRequest.query(
-				`SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
-			);
+		const dataResult = await dataRequest.query(
+			`SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
+		);
 
-			let rows = dataResult.recordset as Record<string, unknown>[];
-			const hasMore = rows.length > limit;
+		let rows = dataResult.recordset as Record<string, unknown>[];
+		const hasMore = rows.length > limit;
 
-			if (hasMore) rows = rows.slice(0, limit);
+		if (hasMore) rows = rows.slice(0, limit);
 
-			return {
-				data: rows,
-				meta: {
-					limit,
-					total,
-					...(estimated && { totalEstimated: true }),
-					hasNextPage: hasMore,
-					hasPreviousPage: currentOffset > 0,
-					nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
-					prevCursor:
-						currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return {
+			data: rows,
+			meta: {
+				limit,
+				total,
+				...(estimated && { totalEstimated: true }),
+				hasNextPage: hasMore,
+				hasPreviousPage: currentOffset > 0,
+				nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
+				prevCursor:
+					currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
+			},
+		};
 	}
 
 	// =========================================================
@@ -254,12 +262,11 @@ export class MsSqlAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const pool = await connector("mssql").pool();
+		const pool = await connector("mssql").pool();
 
-			// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
-			// optional; HAS_DBACCESS drops databases the login cannot open.
-			const result = await pool.request().query(`
+		// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
+		// optional; HAS_DBACCESS drops databases the login cannot open.
+		const result = await pool.request().query(`
 				SELECT
 				  d.name AS name,
 				  ISNULL(CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB', '') AS size,
@@ -272,14 +279,11 @@ export class MsSqlAdapter extends BaseAdapter {
 				ORDER BY d.name
 			`);
 
-			if (!result.recordset[0]) {
-				throw new HTTPException(500, { message: "No databases returned from server" });
-			}
-
-			return result.recordset as DatabaseInfoSchemaType[];
-		} catch (e) {
-			throw this.wrapError(e);
+		if (!result.recordset[0]) {
+			throw new HTTPException(500, { message: "No databases returned from server" });
 		}
+
+		return result.recordset as DatabaseInfoSchemaType[];
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
@@ -457,38 +461,33 @@ export class MsSqlAdapter extends BaseAdapter {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+			throw error;
 		}
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, newTableName, db } = params;
-			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await connector("mssql").pool(db);
+		const { tableName, newTableName, db } = params;
+		this.assertDifferentTableName(tableName, newTableName);
+		const pool = await connector("mssql").pool(db);
 
-			await this.assertTableExists(pool, tableName);
+		await this.assertTableExists(pool, tableName);
 
-			const targetCheck = await pool.request().input("tableName", newTableName).query(`
+		const targetCheck = await pool.request().input("tableName", newTableName).query(`
 					SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
 					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
 				`);
 
-			if (Number(targetCheck.recordset[0]?.cnt ?? 0) > 0) {
-				throw new HTTPException(409, {
-					message: `Table "${newTableName}" already exists`,
-				});
-			}
-
-			await pool
-				.request()
-				.input("oldName", tableName)
-				.input("newName", newTableName)
-				.query("EXEC sp_rename @oldName, @newName");
-		} catch (e) {
-			throw this.wrapError(e);
+		if (Number(targetCheck.recordset[0]?.cnt ?? 0) > 0) {
+			throw new HTTPException(409, {
+				message: `Table "${newTableName}" already exists`,
+			});
 		}
+
+		await pool
+			.request()
+			.input("oldName", tableName)
+			.input("newName", newTableName)
+			.query("EXEC sp_rename @oldName, @newName");
 	}
 
 	async getTableSchema({
@@ -869,7 +868,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				);
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -882,11 +881,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		try {
-			return await this.listIndexes(await connector("mssql").pool(db), tableName);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return await this.listIndexes(await connector("mssql").pool(db), tableName);
 	}
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
@@ -927,7 +922,7 @@ export class MsSqlAdapter extends BaseAdapter {
 
 			if (e instanceof Error && number !== undefined && MSSQL_CANNOT_INDEX.has(number))
 				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -955,7 +950,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		} catch (e) {
 			if (e instanceof Error && (e as { number?: number }).number === MSSQL_INDEX_IN_USE)
 				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1079,9 +1074,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			return { updatedCount: total };
 		} catch (error) {
 			await transaction.rollback();
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
+			throw error;
 		}
 	}
 
@@ -1129,10 +1122,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to delete records from "${tableName}"`,
-			});
+			throw error;
 		}
 	}
 
@@ -1236,11 +1226,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			return { deletedCount: (result.rowsAffected[0] ?? 0) + totalRelated };
 		} catch (error) {
 			await transaction.rollback();
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to force delete records from "${tableName}"`,
-			});
+			throw error;
 		}
 	}
 
@@ -1287,8 +1273,12 @@ export class MsSqlAdapter extends BaseAdapter {
 						`INSERT INTO [${tableName}] (${columnNames}) VALUES (${paramNames})`,
 					);
 				} catch (error) {
+					const failure = this.classifyError(error);
+
+					if (failure.status !== 500) throw failure;
 					throw new HTTPException(500, {
-						message: `Failed to insert record ${i + 1}: ${error instanceof Error ? error.message : String(error)}`,
+						message: `Failed to insert record ${i + 1}: ${failure.message}`,
+						cause: error,
 					});
 				}
 			}
@@ -1303,11 +1293,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			};
 		} catch (error) {
 			await transaction.rollback();
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to bulk insert records into "${tableName}"`,
-			});
+			throw error;
 		}
 	}
 
@@ -1327,12 +1313,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		const cleanedQuery = query.trim().replace(/;+$/, "");
 		const start = performance.now();
 
-		const result = await pool
-			.request()
-			.query(cleanedQuery)
-			.catch((e) => {
-				throw this.wrapError(e);
-			});
+		const result = await pool.request().query(cleanedQuery);
 
 		const duration = performance.now() - start;
 

@@ -4,15 +4,14 @@ import { loadDriver } from "@/drivers.js";
 import { writeOperationalLog } from "@/operational-log.js";
 import { openOnce } from "./open-once.js";
 
+export const UNSUPPORTED_SERVER_MODE =
+	"Redis cluster and Sentinel modes are not supported. Use a standalone redis:// connection.";
+
 /** Refuses a server db-studio cannot browse: cluster or Sentinel mode, or Redis before 6.2. */
 const assertSupportedServer = async (client: Redis) => {
 	const info = await client.info("server");
 
-	if (/^redis_mode:(cluster|sentinel)\b/m.test(info)) {
-		throw new Error(
-			"Redis cluster and Sentinel modes are not supported. Use a standalone redis:// connection.",
-		);
-	}
+	if (/^redis_mode:(cluster|sentinel)\b/m.test(info)) throw new Error(UNSUPPORTED_SERVER_MODE);
 
 	const version = info.match(/^redis_version:([^\r\n]+)/m)?.[1];
 	const [major = 0, minor = 0] = version?.split(".").map(Number) ?? [];

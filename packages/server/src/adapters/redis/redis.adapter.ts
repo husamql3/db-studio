@@ -40,9 +40,15 @@ import type {
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	type DriverErrorClass,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { UNSUPPORTED_SERVER_MODE } from "@/connectors/redis.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import { shapeReply, tokenizeCommand } from "./redis.command-shaper.js";
@@ -213,6 +219,13 @@ const conflict = (): HTTPException =>
 		message: "This key changed since it was loaded. Reload it or explicitly overwrite.",
 	});
 
+/**
+ * Replies that mean the server cannot serve now: auth required (NOAUTH), invalid credentials
+ * (WRONGPASS), dataset loading (LOADING), server busy (BUSY), read-only replica (READONLY),
+ * cluster down (CLUSTERDOWN).
+ */
+const UNAVAILABLE_REPLY = /^(NOAUTH|WRONGPASS|LOADING|BUSY|READONLY|CLUSTERDOWN)\b/;
+
 const isUnavailableCommandError = (error: unknown): boolean => {
 	const message = error instanceof Error ? error.message : String(error);
 
@@ -339,6 +352,13 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	// Keyed by client: each open connection has its own clients, so tabs on two servers never share counts.
 	private countCache = new WeakMap<Redis, CountCacheEntry>();
 
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		if (UNAVAILABLE_REPLY.test(e.message) || e.message === UNSUPPORTED_SERVER_MODE)
+			return { status: 503 };
+
+		return undefined;
+	}
+
 	// -----------------------------------------------------------------------
 	// Abstract stubs — Redis does not use SQL
 	// -----------------------------------------------------------------------
@@ -391,345 +411,333 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	async scanKeys(params: KeyScanQuerySchemaType): Promise<KeyScanResultSchemaType> {
-		try {
-			const { db, limit, search, exactPattern, type, cursor } = params;
-			const dbIndex = parseDbIndex(db);
-			const client = await connector("redis").client(dbIndex);
-			let scanCursor = "0";
+		const { db, limit, search, exactPattern, type, cursor } = params;
+		const dbIndex = parseDbIndex(db);
+		const client = await connector("redis").client(dbIndex);
+		let scanCursor = "0";
 
-			if (cursor) {
-				const decoded = decodeKeyBrowserCursor(cursor);
+		if (cursor) {
+			const decoded = decodeKeyBrowserCursor(cursor);
 
-				if (
-					!decoded ||
-					decoded.search !== search ||
-					decoded.exactPattern !== exactPattern ||
-					decoded.type !== type
-				) {
-					throw new HTTPException(400, { message: "Invalid or stale key scan cursor" });
-				}
-
-				scanCursor = decoded.scanCursor;
+			if (
+				!decoded ||
+				decoded.search !== search ||
+				decoded.exactPattern !== exactPattern ||
+				decoded.type !== type
+			) {
+				throw new HTTPException(400, { message: "Invalid or stale key scan cursor" });
 			}
 
-			const pattern = search ? (exactPattern ? search : `*${escapeRedisGlob(search)}*`) : "*";
-
-			const [nextRaw, pageKeys] = type
-				? await client.scanBuffer(scanCursor, "MATCH", pattern, "COUNT", limit, "TYPE", type)
-				: await client.scanBuffer(scanCursor, "MATCH", pattern, "COUNT", limit);
-
-			const nextScanCursor = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
-			const pipeline = client.pipeline();
-
-			for (const key of pageKeys) {
-				pipeline.call("TYPE", key);
-				pipeline.pttl(key);
-				pipeline.call("MEMORY", "USAGE", key);
-			}
-
-			const metadata = (await pipeline.exec()) ?? [];
-
-			return {
-				keys: pageKeys.map((key, index) => {
-					const offset = index * 3;
-					const memory = metadata[offset + 2]?.[1];
-
-					return {
-						key: encodeBinaryValue(key),
-						type: normalizeRedisKeyType(metadata[offset]?.[1]),
-						ttlMs: Number(metadata[offset + 1]?.[1] ?? -2),
-						memoryBytes: memory === null || memory === undefined ? null : Number(memory),
-					};
-				}),
-				nextCursor:
-					nextScanCursor === "0"
-						? null
-						: encodeKeyBrowserCursor({
-								scanCursor: nextScanCursor,
-								search,
-								exactPattern,
-								type,
-							}),
-				hasMore: nextScanCursor !== "0",
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+			scanCursor = decoded.scanCursor;
 		}
+
+		const pattern = search ? (exactPattern ? search : `*${escapeRedisGlob(search)}*`) : "*";
+
+		const [nextRaw, pageKeys] = type
+			? await client.scanBuffer(scanCursor, "MATCH", pattern, "COUNT", limit, "TYPE", type)
+			: await client.scanBuffer(scanCursor, "MATCH", pattern, "COUNT", limit);
+
+		const nextScanCursor = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+		const pipeline = client.pipeline();
+
+		for (const key of pageKeys) {
+			pipeline.call("TYPE", key);
+			pipeline.pttl(key);
+			pipeline.call("MEMORY", "USAGE", key);
+		}
+
+		const metadata = (await pipeline.exec()) ?? [];
+
+		return {
+			keys: pageKeys.map((key, index) => {
+				const offset = index * 3;
+				const memory = metadata[offset + 2]?.[1];
+
+				return {
+					key: encodeBinaryValue(key),
+					type: normalizeRedisKeyType(metadata[offset]?.[1]),
+					ttlMs: Number(metadata[offset + 1]?.[1] ?? -2),
+					memoryBytes: memory === null || memory === undefined ? null : Number(memory),
+				};
+			}),
+			nextCursor:
+				nextScanCursor === "0"
+					? null
+					: encodeKeyBrowserCursor({
+							scanCursor: nextScanCursor,
+							search,
+							exactPattern,
+							type,
+						}),
+			hasMore: nextScanCursor !== "0",
+		};
 	}
 
 	async getKeyDetails(
 		params: KeyDetailsQuerySchemaType & { key: string },
 	): Promise<KeyDetailsResultSchemaType> {
-		try {
-			const { db, key: encodedKey, cursor, limit, full, direction } = params;
-			const key = decodeKeyParam(encodedKey);
-			const client = await connector("redis").client(parseDbIndex(db));
+		const { db, key: encodedKey, cursor, limit, full, direction } = params;
+		const key = decodeKeyParam(encodedKey);
+		const client = await connector("redis").client(parseDbIndex(db));
 
-			const [typeRaw, ttlMs, memoryRaw, dumpRaw] = await Promise.all([
-				client.callBuffer("TYPE", key),
-				client.pttl(key),
-				client.call("MEMORY", "USAGE", key).catch(() => null),
-				client.callBuffer("DUMP", key),
+		const [typeRaw, ttlMs, memoryRaw, dumpRaw] = await Promise.all([
+			client.callBuffer("TYPE", key),
+			client.pttl(key),
+			client.call("MEMORY", "USAGE", key).catch(() => null),
+			client.callBuffer("DUMP", key),
+		]);
+
+		const dump = dumpRaw as Buffer | null;
+
+		if (!dump) {
+			throw new HTTPException(404, { message: "Redis key no longer exists" });
+		}
+
+		const type = normalizeRedisKeyType(typeRaw);
+
+		const summary = {
+			key: encodeBinaryValue(key),
+			type,
+			ttlMs: Number(ttlMs),
+			memoryBytes: memoryRaw === null ? null : Number(memoryRaw),
+			revision: revisionForDump(dump),
+		};
+
+		const decodedCursor = cursor ? decodeKeyDetailsCursor(cursor) : null;
+
+		if (
+			cursor &&
+			(!decodedCursor ||
+				decodedCursor.key !== encodedKey ||
+				decodedCursor.type !== type ||
+				decodedCursor.direction !== direction)
+		) {
+			throw new HTTPException(400, { message: "Invalid or stale key details cursor" });
+		}
+
+		if (type === "string") {
+			const length = await client.strlen(key);
+			const readLimit = full ? MAX_STRING_FULL_BYTES : MAX_STRING_PREVIEW_BYTES;
+			const value = await client.getrangeBuffer(key, 0, readLimit - 1);
+
+			return {
+				...summary,
+				length,
+				value: {
+					kind: "string",
+					value: encodeBinaryValue(value),
+					truncated: length > readLimit,
+				},
+				nextCursor: null,
+				hasMore: false,
+			};
+		}
+
+		if (type === "hash") {
+			const [length, scanResult] = await Promise.all([
+				client.hlen(key),
+				client.hscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
 			]);
 
-			const dump = dumpRaw as Buffer | null;
+			const [nextRaw, values] = scanResult as [Buffer | string, Buffer[]];
+			const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+			const entries = [];
 
-			if (!dump) {
-				throw new HTTPException(404, { message: "Redis key no longer exists" });
+			for (let index = 0; index < values.length; index += 2) {
+				entries.push({
+					field: encodeBinaryValue(values[index]),
+					value: encodeBinaryValue(values[index + 1]),
+				});
 			}
 
-			const type = normalizeRedisKeyType(typeRaw);
-
-			const summary = {
-				key: encodeBinaryValue(key),
-				type,
-				ttlMs: Number(ttlMs),
-				memoryBytes: memoryRaw === null ? null : Number(memoryRaw),
-				revision: revisionForDump(dump),
+			return {
+				...summary,
+				length,
+				value: { kind: "hash", entries },
+				nextCursor:
+					next === "0"
+						? null
+						: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
+				hasMore: next !== "0",
 			};
+		}
 
-			const decodedCursor = cursor ? decodeKeyDetailsCursor(cursor) : null;
+		if (type === "list") {
+			const offset = Number.parseInt(decodedCursor?.cursor ?? "0", 10);
+			const length = await client.llen(key);
+			const values = await client.lrangeBuffer(key, offset, offset + limit - 1);
+			const nextOffset = offset + values.length;
+			const hasMore = nextOffset < length;
 
-			if (
-				cursor &&
-				(!decodedCursor ||
-					decodedCursor.key !== encodedKey ||
-					decodedCursor.type !== type ||
-					decodedCursor.direction !== direction)
-			) {
-				throw new HTTPException(400, { message: "Invalid or stale key details cursor" });
-			}
-
-			if (type === "string") {
-				const length = await client.strlen(key);
-				const readLimit = full ? MAX_STRING_FULL_BYTES : MAX_STRING_PREVIEW_BYTES;
-				const value = await client.getrangeBuffer(key, 0, readLimit - 1);
-
-				return {
-					...summary,
-					length,
-					value: {
-						kind: "string",
+			return {
+				...summary,
+				length,
+				value: {
+					kind: "list",
+					entries: values.map((value, index) => ({
+						index: offset + index,
 						value: encodeBinaryValue(value),
-						truncated: length > readLimit,
-					},
-					nextCursor: null,
-					hasMore: false,
-				};
+					})),
+				},
+				nextCursor: hasMore
+					? encodeKeyDetailsCursor({
+							key: encodedKey,
+							type,
+							cursor: String(nextOffset),
+							direction,
+						})
+					: null,
+				hasMore,
+			};
+		}
+
+		if (type === "set") {
+			const [length, scanResult] = await Promise.all([
+				client.scard(key),
+				client.sscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
+			]);
+
+			const [nextRaw, members] = scanResult as [Buffer | string, Buffer[]];
+			const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+
+			return {
+				...summary,
+				length,
+				value: { kind: "set", members: members.map(encodeBinaryValue) },
+				nextCursor:
+					next === "0"
+						? null
+						: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
+				hasMore: next !== "0",
+			};
+		}
+
+		if (type === "zset") {
+			const [length, scanResult] = await Promise.all([
+				client.zcard(key),
+				client.zscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
+			]);
+
+			const [nextRaw, values] = scanResult as [Buffer | string, Buffer[]];
+			const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
+			const entries = [];
+
+			for (let index = 0; index < values.length; index += 2) {
+				entries.push({
+					member: encodeBinaryValue(values[index]),
+					score: ((): number | "inf" | "-inf" => {
+						const score = values[index + 1].toString("utf8");
+
+						if (score === "inf") return "inf";
+
+						if (score === "-inf") return "-inf";
+
+						return Number(score);
+					})(),
+				});
 			}
 
-			if (type === "hash") {
-				const [length, scanResult] = await Promise.all([
-					client.hlen(key),
-					client.hscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
-				]);
+			return {
+				...summary,
+				length,
+				value: { kind: "zset", entries },
+				nextCursor:
+					next === "0"
+						? null
+						: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
+				hasMore: next !== "0",
+			};
+		}
 
-				const [nextRaw, values] = scanResult as [Buffer | string, Buffer[]];
-				const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
-				const entries = [];
+		if (type === "stream") {
+			const boundary = decodedCursor?.cursor ?? (direction === "forward" ? "-" : "+");
+
+			const [length, rawEntries] = await Promise.all([
+				client.xlen(key),
+				direction === "forward"
+					? client.xrangeBuffer(key, boundary, "+", "COUNT", limit + 1)
+					: client.xrevrangeBuffer(key, boundary, "-", "COUNT", limit + 1),
+			]);
+
+			const hasMore = rawEntries.length > limit;
+			const page = rawEntries.slice(0, limit) as Array<[Buffer, Buffer[]]>;
+
+			const entries = page.map(([id, values]) => {
+				const fields = [];
 
 				for (let index = 0; index < values.length; index += 2) {
-					entries.push({
+					fields.push({
 						field: encodeBinaryValue(values[index]),
 						value: encodeBinaryValue(values[index + 1]),
 					});
 				}
 
-				return {
-					...summary,
-					length,
-					value: { kind: "hash", entries },
-					nextCursor:
-						next === "0"
-							? null
-							: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
-					hasMore: next !== "0",
-				};
-			}
+				return { id: id.toString("utf8"), fields };
+			});
 
-			if (type === "list") {
-				const offset = Number.parseInt(decodedCursor?.cursor ?? "0", 10);
-				const length = await client.llen(key);
-				const values = await client.lrangeBuffer(key, offset, offset + limit - 1);
-				const nextOffset = offset + values.length;
-				const hasMore = nextOffset < length;
-
-				return {
-					...summary,
-					length,
-					value: {
-						kind: "list",
-						entries: values.map((value, index) => ({
-							index: offset + index,
-							value: encodeBinaryValue(value),
-						})),
-					},
-					nextCursor: hasMore
-						? encodeKeyDetailsCursor({
-								key: encodedKey,
-								type,
-								cursor: String(nextOffset),
-								direction,
-							})
-						: null,
-					hasMore,
-				};
-			}
-
-			if (type === "set") {
-				const [length, scanResult] = await Promise.all([
-					client.scard(key),
-					client.sscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
-				]);
-
-				const [nextRaw, members] = scanResult as [Buffer | string, Buffer[]];
-				const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
-
-				return {
-					...summary,
-					length,
-					value: { kind: "set", members: members.map(encodeBinaryValue) },
-					nextCursor:
-						next === "0"
-							? null
-							: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
-					hasMore: next !== "0",
-				};
-			}
-
-			if (type === "zset") {
-				const [length, scanResult] = await Promise.all([
-					client.zcard(key),
-					client.zscanBuffer(key, decodedCursor?.cursor ?? "0", "COUNT", String(limit)),
-				]);
-
-				const [nextRaw, values] = scanResult as [Buffer | string, Buffer[]];
-				const next = Buffer.isBuffer(nextRaw) ? nextRaw.toString("utf8") : nextRaw;
-				const entries = [];
-
-				for (let index = 0; index < values.length; index += 2) {
-					entries.push({
-						member: encodeBinaryValue(values[index]),
-						score: ((): number | "inf" | "-inf" => {
-							const score = values[index + 1].toString("utf8");
-
-							if (score === "inf") return "inf";
-
-							if (score === "-inf") return "-inf";
-
-							return Number(score);
-						})(),
-					});
-				}
-
-				return {
-					...summary,
-					length,
-					value: { kind: "zset", entries },
-					nextCursor:
-						next === "0"
-							? null
-							: encodeKeyDetailsCursor({ key: encodedKey, type, cursor: next, direction }),
-					hasMore: next !== "0",
-				};
-			}
-
-			if (type === "stream") {
-				const boundary = decodedCursor?.cursor ?? (direction === "forward" ? "-" : "+");
-
-				const [length, rawEntries] = await Promise.all([
-					client.xlen(key),
-					direction === "forward"
-						? client.xrangeBuffer(key, boundary, "+", "COUNT", limit + 1)
-						: client.xrevrangeBuffer(key, boundary, "-", "COUNT", limit + 1),
-				]);
-
-				const hasMore = rawEntries.length > limit;
-				const page = rawEntries.slice(0, limit) as Array<[Buffer, Buffer[]]>;
-
-				const entries = page.map(([id, values]) => {
-					const fields = [];
-
-					for (let index = 0; index < values.length; index += 2) {
-						fields.push({
-							field: encodeBinaryValue(values[index]),
-							value: encodeBinaryValue(values[index + 1]),
-						});
-					}
-
-					return { id: id.toString("utf8"), fields };
-				});
-
-				const lastId = entries.at(-1)?.id;
-
-				return {
-					...summary,
-					length,
-					value: { kind: "stream", entries },
-					nextCursor:
-						hasMore && lastId
-							? encodeKeyDetailsCursor({
-									key: encodedKey,
-									type,
-									cursor: `(${lastId}`,
-									direction,
-								})
-							: null,
-					hasMore,
-				};
-			}
+			const lastId = entries.at(-1)?.id;
 
 			return {
 				...summary,
-				length: null,
-				value: { kind: "unknown" },
-				nextCursor: null,
-				hasMore: false,
+				length,
+				value: { kind: "stream", entries },
+				nextCursor:
+					hasMore && lastId
+						? encodeKeyDetailsCursor({
+								key: encodedKey,
+								type,
+								cursor: `(${lastId}`,
+								direction,
+							})
+						: null,
+				hasMore,
 			};
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		return {
+			...summary,
+			length: null,
+			value: { kind: "unknown" },
+			nextCursor: null,
+			hasMore: false,
+		};
 	}
 
 	async getStringChunk(
 		params: KeyRawQuerySchemaType & { key: string },
 	): Promise<KeyRawResultSchemaType> {
-		try {
-			const client = await connector("redis").client(parseDbIndex(params.db));
-			const key = decodeKeyParam(params.key);
-			const type = normalizeRedisKeyType(await client.callBuffer("TYPE", key));
+		const client = await connector("redis").client(parseDbIndex(params.db));
+		const key = decodeKeyParam(params.key);
+		const type = normalizeRedisKeyType(await client.callBuffer("TYPE", key));
 
-			if (type === "unknown") {
-				throw new HTTPException(404, { message: "Redis key no longer exists" });
-			}
-
-			assertKeyType(type, "string");
-
-			if (params.expectedRevision) {
-				const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
-
-				if (!dump || revisionForDump(dump) !== params.expectedRevision) throw conflict();
-			}
-
-			const length = await client.strlen(key);
-
-			const chunk = await client.getrangeBuffer(
-				key,
-				params.offset,
-				params.offset + params.limit - 1,
-			);
-
-			const next = params.offset + chunk.length;
-
-			return {
-				chunk: encodeBinaryValue(chunk),
-				length,
-				nextOffset: next < length ? next : null,
-				hasMore: next < length,
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+		if (type === "unknown") {
+			throw new HTTPException(404, { message: "Redis key no longer exists" });
 		}
+
+		assertKeyType(type, "string");
+
+		if (params.expectedRevision) {
+			const dump = (await client.callBuffer("DUMP", key)) as Buffer | null;
+
+			if (!dump || revisionForDump(dump) !== params.expectedRevision) throw conflict();
+		}
+
+		const length = await client.strlen(key);
+
+		const chunk = await client.getrangeBuffer(
+			key,
+			params.offset,
+			params.offset + params.limit - 1,
+		);
+
+		const next = params.offset + chunk.length;
+
+		return {
+			chunk: encodeBinaryValue(chunk),
+			length,
+			nextOffset: next < length ? next : null,
+			hasMore: next < length,
+		};
 	}
 
 	async createKey(
@@ -814,8 +822,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				revision: revisionForDump(dump),
 				deleted: false,
 			};
-		} catch (e) {
-			throw this.wrapError(e);
 		} finally {
 			if (client) await client.quit().catch(() => client?.disconnect());
 		}
@@ -970,8 +976,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				revision: nextDump ? revisionForDump(nextDump) : null,
 				deleted: nextDump === null,
 			};
-		} catch (e) {
-			throw this.wrapError(e);
 		} finally {
 			if (client) await client.quit().catch(() => client?.disconnect());
 		}
@@ -995,8 +999,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			assertTransactionSucceeded(await transaction.exec());
 
 			return { deleted: true };
-		} catch (e) {
-			throw this.wrapError(e);
 		} finally {
 			if (client) await client.quit().catch(() => client?.disconnect());
 		}
@@ -1007,50 +1009,46 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	// -----------------------------------------------------------------------
 
 	override async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
+		const client = await connector("redis").client(connector("redis").defaultDb);
+		let total = 1;
+		let supportsLogicalDatabases = false;
+		let configReply: unknown = null;
+
 		try {
-			const client = await connector("redis").client(connector("redis").defaultDb);
-			let total = 1;
-			let supportsLogicalDatabases = false;
-			let configReply: unknown = null;
-
-			try {
-				configReply = await client.call("CONFIG", "GET", "databases");
-			} catch (error) {
-				if (!isUnavailableCommandError(error)) throw error;
-			}
-
-			if (Array.isArray(configReply) && configReply.length >= 2) {
-				const parsed = Number.parseInt(String(configReply[1]), 10);
-
-				if (Number.isFinite(parsed) && parsed > 0) {
-					total = parsed;
-					supportsLogicalDatabases = true;
-				}
-			}
-
-			let keyspaceInfo = "";
-
-			try {
-				keyspaceInfo = await client.info("keyspace");
-			} catch (error) {
-				if (!isUnavailableCommandError(error)) throw error;
-			}
-
-			const keysPerDb = parseKeyspaceInfo(keyspaceInfo);
-
-			const databases = supportsLogicalDatabases
-				? Array.from({ length: total }, (_, index) => index)
-				: [connector("redis").defaultDb];
-
-			return databases.map((index) => ({
-				name: String(index),
-				size: `${keysPerDb.get(index) ?? 0} keys`,
-				owner: "n/a",
-				encoding: "n/a",
-			}));
-		} catch (e) {
-			throw this.wrapError(e);
+			configReply = await client.call("CONFIG", "GET", "databases");
+		} catch (error) {
+			if (!isUnavailableCommandError(error)) throw error;
 		}
+
+		if (Array.isArray(configReply) && configReply.length >= 2) {
+			const parsed = Number.parseInt(String(configReply[1]), 10);
+
+			if (Number.isFinite(parsed) && parsed > 0) {
+				total = parsed;
+				supportsLogicalDatabases = true;
+			}
+		}
+
+		let keyspaceInfo = "";
+
+		try {
+			keyspaceInfo = await client.info("keyspace");
+		} catch (error) {
+			if (!isUnavailableCommandError(error)) throw error;
+		}
+
+		const keysPerDb = parseKeyspaceInfo(keyspaceInfo);
+
+		const databases = supportsLogicalDatabases
+			? Array.from({ length: total }, (_, index) => index)
+			: [connector("redis").defaultDb];
+
+		return databases.map((index) => ({
+			name: String(index),
+			size: `${keysPerDb.get(index) ?? 0} keys`,
+			owner: "n/a",
+			encoding: "n/a",
+		}));
 	}
 
 	override async getCurrentDatabase(): Promise<DatabaseSchemaType> {
@@ -1058,45 +1056,41 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	override async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		try {
-			const client = await connector("redis").client(connector("redis").defaultDb);
+		const client = await connector("redis").client(connector("redis").defaultDb);
 
-			const [serverInfo, clientsInfo] = await Promise.all([
-				client.info("server"),
-				client.info("clients"),
-			]);
+		const [serverInfo, clientsInfo] = await Promise.all([
+			client.info("server"),
+			client.info("clients"),
+		]);
 
-			const server = parseInfoSection(serverInfo);
-			const clients = parseInfoSection(clientsInfo);
+		const server = parseInfoSection(serverInfo);
+		const clients = parseInfoSection(clientsInfo);
 
-			let maxclients = Number.parseInt(clients.maxclients ?? "0", 10);
+		let maxclients = Number.parseInt(clients.maxclients ?? "0", 10);
 
-			if (!Number.isFinite(maxclients) || maxclients === 0) {
-				const reply = await client.call("CONFIG", "GET", "maxclients").catch((error) => {
-					if (!isUnavailableCommandError(error)) throw error;
+		if (!Number.isFinite(maxclients) || maxclients === 0) {
+			const reply = await client.call("CONFIG", "GET", "maxclients").catch((error) => {
+				if (!isUnavailableCommandError(error)) throw error;
 
-					return null;
-				});
+				return null;
+			});
 
-				if (Array.isArray(reply) && reply.length >= 2) {
-					maxclients = Number.parseInt(String(reply[1]), 10) || 0;
-				}
+			if (Array.isArray(reply) && reply.length >= 2) {
+				maxclients = Number.parseInt(String(reply[1]), 10) || 0;
 			}
-
-			const opts = client.options;
-
-			return {
-				host: opts.host ?? null,
-				port: opts.port ?? null,
-				user: opts.username || "default",
-				database: String(opts.db ?? connector("redis").defaultDb),
-				version: server.redis_version ?? "unknown",
-				active_connections: Number.parseInt(clients.connected_clients ?? "0", 10) || 0,
-				max_connections: maxclients || 0,
-			};
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		const opts = client.options;
+
+		return {
+			host: opts.host ?? null,
+			port: opts.port ?? null,
+			user: opts.username || "default",
+			database: String(opts.db ?? connector("redis").defaultDb),
+			version: server.redis_version ?? "unknown",
+			active_connections: Number.parseInt(clients.connected_clients ?? "0", 10) || 0,
+			max_connections: maxclients || 0,
+		};
 	}
 
 	// -----------------------------------------------------------------------
@@ -1104,17 +1098,13 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	// -----------------------------------------------------------------------
 
 	override async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		try {
-			const dbIndex = parseDbIndex(db);
-			const counts = await this.getCachedCounts(dbIndex);
+		const dbIndex = parseDbIndex(db);
+		const counts = await this.getCachedCounts(dbIndex);
 
-			return REDIS_TABLES.map((tableName) => ({
-				tableName,
-				rowCount: counts[tableName],
-			}));
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return REDIS_TABLES.map((tableName) => ({
+			tableName,
+			rowCount: counts[tableName],
+		}));
 	}
 
 	override async createTable(): Promise<void> {
@@ -1183,87 +1173,83 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	// -----------------------------------------------------------------------
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		try {
-			const { tableName, db, cursor, limit = 50, direction = "asc", sort, filters } = params;
+		const { tableName, db, cursor, limit = 50, direction = "asc", sort, filters } = params;
 
-			if (direction === "desc") {
-				throw new HTTPException(400, { message: PREV_UNSUPPORTED_MESSAGE });
-			}
-
-			if (sort && (typeof sort === "string" ? sort.length > 0 : sort.length > 0)) {
-				throw new HTTPException(400, { message: SORT_UNSUPPORTED_MESSAGE });
-			}
-
-			if (filters && filters.length > 0) {
-				throw new HTTPException(400, { message: FILTER_UNSUPPORTED_MESSAGE });
-			}
-
-			const table = assertRedisTable(tableName);
-			const redisType = TABLE_TO_REDIS_TYPE[table];
-			const dbIndex = parseDbIndex(db);
-			const client = await connector("redis").client(dbIndex);
-
-			let scanCursor = "0";
-
-			if (cursor) {
-				const decoded = decodeScanCursor(cursor);
-
-				if (!decoded || decoded.type !== table) {
-					throw new HTTPException(400, { message: "Invalid or mismatched cursor" });
-				}
-
-				scanCursor = decoded.scanCursor;
-			}
-
-			const collectedKeys: string[] = [];
-			let rounds = 0;
-			let scanComplete = false;
-
-			while (collectedKeys.length < limit && rounds < SCAN_ROUND_TRIP_CAP) {
-				const [next, batch] = (await client.scan(
-					scanCursor,
-					"MATCH",
-					"*",
-					"COUNT",
-					Math.max(limit * 2, 100),
-					"TYPE",
-					redisType,
-				)) as [string, string[]];
-
-				collectedKeys.push(...batch);
-				scanCursor = next;
-				rounds++;
-
-				if (next === "0") {
-					scanComplete = true;
-					break;
-				}
-			}
-
-			const pageKeys = collectedKeys.slice(0, limit);
-			const overflow = collectedKeys.slice(limit);
-			const rows = await this.hydrateRows(client, table, pageKeys);
-
-			const total = await client.dbsize();
-			const hasNextPage = !scanComplete || overflow.length > 0;
-
-			const nextCursor =
-				hasNextPage && !scanComplete ? encodeScanCursor({ scanCursor, type: table }) : null;
-
-			return {
-				data: rows,
-				meta: {
-					limit,
-					total,
-					hasNextPage,
-					hasPreviousPage: false,
-					nextCursor,
-					prevCursor: null,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+		if (direction === "desc") {
+			throw new HTTPException(400, { message: PREV_UNSUPPORTED_MESSAGE });
 		}
+
+		if (sort && (typeof sort === "string" ? sort.length > 0 : sort.length > 0)) {
+			throw new HTTPException(400, { message: SORT_UNSUPPORTED_MESSAGE });
+		}
+
+		if (filters && filters.length > 0) {
+			throw new HTTPException(400, { message: FILTER_UNSUPPORTED_MESSAGE });
+		}
+
+		const table = assertRedisTable(tableName);
+		const redisType = TABLE_TO_REDIS_TYPE[table];
+		const dbIndex = parseDbIndex(db);
+		const client = await connector("redis").client(dbIndex);
+
+		let scanCursor = "0";
+
+		if (cursor) {
+			const decoded = decodeScanCursor(cursor);
+
+			if (!decoded || decoded.type !== table) {
+				throw new HTTPException(400, { message: "Invalid or mismatched cursor" });
+			}
+
+			scanCursor = decoded.scanCursor;
+		}
+
+		const collectedKeys: string[] = [];
+		let rounds = 0;
+		let scanComplete = false;
+
+		while (collectedKeys.length < limit && rounds < SCAN_ROUND_TRIP_CAP) {
+			const [next, batch] = (await client.scan(
+				scanCursor,
+				"MATCH",
+				"*",
+				"COUNT",
+				Math.max(limit * 2, 100),
+				"TYPE",
+				redisType,
+			)) as [string, string[]];
+
+			collectedKeys.push(...batch);
+			scanCursor = next;
+			rounds++;
+
+			if (next === "0") {
+				scanComplete = true;
+				break;
+			}
+		}
+
+		const pageKeys = collectedKeys.slice(0, limit);
+		const overflow = collectedKeys.slice(limit);
+		const rows = await this.hydrateRows(client, table, pageKeys);
+
+		const total = await client.dbsize();
+		const hasNextPage = !scanComplete || overflow.length > 0;
+
+		const nextCursor =
+			hasNextPage && !scanComplete ? encodeScanCursor({ scanCursor, type: table }) : null;
+
+		return {
+			data: rows,
+			meta: {
+				limit,
+				total,
+				hasNextPage,
+				hasPreviousPage: false,
+				nextCursor,
+				prevCursor: null,
+			},
+		};
 	}
 
 	private async hydrateRows(
@@ -1388,20 +1374,16 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		db: DatabaseSchemaType["db"];
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
-		try {
-			const { tableName, data } = params;
-			const table = assertRedisTable(tableName);
-			const key = extractKey(data);
-			const ttl = extractTtl(data);
-			const client = await connector("redis").client(parseDbIndex(db));
+		const { tableName, data } = params;
+		const table = assertRedisTable(tableName);
+		const key = extractKey(data);
+		const ttl = extractTtl(data);
+		const client = await connector("redis").client(parseDbIndex(db));
 
-			await this.writeRecord(client, table, key, data.value, { mode: "create", ttl });
-			this.countCache.delete(client);
+		await this.writeRecord(client, table, key, data.value, { mode: "create", ttl });
+		this.countCache.delete(client);
 
-			return { insertedCount: 1 };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { insertedCount: 1 };
 	}
 
 	override async updateRecords({
@@ -1411,77 +1393,68 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
-		try {
-			const { tableName, updates, primaryKey, primaryKeys } = params;
-			const table = assertRedisTable(tableName);
-			const pkField = primaryKeys?.[0] || primaryKey || "key";
-			const client = await connector("redis").client(parseDbIndex(db));
+		const { tableName, updates, primaryKey, primaryKeys } = params;
+		const table = assertRedisTable(tableName);
+		const pkField = primaryKeys?.[0] || primaryKey || "key";
+		const client = await connector("redis").client(parseDbIndex(db));
 
-			const updatesByKey = new Map<string, Record<string, unknown>>();
+		const updatesByKey = new Map<string, Record<string, unknown>>();
 
-			for (const u of updates) {
-				const k = u.rowData[pkField];
+		for (const u of updates) {
+			const k = u.rowData[pkField];
 
-				if (k === undefined || k === null) {
-					throw new HTTPException(400, {
-						message: `Primary key "${pkField}" not found in row data`,
+			if (k === undefined || k === null) {
+				throw new HTTPException(400, {
+					message: `Primary key "${pkField}" not found in row data`,
+				});
+			}
+
+			const keyStr = String(k);
+			const existing = updatesByKey.get(keyStr) ?? { ...u.rowData };
+			existing[u.columnName] = u.value;
+			updatesByKey.set(keyStr, existing);
+		}
+
+		let updatedCount = 0;
+
+		for (const [key, row] of updatesByKey.entries()) {
+			const value = row.value;
+			const ttl = extractTtl(row);
+			await this.writeRecord(client, table, key, value, { mode: "update", ttl });
+
+			// Editing the `key` column is a rename, not a write to the old key.
+			const nextKeyRaw = row[pkField];
+
+			const nextKey =
+				nextKeyRaw === undefined || nextKeyRaw === null ? key : String(nextKeyRaw);
+
+			if (nextKey !== key) {
+				const renamed = await client.renamenx(key, nextKey);
+
+				if (renamed === 0) {
+					throw new HTTPException(409, {
+						message: `Key "${nextKey}" already exists`,
 					});
 				}
-
-				const keyStr = String(k);
-				const existing = updatesByKey.get(keyStr) ?? { ...u.rowData };
-				existing[u.columnName] = u.value;
-				updatesByKey.set(keyStr, existing);
 			}
 
-			let updatedCount = 0;
-
-			for (const [key, row] of updatesByKey.entries()) {
-				const value = row.value;
-				const ttl = extractTtl(row);
-				await this.writeRecord(client, table, key, value, { mode: "update", ttl });
-
-				// Editing the `key` column is a rename, not a write to the old key.
-				const nextKeyRaw = row[pkField];
-
-				const nextKey =
-					nextKeyRaw === undefined || nextKeyRaw === null ? key : String(nextKeyRaw);
-
-				if (nextKey !== key) {
-					const renamed = await client.renamenx(key, nextKey);
-
-					if (renamed === 0) {
-						throw new HTTPException(409, {
-							message: `Key "${nextKey}" already exists`,
-						});
-					}
-				}
-
-				updatedCount++;
-			}
-
-			return { updatedCount };
-		} catch (e) {
-			throw this.wrapError(e);
+			updatedCount++;
 		}
+
+		return { updatedCount };
 	}
 
 	override async deleteRecords(params: DeleteRecordParams): Promise<DeleteRecordResult> {
-		try {
-			const { tableName, primaryKeys, db } = params;
-			assertRedisTable(tableName);
-			const client = await connector("redis").client(parseDbIndex(db));
-			const keys = primaryKeys.map((pk) => String(pk.value));
+		const { tableName, primaryKeys, db } = params;
+		assertRedisTable(tableName);
+		const client = await connector("redis").client(parseDbIndex(db));
+		const keys = primaryKeys.map((pk) => String(pk.value));
 
-			if (keys.length === 0)
-				return { deletedCount: 0, fkViolation: false, relatedRecords: [] };
-			const deletedCount = await client.del(...keys);
-			this.countCache.delete(client);
+		if (keys.length === 0) return { deletedCount: 0, fkViolation: false, relatedRecords: [] };
+		const deletedCount = await client.del(...keys);
+		this.countCache.delete(client);
 
-			return { deletedCount, fkViolation: false, relatedRecords: [] };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { deletedCount, fkViolation: false, relatedRecords: [] };
 	}
 
 	override async forceDeleteRecords(
@@ -1495,50 +1468,46 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	override async bulkInsertRecords(
 		params: BulkInsertRecordsParams,
 	): Promise<BulkInsertResult> {
-		try {
-			const { tableName, records, db } = params;
+		const { tableName, records, db } = params;
 
-			if (!records || records.length === 0) {
-				throw new HTTPException(400, { message: "At least one record is required" });
-			}
-
-			const table = assertRedisTable(tableName);
-			const client = await connector("redis").client(parseDbIndex(db));
-
-			const errors: Array<{ recordIndex: number; error: string }> = [];
-			let successCount = 0;
-
-			for (let i = 0; i < records.length; i++) {
-				const record = records[i] as Record<string, unknown>;
-
-				try {
-					const key = extractKey(record);
-					const ttl = extractTtl(record);
-					await this.writeRecord(client, table, key, record.value, { mode: "create", ttl });
-					successCount++;
-				} catch (e) {
-					errors.push({
-						recordIndex: i,
-						error: e instanceof Error ? e.message : String(e),
-					});
-				}
-			}
-
-			this.countCache.delete(client);
-
-			const result: BulkInsertResult = {
-				success: errors.length === 0,
-				message: `Inserted ${successCount} of ${records.length} record${records.length === 1 ? "" : "s"}`,
-				successCount,
-				failureCount: errors.length,
-			};
-
-			if (errors.length > 0) result.errors = errors;
-
-			return result;
-		} catch (e) {
-			throw this.wrapError(e);
+		if (!records || records.length === 0) {
+			throw new HTTPException(400, { message: "At least one record is required" });
 		}
+
+		const table = assertRedisTable(tableName);
+		const client = await connector("redis").client(parseDbIndex(db));
+
+		const errors: Array<{ recordIndex: number; error: string }> = [];
+		let successCount = 0;
+
+		for (let i = 0; i < records.length; i++) {
+			const record = records[i] as Record<string, unknown>;
+
+			try {
+				const key = extractKey(record);
+				const ttl = extractTtl(record);
+				await this.writeRecord(client, table, key, record.value, { mode: "create", ttl });
+				successCount++;
+			} catch (e) {
+				errors.push({
+					recordIndex: i,
+					error: e instanceof Error ? e.message : String(e),
+				});
+			}
+		}
+
+		this.countCache.delete(client);
+
+		const result: BulkInsertResult = {
+			success: errors.length === 0,
+			message: `Inserted ${successCount} of ${records.length} record${records.length === 1 ? "" : "s"}`,
+			successCount,
+			failureCount: errors.length,
+		};
+
+		if (errors.length > 0) result.errors = errors;
+
+		return result;
 	}
 
 	override async exportTableData({
@@ -1548,43 +1517,39 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		try {
-			const table = assertRedisTable(tableName);
-			const dbIndex = parseDbIndex(db);
-			const client = await connector("redis").client(dbIndex);
-			const redisType = TABLE_TO_REDIS_TYPE[table];
+		const table = assertRedisTable(tableName);
+		const dbIndex = parseDbIndex(db);
+		const client = await connector("redis").client(dbIndex);
+		const redisType = TABLE_TO_REDIS_TYPE[table];
 
-			const allKeys: string[] = [];
-			let scanCursor = "0";
+		const allKeys: string[] = [];
+		let scanCursor = "0";
 
-			do {
-				const [next, batch] = (await client.scan(
-					scanCursor,
-					"MATCH",
-					"*",
-					"COUNT",
-					1000,
-					"TYPE",
-					redisType,
-				)) as [string, string[]];
+		do {
+			const [next, batch] = (await client.scan(
+				scanCursor,
+				"MATCH",
+				"*",
+				"COUNT",
+				1000,
+				"TYPE",
+				redisType,
+			)) as [string, string[]];
 
-				allKeys.push(...batch);
-				scanCursor = next;
-			} while (scanCursor !== "0");
+			allKeys.push(...batch);
+			scanCursor = next;
+		} while (scanCursor !== "0");
 
-			if (allKeys.length === 0) {
-				throw new HTTPException(404, {
-					message: `Table "${tableName}" has no data`,
-				});
-			}
-
-			const rows = await this.hydrateRows(client, table, allKeys);
-			const cols = TABLE_COLUMNS[table].map((c) => c.columnName);
-
-			return { cols, rows: rows as Record<string, CellValue>[] };
-		} catch (e) {
-			throw this.wrapError(e);
+		if (allKeys.length === 0) {
+			throw new HTTPException(404, {
+				message: `Table "${tableName}" has no data`,
+			});
 		}
+
+		const rows = await this.hydrateRows(client, table, allKeys);
+		const cols = TABLE_COLUMNS[table].map((c) => c.columnName);
+
+		return { cols, rows: rows as Record<string, CellValue>[] };
 	}
 
 	private async writeRecord(
@@ -1795,7 +1760,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				return logsUnavailable("This Redis server has SLOWLOG turned off.");
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1812,54 +1777,50 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}): Promise<ExecuteQueryResult> {
 		const startTime = performance.now();
 
+		if (!query?.trim()) {
+			throw new HTTPException(400, { message: "Query is required" });
+		}
+
+		let argv: string[];
+
 		try {
-			if (!query?.trim()) {
-				throw new HTTPException(400, { message: "Query is required" });
-			}
+			argv = tokenizeCommand(query.trim());
+		} catch (e) {
+			throw new HTTPException(400, {
+				message: e instanceof Error ? e.message : "Invalid Redis command",
+			});
+		}
 
-			let argv: string[];
+		if (argv.length === 0) {
+			throw new HTTPException(400, { message: "Empty command" });
+		}
 
-			try {
-				argv = tokenizeCommand(query.trim());
-			} catch (e) {
-				throw new HTTPException(400, {
-					message: e instanceof Error ? e.message : "Invalid Redis command",
-				});
-			}
+		const client = await connector("redis").client(parseDbIndex(db));
+		const [cmd, ...rest] = argv;
 
-			if (argv.length === 0) {
-				throw new HTTPException(400, { message: "Empty command" });
-			}
+		let reply: unknown;
 
-			const client = await connector("redis").client(parseDbIndex(db));
-			const [cmd, ...rest] = argv;
-
-			let reply: unknown;
-
-			try {
-				reply = await client.call(cmd, ...rest);
-			} catch (e) {
-				const message = e instanceof Error ? e.message : String(e);
-
-				return {
-					columns: ["error"],
-					rows: [{ error: message }],
-					rowCount: 0,
-					duration: performance.now() - startTime,
-					error: message,
-				};
-			}
-
-			const shaped = shapeReply(argv, reply);
+		try {
+			reply = await client.call(cmd, ...rest);
+		} catch (e) {
+			const message = e instanceof Error ? e.message : String(e);
 
 			return {
-				...shaped,
+				columns: ["error"],
+				rows: [{ error: message }],
+				rowCount: 0,
 				duration: performance.now() - startTime,
-				message: typeof reply === "string" ? reply : undefined,
+				error: message,
 			};
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		const shaped = shapeReply(argv, reply);
+
+		return {
+			...shaped,
+			duration: performance.now() - startTime,
+			message: typeof reply === "string" ? reply : undefined,
+		};
 	}
 }
 

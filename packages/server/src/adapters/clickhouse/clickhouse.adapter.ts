@@ -33,7 +33,12 @@ import {
 	unwrapClickhouseType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	type DriverErrorClass,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -131,6 +136,17 @@ export class ClickhouseAdapter extends BaseAdapter {
 	// Keyed by client: tabs can work with two ClickHouse servers at once.
 	private serverVersion = new WeakMap<ClickHouseClient, number[]>();
 
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		// A wrong password, or @clickhouse/client's request timeout.
+		if (
+			e.message.includes("Authentication failed: password is incorrect") ||
+			e.message === "Timeout error."
+		)
+			return { status: 503 };
+
+		return undefined;
+	}
+
 	// =========================================================
 	// Abstract method implementations
 	// =========================================================
@@ -190,37 +206,33 @@ export class ClickhouseAdapter extends BaseAdapter {
 	// =========================================================
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		try {
-			const { db, tableName, limit = 50, cursor } = params;
-			const table = await this.getTable(db, tableName);
-			const tieBreakers = table.sorting_key ? [`(${table.sorting_key})`] : [];
+		const { db, tableName, limit = 50, cursor } = params;
+		const table = await this.getTable(db, tableName);
+		const tieBreakers = table.sorting_key ? [`(${table.sorting_key})`] : [];
 
-			if (table.engine.endsWith("MergeTree")) tieBreakers.push("_part", "_part_offset");
+		if (table.engine.endsWith("MergeTree")) tieBreakers.push("_part", "_part_offset");
 
-			const bundle = this.buildPageQuery(params, tieBreakers);
+		const bundle = this.buildPageQuery(params, tieBreakers);
 
-			const [countRows, rawRows] = await Promise.all([
-				this.runQuery<{ total: string | number }[]>(db, bundle.countSql, bundle.countValues),
-				this.runQuery<Record<string, unknown>[]>(db, bundle.sql, bundle.values),
-			]);
+		const [countRows, rawRows] = await Promise.all([
+			this.runQuery<{ total: string | number }[]>(db, bundle.countSql, bundle.countValues),
+			this.runQuery<Record<string, unknown>[]>(db, bundle.sql, bundle.values),
+		]);
 
-			const hasMore = rawRows.length > limit;
-			const rows = this.normalizeRows(hasMore ? rawRows.slice(0, limit) : rawRows);
-			const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
+		const hasMore = rawRows.length > limit;
+		const rows = this.normalizeRows(hasMore ? rawRows.slice(0, limit) : rawRows);
+		const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
 
-			return {
-				data: rows,
-				meta: {
-					limit,
-					total: Number(countRows[0]?.total ?? 0),
-					hasNextPage: hasMore,
-					hasPreviousPage: offset > 0,
-					...this.buildCursors(params, rows, hasMore),
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return {
+			data: rows,
+			meta: {
+				limit,
+				total: Number(countRows[0]?.total ?? 0),
+				hasNextPage: hasMore,
+				hasPreviousPage: offset > 0,
+				...this.buildCursors(params, rows, hasMore),
+			},
+		};
 	}
 
 	// =========================================================
@@ -228,70 +240,58 @@ export class ClickhouseAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const rows = await this.select<{ name: string; size: string }>(
-				undefined,
-				`SELECT d.name AS name, formatReadableSize(p.bytes) AS size
+		const rows = await this.select<{ name: string; size: string }>(
+			undefined,
+			`SELECT d.name AS name, formatReadableSize(p.bytes) AS size
 				FROM system.databases AS d
 				LEFT JOIN (
 					SELECT database, sum(bytes_on_disk) AS bytes FROM system.parts WHERE active GROUP BY database
 				) AS p ON p.database = d.name
 				WHERE d.name NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema')
 				ORDER BY d.name`,
-			);
+		);
 
-			return rows.map((row) => ({ ...row, owner: "", encoding: "UTF-8" }));
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return rows.map((row) => ({ ...row, owner: "", encoding: "UTF-8" }));
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		try {
-			const [row] = await this.select<{ db: string }>(
-				undefined,
-				"SELECT currentDatabase() AS db",
-			);
+		const [row] = await this.select<{ db: string }>(
+			undefined,
+			"SELECT currentDatabase() AS db",
+		);
 
-			return { db: row?.db ?? "default" };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { db: row?.db ?? "default" };
 	}
 
 	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
-		try {
-			const [info] = await this.select<{
-				version: string;
-				user: string;
-				database: string;
-				active_connections: number;
-				max_connections: string;
-			}>(
-				undefined,
-				`SELECT
+		const [info] = await this.select<{
+			version: string;
+			user: string;
+			database: string;
+			active_connections: number;
+			max_connections: string;
+		}>(
+			undefined,
+			`SELECT
 					version() AS version,
 					currentUser() AS user,
 					currentDatabase() AS database,
 					(SELECT sum(value) FROM system.metrics WHERE metric IN ('TCPConnection', 'HTTPConnection', 'MySQLConnection', 'PostgreSQLConnection')) AS active_connections,
 					(SELECT value FROM system.server_settings WHERE name = 'max_connections') AS max_connections`,
-			);
+		);
 
-			if (!info) {
-				throw new HTTPException(500, { message: "No connection information returned" });
-			}
-
-			return {
-				...server,
-				user: info.user,
-				database: info.database,
-				version: `ClickHouse ${info.version}`,
-				active_connections: Number(info.active_connections),
-				max_connections: Number(info.max_connections),
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+		if (!info) {
+			throw new HTTPException(500, { message: "No connection information returned" });
 		}
+
+		return {
+			...server,
+			user: info.user,
+			database: info.database,
+			version: `ClickHouse ${info.version}`,
+			active_connections: Number(info.active_connections),
+			max_connections: Number(info.max_connections),
+		};
 	}
 
 	// =========================================================
@@ -299,22 +299,18 @@ export class ClickhouseAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		try {
-			const rows = await this.select<{ tableName: string; rowCount: string | number | null }>(
-				db,
-				`SELECT name AS tableName, total_rows AS rowCount
+		const rows = await this.select<{ tableName: string; rowCount: string | number | null }>(
+			db,
+			`SELECT name AS tableName, total_rows AS rowCount
 				FROM system.tables
 				WHERE database = currentDatabase() AND NOT is_temporary AND NOT startsWith(name, '.inner')
 				ORDER BY name`,
-			);
+		);
 
-			return rows.map((row) => ({
-				tableName: row.tableName,
-				rowCount: Number(row.rowCount ?? 0),
-			}));
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return rows.map((row) => ({
+			tableName: row.tableName,
+			rowCount: Number(row.rowCount ?? 0),
+		}));
 	}
 
 	async createTable({
@@ -338,43 +334,35 @@ export class ClickhouseAdapter extends BaseAdapter {
 			});
 		}
 
-		try {
-			const supportsJson = await this.isAtLeast(db, 25, 3);
+		const supportsJson = await this.isAtLeast(db, 25, 3);
 
-			if (fields.some((f) => f.isIdentity || /serial/i.test(f.columnType))) {
-				if (!(await this.isAtLeast(db, 24, 6))) {
-					throw new HTTPException(400, {
-						message: "Auto-generated ids need ClickHouse 24.6 or newer (generateSnowflakeID)",
-					});
-				}
+		if (fields.some((f) => f.isIdentity || /serial/i.test(f.columnType))) {
+			if (!(await this.isAtLeast(db, 24, 6))) {
+				throw new HTTPException(400, {
+					message: "Auto-generated ids need ClickHouse 24.6 or newer (generateSnowflakeID)",
+				});
 			}
-
-			const columns = fields.map((f) => buildClickhouseColumnDefinition(f, supportsJson));
-			const keys = fields.filter((f) => f.isPrimaryKey).map((f) => q(f.columnName));
-			await this.command(
-				db,
-				`CREATE TABLE ${q(tableName)} (${columns.join(", ")}) ENGINE = MergeTree ORDER BY ${keys.length ? `(${keys.join(", ")})` : "tuple()"}`,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		const columns = fields.map((f) => buildClickhouseColumnDefinition(f, supportsJson));
+		const keys = fields.filter((f) => f.isPrimaryKey).map((f) => q(f.columnName));
+		await this.command(
+			db,
+			`CREATE TABLE ${q(tableName)} (${columns.join(", ")}) ENGINE = MergeTree ORDER BY ${keys.length ? `(${keys.join(", ")})` : "tuple()"}`,
+		);
 	}
 
 	async deleteTable({ tableName, db }: DeleteTableParams): Promise<DeleteTableResult> {
-		try {
-			await this.getTable(db, tableName);
+		await this.getTable(db, tableName);
 
-			const [row] = await this.select<{ total: string | number }>(
-				db,
-				`SELECT count() AS total FROM ${q(tableName)}`,
-			);
+		const [row] = await this.select<{ total: string | number }>(
+			db,
+			`SELECT count() AS total FROM ${q(tableName)}`,
+		);
 
-			await this.command(db, `DROP TABLE ${q(tableName)}`);
+		await this.command(db, `DROP TABLE ${q(tableName)}`);
 
-			return { deletedCount: Number(row?.total ?? 0), fkViolation: false, relatedRecords: [] };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { deletedCount: Number(row?.total ?? 0), fkViolation: false, relatedRecords: [] };
 	}
 
 	async renameTable({
@@ -384,17 +372,13 @@ export class ClickhouseAdapter extends BaseAdapter {
 	}: RenameTableParamsSchemaType): Promise<void> {
 		this.assertDifferentTableName(tableName, newTableName);
 
-		try {
-			await this.getTable(db, tableName);
+		await this.getTable(db, tableName);
 
-			if (await this.findTable(db, newTableName)) {
-				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
-			}
-
-			await this.command(db, `RENAME TABLE ${q(tableName)} TO ${q(newTableName)}`);
-		} catch (e) {
-			throw this.wrapError(e);
+		if (await this.findTable(db, newTableName)) {
+			throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
 		}
+
+		await this.command(db, `RENAME TABLE ${q(tableName)} TO ${q(newTableName)}`);
 	}
 
 	async getTableSchema({
@@ -404,18 +388,14 @@ export class ClickhouseAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		try {
-			await this.getTable(db, tableName);
+		await this.getTable(db, tableName);
 
-			const [row] = await this.select<{ statement: string }>(
-				db,
-				`SHOW CREATE TABLE ${q(tableName)}`,
-			);
+		const [row] = await this.select<{ statement: string }>(
+			db,
+			`SHOW CREATE TABLE ${q(tableName)}`,
+		);
 
-			return row?.statement ?? "";
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return row?.statement ?? "";
 	}
 
 	// =========================================================
@@ -429,27 +409,23 @@ export class ClickhouseAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		try {
-			await this.getTable(db, tableName);
-			const columns = await this.getColumns(db, tableName);
+		await this.getTable(db, tableName);
+		const columns = await this.getColumns(db, tableName);
 
-			return columns.map((col) => ({
-				columnName: col.name,
-				dataType: mapClickhouseToDataType(col.type),
-				dataTypeLabel: standardizeClickhouseDataTypeLabel(col.type),
-				isNullable: isNullableType(col.type),
-				columnDefault: col.default_expression || null,
-				isPrimaryKey: col.is_in_sorting_key === 1,
-				isForeignKey: false,
-				referencedTable: null,
-				referencedColumn: null,
-				enumValues: /^Enum(8|16)\(/.test(unwrapClickhouseType(col.type))
-					? [...col.type.matchAll(/'((?:[^'\\]|\\.)*)'\s*=/g)].map((m) => m[1] ?? "")
-					: null,
-			}));
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return columns.map((col) => ({
+			columnName: col.name,
+			dataType: mapClickhouseToDataType(col.type),
+			dataTypeLabel: standardizeClickhouseDataTypeLabel(col.type),
+			isNullable: isNullableType(col.type),
+			columnDefault: col.default_expression || null,
+			isPrimaryKey: col.is_in_sorting_key === 1,
+			isForeignKey: false,
+			referencedTable: null,
+			referencedColumn: null,
+			enumValues: /^Enum(8|16)\(/.test(unwrapClickhouseType(col.type))
+				? [...col.type.matchAll(/'((?:[^'\\]|\\.)*)'\s*=/g)].map((m) => m[1] ?? "")
+				: null,
+		}));
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
@@ -461,25 +437,21 @@ export class ClickhouseAdapter extends BaseAdapter {
 			});
 		}
 
-		try {
-			await this.getTable(db, tableName);
-			const columns = await this.getColumns(db, tableName);
+		await this.getTable(db, tableName);
+		const columns = await this.getColumns(db, tableName);
 
-			if (columns.some((c) => c.name === columnName)) {
-				throw new HTTPException(409, {
-					message: `Column "${columnName}" already exists in table "${tableName}"`,
-				});
-			}
-
-			const def = buildClickhouseColumnDefinition(
-				{ ...params, isPrimaryKey: false },
-				await this.isAtLeast(db, 25, 3),
-			);
-
-			await this.command(db, `ALTER TABLE ${q(tableName)} ADD COLUMN ${def}`);
-		} catch (e) {
-			throw this.wrapError(e);
+		if (columns.some((c) => c.name === columnName)) {
+			throw new HTTPException(409, {
+				message: `Column "${columnName}" already exists in table "${tableName}"`,
+			});
 		}
+
+		const def = buildClickhouseColumnDefinition(
+			{ ...params, isPrimaryKey: false },
+			await this.isAtLeast(db, 25, 3),
+		);
+
+		await this.command(db, `ALTER TABLE ${q(tableName)} ADD COLUMN ${def}`);
 	}
 
 	async deleteColumn({
@@ -487,38 +459,30 @@ export class ClickhouseAdapter extends BaseAdapter {
 		columnName,
 		db,
 	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		try {
-			const column = await this.getColumn(db, tableName, columnName);
+		const column = await this.getColumn(db, tableName, columnName);
 
-			if (column.is_in_sorting_key) {
-				throw new HTTPException(400, {
-					message: `"${columnName}" is part of the sorting key and cannot be dropped`,
-				});
-			}
-
-			await this.command(db, `ALTER TABLE ${q(tableName)} DROP COLUMN ${q(columnName)}`);
-
-			return { deletedCount: 1 };
-		} catch (e) {
-			throw this.wrapError(e);
+		if (column.is_in_sorting_key) {
+			throw new HTTPException(400, {
+				message: `"${columnName}" is part of the sorting key and cannot be dropped`,
+			});
 		}
+
+		await this.command(db, `ALTER TABLE ${q(tableName)} DROP COLUMN ${q(columnName)}`);
+
+		return { deletedCount: 1 };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, db } = params;
 
-		try {
-			const column = await this.getColumn(db, tableName, columnName);
+		const column = await this.getColumn(db, tableName, columnName);
 
-			const def = buildClickhouseColumnDefinition(
-				{ ...params, columnName, isPrimaryKey: column.is_in_sorting_key === 1 },
-				await this.isAtLeast(db, 25, 3),
-			);
+		const def = buildClickhouseColumnDefinition(
+			{ ...params, columnName, isPrimaryKey: column.is_in_sorting_key === 1 },
+			await this.isAtLeast(db, 25, 3),
+		);
 
-			await this.command(db, `ALTER TABLE ${q(tableName)} MODIFY COLUMN ${def}`);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		await this.command(db, `ALTER TABLE ${q(tableName)} MODIFY COLUMN ${def}`);
 	}
 
 	async renameColumn({
@@ -527,23 +491,19 @@ export class ClickhouseAdapter extends BaseAdapter {
 		newColumnName,
 		db,
 	}: RenameColumnParamsSchemaType): Promise<void> {
-		try {
-			await this.getColumn(db, tableName, columnName);
-			const columns = await this.getColumns(db, tableName);
+		await this.getColumn(db, tableName, columnName);
+		const columns = await this.getColumns(db, tableName);
 
-			if (columns.some((c) => c.name === newColumnName)) {
-				throw new HTTPException(409, {
-					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-				});
-			}
-
-			await this.command(
-				db,
-				`ALTER TABLE ${q(tableName)} RENAME COLUMN ${q(columnName)} TO ${q(newColumnName)}`,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
+		if (columns.some((c) => c.name === newColumnName)) {
+			throw new HTTPException(409, {
+				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
+			});
 		}
+
+		await this.command(
+			db,
+			`ALTER TABLE ${q(tableName)} RENAME COLUMN ${q(columnName)} TO ${q(newColumnName)}`,
+		);
 	}
 
 	// =========================================================
@@ -617,49 +577,45 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 		const start = performance.now();
 
-		try {
-			const client = await connector("clickhouse").client(db);
+		const client = await connector("clickhouse").client(db);
 
-			const firstKeyword = cleaned
-				.replace(/^(\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/))*/, "")
-				.match(/^\s*(\w+)/)?.[1]
-				?.toUpperCase();
+		const firstKeyword = cleaned
+			.replace(/^(\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/))*/, "")
+			.match(/^\s*(\w+)/)?.[1]
+			?.toUpperCase();
 
-			if (
-				firstKeyword &&
-				["SELECT", "WITH", "SHOW", "DESC", "DESCRIBE", "EXPLAIN", "EXISTS"].includes(
-					firstKeyword,
-				)
-			) {
-				const result = await client.query({ query: cleaned, format: "JSON" });
-				const { meta = [], data } = await result.json<Record<string, unknown>>();
-
-				return {
-					columns: meta.map((m) => m.name),
-					rows: data,
-					rowCount: data.length,
-					duration: performance.now() - start,
-					message: data.length === 0 ? "OK" : undefined,
-				};
-			}
-
-			const { summary } = await client.command({
-				query: cleaned,
-				clickhouse_settings: MUTATION_SETTINGS,
-			});
-
-			const rowCount = Number(summary?.written_rows ?? 0);
+		if (
+			firstKeyword &&
+			["SELECT", "WITH", "SHOW", "DESC", "DESCRIBE", "EXPLAIN", "EXISTS"].includes(
+				firstKeyword,
+			)
+		) {
+			const result = await client.query({ query: cleaned, format: "JSON" });
+			const { meta = [], data } = await result.json<Record<string, unknown>>();
 
 			return {
-				columns: [],
-				rows: [],
-				rowCount,
+				columns: meta.map((m) => m.name),
+				rows: data,
+				rowCount: data.length,
 				duration: performance.now() - start,
-				message: `OK (${rowCount} rows affected)`,
+				message: data.length === 0 ? "OK" : undefined,
 			};
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		const { summary } = await client.command({
+			query: cleaned,
+			clickhouse_settings: MUTATION_SETTINGS,
+		});
+
+		const rowCount = Number(summary?.written_rows ?? 0);
+
+		return {
+			columns: [],
+			rows: [],
+			rowCount,
+			duration: performance.now() - start,
+			message: `OK (${rowCount} rows affected)`,
+		};
 	}
 
 	// --- Server logs ---
@@ -754,7 +710,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				);
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -856,43 +812,37 @@ export class ClickhouseAdapter extends BaseAdapter {
 		tableName: string,
 		records: Record<string, unknown>[],
 	): Promise<void> {
-		try {
-			await this.getTable(db, tableName);
+		await this.getTable(db, tableName);
 
-			const types = new Map(
-				(await this.getColumns(db, tableName)).map((c) => [c.name, c.type]),
-			);
+		const types = new Map((await this.getColumns(db, tableName)).map((c) => [c.name, c.type]));
 
-			const values = records.map((record) =>
-				Object.fromEntries(
-					Object.entries(record).flatMap(([column, value]) => {
-						const type = types.get(column);
+		const values = records.map((record) =>
+			Object.fromEntries(
+				Object.entries(record).flatMap(([column, value]) => {
+					const type = types.get(column);
 
-						if (!type) {
-							throw new HTTPException(400, {
-								message: `Column "${column}" does not exist in table "${tableName}"`,
-							});
-						}
+					if (!type) {
+						throw new HTTPException(400, {
+							message: `Column "${column}" does not exist in table "${tableName}"`,
+						});
+					}
 
-						const shaped = toClickhouseValue(value, type);
+					const shaped = toClickhouseValue(value, type);
 
-						// Omit nulls for non-nullable columns so ClickHouse applies the column default.
-						return shaped === null && !isNullableType(type) ? [] : [[column, shaped]];
-					}),
-				),
-			);
+					// Omit nulls for non-nullable columns so ClickHouse applies the column default.
+					return shaped === null && !isNullableType(type) ? [] : [[column, shaped]];
+				}),
+			),
+		);
 
-			await (
-				await connector("clickhouse").client(db)
-			).insert({
-				table: q(tableName),
-				values,
-				format: "JSONEachRow",
-				clickhouse_settings: { date_time_input_format: "best_effort" },
-			});
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		await (
+			await connector("clickhouse").client(db)
+		).insert({
+			table: q(tableName),
+			values,
+			format: "JSONEachRow",
+			clickhouse_settings: { date_time_input_format: "best_effort" },
+		});
 	}
 
 	private async isAtLeast(db: string, major: number, minor: number): Promise<boolean> {

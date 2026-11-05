@@ -1,15 +1,15 @@
 import type { DataTypes } from "@db-studio/shared/types";
 import sql from "mssql";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
+import { loadDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
-// Bracket access reaches the protected method with its real signature.
-const wrap = (adapter: BaseAdapter, error: unknown) => adapter["wrapError"](error);
+const wrap = (adapter: BaseAdapter, error: unknown) => adapter.classifyError(error);
 
 class HarnessAdapter extends BaseAdapter {
 	queryRows: unknown[] = [];
@@ -71,7 +71,10 @@ class HarnessAdapter extends BaseAdapter {
 	}
 }
 
-describe("BaseAdapter.wrapError()", () => {
+describe("BaseAdapter.classifyError()", () => {
+	// A PostgreSQL error only exists once a connection has loaded pg.
+	beforeAll(() => loadDriver("pg"));
+
 	it("maps PostgreSQL connection-class errors to 503", () => {
 		const error = Object.assign(new Error("Connection terminated"), { code: "08006" });
 		expect(wrap(new PgAdapter(), error)).toMatchObject({ status: 503, cause: error });

@@ -31,12 +31,6 @@ import type {
 } from "@db-studio/shared/types";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
 import type { ServerAddress } from "@/connection-url.js";
-import {
-	isPgDatabaseError,
-	isPgDataException,
-	isReadOnlyRefusal,
-	READ_ONLY_MESSAGE,
-} from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -63,6 +57,30 @@ export interface QueryBundle {
 
 /** A single row after adapter-level normalization (column → CellValue). */
 export type NormalizedRow = Record<string, CellValue>;
+
+/** The answer to a driver error: its status, and a message to send instead of the driver's. */
+export interface DriverErrorClass {
+	status: number;
+	message?: string;
+}
+
+/** For the engines that report a write refused on a read-only session. */
+export const READ_ONLY_MESSAGE =
+	"This database session is read-only. Disable read-only in Connections if enabled, or connect to a writable database.";
+
+const SOCKET_ERROR_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET"]);
+
+/** The server could not be reached. fetch-based drivers keep the socket error in `cause`. */
+const isSocketError = (e: Error): boolean => {
+	const code =
+		(e as { code?: unknown }).code ?? (e.cause as { code?: unknown } | undefined)?.code;
+
+	return (
+		(typeof code === "string" && SOCKET_ERROR_CODES.has(code)) ||
+		e.message.includes("ECONNREFUSED") ||
+		e.message.includes("connection refused")
+	);
+};
 
 function notImplemented(method: string): never {
 	throw new HTTPException(501, {
@@ -133,84 +151,25 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 
 	/**
-	 * Wrap any thrown value in an HTTPException.
-	 * Detects connection errors for all supported databases and maps them to 503.
-	 * Concrete adapters can override to handle additional DB-specific error codes.
+	 * The status and message the API answers a failure with. Adapters recognise their own
+	 * driver's errors in `classifyDriverError`; this adds what every driver shares.
 	 */
-	protected wrapError(e: unknown): HTTPException {
+	classifyError(e: unknown): HTTPException {
 		if (e instanceof HTTPException) return e;
 
-		if (e instanceof Error) {
-			const err = e as { code?: string; errno?: number };
-			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
-			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
+		if (!(e instanceof Error))
+			return new HTTPException(500, { message: "Internal server error", cause: e });
 
-			// Before the message checks below, whose words a table name in this message can contain.
-			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
-			// SQL Server 229/230: the login lacks a permission on a table or column.
-			const mssqlNumber = (e as { number?: number }).number;
+		const { status, message = e.message } = this.classifyDriverError(e) ?? {
+			status: isSocketError(e) ? 503 : 500,
+		};
 
-			if (
-				(isPgDatabaseError(e) && e.code === "42501") ||
-				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
-			) {
-				return new HTTPException(403, { message: e.message, cause: e });
-			}
+		return new HTTPException(status, { message, cause: e });
+	}
 
-			if (isPgDataException(e))
-				return new HTTPException(400, { message: e.message, cause: e });
-
-			if (isReadOnlyRefusal(e)) {
-				return new HTTPException(403, {
-					message: READ_ONLY_MESSAGE,
-					cause: e,
-				});
-			}
-
-			const isConnectionError =
-				code === "ECONNREFUSED" ||
-				code === "ENOTFOUND" ||
-				code === "ETIMEDOUT" ||
-				code === "ER_ACCESS_DENIED_ERROR" ||
-				code === "ER_BAD_HOST_ERROR" ||
-				code === "ECONNRESET" ||
-				e.name === "ConnectionError" || // mssql: login failure, connect timeout or socket error
-				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
-				err.errno === 2003 || // MySQL can't connect to server
-				err.errno === 2002 || // MySQL can't connect to local server
-				e.message.includes("ECONNREFUSED") ||
-				e.message.includes("connection refused") ||
-				e.message.includes("timeout expired") ||
-				e.message.includes("Connection terminated") ||
-				e.message.includes("MongoNetworkError") ||
-				e.message.includes("MongoServerSelectionError") ||
-				e.message.includes("Login failed") ||
-				/HTTP status (401|403)\b/.test(e.message) || // libSQL / Turso: bad or missing authToken
-				e.message.startsWith("NOAUTH") || // Redis: auth required
-				e.message.startsWith("WRONGPASS") || // Redis: invalid credentials
-				e.message.startsWith("LOADING") || // Redis: dataset loading
-				e.message.startsWith("BUSY") || // Redis: server busy
-				e.message.startsWith("READONLY") || // Redis: read-only replica
-				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
-				e.message.includes("Redis cluster mode is not supported") ||
-				e.message.includes("Could not set lock on file") || // DuckDB: file locked by another process
-				// Oracle: no listener, unknown service/SID, bad credentials, locked account,
-				// timeout or lost connection; NJS-5xx are the thin driver's network errors
-				/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/.test(
-					e.message,
-				) ||
-				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
-				e.message === "Timeout error." || // @clickhouse/client request timeout
-				(isPgDatabaseError(e) && e.code?.startsWith("08")); // PG connection exception class
-
-			if (isConnectionError) {
-				return new HTTPException(503, { message: e.message, cause: e });
-			}
-
-			return new HTTPException(500, { message: e.message, cause: e });
-		}
-
-		return new HTTPException(500, { message: "Internal server error", cause: e });
+	/** This engine's driver errors that answer with another status than 500, if `e` is one. */
+	protected classifyDriverError(_e: Error): DriverErrorClass | undefined {
+		return undefined;
 	}
 
 	/**
@@ -340,42 +299,38 @@ export abstract class BaseAdapter implements IDbAdapter {
 	// =========================================================
 
 	async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		try {
-			const { db, limit = 50, direction = "asc" } = params;
-			const bundle = this.buildTableDataQuery(params);
+		const { db, limit = 50, direction = "asc" } = params;
+		const bundle = this.buildTableDataQuery(params);
 
-			// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
-			// next page exists) are independent, so a page costs the slower query, not both.
-			const [countRes, pageRows] = await Promise.all([
-				this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
-				this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
-			]);
+		// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
+		// next page exists) are independent, so a page costs the slower query, not both.
+		const [countRes, pageRows] = await Promise.all([
+			this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
+			this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
+		]);
 
-			const total = Number(countRes[0]?.total ?? 0);
+		const total = Number(countRes[0]?.total ?? 0);
 
-			const hasMore = pageRows.length > limit;
-			const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
+		const hasMore = pageRows.length > limit;
+		const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
 
-			let rows = this.normalizeRows(rawRows);
+		let rows = this.normalizeRows(rawRows);
 
-			if (direction === "desc") rows = rows.reverse();
+		if (direction === "desc") rows = rows.reverse();
 
-			const { nextCursor, prevCursor } = this.buildCursors(params, rows, hasMore);
+		const { nextCursor, prevCursor } = this.buildCursors(params, rows, hasMore);
 
-			return {
-				data: rows,
-				meta: {
-					limit,
-					total,
-					hasNextPage: direction === "asc" ? hasMore : !!params.cursor,
-					hasPreviousPage: direction === "asc" ? !!params.cursor : hasMore,
-					nextCursor,
-					prevCursor,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return {
+			data: rows,
+			meta: {
+				limit,
+				total,
+				hasNextPage: direction === "asc" ? hasMore : !!params.cursor,
+				hasPreviousPage: direction === "asc" ? !!params.cursor : hasMore,
+				nextCursor,
+				prevCursor,
+			},
+		};
 	}
 
 	async exportTableData({
@@ -386,22 +341,18 @@ export abstract class BaseAdapter implements IDbAdapter {
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		try {
-			const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)}`;
-			const rows = await this.runQuery<Record<string, unknown>[]>(db, sql, []);
+		const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)}`;
+		const rows = await this.runQuery<Record<string, unknown>[]>(db, sql, []);
 
-			if (!rows || rows.length === 0) {
-				throw new HTTPException(404, {
-					message: `Table "${tableName}" does not exist or has no data`,
-				});
-			}
-
-			const cols = Object.keys(rows[0]);
-
-			return { cols, rows };
-		} catch (e) {
-			throw this.wrapError(e);
+		if (!rows || rows.length === 0) {
+			throw new HTTPException(404, {
+				message: `Table "${tableName}" does not exist or has no data`,
+			});
 		}
+
+		const cols = Object.keys(rows[0]);
+
+		return { cols, rows };
 	}
 
 	// =========================================================

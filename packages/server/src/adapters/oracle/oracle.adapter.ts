@@ -31,7 +31,12 @@ import type {
 import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	type DriverErrorClass,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -201,6 +206,13 @@ const LIMITATIONS: Array<[code: string, reason: string]> = [
 	["ORA-01843", "Dates must be written as YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS."],
 ];
 
+/**
+ * No listener, unknown service or SID, bad credentials, locked account, timeout or lost
+ * connection; NJS-5xx are the thin driver's network errors.
+ */
+const UNREACHABLE =
+	/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/;
+
 type IndexKeyRow = {
 	INDEX_NAME: string;
 	INDEX_TYPE: string;
@@ -287,34 +299,26 @@ export class OracleAdapter extends BaseAdapter {
 		throw new Error("OracleAdapter.getTableData builds its own cursors");
 	}
 
-	protected override wrapError(e: unknown): HTTPException {
-		if (e instanceof Error && !(e instanceof HTTPException)) {
-			const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		const firstLine = e.message.split("\n")[0];
+		const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));
 
-			if (limitation)
-				return new HTTPException(400, {
-					message: `${limitation[1]} (${e.message.split("\n")[0]})`,
-					cause: e,
-				});
+		if (limitation) return { status: 400, message: `${limitation[1]} (${firstLine})` };
 
-			if (e.message.startsWith("ORA-00955"))
-				return new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
-		}
+		if (e.message.startsWith("ORA-00955")) return { status: 409, message: firstLine };
 
-		return super.wrapError(e);
+		if (UNREACHABLE.test(e.message)) return { status: 503 };
+
+		return undefined;
 	}
 
 	private async withConnection<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
-		try {
-			const conn = await (await connector("oracle").pool()).getConnection();
+		const conn = await (await connector("oracle").pool()).getConnection();
 
-			try {
-				return await fn(conn);
-			} finally {
-				await conn.close();
-			}
-		} catch (e) {
-			throw this.wrapError(e);
+		try {
+			return await fn(conn);
+		} finally {
+			await conn.close();
 		}
 	}
 
@@ -470,11 +474,7 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
-		const pool = await connector("oracle")
-			.pool()
-			.catch((e) => {
-				throw this.wrapError(e);
-			});
+		const pool = await connector("oracle").pool();
 
 		return this.withConnection(async (conn) => {
 			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");

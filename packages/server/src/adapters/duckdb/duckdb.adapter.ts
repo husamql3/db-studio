@@ -36,7 +36,13 @@ import type {
 	Json,
 } from "@duckdb/node-api";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	type DriverErrorClass,
+	type NormalizedRow,
+	type QueryBundle,
+	READ_ONLY_MESSAGE,
+} from "@/adapters/base.adapter.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -231,26 +237,18 @@ export class DuckDbAdapter extends BaseAdapter {
 		throw new Error("DuckDbAdapter.getTableData builds its own cursors");
 	}
 
-	protected override wrapError(e: unknown): HTTPException {
-		if (e instanceof Error) {
-			const limitation = LIMITATIONS.find(([signature]) => e.message.includes(signature));
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		const limitation = LIMITATIONS.find(([signature]) => e.message.includes(signature));
 
-			if (limitation)
-				return new HTTPException(400, {
-					message: `${limitation[1]} (${e.message})`,
-					cause: e,
-				});
-		}
+		if (limitation) return { status: 400, message: `${limitation[1]} (${e.message})` };
 
-		return super.wrapError(e);
-	}
+		if (e.message.includes("attached in read-only mode"))
+			return { status: 403, message: READ_ONLY_MESSAGE };
 
-	private withConnection<T>(fn: (conn: DuckDBConnection) => Promise<T>): Promise<T> {
-		return connector("duckdb")
-			.withConnection(fn)
-			.catch((e) => {
-				throw this.wrapError(e);
-			});
+		// Another process holds the file.
+		if (e.message.includes("Could not set lock on file")) return { status: 503 };
+
+		return undefined;
 	}
 
 	// =========================================================
@@ -268,7 +266,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			filters = [],
 		} = params;
 
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
 			const primaryKey = await this.primaryKey(conn, tableName);
 
@@ -345,7 +343,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const rows = await query<{ database_name: string; path: string | null }>(
 				conn,
 				"SELECT database_name, path FROM duckdb_databases() WHERE database_name = current_database()",
@@ -361,7 +359,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const [row] = await query<{ db: string }>(conn, "SELECT current_database() AS db");
 
 			return { db: row.db };
@@ -369,7 +367,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const [row] = await query<{ db: string; version: string }>(
 				conn,
 				"SELECT current_database() AS db, version() AS version",
@@ -392,7 +390,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const tables = await query<{ table_name: string }>(
 				conn,
 				`SELECT table_name FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND NOT temporary ORDER BY table_name`,
@@ -458,7 +456,7 @@ export class DuckDbAdapter extends BaseAdapter {
 				`FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
 		);
 
-		await this.withConnection((conn) =>
+		await connector("duckdb").withConnection((conn) =>
 			inTransaction(conn, async () => {
 				for (const sequence of sequences) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
 				await conn.run(
@@ -469,7 +467,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 
 			const referencing = (await this.foreignKeys(conn, "referenced_table", tableName)).filter(
@@ -507,7 +505,7 @@ export class DuckDbAdapter extends BaseAdapter {
 
 	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {
 		this.assertDifferentTableName(tableName, newTableName);
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			await this.requireColumns(conn, tableName);
 
 			if ((await this.columns(conn, newTableName)).length)
@@ -517,7 +515,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	async getTableSchema({ tableName }: { tableName: string }): Promise<string> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const [row] = await query<{ sql: string }>(
 				conn,
 				`SELECT sql FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND table_name = ?`,
@@ -540,7 +538,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}: {
 		tableName: string;
 	}): Promise<ColumnInfoSchemaType[]> {
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 			const primaryKey = new Set(await this.primaryKey(conn, tableName));
 
@@ -601,7 +599,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		if (sequence) def += ` DEFAULT nextval('${sequence.replaceAll("'", "''")}')`;
 		else if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 
 			if (columns.some((c) => c.column_name === columnName))
@@ -632,7 +630,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		tableName,
 		columnName,
 	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			await this.requireColumn(conn, tableName, columnName);
 			await conn.run(`ALTER TABLE ${ident(tableName)} DROP COLUMN ${ident(columnName)}`);
 		});
@@ -643,7 +641,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue } = params;
 		const alter = `ALTER TABLE ${ident(tableName)} ALTER COLUMN ${ident(columnName)}`;
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			await this.requireColumn(conn, tableName, columnName);
 			await inTransaction(conn, async () => {
 				await conn.run(`${alter} TYPE ${mapColumnTypeToDuckdb(columnType, false)}`);
@@ -662,7 +660,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		columnName,
 		newColumnName,
 	}: RenameColumnParamsSchemaType): Promise<void> {
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			const columns = await this.requireColumn(conn, tableName, columnName);
 
 			if (columns.some((c) => c.column_name === newColumnName))
@@ -680,12 +678,12 @@ export class DuckDbAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getTableIndexes({ tableName }: { tableName: string }): Promise<IndexInfoSchemaType[]> {
-		return this.withConnection((conn) => this.listIndexes(conn, tableName));
+		return connector("duckdb").withConnection((conn) => this.listIndexes(conn, tableName));
 	}
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
 		const { tableName, indexName, columns, isUnique, method } = params;
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			const existing = await this.requireColumns(conn, tableName);
 			const missing = columns.find((c) => !existing.some((e) => e.column_name === c));
 
@@ -711,7 +709,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	}
 
 	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
-		await this.withConnection(async (conn) => {
+		await connector("duckdb").withConnection(async (conn) => {
 			// The indexes behind PRIMARY KEY and UNIQUE constraints are never listed, so
 			// everything found here was made by CREATE INDEX and can be dropped.
 			const indexes = await this.listIndexes(conn, tableName);
@@ -739,7 +737,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
-		const insertedCount = await this.withConnection((conn) =>
+		const insertedCount = await connector("duckdb").withConnection((conn) =>
 			execute(
 				conn,
 				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
@@ -759,7 +757,7 @@ export class DuckDbAdapter extends BaseAdapter {
 		const keyColumns = this.resolveKeyColumns(params);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
-		const updatedCount = await this.withConnection((conn) =>
+		const updatedCount = await connector("duckdb").withConnection((conn) =>
 			inTransaction(conn, async () => {
 				this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
 				let total = 0;
@@ -795,7 +793,7 @@ export class DuckDbAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: "Primary key column name is required" });
 		const values = primaryKeys.map((pk) => pk.value);
 
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			this.assertDeletableKey(await this.primaryKey(conn, tableName));
 
 			try {
@@ -854,7 +852,7 @@ export class DuckDbAdapter extends BaseAdapter {
 
 		const columns = Object.keys(records[0]);
 
-		const successCount = await this.withConnection((conn) =>
+		const successCount = await connector("duckdb").withConnection((conn) =>
 			inTransaction(conn, async () => {
 				const statement = await conn.prepare(
 					`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
@@ -884,7 +882,7 @@ export class DuckDbAdapter extends BaseAdapter {
 	async executeQuery({ query: sql }: { query: string }): Promise<ExecuteQueryResult> {
 		if (!sql?.trim()) throw new HTTPException(400, { message: "Query is required" });
 
-		return this.withConnection(async (conn) => {
+		return connector("duckdb").withConnection(async (conn) => {
 			const { ResultReturnType, StatementType } = loadedDriver("duckdb");
 			const start = performance.now();
 			const statements = await conn.extractStatements(sql);

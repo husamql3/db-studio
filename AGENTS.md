@@ -75,7 +75,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
 - **Adapters map**: `src/adapters/adapter.registry.ts` exports `ADAPTERS`, one instance per engine (`satisfies Record<DatabaseTypeSchema, IDbAdapter>`, so typecheck fails until a new engine has one), and `isDatabaseType`.
 - **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against `ADAPTERS`, checks it against the request's connection, and adds `dbType` and `adapter` to the context.
-- **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts`. It has no framework dependency; never import Elysia into adapters.
+- **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts` for their own refusals and let driver errors escape to `handleError`, which classifies them with the engine's adapter (see Adapter Pattern). `HTTPException` has no framework dependency; never import Elysia into adapters.
 
 **Multi-database routing pattern**: requests under `/:dbType/*` resolve their adapter through `adapterPlugin`, then handlers call methods on the `adapter` from the context. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
 
@@ -387,7 +387,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
-- `src/adapters/base.adapter.ts` — `BaseAdapter`: implements `getTableData()` and `exportTableData()` as template methods; provides `wrapError()`, `encodeCursor()`, `decodeCursor()`
+- `src/adapters/base.adapter.ts` — `BaseAdapter`: implements `getTableData()` and `exportTableData()` as template methods; provides `classifyError()`, `encodeCursor()`, `decodeCursor()`
 - `src/adapters/adapter.registry.ts` — `ADAPTERS`, the adapter of each engine
 - `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
 - `src/adapters/[db]/[db].query-builder.ts` — SQL construction helpers (WHERE, ORDER BY, cursor clauses)
@@ -426,9 +426,7 @@ export class PgAdapter extends BaseAdapter {
 
 **Template method `getTableData()`**: implemented once in `BaseAdapter`; calls `buildTableDataQuery()` → `runQuery()` → `normalizeRows()` → `buildCursors()`. Adapters only override if their DB requires a fundamentally different approach (e.g. `MsSqlAdapter` overrides because `mssql` requests need per-value `.input()` calls).
 
-**Overriding template methods**: any override that bypasses `BaseAdapter.getTableData()` MUST wrap its body in `try/catch` and call `throw this.wrapError(e)` — otherwise connection errors won't be surfaced as 503.
-
-**Error handling**: `BaseAdapter.wrapError(e)` maps connection errors (ECONNREFUSED, ETIMEDOUT, Login failed, etc.) to `HTTPException(503)` and all others to `HTTPException(500)`. It is called automatically by the template methods; manual calls are only needed in overrides.
+**Error handling**: let driver errors escape; `handleError` hands each one to `classifyError(e)` of the request's engine (the path's `:dbType`, else the request's connection), so a driver error gets the same status from every method. Each adapter recognises its own driver's errors in `classifyDriverError(e)` (PostgreSQL: SQLSTATE class 08 → 503, 22 → 400, 23 → 409, 42501 → 403; a read-only refusal → 403 with `READ_ONLY_MESSAGE`; an engine limitation → 400), and `BaseAdapter` adds the socket errors every driver shares (503) and 500 for the rest. Catch a driver error only to do real work: roll back, or turn a specific error into a specific answer (FK violation → `relatedRecords`, missing table → 404).
 
 ### How To Add A New Database
 

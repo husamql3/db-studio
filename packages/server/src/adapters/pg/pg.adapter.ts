@@ -37,22 +37,19 @@ import {
 	mapPostgresToDataType,
 	standardizeDataTypeLabel,
 } from "@db-studio/shared/types";
-import type { Pool as PgPool, PoolClient } from "pg";
+import type { DatabaseError, Pool as PgPool, PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
+	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
+	READ_ONLY_MESSAGE,
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import type { ServerAddress } from "@/connection-url.js";
-import {
-	isPgConstraintViolation,
-	isPgDatabaseError,
-	isPgDataException,
-	isReadOnlyRefusal,
-} from "@/drivers.js";
+import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
@@ -89,12 +86,41 @@ const inTransaction = async <T>(pool: PgPool, work: (client: PoolClient) => Prom
 	}
 };
 
+/** A PostgreSQL server error; it carries the SQLSTATE `code`. */
+const isPgError = (error: unknown): error is DatabaseError =>
+	error instanceof loadedDriver("pg").DatabaseError;
+
+/** SQLSTATE classes that answer with another status than 500. */
+const STATUS_BY_SQLSTATE_CLASS: Record<string, number> = {
+	"08": 503, // connection exception
+	"22": 400, // data exception: invalid date, text in a number column, value too long
+	"23": 409, // integrity constraint violation: foreign key, unique, not null, check
+};
+
 /** Bytes read from the end of the log file; enough for several hundred entries. */
 const LOG_TAIL_BYTES = 1024 * 1024;
 
 export class PgAdapter extends BaseAdapter {
 	// Keyed by pool: tabs can work with a PostgreSQL and a CockroachDB server at once.
 	private databaseSizeSupport = new WeakMap<PgPool, Promise<boolean>>();
+
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		// pg-pool's connect timeout and a dropped socket are plain errors.
+		if (!isPgError(e))
+			return e.message.includes("timeout expired") ||
+				e.message.includes("Connection terminated")
+				? { status: 503 }
+				: undefined;
+
+		if (e.code === "25006") return { status: 403, message: READ_ONLY_MESSAGE };
+
+		// The connected role lacks a privilege, or a row-level security policy refused the row.
+		if (e.code === "42501") return { status: 403 };
+
+		const status = STATUS_BY_SQLSTATE_CLASS[e.code?.slice(0, 2) ?? ""];
+
+		return status ? { status } : undefined;
+	}
 
 	// =========================================================
 	// Abstract method implementations
@@ -170,9 +196,9 @@ export class PgAdapter extends BaseAdapter {
 			this.getPrimaryKeyColumns(pool, table),
 			this.countRows(pool, table, filterWhere, filterValues),
 		]).catch((e: unknown) => {
-			if (isPgDatabaseError(e) && e.code === "42P01")
+			if (isPgError(e) && e.code === "42P01")
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-			throw this.wrapError(e);
+			throw e;
 		});
 
 		const sortTerms: OrderTerm[] = Array.isArray(sort)
@@ -313,14 +339,13 @@ export class PgAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const pool = await connector("pg").pool();
+		const pool = await connector("pg").pool();
 
-			const size = (await this.supportsDatabaseSize(pool))
-				? "pg_size_pretty(pg_database_size(d.datname))"
-				: "'unknown'";
+		const size = (await this.supportsDatabaseSize(pool))
+			? "pg_size_pretty(pg_database_size(d.datname))"
+			: "'unknown'";
 
-			const { rows } = await pool.query(`
+		const { rows } = await pool.query(`
 				SELECT
 					d.datname as name,
 					${size} as size,
@@ -332,13 +357,10 @@ export class PgAdapter extends BaseAdapter {
 				ORDER BY d.datname;
 			`);
 
-			if (!rows[0])
-				throw new HTTPException(500, { message: "No databases returned from database" });
+		if (!rows[0])
+			throw new HTTPException(500, { message: "No databases returned from database" });
 
-			return rows;
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return rows;
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
@@ -533,57 +555,52 @@ export class PgAdapter extends BaseAdapter {
 				};
 			}
 
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+			throw error;
 		}
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, newTableName, schemaName: requestedSchema, db } = params;
-			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await connector("pg").pool(db);
+		const { tableName, newTableName, schemaName: requestedSchema, db } = params;
+		this.assertDifferentTableName(tableName, newTableName);
+		const pool = await connector("pg").pool(db);
 
-			// Tables are listed from every user schema, so resolve the actual schema
-			// instead of assuming "public".
-			const { rows: schemaRows } = await pool.query(
-				`SELECT table_schema as "schemaName" FROM information_schema.tables WHERE table_name = $1 AND table_schema NOT IN ('pg_catalog', 'information_schema') AND table_schema NOT LIKE 'pg_toast%';`,
-				[tableName],
-			);
+		// Tables are listed from every user schema, so resolve the actual schema
+		// instead of assuming "public".
+		const { rows: schemaRows } = await pool.query(
+			`SELECT table_schema as "schemaName" FROM information_schema.tables WHERE table_name = $1 AND table_schema NOT IN ('pg_catalog', 'information_schema') AND table_schema NOT LIKE 'pg_toast%';`,
+			[tableName],
+		);
 
-			const schemas = (schemaRows as Array<{ schemaName: string }>).map((r) => r.schemaName);
+		const schemas = (schemaRows as Array<{ schemaName: string }>).map((r) => r.schemaName);
 
-			if (schemas.length === 0)
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (schemas.length === 0)
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			if (requestedSchema && !schemas.includes(requestedSchema)) {
-				throw new HTTPException(404, {
-					message: `Table "${requestedSchema}"."${tableName}" does not exist`,
-				});
-			}
-
-			if (!requestedSchema && schemas.length > 1)
-				throw new HTTPException(400, {
-					message: `Table "${tableName}" exists in multiple schemas (${schemas.join(", ")}); rename is ambiguous`,
-				});
-			const schemaName = requestedSchema ?? (schemas[0] as string);
-
-			const { rows: targetRows } = await pool.query(
-				`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = $2) as exists;`,
-				[newTableName, schemaName],
-			);
-
-			if (targetRows[0]?.exists)
-				throw new HTTPException(409, {
-					message: `Table "${newTableName}" already exists`,
-				});
-
-			await pool.query(
-				`ALTER TABLE "${schemaName.replaceAll('"', '""')}"."${tableName.replaceAll('"', '""')}" RENAME TO "${newTableName.replaceAll('"', '""')}"`,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
+		if (requestedSchema && !schemas.includes(requestedSchema)) {
+			throw new HTTPException(404, {
+				message: `Table "${requestedSchema}"."${tableName}" does not exist`,
+			});
 		}
+
+		if (!requestedSchema && schemas.length > 1)
+			throw new HTTPException(400, {
+				message: `Table "${tableName}" exists in multiple schemas (${schemas.join(", ")}); rename is ambiguous`,
+			});
+		const schemaName = requestedSchema ?? (schemas[0] as string);
+
+		const { rows: targetRows } = await pool.query(
+			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = $2) as exists;`,
+			[newTableName, schemaName],
+		);
+
+		if (targetRows[0]?.exists)
+			throw new HTTPException(409, {
+				message: `Table "${newTableName}" already exists`,
+			});
+
+		await pool.query(
+			`ALTER TABLE "${schemaName.replaceAll('"', '""')}"."${tableName.replaceAll('"', '""')}" RENAME TO "${newTableName.replaceAll('"', '""')}"`,
+		);
 	}
 
 	async getTableSchema({
@@ -1036,13 +1053,13 @@ export class PgAdapter extends BaseAdapter {
 				),
 			};
 		} catch (e) {
-			if (isPgDatabaseError(e) && e.code === "42501") {
+			if (isPgError(e) && e.code === "42501") {
 				return logsUnavailable(
 					"Reading the server log needs superuser, or: GRANT pg_monitor, pg_read_server_files TO <user>;",
 				);
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1057,17 +1074,13 @@ export class PgAdapter extends BaseAdapter {
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		try {
-			const indexes = await this.listIndexes(
-				await connector("pg").pool(db),
-				tableName,
-				schemaName,
-			);
+		const indexes = await this.listIndexes(
+			await connector("pg").pool(db),
+			tableName,
+			schemaName,
+		);
 
-			return indexes.map(({ schemaName: _schemaName, ...index }) => index);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return indexes.map(({ schemaName: _schemaName, ...index }) => index);
 	}
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
@@ -1115,7 +1128,7 @@ export class PgAdapter extends BaseAdapter {
 
 			if (e instanceof Error && (code === "0A000" || code === "42704"))
 				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1125,31 +1138,27 @@ export class PgAdapter extends BaseAdapter {
 		indexName,
 		db,
 	}: DropIndexParamsSchemaType): Promise<void> {
-		try {
-			const pool = await connector("pg").pool(db);
+		const pool = await connector("pg").pool(db);
 
-			const index = (await this.listIndexes(pool, tableName, schemaName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
+		const index = (await this.listIndexes(pool, tableName, schemaName)).find(
+			(candidate) => candidate.indexName === indexName,
+		);
 
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
+		if (!index)
+			throw new HTTPException(404, {
+				message: `Index "${indexName}" does not exist on table "${tableName}"`,
+			});
 
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
+		if (index.kind !== "index")
+			throw new HTTPException(400, {
+				message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+			});
 
-			// Qualified, because a bare name would resolve through search_path and could
-			// hit a same-named index that belongs to another schema's table.
-			await pool.query(
-				`DROP INDEX ${this.quoteIdentifier(index.schemaName)}.${this.quoteIdentifier(indexName)}`,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		// Qualified, because a bare name would resolve through search_path and could
+		// hit a same-named index that belongs to another schema's table.
+		await pool.query(
+			`DROP INDEX ${this.quoteIdentifier(index.schemaName)}.${this.quoteIdentifier(indexName)}`,
+		);
 	}
 
 	// --- Records ---
@@ -1198,54 +1207,43 @@ export class PgAdapter extends BaseAdapter {
 		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, table), keyColumns);
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
-		try {
-			return await inTransaction(pool, async (client) => {
-				let total = 0;
+		return await inTransaction(pool, async (client) => {
+			let total = 0;
 
-				for (const { keyValues, rowUpdates } of groups) {
-					const values: unknown[] = [];
+			for (const { keyValues, rowUpdates } of groups) {
+				const values: unknown[] = [];
 
-					const setClauses = rowUpdates.map((u) => {
-						if (u.useDefault) return `"${u.columnName}" = DEFAULT`;
-						values.push(
-							u.value !== null && typeof u.value === "object"
-								? JSON.stringify(u.value)
-								: u.value,
-						);
+				const setClauses = rowUpdates.map((u) => {
+					if (u.useDefault) return `"${u.columnName}" = DEFAULT`;
+					values.push(
+						u.value !== null && typeof u.value === "object"
+							? JSON.stringify(u.value)
+							: u.value,
+					);
 
-						return `"${u.columnName}" = $${values.length}`;
+					return `"${u.columnName}" = $${values.length}`;
+				});
+
+				const whereClauses = keyColumns.map(
+					(column, i) => `"${column}" = $${values.length + i + 1}`,
+				);
+
+				values.push(...keyValues);
+
+				const result = await client.query(
+					`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
+					values,
+				);
+
+				if (result.rowCount === 0)
+					throw new HTTPException(404, {
+						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
 					});
+				total += result.rowCount ?? 0;
+			}
 
-					const whereClauses = keyColumns.map(
-						(column, i) => `"${column}" = $${values.length + i + 1}`,
-					);
-
-					values.push(...keyValues);
-
-					const result = await client.query(
-						`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
-						values,
-					);
-
-					if (result.rowCount === 0)
-						throw new HTTPException(404, {
-							message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-						});
-					total += result.rowCount ?? 0;
-				}
-
-				return { updatedCount: total };
-			});
-		} catch (error) {
-			if (
-				error instanceof HTTPException ||
-				isPgConstraintViolation(error) ||
-				isPgDataException(error) ||
-				isReadOnlyRefusal(error)
-			)
-				throw error;
-			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
-		}
+			return { updatedCount: total };
+		});
 	}
 
 	async deleteRecords({
@@ -1286,10 +1284,7 @@ export class PgAdapter extends BaseAdapter {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to delete records from "${tableName}"`,
-			});
+			throw error;
 		}
 	}
 
@@ -1309,77 +1304,68 @@ export class PgAdapter extends BaseAdapter {
 
 		const pkValues = primaryKeys.map((pk) => pk.value);
 
-		try {
-			return await inTransaction(pool, async (client) => {
-				const fkConstraints = await this.getFkConstraints(client, tableName, schemaName);
-				let totalRelated = 0;
+		return await inTransaction(pool, async (client) => {
+			const fkConstraints = await this.getFkConstraints(client, tableName, schemaName);
+			let totalRelated = 0;
 
-				const deleteRelated = async (
-					targetTable: string,
-					targetSchema: string,
-					targetColumn: string,
-					values: unknown[],
-				) => {
-					const target = qualifiedTable(targetTable, targetSchema);
-					const nested = await this.getFkConstraints(client, targetTable, targetSchema);
+			const deleteRelated = async (
+				targetTable: string,
+				targetSchema: string,
+				targetColumn: string,
+				values: unknown[],
+			) => {
+				const target = qualifiedTable(targetTable, targetSchema);
+				const nested = await this.getFkConstraints(client, targetTable, targetSchema);
 
-					for (const nfk of nested) {
-						const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+				for (const nfk of nested) {
+					const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
 
-						const { rows } = await client.query(
-							`SELECT "${nfk.referencedColumn}" FROM ${target} WHERE "${targetColumn}" IN (${placeholders})`,
-							values,
-						);
-
-						const nestedVals = rows.map(
-							(r: Record<string, unknown>) => r[nfk.referencedColumn],
-						);
-
-						if (nestedVals.length > 0)
-							await deleteRelated(
-								nfk.referencingTable,
-								nfk.referencingSchema,
-								nfk.referencingColumn,
-								nestedVals,
-							);
-					}
-
-					const ph = values.map((_, i) => `$${i + 1}`).join(", ");
-
-					const res = await client.query(
-						`DELETE FROM ${target} WHERE "${targetColumn}" IN (${ph})`,
+					const { rows } = await client.query(
+						`SELECT "${nfk.referencedColumn}" FROM ${target} WHERE "${targetColumn}" IN (${placeholders})`,
 						values,
 					);
 
-					totalRelated += res.rowCount ?? 0;
-				};
+					const nestedVals = rows.map((r: Record<string, unknown>) => r[nfk.referencedColumn]);
 
-				// Every relationship, even a second one from the same child table: a message's
-				// recipient_id must go as well as its sender_id.
-				for (const c of fkConstraints) {
-					await deleteRelated(
-						c.referencingTable,
-						c.referencingSchema,
-						c.referencingColumn,
-						pkValues,
-					);
+					if (nestedVals.length > 0)
+						await deleteRelated(
+							nfk.referencingTable,
+							nfk.referencingSchema,
+							nfk.referencingColumn,
+							nestedVals,
+						);
 				}
 
-				const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
+				const ph = values.map((_, i) => `$${i + 1}`).join(", ");
 
-				const result = await client.query(
-					`DELETE FROM ${table} WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
-					pkValues,
+				const res = await client.query(
+					`DELETE FROM ${target} WHERE "${targetColumn}" IN (${ph})`,
+					values,
 				);
 
-				return { deletedCount: (result.rowCount ?? 0) + totalRelated };
-			});
-		} catch (error) {
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to force delete records from "${tableName}"`,
-			});
-		}
+				totalRelated += res.rowCount ?? 0;
+			};
+
+			// Every relationship, even a second one from the same child table: a message's
+			// recipient_id must go as well as its sender_id.
+			for (const c of fkConstraints) {
+				await deleteRelated(
+					c.referencingTable,
+					c.referencingSchema,
+					c.referencingColumn,
+					pkValues,
+				);
+			}
+
+			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
+
+			const result = await client.query(
+				`DELETE FROM ${table} WHERE "${pkColumn}" IN (${ph}) RETURNING *`,
+				pkValues,
+			);
+
+			return { deletedCount: (result.rowCount ?? 0) + totalRelated };
+		});
 	}
 
 	async bulkInsertRecords({
@@ -1393,54 +1379,29 @@ export class PgAdapter extends BaseAdapter {
 
 		const pool = await connector("pg").pool(db);
 
-		try {
-			return await inTransaction(pool, async (client) => {
-				const columns = Object.keys(records[0]);
-				const colNames = columns.map((c) => `"${c}"`).join(", ");
-				let successCount = 0;
+		return await inTransaction(pool, async (client) => {
+			const columns = Object.keys(records[0]);
+			const colNames = columns.map((c) => `"${c}"`).join(", ");
+			let successCount = 0;
 
-				for (const record of records) {
-					const values = columns.map((col) => record[col]);
-					const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+			for (const record of records) {
+				const values = columns.map((col) => record[col]);
+				const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 
-					try {
-						await client.query(
-							`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
-							values,
-						);
-						successCount++;
-					} catch (error) {
-						if (
-							isPgConstraintViolation(error) ||
-							isPgDataException(error) ||
-							isReadOnlyRefusal(error)
-						)
-							throw error;
-						throw new HTTPException(500, {
-							message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
-						});
-					}
-				}
+				await client.query(
+					`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
+					values,
+				);
+				successCount++;
+			}
 
-				return {
-					success: true,
-					message: `Bulk insert completed: ${successCount} records inserted`,
-					successCount,
-					failureCount: 0,
-				};
-			});
-		} catch (error) {
-			if (
-				error instanceof HTTPException ||
-				isPgConstraintViolation(error) ||
-				isPgDataException(error) ||
-				isReadOnlyRefusal(error)
-			)
-				throw error;
-			throw new HTTPException(500, {
-				message: `Failed to bulk insert records into "${tableName}"`,
-			});
-		}
+			return {
+				success: true,
+				message: `Bulk insert completed: ${successCount} records inserted`,
+				successCount,
+				failureCount: 0,
+			};
+		});
 	}
 
 	override async exportTableData({
@@ -1452,22 +1413,18 @@ export class PgAdapter extends BaseAdapter {
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		try {
-			const pool = await connector("pg").pool(db);
+		const pool = await connector("pg").pool(db);
 
-			const { rows } = await pool.query<Record<string, unknown>>(
-				`SELECT * FROM ${qualifiedTable(tableName, schemaName)}`,
-			);
+		const { rows } = await pool.query<Record<string, unknown>>(
+			`SELECT * FROM ${qualifiedTable(tableName, schemaName)}`,
+		);
 
-			if (rows.length === 0)
-				throw new HTTPException(404, {
-					message: `Table "${tableName}" does not exist or has no data`,
-				});
+		if (rows.length === 0)
+			throw new HTTPException(404, {
+				message: `Table "${tableName}" does not exist or has no data`,
+			});
 
-			return { cols: Object.keys(rows[0]), rows };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { cols: Object.keys(rows[0]), rows };
 	}
 
 	// --- Query ---

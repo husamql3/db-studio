@@ -40,7 +40,9 @@ import type { Pool as MysqlPool } from "mysql2/promise";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
+	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
+	READ_ONLY_MESSAGE,
 	type NormalizedRow,
 	type QueryBundle,
 } from "@/adapters/base.adapter.js";
@@ -52,7 +54,6 @@ import {
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
 import type { ServerAddress } from "@/connection-url.js";
-import { isReadOnlyRefusal } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
@@ -76,6 +77,14 @@ const MYSQL_DROP_INDEX_FK = 1553;
 const MYSQL_CANNOT_INDEX = new Set([1059, 1071, 1167, 1170, 1280, 3152]);
 const MYSQL_TABLE_ACCESS_DENIED = 1142;
 const MYSQL_NO_SUCH_TABLE = 1146;
+const MYSQL_READ_ONLY = 1792;
+
+/**
+ * The server cannot be reached or refused the login: access denied (1045), cannot connect to
+ * the local (2002) or remote (2003) server.
+ */
+const MYSQL_UNREACHABLE_ERRNOS = new Set([1045, 2002, 2003]);
+const MYSQL_UNREACHABLE_CODES = new Set(["ER_ACCESS_DENIED_ERROR", "ER_BAD_HOST_ERROR"]);
 
 const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	System: "info",
@@ -89,6 +98,20 @@ const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 export class MySqlAdapter extends BaseAdapter {
 	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
 	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
+
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		const { code, errno } = e as { code?: string; errno?: number };
+
+		if (errno === MYSQL_READ_ONLY) return { status: 403, message: READ_ONLY_MESSAGE };
+
+		if (
+			(errno !== undefined && MYSQL_UNREACHABLE_ERRNOS.has(errno)) ||
+			(code !== undefined && MYSQL_UNREACHABLE_CODES.has(code))
+		)
+			return { status: 503 };
+
+		return undefined;
+	}
 
 	// =========================================================
 	// Abstract method implementations
@@ -262,7 +285,7 @@ export class MySqlAdapter extends BaseAdapter {
 		]).catch((e: unknown) => {
 			if ((e as { errno?: number }).errno === MYSQL_NO_SUCH_TABLE)
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-			throw this.wrapError(e);
+			throw e;
 		});
 
 		let sortColumns: string[] = [];
@@ -383,10 +406,9 @@ export class MySqlAdapter extends BaseAdapter {
 	// --- Databases ---
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const pool = await connector("mysql").pool();
+		const pool = await connector("mysql").pool();
 
-			const [rows] = await pool.execute<RowDataPacket[]>(`
+		const [rows] = await pool.execute<RowDataPacket[]>(`
 				SELECT
 				  s.SCHEMA_NAME AS name,
 				  CONCAT(ROUND(COALESCE(SUM(t.data_length + t.index_length), 0) / 1024 / 1024, 2), ' MB') AS size,
@@ -399,13 +421,10 @@ export class MySqlAdapter extends BaseAdapter {
 				ORDER BY s.SCHEMA_NAME
 			`);
 
-			if (!rows[0])
-				throw new HTTPException(500, { message: "No databases returned from server" });
+		if (!rows[0])
+			throw new HTTPException(500, { message: "No databases returned from server" });
 
-			return rows as DatabaseInfoSchemaType[];
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return rows as DatabaseInfoSchemaType[];
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
@@ -572,36 +591,31 @@ export class MySqlAdapter extends BaseAdapter {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+			throw error;
 		}
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, newTableName, db } = params;
-			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await connector("mysql").pool(db);
+		const { tableName, newTableName, db } = params;
+		this.assertDifferentTableName(tableName, newTableName);
+		const pool = await connector("mysql").pool(db);
 
-			await this.assertTableExists(pool, tableName);
+		await this.assertTableExists(pool, tableName);
 
-			const [targetRows] = await pool.execute<RowDataPacket[]>(
-				`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-				[newTableName],
-			);
+		const [targetRows] = await pool.execute<RowDataPacket[]>(
+			`SELECT COUNT(*) as cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+			[newTableName],
+		);
 
-			if (Number((targetRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
-				throw new HTTPException(409, {
-					message: `Table "${newTableName}" already exists`,
-				});
-			}
-
-			await pool.execute<ResultSetHeader>(
-				`RENAME TABLE \`${tableName.replaceAll("`", "``")}\` TO \`${newTableName.replaceAll("`", "``")}\``,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
+		if (Number((targetRows as Array<{ cnt: number }>)[0]?.cnt ?? 0) > 0) {
+			throw new HTTPException(409, {
+				message: `Table "${newTableName}" already exists`,
+			});
 		}
+
+		await pool.execute<ResultSetHeader>(
+			`RENAME TABLE \`${tableName.replaceAll("`", "``")}\` TO \`${newTableName.replaceAll("`", "``")}\``,
+		);
 	}
 
 	async getTableSchema({
@@ -878,7 +892,7 @@ export class MySqlAdapter extends BaseAdapter {
 				);
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -891,11 +905,7 @@ export class MySqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		try {
-			return await this.listIndexes(await connector("mysql").pool(db), tableName);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return await this.listIndexes(await connector("mysql").pool(db), tableName);
 	}
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
@@ -932,7 +942,7 @@ export class MySqlAdapter extends BaseAdapter {
 
 			if (e instanceof Error && errno !== undefined && MYSQL_CANNOT_INDEX.has(errno))
 				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -958,7 +968,7 @@ export class MySqlAdapter extends BaseAdapter {
 		} catch (e) {
 			if (e instanceof Error && (e as { errno?: number }).errno === MYSQL_DROP_INDEX_FK)
 				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1059,9 +1069,7 @@ export class MySqlAdapter extends BaseAdapter {
 			return { updatedCount: total };
 		} catch (error) {
 			await connection.rollback();
-
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
+			throw error;
 		} finally {
 			connection.release();
 		}
@@ -1103,10 +1111,7 @@ export class MySqlAdapter extends BaseAdapter {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to delete records from "${tableName}"`,
-			});
+			throw error;
 		} finally {
 			connection.release();
 		}
@@ -1206,11 +1211,7 @@ export class MySqlAdapter extends BaseAdapter {
 			return { deletedCount: result.affectedRows + totalRelated };
 		} catch (error) {
 			await connection.rollback();
-
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to force delete records from "${tableName}"`,
-			});
+			throw error;
 		} finally {
 			connection.release();
 		}
@@ -1253,9 +1254,12 @@ export class MySqlAdapter extends BaseAdapter {
 						values as any,
 					);
 				} catch (error) {
-					if (isReadOnlyRefusal(error)) throw error;
+					const failure = this.classifyError(error);
+
+					if (failure.status !== 500) throw failure;
 					throw new HTTPException(500, {
-						message: `Failed to insert record ${i + 1}: ${error instanceof Error ? error.message : String(error)}`,
+						message: `Failed to insert record ${i + 1}: ${failure.message}`,
+						cause: error,
 					});
 				}
 			}
@@ -1270,11 +1274,7 @@ export class MySqlAdapter extends BaseAdapter {
 			};
 		} catch (error) {
 			await connection.rollback();
-
-			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to bulk insert records into "${tableName}"`,
-			});
+			throw error;
 		} finally {
 			connection.release();
 		}

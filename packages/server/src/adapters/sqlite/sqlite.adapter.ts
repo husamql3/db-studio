@@ -33,7 +33,13 @@ import type {
 import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/shared/types";
 import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import {
+	BaseAdapter,
+	type DriverErrorClass,
+	type NormalizedRow,
+	type QueryBundle,
+} from "@/adapters/base.adapter.js";
+import { D1TokenRefused } from "@/d1-client.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import type { SqliteClient, SqlParam, SqlResult, SqlStatement } from "@/sqlite-client.js";
@@ -183,6 +189,14 @@ export class SqliteAdapter extends BaseAdapter {
 	// alterColumn reads the column list and then rebuilds the table from it; a column added
 	// between the two would be dropped by the rebuild, so column changes run one at a time.
 	private schemaChange: Promise<unknown> = Promise.resolve();
+
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		// libSQL / Turso answer a bad or missing authToken with HTTP 401 or 403.
+		if (e instanceof D1TokenRefused || /HTTP status (401|403)\b/.test(e.message))
+			return { status: 503 };
+
+		return undefined;
+	}
 
 	private serializeSchemaChange<T>(change: () => Promise<T>): Promise<T> {
 		const run = this.schemaChange.then(change);
@@ -346,166 +360,162 @@ export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 
 	override async getTableData(params: GetTableDataParams) {
-		try {
-			const {
-				tableName,
-				db,
-				limit = 50,
-				direction = "asc",
-				sort = [],
-				order = "asc",
-				cursor,
-				filters = [],
-			} = params;
+		const {
+			tableName,
+			db,
+			limit = 50,
+			direction = "asc",
+			sort = [],
+			order = "asc",
+			cursor,
+			filters = [],
+		} = params;
 
-			const client = await connector("sqlite").client();
+		const client = await connector("sqlite").client();
 
-			const colInfoRows = await all<TableInfoRow>(
-				client,
-				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
-			);
+		const colInfoRows = await all<TableInfoRow>(
+			client,
+			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+		);
 
-			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
-			if (colInfoRows.length === 0)
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
+		if (colInfoRows.length === 0)
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const pkColumns: string[] = colInfoRows
-				.filter((c) => c.pk > 0)
-				.sort((a, b) => a.pk - b.pk)
-				.map((c) => c.name);
+		const pkColumns: string[] = colInfoRows
+			.filter((c) => c.pk > 0)
+			.sort((a, b) => a.pk - b.pk)
+			.map((c) => c.name);
 
-			let sortColumns: string[] = [];
-			let effectiveSortDirection: SortDirection = order;
+		let sortColumns: string[] = [];
+		let effectiveSortDirection: SortDirection = order;
 
-			if (Array.isArray(sort) && sort.length > 0) {
-				sortColumns = sort.map((s) => s.columnName);
-				effectiveSortDirection = sort[0].direction;
-			} else if (typeof sort === "string" && sort) {
-				sortColumns = [sort];
-			}
-
-			const cursorColumns = [
-				...sortColumns,
-				...pkColumns.filter((pk) => !sortColumns.includes(pk)),
-			];
-
-			const useRowid = cursorColumns.length === 0;
-
-			if (useRowid) cursorColumns.push("rowid");
-
-			const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
-
-			let cursorWhere = "";
-			let cursorValues: unknown[] = [];
-
-			if (cursor) {
-				const cursorData = this.decodeCursor(cursor);
-
-				if (cursorData) {
-					const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
-					cursorWhere = res.clause;
-					cursorValues = res.values;
-				}
-			}
-
-			let combinedWhere = "";
-
-			if (filterWhere && cursorWhere) {
-				combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
-			} else if (filterWhere) {
-				combinedWhere = filterWhere;
-			} else if (cursorWhere) {
-				combinedWhere = `WHERE ${cursorWhere}`;
-			}
-
-			const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
-			const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
-			let effectiveSortClause = sortClause;
-
-			if (direction === "desc") {
-				if (sortClause) {
-					effectiveSortClause = sortClause
-						.replace(/\bASC\b/gi, "TEMP_DESC")
-						.replace(/\bDESC\b/gi, "ASC")
-						.replace(/TEMP_DESC/g, "DESC");
-
-					if (pkTieBreakerCols.length) {
-						const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
-					}
-				} else {
-					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
-				}
-			} else if (!sortClause) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-			} else if (pkTieBreakerCols.length) {
-				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-			}
-
-			const [countRow] = await all<{ total: number }>(
-				client,
-				`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
-				filterValues,
-			);
-
-			const total = Number(countRow?.total ?? 0);
-
-			// When falling back to rowid for cursor, include it in SELECT so buildCursors can read it
-			const selectClause = useRowid ? "*, rowid" : "*";
-
-			const dataRows = await all(
-				client,
-				`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
-				[...filterValues, ...cursorValues, limit + 1],
-			);
-
-			const hasMore = dataRows.length > limit;
-			let rows = hasMore ? dataRows.slice(0, limit) : dataRows;
-
-			if (direction === "desc") rows = rows.reverse();
-
-			const createCursor = (row: Record<string, unknown>): CursorData => ({
-				values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
-				sortColumns: cursorColumns,
-			});
-
-			let nextCursor: string | null = null;
-			let prevCursor: string | null = null;
-
-			if (rows.length > 0) {
-				const firstRow = rows[0];
-				const lastRow = rows[rows.length - 1];
-
-				if (direction === "asc") {
-					if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
-
-					if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
-				} else {
-					if (cursor) nextCursor = this.encodeCursor(createCursor(lastRow));
-
-					if (hasMore) prevCursor = this.encodeCursor(createCursor(firstRow));
-				}
-			}
-
-			// Strip the synthetic rowid from output rows if we added it
-			const finalRows = useRowid ? rows.map(({ rowid: _r, ...rest }) => rest) : rows;
-
-			void db;
-
-			return {
-				data: finalRows as NormalizedRow[],
-				meta: {
-					limit,
-					total,
-					hasNextPage: direction === "asc" ? hasMore : !!cursor,
-					hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
-					nextCursor,
-					prevCursor,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+		if (Array.isArray(sort) && sort.length > 0) {
+			sortColumns = sort.map((s) => s.columnName);
+			effectiveSortDirection = sort[0].direction;
+		} else if (typeof sort === "string" && sort) {
+			sortColumns = [sort];
 		}
+
+		const cursorColumns = [
+			...sortColumns,
+			...pkColumns.filter((pk) => !sortColumns.includes(pk)),
+		];
+
+		const useRowid = cursorColumns.length === 0;
+
+		if (useRowid) cursorColumns.push("rowid");
+
+		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
+
+		let cursorWhere = "";
+		let cursorValues: unknown[] = [];
+
+		if (cursor) {
+			const cursorData = this.decodeCursor(cursor);
+
+			if (cursorData) {
+				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
+				cursorWhere = res.clause;
+				cursorValues = res.values;
+			}
+		}
+
+		let combinedWhere = "";
+
+		if (filterWhere && cursorWhere) {
+			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
+		} else if (filterWhere) {
+			combinedWhere = filterWhere;
+		} else if (cursorWhere) {
+			combinedWhere = `WHERE ${cursorWhere}`;
+		}
+
+		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
+		const pkTieBreakerCols = pkColumns.filter((pk) => !sortColumns.includes(pk));
+		let effectiveSortClause = sortClause;
+
+		if (direction === "desc") {
+			if (sortClause) {
+				effectiveSortClause = sortClause
+					.replace(/\bASC\b/gi, "TEMP_DESC")
+					.replace(/\bDESC\b/gi, "ASC")
+					.replace(/TEMP_DESC/g, "DESC");
+
+				if (pkTieBreakerCols.length) {
+					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
+					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
+				}
+			} else {
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+			}
+		} else if (!sortClause) {
+			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+		} else if (pkTieBreakerCols.length) {
+			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+		}
+
+		const [countRow] = await all<{ total: number }>(
+			client,
+			`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
+			filterValues,
+		);
+
+		const total = Number(countRow?.total ?? 0);
+
+		// When falling back to rowid for cursor, include it in SELECT so buildCursors can read it
+		const selectClause = useRowid ? "*, rowid" : "*";
+
+		const dataRows = await all(
+			client,
+			`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
+			[...filterValues, ...cursorValues, limit + 1],
+		);
+
+		const hasMore = dataRows.length > limit;
+		let rows = hasMore ? dataRows.slice(0, limit) : dataRows;
+
+		if (direction === "desc") rows = rows.reverse();
+
+		const createCursor = (row: Record<string, unknown>): CursorData => ({
+			values: Object.fromEntries(cursorColumns.map((col) => [col, row[col]])),
+			sortColumns: cursorColumns,
+		});
+
+		let nextCursor: string | null = null;
+		let prevCursor: string | null = null;
+
+		if (rows.length > 0) {
+			const firstRow = rows[0];
+			const lastRow = rows[rows.length - 1];
+
+			if (direction === "asc") {
+				if (hasMore) nextCursor = this.encodeCursor(createCursor(lastRow));
+
+				if (cursor) prevCursor = this.encodeCursor(createCursor(firstRow));
+			} else {
+				if (cursor) nextCursor = this.encodeCursor(createCursor(lastRow));
+
+				if (hasMore) prevCursor = this.encodeCursor(createCursor(firstRow));
+			}
+		}
+
+		// Strip the synthetic rowid from output rows if we added it
+		const finalRows = useRowid ? rows.map(({ rowid: _r, ...rest }) => rest) : rows;
+
+		void db;
+
+		return {
+			data: finalRows as NormalizedRow[],
+			meta: {
+				limit,
+				total,
+				hasNextPage: direction === "asc" ? hasMore : !!cursor,
+				hasPreviousPage: direction === "asc" ? !!cursor : hasMore,
+				nextCursor,
+				prevCursor,
+			},
+		};
 	}
 
 	// =========================================================
@@ -513,39 +523,27 @@ export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const { name, size } = await (await connector("sqlite").client()).info();
+		const { name, size } = await (await connector("sqlite").client()).info();
 
-			return [{ name, size, owner: "", encoding: "UTF-8" }];
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return [{ name, size, owner: "", encoding: "UTF-8" }];
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		try {
-			return { db: (await (await connector("sqlite").client()).info()).name };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { db: (await (await connector("sqlite").client()).info()).name };
 	}
 
 	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		try {
-			const { name, version } = await (await connector("sqlite").client()).info();
+		const { name, version } = await (await connector("sqlite").client()).info();
 
-			return {
-				host: null,
-				port: null,
-				user: "",
-				database: name,
-				version,
-				active_connections: 1,
-				max_connections: 1,
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return {
+			host: null,
+			port: null,
+			user: "",
+			database: name,
+			version,
+			active_connections: 1,
+			max_connections: 1,
+		};
 	}
 
 	// =========================================================
@@ -553,31 +551,27 @@ export class SqliteAdapter extends BaseAdapter {
 	// =========================================================
 
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		try {
-			const client = await connector("sqlite").client();
+		const client = await connector("sqlite").client();
 
-			const tables = await all<{ name: string }>(
-				client,
-				`SELECT name FROM sqlite_master
+		const tables = await all<{ name: string }>(
+			client,
+			`SELECT name FROM sqlite_master
 				WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*'
 				ORDER BY name`,
-			);
+		);
 
-			if (!tables.length) return [];
+		if (!tables.length) return [];
 
-			// One round trip for every count; matters against a remote server.
-			const counts = await client.batch(
-				tables.map((t) => `SELECT COUNT(*) as count FROM ${this.quoteIdentifier(t.name)}`),
-				"read",
-			);
+		// One round trip for every count; matters against a remote server.
+		const counts = await client.batch(
+			tables.map((t) => `SELECT COUNT(*) as count FROM ${this.quoteIdentifier(t.name)}`),
+			"read",
+		);
 
-			return tables.map((t, i) => ({
-				tableName: t.name,
-				rowCount: toRows<{ count: number }>(counts[i])[0]?.count ?? 0,
-			}));
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return tables.map((t, i) => ({
+			tableName: t.name,
+			rowCount: toRows<{ count: number }>(counts[i])[0]?.count ?? 0,
+		}));
 	}
 
 	async createTable({
@@ -669,8 +663,7 @@ export class SqliteAdapter extends BaseAdapter {
 				};
 			}
 
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
+			throw error;
 		}
 	}
 
@@ -687,13 +680,9 @@ export class SqliteAdapter extends BaseAdapter {
 				message: `Table "${newTableName}" already exists`,
 			});
 
-		try {
-			await client.execute(
-				`ALTER TABLE ${this.quoteIdentifier(tableName)} RENAME TO ${this.quoteIdentifier(newTableName)}`,
-			);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		await client.execute(
+			`ALTER TABLE ${this.quoteIdentifier(tableName)} RENAME TO ${this.quoteIdentifier(newTableName)}`,
+		);
 
 		void db;
 	}
@@ -705,22 +694,16 @@ export class SqliteAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		try {
-			const [row] = await all<{ sql: string }>(
-				await connector("sqlite").client(),
-				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
-				[tableName],
-			);
+		const [row] = await all<{ sql: string }>(
+			await connector("sqlite").client(),
+			`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+			[tableName],
+		);
 
-			if (!row)
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-			void db;
+		if (!row) throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		void db;
 
-			return row.sql;
-		} catch (e) {
-			if (e instanceof HTTPException) throw e;
-			throw this.wrapError(e);
-		}
+		return row.sql;
 	}
 
 	// =========================================================
@@ -734,48 +717,43 @@ export class SqliteAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		try {
-			const client = await connector("sqlite").client();
+		const client = await connector("sqlite").client();
 
-			if (!(await this.tableExists(client, tableName)))
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!(await this.tableExists(client, tableName)))
+			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const columns = await all<TableInfoRow>(
-				client,
-				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
-			);
+		const columns = await all<TableInfoRow>(
+			client,
+			`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+		);
 
-			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
+		const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
 
-			const fkMap = new Map<string, FkRow>();
+		const fkMap = new Map<string, FkRow>();
 
-			for (const fk of fks) {
-				fkMap.set(fk.from, fk);
-			}
-
-			void db;
-
-			return columns.map((col) => {
-				const fk = fkMap.get(col.name);
-				const nativeType = col.type.toLowerCase();
-
-				return {
-					columnName: col.name,
-					dataType: mapSqliteToDataType(nativeType),
-					dataTypeLabel: standardizeSqliteDataTypeLabel(nativeType),
-					isNullable: col.notnull === 0 && col.pk === 0,
-					columnDefault: col.dflt_value,
-					isPrimaryKey: col.pk > 0,
-					isForeignKey: fkMap.has(col.name),
-					referencedTable: fk?.table ?? null,
-					referencedColumn: fk?.to ?? null,
-					enumValues: null,
-				};
-			});
-		} catch (e) {
-			if (e instanceof HTTPException) throw e;
-			throw this.wrapError(e);
+		for (const fk of fks) {
+			fkMap.set(fk.from, fk);
 		}
+
+		void db;
+
+		return columns.map((col) => {
+			const fk = fkMap.get(col.name);
+			const nativeType = col.type.toLowerCase();
+
+			return {
+				columnName: col.name,
+				dataType: mapSqliteToDataType(nativeType),
+				dataTypeLabel: standardizeSqliteDataTypeLabel(nativeType),
+				isNullable: col.notnull === 0 && col.pk === 0,
+				columnDefault: col.dflt_value,
+				isPrimaryKey: col.pk > 0,
+				isForeignKey: fkMap.has(col.name),
+				referencedTable: fk?.table ?? null,
+				referencedColumn: fk?.to ?? null,
+				enumValues: null,
+			};
+		});
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
@@ -807,11 +785,7 @@ export class SqliteAdapter extends BaseAdapter {
 
 			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
-			try {
-				await client.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
-			} catch (e) {
-				throw this.wrapError(e);
-			}
+			await client.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
 
 			void db;
 		});
@@ -836,11 +810,7 @@ export class SqliteAdapter extends BaseAdapter {
 				});
 			}
 
-			try {
-				await client.execute(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`);
-			} catch (e) {
-				throw this.wrapError(e);
-			}
+			await client.execute(`ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`);
 
 			void db;
 
@@ -923,22 +893,18 @@ export class SqliteAdapter extends BaseAdapter {
 				),
 			);
 
-			try {
-				await client.rebuildTable(
-					[
-						createTemp,
-						`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
-						...keepSequence,
-						`DROP TABLE ${q(tableName)}`,
-						`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
-						...existingIndexes.map(({ sql }) => sql),
-						...existingTriggers.map(({ sql }) => sql),
-					],
-					[...referencedBy],
-				);
-			} catch (e) {
-				throw this.wrapError(e);
-			}
+			await client.rebuildTable(
+				[
+					createTemp,
+					`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
+					...keepSequence,
+					`DROP TABLE ${q(tableName)}`,
+					`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
+					...existingIndexes.map(({ sql }) => sql),
+					...existingTriggers.map(({ sql }) => sql),
+				],
+				[...referencedBy],
+			);
 
 			void db;
 		});
@@ -969,13 +935,9 @@ export class SqliteAdapter extends BaseAdapter {
 				});
 			}
 
-			try {
-				await client.execute(
-					`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
-				);
-			} catch (e) {
-				throw this.wrapError(e);
-			}
+			await client.execute(
+				`ALTER TABLE "${tableName}" RENAME COLUMN "${columnName}" TO "${newColumnName}"`,
+			);
 
 			void db;
 		});
@@ -991,11 +953,7 @@ export class SqliteAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		try {
-			return await this.listIndexes(await connector("sqlite").client(), tableName);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return await this.listIndexes(await connector("sqlite").client(), tableName);
 	}
 
 	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
@@ -1037,34 +995,30 @@ export class SqliteAdapter extends BaseAdapter {
 
 				if (e instanceof Error && e.message.includes("reserved for internal use"))
 					throw new HTTPException(400, { message: e.message, cause: e });
-				throw this.wrapError(e);
+				throw e;
 			}
 		});
 	}
 
 	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
-			try {
-				const client = await connector("sqlite").client();
+			const client = await connector("sqlite").client();
 
-				const index = (await this.listIndexes(client, tableName)).find(
-					(candidate) => candidate.indexName === indexName,
-				);
+			const index = (await this.listIndexes(client, tableName)).find(
+				(candidate) => candidate.indexName === indexName,
+			);
 
-				if (!index)
-					throw new HTTPException(404, {
-						message: `Index "${indexName}" does not exist on table "${tableName}"`,
-					});
+			if (!index)
+				throw new HTTPException(404, {
+					message: `Index "${indexName}" does not exist on table "${tableName}"`,
+				});
 
-				if (index.kind !== "index")
-					throw new HTTPException(400, {
-						message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-					});
+			if (index.kind !== "index")
+				throw new HTTPException(400, {
+					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
+				});
 
-				await client.execute(`DROP INDEX ${this.quoteIdentifier(indexName)}`);
-			} catch (e) {
-				throw this.wrapError(e);
-			}
+			await client.execute(`DROP INDEX ${this.quoteIdentifier(indexName)}`);
 		});
 	}
 
@@ -1086,25 +1040,21 @@ export class SqliteAdapter extends BaseAdapter {
 		const colNames = columns.map((c) => `"${c}"`).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
 
-		try {
-			const client = await connector("sqlite").client();
+		const client = await connector("sqlite").client();
 
-			const result = await client.execute(
-				stmt(
-					`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`,
-					Object.values(data),
-				),
-			);
+		const result = await client.execute(
+			stmt(
+				`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`,
+				Object.values(data),
+			),
+		);
 
-			if (result.rowsAffected === 0)
-				throw new HTTPException(500, {
-					message: `Failed to insert record into "${tableName}"`,
-				});
+		if (result.rowsAffected === 0)
+			throw new HTTPException(500, {
+				message: `Failed to insert record into "${tableName}"`,
+			});
 
-			return { insertedCount: result.rowsAffected };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return { insertedCount: result.rowsAffected };
 	}
 
 	async updateRecords({
@@ -1121,50 +1071,46 @@ export class SqliteAdapter extends BaseAdapter {
 
 		const where = keyColumns.map((column) => `"${column}" = ?`).join(" AND ");
 
+		const client = await connector("sqlite").client();
+		this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
+
+		// A batch is one transaction, and the guard after each UPDATE fails it with an integer
+		// overflow when that UPDATE matched no row, rolling back every earlier UPDATE. RAISE()
+		// would name the row but only works inside a trigger.
+		const statements = groups.flatMap(({ keyValues, rowUpdates }) => [
+			stmt(
+				`UPDATE "${tableName}" SET ${rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ")} WHERE ${where}`,
+				[...rowUpdates.map((u) => u.value), ...keyValues],
+			),
+			"SELECT CASE WHEN changes() = 0 THEN abs(-9223372036854775808) END",
+		]);
+
 		try {
-			const client = await connector("sqlite").client();
-			this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
+			const results = await client.batch(statements, "write");
+			void db;
 
-			// A batch is one transaction, and the guard after each UPDATE fails it with an integer
-			// overflow when that UPDATE matched no row, rolling back every earlier UPDATE. RAISE()
-			// would name the row but only works inside a trigger.
-			const statements = groups.flatMap(({ keyValues, rowUpdates }) => [
-				stmt(
-					`UPDATE "${tableName}" SET ${rowUpdates.map((u) => `"${u.columnName}" = ?`).join(", ")} WHERE ${where}`,
-					[...rowUpdates.map((u) => u.value), ...keyValues],
+			return {
+				updatedCount: results.reduce(
+					(total, result, i) => (i % 2 === 0 ? total + result.rowsAffected : total),
+					0,
 				),
-				"SELECT CASE WHEN changes() = 0 THEN abs(-9223372036854775808) END",
-			]);
-
-			try {
-				const results = await client.batch(statements, "write");
-				void db;
-
-				return {
-					updatedCount: results.reduce(
-						(total, result, i) => (i % 2 === 0 ? total + result.rowsAffected : total),
-						0,
-					),
-				};
-			} catch (e) {
-				if (!(e instanceof Error && e.message.includes("integer overflow"))) throw e;
-
-				const found = await client.batch(
-					groups.map(({ keyValues }) =>
-						stmt(`SELECT 1 FROM "${tableName}" WHERE ${where} LIMIT 1`, keyValues),
-					),
-					"read",
-				);
-
-				const missing = groups.find((_, i) => found[i].rows.length === 0);
-
-				if (!missing) throw e;
-				throw new HTTPException(404, {
-					message: `Record with ${this.describeKey(keyColumns, missing.keyValues)} not found in table "${tableName}"`,
-				});
-			}
+			};
 		} catch (e) {
-			throw this.wrapError(e);
+			if (!(e instanceof Error && e.message.includes("integer overflow"))) throw e;
+
+			const found = await client.batch(
+				groups.map(({ keyValues }) =>
+					stmt(`SELECT 1 FROM "${tableName}" WHERE ${where} LIMIT 1`, keyValues),
+				),
+				"read",
+			);
+
+			const missing = groups.find((_, i) => found[i].rows.length === 0);
+
+			if (!missing) throw e;
+			throw new HTTPException(404, {
+				message: `Record with ${this.describeKey(keyColumns, missing.keyValues)} not found in table "${tableName}"`,
+			});
 		}
 	}
 
@@ -1200,7 +1146,7 @@ export class SqliteAdapter extends BaseAdapter {
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1257,7 +1203,7 @@ export class SqliteAdapter extends BaseAdapter {
 				throw new HTTPException(409, {
 					message: `Cannot force delete from "${tableName}": rows are still referenced through a foreign key cycle`,
 				});
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1274,28 +1220,24 @@ export class SqliteAdapter extends BaseAdapter {
 		const placeholders = columns.map(() => "?").join(", ");
 		const sql = `INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`;
 
-		try {
-			const client = await connector("sqlite").client();
-			await client.batch(
-				records.map((record) =>
-					stmt(
-						sql,
-						columns.map((col) => record[col]),
-					),
+		const client = await connector("sqlite").client();
+		await client.batch(
+			records.map((record) =>
+				stmt(
+					sql,
+					columns.map((col) => record[col]),
 				),
-				"write",
-			);
-			void db;
+			),
+			"write",
+		);
+		void db;
 
-			return {
-				success: true,
-				message: `Bulk insert completed: ${records.length} records inserted`,
-				successCount: records.length,
-				failureCount: 0,
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return {
+			success: true,
+			message: `Bulk insert completed: ${records.length} records inserted`,
+			successCount: records.length,
+			failureCount: 0,
+		};
 	}
 
 	// =========================================================
@@ -1326,34 +1268,30 @@ export class SqliteAdapter extends BaseAdapter {
 			});
 		const start = performance.now();
 
-		try {
-			const result = await (await connector("sqlite").client()).execute(cleaned);
-			const duration = performance.now() - start;
-			void db;
+		const result = await (await connector("sqlite").client()).execute(cleaned);
+		const duration = performance.now() - start;
+		void db;
 
-			// Statements that return rows report their columns even when no row matches.
-			if (result.columns.length > 0) {
-				const rows = toRows(result);
-
-				return {
-					columns: result.columns,
-					rows,
-					rowCount: rows.length,
-					duration,
-					message: rows.length === 0 ? "OK" : undefined,
-				};
-			}
+		// Statements that return rows report their columns even when no row matches.
+		if (result.columns.length > 0) {
+			const rows = toRows(result);
 
 			return {
-				columns: [],
-				rows: [],
-				rowCount: result.rowsAffected,
+				columns: result.columns,
+				rows,
+				rowCount: rows.length,
 				duration,
-				message: `OK (${result.rowsAffected} rows affected)`,
+				message: rows.length === 0 ? "OK" : undefined,
 			};
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		return {
+			columns: [],
+			rows: [],
+			rowCount: result.rowsAffected,
+			duration,
+			message: `OK (${result.rowsAffected} rows affected)`,
+		};
 	}
 
 	// =========================================================
