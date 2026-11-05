@@ -1,6 +1,6 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
-	"ignoreFiles": [".claude/**"],
+	"ignore": ["t3-*/**"],
 	"ignoreBinaries": ["lipo", "strip"],
 	"ignoreIssues": {
 		"packages/web/src/components/ai-elements/**": ["exports", "types"],
@@ -23,16 +23,18 @@
 			"ignoreDependencies": ["electron-builder"]
 		},
 		"packages/proxy": {
-			"project": ["src/**/*.ts"],
-			"ignoreDependencies": ["cloudflare"]
+			"project": ["src/**/*.ts"]
+		},
+		"packages/ui": {
+			"project": ["src/**/*.{ts,tsx}"],
+			"ignoreDependencies": ["shadcn", "tailwindcss", "tw-animate-css"]
 		},
 		"packages/shared": {
 			"project": ["src/**/*.ts"]
 		},
 		"www": {
-			"entry": ["src/router.tsx"],
 			"project": ["src/**/*.{ts,tsx}"],
-			"ignoreDependencies": ["@fontsource-variable/jetbrains-mono", "cloudflare", "tailwindcss", "tw-animate-css"]
+			"ignoreDependencies": ["@fontsource-variable/jetbrains-mono", "tailwindcss", "tw-animate-css"]
 		}
 	}
 }
