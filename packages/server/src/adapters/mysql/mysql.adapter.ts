@@ -40,6 +40,7 @@ import {
 	EXACT_COUNT_LIMIT,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
+import { decodeCursor } from "@/adapters/cursor.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -49,7 +50,7 @@ import {
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import {
-	decodeCursor,
+	sqlCursorSchema,
 	keysetOrderBy,
 	keysetPage,
 	keysetPredicate,
@@ -155,7 +156,7 @@ export class MySqlAdapter extends SqlAdapter {
 
 		const terms = orderTerms(sort, order, pkColumns);
 		const backward = direction === "desc";
-		const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
+		const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
 
 		const where = whereSql(
 			cursorValues && terms.length

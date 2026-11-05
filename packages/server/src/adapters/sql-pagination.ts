@@ -1,4 +1,6 @@
-import type { CursorData, SortDirection, SortType } from "@db-studio/shared/types";
+import type { SortDirection, SortType } from "@db-studio/shared/types";
+import { z } from "zod";
+import { decodeCursor, encodeCursor } from "@/adapters/cursor.js";
 
 /**
  * One ORDER BY term. `raw` marks an SQL expression, such as Oracle's ROWID or a ClickHouse
@@ -37,17 +39,11 @@ export function orderTerms(
 const sqlOf = (term: OrderTerm, quote: (name: string) => string) =>
 	term.raw ? term.column : quote(term.column);
 
-export const encodeCursor = (data: CursorData) =>
-	Buffer.from(JSON.stringify(data)).toString("base64url");
-
-/** The cursor's data, or null when it is malformed. */
-export const decodeCursor = (cursor: string): CursorData | null => {
-	try {
-		return JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
-	} catch {
-		return null;
-	}
-};
+/** A SQL page cursor: the boundary row's values on the order columns. */
+export const sqlCursorSchema = z.object({
+	values: z.record(z.string(), z.unknown()),
+	sortColumns: z.array(z.string()),
+});
 
 /** For OFFSET pagination: each term in its own direction; "" without terms. */
 export const offsetOrderBy = (terms: OrderTerm[], quote: (name: string) => string) =>
@@ -56,7 +52,7 @@ export const offsetOrderBy = (terms: OrderTerm[], quote: (name: string) => strin
 		: "";
 
 export const offsetOf = (cursor: string | undefined) =>
-	cursor ? Number(decodeCursor(cursor)?.values._offset ?? 0) : 0;
+	cursor ? Number(decodeCursor(cursor, sqlCursorSchema)?.values._offset ?? 0) : 0;
 
 const offsetCursor = (offset: number) =>
 	encodeCursor({ values: { _offset: offset }, sortColumns: ["_offset"] });

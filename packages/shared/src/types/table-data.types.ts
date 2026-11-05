@@ -89,8 +89,3 @@ export const tableDataQuerySchema = z
 	}));
 
 export type TableDataQuerySchemaType = z.infer<typeof tableDataQuerySchema>;
-
-export interface CursorData {
-	values: Record<string, unknown>;
-	sortColumns: string[];
-}

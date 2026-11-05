@@ -43,10 +43,11 @@ import {
 	EXACT_COUNT_LIMIT,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
+import { decodeCursor } from "@/adapters/cursor.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import {
-	decodeCursor,
+	sqlCursorSchema,
 	keysetOrderBy,
 	keysetPage,
 	keysetPredicate,
@@ -159,7 +160,7 @@ export class PgAdapter extends BaseAdapter {
 
 		const terms = orderTerms(sort, order, pkColumns.length ? pkColumns : ["ctid"]);
 		const backward = direction === "desc";
-		const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
+		const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
 
 		const where = whereSql(
 			cursorValues

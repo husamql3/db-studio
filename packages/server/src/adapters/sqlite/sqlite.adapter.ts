@@ -31,9 +31,10 @@ import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/
 import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
+import { decodeCursor } from "@/adapters/cursor.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import {
-	decodeCursor,
+	sqlCursorSchema,
 	keysetOrderBy,
 	keysetPage,
 	keysetPredicate,
@@ -258,7 +259,7 @@ export class SqliteAdapter extends SqlAdapter {
 			[...values],
 		);
 
-		const cursorValues = cursor ? decodeCursor(cursor)?.values : undefined;
+		const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
 
 		const where = whereSql(
 			cursorValues
