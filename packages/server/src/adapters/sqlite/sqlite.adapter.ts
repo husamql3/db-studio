@@ -12,7 +12,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
-	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
@@ -170,11 +169,6 @@ const all = async <T = Record<string, unknown>>(
 	values: unknown[] = [],
 ): Promise<T[]> => toRows<T>(await client.execute(stmt(sql, values)));
 
-// The client returns the connection to its pool after every call, which rolls back
-// anything left open, so a lone BEGIN would leave the next query autocommitting.
-const isFkViolation = (e: unknown) =>
-	e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
-
 export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// alterColumn reads the column list and then rebuilds the table from it; a column added
 	// between the two would be dropped by the rebuild, so column changes run one at a time.
@@ -204,6 +198,14 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 	protected rows<T>(client: SqliteClient, sql: string, values: unknown[] = []) {
 		return all<T>(client, sql, values);
+	}
+
+	protected async execute(client: SqliteClient, sql: string, values: unknown[] = []) {
+		return (await client.execute(stmt(sql, values))).rowsAffected;
+	}
+
+	protected isFkViolation(e: unknown) {
+		return e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
 	}
 
 	override async getTableData(params: GetTableDataParams) {
@@ -833,7 +835,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		const where = keyColumns.map((column) => `${quoteSqliteIdent(column)} = ?`).join(" AND ");
 
 		const client = await connector("sqlite").client();
-		this.assertWholeKey(await this.getPrimaryKeyColumns(client, tableName), keyColumns);
+		this.assertWholeKey(await this.primaryKey(client, tableName), keyColumns);
 
 		// A batch is one transaction, and the guard after each UPDATE fails it with an integer
 		// overflow when that UPDATE matched no row, rolling back every earlier UPDATE. RAISE()
@@ -878,52 +880,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		}
 	}
 
-	async deleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const placeholders = pkValues.map(() => "?").join(", ");
-		const client = await connector("sqlite").client();
-
-		try {
-			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
-
-			const result = await client.execute(
-				stmt(
-					`DELETE FROM ${quoteSqliteIdent(tableName)} WHERE ${quoteSqliteIdent(pkColumn)} IN (${placeholders})`,
-					pkValues,
-				),
-			);
-
-			void db;
-
-			return { deletedCount: result.rowsAffected, fkViolation: false, relatedRecords: [] };
-		} catch (e) {
-			if (isFkViolation(e)) {
-				const relatedRecords = await this.rowsReferencingRows(
-					client,
-					tableName,
-					undefined,
-					`p.${quoteSqliteIdent(pkColumn)} IN (${placeholders})`,
-					pkValues,
-				);
-
-				void db;
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-
-			throw e;
-		}
-	}
-
 	/**
 	 * Deletes the rows and, children first, every row that references them through any chain
 	 * of foreign keys. Each table's rows are selected by a predicate nested on its parent's,
@@ -936,17 +892,13 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		primaryKeys,
 		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
+		const pkColumn = primaryKeys[0].columnName;
 		const pkValues = primaryKeys.map((pk) => pk.value);
 		const rootPredicate = `${quoteSqliteIdent(pkColumn)} IN (${pkValues.map(() => "?").join(", ")})`;
 
 		try {
 			const client = await connector("sqlite").client();
-			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
+			this.assertDeletableKey(await this.primaryKey(client, tableName));
 			const fksByParent = await this.foreignKeysByParent(client);
 			const deletes: SqlStatement[] = [];
 
@@ -970,7 +922,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 			return { deletedCount: results.reduce((sum, r) => sum + r.rowsAffected, 0) };
 		} catch (e) {
-			if (isFkViolation(e))
+			if (this.isFkViolation(e))
 				throw new HTTPException(409, {
 					message: `Cannot force delete from "${tableName}": rows are still referenced through a foreign key cycle`,
 				});
@@ -983,9 +935,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records?.length)
-			throw new HTTPException(400, { message: "At least one record is required" });
-
 		const columns = Object.keys(records[0]);
 		const colNames = columns.map(quoteSqliteIdent).join(", ");
 		const placeholders = columns.map(() => "?").join(", ");
@@ -1124,7 +1073,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		return [...byName.values()];
 	}
 
-	private async getPrimaryKeyColumns(client: SqliteClient, tableName: string) {
+	protected async primaryKey(client: SqliteClient, tableName: string) {
 		const cols = await all<TableInfoRow>(
 			client,
 			`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
@@ -1182,7 +1131,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		for (const { parent, fk, to } of constraints.values()) {
 			fk.referencedColumns = to.every((column) => column !== null)
 				? to
-				: await this.getPrimaryKeyColumns(client, parent);
+				: await this.primaryKey(client, parent);
 			fk.constraintName = `fk_${fk.table}_${fk.columns.join("_")}_${parent}_${fk.referencedColumns.join("_")}`;
 			const id = parent.toLowerCase();
 			byParent.set(id, [...(byParent.get(id) ?? []), fk]);

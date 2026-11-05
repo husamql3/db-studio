@@ -24,7 +24,6 @@ import type {
 	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
@@ -280,8 +279,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		}
 	}
 
-	/** Run DML on one connection as a single transaction. */
-	private inTransaction<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
+	protected transaction<T>(_db: string, fn: (conn: Connection) => Promise<T>): Promise<T> {
 		return this.withConnection(async (conn) => {
 			try {
 				const result = await fn(conn);
@@ -304,7 +302,22 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		return result.rows ?? [];
 	}
 
-	private async execute(conn: Connection, sql: string, values: unknown[] = []) {
+	protected isFkViolation(e: unknown) {
+		return e instanceof Error && e.message.startsWith("ORA-02292");
+	}
+
+	/** Values bind by their column's type, so a date or timestamp gets an explicit format. */
+	protected override async updateTarget(conn: Connection, _db: string, tableName: string) {
+		const types = await this.columnTypes(conn, tableName);
+
+		return {
+			primaryKey: await this.primaryKey(conn, tableName),
+			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
+				bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
+		};
+	}
+
+	protected async execute(conn: Connection, sql: string, values: unknown[] = []) {
 		return (await conn.execute(sql, values)).rowsAffected ?? 0;
 	}
 
@@ -829,8 +842,10 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	// =========================================================
 
 	async addRecord({
+		db,
 		params,
 	}: {
+		db: DatabaseSchemaType["db"];
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
@@ -839,7 +854,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		if (!columns.length)
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
-		const insertedCount = await this.inTransaction(async (conn) => {
+		const insertedCount = await this.transaction(db, async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
 			const { values, bind } = createBinds(oraclePlaceholder);
 
@@ -861,79 +876,13 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		return { insertedCount };
 	}
 
-	async updateRecords({
-		params,
-	}: {
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const keyColumns = this.resolveKeyColumns(params);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		const updatedCount = await this.inTransaction(async (conn) => {
-			this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
-			const types = await this.columnTypes(conn, tableName);
-			let total = 0;
-
-			for (const { keyValues, rowUpdates } of groups) {
-				const { values, bind } = createBinds(oraclePlaceholder);
-
-				const set = rowUpdates
-					.map(
-						(u) =>
-							`${ident(u.columnName)} = ${
-								u.useDefault
-									? "DEFAULT"
-									: bindOracleValue(
-											toOracleValue(u.value, types.get(u.columnName)),
-											types.get(u.columnName),
-											bind,
-										)
-							}`,
-					)
-					.join(", ");
-
-				const where = keyColumns
-					.map(
-						(c, i) =>
-							`${ident(c)} = ${bindOracleValue(
-								toOracleValue(keyValues[i], types.get(c)),
-								types.get(c),
-								bind,
-							)}`,
-					)
-					.join(" AND ");
-
-				const changed = await this.execute(
-					conn,
-					`UPDATE ${ident(tableName)} SET ${set} WHERE ${where}`,
-					values,
-				);
-
-				if (changed === 0)
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				total += changed;
-			}
-
-			return total;
-		});
-
-		return { updatedCount };
-	}
-
-	async deleteRecords({
+	/** Overrides the shared delete: key values bind by their column's type. */
+	override async deleteRecords({
 		tableName,
 		primaryKeys,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
 		const selection: RowSelection = {
-			columns: [pkColumn],
+			columns: [primaryKeys[0].columnName],
 			keys: primaryKeys.map((key) => [key.value]),
 		};
 
@@ -960,7 +909,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			} catch (e) {
 				await conn.rollback().catch(() => {});
 
-				if (!(e instanceof Error) || !e.message.startsWith("ORA-02292")) throw e;
+				if (!this.isFkViolation(e)) throw e;
 				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const where = matchesAny(selection, "p", (value, column) =>
@@ -981,15 +930,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	}
 
 	/** Deletes referencing rows children-first, then the rows themselves, in one transaction. */
-	async forceDeleteRecords({
+	override async forceDeleteRecords({
 		tableName,
 		primaryKeys,
+		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
 		const purge = async (
 			conn: Connection,
 			table: string,
@@ -1046,13 +991,13 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			);
 		};
 
-		const deletedCount = await this.inTransaction(async (conn) => {
+		const deletedCount = await this.transaction(db, async (conn) => {
 			this.assertDeletableKey(await this.primaryKey(conn, tableName));
 
 			return purge(
 				conn,
 				tableName,
-				{ columns: [pkColumn], keys: primaryKeys.map((key) => [key.value]) },
+				{ columns: [primaryKeys[0].columnName], keys: primaryKeys.map((key) => [key.value]) },
 				[],
 			);
 		});
@@ -1063,13 +1008,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	async bulkInsertRecords({
 		tableName,
 		records,
+		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records?.length)
-			throw new HTTPException(400, { message: "At least one record is required" });
-
 		const columns = Object.keys(records[0]);
 
-		const successCount = await this.inTransaction(async (conn) => {
+		const successCount = await this.transaction(db, async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
 			let expressions: string[] = [];
 
@@ -1350,7 +1293,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			.sort((a, b) => Number(b.kind === "primary") - Number(a.kind === "primary"));
 	}
 
-	private async primaryKey(conn: Connection, tableName: string): Promise<string[]> {
+	protected async primaryKey(conn: Connection, tableName: string): Promise<string[]> {
 		const rows = await this.rows<{ COLUMN_NAME: string }>(
 			conn,
 			`SELECT cc.column_name FROM user_constraints c

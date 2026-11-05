@@ -13,7 +13,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
-	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
@@ -23,7 +22,6 @@ import type {
 	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapDuckdbToDataType, standardizeDuckdbDataTypeLabel } from "@db-studio/shared/types";
 import type {
@@ -134,9 +132,6 @@ const query = async <T extends Row = Row>(
 	values: unknown[] = [],
 ): Promise<T[]> => toRows(await conn.runAndReadAll(sql, values.map(toDuckdbValue))) as T[];
 
-const execute = async (conn: DuckDBConnection, sql: string, values: unknown[] = []) =>
-	(await conn.runAndReadAll(sql, values.map(toDuckdbValue))).rowsChanged;
-
 const inTransaction = async <T>(conn: DuckDBConnection, fn: () => Promise<T>): Promise<T> => {
 	await conn.run("BEGIN TRANSACTION");
 
@@ -186,6 +181,18 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 
 	protected rows<T>(conn: DuckDBConnection, sql: string, values: unknown[] = []) {
 		return query(conn, sql, values) as Promise<T[]>;
+	}
+
+	protected async execute(conn: DuckDBConnection, sql: string, values: unknown[] = []) {
+		return (await conn.runAndReadAll(sql, values.map(toDuckdbValue))).rowsChanged;
+	}
+
+	protected transaction<T>(db: string, work: (conn: DuckDBConnection) => Promise<T>) {
+		return this.connect(db, (conn) => inTransaction(conn, () => work(conn)));
+	}
+
+	protected isFkViolation(e: unknown) {
+		return e instanceof Error && e.message.includes("Violates foreign key constraint");
 	}
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
@@ -658,7 +665,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 			throw new HTTPException(400, { message: "No data provided for insert" });
 
 		const insertedCount = await connector("duckdb").withConnection((conn) =>
-			execute(
+			this.execute(
 				conn,
 				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
 				Object.values(data),
@@ -666,79 +673,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		);
 
 		return { insertedCount };
-	}
-
-	async updateRecords({
-		params,
-	}: {
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const keyColumns = this.resolveKeyColumns(params);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		const updatedCount = await connector("duckdb").withConnection((conn) =>
-			inTransaction(conn, async () => {
-				this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
-				let total = 0;
-
-				for (const { keyValues, rowUpdates } of groups) {
-					const changed = await execute(
-						conn,
-						`UPDATE ${ident(tableName)} SET ${rowUpdates.map((u) => `${ident(u.columnName)} = ${u.useDefault ? "DEFAULT" : "?"}`).join(", ")} WHERE ${keyColumns.map((c) => `${ident(c)} = ?`).join(" AND ")}`,
-						[...rowUpdates.filter((u) => !u.useDefault).map((u) => u.value), ...keyValues],
-					);
-
-					if (changed === 0)
-						throw new HTTPException(404, {
-							message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-						});
-					total += changed;
-				}
-
-				return total;
-			}),
-		);
-
-		return { updatedCount };
-	}
-
-	async deleteRecords({
-		tableName,
-		primaryKeys,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		const values = primaryKeys.map((pk) => pk.value);
-
-		return connector("duckdb").withConnection(async (conn) => {
-			this.assertDeletableKey(await this.primaryKey(conn, tableName));
-
-			try {
-				const deletedCount = await execute(
-					conn,
-					`DELETE FROM ${ident(tableName)} WHERE ${ident(pkColumn)} IN (${placeholders(values)})`,
-					values,
-				);
-
-				return { deletedCount, fkViolation: false, relatedRecords: [] };
-			} catch (e) {
-				if (!(e instanceof Error) || !e.message.includes("Violates foreign key constraint"))
-					throw e;
-
-				const relatedRecords = await this.rowsReferencingRows(
-					conn,
-					tableName,
-					undefined,
-					`p.${ident(pkColumn)} IN (${placeholders(values)})`,
-					values,
-				);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-		});
 	}
 
 	async forceDeleteRecords(params: DeleteRecordParams): Promise<{ deletedCount: number }> {
@@ -758,9 +692,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		tableName,
 		records,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records?.length)
-			throw new HTTPException(400, { message: "At least one record is required" });
-
 		const columns = Object.keys(records[0]);
 
 		const successCount = await connector("duckdb").withConnection((conn) =>
@@ -928,7 +859,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		}));
 	}
 
-	private async primaryKey(conn: DuckDBConnection, tableName: string): Promise<string[]> {
+	protected async primaryKey(conn: DuckDBConnection, tableName: string): Promise<string[]> {
 		const [row] = await query<{ columns: string[] }>(
 			conn,
 			`SELECT constraint_column_names AS columns FROM duckdb_constraints() WHERE ${IN_CURRENT_SCHEMA} AND table_name = ? AND constraint_type = 'PRIMARY KEY'`,

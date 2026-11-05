@@ -11,22 +11,17 @@ import type {
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
-	DeleteRecordParams,
-	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
-	ForeignKeyConstraint,
-	ForeignKeyConstraintRow,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
 	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import {
 	DATABASE_ENGINES,
@@ -118,6 +113,32 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return (await conn.query(sql, values)).rows as T[];
 	}
 
+	protected async execute(conn: PgQueryable, sql: string, values: unknown[] = []) {
+		return (await conn.query(sql, values)).rowCount ?? 0;
+	}
+
+	protected async transaction<T>(db: string, work: (conn: PgQueryable) => Promise<T>) {
+		return inTransaction(await connector("pg").pool(db), work);
+	}
+
+	protected isFkViolation(e: unknown) {
+		return isPgError(e) && e.code === "23503";
+	}
+
+	/** JSON and array values are sent as JSON text. */
+	protected override async updateTarget(
+		conn: PgQueryable,
+		_db: string,
+		tableName: string,
+		schemaName: string | undefined,
+	) {
+		return {
+			primaryKey: await this.primaryKey(conn, tableName, schemaName),
+			bindValue: (_column: string, value: unknown, bind: (value: unknown) => string) =>
+				bind(value !== null && typeof value === "object" ? JSON.stringify(value) : value),
+		};
+	}
+
 	protected override tableRef(tableName: string, schemaName?: string) {
 		return qualifiedTable(tableName, schemaName);
 	}
@@ -163,7 +184,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		// on the page, so it is counted at the same time instead of after. These are the first
 		// queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
-			this.getPrimaryKeyColumns(pool, table),
+			this.primaryKey(pool, tableName, schemaName),
 			this.countRows(pool, table, whereSql(filterConditions), filterValues),
 		]).catch((e: unknown) => {
 			if (isPgError(e) && e.code === "42P01")
@@ -1098,197 +1119,13 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return { insertedCount: result.rowCount ?? 0 };
 	}
 
-	async updateRecords({
-		params,
-		schemaName,
-		db,
-	}: {
-		db: DatabaseSchemaType["db"];
-		schemaName?: string;
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const pool = await connector("pg").pool(db);
-		const table = qualifiedTable(tableName, schemaName);
-
-		const keyColumns = this.resolveKeyColumns(params);
-		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, table), keyColumns);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		return await inTransaction(pool, async (client) => {
-			let total = 0;
-
-			for (const { keyValues, rowUpdates } of groups) {
-				const values: unknown[] = [];
-
-				const setClauses = rowUpdates.map((u) => {
-					if (u.useDefault) return `${quotePgIdent(u.columnName)} = DEFAULT`;
-					values.push(
-						u.value !== null && typeof u.value === "object"
-							? JSON.stringify(u.value)
-							: u.value,
-					);
-
-					return `${quotePgIdent(u.columnName)} = $${values.length}`;
-				});
-
-				const whereClauses = keyColumns.map(
-					(column, i) => `${quotePgIdent(column)} = $${values.length + i + 1}`,
-				);
-
-				values.push(...keyValues);
-
-				const result = await client.query(
-					`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")} RETURNING *`,
-					values,
-				);
-
-				if (result.rowCount === 0)
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				total += result.rowCount ?? 0;
-			}
-
-			return { updatedCount: total };
-		});
-	}
-
-	async deleteRecords({
-		tableName,
-		schemaName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await connector("pg").pool(db);
-		const table = qualifiedTable(tableName, schemaName);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, table));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const placeholders = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-
-		try {
-			const result = await pool.query(
-				`DELETE FROM ${table} WHERE ${quotePgIdent(pkColumn)} IN (${placeholders}) RETURNING *`,
-				pkValues,
-			);
-
-			return { deletedCount: result.rowCount ?? 0, fkViolation: false, relatedRecords: [] };
-		} catch (error) {
-			const pgErr = error as { code?: string };
-
-			if (pgErr.code === "23503") {
-				const relatedRecords = await this.rowsReferencingRows(
-					pool,
-					tableName,
-					schemaName,
-					`p.${quotePgIdent(pkColumn)} IN (${placeholders})`,
-					pkValues,
-				);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-
-			throw error;
-		}
-	}
-
-	async forceDeleteRecords({
-		tableName,
-		schemaName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await connector("pg").pool(db);
-		const table = qualifiedTable(tableName, schemaName);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, table));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-
-		return await inTransaction(pool, async (client) => {
-			const fkConstraints = await this.getFkConstraints(client, tableName, schemaName);
-			let totalRelated = 0;
-
-			const deleteRelated = async (
-				targetTable: string,
-				targetSchema: string,
-				targetColumn: string,
-				values: unknown[],
-			) => {
-				const target = qualifiedTable(targetTable, targetSchema);
-				const nested = await this.getFkConstraints(client, targetTable, targetSchema);
-
-				for (const nfk of nested) {
-					const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
-
-					const { rows } = await client.query(
-						`SELECT ${quotePgIdent(nfk.referencedColumn)} FROM ${target} WHERE ${quotePgIdent(targetColumn)} IN (${placeholders})`,
-						values,
-					);
-
-					const nestedVals = rows.map((r: Record<string, unknown>) => r[nfk.referencedColumn]);
-
-					if (nestedVals.length > 0)
-						await deleteRelated(
-							nfk.referencingTable,
-							nfk.referencingSchema,
-							nfk.referencingColumn,
-							nestedVals,
-						);
-				}
-
-				const ph = values.map((_, i) => `$${i + 1}`).join(", ");
-
-				const res = await client.query(
-					`DELETE FROM ${target} WHERE ${quotePgIdent(targetColumn)} IN (${ph})`,
-					values,
-				);
-
-				totalRelated += res.rowCount ?? 0;
-			};
-
-			// Every relationship, even a second one from the same child table: a message's
-			// recipient_id must go as well as its sender_id.
-			for (const c of fkConstraints) {
-				await deleteRelated(
-					c.referencingTable,
-					c.referencingSchema,
-					c.referencingColumn,
-					pkValues,
-				);
-			}
-
-			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-
-			const result = await client.query(
-				`DELETE FROM ${table} WHERE ${quotePgIdent(pkColumn)} IN (${ph}) RETURNING *`,
-				pkValues,
-			);
-
-			return { deletedCount: (result.rowCount ?? 0) + totalRelated };
-		});
-	}
-
 	async bulkInsertRecords({
 		tableName,
 		schemaName,
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records || records.length === 0)
-			throw new HTTPException(400, { message: "At least one record is required" });
-
-		const pool = await connector("pg").pool(db);
-
-		return await inTransaction(pool, async (client) => {
+		return await this.transaction(db, async (client) => {
 			const columns = Object.keys(records[0]);
 			const colNames = columns.map(quotePgIdent).join(", ");
 			let successCount = 0;
@@ -1412,44 +1249,18 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return rows;
 	}
 
-	/** `table` is a quoted, optionally schema-qualified name from `qualifiedTable`. */
-	private async getPrimaryKeyColumns(pool: PgPool, table: string): Promise<string[]> {
-		const result = await pool.query(
+	protected async primaryKey(conn: PgQueryable, tableName: string, schemaName?: string) {
+		const rows = await this.rows<{ column_name: string }>(
+			conn,
 			`SELECT a.attname as column_name
 			 FROM pg_index i
 			 JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
 			 WHERE i.indrelid = $1::regclass AND i.indisprimary
 			 ORDER BY array_position(i.indkey, a.attnum)`,
-			[table],
+			[qualifiedTable(tableName, schemaName)],
 		);
 
-		return result.rows.map((row) => row.column_name);
-	}
-
-	/** The FKs that reference `tableName`, each with the schema of its referencing table. */
-	private async getFkConstraints(
-		pool: PgQueryable,
-		tableName: string,
-		schemaName: string | undefined,
-	): Promise<Array<ForeignKeyConstraint & { referencingSchema: string }>> {
-		const { rows } = await pool.query(
-			`SELECT tc.constraint_name, tc.table_schema as referencing_schema, tc.table_name as referencing_table, kcu.column_name as referencing_column,
-				ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
-			 FROM information_schema.table_constraints AS tc
-			 JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-			 JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
-			 WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name = $1 AND ccu.table_schema = ${schemaOf("$1", "$2")}`,
-			[tableName, schemaName ?? null],
-		);
-
-		return rows.map((row: ForeignKeyConstraintRow & { referencing_schema: string }) => ({
-			constraintName: row.constraint_name,
-			referencingSchema: row.referencing_schema,
-			referencingTable: row.referencing_table,
-			referencingColumn: row.referencing_column,
-			referencedTable: row.referenced_table,
-			referencedColumn: row.referenced_column,
-		}));
+		return rows.map((row) => row.column_name);
 	}
 
 	protected async referencingKeys(

@@ -11,14 +11,11 @@ import type {
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
-	DeleteRecordParams,
-	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
-	ForeignKeyConstraint,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
@@ -27,7 +24,6 @@ import type {
 	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
 import type { ConnectionPool as MssqlPool, Request } from "mssql";
@@ -37,6 +33,7 @@ import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
 import {
+	flagOrJson,
 	groupKeyColumns,
 	RELATED_SAMPLE,
 	type ReferencingKey,
@@ -94,14 +91,6 @@ interface IndexColumnRow {
 	isIncluded: boolean | null;
 }
 
-interface FkConstraintRow {
-	constraint_name: string;
-	referencing_table: string;
-	referencing_column: string;
-	referenced_table: string;
-	referenced_column: string;
-}
-
 /** A pool, or a transaction: either hands out requests. */
 type MssqlConn = { request(): Request };
 
@@ -136,6 +125,44 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return (await this.request(conn, values).query(sql)).recordset as T[];
 	}
 
+	protected async execute(conn: MssqlConn, sql: string, values: unknown[] = []) {
+		return (await this.request(conn, values).query(sql)).rowsAffected[0] ?? 0;
+	}
+
+	protected async transaction<T>(db: string, work: (conn: MssqlConn) => Promise<T>) {
+		const transaction = (await connector("mssql").pool(db)).transaction();
+		await transaction.begin();
+
+		try {
+			const result = await work(transaction);
+			await transaction.commit();
+
+			return result;
+		} catch (error) {
+			await transaction.rollback().catch(() => {});
+			throw error;
+		}
+	}
+
+	protected isFkViolation(e: unknown) {
+		return (e as { number?: number }).number === MSSQL_FK_VIOLATION;
+	}
+
+	/** One read of the columns gives the key and the boolean columns. */
+	protected override async updateTarget(_conn: MssqlConn, db: string, tableName: string) {
+		const columns = await this.getTableColumns({ tableName, db });
+
+		const booleanColumns = new Set(
+			columns.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName),
+		);
+
+		return {
+			primaryKey: columns.filter((c) => c.isPrimaryKey).map((c) => c.columnName),
+			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
+				bind(flagOrJson(value, booleanColumns.has(column))),
+		};
+	}
+
 	protected override sampleRows(
 		conn: MssqlConn,
 		fk: ReferencingKey,
@@ -167,7 +194,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		const filterWhere = whereSql(buildFilterConditions(filters, bind, mssqlFilters));
 
 		const [pkColumns, { total, estimated }] = await Promise.all([
-			this.getPrimaryKeyColumns(pool, tableName),
+			this.primaryKey(pool, tableName),
 			this.countRows(pool, tableName, filterWhere, [...values]),
 		]);
 
@@ -915,279 +942,32 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const pool = await connector("mssql").pool(db);
-
-		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-		const identityResult = await pool
-			.request()
-			.input("tableName", tableName)
-			.query(
-				`SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@tableName) AND is_identity = 1`,
-			);
+		const booleanColumns = await this.booleanColumns(tableName, db);
 
 		const identityColumns = new Set(
-			(identityResult.recordset as { name: string }[]).map((r) => r.name),
+			(
+				await this.rows<{ name: string }>(
+					pool,
+					"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@p0) AND is_identity = 1",
+					[tableName],
+				)
+			).map((r) => r.name),
 		);
 
 		const columns = Object.keys(data).filter((col) => !identityColumns.has(col));
+		const { values, bind } = createBinds(mssqlPlaceholder);
 
-		const values = columns.map((col) => {
-			const value = data[col];
-
-			if (booleanColumns.has(col) && typeof value === "string") {
-				return value === "true" ? 1 : 0;
-			}
-
-			return value;
-		});
-
-		const columnNames = columns.map(quoteMssqlIdent).join(", ");
-		const paramNames = columns.map((_col, idx) => `@param${idx}`).join(", ");
-
-		const request = pool.request();
-		columns.forEach((_col, idx) => {
-			request.input(`param${idx}`, values[idx]);
-		});
-
-		const result = await request.query(
-			`INSERT INTO ${quoteMssqlIdent(tableName)} (${columnNames}) VALUES (${paramNames})`,
+		const insertedCount = await this.execute(
+			pool,
+			`INSERT INTO ${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")}) VALUES (${columns.map((column) => bind(flagOrJson(data[column], booleanColumns.has(column)))).join(", ")})`,
+			values,
 		);
 
-		if (result.rowsAffected[0] === 0) {
+		if (insertedCount === 0) {
 			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
 		}
 
-		return { insertedCount: result.rowsAffected[0] ?? 0 };
-	}
-
-	async updateRecords({
-		params,
-		db,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const pool = await connector("mssql").pool(db);
-
-		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-		const keyColumns = this.resolveKeyColumns(params);
-		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		const transaction = pool.transaction();
-		await transaction.begin();
-
-		try {
-			let total = 0;
-
-			for (const { keyValues, rowUpdates } of groups) {
-				const request = transaction.request();
-
-				const setClauses = rowUpdates.map(
-					(u, idx) =>
-						`${quoteMssqlIdent(u.columnName)} = ${u.useDefault ? "DEFAULT" : `@value${idx}`}`,
-				);
-
-				rowUpdates.forEach((u, idx) => {
-					if (u.useDefault) return;
-					let value = u.value;
-
-					if (value !== null && typeof value === "object") value = JSON.stringify(value);
-
-					if (booleanColumns.has(u.columnName) && typeof value === "string") {
-						value = value === "true" ? 1 : 0;
-					}
-
-					request.input(`value${idx}`, value);
-				});
-				keyValues.forEach((value, idx) => {
-					request.input(`pkValue${idx}`, value);
-				});
-
-				const whereClauses = keyColumns.map(
-					(column, idx) => `${quoteMssqlIdent(column)} = @pkValue${idx}`,
-				);
-
-				const result = await request.query(
-					`UPDATE ${quoteMssqlIdent(tableName)} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
-				);
-
-				if (result.rowsAffected[0] === 0) {
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				}
-
-				total += result.rowsAffected[0] ?? 0;
-			}
-
-			await transaction.commit();
-
-			return { updatedCount: total };
-		} catch (error) {
-			await transaction.rollback();
-			throw error;
-		}
-	}
-
-	async deleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await connector("mssql").pool(db);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const transaction = pool.transaction();
-		await transaction.begin();
-
-		try {
-			const request = transaction.request();
-			pkValues.forEach((value, idx) => {
-				request.input(`pk${idx}`, value);
-			});
-			const paramList = pkValues.map((_, idx) => `@pk${idx}`).join(", ");
-
-			const result = await request.query(
-				`DELETE FROM ${quoteMssqlIdent(tableName)} WHERE ${quoteMssqlIdent(pkColumn)} IN (${paramList})`,
-			);
-
-			await transaction.commit();
-
-			return {
-				deletedCount: result.rowsAffected[0] ?? 0,
-				fkViolation: false,
-				relatedRecords: [],
-			};
-		} catch (error: unknown) {
-			await transaction.rollback();
-			const mssqlError = error as { number?: number };
-
-			if (mssqlError.number === MSSQL_FK_VIOLATION) {
-				const relatedRecords = await this.rowsReferencingRows(
-					pool,
-					tableName,
-					undefined,
-					`p.${quoteMssqlIdent(pkColumn)} IN (${pkValues.map((_, i) => mssqlPlaceholder(i + 1)).join(", ")})`,
-					pkValues,
-				);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-
-			throw error;
-		}
-	}
-
-	async forceDeleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await connector("mssql").pool(db);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const transaction = pool.transaction();
-		await transaction.begin();
-
-		try {
-			const fkConstraints = await this.getForeignKeyReferences(tableName, db);
-			let totalRelated = 0;
-			const deletedTables = new Set<string>();
-			const visited = new Set<string>();
-
-			const deleteRelatedRecursively = async (
-				targetTable: string,
-				targetColumn: string,
-				values: unknown[],
-				visitedSet: Set<string>,
-			) => {
-				const key = `${targetTable}.${targetColumn}`;
-
-				if (visitedSet.has(key)) return;
-				visitedSet.add(key);
-
-				const nestedFks = await this.getForeignKeyReferences(targetTable, db);
-
-				for (const nestedFk of nestedFks) {
-					const selectRequest = transaction.request();
-					values.forEach((val, idx) => {
-						selectRequest.input(`val${idx}`, val);
-					});
-					const selectParamList = values.map((_, idx) => `@val${idx}`).join(", ");
-
-					const selectResult = await selectRequest.query(
-						`SELECT ${quoteMssqlIdent(nestedFk.referencedColumn)} FROM ${quoteMssqlIdent(targetTable)} WHERE ${quoteMssqlIdent(targetColumn)} IN (${selectParamList})`,
-					);
-
-					const nestedValues = (selectResult.recordset as Record<string, unknown>[]).map(
-						(row) => row[nestedFk.referencedColumn],
-					);
-
-					if (nestedValues.length > 0) {
-						await deleteRelatedRecursively(
-							nestedFk.referencingTable,
-							nestedFk.referencingColumn,
-							nestedValues,
-							visitedSet,
-						);
-					}
-				}
-
-				const deleteRequest = transaction.request();
-				values.forEach((val, idx) => {
-					deleteRequest.input(`delVal${idx}`, val);
-				});
-				const deleteParamList = values.map((_, idx) => `@delVal${idx}`).join(", ");
-
-				const deleteResult = await deleteRequest.query(
-					`DELETE FROM ${quoteMssqlIdent(targetTable)} WHERE ${quoteMssqlIdent(targetColumn)} IN (${deleteParamList})`,
-				);
-
-				totalRelated += deleteResult.rowsAffected[0] ?? 0;
-				deletedTables.add(targetTable);
-			};
-
-			for (const constraint of fkConstraints) {
-				if (!deletedTables.has(constraint.referencingTable)) {
-					await deleteRelatedRecursively(
-						constraint.referencingTable,
-						constraint.referencingColumn,
-						pkValues,
-						visited,
-					);
-				}
-			}
-
-			const mainRequest = transaction.request();
-			pkValues.forEach((val, idx) => {
-				mainRequest.input(`mainPk${idx}`, val);
-			});
-			const mainParamList = pkValues.map((_, idx) => `@mainPk${idx}`).join(", ");
-
-			const result = await mainRequest.query(
-				`DELETE FROM ${quoteMssqlIdent(tableName)} WHERE ${quoteMssqlIdent(pkColumn)} IN (${mainParamList})`,
-			);
-
-			await transaction.commit();
-
-			return { deletedCount: (result.rowsAffected[0] ?? 0) + totalRelated };
-		} catch (error) {
-			await transaction.rollback();
-			throw error;
-		}
+		return { insertedCount };
 	}
 
 	async bulkInsertRecords({
@@ -1195,42 +975,23 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records || records.length === 0) {
-			throw new HTTPException(400, { message: "At least one record is required" });
-		}
+		const columns = Object.keys(records[0]);
+		const columnNames = columns.map(quoteMssqlIdent).join(", ");
+		const booleanColumns = await this.booleanColumns(tableName, db);
 
-		const pool = await connector("mssql").pool(db);
-		const transaction = pool.transaction();
+		await this.transaction(db, async (transaction) => {
+			for (const [i, record] of records.entries()) {
+				const { values, bind } = createBinds(mssqlPlaceholder);
 
-		try {
-			const columns = Object.keys(records[0]);
-			const columnNames = columns.map(quoteMssqlIdent).join(", ");
-			const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-			await transaction.begin();
-
-			for (let i = 0; i < records.length; i++) {
-				const record = records[i];
-				const request = transaction.request();
-
-				const values = columns.map((col) => {
-					const value = record[col];
-
-					if (booleanColumns.has(col) && typeof value === "string") {
-						return value === "true" ? 1 : 0;
-					}
-
-					return value;
-				});
-
-				const paramNames = columns.map((_, idx) => `@p${i}_${idx}`).join(", ");
-				columns.forEach((_col, idx) => {
-					request.input(`p${i}_${idx}`, values[idx]);
-				});
+				const row = columns.map((column) =>
+					bind(flagOrJson(record[column], booleanColumns.has(column))),
+				);
 
 				try {
-					await request.query(
-						`INSERT INTO ${quoteMssqlIdent(tableName)} (${columnNames}) VALUES (${paramNames})`,
+					await this.execute(
+						transaction,
+						`INSERT INTO ${quoteMssqlIdent(tableName)} (${columnNames}) VALUES (${row.join(", ")})`,
+						values,
 					);
 				} catch (error) {
 					const failure = this.classifyError(error);
@@ -1242,19 +1003,14 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 					});
 				}
 			}
+		});
 
-			await transaction.commit();
-
-			return {
-				success: true,
-				message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
-				successCount: records.length,
-				failureCount: 0,
-			};
-		} catch (error) {
-			await transaction.rollback();
-			throw error;
-		}
+		return {
+			success: true,
+			message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
+			successCount: records.length,
+			failureCount: 0,
+		};
 	}
 
 	// --- Query ---
@@ -1329,33 +1085,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return groupKeyColumns(rows);
 	}
 
-	private async getForeignKeyReferences(
-		tableName: string,
-		db: string,
-	): Promise<ForeignKeyConstraint[]> {
-		const pool = await connector("mssql").pool(db);
-
-		const result = await pool.request().input("tableName", tableName).query(`
-				SELECT
-				  fk.name AS constraint_name,
-				  OBJECT_NAME(fk.parent_object_id) AS referencing_table,
-				  COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS referencing_column,
-				  OBJECT_NAME(fk.referenced_object_id) AS referenced_table,
-				  COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS referenced_column
-				FROM sys.foreign_keys fk
-				INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-				WHERE OBJECT_NAME(fk.referenced_object_id) = @tableName
-			`);
-
-		return (result.recordset as FkConstraintRow[]).map((row) => ({
-			constraintName: row.constraint_name,
-			referencingTable: row.referencing_table,
-			referencingColumn: row.referencing_column,
-			referencedTable: row.referenced_table,
-			referencedColumn: row.referenced_column,
-		}));
-	}
-
 	/**
 	 * The row count SQL Server keeps for each dbo table (or only `tableName`), in name order. It
 	 * is maintained with every write but documented as approximate.
@@ -1427,8 +1156,8 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		}
 	}
 
-	private async getPrimaryKeyColumns(pool: MssqlPool, tableName: string): Promise<string[]> {
-		const result = await pool.request().input("tableName", tableName).query(`
+	protected async primaryKey(conn: MssqlConn, tableName: string): Promise<string[]> {
+		const result = await conn.request().input("tableName", tableName).query(`
 				SELECT ku.COLUMN_NAME AS columnName
 				FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
 				JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
@@ -1444,7 +1173,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return (result.recordset as { columnName: string }[]).map((r) => r.columnName);
 	}
 
-	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
+	private async booleanColumns(tableName: string, db: string): Promise<Set<string>> {
 		const cols = await this.getTableColumns({ tableName, db });
 
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));

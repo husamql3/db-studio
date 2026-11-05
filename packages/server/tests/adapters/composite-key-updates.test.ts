@@ -252,11 +252,11 @@ describe("composite primary key updates", () => {
 				adapter.updateRecords({ db: "appdb", params: compositeParams } as never),
 			).resolves.toEqual({ updatedCount: 1 });
 
-			expect(queries[0]).toContain("WHERE [tenant_id] = @pkValue0 AND [user_id] = @pkValue1");
+			expect(queries[0]).toContain("WHERE [tenant_id] = @p1 AND [user_id] = @p2");
 			expect(inputs).toEqual([
-				["value0", "Grace"],
-				["pkValue0", 7],
-				["pkValue1", 42],
+				["p0", "Grace"],
+				["p1", 7],
+				["p2", 42],
 			]);
 		});
 	});

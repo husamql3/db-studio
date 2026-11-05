@@ -11,15 +11,11 @@ import type {
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
-	DeleteRecordParams,
-	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
-	ForeignKeyConstraint,
-	ForeignKeyConstraintRow,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
@@ -27,7 +23,6 @@ import type {
 	ServerLogLevel,
 	ServerLogsResult,
 	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
 import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
@@ -54,7 +49,7 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { groupKeyColumns, SqlAdapter } from "@/adapters/sql.adapter.js";
+import { flagOrJson, groupKeyColumns, SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -126,6 +121,48 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return rows as T[];
 	}
 
+	protected async execute(conn: Connection, sql: string, values: unknown[] = []) {
+		const [result] = await conn.execute<ResultSetHeader>(sql, values as any);
+
+		return result.affectedRows;
+	}
+
+	protected async transaction<T>(db: string, work: (conn: Connection) => Promise<T>) {
+		const connection = await (await connector("mysql").pool(db)).getConnection();
+
+		try {
+			await connection.beginTransaction();
+			const result = await work(connection);
+			await connection.commit();
+
+			return result;
+		} catch (error) {
+			await connection.rollback().catch(() => {});
+			throw error;
+		} finally {
+			connection.release();
+		}
+	}
+
+	protected isFkViolation(e: unknown) {
+		return (e as { errno?: number }).errno === MYSQL_FK_VIOLATION;
+	}
+
+	/** One read of the columns gives the key and the boolean columns. */
+	protected override async updateTarget(_conn: Connection, db: string, tableName: string) {
+		const columns = await this.getTableColumns({ tableName, db });
+
+		const booleanColumns = new Set(
+			columns.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName),
+		);
+
+		return {
+			primaryKey: columns.filter((c) => c.isPrimaryKey).map((c) => c.columnName),
+			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
+				bind(flagOrJson(value, booleanColumns.has(column))),
+		};
+	}
+
 	override async getTableData(params: GetTableDataParams) {
 		const {
 			tableName,
@@ -144,7 +181,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		// The first queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
-			this.getPrimaryKeyColumns(pool, tableName),
+			this.primaryKey(pool, tableName),
 			this.countRows(pool, tableName, whereSql(filterConditions), [...values]),
 		]).catch((e: unknown) => {
 			if ((e as { errno?: number }).errno === MYSQL_NO_SUCH_TABLE)
@@ -780,244 +817,20 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const pool = await connector("mysql").pool(db);
-
-		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
+		const booleanColumns = await this.booleanColumns(tableName, db);
 		const columns = Object.keys(data);
 
-		const values = Object.values(data).map((value, i) => {
-			if (booleanColumns.has(columns[i]) && typeof value === "string") {
-				return value === "true" ? 1 : 0;
-			}
-
-			return value;
-		});
-
-		const [result] = await pool.execute<ResultSetHeader>(
+		const insertedCount = await this.execute(
+			pool,
 			`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
-			values as any,
+			columns.map((column) => flagOrJson(data[column], booleanColumns.has(column))),
 		);
 
-		if (result.affectedRows === 0) {
+		if (insertedCount === 0) {
 			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
 		}
 
-		return { insertedCount: result.affectedRows };
-	}
-
-	async updateRecords({
-		params,
-		db,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const pool = await connector("mysql").pool(db);
-
-		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-		const keyColumns = this.resolveKeyColumns(params);
-		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		const connection = await pool.getConnection();
-		await connection.beginTransaction();
-
-		try {
-			let total = 0;
-
-			for (const { keyValues, rowUpdates } of groups) {
-				const setClauses = rowUpdates.map(
-					(u) => `${quoteMysqlIdent(u.columnName)} = ${u.useDefault ? "DEFAULT" : "?"}`,
-				);
-
-				const values: unknown[] = rowUpdates
-					.filter((u) => !u.useDefault)
-					.map((u) => {
-						if (u.value !== null && typeof u.value === "object")
-							return JSON.stringify(u.value);
-
-						if (booleanColumns.has(u.columnName) && typeof u.value === "string") {
-							return u.value === "true" ? 1 : 0;
-						}
-
-						return u.value;
-					});
-
-				values.push(...keyValues);
-				const whereClauses = keyColumns.map((column) => `${quoteMysqlIdent(column)} = ?`);
-
-				const [result] = await connection.execute<ResultSetHeader>(
-					`UPDATE ${quoteMysqlIdent(tableName)} SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
-					values as any,
-				);
-
-				if (result.affectedRows === 0) {
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				}
-
-				total += result.affectedRows;
-			}
-
-			await connection.commit();
-
-			return { updatedCount: total };
-		} catch (error) {
-			await connection.rollback();
-			throw error;
-		} finally {
-			connection.release();
-		}
-	}
-
-	async deleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await connector("mysql").pool(db);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const placeholders = pkValues.map(() => "?").join(", ");
-		const connection = await pool.getConnection();
-		await connection.beginTransaction();
-
-		try {
-			const [result] = await connection.execute<ResultSetHeader>(
-				`DELETE FROM ${quoteMysqlIdent(tableName)} WHERE ${quoteMysqlIdent(pkColumn)} IN (${placeholders})`,
-				pkValues as any,
-			);
-
-			await connection.commit();
-
-			return { deletedCount: result.affectedRows, fkViolation: false, relatedRecords: [] };
-		} catch (error) {
-			await connection.rollback();
-			const mysqlError = error as { errno?: number };
-
-			if (mysqlError.errno === MYSQL_FK_VIOLATION) {
-				const relatedRecords = await this.rowsReferencingRows(
-					pool,
-					tableName,
-					undefined,
-					`p.${quoteMysqlIdent(pkColumn)} IN (${placeholders})`,
-					pkValues,
-				);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-
-			throw error;
-		} finally {
-			connection.release();
-		}
-	}
-
-	async forceDeleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await connector("mysql").pool(db);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const connection = await pool.getConnection();
-		await connection.beginTransaction();
-
-		// Foreign-key checks stay on: a dependent row this walk misses fails the delete and rolls
-		// it back, instead of committing a reference to a deleted row.
-		try {
-			const fkConstraints = await this.getForeignKeyReferences(tableName, db);
-			let totalRelated = 0;
-			// Values already handled per relationship: a relationship reached again (a second FK
-			// path) still processes its new values, and a cycle ends once no value is new.
-			const handled = new Map<string, Set<string>>();
-
-			const deleteRelatedRecursively = async (
-				targetTable: string,
-				targetColumn: string,
-				reached: unknown[],
-			) => {
-				const key = `${targetTable}.${targetColumn}`;
-				const seen = handled.get(key) ?? new Set<string>();
-				handled.set(key, seen);
-				const values = reached.filter((value) => !seen.has(String(value)));
-
-				if (values.length === 0) return;
-
-				for (const value of values) seen.add(String(value));
-
-				const nestedFks = await this.getForeignKeyReferences(targetTable, db);
-
-				for (const nestedFk of nestedFks) {
-					const nestedPh = values.map(() => "?").join(", ");
-
-					const [selectRows] = await connection.execute<RowDataPacket[]>(
-						`SELECT ${quoteMysqlIdent(nestedFk.referencedColumn)} FROM ${quoteMysqlIdent(targetTable)} WHERE ${quoteMysqlIdent(targetColumn)} IN (${nestedPh})`,
-						values as any[],
-					);
-
-					const nestedValues = (selectRows as Record<string, unknown>[]).map(
-						(row) => row[nestedFk.referencedColumn],
-					);
-
-					if (nestedValues.length > 0) {
-						await deleteRelatedRecursively(
-							nestedFk.referencingTable,
-							nestedFk.referencingColumn,
-							nestedValues,
-						);
-					}
-				}
-
-				const ph = values.map(() => "?").join(", ");
-
-				const [deleteResult] = await connection.execute<ResultSetHeader>(
-					`DELETE FROM ${quoteMysqlIdent(targetTable)} WHERE ${quoteMysqlIdent(targetColumn)} IN (${ph})`,
-					values as any[],
-				);
-
-				totalRelated += deleteResult.affectedRows;
-			};
-
-			// Every relationship, even a second one from the same child table: a message's
-			// recipient_id must go as well as its sender_id.
-			for (const constraint of fkConstraints) {
-				await deleteRelatedRecursively(
-					constraint.referencingTable,
-					constraint.referencingColumn,
-					pkValues,
-				);
-			}
-
-			const mainPh = pkValues.map(() => "?").join(", ");
-
-			const [result] = await connection.execute<ResultSetHeader>(
-				`DELETE FROM ${quoteMysqlIdent(tableName)} WHERE ${quoteMysqlIdent(pkColumn)} IN (${mainPh})`,
-				pkValues as any,
-			);
-
-			await connection.commit();
-
-			return { deletedCount: result.affectedRows + totalRelated };
-		} catch (error) {
-			await connection.rollback();
-			throw error;
-		} finally {
-			connection.release();
-		}
+		return { insertedCount };
 	}
 
 	async bulkInsertRecords({
@@ -1025,36 +838,17 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records || records.length === 0) {
-			throw new HTTPException(400, { message: "At least one record is required" });
-		}
+		const columns = Object.keys(records[0]);
+		const booleanColumns = await this.booleanColumns(tableName, db);
+		const sql = `INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`;
 
-		const pool = await connector("mysql").pool(db);
-		const connection = await pool.getConnection();
-
-		try {
-			const columns = Object.keys(records[0]);
-			const colNames = columns.map(quoteMysqlIdent).join(", ");
-			const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-			await connection.beginTransaction();
-
-			for (let i = 0; i < records.length; i++) {
-				const record = records[i];
-
-				const values = columns.map((col) => {
-					const value = record[col];
-
-					if (booleanColumns.has(col) && typeof value === "string")
-						return value === "true" ? 1 : 0;
-
-					return value;
-				});
-
+		await this.transaction(db, async (connection) => {
+			for (const [i, record] of records.entries()) {
 				try {
-					await connection.execute<ResultSetHeader>(
-						`INSERT INTO ${quoteMysqlIdent(tableName)} (${colNames}) VALUES (${columns.map(() => "?").join(", ")})`,
-						values as any,
+					await this.execute(
+						connection,
+						sql,
+						columns.map((column) => flagOrJson(record[column], booleanColumns.has(column))),
 					);
 				} catch (error) {
 					const failure = this.classifyError(error);
@@ -1066,21 +860,14 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 					});
 				}
 			}
+		});
 
-			await connection.commit();
-
-			return {
-				success: true,
-				message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
-				successCount: records.length,
-				failureCount: 0,
-			};
-		} catch (error) {
-			await connection.rollback();
-			throw error;
-		} finally {
-			connection.release();
-		}
+		return {
+			success: true,
+			message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
+			successCount: records.length,
+			failureCount: 0,
+		};
 	}
 
 	// --- Query ---
@@ -1216,7 +1003,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return mariaDb;
 	}
 
-	private async getPrimaryKeyColumns(pool: MysqlPool, tableName: string): Promise<string[]> {
+	protected async primaryKey(pool: Connection, tableName: string): Promise<string[]> {
 		const [rows] = await pool.execute<RowDataPacket[]>(
 			`SELECT COLUMN_NAME as column_name
 			 FROM information_schema.COLUMNS
@@ -1226,39 +1013,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		);
 
 		return (rows as Array<{ column_name: string }>).map((r) => r.column_name);
-	}
-
-	private async getForeignKeyReferences(
-		tableName: string,
-		db: string,
-	): Promise<ForeignKeyConstraint[]> {
-		const pool = await connector("mysql").pool(db);
-
-		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT
-				kcu.CONSTRAINT_NAME        AS constraint_name,
-				kcu.TABLE_NAME             AS referencing_table,
-				kcu.COLUMN_NAME            AS referencing_column,
-				kcu.REFERENCED_TABLE_NAME  AS referenced_table,
-				kcu.REFERENCED_COLUMN_NAME AS referenced_column
-			FROM information_schema.KEY_COLUMN_USAGE kcu
-			JOIN information_schema.TABLE_CONSTRAINTS tc
-			  ON kcu.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-			  AND kcu.TABLE_SCHEMA   = tc.TABLE_SCHEMA
-			  AND kcu.TABLE_NAME     = tc.TABLE_NAME
-			WHERE tc.CONSTRAINT_TYPE        = 'FOREIGN KEY'
-			  AND kcu.TABLE_SCHEMA          = DATABASE()
-			  AND kcu.REFERENCED_TABLE_NAME = ?`,
-			[tableName],
-		);
-
-		return (rows as ForeignKeyConstraintRow[]).map((row) => ({
-			constraintName: row.constraint_name,
-			referencingTable: row.referencing_table,
-			referencingColumn: row.referencing_column,
-			referencedTable: row.referenced_table,
-			referencedColumn: row.referenced_column,
-		}));
 	}
 
 	protected async referencingKeys(conn: Connection, tableName: string) {
@@ -1288,7 +1042,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return Number((rows as Array<{ count: number }>)[0]?.count ?? 0);
 	}
 
-	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
+	private async booleanColumns(tableName: string, db: string): Promise<Set<string>> {
 		const cols = await this.getTableColumns({ tableName, db });
 
 		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));

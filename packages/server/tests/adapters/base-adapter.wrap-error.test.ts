@@ -29,6 +29,18 @@ class HarnessAdapter extends SqlAdapter<null> {
 		return [];
 	}
 
+	protected async execute() {
+		return 0;
+	}
+
+	protected async primaryKey() {
+		return [];
+	}
+
+	protected isFkViolation() {
+		return false;
+	}
+
 	getTableData(): never {
 		throw new Error("not used");
 	}

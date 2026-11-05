@@ -69,7 +69,7 @@ const isSocketError = (e: Error): boolean => {
 	);
 };
 
-function notImplemented(method: string): never {
+export function notImplemented(method: string): never {
 	throw new HTTPException(501, {
 		message: `${method} is not implemented for this database type`,
 	});
