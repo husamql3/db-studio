@@ -31,11 +31,13 @@ export const DATABASE_TYPES = [
 export const databaseTypeSchema = z.enum(DATABASE_TYPES, {
 	message: "Invalid database type",
 });
+
 export type DatabaseTypeSchema = z.infer<typeof databaseTypeSchema>;
 
 export const currentDatabaseSchema = databaseSchema.extend({
 	dbType: databaseTypeSchema,
 });
+
 export type CurrentDatabaseSchemaType = z.infer<typeof currentDatabaseSchema>;
 
 export const databaseTypeParamSchema = z.object({

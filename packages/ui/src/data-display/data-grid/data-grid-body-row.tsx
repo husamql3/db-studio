@@ -39,6 +39,7 @@ export const DataGridBodyRow = <TRow,>({
 			) : null}
 			{virtualColumns.map((vc) => {
 				const cell = visibleCells[vc.index];
+
 				return (
 					<td
 						key={cell.id}

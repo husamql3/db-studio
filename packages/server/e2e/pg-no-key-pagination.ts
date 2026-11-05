@@ -4,10 +4,13 @@ import { tableDataResultSchema } from "@db-studio/shared/types";
 import { z } from "zod";
 
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL database");
 }
+
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
 const { getDbPool } = await import("../src/db-manager.js");
@@ -24,21 +27,27 @@ const query = async (sql: string) => {
 			body: JSON.stringify({ query: sql }),
 		}),
 	);
+
 	assert.equal(response.status, 200, await response.text());
 };
 
 const page = async (name: string, order: string, cursor?: string, direction = "asc") => {
 	const params = new URLSearchParams({ db, limit: "2", sort: "label", order, direction });
+
 	if (cursor) params.set("cursor", cursor);
+
 	const response = await app.handle(
 		new Request(new URL(`/api/pg/tables/${table}/data?${params}`, "http://localhost")),
 	);
+
 	const body: unknown = await response.json();
+
 	// Cursor values contain physical tuple locations; retain visible rows and flags only.
 	if (response.status !== 200) {
 		evidence[name] = { status: response.status, body };
 		assert.fail(`${name}: ${JSON.stringify(body)}`);
 	}
+
 	const result = pageSchema.parse(body).data;
 	evidence[name] = {
 		status: response.status,
@@ -46,6 +55,7 @@ const page = async (name: string, order: string, cursor?: string, direction = "a
 		hasNextPage: result.meta.hasNextPage,
 		hasPreviousPage: result.meta.hasPreviousPage,
 	};
+
 	return result;
 };
 
@@ -53,6 +63,7 @@ try {
 	await query(`DROP TABLE IF EXISTS ${table}`);
 	await query(`CREATE TABLE ${table} (label TEXT, marker INTEGER)`);
 	await query(`INSERT INTO ${table} VALUES ('same', 1), ('same', 2), ('same', 3), ('z', 4)`);
+
 	for (const order of ["asc", "desc"]) {
 		const first = await page(`${order}: first`, order);
 		assert.ok(first.meta.nextCursor);
@@ -67,6 +78,7 @@ try {
 		assert.deepEqual(previous.data, first.data);
 		assert.ok(first.data.every((row) => !("ctid" in row)));
 	}
+
 	console.log("PASS PostgreSQL no-key sorting and forward/backward pagination");
 } finally {
 	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });

@@ -25,6 +25,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 
 	const ensureForeignKeyExists = () => {
 		const currentForeignKeys = getValues("foreignKeys") || [];
+
 		if (!currentForeignKeys[index]) {
 			const paddedArray: ForeignKeyData[] = [...currentForeignKeys];
 			paddedArray.push({
@@ -51,6 +52,7 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 							if (isOpen) {
 								ensureForeignKeyExists();
 							}
+
 							setOpen(isOpen);
 						}}
 						open={open}

@@ -63,6 +63,7 @@ async function getTableColumns(
 		return await adapter.getTableColumns({ tableName, db });
 	} catch (error) {
 		writeOperationalLog("warn", "schema_columns_failed", errorFields(error));
+
 		return [];
 	}
 }
@@ -75,16 +76,16 @@ export async function getDetailedSchema(
 
 	try {
 		const tablesList = await adapter.getTablesList(db);
+
 		// Structure only: the prompt goes to an external AI provider, and the setting
 		// promises table and column metadata, never row values.
 		const tables = await Promise.all(
-			tablesList.map(
-				async ({ schemaName, tableName }): Promise<Table> => ({
-					name: schemaName ? `${schemaName}.${tableName}` : tableName,
-					columns: (await getTableColumns(adapter, tableName, db)).map(convertColumnInfo),
-				}),
-			),
+			tablesList.map(async ({ schemaName, tableName }): Promise<Table> => ({
+				name: schemaName ? `${schemaName}.${tableName}` : tableName,
+				columns: (await getTableColumns(adapter, tableName, db)).map(convertColumnInfo),
+			})),
 		);
+
 		const relationships = extractRelationships(tables);
 
 		return { dbType, tables, relationships };

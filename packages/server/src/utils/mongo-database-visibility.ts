@@ -29,5 +29,6 @@ export const visibleMongoDatabases = (
 	);
 
 	if (!currentDb || visible.some((db) => db.name === currentDb)) return visible;
+
 	return [...visible, { name: currentDb, sizeOnDisk: 0 }];
 };

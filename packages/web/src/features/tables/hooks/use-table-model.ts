@@ -41,14 +41,17 @@ export const useTableModel = ({
 
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 	const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+
 	const [focusedCell, setFocusedCell] = useState<{
 		rowIndex: number;
 		columnId: string;
 	} | null>(null);
+
 	const [editingCell, setEditingCell] = useState<{
 		rowIndex: number;
 		columnId: string;
 	} | null>(null);
+
 	const [selection, setSelection] = useState<CellRange | null>(null);
 	const isDragging = useRef(false);
 
@@ -57,6 +60,7 @@ export const useTableModel = ({
 	const visibleCols = useMemo(() => {
 		if (!tableCols) return undefined;
 		const byName = new Map(tableCols.map((col) => [col.columnName, col]));
+
 		return visibleColumns
 			.map((name) => byName.get(name))
 			.filter((col): col is ColumnInfoSchemaType => !!col);
@@ -101,6 +105,7 @@ export const useTableModel = ({
 		if (columnName && order) {
 			return [{ id: columnName, desc: order === "desc" }];
 		}
+
 		return [];
 	}, [columnName, order]);
 
@@ -131,22 +136,26 @@ export const useTableModel = ({
 		() => visibleCols?.map((col) => col.columnName) ?? [],
 		[visibleCols],
 	);
+
 	const rowCount = tableDataRows.length;
 
 	const handleCellNavigate = useCallback(
 		(rowIndex: number, columnId: string, direction: NavigationDirection) => {
 			let row = rowIndex;
 			let col = columnIds.indexOf(columnId);
+
 			if (direction === "up") row--;
 			else if (direction === "down") row++;
 			else if (direction === "left") col--;
 			else if (direction === "right") col++;
 			else if (direction === "home") col = 0;
 			else if (direction === "end") col = columnIds.length - 1;
+
 			if (row < 0 || row >= rowCount || col < 0 || col >= columnIds.length) return false;
 			setFocusedCell({ rowIndex: row, columnId: columnIds[col] });
 			// A range left behind would take the next paste at the old position.
 			setSelection(null);
+
 			return true;
 		},
 		[columnIds, rowCount],
@@ -155,6 +164,7 @@ export const useTableModel = ({
 	const handleCellEditingStop = useCallback(
 		(opts?: { direction?: NavigationDirection }) => {
 			setEditingCell(null);
+
 			if (opts?.direction && editingCell) {
 				handleCellNavigate(editingCell.rowIndex, editingCell.columnId, opts.direction);
 			}
@@ -185,6 +195,7 @@ export const useTableModel = ({
 					? { ...current, focus: cell }
 					: { anchor: cell, focus: cell },
 			);
+
 			if (!event.shiftKey) setFocusedCell(cell);
 			isDragging.current = true;
 			window.addEventListener("mouseup", () => (isDragging.current = false), { once: true });
@@ -207,15 +218,19 @@ export const useTableModel = ({
 		(rowIndex: number, columnId: string) => {
 			if (!selection) return false;
 			const { anchor, focus } = selection;
+
 			// One cell is the focused cell, not a range.
 			if (anchor.rowIndex === focus.rowIndex && anchor.columnId === focus.columnId) {
 				return false;
 			}
+
 			const column = columnIndexes.get(columnId) ?? -1;
+
 			const [a, b] = [
 				columnIndexes.get(anchor.columnId) ?? -1,
 				columnIndexes.get(focus.columnId) ?? -1,
 			];
+
 			return (
 				rowIndex >= Math.min(anchor.rowIndex, focus.rowIndex) &&
 				rowIndex <= Math.max(anchor.rowIndex, focus.rowIndex) &&

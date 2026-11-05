@@ -14,6 +14,7 @@ export function buildWhereClause(
 
 	for (const filter of filters) {
 		const col = quote(filter.columnName);
+
 		switch (filter.operator) {
 			case "=":
 			case "!=":
@@ -33,6 +34,7 @@ export function buildWhereClause(
 					values.push(filter.value);
 					idx++;
 				}
+
 				break;
 			case "is not":
 				if (filter.value.toLowerCase() === "null") {
@@ -42,6 +44,7 @@ export function buildWhereClause(
 					values.push(filter.value);
 					idx++;
 				}
+
 				break;
 			case "like":
 			case "ilike":
@@ -61,17 +64,21 @@ export function buildWhereClause(
 	}
 
 	if (conditions.length === 0) return { clause: "", values: [], nextIdx: startIdx };
+
 	return { clause: `WHERE ${conditions.join(" AND ")}`, values, nextIdx: idx };
 }
 
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
+
 		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
+
 	if (sorts && typeof sorts === "string") {
 		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
+
 	return "";
 }
 
@@ -82,15 +89,17 @@ export function buildOrderByClause(
 ): string {
 	const sortClause = buildSortClause(sorts, order);
 	const sortColumns = Array.isArray(sorts) ? sorts.map((s) => s.columnName) : [sorts];
+
 	const direction = (
 		Array.isArray(sorts) ? (sorts[0]?.direction ?? order) : order
 	).toUpperCase();
+
 	const tieBreakers = keyColumns
-		.filter((col) => !sortColumns.includes(col))
-		.map((col) => `${quote(col)} ${direction}`)
+		.flatMap((col) => (sortColumns.includes(col) ? [] : [`${quote(col)} ${direction}`]))
 		.join(", ");
 
 	if (!tieBreakers) return sortClause || "ORDER BY (SELECT NULL)";
+
 	return sortClause ? `${sortClause}, ${tieBreakers}` : `ORDER BY ${tieBreakers}`;
 }
 
@@ -98,6 +107,7 @@ export function mapColumnTypeToMssql(columnType: string, isArray: boolean): stri
 	if (isArray) return "NVARCHAR(MAX)";
 
 	const normalized = columnType.toLowerCase().trim();
+
 	const typeMap: Record<string, string> = {
 		serial: "INT IDENTITY(1,1)",
 		serial4: "INT IDENTITY(1,1)",
@@ -158,15 +168,20 @@ export function formatMssqlDefaultValue(
 	if (trimmed.includes("(") && trimmed.includes(")")) {
 		if (trimmed.includes("newid()")) {
 			if (!columnType.toUpperCase().includes("UNIQUEIDENTIFIER")) return null;
+
 			return "NEWID()";
 		}
+
 		if (trimmed.includes("getdate") || trimmed.includes("current_timestamp"))
 			return "GETDATE()";
+
 		return defaultValue.trim();
 	}
 
 	if (trimmed === "null") return "NULL";
+
 	if (trimmed === "true" || trimmed === "false") return trimmed === "true" ? "1" : "0";
+
 	return defaultValue.trim();
 }
 
@@ -196,10 +211,12 @@ export function buildMssqlColumnDefinition(
 
 	if (field.defaultValue?.trim() && !mappedType.includes("IDENTITY")) {
 		const dv = formatMssqlDefaultValue(field.defaultValue, mappedType);
+
 		if (dv !== null) def += ` DEFAULT ${dv}`;
 	}
 
 	if (options.includeUnique && field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+
 	if (options.includePrimaryKey && field.isPrimaryKey) def += " PRIMARY KEY";
 
 	return def;

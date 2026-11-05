@@ -21,14 +21,17 @@ import { describe, expect, it, vi } from "vitest";
 vi.unmock("@/db-manager.js");
 
 type Received = { user?: string; password?: string; database?: string };
+
 const received: Received[] = [];
 
 vi.mock("mysql2/promise", () => ({
 	createPool: (config: Received) => {
 		received.push(config);
+
 		return {};
 	},
 }));
+
 vi.mock("mssql", () => ({
 	default: {
 		ConnectionPool: class {
@@ -41,14 +44,17 @@ vi.mock("mssql", () => ({
 		},
 	},
 }));
+
 vi.mock("oracledb", () => ({
 	default: {
 		createPool: (config: Received) => {
 			received.push(config);
+
 			return Promise.resolve({});
 		},
 	},
 }));
+
 vi.mock("ioredis", () => ({
 	Redis: class {
 		constructor({ username, password }: { username?: string; password?: string }) {
@@ -62,10 +68,12 @@ vi.mock("ioredis", () => ({
 		}
 	},
 }));
+
 vi.mock("@clickhouse/client", () => ({
 	ClickHouseLogLevel: { OFF: 0 },
 	createClient: ({ username, ...config }: Received & { username: string }) => {
 		received.push({ ...config, user: username });
+
 		return {};
 	},
 }));
@@ -76,6 +84,7 @@ const { DatabaseManager } = await import("@/db-manager.js");
 const driverConfig = async (url: string): Promise<Received> => {
 	received.length = 0;
 	const manager = new DatabaseManager(url);
+
 	const connect = {
 		mysql: () => manager.getMysqlPool(),
 		mssql: () => manager.getMssqlPool(),
@@ -83,8 +92,10 @@ const driverConfig = async (url: string): Promise<Received> => {
 		redis: () => manager.getRedisClient(),
 		clickhouse: () => manager.getClickhouseClient(),
 	}[manager.getDbType() as "mysql" | "mssql" | "oracle" | "redis" | "clickhouse"];
+
 	await connect();
 	expect(received).toHaveLength(1);
+
 	return received[0] as Received;
 };
 

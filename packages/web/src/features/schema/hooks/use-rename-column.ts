@@ -34,6 +34,7 @@ export const useRenameColumn = ({
 				data,
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {

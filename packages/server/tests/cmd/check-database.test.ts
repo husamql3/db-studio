@@ -1,10 +1,10 @@
+import type { Pool } from "pg";
 import { describe, expect, it, vi } from "vitest";
-
-import type { DatabaseManager } from "@/db-manager.js";
 import {
 	checkDatabaseConnection,
 	getDatabaseConnectionDetails,
 } from "@/cmd/check-database.js";
+import type { DatabaseManager } from "@/db-manager.js";
 
 describe("database startup check", () => {
 	it("reports a safe PostgreSQL destination without credentials", () => {
@@ -28,15 +28,19 @@ describe("database startup check", () => {
 	it("bounds the PostgreSQL startup query", async () => {
 		vi.useFakeTimers();
 		const query = vi.fn().mockReturnValue(new Promise(() => undefined));
+
+		const pool: Partial<Pool> = { query };
+
 		const manager = {
 			getDbType: () => "pg",
-			getPgPool: async () => ({ query }),
-		} as unknown as DatabaseManager;
+			getPgPool: async () => pool,
+		} as DatabaseManager;
 
 		try {
 			const result = expect(checkDatabaseConnection(manager)).rejects.toThrow(
 				"Database startup check timed out",
 			);
+
 			await vi.advanceTimersByTimeAsync(2_000);
 			await result;
 		} finally {

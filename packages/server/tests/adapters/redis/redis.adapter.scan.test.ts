@@ -32,11 +32,13 @@ describe("RedisAdapter — getTableData (SCAN)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockGetRedisClient.mockResolvedValue(mockClient);
+
 		for (const fn of Object.values(mockPipeline)) {
 			if (typeof fn === "function") {
 				(fn as ReturnType<typeof vi.fn>).mockReturnThis();
 			}
 		}
+
 		mockClient.pipeline.mockReturnValue(mockPipeline);
 		mockClient.dbsize.mockResolvedValue(42);
 		adapter = new RedisAdapter();
@@ -75,9 +77,7 @@ describe("RedisAdapter — getTableData (SCAN)", () => {
 		mockClient.scan.mockResolvedValueOnce(["123", ["k1"]]);
 		// Loop continues until limit met or cursor=0; on the second pass we hit limit
 		mockClient.scan.mockResolvedValue(["456", []]);
-		mockPipeline.exec
-			.mockResolvedValueOnce([[null, 0]])
-			.mockResolvedValueOnce([[null, "v1"]]);
+		mockPipeline.exec.mockResolvedValueOnce([[null, 0]]).mockResolvedValueOnce([[null, "v1"]]);
 
 		const result = await adapter.getTableData({
 			db: "0",
@@ -106,9 +106,10 @@ describe("RedisAdapter — getTableData (SCAN)", () => {
 	});
 
 	it("rejects an opaque cursor that targets a different table", async () => {
-		const wrongCursor = Buffer.from(JSON.stringify({ scanCursor: "5", type: "hashes" })).toString(
-			"base64url",
-		);
+		const wrongCursor = Buffer.from(
+			JSON.stringify({ scanCursor: "5", type: "hashes" }),
+		).toString("base64url");
+
 		await expect(
 			adapter.getTableData({ db: "0", tableName: "strings", cursor: wrongCursor }),
 		).rejects.toMatchObject({ status: 400 });
@@ -172,19 +173,21 @@ describe("RedisAdapter — getTableData (SCAN)", () => {
 
 	it("summarizes streams via XINFO STREAM", async () => {
 		mockClient.scan.mockResolvedValueOnce(["0", ["events"]]);
-		mockPipeline.exec.mockResolvedValueOnce([[null, -1]]).mockResolvedValueOnce([
-			[
-				null,
+		mockPipeline.exec
+			.mockResolvedValueOnce([[null, -1]])
+			.mockResolvedValueOnce([
 				[
-					"length",
-					12,
-					"first-entry",
-					["1700000000-0", ["k", "v"]],
-					"last-entry",
-					["1700001000-0", ["k", "v"]],
+					null,
+					[
+						"length",
+						12,
+						"first-entry",
+						["1700000000-0", ["k", "v"]],
+						"last-entry",
+						["1700001000-0", ["k", "v"]],
+					],
 				],
-			],
-		]);
+			]);
 
 		const result = await adapter.getTableData({
 			db: "0",

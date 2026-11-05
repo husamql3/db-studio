@@ -16,9 +16,11 @@ export const createLogger = (): Logger => {
 
 	const write = (level: string, scope: string, message: string) => {
 		const line = `${new Date().toISOString()} ${level} [${scope}] ${message}\n`;
+
 		try {
 			appendFileSync(file, line);
 		} catch {}
+
 		if (!app.isPackaged) process.stdout.write(line);
 	};
 

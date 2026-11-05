@@ -42,6 +42,7 @@ describe("parseClipboardText", () => {
 			['say "hi"', "line1\nline2"],
 			["tab\there", ""],
 		];
+
 		expect(parseClipboardText(toClipboardText(rows))).toEqual(rows);
 	});
 });
@@ -67,6 +68,7 @@ describe("coercePastedValue", () => {
 			isNullable: true,
 			dataTypeLabel: "int" as const,
 		};
+
 		expect(coercePastedValue(" 42 ", int)).toEqual({ value: 42 });
 		expect(coercePastedValue("1.5", int)).toHaveProperty("error");
 		expect(
@@ -98,6 +100,7 @@ describe("coercePastedValue", () => {
 			isNullable: true,
 			enumValues: ["open", "closed"],
 		};
+
 		expect(coercePastedValue("open", status)).toEqual({ value: "open" });
 		expect(coercePastedValue("Open", status)).toHaveProperty("error");
 	});
@@ -114,6 +117,7 @@ describe("coercePastedValue", () => {
 			isNullable: true,
 			dataTypeLabel: "date" as const,
 		};
+
 		expect(coercePastedValue("2026-10-29", date)).toEqual({ value: "2026-10-29" });
 		expect(coercePastedValue("next tuesday", date)).toHaveProperty("error");
 		// time columns share the date variant; Date cannot parse their text

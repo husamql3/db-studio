@@ -35,17 +35,24 @@ export const useUpdateRecord = ({
 			if (!tableName) {
 				throw new Error("No table selected");
 			}
+
 			if (updates.length === 0) {
 				throw new Error("At least one field is required");
 			}
-			const res = await updateRecords({
+
+			const payload: Parameters<typeof updateRecords>[0] = {
 				tableName,
 				schemaName,
 				updates: updates.map((update) => ({ rowData, ...update })),
-				...(primaryKey ? { primaryKey } : {}),
-				...(primaryKeys?.length ? { primaryKeys } : {}),
 				db: selectedDatabase,
-			});
+			};
+
+			if (primaryKey) payload.primaryKey = primaryKey;
+
+			if (primaryKeys?.length) payload.primaryKeys = primaryKeys;
+
+			const res = await updateRecords(payload);
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
@@ -58,6 +65,7 @@ export const useUpdateRecord = ({
 					queryKey: tableKeys.lists(),
 				}),
 			]);
+
 			if (dbType) posthogAnalytics.capture("record_updated", { db_type: dbType });
 		},
 	});
@@ -76,6 +84,7 @@ export const useUpdateRecord = ({
 		if (updates.length === 0) {
 			throw new Error("At least one field is required");
 		}
+
 		return toast
 			.promise(updateRecordMutation({ rowData, updates, primaryKey, primaryKeys }), {
 				loading: "Saving changes...",

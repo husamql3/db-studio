@@ -11,9 +11,9 @@ const cellFor = (row: TableRecord) =>
 		getValue: () => row.qty,
 		row: { id: "1", original: row },
 		column: { id: "qty" },
-	}) as unknown as Cell<TableRecord, unknown>;
+	}) as Cell<TableRecord, unknown>;
 
-const table = { options: { meta: {} } } as unknown as Table<TableRecord>;
+const table = { options: { meta: {} } } as Table<TableRecord>;
 
 const numberCell = (row: TableRecord, isEditing = false) => (
 	<TableNumberCell

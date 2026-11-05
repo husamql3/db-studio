@@ -100,6 +100,7 @@ export function CommandPalette() {
 			if (dbType) {
 				posthogAnalytics.capture("table_viewed", { db_type: dbType });
 			}
+
 			// Reset search params: sort/filter/cursor keys from the previous
 			// table must not leak into the newly opened one.
 			navigate({
@@ -403,6 +404,7 @@ export function CommandPalette() {
 											if (!pathname.startsWith("/browser")) {
 												navigate({ to: "/browser" });
 											}
+
 											openOverlay("redis-browser.create-key");
 										})
 									}
@@ -476,6 +478,7 @@ export function CommandPalette() {
 															search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
 														});
 													}
+
 													openOverlay("indexes.create-index");
 												});
 											}}

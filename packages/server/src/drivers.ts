@@ -28,13 +28,16 @@ export const loadDriver = async <T extends DatabaseTypeSchema>(
 ): Promise<Drivers[T]> => {
 	const driver = loaded[type] ?? ((await imports[type]()) as Drivers[T]);
 	loaded[type] = driver;
+
 	return driver;
 };
 
 /** The driver of an engine whose connection is open, for code that cannot await it. */
 export const loadedDriver = <T extends DatabaseTypeSchema>(type: T): Drivers[T] => {
 	const driver = loaded[type];
+
 	if (!driver) throw new Error(`The ${type} driver is used before a connection opened`);
+
 	return driver;
 };
 

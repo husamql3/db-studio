@@ -15,6 +15,7 @@ export function buildFilterConditions(filters: FilterType[]): {
 	for (const filter of filters) {
 		const col = quoteDuckdbIdent(filter.columnName);
 		const isNull = filter.value.toLowerCase() === "null";
+
 		switch (filter.operator) {
 			case "=":
 			case "!=":
@@ -32,6 +33,7 @@ export function buildFilterConditions(filters: FilterType[]): {
 					conditions.push(`${col} = ?`);
 					values.push(filter.value);
 				}
+
 				break;
 			case "is not":
 				if (isNull) {
@@ -40,6 +42,7 @@ export function buildFilterConditions(filters: FilterType[]): {
 					conditions.push(`${col} != ?`);
 					values.push(filter.value);
 				}
+
 				break;
 			case "like":
 			case "not like":
@@ -69,6 +72,7 @@ export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
 	`ORDER BY ${terms
 		.map((term) => {
 			const { descending, nullsLast } = placement(term, backward);
+
 			return `${quoteDuckdbIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
 		})
 		.join(", ")}`;
@@ -100,6 +104,7 @@ export function buildKeysetPredicate(
 					? null
 					: `${col} IS NOT NULL`
 				: `${col} ${descending ? "<" : ">"} ?${nullsLast ? ` OR ${col} IS NULL` : ""}`;
+
 		if (after) {
 			branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
 			values.push(...equalValues, ...(value === null ? [] : [value]));
@@ -131,6 +136,7 @@ export const isSerialType = (columnType: string) =>
 /** Translate a PostgreSQL type name from the web form into a DuckDB column type. */
 export function mapColumnTypeToDuckdb(columnType: string, isArray: boolean): string {
 	const normalized = columnType.toLowerCase().trim();
+
 	const typeMap: Record<string, string> = {
 		serial: "INTEGER",
 		serial4: "INTEGER",
@@ -182,6 +188,8 @@ export function mapColumnTypeToDuckdb(columnType: string, isArray: boolean): str
 		line: "VARCHAR",
 		polygon: "VARCHAR",
 	};
+
 	const mapped = typeMap[normalized] ?? columnType.toUpperCase();
+
 	return isArray ? `${mapped}[]` : mapped;
 }

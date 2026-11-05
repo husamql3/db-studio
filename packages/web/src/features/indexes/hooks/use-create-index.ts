@@ -33,6 +33,7 @@ export const useCreateIndex = ({
 				data,
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {

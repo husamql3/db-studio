@@ -14,6 +14,7 @@ import { useDatabaseStore } from "@/stores/database.store";
  */
 export const useDatabasesList = () => {
 	const { setDbType, selectedDatabase, setSelectedDatabase } = useDatabaseStore();
+
 	const {
 		data,
 		isLoading: isLoadingDatabases,
@@ -32,6 +33,7 @@ export const useDatabasesList = () => {
 			setDbType(data.dbType);
 			setApiDbType(data.dbType);
 		}
+
 		if (!selectedDatabase && data?.databases?.length) {
 			setSelectedDatabase(data.databases[0]?.name ?? null);
 		}
@@ -81,9 +83,11 @@ export const useInitializeDatabase = () => {
 			// init the api baseURL with the dbType from the first request
 			setDbType(res.data.data.dbType);
 			setApiDbType(res.data.data.dbType);
+
 			if (!selectedDatabase && res.data.data.db) {
 				setSelectedDatabase(res.data.data.db);
 			}
+
 			return res.data.data;
 		},
 		staleTime: 1000 * 60 * 5,
@@ -93,10 +97,12 @@ export const useInitializeDatabase = () => {
 	// Run in an effect to avoid state updates during render.
 	useEffect(() => {
 		if (hasInitializedRef.current) return;
+
 		if (isLoadingDatabases || isLoadingCurrentDatabase) return;
 
 		hasInitializedRef.current = true;
 		const dbToSelect = currentDatabase?.db || databasesData?.databases?.[0]?.name;
+
 		if (dbToSelect) {
 			setSelectedDatabase(dbToSelect);
 		}

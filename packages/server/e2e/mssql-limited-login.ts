@@ -13,17 +13,23 @@ import sql from "mssql";
 // audit of that fix found the same failures for a denied column (230), the Logs tab (27219),
 // the query runner, and deleting a table the login may drop but not read.
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("mssql://")) {
 	throw new Error("Set DATABASE_URL to a disposable SQL Server database (sa)");
 }
+
 // Saving the connection must not touch the user's ~/.dbstudio.
 process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+
 const url = new URL(databaseUrl);
 const db = decodeURIComponent(url.pathname.slice(1));
+
 // Logins are server-wide: a per-run name means cleanup never drops a login this run did not create.
 const LOGIN = `dbstudio_e2e_limited_${randomUUID().slice(0, 8)}`;
 const PASSWORD = "E2e!limited1";
+
 const admin = await new sql.ConnectionPool({
 	server: url.hostname,
 	port: Number(url.port || 1433),
@@ -32,6 +38,7 @@ const admin = await new sql.ConnectionPool({
 	database: db,
 	options: { encrypt: false, trustServerCertificate: true },
 }).connect();
+
 const evidence: Record<string, unknown> = {};
 
 const cleanup = async () => {
@@ -68,17 +75,22 @@ try {
 	await connect(limitedUrl.toString());
 
 	const call = async (route: string, method = "GET", body?: unknown) => {
+		const init: RequestInit = { method };
+
+		if (body) {
+			init.headers = { "Content-Type": "application/json" };
+			init.body = JSON.stringify(body);
+		}
+
 		const response = await app.handle(
-			new Request(new URL(`/api${route}`, "http://localhost"), {
-				method,
-				headers: body ? { "Content-Type": "application/json" } : {},
-				body: body ? JSON.stringify(body) : undefined,
-			}),
+			new Request(new URL(`/api${route}`, "http://localhost"), init),
 		);
+
 		const { requestId: _requestId, ...json } = (await response.json()) as Record<
 			string,
 			unknown
 		>;
+
 		return { status: response.status, body: json };
 	};
 
@@ -107,9 +119,11 @@ try {
 	evidence.readPrivate = await call(
 		`/mssql/tables/dbstudio_e2e_private/data?${new URLSearchParams({ db, limit: "50" })}`,
 	);
+
 	const query = await call(`/mssql/query?${new URLSearchParams({ db })}`, "POST", {
 		query: "SELECT * FROM dbstudio_e2e_private",
 	});
+
 	evidence.queryPrivate = { status: query.status };
 	const logs = await call(`/mssql/logs?${new URLSearchParams({ db })}`);
 	evidence.logs = {

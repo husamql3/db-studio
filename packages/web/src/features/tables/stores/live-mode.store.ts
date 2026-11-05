@@ -69,6 +69,7 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 		if (pulseTimer) {
 			clearTimeout(pulseTimer);
 		}
+
 		set({ isPulsing: true });
 		pulseTimer = setTimeout(() => {
 			set({ isPulsing: false });
@@ -79,6 +80,7 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 	setHighlights: (rowIds, cellKeys, durationMs = 1500) => {
 		if (rowIds.length === 0 && cellKeys.length === 0) {
 			get().clearHighlights();
+
 			return;
 		}
 
@@ -105,6 +107,7 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			clearTimeout(highlightTimer);
 			highlightTimer = null;
 		}
+
 		set({
 			highlightedRowIds: new Set(),
 			highlightedCellKeys: new Set(),
@@ -124,10 +127,12 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			clearTimeout(pulseTimer);
 			pulseTimer = null;
 		}
+
 		if (highlightTimer) {
 			clearTimeout(highlightTimer);
 			highlightTimer = null;
 		}
+
 		set({
 			isLive: false,
 			status: "idle",

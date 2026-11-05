@@ -10,6 +10,7 @@ export const filterSchema = z.object({
 export type FilterType = z.infer<typeof filterSchema>;
 
 export const sortDirections = ["asc", "desc"] as const;
+
 export type SortDirection = (typeof sortDirections)[number];
 
 export const sortSchema = z.object({
@@ -48,8 +49,10 @@ export const tableDataQuerySchema = z.object({
 		.optional()
 		.transform((val) => {
 			if (!val) return "";
+
 			try {
 				const parsed = JSON.parse(val);
+
 				return Array.isArray(parsed) ? parsed : val;
 			} catch {
 				return val;
@@ -63,6 +66,7 @@ export const tableDataQuerySchema = z.object({
 		.optional()
 		.transform((val) => {
 			if (!val) return [];
+
 			try {
 				return JSON.parse(val);
 			} catch {

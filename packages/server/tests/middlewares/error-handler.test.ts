@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { Elysia } from "elysia";
-import { HTTPException } from "@/http-exception.js";
-import { z } from "zod";
-import { DatabaseError } from "pg";
 import sql from "mssql";
-
+import { DatabaseError } from "pg";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { z } from "zod";
 import { loadDriver } from "@/drivers.js";
+import { HTTPException } from "@/http-exception.js";
 import { handleError } from "@/middlewares/error-handler.js";
 
-const createApp = () => new Elysia().onError(({ error, request }) => handleError(error, request));
+const createApp = () =>
+	new Elysia().onError(({ error, request }) => handleError(error, request));
 
 describe("Error Handler Middleware", () => {
 	let app: ReturnType<typeof createApp>;
@@ -40,7 +40,10 @@ describe("Error Handler Middleware", () => {
 	describe("Database connection error handling", () => {
 		it.each([
 			[new sql.ConnectionError("Failed to connect to db:1433 in 15000ms", "ETIMEOUT"), 503],
-			[new sql.RequestError("Timeout: Request failed to complete in 15000ms", "ETIMEOUT"), 500],
+			[
+				new sql.RequestError("Timeout: Request failed to complete in 15000ms", "ETIMEOUT"),
+				500,
+			],
 		])("returns the correct status for an unwrapped MSSQL %s", async (error, status) => {
 			app.get("/test", () => {
 				throw error;
@@ -97,10 +100,13 @@ describe("Error Handler Middleware", () => {
 		/** Errors are logged as one structured JSON line on stderr, not via console.error. */
 		const captureStderr = () => {
 			const lines: string[] = [];
+
 			const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
 				lines.push(String(chunk));
+
 				return true;
 			});
+
 			return { lines, restore: () => spy.mockRestore() };
 		};
 
@@ -127,7 +133,11 @@ describe("Error Handler Middleware", () => {
 
 			const entry = findLog(stderr.lines, "request_failed");
 			expect(entry).toBeDefined();
-			expect(entry).toMatchObject({ level: "error", operation: "get_other", error_type: "Error" });
+			expect(entry).toMatchObject({
+				level: "error",
+				operation: "get_other",
+				error_type: "Error",
+			});
 			expect(typeof entry?.timestamp).toBe("string");
 		});
 

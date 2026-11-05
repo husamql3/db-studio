@@ -30,6 +30,7 @@ const archFlag = process.argv.indexOf("--arch");
 const arch = archFlag === -1 ? process.arch : process.argv[archFlag + 1];
 
 const serverDist = path.join(serverDir, "dist");
+
 if (
 	!existsSync(path.join(serverDist, "index.js")) ||
 	!existsSync(path.join(serverDist, "web-dist"))
@@ -41,8 +42,11 @@ if (
 const serverPkg = JSON.parse(readFileSync(path.join(serverDir, "package.json"), "utf8"));
 
 rmSync(stageRoot, { recursive: true, force: true });
+
 mkdirSync(stageDir, { recursive: true });
+
 cpSync(serverDist, stageDir, { recursive: true });
+
 writeFileSync(
 	path.join(stageDir, "package.json"),
 	JSON.stringify(
@@ -59,6 +63,7 @@ writeFileSync(
 );
 
 console.log(`Installing server runtime dependencies for ${process.platform}-${arch}...`);
+
 execFileSync(
 	"npm",
 	[
@@ -77,6 +82,7 @@ execFileSync(
 // The installed packages hold ~190 MB of JS (types, maps, dual builds, unused code) that a
 // bundle does not need. Native addons stay external and resolve from node_modules at runtime.
 const entry = path.join(stageDir, "index.js");
+
 await build({
 	entryPoints: [entry],
 	outfile: entry,
@@ -104,7 +110,9 @@ await build({
 // by computed names.
 const nodeModules = path.join(stageDir, "node_modules");
 const installed = `${nodeModules}-installed`;
+
 renameSync(nodeModules, installed);
+
 const packages = readdirSync(installed)
 	.filter((name) => !name.startsWith("."))
 	.flatMap((name) =>
@@ -112,27 +120,33 @@ const packages = readdirSync(installed)
 			? readdirSync(path.join(installed, name)).map((n) => `${name}/${n}`)
 			: [name],
 	);
+
 for (const name of packages) {
 	const manifest = JSON.parse(
 		readFileSync(path.join(installed, name, "package.json"), "utf8"),
 	);
+
 	if (manifest.os?.length !== 1) continue;
 	mkdirSync(path.dirname(path.join(nodeModules, name)), { recursive: true });
 	renameSync(path.join(installed, name), path.join(nodeModules, name));
 }
+
 rmSync(installed, { recursive: true, force: true });
 
 // DuckDB's macOS package ships a universal libduckdb.dylib with its local symbols; keep only
 // the target slice and drop those symbols. Stripping voids DuckDB's signature, so re-sign ad hoc.
 if (process.platform === "darwin") {
 	const slice = arch === "x64" ? "x86_64" : arch;
+
 	for (const file of readdirSync(nodeModules, { recursive: true })) {
 		if (!/\.(dylib|node)$/.test(file)) continue;
 		const binary = path.join(nodeModules, file);
 		const archs = execFileSync("lipo", ["-archs", binary], { encoding: "utf8" }).trim();
+
 		if (archs.includes(" ")) execFileSync("lipo", ["-thin", slice, binary, "-output", binary]);
 		execFileSync("strip", ["-x", binary], { stdio: "ignore" });
 		execFileSync("codesign", ["--force", "--sign", "-", binary]);
 	}
 }
+
 console.log(`✓ Staged server into ${path.relative(desktopDir, stageDir)}`);

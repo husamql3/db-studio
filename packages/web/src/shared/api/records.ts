@@ -49,8 +49,9 @@ export const updateRecords = ({
 		{
 			tableName,
 			updates,
-			...(primaryKey ? { primaryKey } : {}),
-			...(primaryKeys?.length ? { primaryKeys } : {}),
+			// JSON drops undefined keys, so a missing or empty key hint is not sent.
+			primaryKey: primaryKey || undefined,
+			primaryKeys: primaryKeys?.length ? primaryKeys : undefined,
 		},
 		{ params: { db: db ?? "", schemaName } },
 	);

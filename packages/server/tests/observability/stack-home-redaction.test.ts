@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({ captureException: vi.fn(), home: "" }));
 
 vi.mock("node:os", async (importOriginal) => {
 	const os = await importOriginal<typeof import("node:os")>();
+
 	return { ...os, homedir: () => mocks.home };
 });
 
@@ -21,7 +22,7 @@ vi.mock("@sentry/node", () => ({
 	getClient: vi.fn(),
 	init: vi.fn(),
 	isInitialized: vi.fn(() => false),
-	startSpan: vi.fn((_options, callback: () => unknown) => callback()),
+	startSpan: vi.fn(<T>(_options: never, callback: () => T) => callback()),
 }));
 
 const reportedStack = (home: string, frame: string): string => {
@@ -31,6 +32,7 @@ const reportedStack = (home: string, frame: string): string => {
 		"\n",
 	);
 	captureServerError(error, { operation: "get_tables", status: 500, dbType: "pg" });
+
 	return mocks.captureException.mock.calls[0][0].stack;
 };
 
@@ -74,21 +76,21 @@ describe("home directory redaction in reported stacks", () => {
 			frame: "file:///Users/H%C3%BCsam%23Y%C4%B1ld%C4%B1r%C4%B1m/dist/index.js:10:5",
 			expected: "file://~/dist/index.js:10:5",
 		},
-	])("redacts an encoded $name home without changing the remaining frame", ({
-		home,
-		frame,
-		expected,
-	}) => {
-		expect(reportedStack(home, frame)).toBe(
-			`Error: get_tables failed with 500\n    at getTableColumns (${expected})`,
-		);
-	});
+	])(
+		"redacts an encoded $name home without changing the remaining frame",
+		({ home, frame, expected }) => {
+			expect(reportedStack(home, frame)).toBe(
+				`Error: get_tables failed with 500\n    at getTableColumns (${expected})`,
+			);
+		},
+	);
 
 	it("redacts a Windows home directory from a file URL frame", () => {
 		const stack = reportedStack(
 			"C:\\Users\\Jane Doe",
 			"file:///C:/Users/Jane%20Doe/AppData/Local/Programs/db-studio/resources/server/index.js:10:5",
 		);
+
 		expect(stack).not.toContain("Jane");
 		expect(stack).toContain(
 			"at getTableColumns (file:///~/AppData/Local/Programs/db-studio/resources/server/index.js:10:5)",
@@ -100,6 +102,7 @@ describe("home directory redaction in reported stacks", () => {
 			"C:\\Users\\Jane Doe",
 			"file:///C:/Users/Jane Doe/AppData/Local/npm-cache/_npx/abc/node_modules/db-studio/dist/index.js:1:2",
 		);
+
 		expect(stack).not.toContain("Jane");
 	});
 
@@ -108,6 +111,7 @@ describe("home directory redaction in reported stacks", () => {
 			"/Users/jane doe",
 			"file:///Users/jane%20doe/.npm/_npx/abc/node_modules/db-studio/dist/index.js:1:2",
 		);
+
 		expect(stack).not.toContain("jane");
 		expect(stack).toContain("file://~/.npm/_npx/abc/node_modules/db-studio/dist/index.js:1:2");
 	});
@@ -117,6 +121,7 @@ describe("home directory redaction in reported stacks", () => {
 			"C:\\Users\\Jane Doe",
 			"C:\\Users\\Jane Doe\\AppData\\Local\\npm-cache\\_npx\\abc\\index.cjs:1:2",
 		);
+
 		expect(stack).not.toContain("Jane");
 		expect(stack).toContain("~\\AppData\\Local\\npm-cache\\_npx\\abc\\index.cjs:1:2");
 	});

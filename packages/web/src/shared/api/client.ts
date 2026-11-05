@@ -16,6 +16,7 @@ const newRequestId = (): string =>
 	).join("");
 
 const CONNECTION_ID_KEY = "dbstudio-connection-id";
+
 /** The server connection this tab works with. Per tab: another tab can work with another one. */
 let connectionId = sessionStorage.getItem(CONNECTION_ID_KEY);
 
@@ -25,6 +26,7 @@ export const connectionHeaders = (): Record<string, string> =>
 
 export const setConnectionId = (id: string | null): void => {
 	connectionId = id;
+
 	if (id) sessionStorage.setItem(CONNECTION_ID_KEY, id);
 	else sessionStorage.removeItem(CONNECTION_ID_KEY);
 };
@@ -53,6 +55,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 				},
 				level: "info",
 			});
+
 			return config;
 		},
 		(error) => Promise.reject(error),
@@ -66,8 +69,10 @@ const setupInterceptors = (instance: AxiosInstance) => {
 						metadata?: { startTime: number };
 					}
 				).metadata?.startTime ?? 0;
+
 			const duration = Math.round(performance.now() - startTime);
 			logger.response(response, duration);
+
 			return response;
 		},
 		(error: AxiosError<ApiError>) => {
@@ -79,6 +84,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 						  })
 						| undefined
 				)?.metadata?.startTime ?? 0;
+
 			const duration = Math.round(performance.now() - startTime);
 			logger.error(error, duration);
 
@@ -86,31 +92,41 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const data = error.response?.data;
 			const message = data?.error ?? error.message ?? "An error occurred";
 			const details = data?.details;
+
 			const requestId: string | undefined = error.config?.headers
 				.get("X-Request-Id")
 				?.toString();
+
 			const apiError = Object.assign(new Error(message), { status, details, requestId });
+
 			if (!error.response) {
 				const operation = apiOperationForRequest(error.config?.method, error.config?.url);
+
 				const errorCode =
 					typeof error.code === "string" && /^[A-Z0-9_]{2,32}$/.test(error.code)
 						? error.code
 						: "unknown";
+
 				const reportedMessage = `${operation} did not reach the server (${errorCode})`;
 				const reportedError = new Error(reportedMessage);
 				reportedError.name = "AxiosError";
+
 				if (error.stack) {
 					const frames = error.stack.split("\n").slice(1).filter(isStackFrame);
 					reportedError.stack = [`AxiosError: ${reportedMessage}`, ...frames].join("\n");
 				}
+
+				const tags: Record<string, string> = {
+					source: "client",
+					error_kind: "network",
+					operation,
+					error_code: errorCode,
+				};
+
+				if (requestId) tags.request_id = requestId;
+
 				sentry?.captureException(reportedError, {
-					tags: {
-						source: "client",
-						error_kind: "network",
-						operation,
-						error_code: errorCode,
-						...(requestId ? { request_id: requestId } : {}),
-					},
+					tags,
 					fingerprint: ["network", operation, errorCode],
 				});
 			}
@@ -128,11 +144,13 @@ export const apiOperationForRequest = (method?: string, url?: string): string =>
 	const resource = url
 		?.replace(/[?#].*$/, "")
 		.match(/\/(databases|tables|records|query|keys|chat)(?:\/|$)/)?.[1];
+
 	return `${method?.toLowerCase() ?? "unknown"}_${resource ?? "other"}`;
 };
 
 export const getBaseUrl = (): string => {
 	if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+
 	if (
 		import.meta.env.DEV &&
 		typeof window !== "undefined" &&
@@ -141,7 +159,9 @@ export const getBaseUrl = (): string => {
 	) {
 		return `${window.location.protocol}//api.db-studio.localhost:${window.location.port}`;
 	}
+
 	if (import.meta.env.DEV) return DEFAULTS.BASE_URL;
+
 	return globalThis.location?.origin ?? DEFAULTS.BASE_URL;
 };
 

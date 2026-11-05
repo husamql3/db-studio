@@ -13,6 +13,7 @@ const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const args = process.argv.slice(2);
 const archFlag = args.indexOf("--arch");
 const arch = archFlag === -1 ? process.arch : args[archFlag + 1];
+
 // Everything except `--arch <value>` is forwarded to electron-builder (e.g. --mac, --win, --dir).
 const forwarded = args.filter((arg, i) => arg !== "--arch" && args[i - 1] !== "--arch");
 
@@ -28,7 +29,9 @@ const run = (file, runArgs) =>
 	});
 
 run(process.execPath, [path.join(desktopDir, "scripts/ensure-electron.mjs")]);
+
 run(process.execPath, [path.join(desktopDir, "scripts/stage-server.mjs"), "--arch", arch]);
+
 run("npx", [
 	"electron-builder",
 	...forwarded,

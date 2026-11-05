@@ -63,12 +63,15 @@ export const JsonEditor = ({
 			padding: { top: 6, bottom: 6 },
 			scrollbar: { horizontal: "hidden", vertical: "auto", useShadows: false },
 		});
+
 		editorRef.current = instance;
 
 		const model = instance.getModel();
+
 		if (model) {
 			instance.setPosition(model.getFullModelRange().getEndPosition());
 		}
+
 		instance.focus();
 
 		const disposables = [
@@ -111,6 +114,7 @@ export const JsonEditor = ({
 
 	useEffect(() => {
 		const instance = editorRef.current;
+
 		if (instance && instance.getValue() !== value) {
 			instance.setValue(value);
 		}

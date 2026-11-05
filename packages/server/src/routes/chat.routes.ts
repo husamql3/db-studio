@@ -25,6 +25,7 @@ const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
  */
 const resolveProxyUrl = (): string => {
 	let url: URL;
+
 	try {
 		url = new URL(DEFAULTS.PROXY_URL);
 	} catch {
@@ -35,6 +36,7 @@ const resolveProxyUrl = (): string => {
 
 	const isLoopback =
 		LOOPBACK_HOSTNAMES.has(url.hostname) || url.hostname.endsWith(".localhost");
+
 	if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
 		throw new HTTPException(500, {
 			message: "DB_STUDIO_PROXY_URL must use HTTPS unless it points at loopback",
@@ -63,12 +65,15 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 					"x-request-id": currentRequestId() ?? "",
 				},
 			});
+
 			if (!proxyResponse.ok) {
 				writeOperationalLog("warn", "chat_limit_unavailable", {
 					proxy_status: proxyResponse.status,
 				});
+
 				return { limit: LIMIT, used: LIMIT, remaining: 0 };
 			}
+
 			return await proxyResponse.json();
 		} catch {
 			// An unreachable proxy (offline, or not running in dev) is expected; not worth a log line.
@@ -124,6 +129,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 					model,
 				});
 				const errorData = await proxyResponse.json();
+
 				return Response.json(
 					{ error: errorData.error || "Proxy request failed" },
 					{ status: proxyResponse.status },
@@ -137,6 +143,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 			for (const [key, value] of proxyResponse.headers) {
 				if (!HOP_BY_HOP_HEADERS.has(key)) set.headers[key] = value;
 			}
+
 			return proxyResponse.body;
 		},
 		{ body: chatSchema },

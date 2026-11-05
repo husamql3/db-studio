@@ -13,6 +13,7 @@ export function buildWhereClause(filters: FilterType[]): {
 
 	for (const filter of filters) {
 		const col = quote(filter.columnName);
+
 		switch (filter.operator) {
 			case "=":
 			case "!=":
@@ -30,6 +31,7 @@ export function buildWhereClause(filters: FilterType[]): {
 					conditions.push(`${col} = ?`);
 					values.push(filter.value);
 				}
+
 				break;
 			case "is not":
 				if (filter.value.toLowerCase() === "null") {
@@ -38,6 +40,7 @@ export function buildWhereClause(filters: FilterType[]): {
 					conditions.push(`${col} != ?`);
 					values.push(filter.value);
 				}
+
 				break;
 			case "like":
 			case "ilike":
@@ -55,17 +58,21 @@ export function buildWhereClause(filters: FilterType[]): {
 	}
 
 	if (conditions.length === 0) return { clause: "", values: [] };
+
 	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
 }
 
 export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
 	if (Array.isArray(sorts)) {
 		if (sorts.length === 0) return "";
+
 		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
 	}
+
 	if (sorts && typeof sorts === "string") {
 		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
 	}
+
 	return "";
 }
 
@@ -75,6 +82,7 @@ export function buildCursorWhereClause(
 	sortDirection: SortDirection,
 ): { clause: string; values: unknown[] } {
 	const { values, sortColumns } = cursorData;
+
 	if (sortColumns.length === 0) return { clause: "", values: [] };
 
 	const isAscending = sortDirection === "asc";
@@ -112,6 +120,7 @@ type BuildMysqlColumnDefinitionOptions = {
 export function mapColumnTypeToMysql(columnType: string, isArray: boolean): string {
 	if (isArray) return "JSON";
 	const normalized = columnType.toLowerCase().trim();
+
 	const typeMap: Record<string, string> = {
 		serial: "INT AUTO_INCREMENT",
 		serial4: "INT AUTO_INCREMENT",
@@ -161,6 +170,7 @@ export function mapColumnTypeToMysql(columnType: string, isArray: boolean): stri
 		line: "LINESTRING",
 		polygon: "POLYGON",
 	};
+
 	return typeMap[normalized] || columnType.toUpperCase();
 }
 
@@ -179,17 +189,24 @@ export function formatMysqlDefaultValue(
 			) {
 				return null;
 			}
+
 			return "(UUID())";
 		}
+
 		if (trimmed.includes("current_timestamp") || trimmed.includes("now()"))
 			return "(CURRENT_TIMESTAMP)";
+
 		if (trimmed.includes("current_date")) return "(CURRENT_DATE)";
+
 		return `(${defaultValue.trim()})`;
 	}
 
 	if (trimmed === "null") return "NULL";
+
 	if (trimmed === "true") return "1";
+
 	if (trimmed === "false") return "0";
+
 	return defaultValue.trim();
 }
 
@@ -204,6 +221,7 @@ export function buildMysqlColumnDefinition(
 
 	if (field.defaultValue && !mappedType.includes("AUTO_INCREMENT")) {
 		const dv = formatMysqlDefaultValue(field.defaultValue, mappedType);
+
 		if (dv !== null) def += ` DEFAULT ${dv}`;
 	}
 
@@ -215,6 +233,7 @@ export function buildMysqlColumnDefinition(
 	}
 
 	if (options.includeUnique && field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+
 	if (options.includePrimaryKey && field.isPrimaryKey) def += " PRIMARY KEY";
 
 	return def;

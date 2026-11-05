@@ -18,6 +18,7 @@ const SidebarSchemaDropdown = () => {
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
 		defaultValue: "all",
 	});
+
 	const engine = useDatabaseEngine();
 	const { tablesList = [] } = useTablesList();
 
@@ -27,6 +28,7 @@ const SidebarSchemaDropdown = () => {
 				new Set(
 					tablesList.reduce<string[]>((acc, table) => {
 						if (table.schemaName) acc.push(table.schemaName);
+
 						return acc;
 					}, []),
 				),

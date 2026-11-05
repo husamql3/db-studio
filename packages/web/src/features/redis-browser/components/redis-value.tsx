@@ -18,12 +18,15 @@ export type RedisValueMode = "text" | "json" | "hex" | "base64";
 export const bytesFromBase64Url = (base64: string): Uint8Array => {
 	const normalized = base64.replaceAll("-", "+").replaceAll("_", "/");
 	const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+
 	return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 };
 
 export const base64UrlFromBytes = (bytes: Uint8Array): string => {
 	let binary = "";
+
 	for (const byte of bytes) binary += String.fromCharCode(byte);
+
 	return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 };
 
@@ -48,14 +51,18 @@ const hexFromBytes = (bytes: Uint8Array): string =>
 
 const bytesFromHex = (hex: string): Uint8Array | null => {
 	const clean = hex.replaceAll(/\s/g, "");
+
 	if (clean.length % 2 !== 0 || !/^[\da-f]*$/i.test(clean)) return null;
+
 	return Uint8Array.from(clean.match(/.{2}/g)?.map((pair) => Number.parseInt(pair, 16)) ?? []);
 };
 
 const isJson = (value?: string): boolean => {
 	if (!value) return false;
+
 	try {
 		JSON.parse(value);
+
 		return true;
 	} catch {
 		return false;
@@ -72,16 +79,20 @@ export const RedisValue = ({
 	onDownload?: () => void;
 }) => {
 	const bytes = useMemo(() => bytesFromBase64Url(value.base64), [value.base64]);
+
 	const [mode, setMode] = useState<RedisValueMode>(
 		value.utf8 ? (isJson(value.utf8) ? "json" : "text") : "hex",
 	);
+
 	const [copied, setCopied] = useState(false);
+
 	const effectiveMode: RedisValueMode =
 		mode === "json" && !isJson(value.utf8)
 			? value.utf8 === undefined
 				? "hex"
 				: "text"
 			: mode;
+
 	const display =
 		effectiveMode === "hex"
 			? hexFromBytes(bytes)
@@ -96,6 +107,7 @@ export const RedisValue = ({
 		setCopied(true);
 		window.setTimeout(() => setCopied(false), 1200);
 	};
+
 	const download = () => {
 		const blob = new Blob([new Uint8Array(bytes).buffer as ArrayBuffer]);
 		const url = URL.createObjectURL(blob);
@@ -200,10 +212,13 @@ const parseDraft = (
 	mode: "text" | "hex" | "base64",
 ): EncodedRedisValueSchemaType | null => {
 	if (mode === "text") return encodeTextValue(draft);
+
 	if (mode === "hex") {
 		const parsed = bytesFromHex(draft);
+
 		return parsed && encodeBytesValue(parsed);
 	}
+
 	try {
 		return encodeBytesValue(bytesFromBase64Url(draft));
 	} catch {
@@ -233,6 +248,7 @@ export const RedisValueInput = ({
 	const [mode, setMode] = useState<"text" | "hex" | "base64">(
 		value !== null && value.utf8 === undefined ? "hex" : "text",
 	);
+
 	// While the draft is invalid (value === null) there is nothing canonical to
 	// re-derive the text from, so the draft stays untouched.
 	const shown =
@@ -243,16 +259,20 @@ export const RedisValueInput = ({
 				: mode === "hex"
 					? hexFromBytes(bytesFromBase64Url(value.base64))
 					: value.base64;
+
 	const [draft, setDraft] = useState(shown ?? "");
 	useEffect(() => {
 		if (shown !== null) setDraft(shown);
 	}, [shown]);
+
 	const update = (next: string) => {
 		setDraft(next);
 		onChange(parseDraft(next, mode));
 	};
+
 	const switchMode = (next: typeof mode) => {
 		setMode(next);
+
 		// An invalid draft may become valid under the new encoding (and vice
 		// versa); re-commit so the parent always tracks the visible text.
 		if (value === null) onChange(parseDraft(draft, next));

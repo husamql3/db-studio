@@ -23,6 +23,7 @@ export const logger = {
 		if (config.params && Object.keys(config.params).length > 0) {
 			console.log("Params:", config.params);
 		}
+
 		if (config.data) {
 			console.log("Body:", config.data);
 		}

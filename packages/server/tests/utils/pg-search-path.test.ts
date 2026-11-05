@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 // db-manager is globally mocked in tests/setup.ts; this suite exercises the real one.
 vi.unmock("@/db-manager.js");
 
-type FakeClient = { query: (sql: string) => Promise<unknown> };
+type FakeClient = { query: (sql: string) => Promise<void> };
 
 class FakePool extends EventEmitter {
 	static instances: FakePool[] = [];
@@ -19,25 +19,28 @@ vi.mock("pg", () => ({
 	DatabaseError: class DatabaseError extends Error {},
 	default: { Pool: FakePool },
 }));
+
 vi.mock("@libsql/client", () => ({ createClient: vi.fn() }));
+
 vi.mock("ioredis", () => ({ Redis: class {} }));
+
 vi.mock("mongodb", () => ({ MongoClient: class {}, ObjectId: class {} }));
+
 vi.mock("mssql", () => ({ default: { ConnectionPool: class {} } }));
+
 vi.mock("mysql2/promise", () => ({ createPool: vi.fn() }));
 
 const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
-	const { DatabaseManager, getDbPool, openConnection } = await import(
-		"@/db-manager.js"
-	);
-	openConnection(
-		"test",
-		new DatabaseManager("postgresql://test:test@localhost:5432/testdb"),
-	);
+
+	const { DatabaseManager, getDbPool, openConnection } = await import("@/db-manager.js");
+
+	openConnection("test", new DatabaseManager("postgresql://test:test@localhost:5432/testdb"));
 	await getDbPool();
 	const pool = FakePool.instances[0];
 	expect(pool).toBeDefined();
+
 	return pool as FakePool;
 };
 
@@ -58,14 +61,17 @@ describe("PostgreSQL pool search_path", () => {
 		// busy client (deprecated by pg) or run against the default search_path.
 		const pool = await freshPool();
 		let finishSet = () => {};
+
 		const client = {
 			query: vi.fn(() => new Promise<void>((resolve) => (finishSet = resolve))),
 		};
+
 		let settled = false;
 
 		const hook = pool.config.onConnect(client).then(() => {
 			settled = true;
 		});
+
 		await new Promise((resolve) => setTimeout(resolve, 10));
 		expect(settled).toBe(false);
 
@@ -90,10 +96,13 @@ describe("PostgreSQL pool search_path", () => {
 		// A rejected onConnect makes pg-pool end the client and fail the checkout.
 		const pool = await freshPool();
 		const lines: string[] = [];
+
 		const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
 			lines.push(String(chunk));
+
 			return true;
 		});
+
 		const client = {
 			query: vi.fn().mockRejectedValue(new Error("permission denied for secret-host")),
 		};

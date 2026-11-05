@@ -22,6 +22,7 @@ const sqliteFile = async (name: string, table: string) => {
 	const client = createClient({ url: `file:${file}` });
 	await client.execute(`CREATE TABLE ${table} (id INTEGER PRIMARY KEY)`);
 	client.close();
+
 	return file;
 };
 
@@ -43,6 +44,7 @@ it("keeps a request without X-Connection-Id on the connection that was latest wh
 	vi.spyOn(adapter, "getTablesList").mockImplementation(async (db) => {
 		entered.resolve();
 		await resume.promise;
+
 		return getTablesList(db);
 	});
 

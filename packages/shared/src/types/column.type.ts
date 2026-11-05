@@ -175,6 +175,7 @@ export function standardizeDataTypeLabel(
 	if (!pgType) {
 		return StandardizedDataType.text; // Default fallback
 	}
+
 	const normalized = pgType.toLowerCase().trim();
 
 	// Numeric types
@@ -424,6 +425,7 @@ export function standardizeMysqlDataTypeLabel(
 	if (!mysqlDataType) {
 		return StandardizedDataType.text;
 	}
+
 	const normalized = mysqlDataType.toLowerCase().trim();
 	const fullType = columnType?.toLowerCase().trim() || "";
 
@@ -433,14 +435,22 @@ export function standardizeMysqlDataTypeLabel(
 
 	// Numeric types
 	if (normalized === "tinyint") return StandardizedDataType.tinyint;
+
 	if (normalized === "smallint") return StandardizedDataType.smallint;
+
 	if (normalized === "mediumint") return StandardizedDataType.mediumint;
+
 	if (normalized === "int" || normalized === "integer") return StandardizedDataType.int;
+
 	if (normalized === "bigint") return StandardizedDataType.bigint;
+
 	if (normalized === "decimal" || normalized === "numeric")
 		return StandardizedDataType.numeric;
+
 	if (normalized === "float" || normalized === "real") return StandardizedDataType.float;
+
 	if (normalized === "double") return StandardizedDataType.double;
+
 	if (normalized === "bit") return StandardizedDataType.bit;
 
 	// Boolean
@@ -448,18 +458,28 @@ export function standardizeMysqlDataTypeLabel(
 
 	// Text types
 	if (normalized === "char") return StandardizedDataType.char;
+
 	if (normalized === "varchar") return StandardizedDataType.varchar;
+
 	if (normalized === "tinytext") return StandardizedDataType.tinytext;
+
 	if (normalized === "text") return StandardizedDataType.text;
+
 	if (normalized === "mediumtext") return StandardizedDataType.mediumtext;
+
 	if (normalized === "longtext") return StandardizedDataType.longtext;
 
 	// Binary types
 	if (normalized === "binary") return StandardizedDataType.binary;
+
 	if (normalized === "varbinary") return StandardizedDataType.varbinary;
+
 	if (normalized === "tinyblob") return StandardizedDataType.tinyblob;
+
 	if (normalized === "blob") return StandardizedDataType.blob;
+
 	if (normalized === "mediumblob") return StandardizedDataType.mediumblob;
+
 	if (normalized === "longblob") return StandardizedDataType.longblob;
 
 	// JSON
@@ -467,13 +487,18 @@ export function standardizeMysqlDataTypeLabel(
 
 	// Date/time types
 	if (normalized === "date") return StandardizedDataType.date;
+
 	if (normalized === "time") return StandardizedDataType.time;
+
 	if (normalized === "datetime") return StandardizedDataType.datetime;
+
 	if (normalized === "timestamp") return StandardizedDataType.timestamp;
+
 	if (normalized === "year") return StandardizedDataType.year;
 
 	// Complex types
 	if (normalized === "enum") return StandardizedDataType.enum;
+
 	if (normalized === "set") return StandardizedDataType.set;
 
 	// Default
@@ -537,17 +562,25 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 	if (!mssqlDataType) {
 		return StandardizedDataType.text;
 	}
+
 	const normalized = mssqlDataType.toLowerCase().trim();
 
 	// Numeric types
 	if (normalized === "tinyint") return StandardizedDataType.tinyint;
+
 	if (normalized === "smallint") return StandardizedDataType.smallint;
+
 	if (normalized === "int") return StandardizedDataType.int;
+
 	if (normalized === "bigint") return StandardizedDataType.bigint;
+
 	if (normalized === "decimal" || normalized === "numeric")
 		return StandardizedDataType.numeric;
+
 	if (normalized === "float") return StandardizedDataType.float;
+
 	if (normalized === "real") return StandardizedDataType.float;
+
 	if (normalized === "money" || normalized === "smallmoney") return StandardizedDataType.money;
 
 	// Boolean
@@ -555,15 +588,22 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 
 	// Text types
 	if (normalized === "char") return StandardizedDataType.char;
+
 	if (normalized === "varchar") return StandardizedDataType.varchar;
+
 	if (normalized === "text") return StandardizedDataType.text;
+
 	if (normalized === "nchar") return StandardizedDataType.char;
+
 	if (normalized === "nvarchar") return StandardizedDataType.varchar;
+
 	if (normalized === "ntext") return StandardizedDataType.text;
 
 	// Binary types
 	if (normalized === "binary") return StandardizedDataType.binary;
+
 	if (normalized === "varbinary") return StandardizedDataType.varbinary;
+
 	if (normalized === "image") return StandardizedDataType.blob;
 
 	// UUID
@@ -571,14 +611,20 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 
 	// Date/time types
 	if (normalized === "date") return StandardizedDataType.date;
+
 	if (normalized === "time") return StandardizedDataType.time;
+
 	if (normalized === "datetime") return StandardizedDataType.datetime;
+
 	if (normalized === "datetime2") return StandardizedDataType.datetime;
+
 	if (normalized === "smalldatetime") return StandardizedDataType.datetime;
+
 	if (normalized === "datetimeoffset") return StandardizedDataType.timestamptz;
 
 	// JSON and XML
 	if (normalized === "json") return StandardizedDataType.json;
+
 	if (normalized === "xml") return StandardizedDataType.xml;
 
 	// Default
@@ -593,6 +639,7 @@ export function mapSqliteToDataType(sqliteType: string): DataTypes {
 	const normalized = sqliteType?.toLowerCase().trim() || "";
 
 	if (normalized === "boolean" || normalized === "bool") return DataTypes.boolean;
+
 	if (normalized === "json") return DataTypes.json;
 
 	if (
@@ -628,18 +675,24 @@ export function standardizeSqliteDataTypeLabel(sqliteType: string): Standardized
 	const normalized = sqliteType?.toLowerCase().trim() || "";
 
 	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
+
 	if (normalized === "bigint" || normalized.startsWith("bigint("))
 		return StandardizedDataType.bigint;
+
 	if (normalized === "smallint" || normalized.startsWith("smallint("))
 		return StandardizedDataType.smallint;
+
 	if (normalized === "tinyint" || normalized.startsWith("tinyint("))
 		return StandardizedDataType.tinyint;
+
 	if (normalized === "mediumint" || normalized.startsWith("mediumint("))
 		return StandardizedDataType.mediumint;
+
 	if (normalized.includes("int")) return StandardizedDataType.int;
 
 	if (normalized === "real" || normalized === "float" || normalized.startsWith("float("))
 		return StandardizedDataType.float;
+
 	if (
 		normalized === "double" ||
 		normalized === "double precision" ||
@@ -659,16 +712,21 @@ export function standardizeSqliteDataTypeLabel(sqliteType: string): Standardized
 	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
 
 	if (normalized === "text" || normalized === "clob") return StandardizedDataType.text;
+
 	if (normalized === "varchar" || normalized.startsWith("varchar("))
 		return StandardizedDataType.varchar;
+
 	if (normalized === "char" || normalized.startsWith("char("))
 		return StandardizedDataType.char;
 
 	if (normalized === "json") return StandardizedDataType.json;
 
 	if (normalized === "date") return StandardizedDataType.date;
+
 	if (normalized === "time") return StandardizedDataType.time;
+
 	if (normalized === "datetime") return StandardizedDataType.datetime;
+
 	if (normalized === "timestamp") return StandardizedDataType.timestamp;
 
 	if (normalized === "blob") return StandardizedDataType.blob;
@@ -692,12 +750,17 @@ export function mapDuckdbToDataType(duckdbType: string): DataTypes {
 	) {
 		return DataTypes.json;
 	}
+
 	if (normalized === "boolean" || normalized === "bool") return DataTypes.boolean;
+
 	if (normalized.startsWith("enum")) return DataTypes.enum;
+
 	if (normalized === "interval") return DataTypes.text;
+
 	if (normalized === "date" || normalized.startsWith("time") || normalized === "datetime") {
 		return DataTypes.date;
 	}
+
 	if (
 		normalized.includes("int") ||
 		normalized === "float" ||
@@ -720,6 +783,7 @@ export function standardizeDuckdbDataTypeLabel(duckdbType: string): Standardized
 	const normalized = duckdbType?.toLowerCase().trim() || "";
 
 	if (normalized.endsWith("]")) return StandardizedDataType.array;
+
 	if (
 		normalized.startsWith("struct") ||
 		normalized.startsWith("map") ||
@@ -728,34 +792,48 @@ export function standardizeDuckdbDataTypeLabel(duckdbType: string): Standardized
 	) {
 		return StandardizedDataType.json;
 	}
+
 	if (normalized.startsWith("enum")) return StandardizedDataType.enum;
+
 	if (normalized === "interval") return StandardizedDataType.interval;
 
 	if (normalized === "tinyint" || normalized === "utinyint")
 		return StandardizedDataType.tinyint;
+
 	if (normalized === "smallint" || normalized === "usmallint")
 		return StandardizedDataType.smallint;
+
 	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
+
 	if (normalized.includes("int") || normalized === "bignum")
 		return StandardizedDataType.bigint;
+
 	if (normalized.startsWith("decimal") || normalized.startsWith("numeric"))
 		return StandardizedDataType.numeric;
+
 	if (normalized === "float" || normalized === "real") return StandardizedDataType.float;
+
 	if (normalized === "double") return StandardizedDataType.double;
 
 	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
+
 	if (normalized === "varchar" || normalized.startsWith("varchar("))
 		return StandardizedDataType.varchar;
+
 	if (normalized === "uuid") return StandardizedDataType.uuid;
 
 	if (normalized === "date") return StandardizedDataType.date;
+
 	if (normalized === "timestamp with time zone" || normalized === "timestamptz")
 		return StandardizedDataType.timestamptz;
+
 	if (normalized.startsWith("timestamp") || normalized === "datetime")
 		return StandardizedDataType.timestamp;
+
 	if (normalized.startsWith("time")) return StandardizedDataType.time;
 
 	if (normalized === "blob" || normalized === "bytea") return StandardizedDataType.blob;
+
 	if (normalized === "bit" || normalized === "bitstring") return StandardizedDataType.bit;
 
 	return StandardizedDataType.text;
@@ -769,8 +847,11 @@ export function mapOracleToDataType(oracleType: string): DataTypes {
 	const normalized = oracleType?.toLowerCase().trim() || "";
 
 	if (normalized === "boolean") return DataTypes.boolean;
+
 	if (normalized === "json") return DataTypes.json;
+
 	if (normalized === "date" || normalized.startsWith("timestamp")) return DataTypes.date;
+
 	if (
 		normalized.startsWith("number") ||
 		normalized.startsWith("float") ||
@@ -791,34 +872,47 @@ export function standardizeOracleDataTypeLabel(oracleType: string): Standardized
 	const normalized = oracleType?.toLowerCase().trim() || "";
 
 	if (normalized === "boolean") return StandardizedDataType.boolean;
+
 	if (normalized === "json") return StandardizedDataType.json;
+
 	if (normalized === "xmltype") return StandardizedDataType.xml;
 
 	if (normalized === "integer") return StandardizedDataType.int;
 	const integer = normalized.match(/^number\((\d+)(?:,0)?\)$/);
+
 	if (integer) {
 		const precision = Number(integer[1]);
+
 		if (precision <= 4) return StandardizedDataType.smallint;
+
 		if (precision <= 10) return StandardizedDataType.int;
+
 		if (precision <= 19) return StandardizedDataType.bigint;
 	}
+
 	if (normalized.startsWith("number")) return StandardizedDataType.numeric;
+
 	if (normalized === "binary_float") return StandardizedDataType.float;
+
 	if (normalized === "binary_double" || normalized.startsWith("float"))
 		return StandardizedDataType.double;
 
 	if (normalized.startsWith("varchar") || normalized.startsWith("nvarchar"))
 		return StandardizedDataType.varchar;
+
 	if (normalized.startsWith("char") || normalized.startsWith("nchar"))
 		return StandardizedDataType.char;
 
 	if (normalized.startsWith("timestamp") && normalized.endsWith("time zone"))
 		return StandardizedDataType.timestamptz;
+
 	if (normalized === "date" || normalized.startsWith("timestamp"))
 		return StandardizedDataType.timestamp;
+
 	if (normalized.startsWith("interval")) return StandardizedDataType.interval;
 
 	if (normalized === "blob" || normalized === "long raw") return StandardizedDataType.blob;
+
 	if (normalized.startsWith("raw")) return StandardizedDataType.varbinary;
 
 	return StandardizedDataType.text;
@@ -827,8 +921,10 @@ export function standardizeOracleDataTypeLabel(oracleType: string): Standardized
 /** Strips the `Nullable(...)` and `LowCardinality(...)` wrappers, which do not change how a value renders. */
 export function unwrapClickhouseType(clickhouseType: string): string {
 	let type = clickhouseType.trim();
+
 	for (;;) {
 		const match = type.match(/^(?:Nullable|LowCardinality)\((.*)\)$/);
+
 		if (!match?.[1]) return type;
 		type = match[1].trim();
 	}
@@ -841,10 +937,15 @@ export function mapClickhouseToDataType(clickhouseType: string): DataTypes {
 	const type = unwrapClickhouseType(clickhouseType);
 
 	if (type.startsWith("Array(")) return DataTypes.array;
+
 	if (type.startsWith("Enum8(") || type.startsWith("Enum16(")) return DataTypes.enum;
+
 	if (type === "Bool") return DataTypes.boolean;
+
 	if (/^(Date|Date32|DateTime|DateTime64|Time|Time64)\b/.test(type)) return DataTypes.date;
+
 	if (/^(U?Int\d+|Float\d+|BFloat16|Decimal\d*)\b/.test(type)) return DataTypes.number;
+
 	if (/^(JSON|Object|Map|Tuple|Variant|Dynamic|Nested)\b/.test(type)) return DataTypes.json;
 
 	return DataTypes.text;
@@ -859,25 +960,38 @@ export function standardizeClickhouseDataTypeLabel(
 	const type = unwrapClickhouseType(clickhouseType);
 
 	if (type.startsWith("Array(")) return StandardizedDataType.array;
+
 	if (type.startsWith("Enum8(") || type.startsWith("Enum16("))
 		return StandardizedDataType.enum;
+
 	if (type === "Bool") return StandardizedDataType.boolean;
 
 	if (/^U?Int8$/.test(type)) return StandardizedDataType.tinyint;
+
 	if (/^U?Int16$/.test(type)) return StandardizedDataType.smallint;
+
 	if (/^U?Int32$/.test(type)) return StandardizedDataType.int;
+
 	if (/^U?Int(64|128|256)$/.test(type)) return StandardizedDataType.bigint;
+
 	if (type === "Float32" || type === "BFloat16") return StandardizedDataType.float;
+
 	if (type === "Float64") return StandardizedDataType.double;
+
 	if (type.startsWith("Decimal")) return StandardizedDataType.numeric;
 
 	if (type.startsWith("FixedString(")) return StandardizedDataType.char;
+
 	if (type === "UUID") return StandardizedDataType.uuid;
+
 	if (type === "IPv4" || type === "IPv6") return StandardizedDataType.inet;
 
 	if (type === "Date" || type === "Date32") return StandardizedDataType.date;
+
 	if (type.startsWith("DateTime64")) return StandardizedDataType.timestamp;
+
 	if (type.startsWith("DateTime")) return StandardizedDataType.datetime;
+
 	if (type.startsWith("Time")) return StandardizedDataType.time;
 
 	if (/^(JSON|Object|Map|Tuple|Variant|Dynamic|Nested)\b/.test(type))

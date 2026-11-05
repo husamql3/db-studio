@@ -19,7 +19,7 @@ vi.mock("@sentry/node", () => ({
 	getClient: vi.fn(),
 	init: vi.fn(),
 	isInitialized: vi.fn(() => false),
-	startSpan: vi.fn((_options, callback: () => unknown) => callback()),
+	startSpan: vi.fn(<T>(_options: never, callback: () => T) => callback()),
 }));
 
 describe("observability privacy boundary", () => {

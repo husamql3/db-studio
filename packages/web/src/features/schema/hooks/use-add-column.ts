@@ -39,6 +39,7 @@ export const useAddColumn = ({
 				data: normalizeAddColumnPayload(data),
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
@@ -53,6 +54,7 @@ export const useAddColumn = ({
 				}),
 			]);
 			closeOverlay("schema.add-column");
+
 			if (dbType) posthogAnalytics.capture("column_added", { db_type: dbType });
 		},
 	});

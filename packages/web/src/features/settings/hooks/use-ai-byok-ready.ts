@@ -9,6 +9,7 @@ export const useAiByokReady = () => {
 		void aiByok.ready().then(() => {
 			if (active) setIsReady(true);
 		});
+
 		return () => {
 			active = false;
 		};

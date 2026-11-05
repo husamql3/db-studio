@@ -24,6 +24,7 @@ export const ConnectionMenu = ({ databasesCount }: { databasesCount: number }) =
 	const { connectSaved } = useConnect();
 	const { connectionInfo } = useDatabaseConnectionInfo();
 	const current = connections.find((c) => c.id === active?.id);
+
 	const name =
 		current?.name ?? (active ? DATABASE_ENGINES[active.dbType].label : "Not connected");
 
@@ -81,6 +82,7 @@ export const ConnectionMenu = ({ databasesCount }: { databasesCount: number }) =
 					</p>
 					{connections.slice(0, RECENT_COUNT).map((connection) => {
 						const isActive = connection.id === active?.id;
+
 						return (
 							<DropdownMenuItem
 								key={connection.id}

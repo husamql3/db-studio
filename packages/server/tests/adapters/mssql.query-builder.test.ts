@@ -34,7 +34,9 @@ describe("MSSQL query builder", () => {
 		expect(result.clause).toContain("[deleted_at] IS NULL");
 		expect(result.values).toEqual(["active", "50", "18", "%ada%", "%bot%", "user", "true"]);
 		expect(result.nextIdx).toBe(9);
-		expect(buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }], 3)).toEqual({
+		expect(
+			buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }], 3),
+		).toEqual({
 			clause: "",
 			values: [],
 			nextIdx: 3,

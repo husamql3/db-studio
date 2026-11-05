@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const AI_PROVIDERS = ["gemini", "openai", "anthropic", "grok", "openrouter"] as const;
 export const aiProviderSchema = z.enum(AI_PROVIDERS);
+
 export type AiProvider = z.infer<typeof aiProviderSchema>;
 
 export const AI_PROVIDER_OPTIONS: ReadonlyArray<{

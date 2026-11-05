@@ -19,6 +19,7 @@ export const FieldRow = ({
 	canRemove: boolean;
 }) => {
 	const { control } = useFormContext<AddTableFormData>();
+
 	const isPrimaryKey = useWatch({
 		control,
 		name: `fields.${index}.isPrimaryKey`,

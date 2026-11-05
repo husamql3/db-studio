@@ -1,13 +1,13 @@
-import { env } from "cloudflare:workers";
 import { LIMIT } from "@db-studio/shared/constants";
 import { AI_PROVIDER_OPTIONS, type AiProvider } from "@db-studio/shared/types";
 import { chat, EventType, type ModelMessage, toServerSentEventsResponse } from "@tanstack/ai";
-import { getByokKey } from "@tanstack/ai/byok/server";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { createGrokText } from "@tanstack/ai-grok";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 import { createOpenRouterText } from "@tanstack/ai-openrouter";
+import { getByokKey } from "@tanstack/ai/byok/server";
+import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createProxyLimiter, keyGenerator } from "./limit";
@@ -51,6 +51,7 @@ app.post("/chat", async (c) => {
 	let provider: AiProvider | undefined;
 	let model: string | undefined;
 	let byok = false;
+
 	try {
 		const body = await c.req.json<{
 			messages: ModelMessage[];
@@ -59,14 +60,17 @@ app.post("/chat", async (c) => {
 			provider: AiProvider;
 			model: string;
 		}>();
+
 		const { messages, systemPrompt, conversationId } = body;
 		provider = body.provider;
 		model = body.model;
+
 		if (!messages || !Array.isArray(messages)) {
 			return c.json({ error: "Invalid request: messages array required" }, 400);
 		}
 
 		const providerOption = AI_PROVIDER_OPTIONS.find((option) => option.id === provider);
+
 		if (!providerOption?.models.some((option) => option.id === model)) {
 			return c.json({ error: "Unsupported AI provider or model" }, 400);
 		}
@@ -74,6 +78,7 @@ app.post("/chat", async (c) => {
 		const byokKey = getByokKey(c.req.raw, provider);
 		byok = Boolean(byokKey);
 		const apiKey = byokKey ?? (provider === "gemini" ? env.GEMINI_API_KEY : null);
+
 		if (!apiKey) {
 			return c.json({ error: `An API key is required for ${providerOption.label}` }, 401);
 		}
@@ -113,6 +118,7 @@ app.post("/chat", async (c) => {
 		// read, after this handler has returned, and usually as a RUN_ERROR chunk
 		// rather than a throw, so it has to be logged from inside the stream.
 		const failure = { provider, model, byok: String(byok) };
+
 		const logged = (async function* () {
 			try {
 				for await (const chunk of stream) {
@@ -122,6 +128,7 @@ app.post("/chat", async (c) => {
 							error_code: chunk.code,
 						});
 					}
+
 					yield chunk;
 				}
 			} catch (error) {
@@ -141,6 +148,7 @@ app.post("/chat", async (c) => {
 			byok: String(byok),
 			error_type: errorType(error),
 		});
+
 		return c.json({ error: "AI request failed", requestId: c.get("requestId") }, 500);
 	}
 });
@@ -169,6 +177,7 @@ app.get("/chat/limit", async (c) => {
 		});
 	} catch (error) {
 		writeLog(c, "error", "chat_limit_failed", { error_type: errorType(error) });
+
 		return c.json({ limit: LIMIT, used: LIMIT, remaining: 0 });
 	}
 });

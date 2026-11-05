@@ -15,6 +15,7 @@ export const useEditScope = (
 ): EditScope => {
 	const schemaName = useTableSchemaName();
 	const { selectedDatabase } = useDatabaseStore();
+
 	return useMemo(
 		() => ({
 			id: JSON.stringify([selectedDatabase, schemaName ?? null, tableName]),

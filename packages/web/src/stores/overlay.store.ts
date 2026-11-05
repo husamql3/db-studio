@@ -49,12 +49,14 @@ export const useOverlayStore = create<OverlayState>()((set, get) => ({
 					openOverlays: [...state.openOverlays.filter((o) => o !== id), id],
 				};
 			}
+
 			return { openOverlays: [...state.openOverlays, id] };
 		}),
 
 	closeOverlay: (id?) =>
 		set((state) => {
 			if (!id) return { openOverlays: state.openOverlays.slice(0, -1) };
+
 			return { openOverlays: state.openOverlays.filter((o) => o !== id) };
 		}),
 
@@ -65,6 +67,7 @@ export const useOverlayStore = create<OverlayState>()((set, get) => ({
 			if (state.openOverlays.includes(id)) {
 				return { openOverlays: state.openOverlays.filter((o) => o !== id) };
 			}
+
 			return { openOverlays: [...state.openOverlays, id] };
 		}),
 

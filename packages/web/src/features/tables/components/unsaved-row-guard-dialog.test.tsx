@@ -15,6 +15,7 @@ const blocker = vi.hoisted(() => ({
 vi.mock("@tanstack/react-router", () => ({
 	useBlocker: (opts: { shouldBlockFn: () => boolean }) => {
 		blocker.shouldBlockFn = opts.shouldBlockFn;
+
 		return { status: blocker.status, proceed: blocker.proceed, reset: blocker.reset };
 	},
 }));

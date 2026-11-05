@@ -8,7 +8,7 @@ import {
 } from "@db-studio/shared/types";
 import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import type { Redis, RedisOptions } from "ioredis";
-import type { MongoClient } from "mongodb";
+import type { MongoClient, ObjectId } from "mongodb";
 import type { config as MssqlConfig, ConnectionPool as MssqlPool } from "mssql";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import type { Pool as OraclePool } from "oracledb";
@@ -67,6 +67,7 @@ export class DatabaseManager {
 	) {
 		this.baseConfig = databaseUrl ? this.parseConfig(databaseUrl) : null;
 		const engine = this.baseConfig && DATABASE_ENGINES[this.baseConfig.dbType];
+
 		if (readOnly && engine && !engine.readOnly) {
 			throw new Error(`${engine.label} connections cannot be opened read-only`);
 		}
@@ -78,10 +79,13 @@ export class DatabaseManager {
 	private detectDbType(url: URL): DatabaseTypeSchema {
 		const protocol = url.protocol.replace(":", "");
 		const dbType = dbTypeFromProtocol(protocol);
+
 		if (dbType) return dbType;
+
 		const supported = Object.values(DATABASE_ENGINES)
 			.map(({ label, protocols }) => `${label} (${protocols.join(", ")})`)
 			.join(", ");
+
 		throw new Error(`Unsupported database type: ${protocol}. Supported types: ${supported}.`);
 	}
 
@@ -91,6 +95,7 @@ export class DatabaseManager {
 	private parseConfig(databaseUrl: string): NonNullable<DatabaseManager["baseConfig"]> {
 		// File-based engines (sqlite://, duckdb://) carry a file path that doesn't parse well as a standard URL
 		const fileDbType = dbTypeFromProtocol(databaseUrl.split("://")[0]);
+
 		if (fileDbType && DATABASE_ENGINES[fileDbType].defaultPort === null) {
 			return {
 				url: databaseUrl,
@@ -104,13 +109,16 @@ export class DatabaseManager {
 
 		let driverUrl: string;
 		let url: URL;
+
 		try {
 			driverUrl = toDriverUrl(databaseUrl);
 			url = new URL(driverUrl);
 		} catch {
 			throw new Error("The connection URL is not a valid URL");
 		}
+
 		const detectedType = this.detectDbType(url);
+
 		return {
 			url: driverUrl,
 			host: url.hostname,
@@ -125,6 +133,7 @@ export class DatabaseManager {
 		if (!this.baseConfig) {
 			throw new HTTPException(409, { message: "No database is connected" });
 		}
+
 		return this.baseConfig;
 	}
 
@@ -153,8 +162,10 @@ export class DatabaseManager {
 
 		try {
 			const url = new URL(config.url);
+
 			// The name is literal; encoded, the drivers decode it back (`sales%41` stays `sales%41`).
 			if (database) url.pathname = `/${encodeURIComponent(database)}`;
+
 			return url.toString();
 		} catch (error) {
 			throw new Error(
@@ -169,13 +180,16 @@ export class DatabaseManager {
 	 */
 	getSqliteClient(): Promise<SqliteClient> {
 		const { url, dbType } = this.config();
+
 		if (dbType !== "sqlite") {
 			throw new Error("The connection is not a sqlite://, libsql:// or d1:// connection");
 		}
+
 		this.sqliteClient ??= this.openSqliteClient(url).catch((error: unknown) => {
 			this.sqliteClient = null;
 			throw error;
 		});
+
 		return this.sqliteClient;
 	}
 
@@ -184,18 +198,22 @@ export class DatabaseManager {
 		// sqlite:///abs/path.db (or a relative sqlite://./path.db) becomes a file: URL and
 		// sqlite://:memory: stays in memory; libsql:// URLs keep their authToken and tls query params.
 		const sqlitePath = url.startsWith("sqlite://") ? url.slice("sqlite://".length) : null;
+
 		const libsqlUrl =
 			sqlitePath === null
 				? url
 				: sqlitePath === ":memory:"
 					? sqlitePath
 					: pathToFileURL(resolve(sqlitePath)).href;
+
 		const { createClient } = await loadDriver("sqlite");
 		const client = createClient({ url: libsqlUrl, intMode: "bigint" });
+
 		if (client.protocol === "file") {
 			await client.execute("PRAGMA journal_mode = WAL");
 			await client.execute("PRAGMA foreign_keys = ON");
 		}
+
 		return fromLibsql(client);
 	}
 
@@ -205,6 +223,7 @@ export class DatabaseManager {
 	async closeSqliteClient(): Promise<void> {
 		const client = this.sqliteClient;
 		this.sqliteClient = null;
+
 		if (client) (await client.catch(() => null))?.close();
 	}
 
@@ -216,14 +235,17 @@ export class DatabaseManager {
 	withDuckdbConnection<T>(fn: (connection: DuckDBConnection) => Promise<T>): Promise<T> {
 		const run = this.duckdbQueue.then(async () => fn((await this.openDuckdb()).connection));
 		this.duckdbQueue = run.catch(() => {});
+
 		return run;
 	}
 
 	private openDuckdb() {
 		const config = this.config();
+
 		if (config.dbType !== "duckdb") {
 			throw new Error("The connection is not a duckdb:// connection");
 		}
+
 		if (!this.duckdb) {
 			const filePath = config.url.replace(/^duckdb:\/\//, "");
 			this.duckdb = (async () => {
@@ -232,23 +254,28 @@ export class DatabaseManager {
 					// table with a nextval() default from the WAL, so a process that exits before the
 					// next checkpoint leaves a file that no longer opens.
 					const { DuckDBInstance } = await loadDriver("duckdb");
+
 					const instance = await DuckDBInstance.create(filePath, {
 						checkpoint_threshold: "0b",
 						...(this.readOnly && { access_mode: "READ_ONLY" }),
 					});
+
 					return { instance, connection: await instance.connect() };
 				} catch (e) {
 					this.duckdb = null;
 					const message = e instanceof Error ? e.message : String(e);
+
 					if (message.includes("Could not set lock on file")) {
 						throw new Error(
 							`The DuckDB file "${filePath}" is locked by another process. Close the other program using it and try again. (${message})`,
 						);
 					}
+
 					throw e;
 				}
 			})();
 		}
+
 		return this.duckdb;
 	}
 
@@ -266,9 +293,11 @@ export class DatabaseManager {
 	 */
 	getOraclePool(): Promise<OraclePool> {
 		const { url, host, port, user, password, dbType } = this.config();
+
 		if (dbType !== "oracle") {
 			throw new Error("The connection is not an oracle:// connection");
 		}
+
 		const service = decodeURIComponent(new URL(url).pathname.slice(1));
 		this.oraclePool ??= loadDriver("oracle")
 			.then((oracledb) =>
@@ -296,6 +325,7 @@ export class DatabaseManager {
 				this.oraclePool = null;
 				throw error;
 			});
+
 		return this.oraclePool;
 	}
 
@@ -403,6 +433,7 @@ export class DatabaseManager {
 				// Enable multiple statements for raw query support
 				multipleStatements: false,
 			});
+
 			// mysql2 queues commands per connection, so this runs before the connection's first
 			// query; a connection that cannot be made read-only is dropped instead of writing.
 			if (this.readOnly) {
@@ -476,9 +507,11 @@ export class DatabaseManager {
 		const { ClickHouseLogLevel, createClient } = await loadDriver("clickhouse");
 
 		const existing = this.clickhouseClients.get(dbName);
+
 		if (existing) return existing;
 
 		const tls = url.protocol === "clickhouses:";
+
 		const client = createClient({
 			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
 			username: config.user || "default",
@@ -495,7 +528,9 @@ export class DatabaseManager {
 			// Failures surface through the adapter's error mapping; the client's own log would duplicate them.
 			log: { level: ClickHouseLogLevel.OFF },
 		});
+
 		this.clickhouseClients.set(dbName, client);
+
 		return client;
 	}
 
@@ -507,6 +542,7 @@ export class DatabaseManager {
 			const { url } = this.config();
 			const { MongoClient } = await loadDriver("mongodb");
 			const nextClient = new MongoClient(url);
+
 			try {
 				await nextClient.connect();
 				this.mongoClient = nextClient;
@@ -516,9 +552,11 @@ export class DatabaseManager {
 				} catch {
 					// ignore close errors
 				}
+
 				throw error;
 			}
 		}
+
 		return this.mongoClient;
 	}
 
@@ -536,6 +574,7 @@ export class DatabaseManager {
 	 */
 	async getMongoDb(dbName?: string) {
 		const mongoClient = await this.getMongoClient();
+
 		return mongoClient.db(dbName ?? this.getMongoDbName());
 	}
 
@@ -544,6 +583,7 @@ export class DatabaseManager {
 	 */
 	async getRedisClient(dbIndex?: number): Promise<Redis> {
 		const config = this.config();
+
 		if (config.dbType !== "redis") {
 			throw new Error("The connection is not a redis:// connection");
 		}
@@ -551,9 +591,11 @@ export class DatabaseManager {
 		const index = dbIndex ?? this.getRedisDefaultDb();
 
 		const existing = this.redisClients.get(index);
+
 		if (existing) return existing;
 
 		const url = new URL(config.url);
+
 		const options: RedisOptions = {
 			host: config.host,
 			port: config.port,
@@ -563,30 +605,39 @@ export class DatabaseManager {
 			enableReadyCheck: true,
 			connectTimeout: 2000,
 		};
+
 		if (config.user) options.username = config.user;
+
 		if (config.password) options.password = config.password;
+
 		if (url.protocol === "rediss:") options.tls = {};
 
 		const { Redis } = await loadDriver("redis");
 		const client = new Redis(options);
+
 		try {
 			await client.connect();
+
 			if (!this.redisClusterChecked) {
 				const info = await client.info("server");
+
 				if (/^redis_mode:(cluster|sentinel)\b/m.test(info)) {
 					await client.quit().catch(() => {});
 					throw new Error(
 						"Redis cluster and Sentinel modes are not supported. Use a standalone redis:// connection.",
 					);
 				}
+
 				const version = info.match(/^redis_version:([^\r\n]+)/m)?.[1];
 				const [major = 0, minor = 0] = version?.split(".").map(Number) ?? [];
+
 				if (major < 6 || (major === 6 && minor < 2)) {
 					await client.quit().catch(() => {});
 					throw new Error(
 						`Redis 6.2 or newer is required. Connected server reports ${version ?? "an unknown version"}.`,
 					);
 				}
+
 				this.redisClusterChecked = true;
 			}
 		} catch (error) {
@@ -595,12 +646,14 @@ export class DatabaseManager {
 		}
 
 		this.redisClients.set(index, client);
+
 		return client;
 	}
 
 	async getIsolatedRedisClient(dbIndex?: number): Promise<Redis> {
 		const client = (await this.getRedisClient(dbIndex)).duplicate();
 		await client.connect();
+
 		return client;
 	}
 
@@ -609,11 +662,14 @@ export class DatabaseManager {
 	 */
 	getRedisDefaultDb(): number {
 		if (!this.baseConfig) return 0;
+
 		try {
 			const url = new URL(this.baseConfig.url);
 			const path = url.pathname.replace(/^\//, "");
+
 			if (!path) return 0;
 			const parsed = Number.parseInt(path, 10);
+
 			return Number.isFinite(parsed) ? parsed : 0;
 		} catch {
 			return 0;
@@ -628,29 +684,36 @@ export class DatabaseManager {
 			await pool.end();
 			writeOperationalLog("info", "db_pool_closed", { db_type: "pg" });
 		});
+
 		const mysqlClosePromises = Array.from(this.mysqlPools.values()).map(async (pool) => {
 			await pool.end();
 			writeOperationalLog("info", "db_pool_closed", { db_type: "mysql" });
 		});
+
 		const mssqlClosePromises = Array.from(this.mssqlPools.values()).map(async (pool) => {
 			await pool.close();
 			writeOperationalLog("info", "db_pool_closed", { db_type: "mssql" });
 		});
+
 		await Promise.all([...pgClosePromises, ...mysqlClosePromises, ...mssqlClosePromises]);
 		this.pgPools.clear();
 		this.mysqlPools.clear();
 		this.mssqlPools.clear();
+
 		if (this.mongoClient) {
 			await this.mongoClient.close();
 			this.mongoClient = null;
 		}
+
 		await this.closeSqliteClient();
 		await this.closeDuckdb();
 		await this.closeOraclePool();
+
 		const redisClosePromises = Array.from(this.redisClients.values()).map(async (client) => {
 			await client.quit().catch(() => {});
 			writeOperationalLog("info", "db_pool_closed", { db_type: "redis" });
 		});
+
 		await Promise.all(redisClosePromises);
 		this.redisClients.clear();
 		this.redisClusterChecked = false;
@@ -667,9 +730,11 @@ export class DatabaseManager {
  * shortcut: a connection stays open until the server stops, add idle eviction if users open many.
  */
 const connections = new Map<string, DatabaseManager>();
+
 /** Serves a request that names no connection: the CLI's `--database-url`, curl, scripts. */
 let latestId: string | null = null;
 const notConnected = new DatabaseManager();
+
 /** Closed while this server runs: a tab naming one is told it is gone, not handed the latest. */
 const closedIds = new Set<string>();
 
@@ -678,6 +743,7 @@ export const closeConnection = async (id: string): Promise<void> => {
 	const manager = connections.get(id);
 	connections.delete(id);
 	closedIds.add(id);
+
 	if (latestId === id) latestId = null;
 	await manager?.closeAll();
 };
@@ -699,7 +765,9 @@ export const latestConnectionId = (): string | null => latestId;
  */
 export const requestConnectionId = (): string | null => {
 	const sent = currentConnectionId();
+
 	if (sent && closedIds.has(sent)) return null;
+
 	return sent && connections.has(sent) ? sent : latestId;
 };
 
@@ -823,10 +891,12 @@ export const isValidObjectId = (value: unknown): value is string => {
 	return typeof value === "string" && loadedDriver("mongodb").ObjectId.isValid(value);
 };
 
-export const coerceObjectId = (value: unknown): unknown => {
-	const { ObjectId } = loadedDriver("mongodb");
-	if (typeof value === "string" && ObjectId.isValid(value)) {
-		return new ObjectId(value);
+export const coerceObjectId = <T>(value: T): T | ObjectId => {
+	const driver = loadedDriver("mongodb");
+
+	if (typeof value === "string" && driver.ObjectId.isValid(value)) {
+		return new driver.ObjectId(value);
 	}
+
 	return value;
 };

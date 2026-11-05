@@ -11,12 +11,14 @@ import {
 } from "../utils/grid-clipboard";
 
 type PastedChange = { rowData: TableRecord; columnId: string; value: unknown };
+
 type PasteProblem = {
 	rowNumber: number;
 	columnId: string;
 	text: string;
 	error: string;
 };
+
 export type PastePreview = {
 	changes: PastedChange[];
 	problems: PasteProblem[];
@@ -40,6 +42,7 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 		const range =
 			meta?.selection ??
 			(meta?.focusedCell && { anchor: meta.focusedCell, focus: meta.focusedCell });
+
 		if (
 			!range ||
 			meta?.editingCell ||
@@ -47,11 +50,14 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 		) {
 			return null;
 		}
+
 		const columns = table.getVisibleLeafColumns().filter((column) => column.id !== "select");
 		const index = (columnId: string) => columns.findIndex((column) => column.id === columnId);
 		const [a, b] = [index(range.anchor.columnId), index(range.focus.columnId)];
+
 		// The focused column may have been hidden since.
 		if (a < 0 || b < 0) return null;
+
 		return {
 			columns,
 			rows: table.getRowModel().rows,
@@ -65,6 +71,7 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 	// What the cell shows: its pending edit, or the stored value.
 	const currentValue = (rowData: TableRecord, columnId: string) => {
 		const pending = getUpdate(rowData, columnId, meta?.editScope);
+
 		return pending ? pending.newValue : rowData[columnId];
 	};
 
@@ -82,8 +89,10 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 
 	const onCopy = (event: ClipboardEvent<HTMLElement>) => {
 		const bounds = getBounds(event);
+
 		if (!bounds) return;
 		const columns = bounds.columns.slice(bounds.left, bounds.right + 1);
+
 		const lines = [
 			columns.map((column) => column.id),
 			...bounds.rows
@@ -92,6 +101,7 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 					columns.map((column) => formatCellValue(currentValue(row.original, column.id))),
 				),
 		];
+
 		event.clipboardData.setData("text/plain", toClipboardText(lines));
 		event.preventDefault();
 	};
@@ -99,15 +109,19 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 	const onPaste = (event: ClipboardEvent<HTMLElement>) => {
 		const bounds = getBounds(event);
 		const text = event.clipboardData.getData("text/plain");
+
 		if (!bounds || !text) return;
 		event.preventDefault();
+
 		if (meta?.canMutateRows === false) {
 			toast.error(meta.rowMutationReason ?? "This table can't be edited");
+
 			return;
 		}
 
 		const columns = bounds.columns.slice(bounds.left);
 		let cells = parseClipboardText(text);
+
 		// A range copied from this grid starts with its column names.
 		if (cells.length > 1 && cells[0].every((name, i) => name === columns[i]?.id)) {
 			cells = cells.slice(1);
@@ -118,13 +132,17 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 			const row = bounds.rows[bounds.top + r];
 			line.forEach((cellText, c) => {
 				const column = columns[c];
+
 				// Paste fills existing rows only; cells past the last row or column are dropped.
 				if (!row || !column) {
 					next.skipped++;
+
 					return;
 				}
+
 				if (formatCellValue(currentValue(row.original, column.id)) === cellText) return;
 				const result = coercePastedValue(cellText, column.columnDef.meta ?? {});
+
 				if ("error" in result) {
 					next.problems.push({
 						rowNumber: bounds.top + r + 1,
@@ -144,11 +162,15 @@ export const useGridClipboard = (table: Table<TableRecord>) => {
 
 		if (next.problems.length > 0) {
 			setPreview(next);
+
 			return;
 		}
+
 		stage(next.changes);
+
 		const skipped =
 			next.skipped > 0 ? `; ${plural(next.skipped, "cell")} outside the grid skipped` : "";
+
 		toast.success(`${plural(next.changes.length, "change")} staged${skipped}`);
 	};
 

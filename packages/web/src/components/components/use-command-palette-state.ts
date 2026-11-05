@@ -21,8 +21,10 @@ export const useCommandPaletteState = () => {
 		(isOpen: boolean) => {
 			if (isOpen) {
 				openOverlay("command-palette.root");
+
 				return;
 			}
+
 			closeOverlay("command-palette.root");
 			// Reset state when the dialog closes
 			setMode("all");
@@ -62,16 +64,20 @@ export const useCommandPaletteState = () => {
 			if (mode === "all" && value.startsWith(">")) {
 				switchToTablesMode();
 				setInputValue(value.slice(1));
+
 				return;
 			}
+
 			// Also detect "table " or "tables " as triggers
 			if (
 				mode === "all" &&
 				(value.toLowerCase() === "table " || value.toLowerCase() === "tables ")
 			) {
 				switchToTablesMode();
+
 				return;
 			}
+
 			setInputValue(value);
 		},
 		[mode, switchToTablesMode],

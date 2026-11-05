@@ -7,5 +7,6 @@ import { useDatabaseEngine } from "@/hooks/use-database-engine";
  */
 export const useIsSchemaless = (): boolean => {
 	const engine = useDatabaseEngine();
+
 	return engine !== undefined && engine.dataModel !== "relational";
 };

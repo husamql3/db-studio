@@ -4,10 +4,13 @@ import { type IndexInfoSchemaType, indexInfoSchema } from "@db-studio/shared/typ
 import { z } from "zod";
 
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("mongodb")) {
 	throw new Error("Set DATABASE_URL to a disposable MongoDB database");
 }
+
 const { createServer } = await import("../src/utils/create-server.js");
 const { getMongoClient, getMongoDb, getMongoDbName } = await import("../src/db-manager.js");
 const { app } = createServer();
@@ -21,11 +24,24 @@ let failed = false;
 // A failed index build names the build and the collection by UUID.
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
-const normalize = (value: unknown, key?: string): unknown => {
+// `undefined` stays: JSON.stringify drops it, as it did before.
+type Serializable =
+	| undefined
+	| null
+	| boolean
+	| number
+	| string
+	| Serializable[]
+	| { [key: string]: Serializable };
+
+const normalize = (value: unknown, key?: string): Serializable => {
 	if (key === "requestId") return "<requestId>";
+
 	if (typeof value === "string")
 		return value.replace(UUID, "<uuid>").replaceAll(`${db}.`, "<db>.");
+
 	if (Array.isArray(value)) return value.map((item) => normalize(item));
+
 	if (value && typeof value === "object") {
 		return Object.fromEntries(
 			Object.entries(value)
@@ -33,7 +49,16 @@ const normalize = (value: unknown, key?: string): unknown => {
 				.map(([k, v]) => [k, normalize(v, k)]),
 		);
 	}
-	return value;
+
+	if (
+		value === undefined ||
+		value === null ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	)
+		return value;
+
+	return String(value);
 };
 
 const call = async (method: string, path: string, body?: unknown) => {
@@ -47,19 +72,23 @@ const call = async (method: string, path: string, body?: unknown) => {
 			},
 		),
 	);
+
 	const json: unknown = await response.json();
+
 	return { status: response.status, json };
 };
 
 const request = async (name: string, method: string, path: string, body?: unknown) => {
 	const result = await call(method, path, body);
 	evidence[name] = { status: result.status, body: normalize(result.json) };
+
 	return result;
 };
 
 const list = async (name: string, target = collection): Promise<IndexInfoSchemaType[]> => {
 	const { status, json } = await request(name, "GET", `${target}/indexes`);
 	assert.equal(status, 200, JSON.stringify(json));
+
 	return listSchema.parse(json).data;
 };
 
@@ -109,10 +138,13 @@ try {
 			columns: ["status", "email"],
 			isUnique: false,
 		});
+
 		assert.equal(status, 200);
+
 		const index = (await list("list after compound")).find(
 			(candidate) => candidate.indexName === "e2e_status_email_idx",
 		);
+
 		assert.deepEqual(index, {
 			indexName: "e2e_status_email_idx",
 			columns: ["status", "email"],
@@ -129,10 +161,13 @@ try {
 			columns: ["address.city"],
 			isUnique: true,
 		});
+
 		assert.equal(status, 200);
+
 		const index = (await list("list after nested unique")).find(
 			(candidate) => candidate.indexName === "e2e_city_uidx",
 		);
+
 		assert.deepEqual(index?.columns, ["address.city"]);
 		assert.equal(index?.isUnique, true);
 		assert.equal(index?.kind, "index");
@@ -145,12 +180,15 @@ try {
 			columns: ["status", "email"],
 			isUnique: false,
 		});
+
 		assert.equal(identical.status, 409);
+
 		const sameName = await create("create same name other fields", {
 			indexName: "e2e_status_email_idx",
 			columns: ["email"],
 			isUnique: false,
 		});
+
 		assert.equal(sameName.status, 409);
 	});
 
@@ -160,6 +198,7 @@ try {
 			columns: ["status"],
 			isUnique: true,
 		});
+
 		assert.equal(status, 409);
 		const names = (await list("list after failed unique")).map((index) => index.indexName);
 		assert.ok(!names.includes("e2e_status_uidx"));
@@ -172,6 +211,7 @@ try {
 			isUnique: false,
 			method: "btree",
 		});
+
 		assert.equal(status, 400);
 	});
 
@@ -186,8 +226,10 @@ try {
 				columns: [path],
 				isUnique: false,
 			});
+
 			assert.equal(status, 400, path);
 		}
+
 		const names = (await list("list after invalid paths")).map((index) => index.indexName);
 		assert.ok(!names.includes("e2e_bad_idx"));
 	});
@@ -215,12 +257,15 @@ try {
 			"GET",
 			`${missingCollection}/indexes`,
 		);
+
 		assert.equal(listed.status, 404);
+
 		const created = await create(
 			"create on missing collection",
 			{ indexName: "e2e_missing_idx", columns: ["email"], isUnique: false },
 			missingCollection,
 		);
+
 		assert.equal(created.status, 404);
 		// createIndex would otherwise create the collection implicitly.
 		const collections = await mongoDb.listCollections({ name: missingCollection }).toArray();
@@ -264,16 +309,20 @@ try {
 
 	await step("seeded collections list their indexes", async () => {
 		const seeded: Record<string, unknown> = {};
+
 		for (const name of ["contributors", "projects", "contributions"]) {
 			const { status, json } = await call("GET", `${name}/indexes`);
+
 			// An unseeded database is still a valid target; record the absence.
 			if (status === 404) {
 				seeded[name] = null;
 				continue;
 			}
+
 			assert.equal(status, 200, JSON.stringify(json));
 			seeded[name] = normalize(listSchema.parse(json).data);
 		}
+
 		evidence["seeded collections"] = seeded;
 	});
 } finally {

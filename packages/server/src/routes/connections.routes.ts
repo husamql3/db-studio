@@ -19,6 +19,7 @@ export const connectionsRoutes = new Elysia({ prefix: "/connections" })
 		"/",
 		async ({ body }) => {
 			const id = await connect(body.url, { requireExistingFile: true });
+
 			return { data: await getConnectionsState(id) };
 		},
 		{ body: connectUrlSchema },
@@ -36,5 +37,6 @@ export const connectionsRoutes = new Elysia({ prefix: "/connections" })
 
 	.delete("/:id", async ({ params }) => {
 		await deleteSavedConnection(params.id);
+
 		return { data: "Connection removed" };
 	});

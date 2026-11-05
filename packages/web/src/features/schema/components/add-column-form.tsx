@@ -48,6 +48,7 @@ const defaultValues: AddColumnFormValues = {
 
 const AddColumnFormContent = () => {
 	const methods = useFormContext<AddColumnFormValues>();
+
 	const isPrimaryKey = useWatch({
 		control: methods.control,
 		name: "fields.0.isPrimaryKey",
@@ -88,6 +89,7 @@ const AddColumnFormContent = () => {
 
 export const AddColumnForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
+
 	const { addColumn, isAddingColumn } = useAddColumn({
 		tableName,
 		schemaName: useTableSchemaName(),

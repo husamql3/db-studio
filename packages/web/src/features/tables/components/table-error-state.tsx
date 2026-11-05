@@ -9,10 +9,12 @@ export const TableErrorState = ({
 }) => {
 	const error = errorTableData || errorTableCols;
 	const errorMessage = error?.message || "";
+
 	const isTableNotFound =
 		errorMessage.includes("does not exist") ||
 		errorMessage.includes("404") ||
 		(error as Error & { status?: number })?.status === 404;
+
 	const isNetworkError =
 		errorMessage.includes("Network Error") || errorMessage.includes("Failed to fetch");
 

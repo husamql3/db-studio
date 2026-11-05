@@ -80,6 +80,7 @@ const ConnectedApp = () => {
 	}, [error, dbType]);
 
 	if ((isLoading || !isInitialized) && !error) return <FullPageSpinner />;
+
 	if (error) {
 		return (
 			<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
@@ -96,6 +97,7 @@ const ConnectedApp = () => {
 			</div>
 		);
 	}
+
 	return <Outlet />;
 };
 
@@ -105,6 +107,7 @@ export const Route = createRootRoute({
 		const pathname = useLocation({ select: (location) => location.pathname });
 		const { active, isLoading, error } = useConnections();
 		useConnectionChangeWatcher();
+
 		// From the rendered matches, not the URL: while the Connect page's code loads, the URL is
 		// already /connect but the outlet still renders the previous page, which needs a database.
 		const isConnectPage = useRouterState({
@@ -116,6 +119,7 @@ export const Route = createRootRoute({
 			void initPosthog().then((telemetry) => {
 				if (!telemetry?.enabled) return;
 				void initSentry();
+
 				if (!localStorage.getItem(noticeKey)) {
 					localStorage.setItem(noticeKey, "1");
 					toast.info("Anonymous usage and reliability data helps improve DB Studio.", {
@@ -128,6 +132,7 @@ export const Route = createRootRoute({
 
 		useEffect(() => {
 			const firstSegment = pathname.split("/").filter(Boolean)[0];
+
 			const pages = [
 				"connect",
 				"browser",
@@ -138,12 +143,14 @@ export const Route = createRootRoute({
 				"logs",
 				"indexes",
 			] as const;
+
 			const page = pages.find((candidate) => candidate === firstSegment) ?? "home";
 			posthogAnalytics.capture("page_viewed", { page });
 		}, [pathname]);
 
 		// Pieces that query the open database stay out of the Connect page.
 		const isInApp = Boolean(active) && !isConnectPage;
+
 		const content = isConnectPage ? (
 			<Outlet />
 		) : isLoading ? (

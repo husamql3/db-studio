@@ -31,6 +31,7 @@ export const useRenameTable = ({
 				data: { ...data, schemaName },
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
@@ -62,6 +63,7 @@ export const useRenameTable = ({
 				error.message ||
 				"Failed to rename table",
 		});
+
 		return promise;
 	};
 

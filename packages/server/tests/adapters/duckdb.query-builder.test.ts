@@ -24,21 +24,24 @@ import { type DuckDBConnection, DuckDBInstance, type DuckDBValue } from "@duckdb
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const connections = vi.hoisted(() => ({ withDuckdbConnection: vi.fn() }));
+
 vi.mock("@/adapters/connections.js", () => connections);
 
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
-import { loadDriver } from "@/drivers.js";
 import {
 	buildKeysetPredicate,
 	buildOrderBy,
 	type OrderTerm,
 } from "@/adapters/duckdb/duckdb.query-builder.js";
+import { loadDriver } from "@/drivers.js";
 
 let instance: DuckDBInstance;
 let conn: DuckDBConnection;
 
 const ids = async (sql: string, values: unknown[] = []) =>
-	(await conn.runAndReadAll(sql, values as DuckDBValue[])).getRowObjectsJson().map((r) => Number(r.id));
+	(await conn.runAndReadAll(sql, values as DuckDBValue[]))
+		.getRowObjectsJson()
+		.map((r) => Number(r.id));
 
 beforeAll(async () => {
 	// The adapter reads DuckDB's type ids from the driver that db-manager loads.
@@ -46,7 +49,7 @@ beforeAll(async () => {
 	instance = await DuckDBInstance.create(":memory:");
 	conn = await instance.connect();
 	connections.withDuckdbConnection.mockImplementation(
-		(fn: (c: DuckDBConnection) => Promise<unknown>) => fn(conn),
+		<T>(fn: (c: DuckDBConnection) => Promise<T>) => fn(conn),
 	);
 	await conn.run("CREATE TABLE mixed (id INTEGER PRIMARY KEY, a INTEGER, b INTEGER)");
 	await conn.run("INSERT INTO mixed VALUES (1, 1, 3), (2, 1, 2), (3, 1, 1), (4, 2, 9)");
@@ -68,10 +71,12 @@ const pageAfter = async (
 	backward = false,
 ) => {
 	const { clause, values } = buildKeysetPredicate(terms, cursor, backward);
+
 	const page = await ids(
 		`SELECT id FROM ${table} WHERE ${clause} ${buildOrderBy(terms, backward)} LIMIT ${limit}`,
 		values,
 	);
+
 	return backward ? page.reverse() : page;
 };
 
@@ -81,11 +86,13 @@ const aAscBDesc: OrderTerm[] = [
 	{ column: "b", direction: "desc" },
 	{ column: "id", direction: "asc" },
 ];
+
 // nulls, ordered by v DESC NULLS LAST, id DESC: 1 (5), 2 (3), 4 (NULL), 3 (NULL)
 const vDesc: OrderTerm[] = [
 	{ column: "v", direction: "desc" },
 	{ column: "id", direction: "desc" },
 ];
+
 // nulls, ordered by v ASC NULLS LAST, id ASC: 2 (3), 1 (5), 3 (NULL), 4 (NULL)
 const vAsc: OrderTerm[] = [
 	{ column: "v", direction: "asc" },
@@ -133,6 +140,7 @@ describe("duckdb getTableData paging", () => {
 		await conn.run(
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER, score INTEGER, created DATE)`,
 		);
+
 		for (let i = 1; i <= 23; i++) {
 			const grp = i % 4 === 0 ? "NULL" : i % 3;
 			const score = i % 5 === 0 ? "NULL" : (i * 7) % 6;
@@ -168,25 +176,38 @@ describe("duckdb getTableData paging", () => {
 	for (const { sort, orderBy } of specs) {
 		it(`pages forward and back without gaps or repeats: ORDER BY ${orderBy}`, async () => {
 			const expected = await ids(`SELECT id FROM ${TABLE} ORDER BY ${orderBy}`);
+
 			const page = (cursor?: string, direction?: "asc" | "desc") =>
-				adapter.getTableData({ tableName: TABLE, db: "", limit: LIMIT, sort, cursor, direction });
+				adapter.getTableData({
+					tableName: TABLE,
+					db: "",
+					limit: LIMIT,
+					sort,
+					cursor,
+					direction,
+				});
+
 			const idsOf = (rows: Record<string, unknown>[]) => rows.map((row) => Number(row.id));
 
 			const forward: number[][] = [];
 			let current = await page();
 			forward.push(idsOf(current.data));
+
 			while (current.meta.nextCursor) {
 				current = await page(current.meta.nextCursor);
 				forward.push(idsOf(current.data));
 			}
+
 			expect(forward.flat()).toEqual(expected);
 			expect(forward).toHaveLength(Math.ceil(expected.length / LIMIT));
 
 			const backward: number[][] = [idsOf(current.data)];
+
 			while (current.meta.prevCursor) {
 				current = await page(current.meta.prevCursor, "desc");
 				backward.unshift(idsOf(current.data));
 			}
+
 			expect(backward).toEqual(forward);
 		});
 	}

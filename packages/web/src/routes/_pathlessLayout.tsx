@@ -13,18 +13,23 @@ function RouteComponent() {
 	const isKeyValue = engine?.dataModel === "key-value";
 	const { pathname } = useLocation();
 	const section = pathname.split("/")[1];
+
 	const {
 		sidebar: { isPinned, width },
 	} = usePersonalPreferencesStore();
+
 	if (isKeyValue && section !== "browser" && section !== "runner" && section !== "logs") {
 		return <Navigate to="/browser" />;
 	}
+
 	if (!isKeyValue && section === "browser") {
 		return <Navigate to="/" />;
 	}
+
 	if (engine && !engine.indexes && section === "indexes") {
 		return <Navigate to="/table" />;
 	}
+
 	if (engine && !engine.serverLogs && section === "logs") {
 		return <Navigate to="/table" />;
 	}

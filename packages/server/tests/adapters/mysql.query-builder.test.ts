@@ -30,7 +30,9 @@ describe("MySQL query builder", () => {
 		expect(result.clause).toContain("`archived` != ?");
 		expect(result.clause).toContain("`deleted_at` IS NOT NULL");
 		expect(result.values).toEqual(["archived", "50", "18", "%ada%", "%bot%", "user", "true"]);
-		expect(buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }]).clause).toBe("");
+		expect(
+			buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }]).clause,
+		).toBe("");
 		expect(buildWhereClause([])).toEqual({ clause: "", values: [] });
 	});
 
@@ -52,12 +54,12 @@ describe("MySQL query builder", () => {
 
 		expect(result.clause).toBe("(`score`, `id`) < (?, ?)");
 		expect(result.values).toEqual([90, 7]);
+		expect(buildCursorWhereClause({ sortColumns: [], values: {} }, "asc", "asc")).toEqual({
+			clause: "",
+			values: [],
+		});
 		expect(
-			buildCursorWhereClause({ sortColumns: [], values: {} }, "asc", "asc"),
-		).toEqual({ clause: "", values: [] });
-		expect(
-			buildCursorWhereClause({ sortColumns: ["id"], values: { id: 7 } }, "asc", "asc")
-				.clause,
+			buildCursorWhereClause({ sortColumns: ["id"], values: { id: 7 } }, "asc", "asc").clause,
 		).toBe("(`id`) > (?)");
 	});
 

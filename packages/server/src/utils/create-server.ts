@@ -82,16 +82,20 @@ const CONTENT_TYPES: Record<string, string> = {
  */
 const serveWebFile = async (webDist: string, pathname: string): Promise<Response> => {
 	let filePath = path.join(webDist, "index.html");
+
 	try {
 		const requested = path.resolve(webDist, `.${decodeURIComponent(pathname)}`);
+
 		if (requested.startsWith(`${webDist}${path.sep}`) && (await stat(requested)).isFile()) {
 			filePath = requested;
 		}
 	} catch {}
+
 	const file = await readFile(filePath).catch((error: NodeJS.ErrnoException) => {
 		if (error.code === "ENOENT") return null;
 		throw error;
 	});
+
 	// A checkout whose web app was never built has no index.html.
 	if (file === null) {
 		return new Response(
@@ -99,7 +103,9 @@ const serveWebFile = async (webDist: string, pathname: string): Promise<Response
 			{ status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } },
 		);
 	}
+
 	const hashed = filePath.startsWith(path.join(webDist, "assets", path.sep));
+
 	return new Response(file, {
 		headers: {
 			"Content-Type": CONTENT_TYPES[path.extname(filePath)] ?? "application/octet-stream",
@@ -118,14 +124,19 @@ const serveWebFile = async (webDist: string, pathname: string): Promise<Response
  */
 const isAllowedOrigin = (origin: string | null): boolean => {
 	if (!origin) return false;
+
 	const allowed =
 		process.env.ALLOWED_ORIGINS?.split(",")
 			.map((o) => o.trim())
 			.filter(Boolean) ?? [];
+
 	if (allowed.includes(origin)) return true;
+
 	if (process.env.NODE_ENV !== "development") return false;
+
 	try {
 		const { hostname } = new URL(origin);
+
 		return (
 			hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "127.0.0.1"
 		);
@@ -145,11 +156,14 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
  */
 const isAllowedHost = (hostHeader: string): boolean => {
 	const hostname = hostHeader.replace(/:\d+$/, "").toLowerCase();
+
 	if (LOOPBACK_HOSTS.has(hostname) || hostname.endsWith(".localhost")) return true;
+
 	const allowed =
 		process.env.ALLOWED_HOSTS?.split(",")
 			.map((h) => h.trim().toLowerCase())
 			.filter(Boolean) ?? [];
+
 	return allowed.includes(hostname);
 };
 
@@ -159,6 +173,7 @@ const isAllowedHost = (hostHeader: string): boolean => {
  */
 const isCrossSiteRequest = (request: Request): boolean => {
 	const site = request.headers.get("sec-fetch-site");
+
 	return (
 		(site === "cross-site" || site === "same-site") &&
 		!isAllowedOrigin(request.headers.get("origin"))
@@ -174,10 +189,13 @@ const sha256 = (value: string) => createHash("sha256").update(value).digest();
  */
 const isAuthorized = (authorization: string | null): boolean => {
 	const password = process.env.DB_STUDIO_PASSWORD;
+
 	if (!password) return true;
+
 	if (!authorization?.startsWith("Basic ")) return false;
 	const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
 	const colon = decoded.indexOf(":");
+
 	return colon !== -1 && timingSafeEqual(sha256(decoded.slice(colon + 1)), sha256(password));
 };
 
@@ -193,6 +211,7 @@ const trackRequest = (
 	const { pathname } = new URL(request.url);
 	const operation = operationForRequest(request.method, pathname);
 	const dbType = databaseTypeForRequest(pathname);
+
 	const context = {
 		requestId: resolveRequestId(request.headers.get("x-request-id") ?? undefined),
 		operation,
@@ -200,6 +219,7 @@ const trackRequest = (
 		// Resolved now: a connection another tab opens mid-request must not take over this one.
 		connectionId: request.headers.get("x-connection-id") ?? latestConnectionId() ?? undefined,
 	};
+
 	return runWithRequestContext(context, async () => {
 		if (
 			!pathname.startsWith(`${API_PREFIX}/`) ||
@@ -207,6 +227,7 @@ const trackRequest = (
 		) {
 			return respond();
 		}
+
 		const startedAt = performance.now();
 		const registeredType = dbType && adapterRegistry.has(dbType) ? dbType : undefined;
 		const response = await startServerSpan(operation, registeredType, respond);
@@ -220,6 +241,7 @@ const trackRequest = (
 				db_type: registeredType,
 			},
 		});
+
 		return response;
 	});
 };
@@ -232,13 +254,19 @@ export const createServer = () => {
 		.wrap(
 			(handle, request) =>
 				(...args: unknown[]) =>
-					trackRequest(request, async () => (await handle(...args)) as unknown as Response),
+					trackRequest(
+						request,
+						// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Elysia types the wrapped handler as returning Function; it resolves to the Response
+						async () => (await handle(...args)) as unknown as Response,
+					),
 		)
 		.onRequest(({ request, set }) => {
 			set.headers["x-request-id"] = currentRequestId();
+
 			if (!isAllowedHost(request.headers.get("host") ?? new URL(request.url).host)) {
 				throw new HTTPException(403, { message: "Host not allowed" });
 			}
+
 			// CORS preflights never carry credentials.
 			if (
 				request.method !== "OPTIONS" &&
@@ -249,6 +277,7 @@ export const createServer = () => {
 					headers: { "WWW-Authenticate": 'Basic realm="db-studio", charset="UTF-8"' },
 				});
 			}
+
 			if (
 				new URL(request.url).pathname.startsWith(`${API_PREFIX}/`) &&
 				isCrossSiteRequest(request)
@@ -289,6 +318,7 @@ export const createServer = () => {
 		.onTransform((context) => {
 			context.query = Object.fromEntries(new URL(context.request.url).searchParams);
 			const contentType = context.request.headers.get("content-type") ?? "";
+
 			if (context.body !== undefined && !/^application\/([\w.-]+\+)?json/.test(contentType)) {
 				throw new HTTPException(400, { message: "Request body must be JSON" });
 			}

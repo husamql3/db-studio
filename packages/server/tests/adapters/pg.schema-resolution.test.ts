@@ -24,6 +24,7 @@ describe("PgAdapter schema resolution", () => {
 				statements.push(String(sql));
 				// Let existence checks pass so the queries after them still run.
 				const rows = String(sql).includes("as exists") ? [{ exists: true }] : [];
+
 				return { rows, rowCount: rows.length, fields: [] };
 			}),
 		});
@@ -33,10 +34,13 @@ describe("PgAdapter schema resolution", () => {
 	const catalogSql = () => statements.filter((s) => s.includes("information_schema"));
 
 	it("never pins a metadata lookup to the public schema", async () => {
-		await adapter.getTableColumns({ db: "appdb", tableName: "daily_summarie" }).catch(() => {});
+		await adapter
+			.getTableColumns({ db: "appdb", tableName: "daily_summarie" })
+			.catch(() => {});
 		await adapter.getTableSchema({ db: "appdb", tableName: "daily_summarie" }).catch(() => {});
 
 		expect(statements.length).toBeGreaterThan(0);
+
 		for (const sql of statements) {
 			expect(sql).not.toContain("table_schema = 'public'");
 			expect(sql).not.toContain("schemaname = 'public'");
@@ -44,7 +48,9 @@ describe("PgAdapter schema resolution", () => {
 	});
 
 	it("resolves columns through the search path in precedence order", async () => {
-		await adapter.getTableColumns({ db: "appdb", tableName: "daily_summarie" }).catch(() => {});
+		await adapter
+			.getTableColumns({ db: "appdb", tableName: "daily_summarie" })
+			.catch(() => {});
 
 		const columnsQuery = catalogSql().find((s) => s.includes("information_schema.columns"));
 		expect(columnsQuery).toBeDefined();

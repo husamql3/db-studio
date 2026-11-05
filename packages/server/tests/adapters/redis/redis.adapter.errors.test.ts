@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { HTTPException } from "@/http-exception.js";
 import { RedisAdapter } from "@/adapters/redis/redis.adapter.js";
+import { HTTPException } from "@/http-exception.js";
 
+// Bracket access reaches the protected method with its real signature.
 const wrap = (adapter: RedisAdapter, error: unknown): HTTPException =>
-	(adapter as unknown as { wrapError: (e: unknown) => HTTPException }).wrapError(error);
+	adapter["wrapError"](error);
 
 describe("RedisAdapter — error mapping (wrapError)", () => {
 	const adapter = new RedisAdapter();
@@ -36,6 +37,7 @@ describe("RedisAdapter — error mapping (wrapError)", () => {
 		const error = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:6379"), {
 			code: "ECONNREFUSED",
 		});
+
 		expect(wrap(adapter, error).status).toBe(503);
 	});
 

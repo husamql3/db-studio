@@ -3,11 +3,13 @@ import { persist } from "zustand/middleware";
 import { getResolvedTheme, type Theme } from "@/lib/theme";
 
 export const TAB_SIZES = [2, 4, 8] as const;
+
 export type TabSize = (typeof TAB_SIZES)[number];
 
 export const SIDEBAR_DEFAULT_WIDTH = 300;
 
 export const EDITOR_FONT_SIZES = [12, 14, 16, 18] as const;
+
 export type EditorFontSize = (typeof EDITOR_FONT_SIZES)[number];
 
 type PersonalPreferencesState = {

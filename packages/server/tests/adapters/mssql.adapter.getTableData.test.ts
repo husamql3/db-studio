@@ -16,18 +16,22 @@ import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 /** A pool whose queries return no rows; `queries` records their SQL in order. */
 function makePool() {
 	const queries: string[] = [];
+
 	const pool = {
 		request: () => {
 			const req = {
 				input: () => req,
 				query: async (sql: string) => {
 					queries.push(sql);
+
 					return { recordset: [], rowsAffected: [0] };
 				},
 			};
+
 			return req;
 		},
 	};
+
 	return { pool, queries };
 }
 

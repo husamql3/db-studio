@@ -12,10 +12,12 @@ const members: EditScope = {
 	id: JSON.stringify(["shop", "public", "members"]),
 	keyColumns: ["tenant_id", "id"],
 };
+
 const orders: EditScope = {
 	id: JSON.stringify(["shop", "public", "orders"]),
 	keyColumns: ["id"],
 };
+
 const store = () => useUpdateCellStore.getState();
 
 describe("useUpdateCellStore", () => {

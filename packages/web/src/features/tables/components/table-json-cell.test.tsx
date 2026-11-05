@@ -23,8 +23,9 @@ const renderJsonCell = () => {
 		getValue: () => rowData.metadata,
 		row: { id: "1", original: rowData },
 		column: { id: "metadata" },
-	} as unknown as Cell<TableRecord, unknown>;
-	const table = { options: { meta: {} } } as unknown as Table<TableRecord>;
+	} as Cell<TableRecord, unknown>;
+
+	const table = { options: { meta: {} } } as Table<TableRecord>;
 
 	return render(
 		<TableJsonCell

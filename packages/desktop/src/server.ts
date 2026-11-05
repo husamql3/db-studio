@@ -30,11 +30,13 @@ export const startServer = async (
 	log: Logger,
 ): Promise<{ url: string; child: ChildProcess; output: string[] }> => {
 	const dev = !app.isPackaged;
+
 	// Dev: cwd must be packages/server, where development mode looks for ../web/dist.
 	// Packaged: resources/server, so loadEnv() finds no project .env walking up from the cwd.
 	const serverDir = dev
 		? path.resolve(__dirname, "../../server")
 		: path.join(process.resourcesPath, "server");
+
 	const entry = path.join(serverDir, dev ? "dist/index.js" : "index.js");
 	// Dev runs the workspace node_modules, built for the system Node ABI. Packaged runs Electron
 	// as Node against the staged install.
@@ -57,19 +59,23 @@ export const startServer = async (
 			NO_COLOR: "1",
 		},
 	});
+
 	// Registered at spawn so a quit during startup cannot orphan the child.
 	app.once("before-quit", () => child.kill());
 	log.info("server", `spawned pid ${child.pid} on port ${port}`);
 
 	const output: string[] = [];
+
 	const collect = (chunk: Buffer) => {
 		for (const line of chunk.toString().split(/\r?\n/)) {
 			if (!line.trim()) continue;
 			log.info("server", line);
 			output.push(line);
+
 			if (output.length > TAIL_LINES) output.shift();
 		}
 	};
+
 	child.stdout.on("data", collect);
 	child.stderr.on("data", collect);
 
@@ -80,12 +86,15 @@ export const startServer = async (
 
 	try {
 		const deadline = Date.now() + READY_TIMEOUT_MS;
+
 		for (;;) {
 			const ready = fetch(`${url}/`, { signal: AbortSignal.timeout(2_000) }).then(
 				(response) => response.ok,
 				() => false,
 			);
+
 			if (await Promise.race([ready, exited])) return { url, child, output };
+
 			if (Date.now() > deadline) throw new Error("The server did not answer within 20 s.");
 			await Promise.race([new Promise((r) => setTimeout(r, READY_POLL_MS)), exited]);
 		}

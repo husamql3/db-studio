@@ -29,6 +29,7 @@ export const useCreateRecord = ({
 				data,
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
@@ -42,6 +43,7 @@ export const useCreateRecord = ({
 				}),
 			]);
 			closeOverlay("records.add-record");
+
 			if (dbType) posthogAnalytics.capture("record_created", { db_type: dbType });
 		},
 	});
@@ -56,6 +58,7 @@ export const useCreateRecord = ({
 		if (!data || Object.keys(data).length === 0) {
 			throw new Error("At least one field is required");
 		}
+
 		return toast.promise(createRecordMutation(data, options), {
 			loading: "Creating record...",
 			success: (message) => message || "Record created successfully",
