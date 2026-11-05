@@ -8,7 +8,7 @@ import {
 } from "@db-studio/ui/select";
 import { Controller, useFormContext } from "react-hook-form";
 import type { AddTableFormData } from "@/features/table-builder/types";
-import { FOREIGN_KEY_ACTION_OPTIONS } from "@/utils/constants/add-table";
+import { FOREIGN_KEY_ACTION_OPTIONS } from "../../constants";
 
 export const UpdateActionSelector = ({ index }: { index: number }) => {
 	const { control } = useFormContext<AddTableFormData>();

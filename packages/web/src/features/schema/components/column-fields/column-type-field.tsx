@@ -11,32 +11,47 @@ import { Popover, PopoverContent, PopoverTrigger } from "@db-studio/ui/popover";
 import { cn } from "@db-studio/ui/utils";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import type { AddTableFormData } from "@/features/table-builder/types";
-import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import {
-	ARRAY_COMPATIBLE_TYPES,
-	MONGO_TYPES,
-	PSQL_TYPES,
-	SERIAL_TYPES,
-} from "@/utils/constants/add-table";
+	type Control,
+	Controller,
+	type FieldPathByValue,
+	type FieldValues,
+} from "react-hook-form";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import type { ColumnOptionName } from "./column-field-values";
+import { ARRAY_COMPATIBLE_TYPES, MONGO_TYPES, PSQL_TYPES, SERIAL_TYPES } from "./column-types";
 
-export const ColumnTypeField = ({ index }: { index: number }) => {
+/**
+ * `onIncompatibleOptions` receives the column options the picked type rules out, for forms
+ * that carry those options.
+ */
+export const ColumnTypeField = <T extends FieldValues>({
+	control,
+	name,
+	onIncompatibleOptions,
+}: {
+	control: Control<T>;
+	name: FieldPathByValue<T, string>;
+	onIncompatibleOptions?: (options: ColumnOptionName[]) => void;
+}) => {
 	const [typePickerOpen, setTypePickerOpen] = useState(false);
 	const isDocument = useDatabaseEngine()?.dataModel === "document";
 	const typeGroups = isDocument ? MONGO_TYPES : PSQL_TYPES;
 
-	const {
-		control,
-		setValue,
-		formState: { errors },
-	} = useFormContext<AddTableFormData>();
+	const incompatibleOptions = (type: string): ColumnOptionName[] => {
+		if (isDocument) return [];
+
+		return [
+			...(SERIAL_TYPES.includes(type) ? (["isIdentity"] as const) : []),
+			...(ARRAY_COMPATIBLE_TYPES.includes(type) ? [] : (["isArray"] as const)),
+		];
+	};
 
 	return (
 		<Controller
 			control={control}
-			name={`fields.${index}.columnType`}
-			render={({ field }) => (
+			name={name}
+			render={({ field, fieldState }) => (
 				<Popover
 					modal={true}
 					open={typePickerOpen}
@@ -44,16 +59,14 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 				>
 					<PopoverTrigger asChild>
 						<Button
-							id={`columnType-${index}`}
+							id={name}
 							role="combobox"
 							aria-expanded={typePickerOpen}
-							aria-controls={`columnType-${index}-listbox`}
+							aria-controls={`${name}-listbox`}
 							variant="outline"
 							className={cn(
 								"w-full justify-between border-input bg-background px-3 font-normal hover:bg-background",
-								errors?.fields?.[index]?.columnType
-									? "border-destructive ring-destructive ring-1"
-									: "",
+								fieldState.error ? "border-destructive ring-destructive ring-1" : "",
 							)}
 						>
 							{field.value || "Select type"}
@@ -65,7 +78,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent
-						id={`columnType-${index}-listbox`}
+						id={`${name}-listbox`}
 						align="start"
 						className="w-full min-w-[--radix-popper-anchor-width] border-input p-0"
 					>
@@ -84,19 +97,7 @@ export const ColumnTypeField = ({ index }: { index: number }) => {
 												value={`${type.label} ${type.description}`}
 												onSelect={() => {
 													field.onChange(type.value);
-
-													if (!isDocument && SERIAL_TYPES.includes(type.value)) {
-														setValue(`fields.${index}.isIdentity`, false);
-													}
-
-													if (
-														!isDocument &&
-														type.value &&
-														!ARRAY_COMPATIBLE_TYPES.includes(type.value)
-													) {
-														setValue(`fields.${index}.isArray`, false);
-													}
-
+													onIncompatibleOptions?.(incompatibleOptions(type.value));
 													setTypePickerOpen(false);
 												}}
 											>

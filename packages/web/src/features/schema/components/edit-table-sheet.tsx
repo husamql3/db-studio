@@ -19,11 +19,11 @@ import { type ReactNode, useEffect } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { type ColumnChange, planColumnChanges, useEditTable } from "../hooks/use-edit-table";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
+import { ColumnTypeField } from "./column-fields/column-type-field";
 
 const editTableFormSchema = z.object({
 	fields: z
@@ -266,7 +266,7 @@ const ColumnRow = ({
 	change: ColumnChange | undefined;
 	newColumnName: string;
 }) => {
-	const { register, formState } = useFormContext<EditTableFormValues>();
+	const { control, register, formState } = useFormContext<EditTableFormValues>();
 	const nameError = formState.errors.fields?.[index]?.columnName?.message;
 
 	return (
@@ -325,7 +325,10 @@ const ColumnRow = ({
 					/>
 					{nameError && <span className="text-xs text-destructive">{nameError}</span>}
 				</div>
-				<ColumnTypeField index={index} />
+				<ColumnTypeField
+					control={control}
+					name={`fields.${index}.columnType`}
+				/>
 			</div>
 		</div>
 	);

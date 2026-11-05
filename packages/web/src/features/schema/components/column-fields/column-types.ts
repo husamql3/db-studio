@@ -1,4 +1,4 @@
-import type { AddTableOption } from "@/features/table-builder/types";
+import type { ColumnOption } from "./column-field-values";
 
 export const PSQL_TYPES = {
 	numeric: [
@@ -194,20 +194,9 @@ export const MONGO_TYPES = {
 	],
 };
 
-// export const PSQL_TYPE_LABEL_MAP: Record<string, string> = Object.values(PSQL_TYPES)
-// 	.flat()
-// 	.reduce(
-// 		(acc, item) => {
-// 			acc[item.value] = item.label;
-// 			return acc;
-// 		},
-// 		{} as Record<string, string>,
-// 	);
-
-// Serial types that auto-increment (incompatible with identity)
+// Serial types auto-increment, so they cannot also be identity columns.
 export const SERIAL_TYPES = ["serial", "bigserial"];
 
-// Types that can be arrays
 export const ARRAY_COMPATIBLE_TYPES = [
 	"int2",
 	"int4",
@@ -234,7 +223,7 @@ export const ARRAY_COMPATIBLE_TYPES = [
 	"macaddr8",
 ];
 
-export const ADD_TABLE_OPTIONS: AddTableOption[] = [
+export const COLUMN_OPTIONS: ColumnOption[] = [
 	{
 		name: "isNullable",
 		label: "Is Nullable",
@@ -255,12 +244,4 @@ export const ADD_TABLE_OPTIONS: AddTableOption[] = [
 		label: "Define as Array",
 		description: "Define your column as a variable-length multidimensional array",
 	},
-];
-
-export const FOREIGN_KEY_ACTION_OPTIONS = [
-	{ value: "NO ACTION", label: "No action" },
-	{ value: "RESTRICT", label: "Restrict" },
-	{ value: "CASCADE", label: "Cascade" },
-	{ value: "SET NULL", label: "Set null" },
-	{ value: "SET DEFAULT", label: "Set default" },
 ];

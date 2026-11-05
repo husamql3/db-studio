@@ -2,6 +2,7 @@ import { Alert } from "@db-studio/ui/alert";
 import { Button } from "@db-studio/ui/button";
 import { Label } from "@db-studio/ui/label";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import { DEFAULT_COLUMN_FIELD } from "@/features/schema";
 import type { AddTableFormData } from "@/features/table-builder/types";
 import { FieldRow } from "./field-row";
 
@@ -14,16 +15,7 @@ export const FormContent = () => {
 	const watchedFields = useWatch({ control, name: "fields" });
 
 	const addField = () => {
-		append({
-			columnName: "",
-			columnType: "",
-			defaultValue: "",
-			isPrimaryKey: false,
-			isNullable: true,
-			isUnique: false,
-			isIdentity: false,
-			isArray: false,
-		});
+		append(DEFAULT_COLUMN_FIELD);
 	};
 
 	const removeField = (index: number) => {

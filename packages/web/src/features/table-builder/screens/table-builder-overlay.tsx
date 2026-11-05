@@ -2,8 +2,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { SheetSidebar } from "@/components/sheet-sidebar";
+import { DEFAULT_COLUMN_FIELD, FormActions } from "@/features/schema";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { FormActions } from "../components/fields/form-actions";
 import { FormContent } from "../components/form-content";
 import { TableNameField } from "../components/table-name-field";
 import { useCreateTable } from "../hooks/use-create-table";
@@ -11,18 +11,7 @@ import { type AddTableFormData, addTableSchema } from "../types";
 
 const defaultValues = {
 	tableName: "",
-	fields: [
-		{
-			columnName: "",
-			columnType: "",
-			defaultValue: "",
-			isPrimaryKey: false,
-			isNullable: true,
-			isUnique: false,
-			isIdentity: false,
-			isArray: false,
-		},
-	],
+	fields: [DEFAULT_COLUMN_FIELD],
 	foreignKeys: undefined,
 } satisfies AddTableFormData;
 
