@@ -18,7 +18,6 @@ import type {
 	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	IndexInfoSchemaType,
-	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogLevel,
@@ -30,7 +29,7 @@ import type {
 import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
+import type { DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -40,6 +39,12 @@ import {
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
+import {
+	groupKeyColumns,
+	RELATED_SAMPLE,
+	type ReferencingKey,
+	SqlAdapter,
+} from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
@@ -48,13 +53,10 @@ import {
 	bindOracleValue,
 	buildOracleSelectList,
 	formatOracleDefault,
-	groupOracleForeignKeys,
 	IDENTITY_CLAUSE,
 	quoteOracleIdent as ident,
 	isSerialType,
 	mapColumnTypeToOracle,
-	type OracleForeignKey,
-	type OracleForeignKeyRow,
 	oracleFilters,
 	oraclePlaceholder,
 } from "./oracle.query-builder.js";
@@ -151,7 +153,7 @@ type RowSelection = { columns: string[]; keys: unknown[][] };
 const columnRef = (column: string, alias?: string) =>
 	`${alias ? `${alias}.` : ""}${column === "ROWID" ? "ROWID" : ident(column)}`;
 
-const joinOn = (fk: OracleForeignKey) =>
+const joinOn = (fk: ReferencingKey) =>
 	fk.columns
 		.map((column, index) => `c.${ident(column)} = p.${ident(fk.referencedColumns[index])}`)
 		.join(" AND ");
@@ -247,7 +249,10 @@ const ORACLE_LOG_LEVELS: Record<number, ServerLogLevel> = {
 	16: "info",
 };
 
-export class OracleAdapter extends BaseAdapter {
+export class OracleAdapter extends SqlAdapter<Connection> {
+	protected readonly quoteIdentifier = ident;
+	protected readonly placeholder = oraclePlaceholder;
+
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		const firstLine = e.message.split("\n")[0];
 		const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));
@@ -259,6 +264,10 @@ export class OracleAdapter extends BaseAdapter {
 		if (UNREACHABLE.test(e.message)) return { status: 503 };
 
 		return undefined;
+	}
+
+	protected connect<T>(_db: string, work: (conn: Connection) => Promise<T>) {
+		return this.withConnection(work);
 	}
 
 	private async withConnection<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
@@ -286,7 +295,7 @@ export class OracleAdapter extends BaseAdapter {
 		});
 	}
 
-	private async query<T = Row>(conn: Connection, sql: string, values: unknown[] = []) {
+	protected async rows<T = Row>(conn: Connection, sql: string, values: unknown[] = []) {
 		const result = await conn.execute<T>(sql, values, {
 			outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
 			fetchTypeHandler,
@@ -332,13 +341,13 @@ export class OracleAdapter extends BaseAdapter {
 
 			const filterValues = [...values];
 
-			const [countRow] = await this.query<{ total: number }>(
+			const [countRow] = await this.rows<{ total: number }>(
 				conn,
 				`SELECT COUNT(*) AS "total" FROM ${ident(tableName)} ${where}`,
 				filterValues,
 			);
 
-			const fetched = await this.query(
+			const fetched = await this.rows(
 				conn,
 				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${offsetOrderBy(terms, (name) => `${tableAlias}.${ident(name)}`)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
 				values,
@@ -362,7 +371,7 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 
-			const rows = await this.query(
+			const rows = await this.rows(
 				conn,
 				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(tableName)}`,
 			);
@@ -386,7 +395,7 @@ export class OracleAdapter extends BaseAdapter {
 	 */
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		return this.withConnection(async (conn) => {
-			const [row] = await this.query<{
+			const [row] = await this.rows<{
 				NAME: string;
 				OWNER: string;
 				BYTES: number;
@@ -420,7 +429,7 @@ export class OracleAdapter extends BaseAdapter {
 		const pool = await connector("oracle").pool();
 
 		return this.withConnection(async (conn) => {
-			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");
+			const [row] = await this.rows<{ U: string }>(conn, "SELECT USER AS u FROM dual");
 
 			return {
 				...server,
@@ -444,7 +453,7 @@ export class OracleAdapter extends BaseAdapter {
 	 */
 	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		return this.withConnection(async (conn) => {
-			const tables = await this.query<{ TABLE_NAME: string; NUM_ROWS: number | null }>(
+			const tables = await this.rows<{ TABLE_NAME: string; NUM_ROWS: number | null }>(
 				conn,
 				`SELECT table_name, num_rows FROM user_tables
 				WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
@@ -455,7 +464,7 @@ export class OracleAdapter extends BaseAdapter {
 			const counts = new Map<string, number>();
 
 			if (toCount.length) {
-				const rows = await this.query<{ N: number; C: number }>(
+				const rows = await this.rows<{ N: number; C: number }>(
 					conn,
 					toCount
 						.map((t, i) => `SELECT ${i} AS n, COUNT(*) AS c FROM ${ident(t.TABLE_NAME)}`)
@@ -519,17 +528,17 @@ export class OracleAdapter extends BaseAdapter {
 			await this.requireColumns(conn, tableName);
 
 			const referencing = (await this.foreignKeys(conn, "referenced", tableName)).filter(
-				(fk) => fk.referencingTable !== tableName,
+				(fk) => fk.table !== tableName,
 			);
 
 			if (referencing.length && !cascade)
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: await this.sampleReferencingRows(conn, referencing),
+					relatedRecords: await this.rowsReferencingTable(conn, referencing),
 				};
 
-			const [row] = await this.query<{ C: number }>(
+			const [row] = await this.rows<{ C: number }>(
 				conn,
 				`SELECT COUNT(*) AS c FROM ${ident(tableName)}`,
 			);
@@ -564,7 +573,7 @@ export class OracleAdapter extends BaseAdapter {
 				END;`,
 			);
 
-			const [row] = await this.query<{ DDL: string }>(
+			const [row] = await this.rows<{ DDL: string }>(
 				conn,
 				"SELECT DBMS_METADATA.GET_DDL('TABLE', :1) AS ddl FROM dual",
 				[tableName],
@@ -709,7 +718,7 @@ export class OracleAdapter extends BaseAdapter {
 	async getServerLogs(): Promise<ServerLogsResult> {
 		return this.withConnection(async (conn) => {
 			try {
-				const rows = await this.query<{
+				const rows = await this.rows<{
 					TS: string;
 					MESSAGE_LEVEL: number;
 					COMPONENT_ID: string | null;
@@ -952,30 +961,19 @@ export class OracleAdapter extends BaseAdapter {
 				await conn.rollback().catch(() => {});
 
 				if (!(e instanceof Error) || !e.message.startsWith("ORA-02292")) throw e;
-				const relatedRecords: RelatedRecord[] = [];
+				const { values, bind } = createBinds(oraclePlaceholder);
 
-				for (const fk of await this.foreignKeys(conn, "referenced", tableName)) {
-					const childColumns = await this.requireColumns(conn, fk.referencingTable);
-					const { values, bind } = createBinds(oraclePlaceholder);
+				const where = matchesAny(selection, "p", (value, column) =>
+					bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
+				);
 
-					const where = matchesAny(selection, "p", (value, column) =>
-						bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
-					);
-
-					const records = await this.query(
-						conn,
-						`SELECT ${buildOracleSelectList(childColumns, "c")} FROM ${ident(fk.referencingTable)} c JOIN ${ident(tableName)} p ON ${joinOn(fk)} WHERE ${where} FETCH FIRST 100 ROWS ONLY`,
-						values,
-					);
-
-					if (records.length)
-						relatedRecords.push({
-							tableName: fk.referencingTable,
-							columnName: fk.columns.join(", "),
-							constraintName: fk.constraintName,
-							records,
-						});
-				}
+				const relatedRecords = await this.rowsReferencingRows(
+					conn,
+					tableName,
+					undefined,
+					where,
+					values,
+				);
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -1020,15 +1018,15 @@ export class OracleAdapter extends BaseAdapter {
 							),
 				);
 
-				const referenced = await this.query<{ __rowid: string }>(
+				const referenced = await this.rows<{ __rowid: string }>(
 					conn,
-					`SELECT DISTINCT ROWIDTOCHAR(c.ROWID) AS "__rowid" FROM ${ident(fk.referencingTable)} c JOIN ${ident(table)} p ON ${joinOn(fk)} WHERE ${where}`,
+					`SELECT DISTINCT ROWIDTOCHAR(c.ROWID) AS "__rowid" FROM ${ident(fk.table)} c JOIN ${ident(table)} p ON ${joinOn(fk)} WHERE ${where}`,
 					values,
 				);
 
 				deleted += await purge(
 					conn,
-					fk.referencingTable,
+					fk.table,
 					{ columns: ["ROWID"], keys: referenced.map((row) => [row.__rowid]) },
 					[...path, table],
 				);
@@ -1224,7 +1222,7 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	private async containerName(conn: Connection): Promise<string> {
-		const [row] = await this.query<{ DB: string }>(
+		const [row] = await this.rows<{ DB: string }>(
 			conn,
 			"SELECT SYS_CONTEXT('USERENV', 'CON_NAME') AS db FROM dual",
 		);
@@ -1233,7 +1231,7 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	private columns(conn: Connection, tableName: string): Promise<ColumnRow[]> {
-		return this.query<ColumnRow>(
+		return this.rows<ColumnRow>(
 			conn,
 			`SELECT c.column_name, c.data_type, c.data_length, c.data_precision, c.data_scale, c.char_length,
 				c.nullable, c.data_default, c.default_on_null, i.generation_type
@@ -1282,7 +1280,7 @@ export class OracleAdapter extends BaseAdapter {
 
 		// LOB indexes are the storage of a CLOB, BLOB or JSON column: Oracle creates them with
 		// the column and refuses to drop them, so they are not listed.
-		const rows = await this.query<IndexKeyRow>(
+		const rows = await this.rows<IndexKeyRow>(
 			conn,
 			`SELECT i.index_name, i.index_type, i.uniqueness, ic.column_name, ic.descend, ie.column_expression,
 				(SELECT MIN(c.constraint_type) FROM user_constraints c
@@ -1353,7 +1351,7 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	private async primaryKey(conn: Connection, tableName: string): Promise<string[]> {
-		const rows = await this.query<{ COLUMN_NAME: string }>(
+		const rows = await this.rows<{ COLUMN_NAME: string }>(
 			conn,
 			`SELECT cc.column_name FROM user_constraints c
 			JOIN user_cons_columns cc ON cc.constraint_name = c.constraint_name
@@ -1370,11 +1368,17 @@ export class OracleAdapter extends BaseAdapter {
 		conn: Connection,
 		side: "referencing" | "referenced",
 		tableName: string,
-	): Promise<OracleForeignKey[]> {
-		const rows = await this.query<OracleForeignKeyRow>(
+	) {
+		const rows = await this.rows<{
+			constraintName: string;
+			table: string;
+			column: string;
+			referencedTable: string;
+			referencedColumn: string;
+		}>(
 			conn,
-			`SELECT c.constraint_name, c.table_name AS referencing_table, cc.column_name AS referencing_column,
-				r.table_name AS referenced_table, rc.column_name AS referenced_column
+			`SELECT c.constraint_name AS "constraintName", c.table_name AS "table", cc.column_name AS "column",
+				r.table_name AS "referencedTable", rc.column_name AS "referencedColumn"
 			FROM user_constraints c
 			JOIN user_cons_columns cc ON cc.constraint_name = c.constraint_name
 			JOIN user_constraints r ON r.constraint_name = c.r_constraint_name AND r.owner = c.r_owner
@@ -1384,32 +1388,25 @@ export class OracleAdapter extends BaseAdapter {
 			[tableName],
 		);
 
-		return groupOracleForeignKeys(rows);
+		return groupKeyColumns(rows);
 	}
 
-	private async sampleReferencingRows(
+	protected referencingKeys(conn: Connection, tableName: string) {
+		return this.foreignKeys(conn, "referenced", tableName);
+	}
+
+	protected override async sampleRows(
 		conn: Connection,
-		references: OracleForeignKey[],
-	): Promise<RelatedRecord[]> {
-		const related: RelatedRecord[] = [];
+		fk: ReferencingKey,
+		rest: string,
+		values: unknown[],
+	) {
+		const columns = await this.requireColumns(conn, fk.table);
 
-		for (const fk of references) {
-			const columns = await this.requireColumns(conn, fk.referencingTable);
-
-			const records = await this.query(
-				conn,
-				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(fk.referencingTable)} WHERE ${fk.columns.map((column) => `${ident(column)} IS NOT NULL`).join(" AND ")} FETCH FIRST 100 ROWS ONLY`,
-			);
-
-			if (records.length)
-				related.push({
-					tableName: fk.referencingTable,
-					columnName: fk.columns.join(", "),
-					constraintName: fk.constraintName,
-					records,
-				});
-		}
-
-		return related;
+		return this.rows(
+			conn,
+			`SELECT ${buildOracleSelectList(columns, "c")} FROM ${ident(fk.table)} c ${rest} FETCH FIRST ${RELATED_SAMPLE} ROWS ONLY`,
+			values,
+		);
 	}
 }

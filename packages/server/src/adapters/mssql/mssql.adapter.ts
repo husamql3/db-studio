@@ -13,7 +13,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
-	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
@@ -22,7 +21,6 @@ import type {
 	ForeignKeyConstraint,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogEntrySchemaType,
@@ -32,13 +30,18 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
-import type { ConnectionPool as MssqlPool } from "mssql";
+import type { ConnectionPool as MssqlPool, Request } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, EXACT_COUNT_LIMIT } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
-import { SqlAdapter } from "@/adapters/sql.adapter.js";
+import {
+	groupKeyColumns,
+	RELATED_SAMPLE,
+	type ReferencingKey,
+	SqlAdapter,
+} from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -99,7 +102,10 @@ interface FkConstraintRow {
 	referenced_column: string;
 }
 
-export class MsSqlAdapter extends SqlAdapter {
+/** A pool, or a transaction: either hands out requests. */
+type MssqlConn = { request(): Request };
+
+export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		// Before the message check below, whose words a table name in this message can contain.
 		if (e.name === "RequestError" && isSelectDenied(e)) return { status: 403 };
@@ -111,22 +117,37 @@ export class MsSqlAdapter extends SqlAdapter {
 		return undefined;
 	}
 
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
+	protected readonly quoteIdentifier = quoteMssqlIdent;
+	protected readonly placeholder = mssqlPlaceholder;
 
-	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await connector("mssql").pool(db);
-		const request = pool.request();
-		values.forEach((val, idx) => {
-			request.input(`p${idx}`, val);
-		});
-		const result = await request.query(sql);
-
-		return result.recordset as T;
+	protected async connect<T>(db: string, work: (conn: MssqlConn) => Promise<T>) {
+		return work(await connector("mssql").pool(db));
 	}
 
-	protected readonly quoteIdentifier = quoteMssqlIdent;
+	/** A request with `values` bound as `@p0`, `@p1`, … (see `mssqlPlaceholder`). */
+	private request(conn: MssqlConn, values: unknown[]) {
+		const request = conn.request();
+		values.forEach((value, i) => request.input(`p${i}`, value));
+
+		return request;
+	}
+
+	protected async rows<T>(conn: MssqlConn, sql: string, values: unknown[] = []) {
+		return (await this.request(conn, values).query(sql)).recordset as T[];
+	}
+
+	protected override sampleRows(
+		conn: MssqlConn,
+		fk: ReferencingKey,
+		rest: string,
+		values: unknown[],
+	) {
+		return this.rows<Record<string, unknown>>(
+			conn,
+			`SELECT TOP ${RELATED_SAMPLE} c.* FROM ${quoteMssqlIdent(fk.table)} c ${rest}`,
+			values,
+		);
+	}
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		const {
@@ -344,23 +365,24 @@ export class MsSqlAdapter extends SqlAdapter {
 
 		const rowCount = await this.getTableRowCount(tableName, db);
 
-		if (!cascade) {
-			const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
+		const keys = await this.referencingKeys(pool, tableName);
+		// A table's references to itself go with it.
+		const referencing = keys.filter((fk) => fk.table !== tableName);
 
-			if (relatedRecords.length > 0) {
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-		}
+		if (!cascade && referencing.length > 0)
+			return {
+				deletedCount: 0,
+				fkViolation: true,
+				relatedRecords: await this.rowsReferencingTable(pool, referencing),
+			};
 
 		try {
 			if (cascade) {
-				const fkConstraints = await this.getForeignKeyReferences(tableName, db);
-
-				for (const fk of fkConstraints) {
+				for (const fk of keys) {
 					await pool
 						.request()
 						.query(
-							`ALTER TABLE ${quoteMssqlIdent(fk.referencingTable)} DROP CONSTRAINT ${quoteMssqlIdent(fk.constraintName)}`,
+							`ALTER TABLE ${quoteMssqlIdent(fk.table)} DROP CONSTRAINT ${quoteMssqlIdent(fk.constraintName)}`,
 						);
 				}
 			}
@@ -372,9 +394,11 @@ export class MsSqlAdapter extends SqlAdapter {
 			const mssqlError = error as { number?: number };
 
 			if (mssqlError.number === MSSQL_FK_DEPENDENCY) {
-				const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
+				return {
+					deletedCount: 0,
+					fkViolation: true,
+					relatedRecords: await this.rowsReferencingTable(pool, referencing),
+				};
 			}
 
 			throw error;
@@ -1047,7 +1071,13 @@ export class MsSqlAdapter extends SqlAdapter {
 			const mssqlError = error as { number?: number };
 
 			if (mssqlError.number === MSSQL_FK_VIOLATION) {
-				const relatedRecords = await this.getRelatedRecords(tableName, primaryKeys, db);
+				const relatedRecords = await this.rowsReferencingRows(
+					pool,
+					tableName,
+					undefined,
+					`p.${quoteMssqlIdent(pkColumn)} IN (${pkValues.map((_, i) => mssqlPlaceholder(i + 1)).join(", ")})`,
+					pkValues,
+				);
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -1276,6 +1306,29 @@ export class MsSqlAdapter extends SqlAdapter {
 	// Private helpers
 	// =========================================================
 
+	protected async referencingKeys(conn: MssqlConn, tableName: string) {
+		const rows = await this.rows<{
+			constraintName: string;
+			table: string;
+			column: string;
+			referencedColumn: string;
+		}>(
+			conn,
+			`SELECT
+				fk.name AS constraintName,
+				OBJECT_NAME(fk.parent_object_id) AS [table],
+				COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS [column],
+				COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS referencedColumn
+			FROM sys.foreign_keys fk
+			JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+			WHERE fk.referenced_object_id = OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(@p0))
+			ORDER BY [table], fk.name, fkc.constraint_column_id`,
+			[tableName],
+		);
+
+		return groupKeyColumns(rows);
+	}
+
 	private async getForeignKeyReferences(
 		tableName: string,
 		db: string,
@@ -1301,86 +1354,6 @@ export class MsSqlAdapter extends SqlAdapter {
 			referencedTable: row.referenced_table,
 			referencedColumn: row.referenced_column,
 		}));
-	}
-
-	private async getRelatedRecordsForTable(
-		tableName: string,
-		db: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getForeignKeyReferences(tableName, db);
-
-		if (fks.length === 0) return [];
-		const pool = await connector("mssql").pool(db);
-		const results: RelatedRecord[] = [];
-
-		for (const fk of fks) {
-			const relatedResult = await pool
-				.request()
-				.query(`SELECT TOP 100 * FROM ${quoteMssqlIdent(fk.referencingTable)}`);
-
-			if (relatedResult.recordset.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: relatedResult.recordset as Record<string, unknown>[],
-				});
-			}
-		}
-
-		return results;
-	}
-
-	private async getRelatedRecords(
-		tableName: string,
-		primaryKeys: DeleteRecordSchemaType["primaryKeys"],
-		db: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getForeignKeyReferences(tableName, db);
-
-		if (fks.length === 0) return [];
-		const pool = await connector("mssql").pool(db);
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const results: RelatedRecord[] = [];
-
-		const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
-
-		for (const fk of fks) {
-			const key = `${fk.referencingTable}.${fk.referencingColumn}`;
-
-			if (!constraintsByTable.has(key)) constraintsByTable.set(key, []);
-			constraintsByTable.get(key)?.push(fk);
-		}
-
-		for (const [, constraints] of constraintsByTable) {
-			const fk = constraints[0];
-
-			if (!fk) continue;
-			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
-
-			if (!matchingPk) continue;
-
-			const request = pool.request();
-			pkValues.forEach((value, idx) => {
-				request.input(`pk${idx}`, value);
-			});
-			const paramList = pkValues.map((_, idx) => `@pk${idx}`).join(", ");
-
-			const relatedResult = await request.query(
-				`SELECT TOP 100 * FROM ${quoteMssqlIdent(fk.referencingTable)} WHERE ${quoteMssqlIdent(fk.referencingColumn)} IN (${paramList})`,
-			);
-
-			if (relatedResult.recordset.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: relatedResult.recordset as Record<string, unknown>[],
-				});
-			}
-		}
-
-		return results;
 	}
 
 	/**

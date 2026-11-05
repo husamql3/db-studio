@@ -28,7 +28,7 @@ import {
 	unwrapClickhouseType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import type { DriverErrorClass } from "@/adapters/base.adapter.js";
+import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -38,7 +38,6 @@ import {
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
-import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -125,7 +124,7 @@ const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	Warning: "warning",
 };
 
-export class ClickhouseAdapter extends SqlAdapter {
+export class ClickhouseAdapter extends BaseAdapter {
 	// Keyed by client: tabs can work with two ClickHouse servers at once.
 	private serverVersion = new WeakMap<ClickHouseClient, number[]>();
 
@@ -139,18 +138,6 @@ export class ClickhouseAdapter extends SqlAdapter {
 
 		return undefined;
 	}
-
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
-
-	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const params = Object.fromEntries(values.map((value, i) => [`p${i}`, value]));
-
-		return (await this.select(db, sql, params)) as T;
-	}
-
-	protected readonly quoteIdentifier = q;
 
 	/** Offset pagination: the sorting key is not unique, so keyset paging could skip rows. */
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
@@ -181,16 +168,19 @@ export class ClickhouseAdapter extends SqlAdapter {
 		const offset = offsetOf(cursor);
 		const n = values.length;
 
+		const bindAll = (bound: unknown[]) =>
+			Object.fromEntries(bound.map((value, i) => [`p${i}`, value]));
+
 		const [countRows, fetched] = await Promise.all([
-			this.runQuery<{ total: string | number }[]>(
+			this.select<{ total: string | number }>(
 				db,
 				`SELECT count() AS total FROM ${q(tableName)} ${where}`,
-				values,
+				bindAll(values),
 			),
-			this.runQuery<Record<string, unknown>[]>(
+			this.select(
 				db,
 				`SELECT * FROM ${q(tableName)} ${where} ${offsetOrderBy(terms, q)} LIMIT {p${n + 1}:UInt64} OFFSET {p${n}:UInt64}`,
-				[...values, offset, limit + 1],
+				bindAll([...values, offset, limit + 1]),
 			),
 		]);
 
@@ -200,6 +190,23 @@ export class ClickhouseAdapter extends SqlAdapter {
 			data: rows.map((row) => this.normalizeRow(row)),
 			meta: { limit, total: Number(countRows[0]?.total ?? 0), ...page },
 		};
+	}
+
+	async exportTableData({
+		tableName,
+		db,
+	}: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
+		const rows = await this.select(db, `SELECT * FROM ${q(tableName)}`);
+
+		if (!rows.length)
+			throw new HTTPException(404, {
+				message: `Table "${tableName}" does not exist or has no data`,
+			});
+
+		return { cols: Object.keys(rows[0]), rows };
 	}
 
 	// =========================================================

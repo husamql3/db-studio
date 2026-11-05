@@ -13,7 +13,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
-	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
@@ -23,7 +22,6 @@ import type {
 	ForeignKeyConstraintRow,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
@@ -38,7 +36,6 @@ import {
 import type { DatabaseError, Pool as PgPool, PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
-	BaseAdapter,
 	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
 	READ_ONLY_MESSAGE,
@@ -53,6 +50,7 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
+import { type ReferencingKey, SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
@@ -105,9 +103,24 @@ const STATUS_BY_SQLSTATE_CLASS: Record<string, number> = {
 /** Bytes read from the end of the log file; enough for several hundred entries. */
 const LOG_TAIL_BYTES = 1024 * 1024;
 
-export class PgAdapter extends BaseAdapter {
+export class PgAdapter extends SqlAdapter<PgQueryable> {
 	// Keyed by pool: tabs can work with a PostgreSQL and a CockroachDB server at once.
 	private databaseSizeSupport = new WeakMap<PgPool, Promise<boolean>>();
+
+	protected readonly quoteIdentifier = quotePgIdent;
+	protected readonly placeholder = pgPlaceholder;
+
+	protected async connect<T>(db: string, work: (conn: PgQueryable) => Promise<T>) {
+		return work(await connector("pg").pool(db));
+	}
+
+	protected async rows<T>(conn: PgQueryable, sql: string, values: unknown[] = []) {
+		return (await conn.query(sql, values)).rows as T[];
+	}
+
+	protected override tableRef(tableName: string, schemaName?: string) {
+		return qualifiedTable(tableName, schemaName);
+	}
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		// pg-pool's connect timeout and a dropped socket are plain errors.
@@ -422,29 +435,29 @@ export class PgAdapter extends BaseAdapter {
 
 		const rowCount = await this.getTableRowCount(pool, table);
 
-		if (!cascade) {
-			const related = await this.getFkConstraints(pool, tableName, schemaName);
+		// A table's references to itself go with it.
+		const referencing = (await this.referencingKeys(pool, tableName, schemaName)).filter(
+			(fk) => fk.table !== tableName || (schemaName !== undefined && fk.schema !== schemaName),
+		);
 
-			if (related.length > 0)
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName, schemaName),
-				};
-		}
+		if (!cascade && referencing.length > 0)
+			return {
+				deletedCount: 0,
+				fkViolation: true,
+				relatedRecords: await this.rowsReferencingTable(pool, referencing),
+			};
 
 		try {
 			await pool.query(`DROP TABLE ${table} ${cascade ? "CASCADE" : "RESTRICT"}`);
 
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
-			const pgErr = error as { code?: string };
-
-			if (pgErr.code === "2BP01") {
+			// A view or another object depends on the table.
+			if (isPgError(error) && error.code === "2BP01") {
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: await this.getRelatedRecordsForTable(pool, tableName, schemaName),
+					relatedRecords: await this.rowsReferencingTable(pool, referencing),
 				};
 			}
 
@@ -1169,11 +1182,12 @@ export class PgAdapter extends BaseAdapter {
 			const pgErr = error as { code?: string };
 
 			if (pgErr.code === "23503") {
-				const relatedRecords = await this.getRelatedRecords(
+				const relatedRecords = await this.rowsReferencingRows(
 					pool,
 					tableName,
 					schemaName,
-					primaryKeys,
+					`p.${quotePgIdent(pkColumn)} IN (${placeholders})`,
+					pkValues,
 				);
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
@@ -1297,29 +1311,6 @@ export class PgAdapter extends BaseAdapter {
 				failureCount: 0,
 			};
 		});
-	}
-
-	override async exportTableData({
-		tableName,
-		schemaName,
-		db,
-	}: {
-		tableName: string;
-		schemaName?: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		const pool = await connector("pg").pool(db);
-
-		const { rows } = await pool.query<Record<string, unknown>>(
-			`SELECT * FROM ${qualifiedTable(tableName, schemaName)}`,
-		);
-
-		if (rows.length === 0)
-			throw new HTTPException(404, {
-				message: `Table "${tableName}" does not exist or has no data`,
-			});
-
-		return { cols: Object.keys(rows[0]), rows };
 	}
 
 	// --- Query ---
@@ -1461,80 +1452,27 @@ export class PgAdapter extends BaseAdapter {
 		}));
 	}
 
-	private async getRelatedRecordsForTable(
-		pool: PgPool,
+	protected async referencingKeys(
+		conn: PgQueryable,
 		tableName: string,
-		schemaName: string | undefined,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getFkConstraints(pool, tableName, schemaName);
+		schemaName?: string,
+	): Promise<ReferencingKey[]> {
+		const columnsOf = (relation: string, keys: string) =>
+			`ARRAY(SELECT a.attname::text FROM unnest(c.${keys}) WITH ORDINALITY AS k(attnum, position)
+				JOIN pg_attribute a ON a.attrelid = c.${relation} AND a.attnum = k.attnum ORDER BY k.position)`;
 
-		if (fks.length === 0) return [];
-		const results: RelatedRecord[] = [];
-
-		for (const fk of fks) {
-			const { rows } = await pool.query(
-				`SELECT * FROM ${qualifiedTable(fk.referencingTable, fk.referencingSchema)} LIMIT 100`,
-			);
-
-			if (rows.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: rows,
-				});
-			}
-		}
-
-		return results;
-	}
-
-	private async getRelatedRecords(
-		pool: PgPool,
-		tableName: string,
-		schemaName: string | undefined,
-		primaryKeys: DeleteRecordSchemaType["primaryKeys"],
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getFkConstraints(pool, tableName, schemaName);
-
-		if (fks.length === 0) return [];
-
-		const results: RelatedRecord[] = [];
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const constraintsByTable = new Map<string, typeof fks>();
-
-		for (const fk of fks) {
-			const key = `${fk.referencingSchema}.${fk.referencingTable}.${fk.referencingColumn}`;
-			const arr = constraintsByTable.get(key) ?? [];
-			arr.push(fk);
-			constraintsByTable.set(key, arr);
-		}
-
-		for (const [, constraints] of constraintsByTable) {
-			const fk = constraints[0];
-
-			if (!fk) continue;
-			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
-
-			if (!matchingPk) continue;
-			const ph = pkValues.map((_, i) => `$${i + 1}`).join(", ");
-
-			const { rows } = await pool.query(
-				`SELECT * FROM ${qualifiedTable(fk.referencingTable, fk.referencingSchema)} WHERE ${quotePgIdent(fk.referencingColumn)} IN (${ph}) LIMIT 100`,
-				pkValues,
-			);
-
-			if (rows.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: rows,
-				});
-			}
-		}
-
-		return results;
+		return this.rows<ReferencingKey>(
+			conn,
+			`SELECT c.conname AS "constraintName", n.nspname AS "schema", t.relname AS "table",
+				${columnsOf("conrelid", "conkey")} AS "columns",
+				${columnsOf("confrelid", "confkey")} AS "referencedColumns"
+			 FROM pg_constraint c
+			 JOIN pg_class t ON t.oid = c.conrelid
+			 JOIN pg_namespace n ON n.oid = t.relnamespace
+			 WHERE c.contype = 'f' AND c.confrelid = $1::regclass
+			 ORDER BY n.nspname, t.relname, c.conname`,
+			[qualifiedTable(tableName, schemaName)],
+		);
 	}
 
 	private async getTableRowCount(pool: PgPool, table: string): Promise<number> {

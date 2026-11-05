@@ -11,14 +11,23 @@ import { HTTPException } from "@/http-exception.js";
 
 const wrap = (adapter: BaseAdapter, error: unknown) => adapter.classifyError(error);
 
-class HarnessAdapter extends SqlAdapter {
+class HarnessAdapter extends SqlAdapter<null> {
 	queryRows: unknown[] = [];
 
-	protected async runQuery<T>(): Promise<T> {
-		return this.queryRows as T;
+	protected readonly quoteIdentifier = (name: string) => `"${name}"`;
+	protected readonly placeholder = () => "?";
+
+	protected connect<T>(_db: string, work: (conn: null) => Promise<T>) {
+		return work(null);
 	}
 
-	protected readonly quoteIdentifier = (name: string) => `"${name}"`;
+	protected async rows<T>() {
+		return this.queryRows as T[];
+	}
+
+	protected async referencingKeys() {
+		return [];
+	}
 
 	getTableData(): never {
 		throw new Error("not used");

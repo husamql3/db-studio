@@ -18,10 +18,8 @@ import type {
 	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	FieldDataType,
-	ForeignKeyConstraint,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	TableInfoSchemaType,
@@ -40,7 +38,7 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { SqlAdapter } from "@/adapters/sql.adapter.js";
+import { type ReferencingKey, SqlAdapter } from "@/adapters/sql.adapter.js";
 import { D1TokenRefused } from "@/d1-client.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -72,13 +70,6 @@ interface FkRow {
 	to: string | null;
 	on_update: string;
 	on_delete: string;
-}
-
-/** A (possibly composite) foreign key, seen from the table it references. */
-interface ForeignKeyEdge {
-	childTable: string;
-	childColumns: string[];
-	parentColumns: (string | null)[];
 }
 
 interface IndexKeyRow {
@@ -136,9 +127,6 @@ const indexKeyParts = (sql: string): string[] => {
 	return parts;
 };
 
-const allNamed = (columns: (string | null)[]): columns is string[] =>
-	columns.every((c) => c !== null);
-
 const toSqliteValue = (value: unknown): SqlParam => {
 	if (value === null || value === undefined) return null;
 
@@ -187,7 +175,7 @@ const all = async <T = Record<string, unknown>>(
 const isFkViolation = (e: unknown) =>
 	e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
 
-export class SqliteAdapter extends SqlAdapter {
+export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// alterColumn reads the column list and then rebuilds the table from it; a column added
 	// between the two would be dropped by the rebuild, so column changes run one at a time.
 	private schemaChange: Promise<unknown> = Promise.resolve();
@@ -207,15 +195,16 @@ export class SqliteAdapter extends SqlAdapter {
 		return run;
 	}
 
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
+	protected readonly quoteIdentifier = quoteSqliteIdent;
+	protected readonly placeholder = () => "?";
 
-	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		return (await all(await connector("sqlite").client(), sql, values)) as T;
+	protected async connect<T>(_db: string, work: (client: SqliteClient) => Promise<T>) {
+		return work(await connector("sqlite").client());
 	}
 
-	protected readonly quoteIdentifier = quoteSqliteIdent;
+	protected rows<T>(client: SqliteClient, sql: string, values: unknown[] = []) {
+		return all<T>(client, sql, values);
+	}
 
 	override async getTableData(params: GetTableDataParams) {
 		const {
@@ -402,17 +391,17 @@ export class SqliteAdapter extends SqlAdapter {
 
 		const rowCount = countRow?.count ?? 0;
 
-		if (!cascade) {
-			const related = await this.getFkReferencesForTable(client, tableName);
+		// A table's references to itself go with it.
+		const referencing = (await this.referencingKeys(client, tableName)).filter(
+			(fk) => fk.table.toLowerCase() !== tableName.toLowerCase(),
+		);
 
-			if (related.length > 0) {
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.getRelatedRecordsForTable(client, tableName),
-				};
-			}
-		}
+		if (!cascade && referencing.length > 0)
+			return {
+				deletedCount: 0,
+				fkViolation: true,
+				relatedRecords: await this.rowsReferencingTable(client, referencing),
+			};
 
 		try {
 			await client.execute(`DROP TABLE ${quoteSqliteIdent(tableName)}`);
@@ -425,7 +414,7 @@ export class SqliteAdapter extends SqlAdapter {
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: await this.getRelatedRecordsForTable(client, tableName),
+					relatedRecords: await this.rowsReferencingTable(client, referencing),
 				};
 			}
 
@@ -662,9 +651,7 @@ export class SqliteAdapter extends SqlAdapter {
 			// table that references this one, including itself: the new table's self-references
 			// point at the old name until the RENAME.
 			const referencedBy = new Set(
-				(await this.getFkReferencesForTable(client, tableName, { includeSelf: true })).map(
-					(fk) => fk.referencingTable,
-				),
+				(await this.referencingKeys(client, tableName)).map((fk) => fk.table),
 			);
 
 			await client.rebuildTable(
@@ -920,7 +907,14 @@ export class SqliteAdapter extends SqlAdapter {
 			return { deletedCount: result.rowsAffected, fkViolation: false, relatedRecords: [] };
 		} catch (e) {
 			if (isFkViolation(e)) {
-				const relatedRecords = await this.getRelatedRecords(client, tableName, primaryKeys);
+				const relatedRecords = await this.rowsReferencingRows(
+					client,
+					tableName,
+					undefined,
+					`p.${quoteSqliteIdent(pkColumn)} IN (${placeholders})`,
+					pkValues,
+				);
+
 				void db;
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
@@ -953,19 +947,15 @@ export class SqliteAdapter extends SqlAdapter {
 		try {
 			const client = await connector("sqlite").client();
 			this.assertDeletableKey(await this.getPrimaryKeyColumns(client, tableName));
-			const fksByParent = await this.getForeignKeysByParent(client);
+			const fksByParent = await this.foreignKeysByParent(client);
 			const deletes: SqlStatement[] = [];
 
 			const plan = async (table: string, predicate: string, path: string[]) => {
-				for (const fk of fksByParent.get(table) ?? []) {
-					if (path.includes(fk.childTable)) continue;
+				for (const fk of fksByParent.get(table.toLowerCase()) ?? []) {
+					if (path.includes(fk.table)) continue;
 
-					const parentCols = allNamed(fk.parentColumns)
-						? fk.parentColumns
-						: await this.getPrimaryKeyColumns(client, table);
-
-					const childPredicate = `(${fk.childColumns.map(quoteSqliteIdent).join(", ")}) IN (SELECT ${parentCols.map(quoteSqliteIdent).join(", ")} FROM ${quoteSqliteIdent(table)} WHERE ${predicate})`;
-					await plan(fk.childTable, childPredicate, [...path, fk.childTable]);
+					const childPredicate = `(${fk.columns.map(quoteSqliteIdent).join(", ")}) IN (SELECT ${fk.referencedColumns.map(quoteSqliteIdent).join(", ")} FROM ${quoteSqliteIdent(table)} WHERE ${predicate})`;
+					await plan(fk.table, childPredicate, [...path, fk.table]);
 				}
 
 				deletes.push(
@@ -1146,10 +1136,14 @@ export class SqliteAdapter extends SqlAdapter {
 			.map((c) => c.name);
 	}
 
-	/** Every foreign key in the database, keyed by the table it references. */
-	private async getForeignKeysByParent(
+	/**
+	 * Every foreign key in the database, keyed by the lowercased name of the table it
+	 * references: SQLite matches the names without case. A key that names no columns
+	 * references the parent's primary key.
+	 */
+	private async foreignKeysByParent(
 		client: SqliteClient,
-	): Promise<Map<string, ForeignKeyEdge[]>> {
+	): Promise<Map<string, ReferencingKey[]>> {
 		const rows = await all<{
 			child: string;
 			id: number;
@@ -1164,106 +1158,40 @@ export class SqliteAdapter extends SqlAdapter {
 			ORDER BY m.name, f.id, f.seq`,
 		);
 
-		const byConstraint = new Map<string, ForeignKeyEdge>();
-		const byParent = new Map<string, ForeignKeyEdge[]>();
+		const constraints = new Map<
+			string,
+			{ parent: string; fk: ReferencingKey; to: (string | null)[] }
+		>();
 
 		for (const row of rows) {
 			const key = `${row.child}\u0000${row.id}`;
-			let fk = byConstraint.get(key);
 
-			if (!fk) {
-				fk = { childTable: row.child, childColumns: [], parentColumns: [] };
-				byConstraint.set(key, fk);
-				byParent.set(row.parent, [...(byParent.get(row.parent) ?? []), fk]);
-			}
+			const entry = constraints.get(key) ?? {
+				parent: row.parent,
+				fk: { constraintName: "", table: row.child, columns: [], referencedColumns: [] },
+				to: [],
+			};
 
-			fk.childColumns.push(row.from);
-			fk.parentColumns.push(row.to);
+			entry.fk.columns.push(row.from);
+			entry.to.push(row.to);
+			constraints.set(key, entry);
+		}
+
+		const byParent = new Map<string, ReferencingKey[]>();
+
+		for (const { parent, fk, to } of constraints.values()) {
+			fk.referencedColumns = to.every((column) => column !== null)
+				? to
+				: await this.getPrimaryKeyColumns(client, parent);
+			fk.constraintName = `fk_${fk.table}_${fk.columns.join("_")}_${parent}_${fk.referencedColumns.join("_")}`;
+			const id = parent.toLowerCase();
+			byParent.set(id, [...(byParent.get(id) ?? []), fk]);
 		}
 
 		return byParent;
 	}
 
-	private async getFkReferencesForTable(
-		client: SqliteClient,
-		tableName: string,
-		{ includeSelf = false }: { includeSelf?: boolean } = {},
-	): Promise<ForeignKeyConstraint[]> {
-		const fks = await all<{ child: string; from: string; to: string | null }>(
-			client,
-			`SELECT m.name AS child, f."from", f."to"
-			FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f
-			WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT GLOB '_cf_*'
-				AND (m.name != ? COLLATE NOCASE OR ?) AND f."table" = ? COLLATE NOCASE`,
-			[tableName, includeSelf ? 1 : 0, tableName],
-		);
-
-		return fks.map((fk) => ({
-			constraintName: `fk_${fk.child}_${fk.from}_${tableName}_${fk.to}`,
-			referencingTable: fk.child,
-			referencingColumn: fk.from,
-			referencedTable: tableName,
-			referencedColumn: fk.to ?? "",
-		}));
-	}
-
-	private async getRelatedRecordsForTable(
-		client: SqliteClient,
-		tableName: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getFkReferencesForTable(client, tableName);
-		const results: RelatedRecord[] = [];
-
-		for (const fk of fks) {
-			const rows = await all(
-				client,
-				`SELECT * FROM ${quoteSqliteIdent(fk.referencingTable)} LIMIT 100`,
-			);
-
-			if (rows.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: rows,
-				});
-			}
-		}
-
-		return results;
-	}
-
-	private async getRelatedRecords(
-		client: SqliteClient,
-		tableName: string,
-		primaryKeys: DeleteRecordParams["primaryKeys"],
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getFkReferencesForTable(client, tableName);
-		const results: RelatedRecord[] = [];
-
-		for (const fk of fks) {
-			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
-
-			if (!matchingPk) continue;
-			const pkValues = primaryKeys.map((pk) => pk.value);
-			const ph = pkValues.map(() => "?").join(", ");
-
-			const rows = await all(
-				client,
-				`SELECT * FROM ${quoteSqliteIdent(fk.referencingTable)} WHERE ${quoteSqliteIdent(fk.referencingColumn)} IN (${ph}) LIMIT 100`,
-				pkValues,
-			);
-
-			if (rows.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: rows,
-				});
-			}
-		}
-
-		return results;
+	protected async referencingKeys(client: SqliteClient, tableName: string) {
+		return (await this.foreignKeysByParent(client)).get(tableName.toLowerCase()) ?? [];
 	}
 }

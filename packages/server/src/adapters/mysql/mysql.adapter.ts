@@ -13,7 +13,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
-	DeleteRecordSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
@@ -23,7 +22,6 @@ import type {
 	ForeignKeyConstraintRow,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogLevel,
@@ -33,7 +31,7 @@ import type {
 } from "@db-studio/shared/types";
 import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
 import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
-import type { Pool as MysqlPool } from "mysql2/promise";
+import type { Connection, Pool as MysqlPool } from "mysql2/promise";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	type DriverErrorClass,
@@ -56,7 +54,7 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { SqlAdapter } from "@/adapters/sql.adapter.js";
+import { groupKeyColumns, SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -97,7 +95,7 @@ const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	Note: "info",
 };
 
-export class MySqlAdapter extends SqlAdapter {
+export class MySqlAdapter extends SqlAdapter<Connection> {
 	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
 	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
 
@@ -115,18 +113,18 @@ export class MySqlAdapter extends SqlAdapter {
 		return undefined;
 	}
 
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
+	protected readonly quoteIdentifier = quoteMysqlIdent;
+	protected readonly placeholder = () => "?";
 
-	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await connector("mysql").pool(db);
-		const [rows] = await pool.execute(sql, values as any);
-
-		return rows as T;
+	protected async connect<T>(db: string, work: (conn: Connection) => Promise<T>) {
+		return work(await connector("mysql").pool(db));
 	}
 
-	protected readonly quoteIdentifier = quoteMysqlIdent;
+	protected async rows<T>(conn: Connection, sql: string, values: unknown[] = []) {
+		const [rows] = await conn.execute(sql, values as any);
+
+		return rows as T[];
+	}
 
 	override async getTableData(params: GetTableDataParams) {
 		const {
@@ -340,13 +338,17 @@ export class MySqlAdapter extends SqlAdapter {
 
 		const rowCount = await this.getTableRowCount(pool, tableName);
 
-		if (!cascade) {
-			const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
+		// A table's references to itself go with it.
+		const referencing = (await this.referencingKeys(pool, tableName)).filter(
+			(fk) => fk.table !== tableName,
+		);
 
-			if (relatedRecords.length > 0) {
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-		}
+		if (!cascade && referencing.length > 0)
+			return {
+				deletedCount: 0,
+				fkViolation: true,
+				relatedRecords: await this.rowsReferencingTable(pool, referencing),
+			};
 
 		try {
 			if (cascade) {
@@ -372,9 +374,11 @@ export class MySqlAdapter extends SqlAdapter {
 				mysqlError.errno === MYSQL_FK_DEPENDENCY ||
 				mysqlError.errno === MYSQL_FK_VIOLATION
 			) {
-				const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
+				return {
+					deletedCount: 0,
+					fkViolation: true,
+					relatedRecords: await this.rowsReferencingTable(pool, referencing),
+				};
 			}
 
 			throw error;
@@ -899,7 +903,13 @@ export class MySqlAdapter extends SqlAdapter {
 			const mysqlError = error as { errno?: number };
 
 			if (mysqlError.errno === MYSQL_FK_VIOLATION) {
-				const relatedRecords = await this.getRelatedRecords(tableName, primaryKeys, db);
+				const relatedRecords = await this.rowsReferencingRows(
+					pool,
+					tableName,
+					undefined,
+					`p.${quoteMysqlIdent(pkColumn)} IN (${placeholders})`,
+					pkValues,
+				);
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -1251,83 +1261,23 @@ export class MySqlAdapter extends SqlAdapter {
 		}));
 	}
 
-	private async getRelatedRecordsForTable(
-		tableName: string,
-		db: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getForeignKeyReferences(tableName, db);
+	protected async referencingKeys(conn: Connection, tableName: string) {
+		const rows = await this.rows<{
+			constraintName: string;
+			table: string;
+			column: string;
+			referencedColumn: string;
+		}>(
+			conn,
+			`SELECT CONSTRAINT_NAME AS constraintName, TABLE_NAME AS \`table\`, COLUMN_NAME AS \`column\`,
+				REFERENCED_COLUMN_NAME AS referencedColumn
+			FROM information_schema.KEY_COLUMN_USAGE
+			WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME = ?
+			ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION`,
+			[tableName],
+		);
 
-		if (fks.length === 0) return [];
-
-		const pool = await connector("mysql").pool(db);
-		const results: RelatedRecord[] = [];
-
-		for (const fk of fks) {
-			const [relatedRows] = await pool.execute<RowDataPacket[]>(
-				`SELECT * FROM ${quoteMysqlIdent(fk.referencingTable)} LIMIT 100`,
-			);
-
-			if (relatedRows.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: relatedRows as Record<string, unknown>[],
-				});
-			}
-		}
-
-		return results;
-	}
-
-	private async getRelatedRecords(
-		tableName: string,
-		primaryKeys: DeleteRecordSchemaType["primaryKeys"],
-		db: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getForeignKeyReferences(tableName, db);
-
-		if (fks.length === 0) return [];
-
-		const pool = await connector("mysql").pool(db);
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const results: RelatedRecord[] = [];
-
-		const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
-
-		for (const fk of fks) {
-			const key = `${fk.referencingTable}.${fk.referencingColumn}`;
-
-			if (!constraintsByTable.has(key)) constraintsByTable.set(key, []);
-			constraintsByTable.get(key)?.push(fk);
-		}
-
-		for (const [, constraints] of constraintsByTable) {
-			const fk = constraints[0];
-
-			if (!fk) continue;
-			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
-
-			if (!matchingPk) continue;
-
-			const placeholders = pkValues.map(() => "?").join(", ");
-
-			const [relatedRows] = await pool.execute<RowDataPacket[]>(
-				`SELECT * FROM ${quoteMysqlIdent(fk.referencingTable)} WHERE ${quoteMysqlIdent(fk.referencingColumn)} IN (${placeholders}) LIMIT 100`,
-				pkValues as any,
-			);
-
-			if (relatedRows.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: relatedRows as Record<string, unknown>[],
-				});
-			}
-		}
-
-		return results;
+		return groupKeyColumns(rows);
 	}
 
 	private async getTableRowCount(pool: MysqlPool, tableName: string): Promise<number> {

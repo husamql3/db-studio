@@ -19,7 +19,6 @@ import type {
 	DropIndexParamsSchemaType,
 	ExecuteQueryResult,
 	IndexInfoSchemaType,
-	RelatedRecord,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
@@ -45,7 +44,7 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { SqlAdapter } from "@/adapters/sql.adapter.js";
+import { type ReferencingKey, SqlAdapter } from "@/adapters/sql.adapter.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -59,14 +58,7 @@ import {
 
 type Row = Record<string, Json>;
 
-/** One FOREIGN KEY constraint; composite keys keep their columns together, in order. */
-type ForeignKey = {
-	constraintName: string;
-	table: string;
-	columns: string[];
-	referencedTable: string;
-	referencedColumns: string[];
-};
+type ForeignKey = ReferencingKey & { referencedTable: string };
 
 type ColumnRow = {
 	column_name: string;
@@ -161,12 +153,6 @@ const inTransaction = async <T>(conn: DuckDBConnection, fn: () => Promise<T>): P
 
 const placeholders = (values: unknown[]) => values.map(() => "?").join(", ");
 
-/** Join condition from a referencing row `c` to the referenced row `p`. */
-const joinOn = (fk: ForeignKey) =>
-	fk.columns
-		.map((c, i) => `c.${ident(c)} = p.${ident(fk.referencedColumns[i])}`)
-		.join(" AND ");
-
 const sequenceNamesIn = (columns: ColumnRow[]) =>
 	columns.flatMap((c) =>
 		[...(c.column_default ?? "").matchAll(/nextval\('([^']+)'\)/g)].map((m) => m[1]),
@@ -190,18 +176,17 @@ const LIMITATIONS: Array<[signature: string, reason: string]> = [
 
 const FK_ACTIONS_DUCKDB_REJECTS = new Set(["CASCADE", "SET NULL", "SET DEFAULT"]);
 
-export class DuckDbAdapter extends SqlAdapter {
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
+export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
+	protected readonly quoteIdentifier = ident;
+	protected readonly placeholder = () => "?";
 
-	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		return connector("duckdb").withConnection((conn) =>
-			query(conn, sql, values),
-		) as Promise<T>;
+	protected connect<T>(_db: string, work: (conn: DuckDBConnection) => Promise<T>) {
+		return connector("duckdb").withConnection(work);
 	}
 
-	protected readonly quoteIdentifier = ident;
+	protected rows<T>(conn: DuckDBConnection, sql: string, values: unknown[] = []) {
+		return query(conn, sql, values) as Promise<T[]>;
+	}
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		const limitation = LIMITATIONS.find(([signature]) => e.message.includes(signature));
@@ -418,7 +403,7 @@ export class DuckDbAdapter extends SqlAdapter {
 				return {
 					deletedCount: 0,
 					fkViolation: true,
-					relatedRecords: await this.sampleReferencingRows(conn, referencing),
+					relatedRecords: await this.rowsReferencingTable(conn, referencing),
 				};
 			}
 
@@ -742,23 +727,14 @@ export class DuckDbAdapter extends SqlAdapter {
 			} catch (e) {
 				if (!(e instanceof Error) || !e.message.includes("Violates foreign key constraint"))
 					throw e;
-				const relatedRecords: RelatedRecord[] = [];
 
-				for (const fk of await this.foreignKeys(conn, "referenced_table", tableName)) {
-					const records = await query(
-						conn,
-						`SELECT c.* FROM ${ident(fk.table)} c JOIN ${ident(tableName)} p ON ${joinOn(fk)} WHERE p.${ident(pkColumn)} IN (${placeholders(values)}) LIMIT 100`,
-						values,
-					);
-
-					if (records.length)
-						relatedRecords.push({
-							tableName: fk.table,
-							columnName: fk.columns.join(", "),
-							constraintName: fk.constraintName,
-							records,
-						});
-				}
+				const relatedRecords = await this.rowsReferencingRows(
+					conn,
+					tableName,
+					undefined,
+					`p.${ident(pkColumn)} IN (${placeholders(values)})`,
+					values,
+				);
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -962,40 +938,20 @@ export class DuckDbAdapter extends SqlAdapter {
 		return row?.columns ?? [];
 	}
 
+	protected referencingKeys(conn: DuckDBConnection, tableName: string) {
+		return this.foreignKeys(conn, "referenced_table", tableName);
+	}
+
 	/** Foreign keys declared on `tableName` ("table_name") or pointing at it ("referenced_table"). */
 	private async foreignKeys(
 		conn: DuckDBConnection,
 		side: "table_name" | "referenced_table",
 		tableName: string,
 	): Promise<ForeignKey[]> {
-		return query<ForeignKey>(
+		return this.rows<ForeignKey>(
 			conn,
 			`SELECT constraint_name AS "constraintName", table_name AS "table", constraint_column_names AS "columns", referenced_table AS "referencedTable", referenced_column_names AS "referencedColumns" FROM duckdb_constraints() WHERE ${IN_CURRENT_SCHEMA} AND constraint_type = 'FOREIGN KEY' AND ${side} = ?`,
 			[tableName],
 		);
-	}
-
-	private async sampleReferencingRows(
-		conn: DuckDBConnection,
-		references: ForeignKey[],
-	): Promise<RelatedRecord[]> {
-		const related: RelatedRecord[] = [];
-
-		for (const fk of references) {
-			const records = await query(
-				conn,
-				`SELECT * FROM ${ident(fk.table)} WHERE ${fk.columns.map((c) => `${ident(c)} IS NOT NULL`).join(" AND ")} LIMIT 100`,
-			);
-
-			if (records.length)
-				related.push({
-					tableName: fk.table,
-					columnName: fk.columns.join(", "),
-					constraintName: fk.constraintName,
-					records,
-				});
-		}
-
-		return related;
 	}
 }

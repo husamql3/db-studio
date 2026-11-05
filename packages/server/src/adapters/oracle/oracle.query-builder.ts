@@ -120,46 +120,6 @@ export const buildOracleSelectList = (
 		})
 		.join(", ");
 
-export type OracleForeignKeyRow = {
-	CONSTRAINT_NAME: string;
-	REFERENCING_TABLE: string;
-	REFERENCING_COLUMN: string;
-	REFERENCED_TABLE: string;
-	REFERENCED_COLUMN: string;
-};
-
-export type OracleForeignKey = {
-	constraintName: string;
-	referencingTable: string;
-	columns: string[];
-	referencedTable: string;
-	referencedColumns: string[];
-};
-
-export const groupOracleForeignKeys = (rows: OracleForeignKeyRow[]): OracleForeignKey[] => {
-	const constraints = new Map<string, OracleForeignKey>();
-
-	for (const row of rows) {
-		const existing = constraints.get(row.CONSTRAINT_NAME);
-
-		if (existing) {
-			existing.columns.push(row.REFERENCING_COLUMN);
-			existing.referencedColumns.push(row.REFERENCED_COLUMN);
-			continue;
-		}
-
-		constraints.set(row.CONSTRAINT_NAME, {
-			constraintName: row.CONSTRAINT_NAME,
-			referencingTable: row.REFERENCING_TABLE,
-			columns: [row.REFERENCING_COLUMN],
-			referencedTable: row.REFERENCED_TABLE,
-			referencedColumns: [row.REFERENCED_COLUMN],
-		});
-	}
-
-	return [...constraints.values()];
-};
-
 /**
  * Comparisons bind through `bindOracleValue`, so a temporal value gets an explicit format;
  * LIKE compares the canonical string a table read returns.
