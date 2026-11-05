@@ -10,7 +10,6 @@ import type {
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -31,12 +30,7 @@ import type {
 import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import {
-	BaseAdapter,
-	type DriverErrorClass,
-	type NormalizedRow,
-	type QueryBundle,
-} from "@/adapters/base.adapter.js";
+import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -255,50 +249,6 @@ const ORACLE_LOG_LEVELS: Record<number, ServerLogLevel> = {
 };
 
 export class OracleAdapter extends BaseAdapter {
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
-
-	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		return this.withConnection((conn) => this.query(conn, sql, values)) as Promise<T>;
-	}
-
-	protected quoteIdentifier(name: string): string {
-		return ident(name);
-	}
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapOracleToDataType(nativeType);
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "VARCHAR2(4000)",
-			number: "NUMBER",
-			boolean: "BOOLEAN",
-			json: "JSON",
-			date: "TIMESTAMP",
-			array: "JSON",
-			enum: "VARCHAR2(255)",
-		};
-
-		return map[universalType] ?? "VARCHAR2(4000)";
-	}
-
-	// getTableData is overridden: the ORDER BY needs the table's primary key, which the
-	// synchronous template hooks cannot look up.
-	protected buildTableDataQuery(_params: GetTableDataParams): QueryBundle {
-		throw new Error("OracleAdapter.getTableData builds its own query");
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Row[]).map((row) => this.normalizeRow(row));
-	}
-
-	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
-		throw new Error("OracleAdapter.getTableData builds its own cursors");
-	}
-
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		const firstLine = e.message.split("\n")[0];
 		const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));

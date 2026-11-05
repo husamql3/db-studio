@@ -11,7 +11,6 @@ import type {
 	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -44,8 +43,6 @@ import {
 	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
 	READ_ONLY_MESSAGE,
-	type NormalizedRow,
-	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import type { ServerAddress } from "@/connection-url.js";
@@ -122,55 +119,9 @@ export class PgAdapter extends BaseAdapter {
 		return status ? { status } : undefined;
 	}
 
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
-
-	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await connector("pg").pool(db);
-		const result = await pool.query(sql, values);
-
-		return result.rows as T;
-	}
-
-	protected quoteIdentifier(name: string): string {
+	private quoteIdentifier(name: string): string {
 		return `"${name.replaceAll('"', '""')}"`;
 	}
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapPostgresToDataType(nativeType);
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "TEXT",
-			number: "INTEGER",
-			boolean: "BOOLEAN",
-			json: "JSONB",
-			date: "TIMESTAMP WITH TIME ZONE",
-			array: "TEXT[]",
-			enum: "TEXT",
-		};
-
-		return map[universalType] ?? "TEXT";
-	}
-
-	// getTableData is overridden below: paging needs the primary key, which takes a query.
-	protected buildTableDataQuery(): QueryBundle {
-		throw new Error("PgAdapter builds table data queries in getTableData");
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
-	}
-
-	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
-		throw new Error("PgAdapter builds cursors in getTableData");
-	}
-
-	// =========================================================
-	// Override getTableData to incorporate primary-key cursor columns
-	// =========================================================
 
 	override async getTableData(params: GetTableDataParams) {
 		const {

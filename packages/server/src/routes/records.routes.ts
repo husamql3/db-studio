@@ -8,7 +8,7 @@ import {
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
-import { adapterPlugin } from "@/routes/adapter.plugin.js";
+import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
 
 export const recordsRoutes = new Elysia({ prefix: "/records" })
 	.use(adapterPlugin)
@@ -44,6 +44,7 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 				throw new HTTPException(400, {
 					message: `${DATABASE_ENGINES[dbType].label} cannot set a cell to its column default`,
 				});
+			requireCapability(dbType, "rowMutation");
 			const { updatedCount } = await adapter.updateRecords({ params: body, schemaName, db });
 
 			return { data: `Updated ${updatedCount} records in "${body.tableName}"` };
@@ -59,10 +60,13 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 		"/",
 		async ({
 			adapter,
+			dbType,
 			query: { db, schemaName },
 			body: { tableName, primaryKeys },
 			status,
 		}) => {
+			requireCapability(dbType, "rowMutation");
+
 			const { deletedCount, fkViolation, relatedRecords } = await adapter.deleteRecords({
 				tableName,
 				schemaName,
@@ -85,9 +89,18 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 	 */
 	.delete(
 		"/force",
-		async ({ adapter, query: { db, schemaName }, body: { tableName, primaryKeys } }) => ({
-			data: await adapter.forceDeleteRecords({ tableName, schemaName, primaryKeys, db }),
-		}),
+		async ({
+			adapter,
+			dbType,
+			query: { db, schemaName },
+			body: { tableName, primaryKeys },
+		}) => {
+			requireCapability(dbType, "rowMutation");
+
+			return {
+				data: await adapter.forceDeleteRecords({ tableName, schemaName, primaryKeys, db }),
+			};
+		},
 		{ query: tableQuerySchema, body: deleteRecordSchema },
 	)
 

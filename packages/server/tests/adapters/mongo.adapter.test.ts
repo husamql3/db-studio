@@ -111,19 +111,6 @@ describe("MongoAdapter integration scaffold", () => {
 		mockGetMongoDbName.mockReturnValue("appdb");
 	});
 
-	it("maps Mongo native types to and from the universal type set", () => {
-		expect(adapter.mapToUniversalType("bool")).toBe("boolean");
-		expect(adapter.mapToUniversalType("date")).toBe("date");
-		expect(adapter.mapToUniversalType("array")).toBe("array");
-		expect(adapter.mapToUniversalType("object")).toBe("json");
-		expect(adapter.mapToUniversalType("unknown")).toBe("text");
-		expect(adapter.mapFromUniversalType("number")).toBe("double");
-		expect(adapter.mapFromUniversalType("boolean")).toBe("bool");
-		expect(adapter.mapFromUniversalType("date")).toBe("date");
-		expect(adapter.mapFromUniversalType("array")).toBe("array");
-		expect(adapter.mapFromUniversalType("unknown")).toBe("string");
-	});
-
 	describe("getDatabasesList system filtering", () => {
 		const systemRows = [
 			{ name: "admin", sizeOnDisk: 40960 },

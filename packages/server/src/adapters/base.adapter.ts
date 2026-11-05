@@ -12,7 +12,6 @@ import type {
 	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -43,16 +42,6 @@ export const EXACT_COUNT_LIMIT = 50_000;
 export interface RecordUpdateGroup {
 	keyValues: unknown[];
 	rowUpdates: Array<{ columnName: string; value: unknown; useDefault?: boolean }>;
-}
-
-/** Bundles a paginated data query together with its companion COUNT query. */
-export interface QueryBundle {
-	/** Data query — the final bound parameter must be `limit + 1` for hasMore detection. */
-	sql: string;
-	values: unknown[];
-	/** COUNT query that reflects only the active filters (no cursor). */
-	countSql: string;
-	countValues: unknown[];
 }
 
 /** A single row after adapter-level normalization (column → CellValue). */
@@ -88,56 +77,7 @@ function notImplemented(method: string): never {
 	});
 }
 
-function serverLogsNotSupported(): never {
-	throw new HTTPException(400, {
-		message: "Server logs are not supported for this database type",
-	});
-}
-
-function indexesNotSupported(): never {
-	throw new HTTPException(400, {
-		message: "Indexes are not supported for this database type",
-	});
-}
-
 export abstract class BaseAdapter implements IDbAdapter {
-	// =========================================================
-	// Abstract — every concrete adapter MUST implement these
-	// =========================================================
-
-	/** Execute a parameterised query and return the result rows. */
-	protected abstract runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T>;
-
-	/**
-	 * Build a paginated data query and a companion COUNT query for getTableData().
-	 * The data query must append `limit + 1` as its final bound value so the
-	 * template method can detect whether a next page exists.
-	 */
-	protected abstract buildTableDataQuery(params: GetTableDataParams): QueryBundle;
-
-	/** Map raw DB rows to NormalizedRow records. */
-	protected abstract normalizeRows(rawRows: unknown[]): NormalizedRow[];
-
-	/**
-	 * Compute next/previous cursors from the final page rows.
-	 * Called after rows are trimmed to `limit` and reversed (for desc direction).
-	 */
-	protected abstract buildCursors(
-		params: GetTableDataParams,
-		rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null };
-
-	/** Return the DB-specific quoted form of an identifier (table or column name). */
-	protected abstract quoteIdentifier(name: string): string;
-
-	abstract mapToUniversalType(nativeType: string): DataTypes;
-	abstract mapFromUniversalType(universalType: string): string;
-
-	// =========================================================
-	// Protected helpers — shared across all adapters
-	// =========================================================
-
 	/**
 	 * Delete requests carry one key column per row, so on a composite key they would match
 	 * every row sharing that column's value. Refuse until the request addresses whole keys.
@@ -280,10 +220,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 	}
 
-	/**
-	 * Normalize a single raw row by casting each value to CellValue.
-	 * Convenience helper for use inside normalizeRows() implementations.
-	 */
+	/** Casts each value of a raw row to CellValue. */
 	protected normalizeRow(row: Record<string, unknown>): NormalizedRow {
 		const out: NormalizedRow = {};
 
@@ -294,70 +231,15 @@ export abstract class BaseAdapter implements IDbAdapter {
 		return out;
 	}
 
-	// =========================================================
-	// Template Methods — shared skeleton, DB-specific steps via abstract methods
-	// =========================================================
+	abstract getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;
 
-	async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		const { db, limit = 50, direction = "asc" } = params;
-		const bundle = this.buildTableDataQuery(params);
-
-		// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
-		// next page exists) are independent, so a page costs the slower query, not both.
-		const [countRes, pageRows] = await Promise.all([
-			this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
-			this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
-		]);
-
-		const total = Number(countRes[0]?.total ?? 0);
-
-		const hasMore = pageRows.length > limit;
-		const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
-
-		let rows = this.normalizeRows(rawRows);
-
-		if (direction === "desc") rows = rows.reverse();
-
-		const { nextCursor, prevCursor } = this.buildCursors(params, rows, hasMore);
-
-		return {
-			data: rows,
-			meta: {
-				limit,
-				total,
-				hasNextPage: direction === "asc" ? hasMore : !!params.cursor,
-				hasPreviousPage: direction === "asc" ? !!params.cursor : hasMore,
-				nextCursor,
-				prevCursor,
-			},
-		};
-	}
-
-	async exportTableData({
-		tableName,
-		db,
-	}: {
+	abstract exportTableData(params: {
 		tableName: string;
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)}`;
-		const rows = await this.runQuery<Record<string, unknown>[]>(db, sql, []);
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
-		if (!rows || rows.length === 0) {
-			throw new HTTPException(404, {
-				message: `Table "${tableName}" does not exist or has no data`,
-			});
-		}
-
-		const cols = Object.keys(rows[0]);
-
-		return { cols, rows };
-	}
-
-	// =========================================================
-	// Default stubs — override in concrete adapters
-	// =========================================================
+	// Defaults for the operations an engine does not implement.
 
 	getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		return notImplemented("getDatabasesList");
@@ -411,16 +293,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		return indexesNotSupported();
+		return notImplemented("index operations");
 	}
 	createIndex(_params: CreateIndexParamsSchemaType): Promise<void> {
-		return indexesNotSupported();
+		return notImplemented("index operations");
 	}
 	dropIndex(_params: DropIndexParamsSchemaType): Promise<void> {
-		return indexesNotSupported();
+		return notImplemented("index operations");
 	}
 	getServerLogs(_params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		return serverLogsNotSupported();
+		return notImplemented("getServerLogs");
 	}
 	addRecord(_params: {
 		db: DatabaseSchemaType["db"];

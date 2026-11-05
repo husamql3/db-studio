@@ -10,7 +10,6 @@ import type {
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -118,16 +117,4 @@ export interface IDbAdapter {
 
 	/** The status and message the API answers a failure of this engine's request with. */
 	classifyError(e: unknown): HTTPException;
-
-	// --- Type system ---
-	/**
-	 * Maps a DB-native column type string to the universal DataTypes variant
-	 * used for frontend cell rendering (e.g. "int4" → "number").
-	 */
-	mapToUniversalType(nativeType: string): DataTypes;
-	/**
-	 * Maps a universal column type string back to the DB-native type string
-	 * used when creating or altering columns (e.g. "number" → "INTEGER").
-	 */
-	mapFromUniversalType(universalType: string): string;
 }

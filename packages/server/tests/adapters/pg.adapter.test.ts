@@ -1,3 +1,4 @@
+import { mapPostgresToDataType } from "@db-studio/shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetDbPool = vi.hoisted(() => vi.fn());
@@ -212,16 +213,9 @@ describe("PgAdapter integration scaffold", () => {
 	});
 
 	it("maps column types", () => {
-		expect(adapter.mapFromUniversalType("text")).toBe("TEXT");
-		expect(adapter.mapFromUniversalType("number")).toBe("INTEGER");
-		expect(adapter.mapFromUniversalType("boolean")).toBe("BOOLEAN");
-		expect(adapter.mapFromUniversalType("date")).toBe("TIMESTAMP WITH TIME ZONE");
-		expect(adapter.mapFromUniversalType("array")).toBe("TEXT[]");
-		expect(adapter.mapFromUniversalType("enum")).toBe("TEXT");
-		expect(adapter.mapFromUniversalType("unknown")).toBe("TEXT");
-		expect(adapter.mapToUniversalType("boolean")).toBe("boolean");
-		expect(adapter.mapToUniversalType("jsonb")).toBe("json");
-		expect(adapter.mapToUniversalType("timestamp")).toBe("date");
+		expect(mapPostgresToDataType("boolean")).toBe("boolean");
+		expect(mapPostgresToDataType("jsonb")).toBe("json");
+		expect(mapPostgresToDataType("timestamp")).toBe("date");
 	});
 
 	describe("getDatabasesList system filtering", () => {

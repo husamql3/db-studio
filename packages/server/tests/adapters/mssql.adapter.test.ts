@@ -1,3 +1,4 @@
+import { mapMssqlToDataType } from "@db-studio/shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetMssqlPool = vi.hoisted(() => vi.fn());
@@ -187,36 +188,10 @@ describe("MsSqlAdapter integration scaffold", () => {
 		pool = createMssqlPool().pool;
 		mockGetMssqlPool.mockResolvedValue(pool);
 	});
-	it("builds the paginated OFFSET/FETCH query and maps column types", async () => {
-		// Bracket access reaches the protected helpers with their real signatures.
-		const cursor = adapter["makeCursor"](2);
-
-		expect(
-			adapter["buildTableDataQuery"]({
-				db: "appdb",
-				tableName: "users",
-				limit: 1,
-				cursor,
-				sort: [{ columnName: "name", direction: "desc" }],
-				filters: [{ columnName: "name", operator: "like", value: "%a%" }],
-			}),
-		).toMatchObject({
-			values: ["%a%", 2, 2],
-		});
-		expect(
-			adapter["buildTableDataQuery"]({ db: "appdb", tableName: "users", limit: 5 }).sql,
-		).toContain("ORDER BY (SELECT NULL)");
-
-		expect(adapter.mapFromUniversalType("text")).toBe("NVARCHAR(MAX)");
-		expect(adapter.mapFromUniversalType("number")).toBe("INT");
-		expect(adapter.mapFromUniversalType("boolean")).toBe("BIT");
-		expect(adapter.mapFromUniversalType("date")).toBe("DATETIME2");
-		expect(adapter.mapFromUniversalType("array")).toBe("NVARCHAR(MAX)");
-		expect(adapter.mapFromUniversalType("enum")).toBe("NVARCHAR(255)");
-		expect(adapter.mapFromUniversalType("unknown")).toBe("NVARCHAR(MAX)");
-		expect(adapter.mapToUniversalType("bit")).toBe("boolean");
-		expect(adapter.mapToUniversalType("nvarchar")).toBe("text");
-		expect(adapter.mapToUniversalType("datetime2")).toBe("date");
+	it("maps column types", () => {
+		expect(mapMssqlToDataType("bit")).toBe("boolean");
+		expect(mapMssqlToDataType("nvarchar")).toBe("text");
+		expect(mapMssqlToDataType("datetime2")).toBe("date");
 	});
 
 	describe("getDatabasesList system filtering", () => {

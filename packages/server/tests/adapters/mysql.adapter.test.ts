@@ -1,3 +1,4 @@
+import { mapMysqlToDataType } from "@db-studio/shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetMysqlPool = vi.hoisted(() => vi.fn());
@@ -184,42 +185,10 @@ describe("MySqlAdapter integration scaffold", () => {
 		pool = createMysqlPool().pool;
 		mockGetMysqlPool.mockReturnValue(pool);
 	});
-	it("builds the paginated data query and maps column types", async () => {
-		// Bracket access reaches the protected helpers with their real signatures.
-		const cursor = adapter["encodeCursor"]({ values: { id: 1 }, sortColumns: ["id"] });
-
-		expect(
-			adapter["buildTableDataQuery"]({
-				db: "appdb",
-				tableName: "users",
-				limit: 1,
-				cursor,
-				direction: "desc",
-				sort: [{ columnName: "name", direction: "asc" }],
-				filters: [{ columnName: "name", operator: "like", value: "%a%" }],
-			}).sql,
-		).toContain("ORDER BY `name` DESC");
-		expect(
-			adapter["buildTableDataQuery"]({
-				db: "appdb",
-				tableName: "users",
-				sort: "id",
-				order: "desc",
-				direction: "asc",
-				filters: [{ columnName: "active", operator: "=", value: "true" }],
-				cursor,
-			}).values,
-		).toEqual(["true", 1]);
-		expect(adapter.mapFromUniversalType("text")).toBe("LONGTEXT");
-		expect(adapter.mapFromUniversalType("number")).toBe("INT");
-		expect(adapter.mapFromUniversalType("boolean")).toBe("TINYINT(1)");
-		expect(adapter.mapFromUniversalType("date")).toBe("DATETIME");
-		expect(adapter.mapFromUniversalType("array")).toBe("JSON");
-		expect(adapter.mapFromUniversalType("enum")).toBe("TEXT");
-		expect(adapter.mapFromUniversalType("unknown")).toBe("LONGTEXT");
-		expect(adapter.mapToUniversalType("bool")).toBe("boolean");
-		expect(adapter.mapToUniversalType("json")).toBe("json");
-		expect(adapter.mapToUniversalType("datetime")).toBe("date");
+	it("maps column types", () => {
+		expect(mapMysqlToDataType("bool")).toBe("boolean");
+		expect(mapMysqlToDataType("json")).toBe("json");
+		expect(mapMysqlToDataType("datetime")).toBe("date");
 	});
 
 	describe("getDatabasesList system filtering", () => {

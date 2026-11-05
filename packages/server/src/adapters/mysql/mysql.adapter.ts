@@ -11,7 +11,6 @@ import type {
 	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -39,12 +38,9 @@ import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
 import type { Pool as MysqlPool } from "mysql2/promise";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
-	BaseAdapter,
 	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
 	READ_ONLY_MESSAGE,
-	type NormalizedRow,
-	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
@@ -53,6 +49,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -95,7 +92,7 @@ const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 
 const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
-export class MySqlAdapter extends BaseAdapter {
+export class MySqlAdapter extends SqlAdapter {
 	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
 	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
 
@@ -126,137 +123,6 @@ export class MySqlAdapter extends BaseAdapter {
 
 	protected quoteIdentifier(name: string): string {
 		return quote(name);
-	}
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapMysqlToDataType(nativeType);
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "LONGTEXT",
-			number: "INT",
-			boolean: "TINYINT(1)",
-			json: "JSON",
-			date: "DATETIME",
-			array: "JSON",
-			enum: "TEXT",
-		};
-
-		return map[universalType] ?? "LONGTEXT";
-	}
-
-	protected buildTableDataQuery(params: GetTableDataParams): QueryBundle {
-		const {
-			tableName,
-			cursor = "",
-			limit = 50,
-			direction = "asc",
-			sort = [],
-			order = "asc",
-			filters = [],
-		} = params;
-
-		let sortColumns: string[] = [];
-		let effectiveSortDirection: SortDirection = order;
-
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-			effectiveSortDirection = sort[0].direction;
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-
-		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
-
-		let cursorWhere = "";
-		let cursorValues: unknown[] = [];
-
-		if (cursor) {
-			const cursorData = this.decodeCursor(cursor);
-
-			if (cursorData) {
-				const res = buildCursorWhereClause(cursorData, direction, effectiveSortDirection);
-				cursorWhere = res.clause;
-				cursorValues = res.values;
-			}
-		}
-
-		let combinedWhere = "";
-
-		if (filterWhere && cursorWhere) {
-			combinedWhere = `WHERE ${filterWhere.replace(/^WHERE\s+/i, "")} AND ${cursorWhere}`;
-		} else if (filterWhere) {
-			combinedWhere = filterWhere;
-		} else if (cursorWhere) {
-			combinedWhere = `WHERE ${cursorWhere}`;
-		}
-
-		const sortClause = buildSortClause(Array.isArray(sort) ? sort : sort, order);
-		let effectiveSortClause = sortClause;
-
-		if (direction === "desc") {
-			if (sortClause) {
-				effectiveSortClause = sortClause
-					.replace(/\bASC\b/gi, "TEMP_DESC")
-					.replace(/\bDESC\b/gi, "ASC")
-					.replace(/TEMP_DESC/g, "DESC");
-			} else if (sortColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${quote(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
-			}
-		} else if (!sortClause && sortColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
-		}
-
-		const sql = `SELECT * FROM ${quote(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${limit + 1}`;
-		const values = [...filterValues, ...cursorValues];
-		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
-
-		return { sql, values, countSql, countValues: filterValues };
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
-	}
-
-	protected buildCursors(
-		params: GetTableDataParams,
-		rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null } {
-		if (rows.length === 0) return { nextCursor: null, prevCursor: null };
-
-		const { direction = "asc", sort = [], cursor } = params;
-		let sortColumns: string[] = [];
-
-		if (Array.isArray(sort) && sort.length > 0) {
-			sortColumns = sort.map((s) => s.columnName);
-		} else if (typeof sort === "string" && sort) {
-			sortColumns = [sort];
-		}
-
-		const createCursor = (row: NormalizedRow): string =>
-			this.encodeCursor({
-				values: Object.fromEntries(sortColumns.map((col) => [col, row[col]])),
-				sortColumns,
-			} satisfies CursorData);
-
-		const firstRow = rows[0];
-		const lastRow = rows[rows.length - 1];
-		let nextCursor: string | null = null;
-		let prevCursor: string | null = null;
-
-		if (direction === "asc") {
-			if (hasMore) nextCursor = createCursor(lastRow);
-
-			if (cursor) prevCursor = createCursor(firstRow);
-		} else {
-			if (cursor) nextCursor = createCursor(lastRow);
-
-			if (hasMore) prevCursor = createCursor(firstRow);
-		}
-
-		return { nextCursor, prevCursor };
 	}
 
 	// =========================================================

@@ -10,7 +10,6 @@ import type {
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -35,21 +34,15 @@ import type {
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
 import type { ConnectionPool as MssqlPool } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import {
-	BaseAdapter,
-	type DriverErrorClass,
-	EXACT_COUNT_LIMIT,
-	type NormalizedRow,
-	type QueryBundle,
-} from "@/adapters/base.adapter.js";
+import { type DriverErrorClass, EXACT_COUNT_LIMIT } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
-	buildSortClause,
 	buildWhereClause,
 	formatMssqlDefaultValue,
 	mapColumnTypeToMssql,
@@ -104,7 +97,7 @@ interface FkConstraintRow {
 	referenced_column: string;
 }
 
-export class MsSqlAdapter extends BaseAdapter {
+export class MsSqlAdapter extends SqlAdapter {
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		// Before the message check below, whose words a table name in this message can contain.
 		if (e.name === "RequestError" && isSelectDenied(e)) return { status: 403 };
@@ -133,63 +126,6 @@ export class MsSqlAdapter extends BaseAdapter {
 
 	protected quoteIdentifier(name: string): string {
 		return quote(name);
-	}
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapMssqlToDataType(nativeType);
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "NVARCHAR(MAX)",
-			number: "INT",
-			boolean: "BIT",
-			json: "NVARCHAR(MAX)",
-			date: "DATETIME2",
-			array: "NVARCHAR(MAX)",
-			enum: "NVARCHAR(255)",
-		};
-
-		return map[universalType] ?? "NVARCHAR(MAX)";
-	}
-
-	protected buildTableDataQuery(params: GetTableDataParams): QueryBundle {
-		const { tableName, filters = [], sort = [], order = "asc", limit = 50, cursor } = params;
-
-		const {
-			clause: filterWhere,
-			values: filterValues,
-			nextIdx,
-		} = buildWhereClause(filters, 0);
-
-		const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
-		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-
-		const sql = `SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`;
-		const values = [...filterValues, currentOffset, limit + 1];
-
-		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
-
-		return { sql, values, countSql, countValues: filterValues };
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
-	}
-
-	protected buildCursors(
-		params: GetTableDataParams,
-		_rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null } {
-		const { cursor, limit = 50 } = params;
-		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-
-		return {
-			nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
-			prevCursor:
-				currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
-		};
 	}
 
 	// =========================================================

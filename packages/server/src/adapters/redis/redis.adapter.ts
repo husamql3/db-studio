@@ -11,7 +11,6 @@ import type {
 	CreateKeySchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteKeyQuerySchemaType,
 	DeleteKeyResultSchemaType,
@@ -44,7 +43,6 @@ import {
 	BaseAdapter,
 	type DriverErrorClass,
 	type NormalizedRow,
-	type QueryBundle,
 } from "@/adapters/base.adapter.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
@@ -357,57 +355,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			return { status: 503 };
 
 		return undefined;
-	}
-
-	// -----------------------------------------------------------------------
-	// Abstract stubs — Redis does not use SQL
-	// -----------------------------------------------------------------------
-
-	protected runQuery<T>(): Promise<T> {
-		throw new HTTPException(501, { message: "runQuery is not supported for Redis" });
-	}
-
-	protected buildTableDataQuery(_params: GetTableDataParams): QueryBundle {
-		throw new HTTPException(501, {
-			message: "buildTableDataQuery is not supported for Redis",
-		});
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return rawRows.map((row) => this.normalizeRow(row as Record<string, unknown>));
-	}
-
-	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
-		return { nextCursor: null, prevCursor: null };
-	}
-
-	protected quoteIdentifier(name: string): string {
-		return name;
-	}
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		switch (nativeType.toLowerCase()) {
-			case "string":
-				return "text";
-			case "hash":
-				return "json";
-			case "list":
-			case "set":
-				return "array";
-			case "zset":
-			case "stream":
-				return "json";
-			case "integer":
-			case "number":
-			case "ttl":
-				return "number";
-			default:
-				return "text";
-		}
-	}
-
-	mapFromUniversalType(_universalType: string): string {
-		return "string";
 	}
 
 	async scanKeys(params: KeyScanQuerySchemaType): Promise<KeyScanResultSchemaType> {

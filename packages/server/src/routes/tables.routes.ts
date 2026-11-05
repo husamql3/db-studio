@@ -16,7 +16,7 @@ import {
 	tableQuerySchema,
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
-import { adapterPlugin } from "@/routes/adapter.plugin.js";
+import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
 import { getExportFile } from "@/routes/get-export-file.js";
 
 const EXPORT_CONTENT_TYPES = {
@@ -203,9 +203,11 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	 */
 	.get(
 		"/:tableName/indexes",
-		async ({ adapter, query: { db, schemaName }, params: { tableName } }) => ({
-			data: await adapter.getTableIndexes({ tableName, schemaName, db }),
-		}),
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName } }) => {
+			requireCapability(dbType, "indexes");
+
+			return { data: await adapter.getTableIndexes({ tableName, schemaName, db }) };
+		},
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
@@ -215,7 +217,8 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	 */
 	.post(
 		"/:tableName/indexes",
-		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
+			requireCapability(dbType, "indexes");
 			await adapter.createIndex({ tableName, schemaName, db, ...body });
 
 			return {
@@ -231,7 +234,13 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	 */
 	.delete(
 		"/:tableName/indexes/:indexName",
-		async ({ adapter, query: { db, schemaName }, params: { tableName, indexName } }) => {
+		async ({
+			adapter,
+			dbType,
+			query: { db, schemaName },
+			params: { tableName, indexName },
+		}) => {
+			requireCapability(dbType, "indexes");
 			await adapter.dropIndex({ tableName, schemaName, indexName, db });
 
 			return {

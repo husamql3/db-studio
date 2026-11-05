@@ -30,12 +30,7 @@ import type {
 } from "@db-studio/shared/types";
 import type { Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import {
-	BaseAdapter,
-	type DriverErrorClass,
-	type NormalizedRow,
-	type QueryBundle,
-} from "@/adapters/base.adapter.js";
+import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
 import { visibleMongoDatabases } from "@/adapters/mongo/mongo-database-visibility.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import type { ServerAddress } from "@/connection-url.js";
@@ -426,73 +421,6 @@ const toServerLogEntry = ({
 };
 
 export class MongoAdapter extends BaseAdapter {
-	// -----------------------------------------------------------------------
-	// Abstract stubs — MongoDB does not use SQL
-	// -----------------------------------------------------------------------
-
-	protected runQuery<T>(): Promise<T> {
-		throw new HTTPException(501, { message: "runQuery is not supported for MongoDB" });
-	}
-
-	protected buildTableDataQuery(_params: GetTableDataParams): QueryBundle {
-		throw new HTTPException(501, {
-			message: "buildTableDataQuery is not supported for MongoDB",
-		});
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return rawRows.map((row) => this.normalizeRow(normalizeDoc(row)));
-	}
-
-	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
-		return { nextCursor: null, prevCursor: null };
-	}
-
-	protected quoteIdentifier(name: string): string {
-		return name;
-	}
-
-	// -----------------------------------------------------------------------
-	// Type mapping
-	// -----------------------------------------------------------------------
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		switch (nativeType.toLowerCase()) {
-			case "int":
-			case "long":
-			case "double":
-			case "decimal":
-				return "number";
-			case "bool":
-				return "boolean";
-			case "date":
-				return "date";
-			case "array":
-				return "array";
-			case "object":
-				return "json";
-			default:
-				return "text";
-		}
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		switch (universalType) {
-			case "number":
-				return "double";
-			case "boolean":
-				return "bool";
-			case "date":
-				return "date";
-			case "array":
-				return "array";
-			case "json":
-				return "object";
-			default:
-				return "string";
-		}
-	}
-
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		if (
 			UNREACHABLE_ERRORS.has(e.name) ||

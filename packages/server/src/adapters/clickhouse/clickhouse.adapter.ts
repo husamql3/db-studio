@@ -10,10 +10,7 @@ import type {
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
-	DeleteRecordParams,
-	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
 	ExecuteQueryResult,
@@ -24,21 +21,14 @@ import type {
 	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import {
-	DATABASE_ENGINES,
 	mapClickhouseToDataType,
 	standardizeClickhouseDataTypeLabel,
 	unwrapClickhouseType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import {
-	BaseAdapter,
-	type DriverErrorClass,
-	type NormalizedRow,
-	type QueryBundle,
-} from "@/adapters/base.adapter.js";
+import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -46,6 +36,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -132,7 +123,15 @@ const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
 	Warning: "warning",
 };
 
-export class ClickhouseAdapter extends BaseAdapter {
+/** A page query and the COUNT query of the same filters (no cursor). */
+interface QueryBundle {
+	sql: string;
+	values: unknown[];
+	countSql: string;
+	countValues: unknown[];
+}
+
+export class ClickhouseAdapter extends SqlAdapter {
 	// Keyed by client: tabs can work with two ClickHouse servers at once.
 	private serverVersion = new WeakMap<ClickHouseClient, number[]>();
 
@@ -161,33 +160,15 @@ export class ClickhouseAdapter extends BaseAdapter {
 		return q(name);
 	}
 
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapClickhouseToDataType(nativeType);
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "String",
-			number: "Int64",
-			boolean: "Bool",
-			json: "String",
-			date: "DateTime",
-			array: "Array(String)",
-			enum: "String",
-		};
-
-		return map[universalType] ?? "String";
-	}
-
-	protected buildTableDataQuery(params: GetTableDataParams): QueryBundle {
+	private buildTableDataQuery(params: GetTableDataParams): QueryBundle {
 		return this.buildPageQuery(params, []);
 	}
 
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
+	private normalizeRows(rawRows: unknown[]): NormalizedRow[] {
 		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
 	}
 
-	protected buildCursors(
+	private buildCursors(
 		params: GetTableDataParams,
 		_rows: NormalizedRow[],
 		hasMore: boolean,
@@ -543,21 +524,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 			successCount: records.length,
 			failureCount: 0,
 		};
-	}
-
-	async updateRecords(_input: {
-		db: DatabaseSchemaType["db"];
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		throw new HTTPException(400, { message: DATABASE_ENGINES.clickhouse.rowMutationReason });
-	}
-
-	async deleteRecords(_params: DeleteRecordParams): Promise<DeleteRecordResult> {
-		throw new HTTPException(400, { message: DATABASE_ENGINES.clickhouse.rowMutationReason });
-	}
-
-	async forceDeleteRecords(_params: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		throw new HTTPException(400, { message: DATABASE_ENGINES.clickhouse.rowMutationReason });
 	}
 
 	// =========================================================

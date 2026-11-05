@@ -1,4 +1,8 @@
-import { DATABASE_ENGINES } from "@db-studio/shared/types";
+import {
+	DATABASE_ENGINES,
+	type DatabaseEngine,
+	type DatabaseTypeSchema,
+} from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { ADAPTERS, isDatabaseType } from "@/adapters/adapter.registry.js";
@@ -41,3 +45,29 @@ export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params, he
 
 	return { dbType, adapter };
 });
+
+type Capability = "indexes" | "serverLogs" | "rowMutation";
+
+/** Why the engine cannot do an operation its traits leave out, or undefined when it can. */
+const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
+	switch (capability) {
+		case "indexes":
+			return engine.indexes ? undefined : "Indexes are not supported for this database type";
+		case "serverLogs":
+			return engine.serverLogs
+				? undefined
+				: "Server logs are not supported for this database type";
+		case "rowMutation":
+			return engine.rowMutation ? undefined : engine.rowMutationReason;
+	}
+};
+
+/** Refuses with 400, before the adapter runs, an operation the engine's traits leave out. */
+export const requireCapability = (
+	dbType: DatabaseTypeSchema,
+	capability: Capability,
+): void => {
+	const reason = unsupportedReason(DATABASE_ENGINES[dbType], capability);
+
+	if (reason) throw new HTTPException(400, { message: reason });
+};

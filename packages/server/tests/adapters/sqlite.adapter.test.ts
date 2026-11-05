@@ -15,6 +15,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { mapSqliteToDataType } from "@db-studio/shared/types";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 
@@ -55,13 +56,13 @@ afterAll(async () => {
 
 describe("SqliteAdapter", () => {
 	it("maps sqlite type affinities to cell variants", () => {
-		expect(adapter.mapToUniversalType("INTEGER")).toBe("number");
-		expect(adapter.mapToUniversalType("varchar(255)")).toBe("text");
-		expect(adapter.mapToUniversalType("blob")).toBe("text");
-		expect(adapter.mapToUniversalType("boolean")).toBe("boolean");
-		expect(adapter.mapToUniversalType("json")).toBe("json");
-		expect(adapter.mapToUniversalType("datetime")).toBe("date");
-		expect(adapter.mapToUniversalType("unknown_type")).toBe("text");
+		expect(mapSqliteToDataType("INTEGER")).toBe("number");
+		expect(mapSqliteToDataType("varchar(255)")).toBe("text");
+		expect(mapSqliteToDataType("blob")).toBe("text");
+		expect(mapSqliteToDataType("boolean")).toBe("boolean");
+		expect(mapSqliteToDataType("json")).toBe("json");
+		expect(mapSqliteToDataType("datetime")).toBe("date");
+		expect(mapSqliteToDataType("unknown_type")).toBe("text");
 	});
 
 	it("reports a referenced table instead of dropping it", async () => {

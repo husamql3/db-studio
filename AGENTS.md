@@ -71,7 +71,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - **Elysia app**: `src/app.ts` — creates the app, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
 - **DB connections**: `src/connection-url.ts` parses a connection URL once (engine, host, port, credentials, database, file path) from the `DATABASE_ENGINES` protocol traits. `src/connectors/<engine>.ts` holds each engine's connection code: a connector opens its clients lazily, one per database where the engine has several, and has `ping()` and `close()`; concurrent first calls share one connect attempt. Adapters reach their database only through `connector("<engine>")` from `src/open-connections.ts`, e.g. `connector("pg").pool(db)`.
 - **Open connections**: the server can start without a database URL; until one opens, database routes answer 409 and the web app shows `/connect`. Several connections stay open at once, one per browser tab: a tab keeps its `connectionId` in `sessionStorage` and sends it as `X-Connection-Id` on every request, and `src/open-connections.ts`, the registry of open connections (each with its URL, read-only flag and connector), answers from that connection (a request without one gets the latest opened; one naming a closed connection gets 409). Adapters stay connection-agnostic, so keep any per-connection cache keyed by the client, not a module or adapter field. `src/connection.ts` tests a URL before it opens it (the connector's `ping()`, bounded by `STARTUP_TIMEOUT_MS`), reuses an already open URL, and saves it through `src/connections-store.ts` to `~/.dbstudio/connections.json` (`DB_STUDIO_CONFIG_DIR` overrides; owner-only file). Saved URLs never reach the browser: `/connections` returns masked URLs and takes ids. The server listens on `127.0.0.1` and refuses requests whose `Host` is not loopback unless `HOST` names another address.
-- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse each route through their adapter.
+- **Adapters**: `src/adapters/` — one strategy class per engine. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse each route through their adapter.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
 - **Adapters map**: `src/adapters/adapter.registry.ts` exports `ADAPTERS`, one instance per engine (`satisfies Record<DatabaseTypeSchema, IDbAdapter>`, so typecheck fails until a new engine has one), and `isDatabaseType`.
 - **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against `ADAPTERS`, checks it against the request's connection, and adds `dbType` and `adapter` to the context.
@@ -383,11 +383,12 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 ### Adapter Pattern
 
-**Architecture**: Strategy + Template Method. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`) with one instance in `ADAPTERS`. SQL adapters extend `BaseAdapter`; MongoDB overrides the template methods that require document-store behavior.
+**Architecture**: Strategy. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`, …) with one instance in `ADAPTERS`. Every adapter extends `BaseAdapter` and implements its own `getTableData()`; MySQL, SQL Server, SQLite, DuckDB and ClickHouse extend `SqlAdapter`, whose `exportTableData()` reads the table with one `SELECT *` through their `runQuery()` and `quoteIdentifier()`.
 
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
-- `src/adapters/base.adapter.ts` — `BaseAdapter`: implements `getTableData()` and `exportTableData()` as template methods; provides `classifyError()`, `encodeCursor()`, `decodeCursor()`
+- `src/adapters/base.adapter.ts` — `BaseAdapter`: `classifyError()`, key and cursor helpers (`encodeCursor()`, `decodeCursor()`), and 501 defaults for the methods an engine does not implement
+- `src/adapters/sql.adapter.ts` — `SqlAdapter`: the `SELECT *` export
 - `src/adapters/adapter.registry.ts` — `ADAPTERS`, the adapter of each engine
 - `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
 - `src/adapters/[db]/[db].query-builder.ts` — SQL construction helpers (WHERE, ORDER BY, cursor clauses)
@@ -403,17 +404,6 @@ Request → adapterPlugin validates dbType and the request's connection → ADAP
 **Implementing a method** (all adapters follow this structure):
 ```ts
 export class PgAdapter extends BaseAdapter {
-  // Abstract method implementations required by BaseAdapter
-  protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-    const pool = await connector("pg").pool(db);
-    const result = await pool.query(sql, values);
-    return result.rows as T;
-  }
-
-  protected quoteIdentifier(name: string): string { return `"${name}"`; }
-  mapToUniversalType(nativeType: string): DataTypes { ... }
-  mapFromUniversalType(universalType: string): string { ... }
-
   // IDbAdapter method — validate, build SQL, execute
   async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
     const pool = await connector("pg").pool(params.db);
@@ -424,7 +414,7 @@ export class PgAdapter extends BaseAdapter {
 }
 ```
 
-**Template method `getTableData()`**: implemented once in `BaseAdapter`; calls `buildTableDataQuery()` → `runQuery()` → `normalizeRows()` → `buildCursors()`. Adapters only override if their DB requires a fundamentally different approach (e.g. `MsSqlAdapter` overrides because `mssql` requests need per-value `.input()` calls).
+**Unsupported operations**: the routes refuse, with `requireCapability(dbType, …)` from `src/routes/adapter.plugin.ts`, what an engine's `DATABASE_ENGINES` traits leave out (`indexes: false`, `serverLogs: false`, `rowMutation: false` with its `rowMutationReason`), so an adapter does not stub them. The key browser (`/keys`) serves the engines whose `dataModel` is `"key-value"`; `ADAPTERS` fails to typecheck until such an engine's adapter implements `IKeyValueAdapter`.
 
 **Error handling**: let driver errors escape; `handleError` hands each one to `classifyError(e)` of the request's engine (the path's `:dbType`, else the request's connection), so a driver error gets the same status from every method. Each adapter recognises its own driver's errors in `classifyDriverError(e)` (PostgreSQL: SQLSTATE class 08 → 503, 22 → 400, 23 → 409, 42501 → 403; a read-only refusal → 403 with `READ_ONLY_MESSAGE`; an engine limitation → 400), and `BaseAdapter` adds the socket errors every driver shares (503) and 500 for the rest. Catch a driver error only to do real work: roll back, or turn a specific error into a specific answer (FK violation → `relatedRecords`, missing table → 404).
 

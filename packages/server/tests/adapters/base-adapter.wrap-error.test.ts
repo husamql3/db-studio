@@ -1,73 +1,29 @@
-import type { DataTypes } from "@db-studio/shared/types";
 import sql from "mssql";
 import { beforeAll, describe, expect, it } from "vitest";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
+import type { BaseAdapter } from "@/adapters/base.adapter.js";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
+import { SqlAdapter } from "@/adapters/sql.adapter.js";
 import { loadDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
 const wrap = (adapter: BaseAdapter, error: unknown) => adapter.classifyError(error);
 
-class HarnessAdapter extends BaseAdapter {
+class HarnessAdapter extends SqlAdapter {
 	queryRows: unknown[] = [];
-	countRows: unknown[] = [{ total: 0 }];
-	bundle: QueryBundle = {
-		sql: "SELECT * FROM test LIMIT $1",
-		values: [3],
-		countSql: "SELECT COUNT(*) as total FROM test",
-		countValues: [],
-	};
 
-	protected async runQuery<T>(_db: string, sql: string): Promise<T> {
-		if (sql.includes("COUNT")) return this.countRows as T;
-
+	protected async runQuery<T>(): Promise<T> {
 		return this.queryRows as T;
-	}
-
-	protected buildTableDataQuery(): QueryBundle {
-		return this.bundle;
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
-	}
-
-	protected buildCursors(
-		params: { cursor?: string; direction?: string },
-		rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null } {
-		if (rows.length === 0) return { nextCursor: null, prevCursor: null };
-
-		const encode = (row: NormalizedRow) =>
-			this.encodeCursor({ values: { id: row.id }, sortColumns: ["id"] });
-
-		if (params.direction === "desc") {
-			return {
-				nextCursor: params.cursor ? encode(rows[rows.length - 1]) : null,
-				prevCursor: hasMore ? encode(rows[0]) : null,
-			};
-		}
-
-		return {
-			nextCursor: hasMore ? encode(rows[rows.length - 1]) : null,
-			prevCursor: params.cursor ? encode(rows[0]) : null,
-		};
 	}
 
 	protected quoteIdentifier(name: string): string {
 		return `"${name}"`;
 	}
 
-	mapToUniversalType(): DataTypes {
-		return "text";
-	}
-
-	mapFromUniversalType(): string {
-		return "TEXT";
+	getTableData(): never {
+		throw new Error("not used");
 	}
 }
 
@@ -124,31 +80,7 @@ describe("BaseAdapter.classifyError()", () => {
 	});
 });
 
-describe("BaseAdapter template methods", () => {
-	it("paginates, trims limit + 1 rows, reverses desc pages, and builds cursors", async () => {
-		const adapter = new HarnessAdapter();
-		adapter.countRows = [{ total: 3 }];
-		adapter.queryRows = [{ id: 3 }, { id: 2 }, { id: 1 }];
-
-		const result = await adapter.getTableData({
-			db: "appdb",
-			tableName: "users",
-			limit: 2,
-			direction: "desc",
-			cursor: "offset",
-		});
-
-		expect(result.data).toEqual([{ id: 2 }, { id: 3 }]);
-		expect(result.meta).toMatchObject({
-			limit: 2,
-			total: 3,
-			hasNextPage: true,
-			hasPreviousPage: true,
-		});
-		expect(result.meta.nextCursor).toEqual(expect.any(String));
-		expect(result.meta.prevCursor).toEqual(expect.any(String));
-	});
-
+describe("SqlAdapter.exportTableData()", () => {
 	it("exports rows through the shared SELECT * template", async () => {
 		const adapter = new HarnessAdapter();
 		adapter.queryRows = [{ id: 1, name: "Ada" }];
