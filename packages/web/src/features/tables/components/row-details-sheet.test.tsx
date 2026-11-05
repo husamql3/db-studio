@@ -147,7 +147,8 @@ vi.mock("@/features/records", async (importOriginal) => {
 	return { ...mod, RecordReferenceSheet: () => null };
 });
 
-vi.mock("nuqs", () => ({
+vi.mock(import("nuqs"), async (importOriginal) => ({
+	...(await importOriginal()),
 	useQueryState: () => [null, vi.fn()],
 }));
 

@@ -8,7 +8,7 @@ import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useLiveTable } from "../hooks/use-live-table";
-import { useTableData } from "../hooks/use-table-data";
+import { useGridPage, useTableData } from "../hooks/use-table-data";
 import { useTableModel } from "../hooks/use-table-model";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { RowDetailsSheet } from "./row-details-sheet";
@@ -26,7 +26,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const { selectedDatabase } = useDatabaseStore();
 
 	const { tableData, pageKey, isLoadingTableData, errorTableData, refetchTableData } =
-		useTableData({ tableName, schemaName });
+		useTableData(useGridPage(tableName, schemaName));
 
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
 		tableName,

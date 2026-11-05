@@ -18,23 +18,20 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName, schemaName });
 	const methods = useForm<AddRecordFormData>();
-	const { prefill, setPrefill } = useAddRecordStore();
+	const { prefill, clearPrefill } = useAddRecordStore();
 
 	// Prefilled values count as edits, so a duplicate can be saved as it opens.
 	useEffect(() => {
 		if (!prefill) return;
 		methods.reset(prefill, { keepDefaultValues: true });
-		setPrefill(null);
-	}, [prefill, methods, setPrefill]);
+		clearPrefill();
+	}, [prefill, methods, clearPrefill]);
 
 	const onSubmit = async (data: AddRecordFormData) => {
 		createRecord(data, {
 			onSuccess: () => {
 				methods.reset();
 				closeOverlay("records.add-record");
-			},
-			onError: (error) => {
-				console.error("Failed to create record:", error);
 			},
 		});
 	};

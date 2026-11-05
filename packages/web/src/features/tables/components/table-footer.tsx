@@ -12,7 +12,7 @@ import { useQueryState } from "nuqs";
 import { useRef } from "react";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
-import { useTableData } from "../hooks/use-table-data";
+import { useGridPage, useTableData } from "../hooks/use-table-data";
 
 const PRESET_SIZES = [5, 10, 25, 50, 100, 500];
 
@@ -27,10 +27,9 @@ export const TableFooter = ({
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 
-	const { tableData, prefetchPage } = useTableData({
-		tableName,
-		schemaName: useTableSchemaName(),
-	});
+	const { tableData, prefetchPage } = useTableData(
+		useGridPage(tableName, useTableSchemaName()),
+	);
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;

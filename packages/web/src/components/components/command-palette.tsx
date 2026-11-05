@@ -36,6 +36,7 @@ import {
 	Upload,
 } from "lucide-react";
 import { askAssistant } from "@/features/ai-assistant";
+import { openAddRecord } from "@/features/records";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useExportFile } from "@/features/tables";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
@@ -417,7 +418,7 @@ export function CommandPalette() {
 								<>
 									<CommandItem
 										disabled={!canEditRecords}
-										onSelect={() => handleAction(() => openOverlay("records.add-record"))}
+										onSelect={() => handleAction(() => openAddRecord())}
 										keywords={["add", "new", "row", "record", "insert"]}
 									>
 										<Plus className="mr-2 size-4" />

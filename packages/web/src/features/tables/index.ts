@@ -4,6 +4,8 @@ export { useExportFile } from "./hooks/use-export-file";
 
 export { useRenameTable } from "./hooks/use-rename-table";
 
+export { FilterPopup } from "./components/header/filter-popup";
+
 export { useTableData } from "./hooks/use-table-data";
 
 export { TableScreen } from "./screens/table-screen";

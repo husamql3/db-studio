@@ -1,8 +1,4 @@
-import type {
-	BaseResponse,
-	FilterType,
-	TableDataResultSchemaType,
-} from "@db-studio/shared/types";
+import type { FilterType } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import { DataGrid } from "@db-studio/ui/data-grid";
 import { DrawerHeader, DrawerTitle } from "@db-studio/ui/drawer";
@@ -16,7 +12,8 @@ import { CopyButton } from "@/components/copy-button";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { api } from "@/shared/api/client";
+import { getTableData } from "@/shared/api";
+import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 import { formatCellValue } from "@/utils/format-cell-value";
@@ -41,22 +38,18 @@ export const FkDrawerContent = ({
 		[referencedColumn, fkValue],
 	);
 
-	const { data: tableData, isLoading } = useQuery({
-		queryKey: ["fk-drawer", referencedTable, referencedColumn, fkValue, selectedDatabase],
-		queryFn: async () => {
-			const res = await api.get<BaseResponse<TableDataResultSchemaType>>(
-				`/tables/${referencedTable}/data`,
-				{
-					params: {
-						db: selectedDatabase ?? "",
-						limit: "50",
-						filters: JSON.stringify([filter]),
-					},
-				},
-			);
+	const page = {
+		tableName: referencedTable,
+		schemaName,
+		limit: "50",
+		filters: JSON.stringify([filter]),
+		db: selectedDatabase,
+	};
 
-			return res.data.data;
-		},
+	const { data: tableData, isLoading } = useQuery({
+		queryKey: tableKeys.data(page),
+		queryFn: async () =>
+			(await getTableData({ ...page, db: selectedDatabase ?? "" })).data.data,
 		enabled: !!referencedTable && !!selectedDatabase && fkValue !== "",
 	});
 

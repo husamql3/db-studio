@@ -6,4 +6,4 @@ export { BulkInsertSheet } from "./components/bulk-insert-sheet";
 
 export { RecordReferenceSheet } from "./components/record-reference-sheet";
 
-export { useAddRecordStore } from "./stores/add-record.store";
+export { openAddRecord } from "./stores/add-record.store";

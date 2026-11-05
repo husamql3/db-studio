@@ -12,24 +12,20 @@ import {
 } from "@db-studio/ui/select";
 import { Switch } from "@db-studio/ui/switch";
 import { ArrowUpDown, X } from "lucide-react";
-import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { CONSTANTS } from "@/utils/constants";
 
-export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) => {
+export const ReferencedTableSortPopup = ({
+	tableName,
+	sorts,
+	onApply,
+}: {
+	tableName: string;
+	sorts: Sort[];
+	onApply: (sorts: Sort[]) => void;
+}) => {
 	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
-
-	const [sorts, setSorts] = useQueryState<Sort[]>(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT,
-		parseAsJson((value) => value as Sort[])
-			.withDefault([])
-			.withOptions({ history: "push" }),
-	);
-
-	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
-	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [localSort, setLocalSort] = useState<Sort[]>([]);
@@ -53,17 +49,13 @@ export const ReferencedTableSortPopup = ({ tableName }: { tableName: string }) =
 
 	const handleReset = () => {
 		setLocalSort([]);
-		setSorts([]);
-		setCursor(null);
-		setDirection(null);
+		onApply([]);
 		setIsOpen(false);
 	};
 
 	const applySorts = () => {
 		const validSorts = localSort.filter((s) => s.columnName);
-		setSorts(validSorts);
-		setCursor(null);
-		setDirection(null);
+		onApply(validSorts);
 		setIsOpen(false);
 	};
 

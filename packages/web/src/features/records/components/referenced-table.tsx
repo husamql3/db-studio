@@ -1,3 +1,4 @@
+import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import { Spinner } from "@db-studio/ui/spinner";
 import {
@@ -10,18 +11,18 @@ import {
 } from "@db-studio/ui/table";
 import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/react-table";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
-import { useQueryState } from "nuqs";
-import { useEffect, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { useTableData } from "@/features/tables";
+import { FilterPopup, useTableData } from "@/features/tables";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { CONSTANTS } from "@/utils/constants";
 import { formatCellValue } from "@/utils/format-cell-value";
 import type { AddRecordFormData } from "../hooks/use-create-record";
-import { ReferencedTableFilterPopup } from "./referenced-table-filter-popup";
 import { ReferencedTableSortPopup } from "./referenced-table-sort-popup";
+
+// The picker keeps its own page, sort and filters, so the grid behind it keeps the URL's.
+const PICKER_PAGE_LIMIT = "30";
 
 export const ReferencedTable = ({
 	tableName,
@@ -29,7 +30,7 @@ export const ReferencedTable = ({
 	columnName,
 }: {
 	tableName: string;
-	referencedColumn: string | null;
+	referencedColumn: string;
 	columnName: string;
 }) => {
 	const { setValue } = useFormContext<AddRecordFormData>();
@@ -38,44 +39,33 @@ export const ReferencedTable = ({
 	const schemaName = useTableSchemaName();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 
-	const [referencedActiveTable, setReferencedActiveTable] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
+	const [cursor, setCursor] = useState<{ cursor: string; direction: SortDirection } | null>(
+		null,
 	);
+
+	const [sorts, setSorts] = useState<SortType[]>([]);
+	const [filters, setFilters] = useState<FilterType[]>([]);
 
 	const { tableData, isLoadingTableData } = useTableData({
 		tableName,
 		schemaName,
-		isReferencedTable: true,
+		cursor: cursor?.cursor ?? null,
+		direction: cursor?.direction ?? null,
+		limit: PICKER_PAGE_LIMIT,
+		sort: sorts.length > 0 ? JSON.stringify(sorts) : null,
+		order: null,
+		filters,
 	});
-
-	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
-	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
-
-	const [limit, setLimit] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
-	);
-
-	useEffect(() => {
-		if (tableName && referencedActiveTable !== tableName) {
-			setReferencedActiveTable(tableName);
-		}
-
-		if (tableName && !limit) {
-			setLimit(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString());
-		}
-	}, [tableName, referencedActiveTable, limit, setReferencedActiveTable, setLimit]);
 
 	const handleNextPage = () => {
 		if (tableData?.meta?.nextCursor) {
-			setCursor(tableData.meta.nextCursor);
-			setDirection("forward");
+			setCursor({ cursor: tableData.meta.nextCursor, direction: "asc" });
 		}
 	};
 
 	const handlePrevPage = () => {
 		if (tableData?.meta?.prevCursor) {
-			setCursor(tableData.meta.prevCursor);
-			setDirection("backward");
+			setCursor({ cursor: tableData.meta.prevCursor, direction: "desc" });
 		}
 	};
 
@@ -101,7 +91,7 @@ export const ReferencedTable = ({
 	});
 
 	const handleSelectRow = (row: Row<Record<string, unknown>>) => {
-		setValue(columnName ?? "", row.original[referencedColumn ?? ""] as string);
+		setValue(columnName, row.original[referencedColumn] as string);
 		closeOverlay("records.record-reference");
 	};
 
@@ -117,8 +107,23 @@ export const ReferencedTable = ({
 		<div>
 			<div className="sticky top-0 left-0 right-0 h-8 border-b border-border w-full flex items-center justify-between bg-background z-50">
 				<div className="flex items-center h-full">
-					<ReferencedTableFilterPopup tableName={tableName} />
-					<ReferencedTableSortPopup tableName={tableName} />
+					<FilterPopup
+						tableName={tableName}
+						filters={filters}
+						onApply={(next) => {
+							setFilters(next);
+							setCursor(null);
+						}}
+						variant="sheet"
+					/>
+					<ReferencedTableSortPopup
+						tableName={tableName}
+						sorts={sorts}
+						onApply={(next) => {
+							setSorts(next);
+							setCursor(null);
+						}}
+					/>
 				</div>
 
 				<div className="flex items-center h-full">

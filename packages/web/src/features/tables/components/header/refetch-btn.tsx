@@ -3,11 +3,15 @@ import { RefreshCw } from "lucide-react";
 import { useCallback } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { useTableData } from "../../hooks/use-table-data";
+import { useGridPage, useTableData } from "../../hooks/use-table-data";
 
 export const RefetchBtn = ({ tableName }: { tableName: string }) => {
 	const schemaName = useTableSchemaName();
-	const { refetchTableData, isRefetchingTableData } = useTableData({ tableName, schemaName });
+
+	const { refetchTableData, isRefetchingTableData } = useTableData(
+		useGridPage(tableName, schemaName),
+	);
+
 	const { refetchTableCols, isRefetchingTableCols } = useTableCols({ tableName, schemaName });
 
 	const handleRefetch = useCallback(() => {

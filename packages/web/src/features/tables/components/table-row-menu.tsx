@@ -8,12 +8,11 @@ import type { Table } from "@tanstack/react-table";
 import { Braces, CopyPlus, FileCode } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { useAddRecordStore } from "@/features/records";
+import { openAddRecord } from "@/features/records";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { useOverlayStore } from "@/stores/overlay.store";
 import { toDuplicateValues, toInsertStatement } from "../utils/row-actions";
 import { copyTextToClipboard } from "../utils/row-details-utils";
 
@@ -40,7 +39,6 @@ export const TableRowMenu = ({
 	const schemaName = useTableSchemaName();
 	const { tableCols } = useTableCols({ tableName, schemaName });
 	const dialect = useDatabaseEngine()?.sqlInsert;
-	const { openOverlay } = useOverlayStore();
 
 	return (
 		<ContextMenu onOpenChange={onOpenChange}>
@@ -70,8 +68,7 @@ export const TableRowMenu = ({
 						disabled={!table.options.meta?.canMutateRows || !tableCols}
 						onClick={() => {
 							if (!tableCols) return;
-							useAddRecordStore.getState().setPrefill(toDuplicateValues(row, tableCols));
-							openOverlay("records.add-record");
+							openAddRecord(toDuplicateValues(row, tableCols));
 						}}
 					>
 						<CopyPlus className="size-4" />

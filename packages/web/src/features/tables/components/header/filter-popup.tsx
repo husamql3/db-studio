@@ -10,23 +10,25 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@db-studio/ui/select";
+import { cn } from "@db-studio/ui/utils";
 import { Filter, X } from "lucide-react";
-import { parseAsJson, useQueryState } from "nuqs";
 import { useState } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { CONSTANTS } from "@/utils/constants";
 
-export const FilterPopup = ({ tableName }: { tableName: string }) => {
-	const [filters, setFilters] = useQueryState<FilterType[]>(
-		CONSTANTS.TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as FilterType[])
-			.withDefault([])
-			.withOptions({ history: "push" }),
-	);
-
-	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
-	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
+/** Edits a copy of `filters` and hands the result to `onApply`, so callers keep the state. */
+export const FilterPopup = ({
+	tableName,
+	filters,
+	onApply,
+	variant = "toolbar",
+}: {
+	tableName: string;
+	filters: FilterType[];
+	onApply: (filters: FilterType[]) => void;
+	/** "sheet" labels the trigger and makes the popover modal, for use inside a sheet. */
+	variant?: "toolbar" | "sheet";
+}) => {
 	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
 
 	const [isOpen, setIsOpen] = useState(false);
@@ -64,10 +66,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 	const handleReset = () => {
 		setLocalFilters([]);
-		setFilters([]);
-		// Reset cursor when filters change
-		setCursor(null);
-		setDirection(null);
+		onApply([]);
 		setIsOpen(false);
 	};
 
@@ -76,16 +75,12 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 			(f) => f.columnName && f.operator && f.value !== "",
 		);
 
-		setFilters(validFilters);
-		// Reset cursor when filters change
-		setCursor(null);
-		setDirection(null);
+		onApply(validFilters);
 		setIsOpen(false);
 	};
 
 	const hasActiveFilters = filters.length > 0;
 
-	// Sync local state with URL filters when popover opens
 	const handleOpenChange = (open: boolean) => {
 		if (open) {
 			setLocalFilters(filters);
@@ -96,6 +91,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 
 	return (
 		<Popover
+			modal={variant === "sheet"}
 			open={isOpen}
 			onOpenChange={handleOpenChange}
 		>
@@ -103,11 +99,20 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 				<Button
 					type="button"
 					variant="ghost"
-					className="size-8! aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+					className={cn(
+						"border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+						variant === "sheet" ? "text-xs h-full" : "size-8! aspect-square",
+					)}
 					aria-label="Filter table data"
 					data-active={hasActiveFilters}
 				>
 					<Filter className="size-4" />
+					{variant === "sheet" && "Filter"}
+					{variant === "sheet" && hasActiveFilters && (
+						<Kbd className="text-[10px] font-normal text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5">
+							{filters.length}
+						</Kbd>
+					)}
 				</Button>
 			</PopoverTrigger>
 

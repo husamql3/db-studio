@@ -1,4 +1,4 @@
-import type { FilterType, SortType } from "@db-studio/shared/types";
+import type { FilterType } from "@db-studio/shared/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsJson, useQueryState } from "nuqs";
 import { getTableData } from "@/shared/api";
@@ -6,76 +6,50 @@ import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 
-export const useTableData = ({
-	tableName,
-	schemaName,
-	isReferencedTable = false,
-}: {
+export const tableFiltersParser = parseAsJson((value) => value as FilterType[])
+	.withDefault([])
+	.withOptions({ history: "push" });
+
+export type TablePageParams = {
 	tableName: string;
 	schemaName: string | undefined;
-	isReferencedTable?: boolean;
-}) => {
-	const { selectedDatabase } = useDatabaseStore();
-	const [activeTable] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE);
-	const activeTableName = tableName || activeTable || "";
+	cursor: string | null;
+	direction: string | null;
+	limit: string | null;
+	/** A column name, or a JSON array of `SortType` when `order` is null. */
+	sort: string | null;
+	order: string | null;
+	filters: FilterType[];
+};
 
-	// Cursor-based pagination state
-	const [cursor] = useQueryState(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR
-			: CONSTANTS.TABLE_STATE_KEYS.CURSOR,
-	);
-
-	const [limit] = useQueryState(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString()
-			: CONSTANTS.TABLE_STATE_KEYS.LIMIT,
-	);
-
-	const [direction] = useQueryState(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION
-			: CONSTANTS.TABLE_STATE_KEYS.DIRECTION,
-	);
-
-	// For referenced tables, sort is an array of Sort objects
-	const [referencedSort] = useQueryState<SortType[]>(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.SORT,
-		parseAsJson((value) => value as SortType[])
-			.withDefault([])
-			.withOptions({ history: "push" }),
-	);
-
-	// For regular tables, sort is a string (column name)
-	const [regularSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
+/** The page the main grid shows, read from the URL. */
+export const useGridPage = (tableName: string, schemaName: string | undefined) => {
+	const [cursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
+	const [limit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
+	const [direction] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
+	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
+	const [filters] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.FILTERS, tableFiltersParser);
 
-	const [filters] = useQueryState<FilterType[]>(
-		isReferencedTable
-			? CONSTANTS.REFERENCED_TABLE_STATE_KEYS.FILTERS
-			: CONSTANTS.TABLE_STATE_KEYS.FILTERS,
-		parseAsJson((value) => value as FilterType[])
-			.withDefault([])
-			.withOptions({ history: "push" }),
-	);
-
-	const serializedSort =
-		isReferencedTable && referencedSort?.length > 0
-			? JSON.stringify(referencedSort)
-			: regularSort;
-
-	const serializedFilters = filters?.length > 0 ? JSON.stringify(filters) : undefined;
-
-	const page = {
-		tableName: activeTableName,
+	return {
+		tableName,
+		schemaName,
 		cursor,
 		limit,
 		direction,
-		sort: serializedSort,
+		sort,
 		order,
-		filters: serializedFilters,
+		filters,
+	} satisfies TablePageParams;
+};
+
+export const useTableData = (params: TablePageParams) => {
+	const { selectedDatabase } = useDatabaseStore();
+
+	const page = {
+		...params,
+		filters: params.filters.length > 0 ? JSON.stringify(params.filters) : undefined,
 		db: selectedDatabase,
-		schemaName,
 	};
 
 	const fetchPage = (target: typeof page) =>
@@ -101,7 +75,7 @@ export const useTableData = ({
 		queryKey: tableKeys.data(page),
 		queryFn: () => fetchPage(page),
 		select: (res) => res.data.data,
-		enabled: !!activeTableName,
+		enabled: !!page.tableName,
 	});
 
 	const queryClient = useQueryClient();

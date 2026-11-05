@@ -29,18 +29,6 @@ export const CONSTANTS = {
 		FILTERS: "filters",
 	},
 
-	//* referenced table state keys (cursor-based pagination)
-	REFERENCED_TABLE_STATE_KEYS: {
-		ACTIVE_TABLE: "rTable",
-		CURSOR: "rCursor",
-		DIRECTION: "rDir",
-		LIMIT: "rLimit",
-		DEFAULT_LIMIT: 30,
-		FILTERS: "rFilters",
-		SORT: "rSort",
-		ORDER: "rOrder",
-	},
-
 	//* other constants
 	RAIL_WIDTH: 48, // px, the left navigation rail
 };

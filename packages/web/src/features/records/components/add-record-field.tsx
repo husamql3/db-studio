@@ -12,12 +12,9 @@ import {
 import { Textarea } from "@db-studio/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { Clock, Link, RefreshCw } from "lucide-react";
-import { useQueryState } from "nuqs";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
-import { useOverlayStore } from "@/stores/overlay.store";
-import { CONSTANTS } from "@/utils/constants";
 import type { AddRecordFormData } from "../hooks/use-create-record";
-import { useRecordReferenceStore } from "../stores/record-reference.store";
+import { openRecordReference } from "../stores/record-reference.store";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -41,13 +38,13 @@ export const AddRecordField = ({
 	referencedColumn,
 	hideLabel = false,
 }: ColumnInfoSchemaType & { hideLabel?: boolean }) => {
-	const [, setReferencedActiveTable] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
-	);
-
 	const { control } = useFormContext<AddRecordFormData>();
-	const { openOverlay } = useOverlayStore();
-	const { setRecordReference } = useRecordReferenceStore();
+
+	const openReference = () => {
+		if (referencedTable && referencedColumn) {
+			openRecordReference({ tableName: referencedTable, columnName, referencedColumn });
+		}
+	};
 
 	const renderInputField = (field: ControllerRenderProps<AddRecordFormData, string>) => {
 		const safeField = {
@@ -77,14 +74,7 @@ export const AddRecordField = ({
 									aria-label="Go to table"
 									className="inline-flex w-9 items-center justify-center rounded-e-sm border  border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
 									type="button"
-									onClick={() => {
-										if (referencedTable && columnName && referencedColumn) {
-											setRecordReference(referencedTable, columnName, referencedColumn);
-										}
-
-										openOverlay("records.record-reference");
-										setReferencedActiveTable(referencedTable);
-									}}
+									onClick={openReference}
 								>
 									<Link
 										aria-hidden="true"
@@ -102,14 +92,7 @@ export const AddRecordField = ({
 						<button
 							type="button"
 							className="font-mono text-primary"
-							onClick={() => {
-								if (referencedTable && columnName && referencedColumn) {
-									setRecordReference(referencedTable, columnName, referencedColumn);
-								}
-
-								openOverlay("records.record-reference");
-								setReferencedActiveTable(referencedTable);
-							}}
+							onClick={openReference}
 						>
 							{referencedTable}
 						</button>{" "}
