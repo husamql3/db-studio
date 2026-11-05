@@ -6,8 +6,8 @@ import {
 	SelectValue,
 } from "@db-studio/ui/select";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { useTableCols } from "@/features/schema";
 import type { AddTableFormData } from "@/features/table-builder/types";
+import { useTableCols } from "@/hooks/use-table-cols";
 
 export const ReferencedColField = ({
 	index,

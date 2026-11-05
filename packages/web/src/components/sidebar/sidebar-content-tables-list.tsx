@@ -10,8 +10,8 @@ import { useQueryState } from "nuqs";
 import { useMemo } from "react";
 import { SidebarListTables } from "@/components/sidebar/sidebar-list-tables";
 import { SidebarSearchTables } from "@/components/sidebar/sidebar-search-tables";
-import { useTablesList } from "@/features/tables";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTablesList } from "@/hooks/use-tables-list";
 import { CONSTANTS } from "@/utils/constants";
 
 const SidebarSchemaDropdown = () => {

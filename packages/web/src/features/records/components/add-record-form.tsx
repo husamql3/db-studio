@@ -4,7 +4,7 @@ import { SheetClose } from "@db-studio/ui/sheet";
 import { useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";

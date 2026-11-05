@@ -2,7 +2,7 @@ import type { ColumnInfoSchemaType, DeleteRecordResult } from "@db-studio/shared
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 import { toast } from "sonner";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { posthogAnalytics } from "@/lib/posthog";
 import { deleteRecords } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";

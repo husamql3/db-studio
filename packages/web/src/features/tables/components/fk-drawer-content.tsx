@@ -12,13 +12,14 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
-import { useTableCols } from "@/features/schema";
+import { CopyButton } from "@/components/copy-button";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { api } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
 import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
-import { CellCopyButton } from "./cell-copy-button";
+import { formatCellValue } from "@/utils/format-cell-value";
 
 export const FkDrawerContent = ({
 	referencedTable,
@@ -112,7 +113,7 @@ export const FkDrawerContent = ({
 					<DataGrid
 						columns={columns}
 						data={tableData?.data ?? []}
-						renderCellAccessory={(value) => <CellCopyButton value={value} />}
+						renderCellAccessory={(value) => <CopyButton value={formatCellValue(value)} />}
 					/>
 				)}
 			</div>

@@ -10,7 +10,7 @@ import { Input } from "@db-studio/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
 import { Plus, Save, Search, Trash2 } from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { RedisCopyButton } from "./redis-copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { encodeTextValue, RedisValue, RedisValueInput } from "./redis-value";
 
 /**
@@ -159,9 +159,11 @@ const CollectionShell = ({
 						? `${loadedCount.toLocaleString()} of ${totalCount.toLocaleString()}`
 						: loadedCount.toLocaleString()}
 			</span>
-			<RedisCopyButton
-				text={copyJson}
+			<CopyButton
+				getValue={copyJson}
 				label="Copy loaded entries as JSON"
+				variant="ghost"
+				tooltip
 			/>
 		</div>
 		{header}

@@ -3,8 +3,8 @@ import { useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { SidebarListTablesItem } from "@/components/sidebar/sidebar-list-tables-item";
 import { EditTableSheet } from "@/features/schema";
-import { useTablesList } from "@/features/tables";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTablesList } from "@/hooks/use-tables-list";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarListTables = () => {

@@ -20,9 +20,9 @@ import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { type ColumnChange, planColumnChanges, useEditTable } from "../hooks/use-edit-table";
-import { useTableCols } from "../hooks/use-table-cols";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
 
 const editTableFormSchema = z.object({

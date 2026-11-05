@@ -3,9 +3,10 @@ import { flexRender, type Row, type TableMeta, type TableState } from "@tanstack
 import type { VirtualItem } from "@tanstack/react-virtual";
 import { Maximize2 } from "lucide-react";
 import { memo } from "react";
+import { CopyButton } from "@/components/copy-button";
 import type { TableRecord } from "@/types/table.type";
+import { formatCellValue } from "@/utils/format-cell-value";
 import { useLiveModeStore } from "../stores/live-mode.store";
-import { CellCopyButton } from "./cell-copy-button";
 
 interface TableBodyRowProps {
 	row: Row<TableRecord>;
@@ -82,7 +83,7 @@ export const TableBodyRow = memo(function TableBodyRow({
 								<Maximize2 className="size-3.5!" />
 							</button>
 						) : (
-							<CellCopyButton value={cell.getValue()} />
+							<CopyButton value={formatCellValue(cell.getValue())} />
 						)}
 					</td>
 				);

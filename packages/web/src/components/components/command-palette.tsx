@@ -39,9 +39,10 @@ import {
 } from "lucide-react";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
 import { useCopyTableSchema } from "@/features/table-builder";
-import { useExportFile, useTablesList } from "@/features/tables";
+import { useExportFile } from "@/features/tables";
 import { tableId } from "@/features/visualizer";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { useTablesList } from "@/hooks/use-tables-list";
 import { useTheme } from "@/hooks/use-theme";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";

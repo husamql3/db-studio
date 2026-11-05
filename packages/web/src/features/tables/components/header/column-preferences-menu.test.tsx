@@ -25,7 +25,7 @@ const makeCol = (columnName: string, isPrimaryKey = false): ColumnInfoSchemaType
 
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 
-vi.mock("@/features/schema", () => ({
+vi.mock("@/hooks/use-table-cols", () => ({
 	useTableCols: ({ tableName }: { tableName: string }) => ({
 		tableCols:
 			tableName === "users"

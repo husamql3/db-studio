@@ -1,7 +1,7 @@
 import { Button } from "@db-studio/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useCallback } from "react";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useTableData } from "../../hooks/use-table-data";
 

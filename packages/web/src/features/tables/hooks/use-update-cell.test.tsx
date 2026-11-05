@@ -22,7 +22,7 @@ vi.mock("@/routes/_pathlessLayout/table/$table", () => ({
 	Route: { useParams: () => ({ table: "members" }) },
 }));
 
-vi.mock("@/features/schema", () => ({
+vi.mock("@/hooks/use-table-cols", () => ({
 	useTableCols: () => ({ tableCols: fixtures.tableCols }),
 }));
 

@@ -6,9 +6,10 @@ import { Spinner } from "@db-studio/ui/spinner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { useMemo } from "react";
-import { CellCopyButton } from "@/features/tables";
+import { CopyButton } from "@/components/copy-button";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { formatCellValue } from "@/utils/format-cell-value";
 import { CreateIndexForm } from "../components/create-index-form";
 import { DropIndexDialog } from "../components/drop-index-dialog";
 import { IndexRowActions } from "../components/index-row-actions";
@@ -182,7 +183,7 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 				<DataGrid
 					columns={columns}
 					data={tableIndexes}
-					renderCellAccessory={(value) => <CellCopyButton value={value} />}
+					renderCellAccessory={(value) => <CopyButton value={formatCellValue(value)} />}
 				/>
 			) : (
 				<div className="flex-1 flex flex-col items-center justify-center gap-3">

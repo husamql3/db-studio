@@ -6,14 +6,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Link as LinkIcon } from "lucide-react";
 import { useMemo } from "react";
-import { CellCopyButton } from "@/features/tables/components/cell-copy-button";
+import { CopyButton } from "@/components/copy-button";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { formatCellValue } from "@/utils/format-cell-value";
 import { AddColumnForm } from "../components/add-column-form";
 import { EditColumnForm } from "../components/edit-column-form";
 import { SchemaRowActions } from "../components/schema-row-actions";
 import { SchemaToolbar } from "../components/schema-toolbar";
 import { TypeBadge } from "../components/type-badge";
-import { useTableCols } from "../hooks/use-table-cols";
 
 export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 	const {
@@ -192,7 +193,7 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 			<DataGrid
 				columns={columns}
 				data={tableCols ?? []}
-				renderCellAccessory={(value) => <CellCopyButton value={value} />}
+				renderCellAccessory={(value) => <CopyButton value={formatCellValue(value)} />}
 			/>
 			<AddColumnForm tableName={tableName} />
 			<EditColumnForm tableName={tableName} />

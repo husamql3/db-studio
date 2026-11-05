@@ -123,7 +123,7 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 
-vi.mock("@/features/schema", () => ({
+vi.mock("@/hooks/use-table-cols", () => ({
 	useTableCols: () => ({ tableCols: fixtures.cols, isLoadingTableCols: false }),
 }));
 

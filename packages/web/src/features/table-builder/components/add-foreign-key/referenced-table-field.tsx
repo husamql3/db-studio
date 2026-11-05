@@ -14,7 +14,7 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { AddTableFormData, ForeignKeyData } from "@/features/table-builder/types";
-import { useTablesList } from "@/features/tables";
+import { useTablesList } from "@/hooks/use-tables-list";
 
 export const ReferencedTableField = ({ index }: { index: number }) => {
 	const [open, setOpen] = useState<boolean>(false);
