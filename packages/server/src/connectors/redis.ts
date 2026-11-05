@@ -7,13 +7,26 @@ import { openOnce } from "./open-once.js";
 export const UNSUPPORTED_SERVER_MODE =
 	"Redis cluster and Sentinel modes are not supported. Use a standalone redis:// connection.";
 
+/** The `field:value` lines of an INFO reply; section headers and blank lines are skipped. */
+export const parseInfo = (info: string) => {
+	const fields: Partial<Record<string, string>> = {};
+
+	for (const line of info.split(/\r?\n/)) {
+		const idx = line.indexOf(":");
+
+		if (line.startsWith("#") || idx < 0) continue;
+		fields[line.slice(0, idx)] = line.slice(idx + 1);
+	}
+
+	return fields;
+};
+
 /** Refuses a server db-studio cannot browse: cluster or Sentinel mode, or Redis before 6.2. */
 const assertSupportedServer = async (client: Redis) => {
-	const info = await client.info("server");
+	const { redis_mode: mode, redis_version: version } = parseInfo(await client.info("server"));
 
-	if (/^redis_mode:(cluster|sentinel)\b/m.test(info)) throw new Error(UNSUPPORTED_SERVER_MODE);
+	if (mode === "cluster" || mode === "sentinel") throw new Error(UNSUPPORTED_SERVER_MODE);
 
-	const version = info.match(/^redis_version:([^\r\n]+)/m)?.[1];
 	const [major = 0, minor = 0] = version?.split(".").map(Number) ?? [];
 
 	if (major < 6 || (major === 6 && minor < 2)) {
@@ -65,12 +78,20 @@ export const redisConnector = (url: ConnectionUrl) => {
 	return {
 		defaultDb,
 		client,
-		/** A connection of its own, for commands that block or hold state (MULTI, WATCH). */
-		isolatedClient: async (index = defaultDb) => {
+		/**
+		 * Runs `fn` on a connection of its own, for commands that hold state (WATCH, MULTI), and
+		 * closes that connection afterwards.
+		 */
+		withIsolatedClient: async <T>(index: number, fn: (client: Redis) => Promise<T>) => {
 			const isolated = (await client(index)).duplicate();
-			await isolated.connect();
 
-			return isolated;
+			try {
+				await isolated.connect();
+
+				return await fn(isolated);
+			} finally {
+				await isolated.quit().catch(() => isolated.disconnect());
+			}
 		},
 		ping: async () => {
 			await (await client()).ping();

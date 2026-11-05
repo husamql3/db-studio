@@ -1,5 +1,7 @@
 import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
 import type { ObjectId } from "mongodb";
+import { z } from "zod";
+import { decodeCursor, encodeCursor } from "@/adapters/cursor.js";
 import { coerceObjectId } from "./object-id.js";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -101,20 +103,9 @@ export function buildSortStage(
 	return { _id: 1 };
 }
 
-export function encodeMongoCursor(offset: number): string {
-	return Buffer.from(JSON.stringify({ offset })).toString("base64url");
-}
+const offsetCursorSchema = z.object({ offset: z.number() });
 
-export function decodeMongoCursor(cursor?: string): number {
-	if (!cursor) return 0;
+export const encodeMongoCursor = (offset: number): string => encodeCursor({ offset });
 
-	try {
-		const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")) as {
-			offset?: number;
-		};
-
-		return typeof parsed.offset === "number" ? parsed.offset : 0;
-	} catch {
-		return 0;
-	}
-}
+export const decodeMongoCursor = (cursor?: string): number =>
+	(cursor ? decodeCursor(cursor, offsetCursorSchema)?.offset : undefined) ?? 0;

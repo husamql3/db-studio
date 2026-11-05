@@ -60,7 +60,10 @@ const mockGetIsolatedRedisClient = vi.hoisted(() => vi.fn());
 vi.mock("@/open-connections.js", () => ({
 	connector: () => ({
 		client: mockGetRedisClient,
-		isolatedClient: mockGetIsolatedRedisClient,
+		withIsolatedClient: async <T>(
+			index: number,
+			fn: (client: typeof mockClient) => Promise<T>,
+		) => fn(await mockGetIsolatedRedisClient(index)),
 		defaultDb: 0,
 	}),
 }));

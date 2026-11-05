@@ -387,6 +387,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
 - `src/adapters/base.adapter.ts` — `BaseAdapter`: `classifyError()`, key and cursor helpers (`encodeCursor()`, `decodeCursor()`), and 501 defaults for the methods an engine does not implement
+- `src/adapters/cursor.ts` — `encodeCursor()` / `decodeCursor(cursor, schema)`: the validated base64url JSON cursors of the Mongo and Redis adapters
 - `src/adapters/sql.adapter.ts` — `SqlAdapter`: the `SELECT *` export
 - `src/adapters/adapter.registry.ts` — `ADAPTERS`, the adapter of each engine
 - `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
