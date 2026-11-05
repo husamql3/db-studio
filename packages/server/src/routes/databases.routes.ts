@@ -18,7 +18,7 @@ export const databasesRoutes = new Elysia({ prefix: "/databases" })
 
 		const adapter: IDbAdapter = ADAPTERS[dbType];
 
-		return { dbType, address: parsed, adapter };
+		return { dbType, address: { host: parsed.host, port: parsed.port }, adapter };
 	})
 
 	.get("/", async ({ adapter, dbType }) => ({
