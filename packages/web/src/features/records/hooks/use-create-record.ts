@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { createRecord as createRecordRequest } from "@/shared/api";
+import {
+	createRecord as createRecordRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
@@ -21,8 +25,12 @@ export const useCreateRecord = ({
 	const { closeOverlay } = useOverlayStore();
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
-	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
-		mutationFn: async (data: AddRecordFormData) => {
+	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation<
+		string,
+		ApiError,
+		AddRecordFormData
+	>({
+		mutationFn: async (data) => {
 			const res = await createRecordRequest({
 				tableName,
 				schemaName,
@@ -52,7 +60,7 @@ export const useCreateRecord = ({
 		data: AddRecordFormData,
 		options: {
 			onSuccess?: () => void;
-			onError?: (error: Error & { detail?: string }) => void;
+			onError?: (error: ApiError) => void;
 		},
 	) => {
 		if (!data || Object.keys(data).length === 0) {
@@ -62,8 +70,7 @@ export const useCreateRecord = ({
 		return toast.promise(createRecordMutation(data, options), {
 			loading: "Creating record...",
 			success: (message) => message || "Record created successfully",
-			error: (error: Error & { detail?: string }) =>
-				error.detail || error.message || "Failed to create record",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to create record"),
 		});
 	};
 

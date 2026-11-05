@@ -1,14 +1,14 @@
 import type { CreateIndexSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { createIndex as createIndexRequest } from "@/shared/api";
+import {
+	createIndex as createIndexRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { indexKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 export const useCreateIndex = ({
 	tableName,
@@ -23,7 +23,7 @@ export const useCreateIndex = ({
 
 	const { mutateAsync: createIndexMutation, isPending: isCreatingIndex } = useMutation<
 		string,
-		MutationError,
+		ApiError,
 		CreateIndexSchemaType
 	>({
 		mutationFn: async (data) => {
@@ -49,10 +49,7 @@ export const useCreateIndex = ({
 		toast.promise(createIndexMutation(data), {
 			loading: "Creating index...",
 			success: (message) => message || "Index created successfully",
-			error: (error: MutationError) =>
-				(typeof error.details === "string" && error.details) ||
-				error.message ||
-				"Failed to create index",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to create index"),
 		});
 
 	return {

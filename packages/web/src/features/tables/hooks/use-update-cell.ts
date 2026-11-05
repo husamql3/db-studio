@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { Route } from "@/routes/_pathlessLayout/table/$table";
-import { updateRecords } from "@/shared/api";
+import { updateRecords, type ApiError, apiErrorMessage } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import {
@@ -76,7 +76,7 @@ export const useUpdateCell = () => {
 			loading: "Saving changes...",
 			success: (message) =>
 				message || `${count} ${count === 1 ? "change" : "changes"} saved successfully`,
-			error: (error: Error) => error.message || "Failed to save changes",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to save changes"),
 		});
 	};
 

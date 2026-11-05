@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { updateRecords } from "@/shared/api";
+import { updateRecords, type ApiError, apiErrorMessage } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -89,7 +89,7 @@ export const useUpdateRecord = ({
 			.promise(updateRecordMutation({ rowData, updates, primaryKey, primaryKeys }), {
 				loading: "Saving changes...",
 				success: (message) => message || "Record updated successfully",
-				error: (error: Error) => error.message || "Failed to update record",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to update record"),
 			})
 			.unwrap();
 	};

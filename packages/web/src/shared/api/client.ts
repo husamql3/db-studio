@@ -1,5 +1,5 @@
 import { DEFAULTS } from "@db-studio/shared/constants";
-import type { ApiError, DatabaseTypeSchema } from "@db-studio/shared/types";
+import type { ApiError as ApiErrorBody, DatabaseTypeSchema } from "@db-studio/shared/types";
 import axios, {
 	type AxiosError,
 	type AxiosInstance,
@@ -30,6 +30,19 @@ export const setConnectionId = (id: string | null): void => {
 	if (id) sessionStorage.setItem(CONNECTION_ID_KEY, id);
 	else sessionStorage.removeItem(CONNECTION_ID_KEY);
 };
+
+/** What every failed request rejects with; `status` is 500 when no response arrived. */
+export type ApiError = Error & {
+	status: number;
+	details?: string;
+	requestId?: string;
+};
+
+/** The server's details when it sent any, else the error message, else `fallback`. */
+export const apiErrorMessage = (
+	error: Error & { details?: string },
+	fallback: string,
+): string => error.details || error.message || fallback;
 
 const setupInterceptors = (instance: AxiosInstance) => {
 	instance.interceptors.request.use(
@@ -75,7 +88,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 
 			return response;
 		},
-		(error: AxiosError<ApiError>) => {
+		(error: AxiosError<ApiErrorBody>) => {
 			const startTime =
 				(
 					error.config as
@@ -97,7 +110,11 @@ const setupInterceptors = (instance: AxiosInstance) => {
 				.get("X-Request-Id")
 				?.toString();
 
-			const apiError = Object.assign(new Error(message), { status, details, requestId });
+			const apiError: ApiError = Object.assign(new Error(message), {
+				status,
+				details,
+				requestId,
+			});
 
 			if (!error.response) {
 				const operation = apiOperationForRequest(error.config?.method, error.config?.url);

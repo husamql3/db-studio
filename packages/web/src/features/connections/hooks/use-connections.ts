@@ -12,15 +12,12 @@ import {
 	connectUrl,
 	getConnections,
 	setConnectionId,
+	type ApiError,
+	apiErrorMessage,
 } from "@/shared/api";
 import { connectionKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-
-type MutationError = Error & { details?: unknown };
-
-export const errorMessage = (error: MutationError) =>
-	(typeof error.details === "string" && error.details) || error.message;
 
 /** `connectionId` this tab works with; `undefined` until the server first answers. */
 let ownConnectionId: string | null | undefined;
@@ -85,14 +82,14 @@ export const useConnect = () => {
 	const resetTo = useResetToConnection();
 	const { active } = useConnections();
 
-	const urlMutation = useMutation<ConnectionsStateSchemaType, MutationError, string>({
+	const urlMutation = useMutation<ConnectionsStateSchemaType, ApiError, string>({
 		mutationFn: async (url) => (await connectUrl(url)).data.data,
 		onSuccess: resetTo,
 	});
 
 	const savedMutation = useMutation<
 		ConnectionsStateSchemaType,
-		MutationError,
+		ApiError,
 		ConnectionSummarySchemaType
 	>({
 		mutationFn: async ({ id }) => (await connectSavedConnection(id)).data.data,
@@ -104,10 +101,10 @@ export const useConnect = () => {
 		toast.promise(urlMutation.mutateAsync(url), {
 			loading: "Connecting…",
 			success: "Connected",
-			error: (error: MutationError) =>
+			error: (error: ApiError) =>
 				active
-					? `${errorMessage(error)}. Still on the previous connection.`
-					: errorMessage(error),
+					? `${apiErrorMessage(error, "Failed to connect")}. Still on the previous connection.`
+					: apiErrorMessage(error, "Failed to connect"),
 		});
 
 	/** One click on a saved connection: the test runs behind a loading toast. */
@@ -115,16 +112,18 @@ export const useConnect = () => {
 		toast.promise(savedMutation.mutateAsync(connection), {
 			loading: `Connecting to ${connection.name}…`,
 			success: `Connected to ${connection.name}`,
-			error: (error: MutationError) =>
+			error: (error: ApiError) =>
 				active
-					? `${errorMessage(error)}. Still on the previous connection.`
-					: errorMessage(error),
+					? `${apiErrorMessage(error, "Failed to connect")}. Still on the previous connection.`
+					: apiErrorMessage(error, "Failed to connect"),
 		});
 
 	return {
 		connectUrl: connectPastedUrl,
 		isConnectingUrl: urlMutation.isPending,
-		urlError: urlMutation.error ? errorMessage(urlMutation.error) : null,
+		urlError: urlMutation.error
+			? apiErrorMessage(urlMutation.error, "Failed to connect")
+			: null,
 		clearUrlError: urlMutation.reset,
 		connectSaved,
 	};

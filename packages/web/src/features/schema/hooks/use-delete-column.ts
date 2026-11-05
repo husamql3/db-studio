@@ -1,7 +1,11 @@
 import type { DeleteColumnParamsSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { deleteColumn as deleteColumnRequest } from "@/shared/api";
+import {
+	deleteColumn as deleteColumnRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -11,7 +15,7 @@ export const useDeleteColumn = () => {
 
 	const { mutateAsync: deleteColumnAsync, isPending: isDeletingColumn } = useMutation<
 		string,
-		Error,
+		ApiError,
 		DeleteColumnParamsSchemaType
 	>({
 		mutationFn: async ({
@@ -61,7 +65,7 @@ export const useDeleteColumn = () => {
 			{
 				loading: "Deleting column...",
 				success: (message) => message || "Column deleted successfully",
-				error: (error: Error) => error.message || "Failed to delete column",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to delete column"),
 			},
 		);
 	};

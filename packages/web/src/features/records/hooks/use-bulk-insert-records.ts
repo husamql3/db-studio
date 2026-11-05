@@ -2,7 +2,11 @@ import type { BulkInsertResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { bulkInsertRecords as bulkInsertRecordsRequest } from "@/shared/api";
+import {
+	bulkInsertRecords as bulkInsertRecordsRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -49,7 +53,7 @@ export const useBulkInsertRecords = ({
 		records: Record<string, unknown>[],
 		options?: {
 			onSuccess?: (result: BulkInsertResult) => void;
-			onError?: (error: Error & { detail?: string }) => void;
+			onError?: (error: ApiError) => void;
 			format?: "csv" | "json" | "excel";
 		},
 	) => {
@@ -72,10 +76,10 @@ export const useBulkInsertRecords = ({
 
 				return result.message;
 			},
-			error: (error: Error & { detail?: string }) => {
+			error: (error: ApiError) => {
 				options?.onError?.(error);
 
-				return error.detail || error.message || "Failed to insert records";
+				return apiErrorMessage(error, "Failed to insert records");
 			},
 		});
 	};

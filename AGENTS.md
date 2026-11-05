@@ -461,27 +461,18 @@ Wrap mutation calls with `toast.promise` for consistent loading/success/error fe
 
 **Pattern**:
 ```ts
-const addColumn = async (
-    data: AddColumnSchemaType,
-    options?: {
-        onSuccess?: () => void;
-        onError?: (error: MutationError) => void;
-    },
-) =>
-    toast.promise(addColumnMutation(data, options), {
+const addColumn = async (data: AddColumnSchemaType) =>
+    toast.promise(addColumnMutation(data), {
         loading: "Adding column...",
         success: (message) => message || "Column added successfully",
-        error: (error: MutationError) =>
-            (typeof error.details === "string" && error.details) ||
-            error.message ||
-            "Failed to add column",
+        error: (error: ApiError) => apiErrorMessage(error, "Failed to add column"),
     });
 ```
 
 **Rules**:
 - Always use `toast.promise` — never call `toast.success` / `toast.error` manually around mutations
 - `success` callback receives the mutation return value; prefer server message with a fallback string
-- `error` callback: check `error.details` (string) first, then `error.message`, then a static fallback
+- `error` callback: `apiErrorMessage(error, fallback)` from `src/shared/api/client.ts` (server details, then message, then the fallback). Every failed request rejects with its `ApiError` (`status`, `details`, `requestId`); type mutations with it (`useMutation<Data, ApiError, Variables>`)
 
 ### Client API (`src/shared/api/`)
 

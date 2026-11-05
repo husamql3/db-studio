@@ -1,7 +1,11 @@
 import type { DeleteTableResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { deleteTable as deleteTableRequest } from "@/shared/api";
+import {
+	deleteTable as deleteTableRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -50,7 +54,7 @@ export const useDeleteTable = () => {
 				result.fkViolation
 					? `Table "${tableName}" has related records`
 					: `Deleted table "${tableName}" with ${result.deletedCount} rows`,
-			error: (error: Error) => error.message || "Failed to delete table",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to delete table"),
 		});
 
 		return promise;
@@ -65,7 +69,7 @@ export const useDeleteTable = () => {
 			loading: "Deleting table...",
 			success: (result) =>
 				`Force deleted table "${tableName}" with ${result.deletedCount} rows`,
-			error: (error: Error) => error.message || "Failed to delete table",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to delete table"),
 		});
 
 		return promise;

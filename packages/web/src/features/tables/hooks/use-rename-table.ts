@@ -1,14 +1,14 @@
 import type { RenameTableSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { renameTable as renameTableRequest } from "@/shared/api";
+import {
+	renameTable as renameTableRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 export const useRenameTable = ({
 	tableName,
@@ -22,7 +22,7 @@ export const useRenameTable = ({
 
 	const { mutateAsync: renameTableMutation, isPending: isRenamingTable } = useMutation<
 		string,
-		MutationError,
+		ApiError,
 		RenameTableSchemaType
 	>({
 		mutationFn: async (data) => {
@@ -47,21 +47,12 @@ export const useRenameTable = ({
 		},
 	});
 
-	const renameTable = async (
-		data: RenameTableSchemaType,
-		options?: {
-			onSuccess?: () => void;
-			onError?: (error: MutationError) => void;
-		},
-	) => {
-		const promise = renameTableMutation(data, options);
+	const renameTable = async (data: RenameTableSchemaType) => {
+		const promise = renameTableMutation(data);
 		toast.promise(promise, {
 			loading: "Renaming table...",
 			success: (message) => message || "Table renamed successfully",
-			error: (error: MutationError) =>
-				(typeof error.details === "string" && error.details) ||
-				error.message ||
-				"Failed to rename table",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to rename table"),
 		});
 
 		return promise;

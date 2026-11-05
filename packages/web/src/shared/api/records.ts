@@ -1,4 +1,5 @@
 import type {
+	ApiError as ApiErrorBody,
 	BaseResponse,
 	BulkInsertResult,
 	DeleteRecordResult,
@@ -86,7 +87,13 @@ export const deleteRecords = ({
 	force?: boolean;
 	db?: string | null;
 }) =>
-	api.delete<BaseResponse<DeleteRecordResult>>(force ? "/records/force" : "/records", {
-		data: { tableName, primaryKeys },
-		params: { db: db ?? "", schemaName },
-	});
+	api.delete<BaseResponse<DeleteRecordResult> | ApiErrorBody>(
+		force ? "/records/force" : "/records",
+		{
+			data: { tableName, primaryKeys },
+			params: { db: db ?? "", schemaName },
+			// Rows that other rows reference answer 409 with `fkViolation` and `relatedRecords`;
+			// any other conflict answers 409 with an error body.
+			validateStatus: (status) => (status >= 200 && status < 300) || status === 409,
+		},
+	);
