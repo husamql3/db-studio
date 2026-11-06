@@ -27,7 +27,7 @@ try {
 	evidence.textInInteger = await insert({ id: "one", born: "2026-10-29", code: "a" });
 	evidence.tooLong = await insert({ id: 2, born: "2026-10-29", code: "abcd" });
 	evidence.valid = await insert({ id: 3, born: "2026-10-29", code: "abc" });
-	// Editing a cell and bulk-inserting rows go through their own catch blocks in the adapter.
+	// Editing a cell and bulk-inserting rows run in a transaction, which rolls back and rethrows.
 	evidence.updateBadDate = await call("PATCH", "/records", {
 		tableName: TABLE,
 		primaryKey: "id",

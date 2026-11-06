@@ -42,7 +42,7 @@ try {
 		evidence[label] = await send("POST", "", { data });
 	}
 
-	// Updates and bulk inserts catch driver errors themselves; constraint errors must get through.
+	// Updates and bulk inserts run in a transaction; its rollback must not hide the constraint error.
 	evidence.updateForeignKey = await send("PATCH", "", {
 		updates: [{ rowData: { id: 1 }, columnName: "parent_id", value: 999 }],
 	});
