@@ -110,24 +110,32 @@ export const SidebarListTablesMenu = ({
 	};
 
 	const handleDelete = async () => {
-		const result = await deleteTable(tableName, schemaName);
+		try {
+			const result = await deleteTable(tableName, schemaName);
 
-		if (result.fkViolation) {
-			setRelatedRecords(result.relatedRecords);
-			closeOverlay(deleteOverlayId);
-			openOverlay(forceDeleteOverlayId);
-		} else {
-			closeOverlay(deleteOverlayId);
+			if (result.fkViolation) {
+				setRelatedRecords(result.relatedRecords);
+				closeOverlay(deleteOverlayId);
+				openOverlay(forceDeleteOverlayId);
+			} else {
+				closeOverlay(deleteOverlayId);
 
-			if (isOpenTable) navigate({ to: "/" });
+				if (isOpenTable) navigate({ to: "/" });
+			}
+		} catch {
+			// Error notification handled by toast.promise in useDeleteTable
 		}
 	};
 
 	const handleForceDelete = async () => {
-		await forceDeleteTable(tableName, schemaName);
-		closeOverlay(forceDeleteOverlayId);
+		try {
+			await forceDeleteTable(tableName, schemaName);
+			closeOverlay(forceDeleteOverlayId);
 
-		if (isOpenTable) navigate({ to: "/" });
+			if (isOpenTable) navigate({ to: "/" });
+		} catch {
+			// Error notification handled by toast.promise in useDeleteTable
+		}
 	};
 
 	const handleCancelForceDelete = () => {
