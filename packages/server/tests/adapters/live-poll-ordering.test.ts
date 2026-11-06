@@ -12,11 +12,8 @@
  * 4. The backward (`direction: "desc"`) query must flip the tie-breaker too. Otherwise paging
  *    back does not return the page the user came from.
  *
- * SQLite runs on a temporary file and DuckDB in memory on every test run. MySQL, SQL Server and Oracle run
- * only when MYSQL_TEST_URL / MSSQL_TEST_URL / ORACLE_TEST_URL are set, e.g.
- *   MYSQL_TEST_URL=mysql://root@127.0.0.1:3306/dbstudio
- *   MSSQL_TEST_URL=mssql://sa:DbStudio1!@127.0.0.1:1433/master
- *   ORACLE_TEST_URL=oracle://dbstudio:dbstudio@127.0.0.1:1521/FREEPDB1
+ * SQLite runs on a temporary file and DuckDB in memory on every test run. The server engines
+ * (PostgreSQL, MySQL, SQL Server, Oracle) run the same checks in e2e/live-poll-ordering.ts.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,35 +25,23 @@ import {
 	type Client as LibsqlClient,
 	createClient as createLibsqlClient,
 } from "@libsql/client";
-import sql from "mssql";
-import mysql from "mysql2/promise";
-import oracledb from "oracledb";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const connections = vi.hoisted(() => ({
-	getMysqlPool: vi.fn(),
-	getMssqlPool: vi.fn(),
 	getSqliteClient: vi.fn(),
 	withDuckdbConnection: vi.fn(),
-	getOraclePool: vi.fn(),
 }));
 
 vi.mock("@/open-connections.js", () => ({
 	connector: (dbType: string) =>
 		({
-			mysql: { pool: connections.getMysqlPool },
-			mssql: { pool: connections.getMssqlPool },
 			sqlite: { client: connections.getSqliteClient },
 			duckdb: { withConnection: connections.withDuckdbConnection },
-			oracle: { pool: connections.getOraclePool },
 		})[dbType],
 }));
 
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
-import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
-import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
-import { OracleAdapter } from "@/adapters/oracle/oracle.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 import { loadDriver } from "@/drivers.js";
 import { fromLibsql } from "@/sqlite-client.js";
@@ -67,7 +52,7 @@ const rankOf = (id: number) => 10 - id;
 
 interface Engine {
 	name: string;
-	url: string | undefined;
+	url: string;
 	adapter: IDbAdapter;
 	connect: (url: string) => Promise<void>;
 	exec: (statement: string) => Promise<void>;
@@ -75,13 +60,10 @@ interface Engine {
 	schema: string[];
 }
 
-let mysqlPool: mysql.Pool | undefined;
-let mssqlPool: sql.ConnectionPool | undefined;
 let sqliteClient: LibsqlClient | undefined;
 const sqliteDir = mkdtempSync(path.join(tmpdir(), "db-studio-live-poll-"));
 let duckdbInstance: DuckDBInstance | undefined;
 let duckdb: DuckDBConnection | undefined;
-let oraclePool: oracledb.Pool | undefined;
 
 const engines: Engine[] = [
 	{
@@ -131,93 +113,12 @@ const engines: Engine[] = [
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name VARCHAR NOT NULL)`,
 		],
 	},
-	{
-		name: "mysql",
-		url: process.env.MYSQL_TEST_URL,
-		adapter: new MySqlAdapter(),
-		connect: async (url) => {
-			mysqlPool = mysql.createPool(url);
-			connections.getMysqlPool.mockReturnValue(mysqlPool);
-		},
-		exec: async (statement) => {
-			await mysqlPool?.query(statement);
-		},
-		close: async () => mysqlPool?.end(),
-		schema: [
-			`DROP TABLE IF EXISTS ${TABLE}`,
-			`CREATE TABLE ${TABLE} (id INT PRIMARY KEY, grp INT NOT NULL, rnk INT NOT NULL, name VARCHAR(50) NOT NULL, KEY idx_grp_rnk (grp, rnk, name))`,
-		],
-	},
-	{
-		name: "mssql",
-		url: process.env.MSSQL_TEST_URL,
-		adapter: new MsSqlAdapter(),
-		connect: async (url) => {
-			const { username, password, hostname, port, pathname } = new URL(url);
-			mssqlPool = await new sql.ConnectionPool({
-				server: hostname,
-				port: Number(port),
-				user: decodeURIComponent(username),
-				password: decodeURIComponent(password),
-				database: pathname.slice(1),
-				options: { encrypt: false, trustServerCertificate: true },
-			}).connect();
-			connections.getMssqlPool.mockResolvedValue(mssqlPool);
-		},
-		exec: async (statement) => {
-			await mssqlPool?.request().query(statement);
-		},
-		close: async () => mssqlPool?.close(),
-		// A heap with a nonclustered key: physical order is insertion order, not key order.
-		schema: [
-			`DROP TABLE IF EXISTS ${TABLE}`,
-			`CREATE TABLE ${TABLE} (id INT PRIMARY KEY NONCLUSTERED, grp INT NOT NULL, rnk INT NOT NULL, name NVARCHAR(50) NOT NULL)`,
-			`CREATE INDEX idx_grp_rnk ON ${TABLE} (grp, rnk) INCLUDE (name)`,
-		],
-	},
-	{
-		name: "oracle",
-		url: process.env.ORACLE_TEST_URL,
-		adapter: new OracleAdapter(),
-		connect: async (url) => {
-			const { username, password, hostname, port, pathname } = new URL(url);
-			// The adapter reads Oracle's type constants from the driver its connector loads.
-			await loadDriver("oracle");
-			oraclePool = await oracledb.createPool({
-				user: decodeURIComponent(username),
-				password: decodeURIComponent(password),
-				connectString: `${hostname}:${port || 1521}${pathname}`,
-			});
-			connections.getOraclePool.mockResolvedValue(oraclePool);
-		},
-		// Oracle folds unquoted names to uppercase; the adapter quotes the lowercase names used here.
-		exec: async (statement) => {
-			const connection = await oraclePool?.getConnection();
-
-			try {
-				await connection?.execute(
-					statement.replace(/(?<!")\b(live_poll_items|id|grp|rnk|name)\b(?!")/g, '"$1"'),
-					[],
-					{ autoCommit: true },
-				);
-			} finally {
-				await connection?.close();
-			}
-		},
-		close: async () => oraclePool?.close(0),
-		// Heap table: without a key in ORDER BY, rows come back in insertion order.
-		schema: [
-			`DROP TABLE IF EXISTS ${TABLE}`,
-			`CREATE TABLE ${TABLE} (id NUMBER(10) PRIMARY KEY, grp NUMBER(10) NOT NULL, rnk NUMBER(10) NOT NULL, name VARCHAR2(50) NOT NULL)`,
-			`CREATE INDEX idx_grp_rnk ON ${TABLE} (grp, rnk, name)`,
-		],
-	},
 ];
 
 const bySharedGroup: SortType[] = [{ columnName: "grp", direction: "asc" }];
 
 for (const engine of engines) {
-	describe.skipIf(!engine.url)(`${engine.name} live polling`, () => {
+	describe(`${engine.name} live polling`, () => {
 		const { adapter } = engine;
 		const ids = (rows: Record<string, unknown>[]) => rows.map((row) => Number(row.id));
 
@@ -226,7 +127,7 @@ for (const engine of engines) {
 		) => adapter.getTableData({ tableName: TABLE, db: "", ...params });
 
 		beforeAll(async () => {
-			await engine.connect(engine.url as string);
+			await engine.connect(engine.url);
 		});
 
 		afterAll(async () => {
@@ -302,24 +203,6 @@ for (const engine of engines) {
 
 			expect(ids(back.data)).toEqual(ids(first.data));
 		});
-
-		it.runIf(engine.name === "mssql")(
-			"ignores the key of a same-named table in another schema",
-			async () => {
-				await engine.exec(
-					"IF SCHEMA_ID('live_audit') IS NULL EXEC('CREATE SCHEMA live_audit')",
-				);
-				await engine.exec(`DROP TABLE IF EXISTS live_audit.${TABLE}`);
-				await engine.exec(`CREATE TABLE live_audit.${TABLE} (audit_id INT PRIMARY KEY)`);
-
-				try {
-					const { data } = await page({ limit: 3 });
-					expect(ids(data)).toEqual([1, 2, 3]);
-				} finally {
-					await engine.exec(`DROP TABLE live_audit.${TABLE}`);
-				}
-			},
-		);
 
 		it("breaks ties in the sort's direction when sorting descending", async () => {
 			const { data } = await page({

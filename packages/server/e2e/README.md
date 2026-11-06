@@ -25,6 +25,7 @@ seeds one.
 
 - `contract.ts`: the API contract the web app relies on, through a scratch table. `DATABASE_URL=<url> bun run e2e -- <label>`
 - `missing-table.ts`: opening a missing table answers 404. `DATABASE_URL=<url> bunx tsx e2e/missing-table.ts`
+- `live-poll-ordering.ts`: pages come back in the same order on every poll, ties break by key, and cursors page through ties both ways. `DATABASE_URL=<url> bunx tsx e2e/live-poll-ordering.ts`
 - `lazy-loading.ts` (CLI, browser, any engine with tables): the assistant and telemetry SDKs load on demand. `DATABASE_URL=<url> bunx tsx e2e/lazy-loading.ts [build]`
 
 ## PostgreSQL
