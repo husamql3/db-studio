@@ -9,6 +9,9 @@ import { LogsScreen } from "./logs-screen";
  * - Two entries that share a timestamp and message (a Redis command repeated within one
  *   second) collapse into one identity, so one click expands both.
  * - A new entry identical to the newest one does not move the view to it while Live.
+ * - Scrolling up without a wheel (scrollbar drag, keyboard, touch) leaves Live on, so the next
+ *   entry pulls the view back to the bottom.
+ * - A scroll that ends on the newest line, such as Live's own follow, pauses Live.
  */
 
 let serverLogs: ServerLogsResult;
@@ -75,5 +78,48 @@ describe("LogsScreen", () => {
 		);
 
 		expect(scrollTo).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("LogsScreen Live", () => {
+	/** Scrolls the log to `scrollTop` in a 1000px-tall log shown 200px at a time. */
+	const scrollLogTo = (scrollTop: number) => {
+		const scroller = screen.getByRole("button", { name: /first/ }).closest(".overflow-auto");
+
+		if (!scroller) throw new Error("log scroller not found");
+		Object.defineProperties(scroller, {
+			scrollHeight: { configurable: true, value: 1000 },
+			clientHeight: { configurable: true, value: 200 },
+		});
+		scroller.scrollTop = scrollTop;
+		fireEvent.scroll(scroller);
+	};
+
+	beforeEach(() => {
+		Element.prototype.scrollTo = vi.fn();
+		serverLogs = {
+			available: true,
+			source: "pg_log",
+			entries: ["first", "second", "third"].map((message, i) => ({
+				ts: `2026-10-19T10:00:0${i}.000Z`,
+				level: "info",
+				rawLevel: "LOG",
+				message,
+				detail: {},
+			})),
+		};
+		renderScreen();
+	});
+
+	it("pauses when the view leaves the newest line without a wheel", () => {
+		scrollLogTo(0);
+
+		expect(screen.getByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+	});
+
+	it("stays on while the view rests on the newest line", () => {
+		scrollLogTo(800);
+
+		expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
 	});
 });

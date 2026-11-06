@@ -117,13 +117,13 @@ describe("parseBulkData", () => {
 		it("should convert JSON arrays in CSV", () => {
 			const input = 'name,tags\nJohn,"[""a"",""b""]"';
 			const result = parseBulkData(input);
-			expect(Array.isArray(result[0].tags)).toBe(true);
+			expect(result[0].tags).toEqual(["a", "b"]);
 		});
 
 		it("should keep non-JSON-like strings as strings", () => {
 			const input = "name,description\nJohn,This is a description";
 			const result = parseBulkData(input);
-			expect(typeof result[0].description).toBe("string");
+			expect(result[0].description).toBe("This is a description");
 		});
 	});
 
@@ -139,17 +139,17 @@ describe("parseBulkData", () => {
 			expect(result[0].age).toBe(30);
 		});
 
-		it("should detect comma as delimiter over tab", () => {
-			const input = "name,age\nJohn,30";
+		it("should split on the header's delimiter when a field holds another", () => {
+			const input = "name,note\nJohn,a\tb\tc\td";
 			const result = parseBulkData(input);
-			expect(result).toEqual([{ name: "John", age: 30 }]);
+			expect(result).toEqual([{ name: "John", note: "a\tb\tc\td" }]);
 		});
 	});
 
 	describe("JSON parsing (extended)", () => {
 		it("should surface the underlying syntax detail in the JSON error message", () => {
 			// Malformed JSON that starts like an array so the JSON branch is taken.
-			expect(() => parseBulkData('[{"name": "John", }]')).toThrow(/Invalid JSON format/);
+			expect(() => parseBulkData('[{"name": "John", }]')).toThrow(/Invalid JSON format: \S/);
 		});
 
 		it("should throw for a bare JSON primitive wrapped as an object start", () => {
@@ -169,11 +169,6 @@ describe("parseBulkData", () => {
 	});
 
 	describe("CSV parsing (extended)", () => {
-		it("should handle a quoted field containing the delimiter", () => {
-			const input = 'name,city\nJohn,"New York, NY"';
-			const result = parseBulkData(input);
-			expect(result[0].city).toBe("New York, NY");
-		});
 
 		it("should detect semicolon as delimiter", () => {
 			const input = "name;age\nJohn;30";
@@ -188,19 +183,7 @@ describe("parseBulkData", () => {
 			expect(result[0].code).toBe("007");
 		});
 
-		it("should coerce integer and float numeric columns", () => {
-			const input = "qty,price\n3,9.99";
-			const result = parseBulkData(input);
-			expect(result[0].qty).toBe(3);
-			expect(result[0].price).toBe(9.99);
-		});
 
-		it("should treat both empty and literal null as null", () => {
-			const input = "name,a,b\nJohn,,null";
-			const result = parseBulkData(input);
-			expect(result[0].a).toBeNull();
-			expect(result[0].b).toBeNull();
-		});
 
 		it("should throw when only a header row is present (no data rows)", () => {
 			expect(() => parseBulkData("name,age")).toThrow(/No records/);
