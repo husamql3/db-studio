@@ -19,7 +19,11 @@ import type {
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
-import { mapPostgresToDataType, standardizeDataTypeLabel } from "@db-studio/shared/types";
+import {
+	connectionInfoSchema,
+	mapPostgresToDataType,
+	standardizeDataTypeLabel,
+} from "@db-studio/shared/types";
 import type { DatabaseError, Pool as PgPool, PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
@@ -317,7 +321,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 				message: "No connection information returned from database",
 			});
 
-		const { connectionInfoSchema } = await import("@db-studio/shared/types");
 		const result = connectionInfoSchema.parse(rows[0]);
 
 		return {
