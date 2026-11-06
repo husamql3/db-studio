@@ -6,7 +6,7 @@
  * - ordinary safe integer metadata stops being numeric.
  */
 import { describe, expect, it } from "vitest";
-import { toJsonNumber } from "@/adapters/oracle/oracle.values.js";
+import { safeNumber } from "@/adapters/sql.adapter.js";
 
 describe("Oracle NUMBER values", () => {
 	it.each([
@@ -15,18 +15,18 @@ describe("Oracle NUMBER values", () => {
 		"-1.0000000000000000001",
 		"9007199254740990.1",
 	])("preserves fractional key %s", (value) => {
-		expect(toJsonNumber(value)).toBe(value);
+		expect(safeNumber(value)).toBe(value);
 	});
 	it.each(["9007199254740993", "100000000000000000000", "-9007199254740993"])(
 		"preserves wide integer %s",
 		(value) => {
-			expect(toJsonNumber(value)).toBe(value);
+			expect(safeNumber(value)).toBe(value);
 		},
 	);
 	it.each(["1.0000000000000000001e0", "1e-130", "1e126"])(
 		"preserves exponent notation %s",
 		(value) => {
-			expect(toJsonNumber(value)).toBe(value);
+			expect(safeNumber(value)).toBe(value);
 		},
 	);
 	it.each([
@@ -34,6 +34,6 @@ describe("Oracle NUMBER values", () => {
 		["-42", -42],
 		["9007199254740991", 9007199254740991],
 	] as const)("keeps safe integer %s numeric", (value, expected) => {
-		expect(toJsonNumber(value)).toBe(expected);
+		expect(safeNumber(value)).toBe(expected);
 	});
 });

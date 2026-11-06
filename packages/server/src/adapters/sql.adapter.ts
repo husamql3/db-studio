@@ -69,6 +69,17 @@ export interface ReferencingKey {
 export const ONE_STATEMENT_MESSAGE =
 	"The query runner runs one statement at a time. Run each statement separately.";
 
+/**
+ * Integer text as a number when a double holds it exactly; anything else unchanged. Drivers
+ * hand wide integers over as text or bigint so no digit is lost on the way to JSON.
+ */
+export const safeNumber = <T>(value: T): T | number => {
+	if (typeof value !== "string" || !/^[+-]?\d+$/.test(value)) return value;
+	const number = Number(value);
+
+	return Number.isSafeInteger(number) ? number : value;
+};
+
 /** Rows shown per foreign key when a delete is refused. */
 export const RELATED_SAMPLE = 100;
 

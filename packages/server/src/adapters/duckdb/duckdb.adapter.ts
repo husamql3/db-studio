@@ -44,6 +44,7 @@ import {
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
+	safeNumber,
 	type StatementResult,
 	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
@@ -104,10 +105,7 @@ const toRows = (reader: DuckDBResultReader): Row[] => {
 
 	for (const row of rows) {
 		for (const column of bigColumns) {
-			const value = row[column];
-
-			if (typeof value === "string" && Number.isSafeInteger(Number(value)))
-				row[column] = Number(value);
+			row[column] = safeNumber(row[column]);
 		}
 	}
 

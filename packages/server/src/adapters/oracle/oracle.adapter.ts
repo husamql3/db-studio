@@ -42,6 +42,7 @@ import {
 	RELATED_SAMPLE,
 	type ReferencingKey,
 	SqlAdapter,
+	safeNumber,
 	type StatementResult,
 	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
@@ -60,7 +61,6 @@ import {
 	oracleFilters,
 	oraclePlaceholder,
 } from "./oracle.query-builder.js";
-import { toJsonNumber } from "./oracle.values.js";
 
 type Row = Record<string, unknown>;
 
@@ -88,7 +88,7 @@ const fetchTypeHandler = (meta: Metadata<unknown>) => {
 
 	switch (meta.dbType) {
 		case oracledb.DB_TYPE_NUMBER:
-			return { type: oracledb.STRING, converter: toJsonNumber };
+			return { type: oracledb.STRING, converter: safeNumber };
 		case oracledb.DB_TYPE_CLOB:
 		case oracledb.DB_TYPE_NCLOB:
 			return { type: oracledb.STRING };

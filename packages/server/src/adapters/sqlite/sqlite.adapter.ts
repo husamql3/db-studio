@@ -37,6 +37,7 @@ import {
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
+	safeNumber,
 	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
 import { D1TokenRefused } from "@/d1-client.js";
@@ -145,14 +146,10 @@ const stmt = (sql: string, values: unknown[] = []): SqlStatement => ({
 	args: values.map(toSqliteValue),
 });
 
-const MIN_SAFE = BigInt(Number.MIN_SAFE_INTEGER);
-const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
-
 // The client runs in intMode "bigint" so integers past 2^53 don't throw; JSON can't carry
 // bigint or ArrayBuffer, and the export writer renders Buffers as hex.
 const fromSqliteValue = (value: Value): string | number | Buffer | null => {
-	if (typeof value === "bigint")
-		return value >= MIN_SAFE && value <= MAX_SAFE ? Number(value) : value.toString();
+	if (typeof value === "bigint") return safeNumber(value.toString());
 
 	if (value instanceof ArrayBuffer) return Buffer.from(value);
 
