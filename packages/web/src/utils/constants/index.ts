@@ -8,6 +8,8 @@ export const CONSTANTS = {
 	ALL_SCHEMAS: "all",
 	// The open table's schema on engines that list schemas, so same-named tables stay apart.
 	TABLE_SCHEMA: "tableSchema" as const,
+	// PostgreSQL's default schema, left out of table labels.
+	DEFAULT_SCHEMA: "public",
 	COLUMN_NAME: "columnName", // query state key for column name
 
 	//* table state keys (cursor-based pagination)

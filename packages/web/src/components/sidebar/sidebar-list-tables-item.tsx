@@ -25,7 +25,7 @@ export const SidebarListTablesItem = ({
 
 	const label = (
 		<span className="flex-1 truncate">
-			{showSchemaName && schemaName && schemaName !== "public" && (
+			{showSchemaName && schemaName && schemaName !== CONSTANTS.DEFAULT_SCHEMA && (
 				<span className="text-muted-foreground/60">{schemaName}.</span>
 			)}
 			{tableName}
