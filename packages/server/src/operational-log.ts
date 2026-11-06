@@ -23,6 +23,9 @@ export const resolveRequestId = (incoming: string | undefined): string =>
 export const runWithRequestContext = <T>(context: RequestContext, callback: () => T): T =>
 	requestContext.run(context, callback);
 
+export const currentRequestContext = (): RequestContext | undefined =>
+	requestContext.getStore();
+
 export const currentRequestId = (): string | undefined => requestContext.getStore()?.requestId;
 
 export const currentConnectionId = (): string | undefined =>

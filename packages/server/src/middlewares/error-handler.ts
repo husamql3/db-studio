@@ -4,13 +4,15 @@ import { NotFoundError, ParseError, ValidationError } from "elysia";
 import { ZodError } from "zod";
 import { ADAPTERS } from "@/adapters/adapter.registry.js";
 import { HTTPException } from "@/http-exception.js";
-import {
-	captureServerError,
-	databaseTypeForRequest,
-	operationForRequest,
-} from "@/observability.js";
+import { captureServerError } from "@/observability.js";
 import { findRequestConnection } from "@/open-connections.js";
-import { currentRequestId, errorFields, writeOperationalLog } from "@/operational-log.js";
+import {
+	currentRequestContext,
+	currentRequestId,
+	errorFields,
+	writeOperationalLog,
+} from "@/operational-log.js";
+import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 const toApiError = (
 	e: unknown,
@@ -56,18 +58,19 @@ const toApiError = (
 
 	return {
 		status: 500,
-		body: { error: e instanceof Error ? e.message : "Internal server error" },
+		body: {
+			error: e instanceof Error ? sanitizeErrorMessage(e.message) : "Internal server error",
+		},
 	};
 };
 
+/** Runs inside the request's context, which already names its operation and engine. */
 export function handleError(e: unknown, request: Request): Response {
-	const { pathname } = new URL(request.url);
-	const operation = operationForRequest(request.method, pathname);
-	const dbType = databaseTypeForRequest(pathname);
+	const context = currentRequestContext();
+	const operation = context?.operation ?? "unknown";
+	const dbType = context?.dbType;
 	const { status, body } = toApiError(e, dbType);
 	writeOperationalLog(status >= 500 ? "error" : "warn", "request_failed", {
-		operation,
-		db_type: dbType,
 		method: request.method,
 		status,
 		...errorFields(e),

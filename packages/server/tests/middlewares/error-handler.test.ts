@@ -1,14 +1,13 @@
-import { Elysia } from "elysia";
 import sql from "mssql";
 import { DatabaseError } from "pg";
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { z } from "zod";
+import { createServer } from "@/app.js";
 import { loadDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { handleError } from "@/middlewares/error-handler.js";
 
-const createApp = () =>
-	new Elysia().onError(({ error, request }) => handleError(error, request));
+// The real app, so errors reach the handler inside the request context it reads.
+const createApp = () => createServer().app;
 
 describe("Error Handler Middleware", () => {
 	let app: ReturnType<typeof createApp>;
