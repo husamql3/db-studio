@@ -3,6 +3,7 @@
  * Failure modes:
  * - a `sqlite://` path containing a space is not turned into a valid file: URL, so nothing opens
  * - type affinity mapping sends BLOB/DATETIME columns to the wrong cell variant
+ * - an export drops the column names, or returns an empty file instead of a 404
  * - deleteTable drops a table that other tables reference instead of reporting fkViolation
  * - deleteRecords on a referenced row surfaces a 500 instead of fkViolation with the child rows
  * - getTableColumns loses the FK target or the PK flag (live mode and the FK picker need both)
@@ -15,7 +16,6 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { mapSqliteToDataType } from "@db-studio/shared/types";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 
@@ -55,14 +55,40 @@ afterAll(async () => {
 });
 
 describe("SqliteAdapter", () => {
-	it("maps sqlite type affinities to cell variants", () => {
-		expect(mapSqliteToDataType("INTEGER")).toBe("number");
-		expect(mapSqliteToDataType("varchar(255)")).toBe("text");
-		expect(mapSqliteToDataType("blob")).toBe("text");
-		expect(mapSqliteToDataType("boolean")).toBe("boolean");
-		expect(mapSqliteToDataType("json")).toBe("json");
-		expect(mapSqliteToDataType("datetime")).toBe("date");
-		expect(mapSqliteToDataType("unknown_type")).toBe("text");
+	it("maps declared column types to cell variants by their affinity", async () => {
+		await exec(
+			"CREATE TABLE kinds (a INTEGER, b varchar(255), c blob, d boolean, e json, f datetime, g unknown_type)",
+		);
+
+		const cols = await adapter.getTableColumns({ db: "main", tableName: "kinds" });
+
+		expect(Object.fromEntries(cols.map((c) => [c.columnName, c.dataType]))).toEqual({
+			a: "number",
+			b: "text",
+			c: "text",
+			d: "boolean",
+			e: "json",
+			f: "date",
+			g: "text",
+		});
+	});
+
+	it("exports every row with its column names", async () => {
+		await expect(adapter.exportTableData({ db: "main", tableName: "users" })).resolves.toEqual({
+			cols: ["id", "name"],
+			rows: [
+				{ id: 1, name: "Ada" },
+				{ id: 2, name: "Linus" },
+			],
+		});
+	});
+
+	it("answers 404 when exporting a table with no rows", async () => {
+		await exec("CREATE TABLE empty_export (id INTEGER PRIMARY KEY)");
+
+		await expect(
+			adapter.exportTableData({ db: "main", tableName: "empty_export" }),
+		).rejects.toMatchObject({ status: 404 });
 	});
 
 	it("reports a referenced table instead of dropping it", async () => {

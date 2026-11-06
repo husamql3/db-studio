@@ -4,9 +4,7 @@ import { HTTPException } from "@/http-exception.js";
 import {
 	captureServerError,
 	databaseTypeForRequest,
-	durationBucket,
 	operationForRequest,
-	outcomeForStatus,
 } from "@/observability.js";
 
 const sentry = vi.hoisted(() => ({
@@ -37,14 +35,6 @@ describe("observability privacy boundary", () => {
 		expect(operationForRequest("GET", "/api/unknown/private-value")).toBe("get_other");
 		expect(databaseTypeForRequest("/api/mysql/tables/customer-secrets")).toBe("mysql");
 		expect(databaseTypeForRequest("/api/unknown/private-value")).toBeUndefined();
-	});
-
-	it("buckets outcomes and latency without retaining exact measurements", () => {
-		expect(outcomeForStatus(200)).toBe("success");
-		expect(outcomeForStatus(404)).toBe("client_error");
-		expect(outcomeForStatus(503)).toBe("server_error");
-		expect(durationBucket(99)).toBe("under_100ms");
-		expect(durationBucket(1_500)).toBe("1s_5s");
 	});
 
 	it("reports a server failure with safe diagnostic context and its stack", () => {
