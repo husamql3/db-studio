@@ -31,6 +31,12 @@ describe("BaseAdapter.classifyError()", () => {
 		});
 	});
 
+	it("maps an exhausted PostgreSQL pool to 503", () => {
+		// pg-pool's checkout timeout, a plain Error without a code.
+		const error = new Error("timeout exceeded when trying to connect");
+		expect(new PgAdapter().classifyError(error).status).toBe(503);
+	});
+
 	it("preserves HTTPException instances and maps generic errors to 500", () => {
 		const httpError = new HTTPException(409, { message: "conflict" });
 		expect(new PgAdapter().classifyError(httpError)).toBe(httpError);

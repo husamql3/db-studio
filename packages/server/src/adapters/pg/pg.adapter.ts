@@ -47,6 +47,7 @@ import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
+import { errorFields } from "@/operational-log.js";
 import { type PgLogFormat, parsePgLog } from "./pg.log-parser.js";
 import {
 	pgFilters,
@@ -93,6 +94,14 @@ const STATUS_BY_SQLSTATE_CLASS: Record<string, number> = {
 	"22": 400, // data exception: invalid date, text in a number column, value too long
 	"23": 409, // integrity constraint violation: foreign key, unique, not null, check
 };
+
+/** The codes `errorFields` gives node-postgres's codeless connection failures. */
+const UNREACHABLE = new Set([
+	"CONNECT_TIMEOUT",
+	"CONNECTION_TERMINATED",
+	"CONNECTION_BROKEN",
+	"POOL_ACQUIRE_TIMEOUT",
+]);
 
 /** Bytes read from the end of the log file; enough for several hundred entries. */
 const LOG_TAIL_BYTES = 1024 * 1024;
@@ -150,12 +159,10 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	}
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
-		// pg-pool's connect timeout and a dropped socket are plain errors.
+		// A connect or pool checkout timeout and a dropped socket are plain errors, which the log
+		// recognises by their fixed messages.
 		if (!isPgError(e))
-			return e.message.includes("timeout expired") ||
-				e.message.includes("Connection terminated")
-				? { status: 503 }
-				: undefined;
+			return UNREACHABLE.has(errorFields(e).error_code ?? "") ? { status: 503 } : undefined;
 
 		if (e.code === "25006") return { status: 403, message: READ_ONLY_MESSAGE };
 
