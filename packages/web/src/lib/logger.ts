@@ -11,7 +11,7 @@ export const logger = {
 		});
 	},
 
-	request(config: InternalAxiosRequestConfig & { metadata?: { startTime: number } }) {
+	request(config: InternalAxiosRequestConfig) {
 		if (!import.meta.env.DEV) return;
 		const method = config.method?.toUpperCase() ?? "GET";
 

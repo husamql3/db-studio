@@ -1,12 +1,14 @@
 import { DEFAULTS } from "@db-studio/shared/constants";
 import type { ApiError as ApiErrorBody, DatabaseTypeSchema } from "@db-studio/shared/types";
-import axios, {
-	type AxiosError,
-	type AxiosInstance,
-	type InternalAxiosRequestConfig,
-} from "axios";
+import axios, { type AxiosError, type AxiosInstance } from "axios";
 import { logger } from "@/lib/logger";
 import { sentry } from "@/lib/sentry";
+
+declare module "axios" {
+	interface InternalAxiosRequestConfig {
+		metadata?: { startTime: number };
+	}
+}
 
 /** `crypto.randomUUID` only exists on secure origins; db-studio is also served over plain LAN HTTP. */
 const newRequestId = (): string =>
@@ -62,13 +64,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const headers = requestHeaders();
 			const requestId = headers["X-Request-Id"];
 			config.headers.set(headers);
-			(
-				config as InternalAxiosRequestConfig & {
-					metadata?: { startTime: number };
-				}
-			).metadata = {
-				startTime: performance.now(),
-			};
+			config.metadata = { startTime: performance.now() };
 			logger.request(config);
 			sentry?.addBreadcrumb({
 				category: "db_studio.http",
@@ -87,29 +83,19 @@ const setupInterceptors = (instance: AxiosInstance) => {
 
 	instance.interceptors.response.use(
 		(response) => {
-			const startTime =
-				(
-					response.config as InternalAxiosRequestConfig & {
-						metadata?: { startTime: number };
-					}
-				).metadata?.startTime ?? 0;
+			const duration = Math.round(
+				performance.now() - (response.config.metadata?.startTime ?? 0),
+			);
 
-			const duration = Math.round(performance.now() - startTime);
 			logger.response(response, duration);
 
 			return response;
 		},
 		(error: AxiosError<ApiErrorBody>) => {
-			const startTime =
-				(
-					error.config as
-						| (InternalAxiosRequestConfig & {
-								metadata?: { startTime: number };
-						  })
-						| undefined
-				)?.metadata?.startTime ?? 0;
+			const duration = Math.round(
+				performance.now() - (error.config?.metadata?.startTime ?? 0),
+			);
 
-			const duration = Math.round(performance.now() - startTime);
 			logger.error(error, duration);
 
 			const status = error.response?.status;
@@ -195,30 +181,15 @@ export const getBaseUrl = (): string => {
 	return globalThis.location?.origin ?? DEFAULTS.BASE_URL;
 };
 
-export class ApiClient {
-	readonly rootApi: AxiosInstance;
-	readonly api: AxiosInstance;
-	private dbType: DatabaseTypeSchema | null = null;
-	private readonly resolveBaseUrl: () => string;
+// The API lives under API_PREFIX so it never collides with SPA routes served from the same
+// origin. See db-studio#214.
+const apiBaseUrl = `${getBaseUrl()}${DEFAULTS.API_PREFIX}`;
 
-	constructor(resolveBaseUrl: () => string = getBaseUrl) {
-		this.resolveBaseUrl = resolveBaseUrl;
-		// API is namespaced under API_PREFIX so it never collides with SPA
-		// routes served from the same origin. See db-studio#214.
-		const baseURL = `${this.resolveBaseUrl()}${DEFAULTS.API_PREFIX}`;
-		this.rootApi = setupInterceptors(axios.create({ baseURL }));
-		this.api = setupInterceptors(axios.create({ baseURL }));
-	}
+export const rootApi = setupInterceptors(axios.create({ baseURL: apiBaseUrl }));
 
-	setDbType(type: DatabaseTypeSchema): void {
-		if (this.dbType === type) return;
+/** Scoped to the open engine's routes; `useDatabaseStore`'s `setDbType` moves it. */
+export const api = setupInterceptors(axios.create({ baseURL: apiBaseUrl }));
 
-		this.dbType = type;
-		this.api.defaults.baseURL = `${this.resolveBaseUrl()}${DEFAULTS.API_PREFIX}/${type}`;
-	}
-}
-
-const apiClient = new ApiClient();
-export const rootApi = apiClient.rootApi;
-export const api = apiClient.api;
-export const setDbType = (type: DatabaseTypeSchema): void => apiClient.setDbType(type);
+export const setDbType = (type: DatabaseTypeSchema): void => {
+	api.defaults.baseURL = `${apiBaseUrl}/${type}`;
+};
