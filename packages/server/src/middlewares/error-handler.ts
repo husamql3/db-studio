@@ -60,9 +60,6 @@ const toApiError = (
 	};
 };
 
-/**
- * Centralized error handler: logs the failure and answers with the `ApiError` body.
- */
 export function handleError(e: unknown, request: Request): Response {
 	const { pathname } = new URL(request.url);
 	const operation = operationForRequest(request.method, pathname);

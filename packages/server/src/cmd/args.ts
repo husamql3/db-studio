@@ -11,9 +11,6 @@ type Args = {
 	version?: boolean;
 };
 
-/**
- * Get the arguments from the command line
- */
 export const args = () => {
 	program
 		.name("db-studio")

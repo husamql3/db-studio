@@ -2,9 +2,6 @@ import { access, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parse as parseDotenv } from "dotenv";
 
-/**
- * Find .env path: try cwd, then walk up parent directories until root.
- */
 const findEnvPath = async (startDir: string): Promise<string | null> => {
 	let dir = resolve(startDir);
 
@@ -26,11 +23,6 @@ const findEnvPath = async (startDir: string): Promise<string | null> => {
 	}
 };
 
-/**
- * Load the environment variables from the file.
- * When no path is given: tries current directory, then parent directories until a .env is found.
- * When --env path is given: uses that path only (no walk).
- */
 export const loadEnv = async (env?: string) => {
 	let envPath: string | null;
 

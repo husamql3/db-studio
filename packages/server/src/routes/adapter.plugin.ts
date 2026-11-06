@@ -62,7 +62,6 @@ const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
 	}
 };
 
-/** Refuses with 400, before the adapter runs, an operation the engine's traits leave out. */
 export const requireCapability = (
 	dbType: DatabaseTypeSchema,
 	capability: Capability,

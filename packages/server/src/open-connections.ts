@@ -50,7 +50,6 @@ let latestId: string | null = null;
 /** Closed while this server runs: a tab naming one is told it is gone, not handed the latest. */
 const closedIds = new Set<string>();
 
-/** Add `connection` as connection `id` and make it the latest. */
 export const registerConnection = (id: string, connection: OpenConnection): void => {
 	connections.set(id, connection);
 	latestId = id;

@@ -3,9 +3,6 @@ import { META } from "@db-studio/shared/constants/meta.js";
 import { DATABASE_ENGINES } from "@db-studio/shared/types";
 import color from "picocolors";
 
-/**
- * Display help information
- */
 export const showHelp = () => {
 	intro(color.inverse(" db-studio "));
 
