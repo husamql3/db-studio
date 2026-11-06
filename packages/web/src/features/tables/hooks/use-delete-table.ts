@@ -6,7 +6,7 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { indexKeys, tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useDeleteTable = () => {
@@ -36,10 +36,22 @@ export const useDeleteTable = () => {
 
 			return response.data.data;
 		},
-		onSuccess: async () => {
-			await queryClient.invalidateQueries({
-				queryKey: tableKeys.lists(),
-			});
+		// Drop a deleted table's entries rather than invalidate them: a refetch would ask for a
+		// table that no longer exists.
+		onSuccess: async (result, { tableName }) => {
+			await queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
+
+			if (result.fkViolation) {
+				return;
+			}
+
+			for (const queryKey of [
+				tableKeys.dataByTable(tableName),
+				tableKeys.columnsByTable(tableName),
+				indexKeys.byTable(tableName),
+			]) {
+				queryClient.removeQueries({ queryKey });
+			}
 		},
 	});
 

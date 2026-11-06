@@ -27,10 +27,7 @@ export const useCreateTable = () => {
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: tableKeys.lists() }),
-				queryClient.invalidateQueries({ queryKey: tableKeys.columns() }),
-			]);
+			await queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
 			closeOverlay("table-builder.create-table");
 
 			if (dbType) posthogAnalytics.capture("table_created", { db_type: dbType });
