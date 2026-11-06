@@ -22,6 +22,7 @@ import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
 import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { changelog } from "@/lib/content/changelog";
+import { enginePages } from "@/lib/content/engine-pages";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { getHomeStats } from "@/utils/get-home-stats";
@@ -53,7 +54,13 @@ const iconLogo = (name: string, Icon: typeof OracleIcon) => (
 	</>
 );
 
-/** Engine logos, each linking to its section on /docs/databases. */
+const LOGO_TILE =
+	"group flex h-24 items-center justify-center px-4 transition-colors duration-200 hover:bg-white/[0.025]";
+
+const LOGO =
+	"flex items-center gap-2 opacity-60 brightness-0 invert transition-opacity duration-200 group-hover:opacity-100";
+
+/** Engine logos, each linking to its GUI page, or its section on /docs/databases without one. */
 const LOGOS = [
 	{
 		slug: "postgresql",
@@ -249,18 +256,27 @@ function App() {
 							key={slug}
 							className="bg-background"
 						>
-							<Link
-								to="/docs/$"
-								params={{ _splat: "databases" }}
-								hash={slug}
-								aria-label={`${name} docs`}
-								className="group flex h-24 items-center justify-center px-4 transition-colors duration-200 hover:bg-white/[0.025]"
-							>
-								{/* brightness-0 + invert flattens the brand colors to white on the dark-only site. */}
-								<span className="flex items-center gap-2 opacity-60 brightness-0 invert transition-opacity duration-200 group-hover:opacity-100">
-									{logo}
-								</span>
-							</Link>
+							{/* brightness-0 + invert flattens the brand colors to white on the dark-only site. */}
+							{enginePages.some((page) => page.slug === slug) ? (
+								<Link
+									to="/{$engine}-gui"
+									params={{ engine: slug }}
+									aria-label={`${name} GUI`}
+									className={LOGO_TILE}
+								>
+									<span className={LOGO}>{logo}</span>
+								</Link>
+							) : (
+								<Link
+									to="/docs/$"
+									params={{ _splat: "databases" }}
+									hash={slug}
+									aria-label={`${name} docs`}
+									className={LOGO_TILE}
+								>
+									<span className={LOGO}>{logo}</span>
+								</Link>
+							)}
 						</li>
 					))}
 				</ul>

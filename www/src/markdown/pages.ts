@@ -1,6 +1,8 @@
 import rawDocs from "virtual:raw-docs";
+import { META } from "@db-studio/shared/constants";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
 import { supportedDatabases } from "@/lib/content/databases";
+import { type EnginePage, enginePages } from "@/lib/content/engine-pages";
 import { roadmapItems } from "@/lib/content/roadmap";
 import { SPONSOR_EMAIL, type Sponsor, sponsorTiers } from "@/lib/content/sponsors";
 import { readSponsors } from "@/lib/sponsors-store";
@@ -106,6 +108,29 @@ ${sponsorTiers
 Interested in sponsoring db-studio? Reach out at ${SPONSOR_EMAIL}
 `;
 
+const engineMarkdown = (page: EnginePage): string => `# ${page.headline}
+
+${page.intro}
+
+\`\`\`bash
+${page.command}
+\`\`\`
+
+## What you can do with ${page.name}
+
+${page.highlights.map(({ title, text }) => `- **${title}** — ${text}`).join("\n")}
+
+## Good to know
+
+${page.limits.map((limit) => `- ${limit}`).join("\n")}
+
+Full details: [${page.name} docs](${META.SITE_URL}/docs/databases#${page.slug})
+
+## FAQ
+
+${page.faq.map(({ question, answer }) => `### ${question}\n\n${answer}`).join("\n\n")}
+`;
+
 /**
  * Markdown version of every public page, keyed by pathname.
  * Returns null for paths that have no markdown representation.
@@ -116,5 +141,7 @@ export const getMarkdownForPath = async (pathname: string): Promise<string | nul
 	if (path === "/") return landingMarkdown(await readSponsors());
 	if (path === "/changelog") return changelogMarkdown();
 	if (path === "/roadmap") return roadmapMarkdown();
+	const enginePage = enginePages.find(({ slug }) => path === `/${slug}-gui`);
+	if (enginePage) return engineMarkdown(enginePage);
 	return docsMarkdown.get(path) ?? null;
 };
