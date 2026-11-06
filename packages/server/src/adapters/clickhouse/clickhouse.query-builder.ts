@@ -1,4 +1,9 @@
-import { DataTypes, isSerialType, StandardizedDataType } from "@db-studio/shared/types";
+import {
+	DataTypes,
+	isSerialType,
+	StandardizedDataType,
+	type FormColumnType,
+} from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteClickhouseIdentifier = (name: string): string =>
@@ -25,7 +30,8 @@ function mapColumnTypeToClickhouse(
 	isArray: boolean,
 	supportsJsonType: boolean,
 ): string {
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string | undefined> &
+		Record<FormColumnType, string | undefined> = {
 		smallserial: "UInt16",
 		serial2: "UInt16",
 		serial: "UInt32",
@@ -74,6 +80,10 @@ function mapColumnTypeToClickhouse(
 		cidr: "String",
 		macaddr: "String",
 		macaddr8: "String",
+		// No ClickHouse type is mapped for these; the name passes through unchanged.
+		point: undefined,
+		line: undefined,
+		polygon: undefined,
 	};
 
 	const base = typeMap[columnType.toLowerCase().trim()] ?? columnType.trim();

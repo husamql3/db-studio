@@ -1,4 +1,4 @@
-import { DataTypes, StandardizedDataType } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType, type FormColumnType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import { HTTPException } from "@/http-exception.js";
 
@@ -157,7 +157,7 @@ export function mapColumnTypeToOracle(
 
 	const normalized = columnType.toLowerCase().trim();
 
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string> & Record<FormColumnType, string> = {
 		serial: "NUMBER(10)",
 		serial4: "NUMBER(10)",
 		bigserial: "NUMBER(19)",

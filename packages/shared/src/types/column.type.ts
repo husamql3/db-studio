@@ -1,3 +1,38 @@
+/**
+ * The PostgreSQL type names the column form offers on relational engines. Every other engine's
+ * query builder maps each of them, so adding one here fails typecheck until they all do.
+ */
+export type FormColumnType =
+	| "int2"
+	| "int4"
+	| "int8"
+	| "float4"
+	| "float8"
+	| "numeric"
+	| "serial"
+	| "bigserial"
+	| "text"
+	| "varchar"
+	| "char"
+	| "uuid"
+	| "boolean"
+	| "date"
+	| "time"
+	| "timestamp"
+	| "timestamptz"
+	| "interval"
+	| "json"
+	| "jsonb"
+	| "bytea"
+	| "inet"
+	| "cidr"
+	| "macaddr"
+	| "macaddr8"
+	| "point"
+	| "line"
+	| "polygon"
+	| "xml";
+
 const SERIAL_TYPES = new Set([
 	"serial",
 	"serial4",

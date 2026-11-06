@@ -1,4 +1,4 @@
-import { DataTypes, StandardizedDataType } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType, type FormColumnType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
@@ -30,7 +30,7 @@ export function mapColumnTypeToMysql(columnType: string, isArray: boolean): stri
 	if (isArray) return "JSON";
 	const normalized = columnType.toLowerCase().trim();
 
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string> & Record<FormColumnType, string> = {
 		serial: "INT AUTO_INCREMENT",
 		serial4: "INT AUTO_INCREMENT",
 		bigserial: "BIGINT AUTO_INCREMENT",

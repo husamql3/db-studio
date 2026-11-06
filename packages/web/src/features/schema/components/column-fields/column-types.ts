@@ -1,3 +1,4 @@
+import type { FormColumnType } from "@db-studio/shared/types";
 import type { ColumnOption } from "./column-field-values";
 
 export const PSQL_TYPES = {
@@ -150,7 +151,7 @@ export const PSQL_TYPES = {
 		},
 	],
 	other: [{ value: "xml", label: "xml", description: "XML data" }],
-};
+} satisfies Record<string, { value: FormColumnType; label: string; description: string }[]>;
 
 export const MONGO_TYPES = {
 	numeric: [

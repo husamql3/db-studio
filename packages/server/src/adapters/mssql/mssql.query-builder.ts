@@ -3,6 +3,7 @@ import {
 	type SortDirection,
 	type SortType,
 	StandardizedDataType,
+	type FormColumnType,
 } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import { offsetOrderBy, orderTerms } from "@/adapters/sql-pagination.js";
@@ -28,7 +29,8 @@ export function mapColumnTypeToMssql(columnType: string, isArray: boolean): stri
 
 	const normalized = columnType.toLowerCase().trim();
 
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string | undefined> &
+		Record<FormColumnType, string | undefined> = {
 		serial: "INT IDENTITY(1,1)",
 		serial4: "INT IDENTITY(1,1)",
 		bigserial: "BIGINT IDENTITY(1,1)",
@@ -74,6 +76,10 @@ export function mapColumnTypeToMssql(columnType: string, isArray: boolean): stri
 		cidr: "VARCHAR(45)",
 		macaddr: "VARCHAR(17)",
 		macaddr8: "VARCHAR(23)",
+		// No SQL Server type is mapped for these; the name passes through upper-cased.
+		point: undefined,
+		line: undefined,
+		polygon: undefined,
 	};
 
 	return typeMap[normalized] || columnType.toUpperCase();

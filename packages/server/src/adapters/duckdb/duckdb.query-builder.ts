@@ -1,4 +1,4 @@
-import { DataTypes, StandardizedDataType } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType, type FormColumnType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
@@ -16,7 +16,7 @@ export const duckdbKeyset: KeysetDialect = { quote: quoteDuckdbIdent, nulls: "ke
 export function mapColumnTypeToDuckdb(columnType: string, isArray: boolean): string {
 	const normalized = columnType.toLowerCase().trim();
 
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string> & Record<FormColumnType, string> = {
 		serial: "INTEGER",
 		serial4: "INTEGER",
 		bigserial: "BIGINT",
