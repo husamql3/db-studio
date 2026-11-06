@@ -533,7 +533,7 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void copyTableSchema(tableName, openSchema).catch(() => undefined);
+												void copyTableSchema(tableName, openSchema);
 											});
 										}}
 										keywords={["copy", "schema", "ddl", "clipboard"]}
