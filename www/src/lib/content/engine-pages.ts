@@ -19,7 +19,7 @@ export const enginePages: EnginePage[] = [
 		name: "DuckDB",
 		title: "DuckDB GUI: browse, edit and query .duckdb files | db-studio",
 		description:
-			"A free, open-source DuckDB GUI. Open a .duckdb file with one command, then browse tables, edit rows, run SQL, and export results.",
+			"A free, open-source DuckDB GUI. Open a .duckdb file with one command, then browse tables, edit rows, run SQL, and export tables.",
 		headline: "A DuckDB GUI that opens with one command",
 		intro:
 			"Point db-studio at a .duckdb file and you get a table browser, a SQL editor and a schema editor. It runs on your machine and opens the file directly, with no server to set up and no DuckDB install.",
@@ -35,7 +35,7 @@ export const enginePages: EnginePage[] = [
 			},
 			{
 				title: "Run SQL",
-				text: "Write queries in the editor and export the results.",
+				text: "Write queries in the editor and see the results in a grid. Export any table as CSV, JSON or Excel from the sidebar.",
 			},
 			{
 				title: "Change the schema",
@@ -79,16 +79,16 @@ export const enginePages: EnginePage[] = [
 		name: "ClickHouse",
 		title: "ClickHouse GUI: browse tables and run SQL | db-studio",
 		description:
-			"A free, open-source ClickHouse GUI. Connect with one command, browse huge tables without full scans, run SQL, and read the server log.",
+			"A free, open-source ClickHouse GUI. Connect with one command, see row counts without scanning, browse and export tables, run SQL, and read the server log.",
 		headline: "A ClickHouse GUI built for big tables",
 		intro:
-			"db-studio connects to ClickHouse over its HTTP interface and gives you a table browser, a SQL editor and the server log in one place. Row counts come from table metadata, so opening a table with billions of rows does not scan it.",
+			"db-studio connects to ClickHouse over its HTTP interface and gives you a table browser, a SQL editor and the server log in one place. The sidebar reads row counts from table metadata, so listing tables with billions of rows does not scan them.",
 		command:
 			'npx db-studio --database-url "clickhouse://user:password@localhost:8123/default"',
 		highlights: [
 			{
-				title: "Browse without scanning",
-				text: "Sort, filter and page through tables. Row counts come from system.tables, not count().",
+				title: "Row counts without scanning",
+				text: "The sidebar reads row counts from system.tables instead of running count(). Sort, filter and page through any table.",
 			},
 			{
 				title: "Exact numbers",
@@ -96,7 +96,7 @@ export const enginePages: EnginePage[] = [
 			},
 			{
 				title: "Run SQL",
-				text: "Write queries in the editor and export the results. Mutations wait until they finish.",
+				text: "Write queries in the editor and see the results in a grid. Mutations wait until they finish. Export any table as CSV, JSON or Excel from the sidebar.",
 			},
 			{
 				title: "Insert data",
