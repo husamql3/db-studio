@@ -1,4 +1,7 @@
 import {
+	assert,
+	assertEqual,
+	checks,
 	inProcessApp,
 	normalize,
 	redactUrl,
@@ -18,6 +21,7 @@ const { url: databaseUrl } = requireDatabaseUrl("oracle");
 const parsedDatabaseUrl = new URL(databaseUrl);
 const app = await inProcessApp(databaseUrl);
 const scenarios: Scenario[] = [];
+const { report, finish } = checks();
 
 const recordOf = (value: unknown): Row => {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -35,16 +39,6 @@ const rowsOf = (body: unknown) => {
 	if (!Array.isArray(rows)) throw new Error("query response has no rows array");
 
 	return rows.map(recordOf);
-};
-
-function assert(condition: unknown, message: string): asserts condition {
-	if (!condition) throw new Error(message);
-}
-
-const equal = (actual: unknown, expected: unknown, message: string) => {
-	const a = JSON.stringify(actual);
-	const e = JSON.stringify(expected);
-	assert(a === e, `${message}: expected ${e}, got ${a}`);
 };
 
 const api = async (
@@ -79,12 +73,10 @@ const run = async <T>(name: string, probe: () => Promise<T>, check: (evidence: T
 	try {
 		evidence = await probe();
 		check(evidence as T);
-		scenarios.push({ name, ok: true, evidence });
-		console.log(`PASS  ${name}`);
+		scenarios.push({ name, ok: report(name), evidence });
 	} catch (cause) {
 		const error = cause instanceof Error ? cause.message : String(cause);
-		scenarios.push({ name, ok: false, evidence, error });
-		console.log(`FAIL  ${name}  -- ${error}`);
+		scenarios.push({ name, ok: report(name, error), evidence, error });
 	}
 };
 
@@ -148,20 +140,20 @@ await run(
 	({ blocked, forced, parents, children }) => {
 		const related = recordOf(blocked).relatedRecords;
 		assert(Array.isArray(related), "delete response has no relatedRecords array");
-		equal(related.length, 1, "related constraint count");
-		equal(recordOf(related[0]).columnName, "a, b", "related columns");
-		equal(
+		assertEqual(related.length, 1, "related constraint count");
+		assertEqual(recordOf(related[0]).columnName, "a, b", "related columns");
+		assertEqual(
 			(recordOf(related[0]).records as Row[]).map((row) => row.id),
 			[11],
 			"related child ids",
 		);
-		equal(recordOf(forced).deletedCount, 2, "force deleted count");
-		equal(
+		assertEqual(recordOf(forced).deletedCount, 2, "force deleted count");
+		assertEqual(
 			parents.map((row) => row.id),
 			[2],
 			"remaining parent ids",
 		);
-		equal(
+		assertEqual(
 			children.map((row) => row.id),
 			[12, 13, 14],
 			"remaining child ids",
@@ -225,18 +217,22 @@ await run(
 	},
 	({ nativeQuery, queryBefore, tableBefore, after }) => {
 		const expectedStamps = ["2026-10-07T12:34:56.123000000", "2026-10-07T12:34:56.123456789"];
-		equal(
+		assertEqual(
 			recordOf(nativeQuery).error,
 			"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
 			"native temporal query limitation",
 		);
-		equal(
+		assertEqual(
 			queryBefore.map((row) => row.stamp).sort(),
 			expectedStamps,
 			"query runner timestamps",
 		);
-		equal(tableBefore.map((row) => row.stamp).sort(), expectedStamps, "table timestamps");
-		equal(
+		assertEqual(
+			tableBefore.map((row) => row.stamp).sort(),
+			expectedStamps,
+			"table timestamps",
+		);
+		assertEqual(
 			after.map((row) => [row.stamp, row.label]),
 			[
 				[expectedStamps[0], "control"],
@@ -313,18 +309,30 @@ await run(
 	(rows) => {
 		const [row, bulkRow] = rows;
 		assert(row && bulkRow, "temporal rows missing");
-		equal(row.date_value, "2026-10-07T12:34:56", "DATE value");
-		equal(row.timestamp_value, "2026-10-07T12:34:56.123456789", "TIMESTAMP value");
-		equal(row.tz_value, "2026-10-07T12:34:56.123456789+03:00", "TIMESTAMP TZ value");
-		equal(
+		assertEqual(row.date_value, "2026-10-07T12:34:56", "DATE value");
+		assertEqual(row.timestamp_value, "2026-10-07T12:34:56.123456789", "TIMESTAMP value");
+		assertEqual(row.tz_value, "2026-10-07T12:34:56.123456789+03:00", "TIMESTAMP TZ value");
+		assertEqual(
 			row.ltz_value,
 			"2026-10-07T09:34:56.123456789",
 			"TIMESTAMP LOCAL TZ value in UTC session",
 		);
-		equal(bulkRow.date_value, "2025-01-02T03:04:05", "bulk DATE value");
-		equal(bulkRow.timestamp_value, "2025-01-02T03:04:05.987654321", "bulk TIMESTAMP value");
-		equal(bulkRow.tz_value, "2025-01-02T03:04:05.987654321-05:30", "bulk TIMESTAMP TZ value");
-		equal(bulkRow.ltz_value, "2025-01-02T08:34:05.987654321", "bulk TIMESTAMP LOCAL TZ value");
+		assertEqual(bulkRow.date_value, "2025-01-02T03:04:05", "bulk DATE value");
+		assertEqual(
+			bulkRow.timestamp_value,
+			"2025-01-02T03:04:05.987654321",
+			"bulk TIMESTAMP value",
+		);
+		assertEqual(
+			bulkRow.tz_value,
+			"2025-01-02T03:04:05.987654321-05:30",
+			"bulk TIMESTAMP TZ value",
+		);
+		assertEqual(
+			bulkRow.ltz_value,
+			"2025-01-02T08:34:05.987654321",
+			"bulk TIMESTAMP LOCAL TZ value",
+		);
 	},
 );
 
@@ -381,7 +389,7 @@ await run(
 		return { sorted, filtered };
 	},
 	({ sorted, filtered }) => {
-		equal(
+		assertEqual(
 			sorted.map((row) => [row.id, row.zoned_at]),
 			[
 				[1, "2026-01-01T01:00:00.000000000+05:00"],
@@ -389,7 +397,7 @@ await run(
 			],
 			"mixed-offset instant order",
 		);
-		equal(
+		assertEqual(
 			filtered.map((row) => row.id),
 			[1],
 			"temporal LIKE row ids",
@@ -427,7 +435,7 @@ await run(
 		return { normal, forced, rows };
 	},
 	({ rows }) =>
-		equal(
+		assertEqual(
 			rows.map((row) => row.label),
 			["first", "second"],
 			"remaining rows",
@@ -450,7 +458,7 @@ const artifact = {
 	scenarios,
 };
 
-await writeArtifact(
+const artifactPath = await writeArtifact(
 	"oracle-review.json",
 	normalize(artifact, {
 		keys: ["duration", "queryTime", "requestId"],
@@ -466,10 +474,4 @@ await writeArtifact(
 
 await app.close();
 
-const failed = scenarios.filter((scenario) => !scenario.ok).length;
-
-console.log(
-	`${failed ? "FAIL" : "PASS"}  ${scenarios.length - failed}/${scenarios.length} scenarios`,
-);
-
-process.exit(failed ? 1 : 0);
+finish(artifactPath);

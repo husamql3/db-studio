@@ -1,6 +1,8 @@
-import path from "node:path";
 import {
 	type ApiResponse,
+	assert,
+	assertEqual,
+	checks,
 	inProcessApp,
 	normalize,
 	redactUrl,
@@ -35,19 +37,6 @@ const asRecord = (value: unknown, label: string): Record<string, unknown> => {
 	}
 
 	return value as Record<string, unknown>;
-};
-
-const assert: (condition: unknown, message: string) => asserts condition = (
-	condition,
-	message,
-) => {
-	if (!condition) throw new Error(message);
-};
-
-const assertEqual = (actual: unknown, expected: unknown, message: string) => {
-	const received = JSON.stringify(actual);
-	const wanted = JSON.stringify(expected);
-	assert(received === wanted, `${message}: expected ${wanted}, received ${received}`);
 };
 
 const assertStatus = (response: ApiResponse, expected: number) => {
@@ -93,6 +82,7 @@ const requireOk = async (name: string, response: Promise<ApiResponse>) => {
 };
 
 const results: ProbeResult[] = [];
+const { report, finish } = checks();
 
 const probe = async (
 	name: string,
@@ -109,12 +99,10 @@ const probe = async (
 		error = cause instanceof Error ? cause.message : String(cause);
 	}
 
-	const ok = error === undefined;
-	const result: ProbeResult = { name, ...observed, ok };
+	const result: ProbeResult = { name, ...observed, ok: report(name, error) };
 
 	if (error) result.error = error;
 	results.push(result);
-	console.log(`${ok ? "PASS" : "FAIL"}  ${name}${error ? `  -- ${error}` : ""}`);
 };
 
 for (const table of [PRECISION_TABLE, MUTATION_TABLE]) {
@@ -320,10 +308,4 @@ const artifactPath = await writeArtifact(
 	),
 );
 
-const failures = results.filter((result) => !result.ok).length;
-
-console.log(
-	`${failures ? "FAIL" : "PASS"}  ${results.length - failures}/${results.length} probes -> ${path.relative(process.cwd(), artifactPath)}`,
-);
-
-process.exit(failures ? 1 : 0);
+finish(artifactPath);

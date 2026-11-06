@@ -23,7 +23,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { databaseName, writeArtifact } from "./lib.js";
+import { checks, databaseName, writeArtifact } from "./lib.js";
 
 const dir = await mkdtemp(path.join(tmpdir(), "db-studio-read-only-"));
 
@@ -81,7 +81,7 @@ for (const [env, dbType] of [
 
 const TABLE = "dbstudio_ro_probe";
 const report: Record<string, Record<string, unknown>> = {};
-let failures = 0;
+const tally = checks();
 
 for (const engine of engines) {
 	const steps: Record<string, unknown> = {};
@@ -93,14 +93,12 @@ for (const engine of engines) {
 	const step = async <T>(name: string, run: () => Promise<T>) => {
 		try {
 			steps[name] = (await run()) ?? "ok";
+			tally.report(`${engine.dbType}: ${name}`);
 		} catch (error) {
-			failures++;
-			steps[name] = `FAIL: ${error instanceof Error ? error.message : String(error)}`;
+			const message = error instanceof Error ? error.message : String(error);
+			steps[name] = `FAIL: ${message}`;
+			tally.report(`${engine.dbType}: ${name}`, message);
 		}
-
-		console.log(
-			`${String(steps[name]).startsWith("FAIL") ? "FAIL" : "PASS"}  ${engine.dbType}: ${name}`,
-		);
 	};
 
 	const create =
@@ -272,10 +270,8 @@ for (const engine of engines) {
 	}
 }
 
-await writeArtifact("read-only.json", report);
+const artifactPath = await writeArtifact("read-only.json", report);
 
 await rm(dir, { recursive: true, force: true });
 
-console.log(failures ? `${failures} failed` : "all passed");
-
-process.exit(failures ? 1 : 0);
+tally.finish(artifactPath);

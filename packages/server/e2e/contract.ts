@@ -15,6 +15,9 @@ import {
 } from "@db-studio/shared/types";
 import { z } from "zod";
 import {
+	assert,
+	assertEqual,
+	checks,
 	inProcessApp,
 	type Json,
 	normalize,
@@ -132,19 +135,6 @@ const namesOf = (page: TableDataResultSchemaType) => page.data.map((row) => Stri
 
 const range = (from: number, to: number) =>
 	Array.from({ length: to - from + 1 }, (_, i) => rowName(from + i));
-
-const assert: (condition: unknown, message: string) => asserts condition = (
-	condition,
-	message,
-) => {
-	if (!condition) throw new Error(message);
-};
-
-const assertEqual = (actual: unknown, expected: unknown, label: string) => {
-	const a = JSON.stringify(actual);
-	const e = JSON.stringify(expected);
-	assert(a === e, `${label}: expected ${e}, got ${a}`);
-};
 
 const prior = (ctx: Ctx, step: string) => {
 	assert(ctx.bodies.has(step), `depends on step "${step}", which produced no body`);
@@ -860,7 +850,7 @@ const main = async () => {
 	const { request } = await inProcessApp(databaseUrl);
 
 	const results = [];
-	let failures = 0;
+	const { report, finish } = checks();
 
 	for (const step of buildScenario(dbType, overrides)) {
 		let status = 0;
@@ -887,10 +877,7 @@ const main = async () => {
 			error = e instanceof Error ? e.message : String(e);
 		}
 
-		const ok = error === undefined;
-
-		if (!ok) failures++;
-		console.log(`${ok ? "PASS" : "FAIL"}  ${step.name}${ok ? "" : `  -- ${error}`}`);
+		const ok = report(step.name, error);
 
 		let recorded: unknown = body;
 
@@ -912,10 +899,7 @@ const main = async () => {
 		normalize({ engine: dbType, steps: results }, options),
 	);
 
-	console.log(
-		`${failures ? "FAIL" : "PASS"}  ${results.length - failures}/${results.length} steps -> ${path.relative(process.cwd(), artifactPath)}`,
-	);
-	process.exit(failures ? 1 : 0);
+	finish(artifactPath);
 };
 
 await main();

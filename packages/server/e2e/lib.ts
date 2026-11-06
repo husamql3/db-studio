@@ -88,6 +88,46 @@ export const redactUrl = (url: string): [string, string][] => [
 	[url.replace(/^[a-z0-9+]+:\/\//i, ""), "<redacted>"],
 ];
 
+export const assert: (condition: unknown, message: string) => asserts condition = (
+	condition,
+	message,
+) => {
+	if (!condition) throw new Error(message);
+};
+
+/** Asserts that `actual` and `expected` serialize to the same JSON. */
+export const assertEqual = (actual: unknown, expected: unknown, label: string) => {
+	const a = JSON.stringify(actual);
+	const e = JSON.stringify(expected);
+	assert(a === e, `${label}: expected ${e}, got ${a}`);
+};
+
+/**
+ * A script's tally: `report` prints PASS, or FAIL with the error, for one check and returns
+ * whether it passed; `finish` prints the totals and exits, non-zero when any check failed.
+ */
+export const checks = () => {
+	let passed = 0;
+	let failed = 0;
+
+	return {
+		report: (name: string, error?: string) => {
+			if (error === undefined) passed++;
+			else failed++;
+			console.log(
+				`${error === undefined ? "PASS" : "FAIL"}  ${name}${error ? `  -- ${error}` : ""}`,
+			);
+
+			return error === undefined;
+		},
+		finish: (artifactPath?: string): never => {
+			const where = artifactPath ? ` -> ${path.relative(process.cwd(), artifactPath)}` : "";
+			console.log(`${failed ? "FAIL" : "PASS"}  ${passed}/${passed + failed} checks${where}`);
+			process.exit(failed ? 1 : 0);
+		},
+	};
+};
+
 export type ApiResponse = { status: number; body: unknown };
 
 const currentSchema = z.object({ data: z.object({ db: z.string() }) });

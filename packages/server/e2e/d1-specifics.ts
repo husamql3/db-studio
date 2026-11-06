@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { inProcessApp, normalize, writeArtifact } from "./lib.js";
+import { checks, inProcessApp, normalize, writeArtifact } from "./lib.js";
 
 const PARENT = "dbstudio_d1_Parent";
 const CHILD = "dbstudio_d1_child";
@@ -20,11 +20,11 @@ const { call, close, query: sql } = await inProcessApp(databaseUrl);
 
 const results: { check: string; ok: boolean; observed: unknown }[] = [];
 
+const { report, finish } = checks();
+
 const check = (name: string, ok: boolean, observed: unknown) => {
 	results.push({ check: name, ok, observed });
-	console.log(
-		`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : ` -> ${JSON.stringify(observed)}`}`,
-	);
+	report(name, ok ? undefined : JSON.stringify(observed));
 };
 
 await sql(`DROP TABLE IF EXISTS ${CHILD}`);
@@ -130,14 +130,11 @@ await sql(`DROP TABLE ${CHILD}`);
 
 await sql(`DROP TABLE ${PARENT}`);
 
-await writeArtifact(`d1-specifics-${label}.json`, normalize(results, { keys: ["requestId"] }));
+const artifactPath = await writeArtifact(
+	`d1-specifics-${label}.json`,
+	normalize(results, { keys: ["requestId"] }),
+);
 
 await close();
 
-const failed = results.filter((r) => !r.ok).length;
-
-console.log(
-	`${failed ? "FAIL" : "PASS"}  ${results.length - failed}/${results.length} checks`,
-);
-
-process.exit(failed ? 1 : 0);
+finish(artifactPath);

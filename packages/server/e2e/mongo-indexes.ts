@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { type IndexInfoSchemaType, indexInfoSchema } from "@db-studio/shared/types";
 import { z } from "zod";
 import {
+	checks,
 	inProcessApp,
 	normalize as normalizeJson,
 	requireDatabaseUrl,
@@ -15,7 +16,7 @@ const collection = "dbstudio_e2e_indexes";
 const missingCollection = "dbstudio_e2e_indexes_missing";
 const evidence: Record<string, unknown> = {};
 const listSchema = z.object({ data: z.array(indexInfoSchema) });
-let failed = false;
+const { report, finish } = checks();
 
 // A failed index build names the build and the collection by UUID.
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
@@ -52,14 +53,15 @@ const drop = (name: string, indexName: string) =>
 const step = async (name: string, run: () => Promise<void>) => {
 	try {
 		await run();
-		console.log(`PASS ${name}`);
+		report(name);
 	} catch (error) {
-		failed = true;
-		console.log(`FAIL ${name}: ${error instanceof Error ? error.message : String(error)}`);
+		report(name, error instanceof Error ? error.message : String(error));
 	}
 };
 
 const mongoDb = await connector("mongodb").db(db);
+
+let artifactPath: string | undefined;
 
 try {
 	await mongoDb.collection(collection).drop();
@@ -277,9 +279,9 @@ try {
 		evidence["seeded collections"] = seeded;
 	});
 } finally {
-	await writeArtifact("mongo-indexes.json", evidence);
+	artifactPath = await writeArtifact("mongo-indexes.json", evidence);
 	await mongoDb.collection(collection).drop();
 	await app.close();
 }
 
-if (failed) process.exit(1);
+finish(artifactPath);
