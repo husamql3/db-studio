@@ -224,9 +224,13 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 	.get(
 		"/:tableName/data",
-		async ({ adapter, query, params: { tableName } }) => ({
-			data: await adapter.getTableData({ tableName, ...query }),
-		}),
+		async ({ adapter, dbType, query, params: { tableName } }) => {
+			if (query.sort?.length) requireCapability(dbType, "sort");
+
+			if (query.filters?.length) requireCapability(dbType, "filter");
+
+			return { data: await adapter.getTableData({ tableName, ...query }) };
+		},
 		{ query: tableDataQuerySchema, params: tableNameSchema },
 	)
 

@@ -39,7 +39,14 @@ export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params }) 
 	return { dbType, adapter };
 });
 
-type Capability = "indexes" | "serverLogs" | "rowMutation" | "cellDefault" | "schemaMutation";
+type Capability =
+	| "indexes"
+	| "serverLogs"
+	| "rowMutation"
+	| "cellDefault"
+	| "schemaMutation"
+	| "sort"
+	| "filter";
 
 /** Why the engine cannot do an operation its traits leave out, or undefined when it can. */
 const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
@@ -60,6 +67,14 @@ const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
 			return engine.cellDefault
 				? undefined
 				: `${engine.label} cannot set a cell to its column default`;
+		case "sort":
+			return engine.filterSort
+				? undefined
+				: `Sorting is not supported for ${engine.label} tables`;
+		case "filter":
+			return engine.filterSort
+				? undefined
+				: `Filtering is not supported for ${engine.label} tables`;
 	}
 };
 

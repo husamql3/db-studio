@@ -62,9 +62,6 @@ const TABLE_TO_REDIS_TYPE: Record<RedisTable, Exclude<RedisKeyTypeSchemaType, "u
 	streams: "stream",
 };
 
-const SORT_UNSUPPORTED_MESSAGE = "Sorting is not supported for Redis tables";
-const FILTER_UNSUPPORTED_MESSAGE = "Filtering is not supported for Redis tables";
-
 const PREV_UNSUPPORTED_MESSAGE =
 	"Backward pagination is not supported for Redis tables (SCAN is forward-only)";
 
@@ -989,18 +986,10 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	}
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		const { tableName, db, cursor, limit = 50, direction = "asc", sort, filters } = params;
+		const { tableName, db, cursor, limit = 50, direction = "asc" } = params;
 
 		if (direction === "desc") {
 			throw new HTTPException(400, { message: PREV_UNSUPPORTED_MESSAGE });
-		}
-
-		if (sort?.length) {
-			throw new HTTPException(400, { message: SORT_UNSUPPORTED_MESSAGE });
-		}
-
-		if (filters && filters.length > 0) {
-			throw new HTTPException(400, { message: FILTER_UNSUPPORTED_MESSAGE });
 		}
 
 		const table = assertRedisTable(tableName);
