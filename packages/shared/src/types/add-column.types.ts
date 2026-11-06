@@ -14,10 +14,6 @@ export const addColumnSchema = z.object({
 
 export type AddColumnSchemaType = z.infer<typeof addColumnSchema>;
 
-export const addColumnParamSchema = tableNameSchema;
-
-export type AddColumnParamSchemaType = z.infer<typeof addColumnParamSchema>;
-
 export const addColumnParamsSchema = addColumnSchema.extend({
 	...tableQuerySchema.shape,
 	...tableNameSchema.shape,

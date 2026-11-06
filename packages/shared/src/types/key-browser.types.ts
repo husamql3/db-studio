@@ -47,8 +47,6 @@ export const redisKeySummarySchema = z.object({
 	memoryBytes: z.number().int().nonnegative().nullable(),
 });
 
-export type RedisKeySummarySchemaType = z.infer<typeof redisKeySummarySchema>;
-
 export const keyScanResultSchema = z.object({
 	keys: z.array(redisKeySummarySchema),
 	nextCursor: z.string().nullable(),
@@ -135,8 +133,6 @@ export const redisKeyValueSchema = z.discriminatedUnion("kind", [
 	redisStreamValueSchema,
 	redisUnknownValueSchema,
 ]);
-
-export type RedisKeyValueSchemaType = z.infer<typeof redisKeyValueSchema>;
 
 export const keyDetailsResultSchema = redisKeySummarySchema.extend({
 	length: z.number().int().nonnegative().nullable(),

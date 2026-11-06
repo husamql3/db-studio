@@ -54,8 +54,6 @@ export const connectUrlSchema = z.object({
 	url: z.string().trim().min(1, "Paste a connection URL"),
 });
 
-export type ConnectUrlSchemaType = z.infer<typeof connectUrlSchema>;
-
 export const updateConnectionSchema = z.object({
 	name: z.string().trim().min(1, "Name is required").max(100).optional(),
 	color: connectionColorSchema.nullable().optional(),

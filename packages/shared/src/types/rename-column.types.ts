@@ -8,10 +8,6 @@ export const renameColumnSchema = z.object({
 
 export type RenameColumnSchemaType = z.infer<typeof renameColumnSchema>;
 
-export const renameColumnParamSchema = deleteColumnParamSchema;
-
-export type RenameColumnParamSchemaType = z.infer<typeof renameColumnParamSchema>;
-
 export const renameColumnParamsSchema = renameColumnSchema.extend({
 	...tableQuerySchema.shape,
 	...deleteColumnParamSchema.shape,

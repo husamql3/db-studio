@@ -85,5 +85,3 @@ export const tableDataQuerySchema = tableQuerySchema
 					: []
 				: sort,
 	}));
-
-export type TableDataQuerySchemaType = z.infer<typeof tableDataQuerySchema>;

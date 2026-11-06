@@ -10,10 +10,6 @@ export const alterColumnSchema = z.object({
 
 export type AlterColumnSchemaType = z.infer<typeof alterColumnSchema>;
 
-export const alterColumnParamSchema = deleteColumnParamSchema;
-
-export type AlterColumnParamSchemaType = z.infer<typeof alterColumnParamSchema>;
-
 export const alterColumnParamsSchema = alterColumnSchema.extend({
 	...tableQuerySchema.shape,
 	...deleteColumnParamSchema.shape,

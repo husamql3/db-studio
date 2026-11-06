@@ -13,10 +13,6 @@ export const renameTableSchema = z.object({
 
 export type RenameTableSchemaType = z.infer<typeof renameTableSchema>;
 
-export const renameTableParamSchema = tableNameSchema;
-
-export type RenameTableParamSchemaType = z.infer<typeof renameTableParamSchema>;
-
 export const renameTableParamsSchema = renameTableSchema.extend({
 	...databaseSchema.shape,
 	...tableNameSchema.shape,

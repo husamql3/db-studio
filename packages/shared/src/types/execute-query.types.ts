@@ -4,8 +4,6 @@ export const executeQuerySchema = z.object({
 	query: z.string("Query is required").trim().min(1, "Query is required"),
 });
 
-export type ExecuteQueryParams = z.infer<typeof executeQuerySchema>;
-
 export type ExecuteQueryResult = {
 	columns: string[];
 	rows: Record<string, unknown>[];
