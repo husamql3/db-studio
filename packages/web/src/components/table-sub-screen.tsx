@@ -3,6 +3,8 @@ import { Spinner } from "@db-studio/ui/spinner";
 import { Link } from "@tanstack/react-router";
 import { Plus, RefreshCw, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { CONSTANTS } from "@/utils/constants";
 
 /** The loading, error and toolbar frame shared by a table's schema and indexes screens. */
 export const TableSubScreen = ({
@@ -26,6 +28,8 @@ export const TableSubScreen = ({
 	action?: { label: string; onClick: () => void };
 	children: ReactNode;
 }) => {
+	const schemaName = useTableSchemaName();
+
 	if (isLoading) {
 		return (
 			<div className="size-full flex items-center justify-center">
@@ -65,6 +69,7 @@ export const TableSubScreen = ({
 					<Link
 						to="/table/$table"
 						params={{ table: tableName }}
+						search={{ [CONSTANTS.TABLE_SCHEMA]: schemaName }}
 						aria-label={`View data for ${tableName}`}
 					>
 						<Table2 className="size-4" />
