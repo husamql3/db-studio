@@ -132,7 +132,12 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	/** Runs a statement that writes, and returns how many rows it changed. */
 	protected abstract execute(conn: Conn, sql: string, values?: unknown[]): Promise<number>;
 
-	/** Runs `work` on one connection inside a transaction, committed when it resolves. */
+	/**
+	 * Runs `work` on one connection inside a transaction, committed when it resolves.
+	 * SQLite has none to offer (D1 has no interactive transactions; a write batch is its only
+	 * one), so it overrides every template that calls this: updateRecords, forceDeleteRecords
+	 * and bulkInsertRecords. A new template that calls it needs a SQLite override too.
+	 */
 	protected transaction<T>(_db: string, _work: (conn: Conn) => Promise<T>): Promise<T> {
 		return notImplemented("transactions");
 	}
