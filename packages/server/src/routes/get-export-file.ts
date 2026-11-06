@@ -30,7 +30,7 @@ const toCellValue = (value: unknown): CellValue => {
 
 const toSheetData = (cols: string[], rows: Record<string, unknown>[]): CellValue[][] => [
 	cols,
-	...(rows?.map((row) => cols?.map((col) => toCellValue(row[col]))) ?? []),
+	...rows.map((row) => cols.map((col) => toCellValue(row[col]))),
 ];
 
 export async function getExportFile({
@@ -40,7 +40,7 @@ export async function getExportFile({
 	tableName,
 }: ExportFileOptions): Promise<BodyInit> {
 	if (format === "json") {
-		const jsonContent = JSON.stringify(rows ?? [], null, 2);
+		const jsonContent = JSON.stringify(rows, null, 2);
 
 		return new Uint8Array(Buffer.from(jsonContent, "utf-8"));
 	}

@@ -8,7 +8,6 @@ import { BYOK_HEADERS } from "@db-studio/shared/types";
 import { cors } from "@elysiajs/cors";
 import { node } from "@elysiajs/node";
 import { Elysia } from "elysia";
-import { isDatabaseType } from "@/adapters/adapter.registry.js";
 import { HTTPException } from "@/http-exception.js";
 import { isLoopbackHostname } from "@/loopback.js";
 import { handleError } from "@/middlewares/error-handler.js";
@@ -225,8 +224,7 @@ const trackRequest = (
 		}
 
 		const startedAt = performance.now();
-		const registeredType = dbType && isDatabaseType(dbType) ? dbType : undefined;
-		const response = await startServerSpan(operation, registeredType, respond);
+		const response = await startServerSpan(operation, dbType, respond);
 		captureServerEvent({
 			event: "server_operation",
 			properties: {
@@ -234,7 +232,7 @@ const trackRequest = (
 				method: request.method,
 				outcome: outcomeForStatus(response.status),
 				duration_bucket: durationBucket(performance.now() - startedAt),
-				db_type: registeredType,
+				db_type: dbType,
 			},
 		});
 

@@ -1,10 +1,10 @@
 import { intro, log, outro, spinner } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
+import openUrl from "open";
 import color from "picocolors";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
-import { openBrowser, shouldOpenBrowser } from "@/cmd/open-browser.js";
 import { showStatus } from "@/cmd/show-status.js";
 import { showVersion } from "@/cmd/show-version.js";
 import { isLoopbackAddress } from "@/loopback.js";
@@ -110,9 +110,9 @@ export const main = async () => {
 
 	log.success(`Server listening at ${color.cyan(serverUrl)}`);
 
-	if (shouldOpenBrowser(open)) {
+	if (open) {
 		try {
-			await openBrowser(serverUrl);
+			await openUrl(serverUrl);
 			log.success("Opened db-studio in your browser");
 		} catch {
 			log.warn(`Could not open your browser. Visit ${color.cyan(serverUrl)}`);
