@@ -1,6 +1,7 @@
 import type { Pool } from "oracledb";
 import type { ConnectionUrl } from "@/connection-url.js";
 import { loadDriver } from "@/drivers.js";
+import { CONNECT_TIMEOUT_MS } from "./connect-timeout.js";
 import { openOnce } from "./open-once.js";
 
 /**
@@ -17,7 +18,8 @@ export const oracleConnector = (url: ConnectionUrl) => {
 			connectString: `${url.host}:${url.port}/${url.database}`,
 			poolMin: 0,
 			poolMax: 10,
-			connectTimeout: 5,
+			// In seconds.
+			connectTimeout: CONNECT_TIMEOUT_MS / 1000,
 			// LTZ values are projected in the session zone; pin it so pooled connections agree.
 			sessionCallback: (connection, _tag, done) => {
 				connection

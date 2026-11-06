@@ -2,6 +2,7 @@ import type { ConnectionPool } from "mssql";
 import type { ConnectionUrl } from "@/connection-url.js";
 import { loadDriver } from "@/drivers.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { CONNECT_TIMEOUT_MS } from "./connect-timeout.js";
 import { openOnce } from "./open-once.js";
 
 export const mssqlConnector = (url: ConnectionUrl) => {
@@ -18,7 +19,7 @@ export const mssqlConnector = (url: ConnectionUrl) => {
 				encrypt: false, // Use true for Azure
 				trustServerCertificate: true,
 				enableArithAbort: true,
-				connectTimeout: 2000,
+				connectTimeout: CONNECT_TIMEOUT_MS,
 			},
 			pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
 		}).connect();

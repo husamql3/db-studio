@@ -2,6 +2,7 @@ import type { Pool } from "mysql2/promise";
 import type { ConnectionUrl } from "@/connection-url.js";
 import { loadDriver } from "@/drivers.js";
 import { writeOperationalLog } from "@/operational-log.js";
+import { CONNECT_TIMEOUT_MS } from "./connect-timeout.js";
 import { openOnce } from "./open-once.js";
 
 export const mysqlConnector = (url: ConnectionUrl, readOnly: boolean) => {
@@ -17,7 +18,7 @@ export const mysqlConnector = (url: ConnectionUrl, readOnly: boolean) => {
 			waitForConnections: true,
 			connectionLimit: 10,
 			idleTimeout: 30000,
-			connectTimeout: 2000,
+			connectTimeout: CONNECT_TIMEOUT_MS,
 			multipleStatements: false,
 		});
 

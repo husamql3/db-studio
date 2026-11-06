@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { ConnectionUrl } from "@/connection-url.js";
 import { loadDriver } from "@/drivers.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { CONNECT_TIMEOUT_MS } from "./connect-timeout.js";
 import { openOnce } from "./open-once.js";
 
 /** The URL with `database` as its path; the name is literal, so it is encoded for the driver. */
@@ -31,10 +32,7 @@ export const pgConnector = (url: ConnectionUrl, readOnly: boolean) => {
 			connectionString: connectionString(url.driverUrl, database),
 			max: 10,
 			idleTimeoutMillis: 30000,
-			// A serverless database waking from idle (Neon, Supabase) or a distant
-			// region with TLS can take several seconds to accept a connection; at 2s
-			// those users saw every request fail with CONNECT_TIMEOUT.
-			connectionTimeoutMillis: 10_000,
+			connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
 			onConnect: async (client) => {
 				// shortcut: a transaction-mode pooler (PgBouncer, Neon -pooler, Supabase :6543) can
 				// run later queries on a server connection that never got this SET; connect directly

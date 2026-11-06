@@ -2,6 +2,7 @@ import type { Redis, RedisOptions } from "ioredis";
 import type { ConnectionUrl } from "@/connection-url.js";
 import { loadDriver } from "@/drivers.js";
 import { writeOperationalLog } from "@/operational-log.js";
+import { CONNECT_TIMEOUT_MS } from "./connect-timeout.js";
 import { openOnce } from "./open-once.js";
 
 export const UNSUPPORTED_SERVER_MODE =
@@ -50,7 +51,7 @@ export const redisConnector = (url: ConnectionUrl) => {
 			lazyConnect: true,
 			maxRetriesPerRequest: 1,
 			enableReadyCheck: true,
-			connectTimeout: 2000,
+			connectTimeout: CONNECT_TIMEOUT_MS,
 		};
 
 		if (url.user) options.username = url.user;
