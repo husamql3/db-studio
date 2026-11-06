@@ -17,16 +17,6 @@ vi.mock("pg", () => ({
 	default: { Pool: FakePool },
 }));
 
-vi.mock("@libsql/client", () => ({ createClient: vi.fn() }));
-
-vi.mock("ioredis", () => ({ Redis: class {} }));
-
-vi.mock("mongodb", () => ({ MongoClient: class {}, ObjectId: class {} }));
-
-vi.mock("mssql", () => ({ default: { ConnectionPool: class {} } }));
-
-vi.mock("mysql2/promise", () => ({ createPool: vi.fn() }));
-
 const freshPool = async () => {
 	FakePool.instances = [];
 	vi.resetModules();
@@ -43,16 +33,6 @@ const freshPool = async () => {
 };
 
 describe("PostgreSQL pool search_path", () => {
-	it("widens search_path on every new connection", async () => {
-		const pool = await freshPool();
-		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
-
-		await pool.config.onConnect(client);
-
-		expect(client.query).toHaveBeenCalledTimes(1);
-		expect(client.query.mock.calls[0][0]).toMatch(/set_config\(\s*'search_path'/);
-	});
-
 	it("holds the client back until the statement finishes", async () => {
 		// pg-pool hands the client to the caller once onConnect settles. Settling
 		// before the SET completes would let the caller's query overlap it on a

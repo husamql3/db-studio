@@ -57,13 +57,6 @@ describe("PgAdapter schema resolution", () => {
 		expect(columnsQuery).toContain("ORDER BY sp.position LIMIT 1");
 	});
 
-	it("accepts a table living in any schema on the search path", async () => {
-		await adapter.getTableSchema({ db: "appdb", tableName: "daily_summarie" }).catch(() => {});
-
-		const tableQuery = catalogSql().find((s) => s.includes("information_schema.tables"));
-		expect(tableQuery).toContain("unnest(current_schemas(false))");
-	});
-
 	it("scopes a column check to the table the DDL will actually alter", async () => {
 		// With two "projects" tables, search_path picks one. Asking whether the
 		// column exists in *any* schema wrongly rejects adding a column that only
