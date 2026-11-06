@@ -393,11 +393,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(tableName)}`,
 			);
 
-			if (!rows.length)
-				throw new HTTPException(404, {
-					message: `Table "${tableName}" does not exist or has no data`,
-				});
-
 			return { cols: columns.map((column) => column.COLUMN_NAME), rows };
 		});
 	}

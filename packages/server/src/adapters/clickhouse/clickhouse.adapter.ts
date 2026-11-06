@@ -208,14 +208,21 @@ export class ClickhouseAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
+		await this.getTable(db, tableName);
 		const rows = await this.select(db, `SELECT * FROM ${q(tableName)}`);
 
-		if (!rows.length)
-			throw new HTTPException(404, {
-				message: `Table "${tableName}" does not exist or has no data`,
-			});
+		if (rows.length) return { cols: Object.keys(rows[0]), rows };
 
-		return { cols: Object.keys(rows[0]), rows };
+		// SELECT * leaves out MATERIALIZED and ALIAS columns, so an empty export does too.
+		const columns = await this.select<{ name: string }>(
+			db,
+			`SELECT name FROM system.columns
+			WHERE database = currentDatabase() AND table = {table:String} AND default_kind NOT IN ('MATERIALIZED', 'ALIAS')
+			ORDER BY position`,
+			{ table: tableName },
+		);
+
+		return { cols: columns.map((c) => c.name), rows };
 	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {

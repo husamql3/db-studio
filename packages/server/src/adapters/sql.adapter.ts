@@ -872,16 +872,15 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		const rows = await this.connect(db, (conn) =>
-			this.rows(conn, `SELECT * FROM ${this.tableRef(tableName, schemaName)}`),
-		);
+		return this.connect(db, async (conn) => {
+			const columns = await this.requireTable(conn, tableName, schemaName);
 
-		if (!rows.length) {
-			throw new HTTPException(404, {
-				message: `Table "${tableName}" does not exist or has no data`,
-			});
-		}
+			const rows = await this.rows(
+				conn,
+				`SELECT * FROM ${this.tableRef(tableName, schemaName)}`,
+			);
 
-		return { cols: Object.keys(rows[0]), rows };
+			return { cols: rows.length ? Object.keys(rows[0]) : columns, rows };
+		});
 	}
 }

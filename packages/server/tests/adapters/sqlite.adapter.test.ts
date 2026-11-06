@@ -3,7 +3,8 @@
  * Failure modes:
  * - a `sqlite://` path containing a space is not turned into a valid file: URL, so nothing opens
  * - type affinity mapping sends BLOB/DATETIME columns to the wrong cell variant
- * - an export drops the column names, or returns an empty file instead of a 404
+ * - an export drops the column names; an empty table fails instead of exporting its header,
+ *   or a missing table answers 500 instead of 404
  * - deleteTable drops a table that other tables reference instead of reporting fkViolation
  * - deleteRecords on a referenced row surfaces a 500 instead of fkViolation with the child rows
  * - getTableColumns loses the FK target or the PK flag (live mode and the FK picker need both)
@@ -85,11 +86,17 @@ describe("SqliteAdapter", () => {
 		);
 	});
 
-	it("answers 404 when exporting a table with no rows", async () => {
-		await exec("CREATE TABLE empty_export (id INTEGER PRIMARY KEY)");
+	it("exports a table with no rows as its column names", async () => {
+		await exec("CREATE TABLE empty_export (id INTEGER PRIMARY KEY, label TEXT)");
 
 		await expect(
 			adapter.exportTableData({ db: "main", tableName: "empty_export" }),
+		).resolves.toEqual({ cols: ["id", "label"], rows: [] });
+	});
+
+	it("answers 404 when exporting a table that does not exist", async () => {
+		await expect(
+			adapter.exportTableData({ db: "main", tableName: "no_such_export" }),
 		).rejects.toMatchObject({ status: 404 });
 	});
 
