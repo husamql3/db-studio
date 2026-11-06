@@ -15,17 +15,32 @@ export type OpenConnection = {
 	};
 }[DatabaseTypeSchema];
 
+/** Answers 400 when the database `parsed` names cannot be opened read-only. */
+export const assertCanOpenReadOnly = (parsed: ConnectionUrl): void => {
+	const engine = DATABASE_ENGINES[parsed.dbType];
+
+	if (!engine.readOnly) {
+		throw new HTTPException(400, {
+			message: `${engine.label} connections cannot be opened read-only`,
+		});
+	}
+
+	// Closing its only instance would delete its data, and DuckDB cannot reopen memory read-only.
+	if (parsed.inMemory) {
+		throw new HTTPException(400, {
+			message: "An in-memory database cannot be opened read-only",
+		});
+	}
+};
+
 /**
  * Throws when `url` is malformed or names an unsupported engine, or when `readOnly` is set for
- * an engine that cannot open a read-only session; its clients connect on first use.
+ * a database that cannot be opened read-only; its clients connect on first use.
  */
 export const createConnection = (url: string, readOnly = false): OpenConnection => {
 	const parsed = parseConnectionUrl(url);
-	const engine = DATABASE_ENGINES[parsed.dbType];
 
-	if (readOnly && !engine.readOnly) {
-		throw new Error(`${engine.label} connections cannot be opened read-only`);
-	}
+	if (readOnly) assertCanOpenReadOnly(parsed);
 
 	// SAFETY: CONNECTORS maps each engine to its own connector, so the pair stays matched.
 	return {

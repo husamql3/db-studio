@@ -3,7 +3,6 @@ import { access } from "node:fs/promises";
 import {
 	type ConnectionSummarySchemaType,
 	type ConnectionsStateSchemaType,
-	DATABASE_ENGINES,
 	type UpdateConnectionSchemaType,
 } from "@db-studio/shared/types";
 import { normalizeConnectionUrl, parseConnectionUrl, urlDbType } from "@/connection-url.js";
@@ -19,6 +18,7 @@ import {
 import { checkConnection } from "@/connectors/index.js";
 import { HTTPException } from "@/http-exception.js";
 import {
+	assertCanOpenReadOnly,
 	closeConnection,
 	createConnection,
 	getOpenConnection,
@@ -178,20 +178,10 @@ const summarize = (saved: SavedConnection) => {
 export const updateConnection = (id: string, change: UpdateConnectionSchemaType) =>
 	queued(async () => {
 		const found = await findSavedConnection(id);
-		const saved = summarize(found);
+		// Refuses a saved URL of an unknown engine before anything is changed.
+		summarize(found);
 
-		if (change.readOnly && !DATABASE_ENGINES[saved.dbType].readOnly) {
-			throw new HTTPException(400, {
-				message: `${DATABASE_ENGINES[saved.dbType].label} connections cannot be opened read-only`,
-			});
-		}
-
-		// Closing its only instance would delete its data, and DuckDB cannot reopen memory read-only.
-		if (change.readOnly && parseConnectionUrl(found.url).inMemory) {
-			throw new HTTPException(400, {
-				message: "An in-memory database cannot be opened read-only",
-			});
-		}
+		if (change.readOnly) assertCanOpenReadOnly(parseConnectionUrl(found.url));
 
 		const updated = await updateSavedConnection(id, change);
 
