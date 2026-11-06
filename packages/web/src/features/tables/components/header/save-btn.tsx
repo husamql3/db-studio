@@ -23,8 +23,8 @@ export const SaveBtn = ({
 		try {
 			await updateCell(updates);
 			setRowSelection({});
-		} catch (error) {
-			console.error("Failed to save updates:", error);
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
 		}
 	}, [disabledReason, getUpdates, editScope.id, updateCell, setRowSelection]);
 
