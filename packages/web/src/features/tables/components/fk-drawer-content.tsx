@@ -3,7 +3,6 @@ import { Button } from "@db-studio/ui/button";
 import { DataGrid } from "@db-studio/ui/data-grid";
 import { DrawerHeader, DrawerTitle } from "@db-studio/ui/drawer";
 import { Spinner } from "@db-studio/ui/spinner";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
@@ -11,10 +10,8 @@ import { useMemo } from "react";
 import { CopyButton } from "@/components/copy-button";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useTableCols } from "@/hooks/use-table-cols";
+import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { getTableData } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
-import { useDatabaseStore } from "@/stores/database.store";
 import { CONSTANTS } from "@/utils/constants";
 import { formatCellValue } from "@/utils/format-cell-value";
 
@@ -27,30 +24,21 @@ export const FkDrawerContent = ({
 	referencedColumn: string;
 	fkValue: string;
 }) => {
-	const { selectedDatabase } = useDatabaseStore();
-
 	// An FK references a table in its own schema, the open table's.
 	const schemaName = useTableSchemaName();
 	const { tableCols } = useTableCols({ tableName: referencedTable, schemaName });
 
-	const filter: FilterType = useMemo(
-		() => ({ columnName: referencedColumn, operator: "=", value: fkValue }),
-		[referencedColumn, fkValue],
-	);
+	const filter: FilterType = { columnName: referencedColumn, operator: "=", value: fkValue };
 
-	const page = {
+	const { tableData, isLoadingTableData } = useTableData({
 		tableName: referencedTable,
 		schemaName,
-		limit: "50",
-		filters: JSON.stringify([filter]),
-		db: selectedDatabase,
-	};
-
-	const { data: tableData, isLoading } = useQuery({
-		queryKey: tableKeys.data(page),
-		queryFn: async () =>
-			(await getTableData({ ...page, db: selectedDatabase ?? "" })).data.data,
-		enabled: !!referencedTable && !!selectedDatabase && fkValue !== "",
+		cursor: null,
+		direction: null,
+		limit: null,
+		sort: null,
+		order: null,
+		filters: [filter],
 	});
 
 	const columns = useMemo<ColumnDef<TableRecord>[]>(
@@ -98,7 +86,7 @@ export const FkDrawerContent = ({
 				</Button>
 			</DrawerHeader>
 			<div className="flex flex-1 overflow-hidden border-t">
-				{isLoading ? (
+				{isLoadingTableData ? (
 					<div className="flex items-center justify-center w-full text-sm text-muted-foreground">
 						<Spinner />
 					</div>
