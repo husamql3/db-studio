@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { DEFAULTS } from "@db-studio/shared/constants";
+import { API_DB_RESOURCES, API_ROOT_RESOURCES, DEFAULTS } from "@db-studio/shared/constants";
 import { DATABASE_TYPES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import * as Sentry from "@sentry/node";
 import { PostHog } from "posthog-node";
@@ -145,20 +145,10 @@ const DB_TYPE_PATH = new RegExp(
 	`^${DEFAULTS.API_PREFIX}/(${DATABASE_TYPES.join("|")})(?=/|$)`,
 );
 
-/** Every route prefix in app.ts; any other path reports as "other", so names stay a fixed set. */
-const API_RESOURCES = [
-	"connections",
-	"databases",
-	"chat",
-	"telemetry",
-	"tables",
-	"records",
-	"query",
-	"keys",
-	"logs",
-];
-
-const API_RESOURCE = new RegExp(`^${DEFAULTS.API_PREFIX}/(${API_RESOURCES.join("|")})(?=/|$)`);
+/** Any other path reports as "other", so operation names stay a fixed set. */
+const API_RESOURCE = new RegExp(
+	`^${DEFAULTS.API_PREFIX}/(${[...API_ROOT_RESOURCES, ...API_DB_RESOURCES].join("|")})(?=/|$)`,
+);
 
 export const operationForRequest = (method: string, pathname: string): string => {
 	const pathWithoutType = pathname.replace(DB_TYPE_PATH, DEFAULTS.API_PREFIX);

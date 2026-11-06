@@ -1,4 +1,4 @@
-import { DEFAULTS } from "@db-studio/shared/constants";
+import { API_DB_RESOURCES, API_ROOT_RESOURCES, DEFAULTS } from "@db-studio/shared/constants";
 import type { ApiError as ApiErrorBody, DatabaseTypeSchema } from "@db-studio/shared/types";
 import axios, { type AxiosError, type AxiosInstance } from "axios";
 import { logger } from "@/lib/logger";
@@ -154,12 +154,12 @@ const setupInterceptors = (instance: AxiosInstance) => {
 
 const isStackFrame = (line: string): boolean => /^\s*at\s/.test(line);
 
+const API_RESOURCE = new RegExp(
+	`/(${[...API_ROOT_RESOURCES, ...API_DB_RESOURCES].join("|")})(?:/|$)`,
+);
+
 export const apiOperationForRequest = (method?: string, url?: string): string => {
-	const resource = url
-		?.replace(/[?#].*$/, "")
-		.match(
-			/\/(databases|tables|records|query|keys|chat|logs|connections|indexes|telemetry)(?:\/|$)/,
-		)?.[1];
+	const resource = url?.replace(/[?#].*$/, "").match(API_RESOURCE)?.[1];
 
 	return `${method?.toLowerCase() ?? "unknown"}_${resource ?? "other"}`;
 };

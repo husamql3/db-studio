@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULTS } from "@db-studio/shared/constants";
+import { API_DB_RESOURCES, API_ROOT_RESOURCES, DEFAULTS } from "@db-studio/shared/constants";
 import { BYOK_HEADERS } from "@db-studio/shared/types";
 import { cors } from "@elysiajs/cors";
 import { node } from "@elysiajs/node";
@@ -34,6 +34,11 @@ import { queryRoutes } from "@/routes/query.routes.js";
 import { recordsRoutes } from "@/routes/records.routes.js";
 import { tablesRoutes } from "@/routes/tables.routes.js";
 import { telemetryRoutes } from "@/routes/telemetry.routes.js";
+
+/** Route plugins whose prefixes are in `resources`, the shared list telemetry names them from. */
+type MountedUnder<Resources extends readonly string[]> = {
+	config: { prefix?: `/${Resources[number]}` };
+}[];
 
 const { API_PREFIX } = DEFAULTS;
 
@@ -322,17 +327,20 @@ export const createServer = () => {
 		 */
 		.group(API_PREFIX, (api) =>
 			api
-				.use(connectionsRoutes)
-				.use(databasesRoutes)
-				.use(chatRoutes)
-				.use(telemetryRoutes)
+				.use([
+					connectionsRoutes,
+					databasesRoutes,
+					chatRoutes,
+					telemetryRoutes,
+				] satisfies MountedUnder<typeof API_ROOT_RESOURCES>)
 				.group("/:dbType", (scoped) =>
-					scoped
-						.use(tablesRoutes)
-						.use(recordsRoutes)
-						.use(queryRoutes)
-						.use(keysRoutes)
-						.use(logsRoutes),
+					scoped.use([
+						tablesRoutes,
+						recordsRoutes,
+						queryRoutes,
+						keysRoutes,
+						logsRoutes,
+					] satisfies MountedUnder<typeof API_DB_RESOURCES>),
 				),
 		);
 

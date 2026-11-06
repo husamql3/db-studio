@@ -1,3 +1,4 @@
+import { API_DB_RESOURCES } from "@db-studio/shared/constants";
 import { DATABASE_TYPES } from "@db-studio/shared/types";
 import { getTelemetryConfig } from "@/lib/posthog";
 import { SECTIONS } from "@/lib/sections";
@@ -9,7 +10,7 @@ import { SECTIONS } from "@/lib/sections";
 export let sentry: typeof import("@sentry/react") | undefined;
 
 const DB_SCOPED_API_PATH = new RegExp(
-	`/api/(?:${DATABASE_TYPES.join("|")})/(databases|tables|records|query|keys|chat)(?:/\\S*)?`,
+	`/api/(?:${DATABASE_TYPES.join("|")})/(${API_DB_RESOURCES.join("|")})(?:/\\S*)?`,
 	"g",
 );
 

@@ -1,3 +1,5 @@
+export * from "./api-resources.js";
+
 export * from "./chat.js";
 
 export * from "./defaults.js";

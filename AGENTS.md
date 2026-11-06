@@ -373,6 +373,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 **Rules**:
 - Chain every call on the instance; Elysia infers context and response types through the chain.
+- A new plugin's prefix goes in `API_ROOT_RESOURCES` or `API_DB_RESOURCES` (`@db-studio/shared/constants`), which server and web telemetry name requests from; `app.ts` fails typecheck until it does.
 - Validation via the route's `query` / `params` / `body` options with the Zod schemas from `@db-studio/shared/types`. A failure reaches `handleError` and answers 400 `{ error: "Validation error", details }`.
 - Query values reach the schema as raw strings: `src/app.ts` replaces Elysia's query parser, which JSON-parses `[...]`/`{...}` values and splits on commas.
 - DB dispatch via the `adapter` that `adapterPlugin` adds — never switch/if-else on dbType in routes.
