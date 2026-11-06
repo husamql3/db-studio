@@ -8,13 +8,9 @@ interface ExportFileOptions {
 }
 
 /**
- * Flatten a value into the scalar `CellValue` contract that the sheet writer
- * accepts. Arrays and nested objects (Mongo documents, Postgres `jsonb`, MySQL
- * `json`) are JSON-serialized so they no longer land in the sheet as
- * "[object Object]", and binary columns render as `0x`-prefixed hex rather than
- * a serialized Buffer. Scalars pass through untouched.
- *
- * Only CSV and XLSX need this — the JSON export keeps the nested structure.
+ * Arrays and nested objects (Mongo documents, Postgres `jsonb`, MySQL `json`) are
+ * JSON-serialized so they do not land in the sheet as "[object Object]". Only CSV and XLSX
+ * need this; the JSON export keeps the nested structure.
  */
 const toCellValue = (value: unknown): CellValue => {
 	if (value === null || value === undefined) return value;
@@ -37,16 +33,6 @@ const toSheetData = (cols: string[], rows: Record<string, unknown>[]): CellValue
 	...(rows?.map((row) => cols?.map((col) => toCellValue(row[col]))) ?? []),
 ];
 
-/**
- * Converts table data to the specified export format (CSV, XLSX, or JSON)
- *
- * @param options - The export options
- * @param options.cols - Array of column names
- * @param options.rows - Array of row data objects
- * @param options.format - The export format ('csv', 'xlsx', or 'json')
- * @param options.tableName - The name of the table being exported
- * @returns The file content as a Uint8Array
- */
 export async function getExportFile({
 	cols,
 	rows,

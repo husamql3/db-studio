@@ -265,12 +265,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return { total: Number(rows[0].total), estimated: rows[0].estimated === true };
 	}
 
-	// =========================================================
-	// IDbAdapter implementations
-	// =========================================================
-
-	// --- Databases ---
-
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		const pool = await connector("pg").pool();
 
@@ -338,8 +332,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			max_connections: result.max_connections,
 		};
 	}
-
-	// --- Tables ---
 
 	/**
 	 * reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
@@ -661,8 +653,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return lines.join("\n");
 	}
 
-	// --- Columns ---
-
 	async getTableColumns({
 		tableName,
 		db,
@@ -833,8 +823,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		);
 	}
 
-	// --- Server logs ---
-
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		const pool = await connector("pg").pool(db);
 
@@ -903,10 +891,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		}
 	}
 
-	// --- Indexes ---
-
-	// --- Records ---
-
 	async addRecord({
 		db,
 		schemaName,
@@ -965,8 +949,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		});
 	}
 
-	// --- Query ---
-
 	protected async runStatement(conn: PgQueryable, statement: string) {
 		const result = await conn.query(statement);
 
@@ -975,10 +957,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			? { columns: result.fields.map((f) => f.name), rows: result.rows }
 			: { affected: result.rowCount ?? undefined };
 	}
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	/** A table with no columns still has a row here, with a NULL column. */
 	protected async columnNames(conn: PgQueryable, tableName: string, schemaName?: string) {

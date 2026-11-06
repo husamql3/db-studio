@@ -305,10 +305,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		};
 	}
 
-	// =========================================================
-	// IDbAdapter — Databases
-	// =========================================================
-
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		const { name, size } = await (await connector("sqlite").client()).info();
 
@@ -332,10 +328,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			max_connections: 1,
 		};
 	}
-
-	// =========================================================
-	// IDbAdapter — Tables
-	// =========================================================
 
 	/** SQLite keeps no row estimates, so every table is counted. */
 	protected tableEstimates(client: SqliteClient) {
@@ -474,10 +466,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 		return row.sql;
 	}
-
-	// =========================================================
-	// IDbAdapter — Columns
-	// =========================================================
 
 	async getTableColumns({
 		tableName,
@@ -664,14 +652,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		});
 	}
 
-	// =========================================================
-	// IDbAdapter — Indexes
-	// =========================================================
-
-	// =========================================================
-	// IDbAdapter — Records
-	// =========================================================
-
 	async addRecord({
 		params,
 	}: {
@@ -836,14 +816,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			failureCount: 0,
 		};
 	}
-
-	// =========================================================
-	// IDbAdapter — Query
-	// =========================================================
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	protected async columnNames(client: SqliteClient, tableName: string) {
 		const rows = await all<{ name: string }>(

@@ -13,10 +13,6 @@ import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
 export const recordsRoutes = new Elysia({ prefix: "/records" })
 	.use(adapterPlugin)
 
-	/**
-	 * POST /records
-	 * Adds a new record into a table
-	 */
 	.post(
 		"/",
 		async ({ adapter, query: { db, schemaName }, body: { tableName, data } }) => {
@@ -33,10 +29,6 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 		{ query: tableQuerySchema, body: addRecordSchema },
 	)
 
-	/**
-	 * PATCH /records
-	 * Updates one or more cells in a table
-	 */
 	.patch(
 		"/",
 		async ({ adapter, dbType, query: { db, schemaName }, body }) => {
@@ -52,10 +44,6 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 		{ query: tableQuerySchema, body: updateRecordsSchema },
 	)
 
-	/**
-	 * DELETE /records
-	 * Deletes records from a table
-	 */
 	.delete(
 		"/",
 		async ({
@@ -83,10 +71,6 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 		{ query: tableQuerySchema, body: deleteRecordSchema },
 	)
 
-	/**
-	 * DELETE /records/force
-	 * Force deletes records and all related FK records
-	 */
 	.delete(
 		"/force",
 		async ({
@@ -104,10 +88,6 @@ export const recordsRoutes = new Elysia({ prefix: "/records" })
 		{ query: tableQuerySchema, body: deleteRecordSchema },
 	)
 
-	/**
-	 * POST /records/bulk
-	 * Bulk inserts multiple records into a table
-	 */
 	.post(
 		"/bulk",
 		async ({ adapter, query: { db, schemaName }, body: { tableName, records } }) => ({

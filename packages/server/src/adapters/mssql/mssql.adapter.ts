@@ -218,12 +218,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		};
 	}
 
-	// =========================================================
-	// IDbAdapter implementations
-	// =========================================================
-
-	// --- Databases ---
-
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		const pool = await connector("mssql").pool();
 
@@ -292,8 +286,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			max_connections: Number(info.max_connections),
 		};
 	}
-
-	// --- Tables ---
 
 	protected tableEstimates(conn: MssqlConn) {
 		return this.rowEstimates(conn);
@@ -537,8 +529,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return `CREATE TABLE ${quoteMssqlIdent(tableName)} (\n${columns.join(",\n")}\n)`;
 	}
 
-	// --- Columns ---
-
 	async getTableColumns({
 		tableName,
 		db,
@@ -740,8 +730,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			.query("EXEC sp_rename @oldName, @newName, 'COLUMN'");
 	}
 
-	// --- Server logs ---
-
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		const pool = await connector("mssql").pool(db);
 
@@ -804,10 +792,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			throw e;
 		}
 	}
-
-	// --- Indexes ---
-
-	// --- Records ---
 
 	async addRecord({
 		db,
@@ -889,8 +873,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		};
 	}
 
-	// --- Query ---
-
 	protected async runStatement(conn: MssqlConn, statement: string) {
 		const result = await conn.request().query(statement);
 
@@ -905,10 +887,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			rows,
 		};
 	}
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	protected async referencingKeys(conn: MssqlConn, tableName: string) {
 		const rows = await this.rows<{

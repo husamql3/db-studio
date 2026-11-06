@@ -324,10 +324,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		return (await conn.execute(sql, values)).rowsAffected ?? 0;
 	}
 
-	// =========================================================
-	// Records — paginated read
-	// =========================================================
-
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		const { tableName, limit = 50, sort = [], order = "asc", cursor, filters = [] } = params;
 
@@ -401,10 +397,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		});
 	}
 
-	// =========================================================
-	// Databases
-	// =========================================================
-
 	/**
 	 * An Oracle service is one database, so the list holds only the connected container
 	 * (CON_NAME). Tables are the connected user's own schema.
@@ -457,10 +449,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			};
 		});
 	}
-
-	// =========================================================
-	// Tables
-	// =========================================================
 
 	/** Every table is counted in one statement, on the one connection a request holds. */
 	protected readonly countStatements = 1;
@@ -576,10 +564,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			return row?.DDL.trim() ?? "";
 		});
 	}
-
-	// =========================================================
-	// Columns
-	// =========================================================
 
 	async getTableColumns({
 		tableName,
@@ -701,10 +685,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		});
 	}
 
-	// =========================================================
-	// Server logs
-	// =========================================================
-
 	async getServerLogs(): Promise<ServerLogsResult> {
 		return this.withConnection(async (conn) => {
 			try {
@@ -750,14 +730,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			}
 		});
 	}
-
-	// =========================================================
-	// Indexes
-	// =========================================================
-
-	// =========================================================
-	// Records
-	// =========================================================
 
 	async addRecord({
 		db,
@@ -966,10 +938,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		};
 	}
 
-	// =========================================================
-	// Query
-	// =========================================================
-
 	/**
 	 * A trailing `;` is stripped from SQL (Oracle rejects it) but kept on PL/SQL blocks, where
 	 * it ends the last statement; a SQL*Plus `/` line is dropped.
@@ -1019,10 +987,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			await result.resultSet.close();
 		}
 	}
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	private columnDefinition(
 		field: {

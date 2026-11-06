@@ -38,9 +38,6 @@ import { telemetryRoutes } from "@/routes/telemetry.routes.js";
 
 const { API_PREFIX } = DEFAULTS;
 
-/**
- * Get the path to the web app distribution directory.
- */
 const getWebDistPath = () => {
 	if (process.env.NODE_ENV === "development") {
 		return path.resolve(process.cwd(), "../web/dist");

@@ -102,7 +102,6 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 		async ({ body: { messages, data, provider, model }, headers, set }) => {
 			const { db, conversationId, includeSchema } = data;
 
-			// Get the database schema and generate system prompt
 			const schema = includeSchema ? await getDetailedSchema(db) : null;
 			const systemPrompt = generateSystemPrompt(schema);
 

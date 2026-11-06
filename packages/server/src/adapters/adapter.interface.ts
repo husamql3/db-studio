@@ -45,13 +45,11 @@ export interface GetTableDataParams {
 }
 
 export interface IDbAdapter {
-	// --- Databases ---
 	getDatabasesList(): Promise<DatabaseInfoSchemaType[]>;
 	getCurrentDatabase(): Promise<DatabaseSchemaType>;
 	/** `server` is where the URL points, for engines whose server does not report it. */
 	getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType>;
 
-	// --- Tables ---
 	getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]>;
 	createTable(params: {
 		tableData: CreateTableSchemaType;
@@ -65,7 +63,6 @@ export interface IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<string>;
 
-	// --- Columns ---
 	getTableColumns(params: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
@@ -76,7 +73,6 @@ export interface IDbAdapter {
 	alterColumn(params: AlterColumnParamsSchemaType): Promise<void>;
 	renameColumn(params: RenameColumnParamsSchemaType): Promise<void>;
 
-	// --- Indexes ---
 	getTableIndexes(params: {
 		tableName: string;
 		schemaName?: string;
@@ -85,7 +81,6 @@ export interface IDbAdapter {
 	createIndex(params: CreateIndexParamsSchemaType): Promise<void>;
 	dropIndex(params: DropIndexParamsSchemaType): Promise<void>;
 
-	// --- Records ---
 	getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;
 	addRecord(params: {
 		db: DatabaseSchemaType["db"];
@@ -106,13 +101,11 @@ export interface IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
-	// --- Query ---
 	executeQuery(params: {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult>;
 
-	// --- Server logs ---
 	/** The newest entries of the server's own log, or why the server keeps it out of reach. */
 	getServerLogs(params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult>;
 

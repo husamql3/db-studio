@@ -28,18 +28,11 @@ const EXPORT_CONTENT_TYPES = {
 export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	.use(adapterPlugin)
 
-	/**
-	 * GET /tables
-	 * Returns list of all tables in the currently connected database
-	 */
 	.get("/", async ({ adapter, query }) => ({ data: await adapter.getTablesList(query.db) }), {
 		query: databaseSchema,
 	})
 
-	/**
-	 * GET /tables/graph
-	 * Returns every table with its columns, so the visualizer draws the schema in one request
-	 */
+	// Every table with its columns, so the visualizer draws the schema in one request.
 	.get(
 		"/graph",
 		async ({ adapter, query: { db } }) => {
@@ -61,10 +54,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: databaseSchema },
 	)
 
-	/**
-	 * POST /tables
-	 * Creates a new table in the currently connected database
-	 */
 	.post(
 		"/",
 		async ({ adapter, query, body }) => {
@@ -75,10 +64,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: databaseSchema, body: createTableSchema },
 	)
 
-	/**
-	 * DELETE /tables/:tableName
-	 * Deletes a table from the database
-	 */
 	.delete(
 		"/:tableName",
 		async ({ adapter, query: { db, schemaName, cascade }, params: { tableName } }) => ({
@@ -87,10 +72,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: deleteTableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * PATCH /tables/:tableName/rename
-	 * Renames a table
-	 */
 	.patch(
 		"/:tableName/rename",
 		async ({ adapter, query: { db }, params: { tableName }, body }) => {
@@ -101,10 +82,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: databaseSchema, params: tableNameSchema, body: renameTableSchema },
 	)
 
-	/**
-	 * DELETE /tables/:tableName/columns/:columnName
-	 * Deletes a column from a table
-	 */
 	.delete(
 		"/:tableName/columns/:columnName",
 		async ({
@@ -127,10 +104,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: deleteColumnQuerySchema, params: deleteColumnParamSchema },
 	)
 
-	/**
-	 * POST /tables/:tableName/columns
-	 * Adds a column to a table
-	 */
 	.post(
 		"/:tableName/columns",
 		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
@@ -143,10 +116,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema, body: addColumnSchema },
 	)
 
-	/**
-	 * PATCH /tables/:tableName/columns/:columnName/rename
-	 * Renames a column in a table
-	 */
 	.patch(
 		"/:tableName/columns/:columnName/rename",
 		async ({
@@ -164,10 +133,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: deleteColumnParamSchema, body: renameColumnSchema },
 	)
 
-	/**
-	 * PATCH /tables/:tableName/columns/:columnName
-	 * Alters a column in a table
-	 */
 	.patch(
 		"/:tableName/columns/:columnName",
 		async ({
@@ -185,10 +150,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: deleteColumnParamSchema, body: alterColumnSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/columns
-	 * Returns list of all columns in a table
-	 */
 	.get(
 		"/:tableName/columns",
 		async ({ adapter, query: { db, schemaName }, params: { tableName } }) => ({
@@ -197,10 +158,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/indexes
-	 * Returns list of all indexes on a table
-	 */
 	.get(
 		"/:tableName/indexes",
 		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName } }) => {
@@ -211,10 +168,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * POST /tables/:tableName/indexes
-	 * Creates an index on a table
-	 */
 	.post(
 		"/:tableName/indexes",
 		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
@@ -228,10 +181,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema, body: createIndexSchema },
 	)
 
-	/**
-	 * DELETE /tables/:tableName/indexes/:indexName
-	 * Drops an index from a table
-	 */
 	.delete(
 		"/:tableName/indexes/:indexName",
 		async ({
@@ -250,10 +199,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: dropIndexParamSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/schema
-	 * Returns the CREATE TABLE schema for a table
-	 */
 	.get(
 		"/:tableName/schema",
 		async ({ adapter, query: { db, schemaName }, params: { tableName } }) => ({
@@ -262,10 +207,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/data
-	 * Get cursor-paginated data for a table
-	 */
 	.get(
 		"/:tableName/data",
 		async ({ adapter, query, params: { tableName } }) => ({
@@ -274,10 +215,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableDataQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/export
-	 * Export table data to CSV or XLSX format
-	 */
 	.get(
 		"/:tableName/export",
 		async ({ adapter, query: { db, schemaName, format }, params: { tableName } }) => {

@@ -228,12 +228,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		};
 	}
 
-	// =========================================================
-	// IDbAdapter implementations
-	// =========================================================
-
-	// --- Databases ---
-
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		const pool = await connector("mysql").pool();
 
@@ -300,8 +294,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 			max_connections: Number(info.max_connections),
 		};
 	}
-
-	// --- Tables ---
 
 	protected async tableEstimates(_conn: Connection, db: string) {
 		return this.rowEstimates(await connector("mysql").pool(db));
@@ -453,8 +445,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		return createTableSql;
 	}
-
-	// --- Columns ---
 
 	async getTableColumns({
 		tableName,
@@ -636,8 +626,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		);
 	}
 
-	// --- Server logs ---
-
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		const pool = await connector("mysql").pool(db);
 
@@ -682,10 +670,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 			throw e;
 		}
 	}
-
-	// --- Indexes ---
-
-	// --- Records ---
 
 	async addRecord({
 		db,
@@ -749,8 +733,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		};
 	}
 
-	// --- Query ---
-
 	protected async runStatement(conn: Connection, statement: string) {
 		const [result, fields] = (await conn.execute(statement)) as [
 			RowDataPacket[] | ResultSetHeader,
@@ -764,10 +746,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 			rows: result as Record<string, unknown>[],
 		};
 	}
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	/**
 	 * InnoDB's row estimate for each base table of the database (or only `tableName`), in name

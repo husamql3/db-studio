@@ -1,8 +1,5 @@
 import { DATABASE_ENGINES, type DatabaseSchema } from "@db-studio/shared/types";
 
-/**
- * Generate system prompt with database context
- */
 export function generateSystemPrompt(schema: DatabaseSchema | null): string {
 	if (!schema) {
 		return `You are a database assistant for db-studio. Keep answers concise and focused.
@@ -134,9 +131,6 @@ This will return the 5 customers with the highest total order value. You might a
 - Their most frequently ordered products"`;
 }
 
-/**
- * Format schema information for the prompt
- */
 function formatSchemaForPrompt(schema: DatabaseSchema): string {
 	const dbTypeLabel = DATABASE_ENGINES[schema.dbType].label;
 	let output = `Database Type: ${dbTypeLabel}\n\n`;
@@ -165,7 +159,6 @@ function formatSchemaForPrompt(schema: DatabaseSchema): string {
 		}
 	}
 
-	// Add relationships
 	if (schema.relationships && schema.relationships.length > 0) {
 		output += "\n**Relationships:**\n";
 

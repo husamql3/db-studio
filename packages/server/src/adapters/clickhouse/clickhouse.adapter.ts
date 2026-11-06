@@ -218,10 +218,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 		return { cols: Object.keys(rows[0]), rows };
 	}
 
-	// =========================================================
-	// Databases
-	// =========================================================
-
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		const rows = await this.select<{ name: string; size: string }>(
 			undefined,
@@ -276,10 +272,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 			max_connections: Number(info.max_connections),
 		};
 	}
-
-	// =========================================================
-	// Tables
-	// =========================================================
 
 	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
 		const rows = await this.select<{ tableName: string; rowCount: string | number | null }>(
@@ -380,10 +372,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 		return row?.statement ?? "";
 	}
-
-	// =========================================================
-	// Columns
-	// =========================================================
 
 	async getTableColumns({
 		tableName,
@@ -489,10 +477,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 		);
 	}
 
-	// =========================================================
-	// Records
-	// =========================================================
-
 	async addRecord({
 		db,
 		params,
@@ -527,10 +511,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 			failureCount: 0,
 		};
 	}
-
-	// =========================================================
-	// Query
-	// =========================================================
 
 	async executeQuery({
 		query,
@@ -585,8 +565,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 			message: `OK (${rowCount} rows affected)`,
 		};
 	}
-
-	// --- Server logs ---
 
 	/**
 	 * Queries come from system.query_log, which is on by default, and the server's own warnings
@@ -681,10 +659,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 			throw e;
 		}
 	}
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	private async select<T = Record<string, unknown>>(
 		db: string | undefined,

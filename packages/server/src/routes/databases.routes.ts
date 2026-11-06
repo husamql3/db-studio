@@ -3,15 +3,6 @@ import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { ADAPTERS } from "@/adapters/adapter.registry.js";
 import { requestConnection } from "@/open-connections.js";
 
-/**
- * /databases routes (at root level, no dbType required)
- * GET /databases - Get list of user-visible databases on the server (name, size, owner, encoding).
- * System databases are hidden unless currently connected (pg: postgres, rdsadmin, mysql:
- * information_schema/mysql/performance_schema/sys, mssql: database_id <= 4,
- * mongo: admin/config/local, sqlite: temp).
- * GET /databases/current - Get the name of the database we are currently connected to
- * GET /databases/connection - Get connection details and server information
- */
 export const databasesRoutes = new Elysia({ prefix: "/databases" })
 	.derive(() => {
 		const { dbType, parsed } = requestConnection();

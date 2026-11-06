@@ -5,10 +5,6 @@ import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
 export const logsRoutes = new Elysia({ prefix: "/logs" })
 	.use(adapterPlugin)
 
-	/**
-	 * GET /logs
-	 * Returns the newest entries of the database server's own log
-	 */
 	.get(
 		"/",
 		async ({ adapter, dbType, query }) => {

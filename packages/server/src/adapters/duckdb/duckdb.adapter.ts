@@ -270,10 +270,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		});
 	}
 
-	// =========================================================
-	// Databases
-	// =========================================================
-
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		return connector("duckdb").withConnection(async (conn) => {
 			const rows = await query<{ database_name: string; path: string | null }>(
@@ -316,10 +312,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 			};
 		});
 	}
-
-	// =========================================================
-	// Tables
-	// =========================================================
 
 	/** Every table is counted, in one statement: the connection runs one query at a time. */
 	protected readonly countStatements = 1;
@@ -444,10 +436,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 			return row.sql;
 		});
 	}
-
-	// =========================================================
-	// Columns
-	// =========================================================
 
 	async getTableColumns({
 		tableName,
@@ -583,14 +571,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		});
 	}
 
-	// =========================================================
-	// Indexes
-	// =========================================================
-
-	// =========================================================
-	// Records
-	// =========================================================
-
 	async addRecord({
 		params,
 	}: {
@@ -655,10 +635,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		};
 	}
 
-	// =========================================================
-	// Query
-	// =========================================================
-
 	protected async runStatement(conn: DuckDBConnection, sql: string): Promise<StatementResult> {
 		const { ResultReturnType, StatementType } = loadedDriver("duckdb");
 		const statements = await conn.extractStatements(sql);
@@ -692,10 +668,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 			statement.destroySync();
 		}
 	}
-
-	// =========================================================
-	// Private helpers
-	// =========================================================
 
 	private columns(conn: DuckDBConnection, tableName: string): Promise<ColumnRow[]> {
 		return query<ColumnRow>(
