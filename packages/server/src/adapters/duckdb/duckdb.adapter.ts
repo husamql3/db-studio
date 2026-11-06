@@ -12,7 +12,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteTableParams,
-	DeleteTableResult,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -378,37 +377,24 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		);
 	}
 
-	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
-		return connector("duckdb").withConnection(async (conn) => {
-			const columns = await this.requireColumns(conn, tableName);
+	/** The table's `<table>_<column>_seq` sequences go with it. */
+	protected override async dropTable(
+		conn: DuckDBConnection,
+		{ tableName }: DeleteTableParams,
+		referencing: ReferencingKey[],
+	) {
+		if (referencing.length)
+			throw new HTTPException(400, {
+				message: `DuckDB cannot drop "${tableName}" while ${[...new Set(referencing.map((fk) => `"${fk.table}"`))].join(", ")} reference it, and it cannot remove those foreign keys. Delete the referencing tables first.`,
+			});
 
-			const referencing = (await this.foreignKeys(conn, "referenced_table", tableName)).filter(
-				(fk) => fk.table !== tableName,
-			);
+		const columns = await this.columns(conn, tableName);
+		await conn.run(`DROP TABLE ${ident(tableName)}`);
 
-			if (referencing.length) {
-				if (cascade)
-					throw new HTTPException(400, {
-						message: `DuckDB cannot drop "${tableName}" while ${[...new Set(referencing.map((fk) => `"${fk.table}"`))].join(", ")} reference it, and it cannot remove those foreign keys. Delete the referencing tables first.`,
-					});
-
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.rowsReferencingTable(conn, referencing),
-				};
-			}
-
-			const deletedCount = await this.rowCount(conn, tableName);
-			await conn.run(`DROP TABLE ${ident(tableName)}`);
-
-			for (const sequence of sequenceNamesIn(columns)) {
-				// A sequence another table still uses stays; DuckDB refuses with a Dependency Error.
-				await conn.run(`DROP SEQUENCE IF EXISTS ${ident(sequence)}`).catch(() => {});
-			}
-
-			return { deletedCount, fkViolation: false, relatedRecords: [] };
-		});
+		for (const sequence of sequenceNamesIn(columns)) {
+			// A sequence another table still uses stays; DuckDB refuses with a Dependency Error.
+			await conn.run(`DROP SEQUENCE IF EXISTS ${ident(sequence)}`).catch(() => {});
+		}
 	}
 
 	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {

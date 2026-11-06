@@ -12,7 +12,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
-	DeleteTableResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
@@ -304,9 +303,10 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 		const counts: Array<number | undefined> = [];
 
+		// super's exact count: this class's rowCount would answer a refusal with the estimate.
 		for (const table of tables) {
 			counts.push(
-				await this.rowCount(conn, table.tableName).catch((e: unknown) => {
+				await super.rowCount(conn, table.tableName).catch((e: unknown) => {
 					if (!isSelectDenied(e)) throw e;
 
 					return undefined;
@@ -358,57 +358,39 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			);
 	}
 
-	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
-		const { tableName, db, cascade } = params;
-		const pool = await connector("mssql").pool(db);
-
-		await this.requireTable(pool, tableName);
-
-		const rowCount = await this.rowCount(pool, tableName).catch(async (e: unknown) => {
-			// A login may drop a table it cannot read.
+	/** A login may drop a table it cannot read; its estimate stands in for the count. */
+	protected override async rowCount(conn: MssqlConn, tableName: string) {
+		try {
+			return await super.rowCount(conn, tableName);
+		} catch (e) {
 			if (!isSelectDenied(e)) throw e;
 
-			return (await this.rowEstimates(pool, tableName))[0]?.estimate ?? 0;
-		});
-
-		const keys = await this.referencingKeys(pool, tableName);
-		// A table's references to itself go with it.
-		const referencing = keys.filter((fk) => fk.table !== tableName);
-
-		if (!cascade && referencing.length > 0)
-			return {
-				deletedCount: 0,
-				fkViolation: true,
-				relatedRecords: await this.rowsReferencingTable(pool, referencing),
-			};
-
-		try {
-			if (cascade) {
-				for (const fk of keys) {
-					await pool
-						.request()
-						.query(
-							`ALTER TABLE ${quoteMssqlIdent(fk.table)} DROP CONSTRAINT ${quoteMssqlIdent(fk.constraintName)}`,
-						);
-				}
-			}
-
-			await pool.request().query(`DROP TABLE ${quoteMssqlIdent(tableName)}`);
-
-			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
-		} catch (error: unknown) {
-			const mssqlError = error as { number?: number };
-
-			if (mssqlError.number === MSSQL_FK_DEPENDENCY) {
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.rowsReferencingTable(pool, referencing),
-				};
-			}
-
-			throw error;
+			return (await this.rowEstimates(conn, tableName))[0]?.estimate ?? 0;
 		}
+	}
+
+	/**
+	 * With `cascade`, the referencing foreign keys are dropped first, in the same transaction
+	 * as the table, so a failed DROP TABLE keeps them.
+	 */
+	protected override async dropTable(
+		_conn: MssqlConn,
+		{ tableName, db }: DeleteTableParams,
+		referencing: ReferencingKey[],
+	) {
+		await this.transaction(db, async (tx) => {
+			for (const fk of referencing)
+				await this.execute(
+					tx,
+					`ALTER TABLE ${quoteMssqlIdent(fk.table)} DROP CONSTRAINT ${quoteMssqlIdent(fk.constraintName)}`,
+				);
+
+			await this.execute(tx, `DROP TABLE ${quoteMssqlIdent(tableName)}`);
+		});
+	}
+
+	protected override isDropRefused(e: unknown) {
+		return (e as { number?: number }).number === MSSQL_FK_DEPENDENCY;
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {

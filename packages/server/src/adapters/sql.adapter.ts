@@ -4,6 +4,8 @@ import {
 	type DatabaseSchemaType,
 	type DeleteRecordParams,
 	type DeleteRecordResult,
+	type DeleteTableParams,
+	type DeleteTableResult,
 	type DropIndexParamsSchemaType,
 	type ExecuteQueryResult,
 	type IndexInfoSchemaType,
@@ -229,6 +231,66 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		);
 
 		return Number(row?.total ?? 0);
+	}
+
+	/** The foreign keys of other tables that reference `tableName`: its own go with it. */
+	protected async otherTablesReferencing(
+		conn: Conn,
+		tableName: string,
+		schemaName?: string,
+	): Promise<ReferencingKey[]> {
+		return (await this.referencingKeys(conn, tableName, schemaName)).filter(
+			(fk) => fk.table !== tableName,
+		);
+	}
+
+	/**
+	 * Drops the table. `referencing` holds the foreign keys of other tables that reference it,
+	 * left only when `cascade` is set.
+	 */
+	protected async dropTable(
+		conn: Conn,
+		{ tableName, schemaName }: DeleteTableParams,
+		_referencing: ReferencingKey[],
+	): Promise<void> {
+		await this.execute(conn, `DROP TABLE ${this.tableRef(tableName, schemaName)}`);
+	}
+
+	/** The driver error of a DROP TABLE that another object still depends on. */
+	protected isDropRefused(e: unknown): boolean {
+		return this.isFkViolation(e);
+	}
+
+	/**
+	 * Drops the table and reports the rows it held. Without `cascade`, a table other tables
+	 * reference is kept, and the referencing rows are returned instead.
+	 */
+	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
+		const { tableName, schemaName, db, cascade } = params;
+
+		return this.connect(db, async (conn) => {
+			await this.requireTable(conn, tableName, schemaName);
+			const deletedCount = await this.rowCount(conn, tableName, schemaName);
+			const referencing = await this.otherTablesReferencing(conn, tableName, schemaName);
+
+			const refused = async () => ({
+				deletedCount: 0,
+				fkViolation: true,
+				relatedRecords: await this.rowsReferencingTable(conn, referencing),
+			});
+
+			if (!cascade && referencing.length) return refused();
+
+			try {
+				await this.dropTable(conn, params, referencing);
+			} catch (e) {
+				if (!this.isDropRefused(e)) throw e;
+
+				return refused();
+			}
+
+			return { deletedCount, fkViolation: false, relatedRecords: [] };
+		});
 	}
 
 	/** The query runner's statement: trimmed, without trailing semicolons. */

@@ -13,7 +13,6 @@ import type {
 	DeleteRecordParams,
 	DeleteRecordResult,
 	DeleteTableParams,
-	DeleteTableResult,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -508,30 +507,14 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		});
 	}
 
-	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
-		return this.withConnection(async (conn) => {
-			await this.requireTable(conn, tableName);
-
-			const referencing = (await this.foreignKeys(conn, "referenced", tableName)).filter(
-				(fk) => fk.table !== tableName,
-			);
-
-			if (referencing.length && !cascade)
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.rowsReferencingTable(conn, referencing),
-				};
-
-			const deletedCount = await this.rowCount(conn, tableName);
-
-			// CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows.
-			await conn.execute(
-				`DROP TABLE ${ident(tableName)}${cascade ? " CASCADE CONSTRAINTS" : ""}`,
-			);
-
-			return { deletedCount, fkViolation: false, relatedRecords: [] };
-		});
+	/** CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows. */
+	protected override async dropTable(
+		conn: Connection,
+		{ tableName, cascade }: DeleteTableParams,
+	) {
+		await conn.execute(
+			`DROP TABLE ${ident(tableName)}${cascade ? " CASCADE CONSTRAINTS" : ""}`,
+		);
 	}
 
 	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {

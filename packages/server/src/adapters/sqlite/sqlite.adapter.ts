@@ -12,8 +12,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
-	DeleteTableParams,
-	DeleteTableResult,
 	DropIndexParamsSchemaType,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -394,43 +392,11 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		);
 	}
 
-	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
-		const { tableName, cascade } = params;
-		const client = await connector("sqlite").client();
-
-		await this.requireTable(client, tableName);
-
-		const rowCount = await this.rowCount(client, tableName);
-
-		// A table's references to itself go with it.
-		const referencing = (await this.referencingKeys(client, tableName)).filter(
+	/** SQLite matches table names without case. */
+	protected override async otherTablesReferencing(client: SqliteClient, tableName: string) {
+		return (await this.referencingKeys(client, tableName)).filter(
 			(fk) => fk.table.toLowerCase() !== tableName.toLowerCase(),
 		);
-
-		if (!cascade && referencing.length > 0)
-			return {
-				deletedCount: 0,
-				fkViolation: true,
-				relatedRecords: await this.rowsReferencingTable(client, referencing),
-			};
-
-		try {
-			await client.execute(`DROP TABLE ${quoteSqliteIdent(tableName)}`);
-
-			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
-		} catch (error) {
-			const errMsg = error instanceof Error ? error.message : String(error);
-
-			if (errMsg.includes("FOREIGN KEY constraint")) {
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.rowsReferencingTable(client, referencing),
-				};
-			}
-
-			throw error;
-		}
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {

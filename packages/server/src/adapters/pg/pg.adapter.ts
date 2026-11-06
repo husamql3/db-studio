@@ -12,7 +12,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
-	DeleteTableResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
@@ -394,43 +393,39 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		);
 	}
 
-	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
-		const { tableName, schemaName, db, cascade } = params;
-		const pool = await connector("pg").pool(db);
-		const table = qualifiedTable(tableName, schemaName);
-
-		await this.requireTable(pool, tableName, schemaName);
-
-		const rowCount = await this.rowCount(pool, tableName, schemaName);
-
-		// A table's references to itself go with it.
-		const referencing = (await this.referencingKeys(pool, tableName, schemaName)).filter(
-			(fk) => fk.table !== tableName || (schemaName !== undefined && fk.schema !== schemaName),
+	/**
+	 * Compared by schema too: without `schemaName` the table resolves through search_path, and a
+	 * same-named table of another schema that references it is not a self-reference.
+	 */
+	protected override async otherTablesReferencing(
+		conn: PgQueryable,
+		tableName: string,
+		schemaName?: string,
+	) {
+		const [own] = await this.rows<{ schema: string }>(
+			conn,
+			`SELECT n.nspname AS "schema" FROM pg_catalog.pg_class c
+			 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE c.oid = $1::regclass`,
+			[qualifiedTable(tableName, schemaName)],
 		);
 
-		if (!cascade && referencing.length > 0)
-			return {
-				deletedCount: 0,
-				fkViolation: true,
-				relatedRecords: await this.rowsReferencingTable(pool, referencing),
-			};
+		return (await this.referencingKeys(conn, tableName, schemaName)).filter(
+			(fk) => fk.table !== tableName || fk.schema !== own?.schema,
+		);
+	}
 
-		try {
-			await pool.query(`DROP TABLE ${table} ${cascade ? "CASCADE" : "RESTRICT"}`);
+	protected override async dropTable(
+		conn: PgQueryable,
+		{ tableName, schemaName, cascade }: DeleteTableParams,
+	) {
+		await conn.query(
+			`DROP TABLE ${qualifiedTable(tableName, schemaName)} ${cascade ? "CASCADE" : "RESTRICT"}`,
+		);
+	}
 
-			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
-		} catch (error) {
-			// A view or another object depends on the table.
-			if (isPgError(error) && error.code === "2BP01") {
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.rowsReferencingTable(pool, referencing),
-				};
-			}
-
-			throw error;
-		}
+	/** A view or another object depends on the table. */
+	protected override isDropRefused(e: unknown) {
+		return isPgError(e) && e.code === "2BP01";
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {

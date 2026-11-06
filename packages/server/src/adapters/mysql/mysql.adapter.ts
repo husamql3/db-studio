@@ -11,7 +11,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
-	DeleteTableResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
@@ -338,65 +337,38 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		);
 	}
 
-	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
-		const { tableName, db, cascade } = params;
-		const pool = await connector("mysql").pool(db);
+	protected override async dropTable(
+		conn: Connection,
+		{ tableName, db, cascade }: DeleteTableParams,
+	) {
+		if (!cascade) {
+			await conn.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
 
-		await this.requireTable(pool, tableName);
+			return;
+		}
 
-		const rowCount = await this.rowCount(pool, tableName);
-
-		// A table's references to itself go with it.
-		const referencing = (await this.referencingKeys(pool, tableName)).filter(
-			(fk) => fk.table !== tableName,
-		);
-
-		if (!cascade && referencing.length > 0)
-			return {
-				deletedCount: 0,
-				fkViolation: true,
-				relatedRecords: await this.rowsReferencingTable(pool, referencing),
-			};
+		const connection = await (await connector("mysql").pool(db)).getConnection();
 
 		try {
-			if (cascade) {
-				const connection = await pool.getConnection();
-
-				try {
-					await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
-					await connection.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
-				} finally {
-					// The session goes back to the pool, so it must check foreign keys again; one
-					// that cannot be reset is closed instead.
-					await connection.execute("SET FOREIGN_KEY_CHECKS = 1").then(
-						() => connection.release(),
-						(e: unknown) => {
-							connection.destroy();
-							throw e;
-						},
-					);
-				}
-			} else {
-				await pool.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
-			}
-
-			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
-		} catch (error) {
-			const mysqlError = error as { errno?: number };
-
-			if (
-				mysqlError.errno === MYSQL_FK_DEPENDENCY ||
-				mysqlError.errno === MYSQL_FK_VIOLATION
-			) {
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.rowsReferencingTable(pool, referencing),
-				};
-			}
-
-			throw error;
+			await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
+			await connection.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
+		} finally {
+			// The session goes back to the pool, so it must check foreign keys again; one
+			// that cannot be reset is closed instead.
+			await connection.execute("SET FOREIGN_KEY_CHECKS = 1").then(
+				() => connection.release(),
+				(e: unknown) => {
+					connection.destroy();
+					throw e;
+				},
+			);
 		}
+	}
+
+	protected override isDropRefused(e: unknown) {
+		const { errno } = e as { errno?: number };
+
+		return errno === MYSQL_FK_DEPENDENCY || errno === MYSQL_FK_VIOLATION;
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
