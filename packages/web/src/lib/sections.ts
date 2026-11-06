@@ -84,5 +84,12 @@ export const sectionOf = (pathname: string): (typeof SECTIONS)[number] | undefin
 	return SECTIONS.find((section) => section.id === segment);
 };
 
+/** The route a table link opens from `pathname`: the per-table view it is in, else the grid. */
+export const tablePath = (pathname: string) => {
+	const section = sectionOf(pathname);
+
+	return `/${section?.perTable ? section.id : "table"}/$table` as const;
+};
+
 export const homePath = (engine: DatabaseEngine | undefined) =>
 	`/${(engine && SECTIONS.find((section) => section.appliesTo(engine))?.id) || "table"}` as const;

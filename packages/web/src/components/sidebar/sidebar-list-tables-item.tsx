@@ -4,6 +4,7 @@ import { cn } from "@db-studio/ui/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
 import { SidebarListTablesMenu } from "@/components/sidebar/sidebar-list-tables-menu";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { tablePath } from "@/lib/sections";
 import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarListTablesItem = ({
@@ -15,18 +16,12 @@ export const SidebarListTablesItem = ({
 }: TableInfoSchemaType & { showSchemaName: boolean }) => {
 	const params = useParams({ strict: false });
 	const { pathname } = useLocation();
-	const table = params.table as string | undefined;
+	const table = params.table;
 	// A link without a schema predates it and matches every same-named table.
 	const openSchema = useTableSchemaName();
 
 	const isActive =
 		table === tableName && (openSchema === undefined || openSchema === schemaName);
-
-	const basePath = pathname.startsWith("/schema")
-		? "/schema/$table"
-		: pathname.startsWith("/indexes")
-			? "/indexes/$table"
-			: "/table/$table";
 
 	const label = (
 		<span className="flex-1 truncate">
@@ -49,7 +44,7 @@ export const SidebarListTablesItem = ({
 				)}
 			>
 				<Link
-					to={basePath}
+					to={tablePath(pathname)}
 					params={{
 						table: tableName,
 					}}

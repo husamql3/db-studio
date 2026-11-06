@@ -38,6 +38,7 @@ import { useCopyTableSchema } from "@/features/table-builder";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { tablePath } from "@/lib/sections";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 import { tableId } from "@/utils/table-id";
@@ -90,14 +91,8 @@ export const SidebarListTablesMenu = ({
 			handleRenameDialogChange(false);
 
 			if (isOpenTable) {
-				const basePath = pathname.startsWith("/schema")
-					? "/schema/$table"
-					: pathname.startsWith("/indexes")
-						? "/indexes/$table"
-						: "/table/$table";
-
 				navigate({
-					to: basePath,
+					to: tablePath(pathname),
 					params: { table: trimmed },
 					search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
 				});
