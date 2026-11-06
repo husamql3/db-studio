@@ -14,7 +14,8 @@ Two kinds of script:
   use Chrome; set `PERF_BROWSER_CHANNEL` to use another Playwright channel.
 
 `e2e/lib.ts` holds what they share: `inProcessApp`, `startCli`, `requireDatabaseUrl`,
-`normalize`, `writeArtifact` and `launchBrowser`.
+`normalize`, `writeArtifact`, `launchBrowser`, and `assert`/`assertEqual`/`checks` (the PASS/FAIL
+tally and exit code).
 
 Use a disposable database: most scripts create and drop `dbstudio_*` tables, and two runs
 sharing one database drop each other's tables. `bun run init-db:<engine>` from the repo root
@@ -36,7 +37,7 @@ seeds one.
 - `pg-no-key-pagination.ts`: paging a table without a key. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-no-key-pagination.ts`
 - `pg-oversized-query-result.ts`: a result too large for JSON answers 4xx. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-oversized-query-result.ts`
 - `pg-permission-denied.ts`: missing privileges answer 403 (superuser URL). `DATABASE_URL=postgresql://... bunx tsx e2e/pg-permission-denied.ts`
-- `http-surface.sh` (source server, ports 4999 and 4998): pins routing, errors, CORS, static files and chat streaming for diffing two versions. `DATABASE_URL=postgresql://... sh e2e/http-surface.sh <label>`
+- `http-surface.ts` (source server on a free port, needs `packages/web/dist`): pins routing, errors, CORS, static files and chat streaming for diffing two versions. `DATABASE_URL=postgresql://... bunx tsx e2e/http-surface.ts <label>`
 - `shutdown.ts` (CLI): Ctrl+C and SIGTERM answer the request in flight and exit within 5 s. `DATABASE_URL=postgresql://... bunx tsx e2e/shutdown.ts [build]`
 - `grid-clipboard.ts` (CLI, browser): range selection, copy and paste in the grid. `DATABASE_URL=postgresql://... bun run e2e:grid-clipboard`
 - `schema-routing.ts` (CLI, browser, `init-db:pgsql` seed): same-named tables in two schemas. `DATABASE_URL=postgresql://... bun run e2e:schema-routing [build]`

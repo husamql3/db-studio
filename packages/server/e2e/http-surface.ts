@@ -1,28 +1,29 @@
 import { readdir } from "node:fs/promises";
 import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { databaseName, requireDatabaseUrl, writeArtifact } from "./lib.js";
+import { databaseName, requireDatabaseUrl, startCli, writeArtifact } from "./lib.js";
 
 /**
  * Pins the HTTP layer (routing, validation, errors, CORS, request IDs, static files, SPA
- * fallback, chat streaming) of a running server so a framework swap can be diffed old-vs-new.
- * Start the server with DB_STUDIO_PROXY_URL=http://127.0.0.1:4998 and
- * ALLOWED_ORIGINS=https://allowed.example; this script serves the fake AI proxy on 4998.
- * Usage: tsx e2e/http-surface.ts <baseUrl> <label>
+ * fallback, chat streaming) of the source server so a framework swap can be diffed old-vs-new.
+ * Starts `src/index.ts` with tsx on a free port, behind a fake AI proxy on another free port,
+ * with ALLOWED_ORIGINS=https://allowed.example. Needs the web build in packages/web/dist.
+ * Usage: DATABASE_URL=postgresql://... bunx tsx e2e/http-surface.ts <label>
  */
 
-const [baseUrl, label] = process.argv.slice(2);
+const label = process.argv[2];
 
-if (!baseUrl || !label) {
-	console.error("usage: tsx e2e/http-surface.ts <baseUrl> <label>");
+if (!label) {
+	console.error("usage: DATABASE_URL=postgresql://... bunx tsx e2e/http-surface.ts <label>");
 	process.exit(2);
 }
 
 const REQUEST_ID = "pin-request-0001";
 
-// The database the server under test opened (http-surface.sh passes DATABASE_URL to both).
-const DB = databaseName(requireDatabaseUrl("pg").url);
+const { url: databaseUrl } = requireDatabaseUrl("pg");
+const DB = databaseName(databaseUrl);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const RECORDED_HEADERS = [
@@ -106,7 +107,27 @@ const fakeProxy = createServer(async (req, res) => {
 	res.end("data: [DONE]\n\n");
 });
 
-await new Promise<void>((resolve) => fakeProxy.listen(4998, "127.0.0.1", resolve));
+await new Promise<void>((resolve) => fakeProxy.listen(0, "127.0.0.1", resolve));
+
+// SAFETY: a TCP server listening on a host and port has an AddressInfo address.
+const proxyPort = (fakeProxy.address() as AddressInfo).port;
+
+const serverDir = fileURLToPath(new URL("..", import.meta.url));
+
+// The source server finds the web build at ../web/dist from its working directory.
+const server = await startCli({
+	cli: path.join(serverDir, "src/index.ts"),
+	args: ["--database-url", databaseUrl],
+	cwd: serverDir,
+	readyPath: "/api/databases/current",
+	env: {
+		NODE_OPTIONS: `--import ${import.meta.resolve("tsx")}`,
+		ALLOWED_ORIGINS: "https://allowed.example",
+		DB_STUDIO_PROXY_URL: `http://127.0.0.1:${proxyPort}`,
+	},
+});
+
+const baseUrl = server.base;
 
 const chatBody = (content: string) => ({
 	provider: "openai",
@@ -396,5 +417,7 @@ results.push({
 const out = await writeArtifact(`http-surface-${label}.json`, results);
 
 console.log(`wrote ${path.relative(process.cwd(), out)}`);
+
+server.child.kill();
 
 fakeProxy.close();
