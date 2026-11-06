@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { getResolvedTheme, type Theme } from "@/lib/theme";
+import { resolveTheme, systemPrefersDark, type Theme } from "@/lib/theme";
 
 export const TAB_SIZES = [2, 4, 8] as const;
 
@@ -51,7 +51,7 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 			setTheme: (theme) => set({ theme: theme }),
 			toggleTheme: () =>
 				set({
-					theme: getResolvedTheme(get().theme) === "dark" ? "light" : "dark",
+					theme: resolveTheme(get().theme, systemPrefersDark()) === "dark" ? "light" : "dark",
 				}),
 			setSidebarWidth: (width) =>
 				set((state) => ({
