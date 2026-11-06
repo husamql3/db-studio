@@ -2,8 +2,6 @@ import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
-	BulkInsertRecordsParams,
-	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
@@ -157,7 +155,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return (e as { errno?: number }).errno === MYSQL_FK_VIOLATION;
 	}
 
-	protected override async updateTarget(_conn: Connection, db: string, tableName: string) {
+	protected override async writeTarget(_conn: Connection, db: string, tableName: string) {
 		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 	}
 
@@ -653,45 +651,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		}
 
 		return { insertedCount };
-	}
-
-	async bulkInsertRecords({
-		tableName,
-		records,
-		db,
-	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const columns = Object.keys(records[0]);
-		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
-
-		await this.transaction(db, async (connection) => {
-			for (const [i, record] of records.entries()) {
-				const { values, bind } = createBinds(this.placeholder);
-				const row = columns.map((column) => bindValue(column, record[column], bind));
-
-				try {
-					await this.execute(
-						connection,
-						`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${row.join(", ")})`,
-						values,
-					);
-				} catch (error) {
-					const failure = this.classifyError(error);
-
-					if (failure.status !== 500) throw failure;
-					throw new HTTPException(500, {
-						message: `Failed to insert record ${i + 1}: ${failure.message}`,
-						cause: error,
-					});
-				}
-			}
-		});
-
-		return {
-			success: true,
-			message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
-			successCount: records.length,
-			failureCount: 0,
-		};
 	}
 
 	protected async runStatement(conn: Connection, statement: string) {

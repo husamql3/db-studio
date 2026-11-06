@@ -309,7 +309,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	}
 
 	/** Values bind by their column's type, so a date or timestamp gets an explicit format. */
-	protected override async updateTarget(conn: Connection, _db: string, tableName: string) {
+	protected override async writeTarget(conn: Connection, _db: string, tableName: string) {
 		const types = await this.columnTypes(conn, tableName);
 
 		return {

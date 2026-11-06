@@ -130,7 +130,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	}
 
 	/** JSON and array values are sent as JSON text. */
-	protected override async updateTarget(
+	protected override async writeTarget(
 		conn: PgQueryable,
 		_db: string,
 		tableName: string,

@@ -1,4 +1,6 @@
 import {
+	type BulkInsertRecordsParams,
+	type BulkInsertResult,
 	type ColumnInfoSchemaType,
 	type CreateIndexParamsSchemaType,
 	DATABASE_ENGINES,
@@ -25,7 +27,7 @@ import { HTTPException } from "@/http-exception.js";
 
 type Bind = (value: unknown) => string;
 
-/** How an update writes a value into `column`: the SQL for it, binding through `bind`. */
+/** How a write puts a value into `column`: the SQL for it, binding through `bind`. */
 export type BindValue = (column: string, value: unknown, bind: Bind) => string;
 
 /**
@@ -146,10 +148,10 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	protected abstract isFkViolation(e: unknown): boolean;
 
 	/**
-	 * What an update of `tableName` needs: its primary key, and how a value binds into a
-	 * column (where the engine converts values by the column's type).
+	 * What a write to `tableName` needs: its primary key, and how a value binds into a column
+	 * (where the engine converts values by the column's type).
 	 */
-	protected async updateTarget(
+	protected async writeTarget(
 		conn: Conn,
 		_db: string,
 		tableName: string,
@@ -636,7 +638,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		const groups = this.groupUpdatesByKey(params, keyColumns);
 
 		const updatedCount = await this.transaction(db, async (conn) => {
-			const { primaryKey, bindValue } = await this.updateTarget(
+			const { primaryKey, bindValue } = await this.writeTarget(
 				conn,
 				db,
 				tableName,
@@ -675,6 +677,51 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		});
 
 		return { updatedCount };
+	}
+
+	/** One INSERT per record, in one transaction; a failure names the record by its position. */
+	async bulkInsertRecords({
+		tableName,
+		schemaName,
+		records,
+		db,
+	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
+		const q = this.quoteIdentifier;
+		const columns = Object.keys(records[0]);
+
+		const { bindValue } = await this.connect(db, (conn) =>
+			this.writeTarget(conn, db, tableName, schemaName),
+		);
+
+		await this.transaction(db, async (conn) => {
+			for (const [i, record] of records.entries()) {
+				const { values, bind } = createBinds(this.placeholder);
+				const row = columns.map((column) => bindValue(column, record[column], bind));
+
+				try {
+					await this.execute(
+						conn,
+						`INSERT INTO ${this.tableRef(tableName, schemaName)} (${columns.map(q).join(", ")}) VALUES (${row.join(", ")})`,
+						values,
+					);
+				} catch (error) {
+					const failure = this.classifyError(error);
+
+					if (failure.status !== 500) throw failure;
+					throw new HTTPException(500, {
+						message: `Failed to insert record ${i + 1}: ${failure.message}`,
+						cause: error,
+					});
+				}
+			}
+		});
+
+		return {
+			success: true,
+			message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
+			successCount: records.length,
+			failureCount: 0,
+		};
 	}
 
 	/** One DELETE; rows another table still references refuse it with those rows. */

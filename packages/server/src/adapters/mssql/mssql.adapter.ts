@@ -2,8 +2,6 @@ import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
-	BulkInsertRecordsParams,
-	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
@@ -149,7 +147,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return (e as { number?: number }).number === MSSQL_FK_VIOLATION;
 	}
 
-	protected override async updateTarget(_conn: MssqlConn, db: string, tableName: string) {
+	protected override async writeTarget(_conn: MssqlConn, db: string, tableName: string) {
 		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 	}
 
@@ -782,47 +780,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		}
 
 		return { insertedCount };
-	}
-
-	async bulkInsertRecords({
-		tableName,
-		records,
-		db,
-	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const columns = Object.keys(records[0]);
-		const columnNames = columns.map(quoteMssqlIdent).join(", ");
-		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
-
-		await this.transaction(db, async (transaction) => {
-			for (const [i, record] of records.entries()) {
-				const { values, bind } = createBinds(mssqlPlaceholder);
-
-				const row = columns.map((column) => bindValue(column, record[column], bind));
-
-				try {
-					await this.execute(
-						transaction,
-						`INSERT INTO ${quoteMssqlIdent(tableName)} (${columnNames}) VALUES (${row.join(", ")})`,
-						values,
-					);
-				} catch (error) {
-					const failure = this.classifyError(error);
-
-					if (failure.status !== 500) throw failure;
-					throw new HTTPException(500, {
-						message: `Failed to insert record ${i + 1}: ${failure.message}`,
-						cause: error,
-					});
-				}
-			}
-		});
-
-		return {
-			success: true,
-			message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
-			successCount: records.length,
-			failureCount: 0,
-		};
 	}
 
 	protected async runStatement(conn: MssqlConn, statement: string) {
