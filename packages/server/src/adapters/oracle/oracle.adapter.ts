@@ -14,16 +14,18 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	DeleteTableResult,
-	ExecuteQueryResult,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 	TableDataResultSchemaType,
-	TableInfoSchemaType,
 } from "@db-studio/shared/types";
-import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
+import {
+	isSerialType,
+	mapOracleToDataType,
+	standardizeOracleDataTypeLabel,
+} from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import type { DriverErrorClass } from "@/adapters/base.adapter.js";
@@ -41,9 +43,12 @@ import {
 	RELATED_SAMPLE,
 	type ReferencingKey,
 	SqlAdapter,
+	type StatementResult,
+	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
+import { formatFileSize } from "@/file-size.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
@@ -52,7 +57,6 @@ import {
 	formatOracleDefault,
 	IDENTITY_CLAUSE,
 	quoteOracleIdent as ident,
-	isSerialType,
 	mapColumnTypeToOracle,
 	oracleFilters,
 	oraclePlaceholder,
@@ -425,7 +429,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			return [
 				{
 					name: row.NAME,
-					size: this.formatBytes(Number(row.BYTES)),
+					size: formatFileSize(Number(row.BYTES)),
 					owner: row.OWNER,
 					encoding: row.ENCODING,
 				},
@@ -458,39 +462,20 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	// Tables
 	// =========================================================
 
+	/** Every table is counted in one statement, on the one connection a request holds. */
+	protected readonly countStatements = 1;
+
 	/**
-	 * Row counts are exact (COUNT(*)) for tables whose optimizer statistics are missing or
-	 * under 100,000 rows; larger tables report USER_TABLES.NUM_ROWS, which is an estimate as
-	 * of the last statistics gathering.
+	 * USER_TABLES.NUM_ROWS is an estimate as of the last statistics gathering, and NULL for a
+	 * table never analyzed, which is then counted.
 	 */
-	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		return this.withConnection(async (conn) => {
-			const tables = await this.rows<{ TABLE_NAME: string; NUM_ROWS: number | null }>(
-				conn,
-				`SELECT table_name, num_rows FROM user_tables
-				WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
-				ORDER BY table_name`,
-			);
-
-			const toCount = tables.filter((t) => t.NUM_ROWS === null || t.NUM_ROWS < 100_000);
-			const counts = new Map<string, number>();
-
-			if (toCount.length) {
-				const rows = await this.rows<{ N: number; C: number }>(
-					conn,
-					toCount
-						.map((t, i) => `SELECT ${i} AS n, COUNT(*) AS c FROM ${ident(t.TABLE_NAME)}`)
-						.join(" UNION ALL "),
-				);
-
-				for (const row of rows) counts.set(toCount[row.N].TABLE_NAME, Number(row.C));
-			}
-
-			return tables.map((t) => ({
-				tableName: t.TABLE_NAME,
-				rowCount: counts.get(t.TABLE_NAME) ?? Number(t.NUM_ROWS ?? 0),
-			}));
-		});
+	protected tableEstimates(conn: Connection) {
+		return this.rows<TableEstimate>(
+			conn,
+			`SELECT table_name AS "tableName", num_rows AS "estimate" FROM user_tables
+			WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
+			ORDER BY table_name`,
+		);
 	}
 
 	/** One CREATE TABLE statement: identity, keys and foreign keys succeed or fail together. */
@@ -550,17 +535,14 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 					relatedRecords: await this.rowsReferencingTable(conn, referencing),
 				};
 
-			const [row] = await this.rows<{ C: number }>(
-				conn,
-				`SELECT COUNT(*) AS c FROM ${ident(tableName)}`,
-			);
+			const deletedCount = await this.rowCount(conn, tableName);
 
 			// CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows.
 			await conn.execute(
 				`DROP TABLE ${ident(tableName)}${cascade ? " CASCADE CONSTRAINTS" : ""}`,
 			);
 
-			return { deletedCount: Number(row?.C ?? 0), fkViolation: false, relatedRecords: [] };
+			return { deletedCount, fkViolation: false, relatedRecords: [] };
 		});
 	}
 
@@ -989,15 +971,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	// =========================================================
 
 	/**
-	 * Runs one statement with autocommit. A trailing `;` is stripped from SQL (Oracle rejects
-	 * it) but kept on PL/SQL blocks, where it ends the last statement; a SQL*Plus `/` line is
-	 * dropped. Native DATE and TIMESTAMP result columns are refused because Thin mode converts
-	 * them to millisecond-only Date objects; callers can select them with an explicit TO_CHAR.
+	 * A trailing `;` is stripped from SQL (Oracle rejects it) but kept on PL/SQL blocks, where
+	 * it ends the last statement; a SQL*Plus `/` line is dropped.
 	 */
-	async executeQuery({ query: sql }: { query: string }): Promise<ExecuteQueryResult> {
-		if (!sql?.trim()) throw new HTTPException(400, { message: "Query is required" });
-
-		const trimmed = sql
+	protected override prepareQuery(query: string) {
+		const trimmed = query
 			.trim()
 			.replace(/\n\s*\/$/, "")
 			.trim();
@@ -1007,56 +985,39 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				trimmed,
 			);
 
-		const statement = isPlsql ? trimmed : trimmed.replace(/;\s*$/, "");
+		return isPlsql ? trimmed : trimmed.replace(/;\s*$/, "");
+	}
 
-		return this.withConnection(async (conn) => {
-			const start = performance.now();
-
-			const result = await conn.execute<Row>(statement, [], {
-				outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
-				fetchTypeHandler,
-				autoCommit: true,
-				resultSet: true,
-			});
-
-			const duration = performance.now() - start;
-
-			if (result.resultSet) {
-				if (result.metaData?.some(isTemporalMetadata)) {
-					await result.resultSet.close();
-					throw new HTTPException(400, {
-						message:
-							"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
-					});
-				}
-
-				let rows: Row[];
-
-				try {
-					rows = await result.resultSet.getRows();
-				} finally {
-					await result.resultSet.close();
-				}
-
-				return {
-					columns: result.metaData?.map((meta) => meta.name) ?? [],
-					rows,
-					rowCount: rows.length,
-					duration,
-					message: rows.length === 0 ? "OK" : undefined,
-				};
-			}
-
-			const affected = result.rowsAffected ?? 0;
-
-			return {
-				columns: [],
-				rows: [],
-				rowCount: affected,
-				duration,
-				message: result.rowsAffected === undefined ? "OK" : `OK (${affected} rows affected)`,
-			};
+	/**
+	 * Native DATE and TIMESTAMP result columns are refused because Thin mode converts them to
+	 * millisecond-only Date objects; callers can select them with an explicit TO_CHAR.
+	 */
+	protected async runStatement(conn: Connection, statement: string): Promise<StatementResult> {
+		const result = await conn.execute<Row>(statement, [], {
+			outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
+			fetchTypeHandler,
+			autoCommit: true,
+			resultSet: true,
 		});
+
+		if (!result.resultSet) return { affected: result.rowsAffected };
+
+		if (result.metaData?.some(isTemporalMetadata)) {
+			await result.resultSet.close();
+			throw new HTTPException(400, {
+				message:
+					"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
+			});
+		}
+
+		try {
+			return {
+				columns: result.metaData?.map((meta) => meta.name) ?? [],
+				rows: await result.resultSet.getRows(),
+			};
+		} finally {
+			await result.resultSet.close();
+		}
 	}
 
 	// =========================================================
@@ -1090,14 +1051,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		}
 
 		return def;
-	}
-
-	private formatBytes(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
 	private async containerName(conn: Connection): Promise<string> {

@@ -15,13 +15,11 @@ import type {
 	DeleteTableParams,
 	DeleteTableResult,
 	DropIndexParamsSchemaType,
-	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
-	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/shared/types";
@@ -37,7 +35,11 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { type ReferencingKey, SqlAdapter } from "@/adapters/sql.adapter.js";
+import {
+	type ReferencingKey,
+	SqlAdapter,
+	type TableEstimate,
+} from "@/adapters/sql.adapter.js";
 import { D1TokenRefused } from "@/d1-client.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -205,6 +207,33 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		return (await client.execute(stmt(sql, values))).rowsAffected;
 	}
 
+	protected override prepareQuery(query: string) {
+		const statement = super.prepareQuery(query);
+
+		if (isTransactionControl(statement))
+			throw new HTTPException(400, {
+				message:
+					"Transaction statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE) are not supported in the query runner: each query runs on its own connection, so a transaction cannot span queries.",
+			});
+
+		if (hasMultipleStatements(statement))
+			throw new HTTPException(400, {
+				message:
+					"The query runner runs one statement at a time. Run each statement separately.",
+			});
+
+		return statement;
+	}
+
+	protected async runStatement(client: SqliteClient, statement: string) {
+		const result = await client.execute(statement);
+
+		// Statements that return rows report their columns even when no row matches.
+		return result.columns.length > 0
+			? { columns: result.columns, rows: toRows(result) }
+			: { affected: result.rowsAffected };
+	}
+
 	protected isFkViolation(e: unknown) {
 		return e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
 	}
@@ -308,28 +337,24 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// IDbAdapter — Tables
 	// =========================================================
 
-	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const client = await connector("sqlite").client();
-
-		const tables = await all<{ name: string }>(
+	/** SQLite keeps no row estimates, so every table is counted. */
+	protected tableEstimates(client: SqliteClient) {
+		return all<TableEstimate>(
 			client,
-			`SELECT name FROM sqlite_master
+			`SELECT name AS tableName FROM sqlite_master
 				WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*'
 				ORDER BY name`,
 		);
+	}
 
-		if (!tables.length) return [];
-
-		// One round trip for every count; matters against a remote server.
+	/** One round trip for every count; matters against a remote server. */
+	protected override async exactCounts(client: SqliteClient, tables: TableEstimate[]) {
 		const counts = await client.batch(
-			tables.map((t) => `SELECT COUNT(*) as count FROM ${quoteSqliteIdent(t.name)}`),
+			tables.map((t) => `SELECT COUNT(*) as count FROM ${quoteSqliteIdent(t.tableName)}`),
 			"read",
 		);
 
-		return tables.map((t, i) => ({
-			tableName: t.name,
-			rowCount: toRows<{ count: number }>(counts[i])[0]?.count ?? 0,
-		}));
+		return counts.map((result) => Number(toRows<{ count: number }>(result)[0]?.count ?? 0));
 	}
 
 	async createTable({
@@ -386,12 +411,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 		await this.requireTable(client, tableName);
 
-		const [countRow] = await all<{ count: number }>(
-			client,
-			`SELECT COUNT(*) as count FROM ${quoteSqliteIdent(tableName)}`,
-		);
-
-		const rowCount = countRow?.count ?? 0;
+		const rowCount = await this.rowCount(client, tableName);
 
 		// A table's references to itself go with it.
 		const referencing = (await this.referencingKeys(client, tableName)).filter(
@@ -845,56 +865,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// =========================================================
 	// IDbAdapter — Query
 	// =========================================================
-
-	async executeQuery({
-		query,
-		db,
-	}: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
-
-		const cleaned = query.trim().replace(/;+$/, "");
-
-		if (isTransactionControl(cleaned))
-			throw new HTTPException(400, {
-				message:
-					"Transaction statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE) are not supported in the query runner: each query runs on its own connection, so a transaction cannot span queries.",
-			});
-
-		if (hasMultipleStatements(cleaned))
-			throw new HTTPException(400, {
-				message:
-					"The query runner runs one statement at a time. Run each statement separately.",
-			});
-		const start = performance.now();
-
-		const result = await (await connector("sqlite").client()).execute(cleaned);
-		const duration = performance.now() - start;
-		void db;
-
-		// Statements that return rows report their columns even when no row matches.
-		if (result.columns.length > 0) {
-			const rows = toRows(result);
-
-			return {
-				columns: result.columns,
-				rows,
-				rowCount: rows.length,
-				duration,
-				message: rows.length === 0 ? "OK" : undefined,
-			};
-		}
-
-		return {
-			columns: [],
-			rows: [],
-			rowCount: result.rowsAffected,
-			duration,
-			message: `OK (${result.rowsAffected} rows affected)`,
-		};
-	}
 
 	// =========================================================
 	// Private helpers

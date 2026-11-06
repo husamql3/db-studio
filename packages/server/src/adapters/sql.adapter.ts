@@ -5,13 +5,16 @@ import {
 	type DeleteRecordParams,
 	type DeleteRecordResult,
 	type DropIndexParamsSchemaType,
+	type ExecuteQueryResult,
 	type IndexInfoSchemaType,
 	type RelatedRecord,
+	type TableInfoSchemaType,
 	type UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import {
 	BaseAdapter,
 	type DriverErrorClass,
+	EXACT_COUNT_LIMIT,
 	notImplemented,
 } from "@/adapters/base.adapter.js";
 import { createBinds } from "@/adapters/sql-filters.js";
@@ -73,6 +76,18 @@ export const groupKeyColumns = (rows: KeyColumnRow[]) => {
  * A relational engine. Each one supplies its connection, quoting and catalog hooks; the
  * operations every engine does the same way are written once here.
  */
+/** A table of the list, with the row count the engine estimates for it, if it keeps one. */
+export interface TableEstimate {
+	schemaName?: string;
+	tableName: string;
+	estimate?: number;
+}
+
+/** What one statement of the query runner gave: rows, or how many rows it changed. */
+export type StatementResult =
+	| { columns: string[]; rows: Record<string, unknown>[] }
+	| { affected: number | undefined };
+
 /** An index as an engine lists it; PostgreSQL adds the schema it lives in. */
 type ListedIndex = IndexInfoSchemaType & { schemaName?: string };
 
@@ -137,6 +152,126 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		tableName: string,
 		schemaName?: string,
 	): Promise<ReferencingKey[]>;
+
+	/**
+	 * Statements the table list counts its tables in, run at once. A query per table would
+	 * queue behind a pool's connections and, with enough tables, wait past its connect timeout.
+	 */
+	protected readonly countStatements: number = 4;
+
+	/** Every table of the list, in order, each with its row estimate where the engine keeps one. */
+	protected abstract tableEstimates(conn: Conn, db: string): Promise<TableEstimate[]>;
+
+	/** Exact row counts of `tables`, in order; undefined for a table that cannot be counted. */
+	protected async exactCounts(
+		conn: Conn,
+		tables: TableEstimate[],
+	): Promise<Array<number | undefined>> {
+		const q = this.quoteIdentifier;
+		const statements: string[][] = Array.from({ length: this.countStatements }, () => []);
+
+		tables.forEach(({ tableName, schemaName }, i) => {
+			statements[i % this.countStatements]?.push(
+				`SELECT ${i} AS ${q("position")}, COUNT(*) AS ${q("total")} FROM ${this.tableRef(tableName, schemaName)}`,
+			);
+		});
+
+		const results = await Promise.all(
+			statements.flatMap((selects) =>
+				selects.length
+					? [
+							this.rows<{ position: unknown; total: unknown }>(
+								conn,
+								selects.join(" UNION ALL "),
+							),
+						]
+					: [],
+			),
+		);
+
+		const counts: Array<number | undefined> = tables.map(() => undefined);
+
+		for (const row of results.flat()) counts[Number(row.position)] = Number(row.total);
+
+		return counts;
+	}
+
+	/**
+	 * Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
+	 * are counted; larger ones report their estimate.
+	 */
+	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
+		return this.connect(db, async (conn) => {
+			const tables = await this.tableEstimates(conn, db);
+
+			const counted = tables.filter(
+				({ estimate }) => estimate === undefined || estimate < EXACT_COUNT_LIMIT,
+			);
+
+			const exact = counted.length ? await this.exactCounts(conn, counted) : [];
+			const counts = new Map(counted.map((table, i) => [table, exact[i]]));
+
+			return tables.map((table) => {
+				const { estimate, ...name } = table;
+				const count = counts.get(table);
+
+				return count === undefined
+					? { ...name, rowCount: Math.round(estimate ?? 0), rowCountEstimated: true }
+					: { ...name, rowCount: count };
+			});
+		});
+	}
+
+	/** The rows a table drop deletes, counted before it. */
+	protected async rowCount(conn: Conn, tableName: string, schemaName?: string) {
+		const [row] = await this.rows<{ total: unknown }>(
+			conn,
+			`SELECT COUNT(*) AS ${this.quoteIdentifier("total")} FROM ${this.tableRef(tableName, schemaName)}`,
+		);
+
+		return Number(row?.total ?? 0);
+	}
+
+	/** The query runner's statement: trimmed, without trailing semicolons. */
+	protected prepareQuery(query: string): string {
+		return query.trim().replace(/;+$/, "");
+	}
+
+	protected abstract runStatement(conn: Conn, statement: string): Promise<StatementResult>;
+
+	/** Runs one statement of the query runner, with autocommit. */
+	async executeQuery({
+		query,
+		db,
+	}: {
+		query: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<ExecuteQueryResult> {
+		const statement = this.prepareQuery(query);
+
+		return this.connect(db, async (conn) => {
+			const start = performance.now();
+			const result = await this.runStatement(conn, statement);
+			const duration = performance.now() - start;
+
+			if ("rows" in result)
+				return {
+					...result,
+					rowCount: result.rows.length,
+					duration,
+					message: result.rows.length === 0 ? "OK" : undefined,
+				};
+
+			return {
+				columns: [],
+				rows: [],
+				rowCount: result.affected ?? 0,
+				duration,
+				message:
+					result.affected === undefined ? "OK" : `OK (${result.affected} rows affected)`,
+			};
+		});
+	}
 
 	/** The column names of `tableName`, in order, or undefined when there is no such table. */
 	protected abstract columnNames(

@@ -51,6 +51,14 @@ class HarnessAdapter extends SqlAdapter<null> {
 		return [];
 	}
 
+	protected async tableEstimates() {
+		return [];
+	}
+
+	protected async runStatement() {
+		return { affected: undefined };
+	}
+
 	getTableData(): never {
 		throw new Error("not used");
 	}

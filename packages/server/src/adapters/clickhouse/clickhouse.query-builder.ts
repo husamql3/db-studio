@@ -1,3 +1,4 @@
+import { isSerialType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteClickhouseIdentifier = (name: string): string =>
@@ -110,7 +111,7 @@ export function buildClickhouseColumnDefinition(
 ): string {
 	const name = q(field.columnName);
 
-	if (field.isIdentity || /serial/i.test(field.columnType)) {
+	if (field.isIdentity || isSerialType(field.columnType)) {
 		return `${name} UInt64 DEFAULT generateSnowflakeID()`;
 	}
 

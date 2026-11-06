@@ -23,12 +23,13 @@ import type {
 	TableInfoSchemaType,
 } from "@db-studio/shared/types";
 import {
+	isSerialType,
 	mapClickhouseToDataType,
 	standardizeClickhouseDataTypeLabel,
 	unwrapClickhouseType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
+import { BaseAdapter, type DriverErrorClass, probeOnce } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -125,8 +126,16 @@ const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
 };
 
 export class ClickhouseAdapter extends BaseAdapter {
-	// Keyed by client: tabs can work with two ClickHouse servers at once.
-	private serverVersion = new WeakMap<ClickHouseClient, number[]>();
+	private serverVersion = probeOnce(async (client: ClickHouseClient) => {
+		const result = await client.query({
+			query: "SELECT version() AS version",
+			format: "JSONEachRow",
+		});
+
+		const [row] = await result.json<{ version: string }>();
+
+		return (row?.version ?? "0.0").split(".").map(Number);
+	});
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		// A wrong password, or @clickhouse/client's request timeout.
@@ -310,7 +319,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 		const supportsJson = await this.isAtLeast(db, 25, 3);
 
-		if (fields.some((f) => f.isIdentity || /serial/i.test(f.columnType))) {
+		if (fields.some((f) => f.isIdentity || isSerialType(f.columnType))) {
 			if (!(await this.isAtLeast(db, 24, 6))) {
 				throw new HTTPException(400, {
 					message: "Auto-generated ids need ClickHouse 24.6 or newer (generateSnowflakeID)",
@@ -693,19 +702,8 @@ export class ClickhouseAdapter extends BaseAdapter {
 		return result.json<T>();
 	}
 
-	private async command(
-		db: string,
-		query: string,
-		queryParams: Params = {},
-		settings: Record<string, string> = {},
-	): Promise<void> {
-		await (
-			await connector("clickhouse").client(db)
-		).command({
-			query,
-			query_params: queryParams,
-			clickhouse_settings: settings,
-		});
+	private async command(db: string, query: string): Promise<void> {
+		await (await connector("clickhouse").client(db)).command({ query });
 	}
 
 	private async findTable(db: string, tableName: string): Promise<TableRow | undefined> {
@@ -790,16 +788,9 @@ export class ClickhouseAdapter extends BaseAdapter {
 	}
 
 	private async isAtLeast(db: string, major: number, minor: number): Promise<boolean> {
-		const client = await connector("clickhouse").client(db);
-		let version = this.serverVersion.get(client);
-
-		if (!version) {
-			const [row] = await this.select<{ version: string }>(db, "SELECT version() AS version");
-			version = (row?.version ?? "0.0").split(".").map(Number);
-			this.serverVersion.set(client, version);
-		}
-
-		const [actualMajor = 0, actualMinor = 0] = version;
+		const [actualMajor = 0, actualMinor = 0] = await this.serverVersion(
+			await connector("clickhouse").client(db),
+		);
 
 		return actualMajor > major || (actualMajor === major && actualMinor >= minor);
 	}

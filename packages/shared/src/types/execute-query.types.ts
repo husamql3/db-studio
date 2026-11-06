@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const executeQuerySchema = z.object({
-	query: z.string("Query is required"),
+	query: z.string("Query is required").trim().min(1, "Query is required"),
 });
 
 export type ExecuteQueryParams = z.infer<typeof executeQuerySchema>;

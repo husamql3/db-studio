@@ -1,7 +1,7 @@
 import type { ConnectionUrl } from "@/connection-url.js";
+import { formatFileSize } from "@/file-size.js";
 import { HTTPException } from "@/http-exception.js";
 import {
-	formatFileSize,
 	type SqliteClient,
 	type SqlParam,
 	type SqlResult,

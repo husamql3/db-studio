@@ -12,7 +12,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
-	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
@@ -20,7 +19,6 @@ import type {
 	RenameTableParamsSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
-	TableInfoSchemaType,
 } from "@db-studio/shared/types";
 import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
 import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
@@ -29,6 +27,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
+	probeOnce,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
 import { decodeCursor } from "@/adapters/cursor.js";
@@ -47,7 +46,12 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { flagOrJson, groupKeyColumns, SqlAdapter } from "@/adapters/sql.adapter.js";
+import {
+	flagOrJson,
+	groupKeyColumns,
+	SqlAdapter,
+	type TableEstimate,
+} from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -89,8 +93,13 @@ const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 };
 
 export class MySqlAdapter extends SqlAdapter<Connection> {
-	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
-	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
+	private isMariaDb = probeOnce(async (pool: MysqlPool) => {
+		const [rows] = await pool.query<RowDataPacket[]>(
+			"SELECT VERSION() LIKE '%MariaDB%' AS mariadb",
+		);
+
+		return Number(rows[0]?.mariadb) === 1;
+	});
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		const { code, errno } = e as { code?: string; errno?: number };
@@ -294,28 +303,8 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 	// --- Tables ---
 
-	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await connector("mysql").pool(db);
-		const estimates = await this.rowEstimates(pool);
-
-		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
-		// are counted; larger ones report their estimate.
-		return Promise.all(
-			[...estimates].map(async ([tableName, estimate]) => {
-				if (estimate >= EXACT_COUNT_LIMIT) {
-					return { tableName, rowCount: estimate, rowCountEstimated: true };
-				}
-
-				const [countRows] = await pool.execute<RowDataPacket[]>(
-					`SELECT COUNT(*) as count FROM ${quoteMysqlIdent(tableName)}`,
-				);
-
-				return {
-					tableName,
-					rowCount: Number((countRows as Array<{ count: number }>)[0]?.count ?? 0),
-				};
-			}),
-		);
+	protected async tableEstimates(_conn: Connection, db: string) {
+		return this.rowEstimates(await connector("mysql").pool(db));
 	}
 
 	async createTable({
@@ -365,7 +354,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		await this.requireTable(pool, tableName);
 
-		const rowCount = await this.getTableRowCount(pool, tableName);
+		const rowCount = await this.rowCount(pool, tableName);
 
 		// A table's references to itself go with it.
 		const referencing = (await this.referencingKeys(pool, tableName)).filter(
@@ -756,48 +745,17 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 	// --- Query ---
 
-	async executeQuery({
-		query,
-		db,
-	}: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		const pool = await connector("mysql").pool(db);
-
-		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
-
-		const cleaned = query.trim().replace(/;+$/, "");
-		const start = performance.now();
-
-		const [result, fields] = (await pool.execute(cleaned)) as [
+	protected async runStatement(conn: Connection, statement: string) {
+		const [result, fields] = (await conn.execute(statement)) as [
 			RowDataPacket[] | ResultSetHeader,
 			FieldPacket[],
 		];
 
-		const duration = performance.now() - start;
-
-		if (Array.isArray(result)) {
-			const rows = result as RowDataPacket[];
-			const columns = fields ? fields.map((f) => f.name) : Object.keys(rows[0] ?? {});
-
-			return {
-				columns,
-				rows: rows as Record<string, unknown>[],
-				rowCount: rows.length,
-				duration,
-				message: rows.length === 0 ? "OK" : undefined,
-			};
-		}
-
-		const dmlResult = result as ResultSetHeader;
+		if (!Array.isArray(result)) return { affected: result.affectedRows };
 
 		return {
-			columns: [],
-			rows: [],
-			rowCount: dmlResult.affectedRows,
-			duration,
-			message: `OK — ${dmlResult.affectedRows} row(s) affected`,
+			columns: fields ? fields.map((f) => f.name) : Object.keys(result[0] ?? {}),
+			rows: result as Record<string, unknown>[],
 		};
 	}
 
@@ -811,10 +769,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	 * morning would still report its old size; the session reads them fresh instead. MariaDB and
 	 * TiDB keep no such cache and reject the variable, which is harmless.
 	 */
-	private async rowEstimates(
-		pool: MysqlPool,
-		tableName?: string,
-	): Promise<Map<string, number>> {
+	private async rowEstimates(pool: MysqlPool, tableName?: string): Promise<TableEstimate[]> {
 		const connection = await pool.getConnection();
 
 		try {
@@ -831,12 +786,10 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 				tableName === undefined ? [] : [tableName],
 			);
 
-			return new Map(
-				(rows as Array<{ tableName: string; estimate: number | null }>).map((row) => [
-					row.tableName,
-					Number(row.estimate ?? 0),
-				]),
-			);
+			return (rows as Array<{ tableName: string; estimate: number | null }>).map((row) => ({
+				tableName: row.tableName,
+				estimate: Number(row.estimate ?? 0),
+			}));
 		} finally {
 			connection.release();
 		}
@@ -854,7 +807,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		filterValues: unknown[],
 	): Promise<{ total: number; estimated: boolean }> {
 		if (!filterWhere) {
-			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+			const estimate = (await this.rowEstimates(pool, tableName))[0]?.estimate ?? 0;
 
 			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
 		}
@@ -868,23 +821,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 			total: Number((rows as Array<{ total: number }>)[0]?.total ?? 0),
 			estimated: false,
 		};
-	}
-
-	private isMariaDb(pool: MysqlPool): Promise<boolean> {
-		let mariaDb = this.mariaDb.get(pool);
-
-		if (!mariaDb) {
-			mariaDb = pool
-				.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
-				.then(([rows]) => Number(rows[0]?.mariadb) === 1)
-				.catch((e) => {
-					this.mariaDb.delete(pool);
-					throw e;
-				});
-			this.mariaDb.set(pool, mariaDb);
-		}
-
-		return mariaDb;
 	}
 
 	protected async primaryKey(pool: Connection, tableName: string): Promise<string[]> {
@@ -916,14 +852,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		);
 
 		return groupKeyColumns(rows);
-	}
-
-	private async getTableRowCount(pool: MysqlPool, tableName: string): Promise<number> {
-		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as count FROM ${quoteMysqlIdent(tableName)}`,
-		);
-
-		return Number((rows as Array<{ count: number }>)[0]?.count ?? 0);
 	}
 
 	private async booleanColumns(tableName: string, db: string): Promise<Set<string>> {

@@ -136,18 +136,6 @@ export const oracleFilters = (
 		bindOracleValue(value, columnTypes.get(columnName), bind),
 });
 
-const SERIAL_TYPES = new Set([
-	"serial",
-	"serial4",
-	"bigserial",
-	"serial8",
-	"smallserial",
-	"serial2",
-]);
-
-export const isSerialType = (columnType: string) =>
-	SERIAL_TYPES.has(columnType.toLowerCase().trim());
-
 /**
  * Translate a PostgreSQL type name from the web form into an Oracle column type.
  * `text` becomes VARCHAR2(4000), not CLOB: a CLOB column cannot be compared with `=`, sorted,

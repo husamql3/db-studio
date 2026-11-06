@@ -1,4 +1,3 @@
-import { statSync } from "node:fs";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -14,14 +13,16 @@ import type {
 	DeleteRecordParams,
 	DeleteTableParams,
 	DeleteTableResult,
-	ExecuteQueryResult,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
-	TableInfoSchemaType,
 } from "@db-studio/shared/types";
-import { mapDuckdbToDataType, standardizeDuckdbDataTypeLabel } from "@db-studio/shared/types";
+import {
+	isSerialType,
+	mapDuckdbToDataType,
+	standardizeDuckdbDataTypeLabel,
+} from "@db-studio/shared/types";
 import type {
 	DuckDBConnection,
 	DuckDBResultReader,
@@ -40,15 +41,20 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { type ReferencingKey, SqlAdapter } from "@/adapters/sql.adapter.js";
+import {
+	type ReferencingKey,
+	SqlAdapter,
+	type StatementResult,
+	type TableEstimate,
+} from "@/adapters/sql.adapter.js";
 import { loadedDriver } from "@/drivers.js";
+import { fileSize } from "@/file-size.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
 import {
 	duckdbFilters,
 	duckdbKeyset,
 	quoteDuckdbIdent as ident,
-	isSerialType,
 	mapColumnTypeToDuckdb,
 } from "./duckdb.query-builder.js";
 
@@ -277,7 +283,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 
 			return rows.map((row) => ({
 				name: row.database_name,
-				size: this.getFileSize(row.path),
+				size: fileSize(row.path ?? ""),
 				owner: "",
 				encoding: "UTF-8",
 			}));
@@ -315,26 +321,14 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	// Tables
 	// =========================================================
 
-	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		return connector("duckdb").withConnection(async (conn) => {
-			const tables = await query<{ table_name: string }>(
-				conn,
-				`SELECT table_name FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND NOT temporary ORDER BY table_name`,
-			);
+	/** Every table is counted, in one statement: the connection runs one query at a time. */
+	protected readonly countStatements = 1;
 
-			const result: TableInfoSchemaType[] = [];
-
-			for (const { table_name } of tables) {
-				const [row] = await query<{ count: number }>(
-					conn,
-					`SELECT COUNT(*) AS count FROM ${ident(table_name)}`,
-				);
-
-				result.push({ tableName: table_name, rowCount: Number(row?.count ?? 0) });
-			}
-
-			return result;
-		});
+	protected tableEstimates(conn: DuckDBConnection) {
+		return this.rows<TableEstimate>(
+			conn,
+			`SELECT table_name AS "tableName" FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND NOT temporary ORDER BY table_name`,
+		);
 	}
 
 	async createTable({ tableData }: { tableData: CreateTableSchemaType }): Promise<void> {
@@ -413,11 +407,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 				};
 			}
 
-			const [row] = await query<{ count: number }>(
-				conn,
-				`SELECT COUNT(*) AS count FROM ${ident(tableName)}`,
-			);
-
+			const deletedCount = await this.rowCount(conn, tableName);
 			await conn.run(`DROP TABLE ${ident(tableName)}`);
 
 			for (const sequence of sequenceNamesIn(columns)) {
@@ -425,7 +415,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 				await conn.run(`DROP SEQUENCE IF EXISTS ${ident(sequence)}`).catch(() => {});
 			}
 
-			return { deletedCount: Number(row?.count ?? 0), fkViolation: false, relatedRecords: [] };
+			return { deletedCount, fkViolation: false, relatedRecords: [] };
 		});
 	}
 
@@ -669,80 +659,43 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	// Query
 	// =========================================================
 
-	async executeQuery({ query: sql }: { query: string }): Promise<ExecuteQueryResult> {
-		if (!sql?.trim()) throw new HTTPException(400, { message: "Query is required" });
+	protected async runStatement(conn: DuckDBConnection, sql: string): Promise<StatementResult> {
+		const { ResultReturnType, StatementType } = loadedDriver("duckdb");
+		const statements = await conn.extractStatements(sql);
 
-		return connector("duckdb").withConnection(async (conn) => {
-			const { ResultReturnType, StatementType } = loadedDriver("duckdb");
-			const start = performance.now();
-			const statements = await conn.extractStatements(sql);
+		if (statements.count !== 1) {
+			throw new HTTPException(400, {
+				message:
+					"The query runner runs one statement at a time. Run each statement separately.",
+			});
+		}
 
-			if (statements.count !== 1) {
+		const statement = await statements.prepare(0);
+
+		try {
+			if (statement.statementType === StatementType.TRANSACTION) {
 				throw new HTTPException(400, {
 					message:
-						"The query runner runs one statement at a time. Run each statement separately.",
+						"Transactions cannot span query-runner requests. BEGIN, COMMIT, and ROLLBACK are not supported.",
 				});
 			}
 
-			const statement = await statements.prepare(0);
+			const reader = await statement.runAndReadAll();
 
-			try {
-				if (statement.statementType === StatementType.TRANSACTION) {
-					throw new HTTPException(400, {
-						message:
-							"Transactions cannot span query-runner requests. BEGIN, COMMIT, and ROLLBACK are not supported.",
-					});
-				}
+			if (reader.returnType === ResultReturnType.CHANGED_ROWS)
+				return { affected: reader.rowsChanged };
 
-				const reader = await statement.runAndReadAll();
-				const duration = performance.now() - start;
+			if (reader.returnType === ResultReturnType.NOTHING) return { affected: undefined };
 
-				if (reader.returnType === ResultReturnType.CHANGED_ROWS)
-					return {
-						columns: [],
-						rows: [],
-						rowCount: reader.rowsChanged,
-						duration,
-						message: `OK (${reader.rowsChanged} rows affected)`,
-					};
-
-				if (reader.returnType === ResultReturnType.NOTHING)
-					return { columns: [], rows: [], rowCount: 0, duration, message: "OK" };
-
-				const rows = toRows(reader);
-
-				return {
-					columns: reader.columnNames(),
-					rows,
-					rowCount: rows.length,
-					duration,
-					message: rows.length === 0 ? "OK" : undefined,
-				};
-			} finally {
-				statement.destroySync();
-			}
-		});
+			return { columns: reader.columnNames(), rows: toRows(reader) };
+		} finally {
+			statement.destroySync();
+		}
 	}
 
 	// =========================================================
 	// Private helpers
 	// =========================================================
-
-	private getFileSize(filePath: string | null): string {
-		if (!filePath) return "in-memory";
-
-		try {
-			const bytes = statSync(filePath).size;
-
-			if (bytes < 1024) return `${bytes} B`;
-
-			if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-
-			return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-		} catch {
-			return "N/A";
-		}
-	}
 
 	private columns(conn: DuckDBConnection, tableName: string): Promise<ColumnRow[]> {
 		return query<ColumnRow>(

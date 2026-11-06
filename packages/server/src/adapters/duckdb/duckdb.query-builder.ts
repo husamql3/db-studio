@@ -11,18 +11,6 @@ export const duckdbFilters: FilterDialect = {
 
 export const duckdbKeyset: KeysetDialect = { quote: quoteDuckdbIdent, nulls: "keyword" };
 
-const SERIAL_TYPES = new Set([
-	"serial",
-	"serial4",
-	"bigserial",
-	"serial8",
-	"smallserial",
-	"serial2",
-]);
-
-export const isSerialType = (columnType: string) =>
-	SERIAL_TYPES.has(columnType.toLowerCase().trim());
-
 /** Translate a PostgreSQL type name from the web form into a DuckDB column type. */
 export function mapColumnTypeToDuckdb(columnType: string, isArray: boolean): string {
 	const normalized = columnType.toLowerCase().trim();

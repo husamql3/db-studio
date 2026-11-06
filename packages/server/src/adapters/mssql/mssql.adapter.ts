@@ -13,7 +13,6 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
-	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
@@ -22,7 +21,6 @@ import type {
 	ServerLogEntrySchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
-	TableInfoSchemaType,
 } from "@db-studio/shared/types";
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
 import type { ConnectionPool as MssqlPool, Request } from "mssql";
@@ -37,6 +35,7 @@ import {
 	RELATED_SAMPLE,
 	type ReferencingKey,
 	SqlAdapter,
+	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
@@ -296,31 +295,31 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 	// --- Tables ---
 
-	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await connector("mssql").pool(db);
-		const estimates = await this.rowEstimates(pool);
+	protected tableEstimates(conn: MssqlConn) {
+		return this.rowEstimates(conn);
+	}
 
-		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
-		// are counted; larger ones report their estimate.
-		return Promise.all(
-			[...estimates].map(async ([tableName, estimate]) => {
-				if (estimate >= EXACT_COUNT_LIMIT) {
-					return { tableName, rowCount: estimate, rowCountEstimated: true };
-				}
+	/** A login may see tables it cannot read; those keep their estimate. */
+	protected override async exactCounts(conn: MssqlConn, tables: TableEstimate[]) {
+		try {
+			return await super.exactCounts(conn, tables);
+		} catch (e) {
+			if (!isSelectDenied(e)) throw e;
+		}
 
-				try {
-					const countResult = await pool
-						.request()
-						.query(`SELECT COUNT(*) as count FROM ${quoteMssqlIdent(tableName)}`);
+		const counts: Array<number | undefined> = [];
 
-					return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
-				} catch (e) {
+		for (const table of tables) {
+			counts.push(
+				await this.rowCount(conn, table.tableName).catch((e: unknown) => {
 					if (!isSelectDenied(e)) throw e;
 
-					return { tableName, rowCount: estimate, rowCountEstimated: true };
-				}
-			}),
-		);
+					return undefined;
+				}),
+			);
+		}
+
+		return counts;
 	}
 
 	async createTable({
@@ -383,7 +382,12 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 		await this.requireTable(pool, tableName);
 
-		const rowCount = await this.getTableRowCount(tableName, db);
+		const rowCount = await this.rowCount(pool, tableName).catch(async (e: unknown) => {
+			// A login may drop a table it cannot read.
+			if (!isSelectDenied(e)) throw e;
+
+			return (await this.rowEstimates(pool, tableName))[0]?.estimate ?? 0;
+		});
 
 		const keys = await this.referencingKeys(pool, tableName);
 		// A table's references to itself go with it.
@@ -887,46 +891,18 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 	// --- Query ---
 
-	async executeQuery({
-		query,
-		db,
-	}: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		const pool = await connector("mssql").pool(db);
+	protected async runStatement(conn: MssqlConn, statement: string) {
+		const result = await conn.request().query(statement);
 
-		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
+		if (!result.recordset) return { affected: result.rowsAffected[0] ?? 0 };
 
-		const cleanedQuery = query.trim().replace(/;+$/, "");
-		const start = performance.now();
-
-		const result = await pool.request().query(cleanedQuery);
-
-		const duration = performance.now() - start;
-
-		if (result.recordset) {
-			const rows = result.recordset as Record<string, unknown>[];
-
-			const columns = result.recordset.columns
-				? Object.keys(result.recordset.columns)
-				: Object.keys(rows[0] ?? {});
-
-			return {
-				columns,
-				rows,
-				rowCount: rows.length,
-				duration,
-				message: rows.length === 0 ? "OK" : undefined,
-			};
-		}
+		const rows = result.recordset as Record<string, unknown>[];
 
 		return {
-			columns: [],
-			rows: [],
-			rowCount: result.rowsAffected[0] ?? 0,
-			duration,
-			message: `OK — ${result.rowsAffected[0] ?? 0} row(s) affected`,
+			columns: result.recordset.columns
+				? Object.keys(result.recordset.columns)
+				: Object.keys(rows[0] ?? {}),
+			rows,
 		};
 	}
 
@@ -961,11 +937,8 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	 * The row count SQL Server keeps for each dbo table (or only `tableName`), in name order. It
 	 * is maintained with every write but documented as approximate.
 	 */
-	private async rowEstimates(
-		pool: MssqlPool,
-		tableName?: string,
-	): Promise<Map<string, number>> {
-		const request = pool.request();
+	private async rowEstimates(conn: MssqlConn, tableName?: string): Promise<TableEstimate[]> {
+		const request = conn.request();
 
 		if (tableName !== undefined) request.input("tableName", tableName);
 
@@ -979,7 +952,10 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			ORDER BY t.name
 		`);
 
-		return new Map(result.recordset.map((row) => [row.tableName, Number(row.estimate)]));
+		return result.recordset.map((row) => ({
+			tableName: row.tableName,
+			estimate: Number(row.estimate),
+		}));
 	}
 
 	/**
@@ -994,7 +970,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		filterValues: unknown[],
 	): Promise<{ total: number; estimated: boolean }> {
 		if (!filterWhere) {
-			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
+			const estimate = (await this.rowEstimates(pool, tableName))[0]?.estimate ?? 0;
 
 			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
 		}
@@ -1009,23 +985,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		);
 
 		return { total: Number(result.recordset[0]?.total ?? 0), estimated: false };
-	}
-
-	private async getTableRowCount(tableName: string, db: string): Promise<number> {
-		const pool = await connector("mssql").pool(db);
-
-		try {
-			const result = await pool
-				.request()
-				.query(`SELECT COUNT(*) as count FROM ${quoteMssqlIdent(tableName)}`);
-
-			return Number(result.recordset[0]?.count ?? 0);
-		} catch (e) {
-			// A login may drop a table it cannot read.
-			if (!isSelectDenied(e)) throw e;
-
-			return (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
-		}
 	}
 
 	protected async primaryKey(conn: MssqlConn, tableName: string): Promise<string[]> {

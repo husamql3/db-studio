@@ -13,14 +13,12 @@ import type {
 	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	DeleteTableResult,
-	ExecuteQueryResult,
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
-	TableInfoSchemaType,
 } from "@db-studio/shared/types";
 import { mapPostgresToDataType, standardizeDataTypeLabel } from "@db-studio/shared/types";
 import type { DatabaseError, Pool as PgPool, PoolClient } from "pg";
@@ -28,6 +26,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
+	probeOnce,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
 import { decodeCursor } from "@/adapters/cursor.js";
@@ -40,7 +39,11 @@ import {
 	keysetPredicate,
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
-import { type ReferencingKey, SqlAdapter } from "@/adapters/sql.adapter.js";
+import {
+	type ReferencingKey,
+	SqlAdapter,
+	type TableEstimate,
+} from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
@@ -94,8 +97,14 @@ const STATUS_BY_SQLSTATE_CLASS: Record<string, number> = {
 const LOG_TAIL_BYTES = 1024 * 1024;
 
 export class PgAdapter extends SqlAdapter<PgQueryable> {
-	// Keyed by pool: tabs can work with a PostgreSQL and a CockroachDB server at once.
-	private databaseSizeSupport = new WeakMap<PgPool, Promise<boolean>>();
+	/** CockroachDB speaks the PostgreSQL protocol but has no pg_database_size(). */
+	private supportsDatabaseSize = probeOnce(async (pool: PgPool) => {
+		const { rows } = await pool.query(
+			`SELECT to_regprocedure('pg_database_size(name)') IS NOT NULL AS "supported"`,
+		);
+
+		return rows[0]?.supported === true;
+	});
 
 	protected readonly quoteIdentifier = quotePgIdent;
 	protected readonly engine = "pg";
@@ -332,70 +341,22 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 	// --- Tables ---
 
-	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await connector("pg").pool(db);
-
-		// reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
-		// before PostgreSQL 14) for a table never analyzed.
-		const { rows: tables } = await pool.query<{
-			schemaName: string;
-			tableName: string;
-			estimate: number;
-		}>(`
-			SELECT t.table_schema as "schemaName", t.table_name as "tableName", c.reltuples as "estimate"
+	/**
+	 * reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
+	 * before PostgreSQL 14) for a table never analyzed.
+	 */
+	protected tableEstimates(conn: PgQueryable) {
+		return this.rows<TableEstimate>(
+			conn,
+			`SELECT t.table_schema as "schemaName", t.table_name as "tableName", c.reltuples as "estimate"
 			FROM information_schema.tables t
 			JOIN pg_catalog.pg_namespace n ON n.nspname = t.table_schema
 			JOIN pg_catalog.pg_class c ON c.relnamespace = n.oid AND c.relname = t.table_name
 			WHERE t.table_type = 'BASE TABLE'
 				AND t.table_schema NOT IN ('pg_catalog', 'information_schema')
 				AND t.table_schema NOT LIKE 'pg_toast%'
-			ORDER BY t.table_schema, t.table_name;
-		`);
-
-		if (!tables[0]) return [];
-
-		// Counting a table reads all of it, so counting every table on each listing scanned the
-		// whole database. Only tables estimated below EXACT_COUNT_LIMIT rows are counted; larger
-		// ones report their estimate.
-		const counted = tables.flatMap((t, index) =>
-			t.estimate < EXACT_COUNT_LIMIT ? [{ ...t, index }] : [],
+			ORDER BY t.table_schema, t.table_name`,
 		);
-
-		// A query per table queues behind the pool's 10 connections, and with enough
-		// tables the ones at the back wait past connectionTimeoutMillis and fail the
-		// whole list. Count in a few statements instead, fewer than the pool holds.
-		const COUNT_STATEMENTS = 4;
-		const countSelects: string[][] = Array.from({ length: COUNT_STATEMENTS }, () => []);
-		counted.forEach((t, position) => {
-			countSelects[position % COUNT_STATEMENTS]?.push(
-				`SELECT ${t.index} AS index, COUNT(*) AS count FROM ${quotePgIdent(t.schemaName)}.${quotePgIdent(t.tableName)}`,
-			);
-		});
-
-		const countResults = await Promise.all(
-			countSelects.flatMap((selects) =>
-				selects.length > 0
-					? [pool.query<{ index: number; count: string }>(selects.join(" UNION ALL "))]
-					: [],
-			),
-		);
-
-		const countByIndex = new Map(
-			countResults.flatMap(({ rows }) =>
-				rows.map((row) => [row.index, Number(row.count)] as const),
-			),
-		);
-
-		return tables.map((t, index) => {
-			const count = countByIndex.get(index);
-
-			return {
-				schemaName: t.schemaName,
-				tableName: t.tableName,
-				rowCount: count ?? Math.round(t.estimate),
-				...(count === undefined && { rowCountEstimated: true }),
-			};
-		});
 	}
 
 	async createTable({
@@ -450,7 +411,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 		await this.requireTable(pool, tableName, schemaName);
 
-		const rowCount = await this.getTableRowCount(pool, table);
+		const rowCount = await this.rowCount(pool, tableName, schemaName);
 
 		// A table's references to itself go with it.
 		const referencing = (await this.referencingKeys(pool, tableName, schemaName)).filter(
@@ -1006,51 +967,18 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 	// --- Query ---
 
-	async executeQuery({
-		query,
-		db,
-	}: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		const pool = await connector("pg").pool(db);
+	protected async runStatement(conn: PgQueryable, statement: string) {
+		const result = await conn.query(statement);
 
-		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
-		const cleaned = query.trim().replace(/;+$/, "");
-		const start = performance.now();
-		const result = await pool.query(cleaned);
-		const duration = performance.now() - start;
-
-		return {
-			columns: result.fields.map((f) => f.name),
-			rows: result.rows,
-			rowCount: result.rows.length,
-			duration,
-			message: result.rows.length === 0 ? "OK" : undefined,
-		};
+		// A statement that returns rows reports its columns even when no row matches.
+		return result.fields.length
+			? { columns: result.fields.map((f) => f.name), rows: result.rows }
+			: { affected: result.rowCount ?? undefined };
 	}
 
 	// =========================================================
 	// Private helpers
 	// =========================================================
-
-	/** CockroachDB speaks the PostgreSQL protocol but has no pg_database_size(). */
-	private supportsDatabaseSize(pool: PgPool): Promise<boolean> {
-		let supported = this.databaseSizeSupport.get(pool);
-
-		if (!supported) {
-			supported = pool
-				.query(`SELECT to_regprocedure('pg_database_size(name)') IS NOT NULL AS "supported"`)
-				.then(({ rows }) => rows[0]?.supported === true)
-				.catch((e) => {
-					this.databaseSizeSupport.delete(pool);
-					throw e;
-				});
-			this.databaseSizeSupport.set(pool, supported);
-		}
-
-		return supported;
-	}
 
 	/** A table with no columns still has a row here, with a NULL column. */
 	protected async columnNames(conn: PgQueryable, tableName: string, schemaName?: string) {
@@ -1172,11 +1100,5 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			 ORDER BY n.nspname, t.relname, c.conname`,
 			[qualifiedTable(tableName, schemaName)],
 		);
-	}
-
-	private async getTableRowCount(pool: PgPool, table: string): Promise<number> {
-		const { rows } = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
-
-		return Number.parseInt(rows[0]?.count ?? "0", 10);
 	}
 }

@@ -69,6 +69,29 @@ const isSocketError = (e: Error): boolean => {
 	);
 };
 
+/**
+ * `probe` answered once per client, such as a server's version or a feature it lacks. Keyed
+ * by client because tabs can work with two servers at once; a failed probe is forgotten, so
+ * the next call asks again.
+ */
+export const probeOnce = <K extends object, V>(probe: (client: K) => Promise<V>) => {
+	const answers = new WeakMap<K, Promise<V>>();
+
+	return (client: K): Promise<V> => {
+		let answer = answers.get(client);
+
+		if (!answer) {
+			answer = probe(client).catch((e: unknown) => {
+				answers.delete(client);
+				throw e;
+			});
+			answers.set(client, answer);
+		}
+
+		return answer;
+	};
+};
+
 export function notImplemented(method: string): never {
 	throw new HTTPException(501, {
 		message: `${method} is not implemented for this database type`,

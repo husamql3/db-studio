@@ -1,5 +1,5 @@
-import { statSync } from "node:fs";
 import type { Client, Value } from "@libsql/client";
+import { fileSize } from "@/file-size.js";
 
 /** Exactly what the adapter's toSqliteValue produces. */
 export type SqlParam = null | string | number | bigint;
@@ -35,24 +35,6 @@ export interface SqliteClient {
 	close(): void;
 }
 
-export const formatFileSize = (bytes: number): string => {
-	if (bytes < 1024) return `${bytes} B`;
-
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-const getFileSize = (filePath: string): string => {
-	if (!filePath) return "in-memory";
-
-	try {
-		return formatFileSize(statSync(filePath).size);
-	} catch {
-		return "N/A";
-	}
-};
-
 export const fromLibsql = (client: Client): SqliteClient => ({
 	execute: (stmt) => client.execute(stmt),
 	batch: (stmts, mode) => client.batch(stmts, mode),
@@ -75,7 +57,7 @@ export const fromLibsql = (client: Client): SqliteClient => ({
 			name: "main",
 			// A remote server reports its own filesystem path; there is nothing local to stat.
 			size:
-				client.protocol === "file" ? getFileSize(typeof file === "string" ? file : "") : "N/A",
+				client.protocol === "file" ? fileSize(typeof file === "string" ? file : "") : "N/A",
 			version: `SQLite ${version.rows[0]?.[0]}`,
 		};
 	},
