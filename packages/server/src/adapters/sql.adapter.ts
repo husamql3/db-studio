@@ -223,6 +223,44 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		});
 	}
 
+	/** The row estimate the engine keeps for one table, where it keeps one. */
+	protected async tableEstimate(
+		_conn: Conn,
+		_db: string,
+		_tableName: string,
+	): Promise<number | undefined> {
+		return undefined;
+	}
+
+	/**
+	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
+	 * reports that estimate, because an exact count reads the whole table and the total is
+	 * fetched with every page.
+	 */
+	protected async pageTotal(
+		conn: Conn,
+		db: string,
+		tableName: string,
+		schemaName: string | undefined,
+		filterWhere: string,
+		filterValues: unknown[],
+	): Promise<{ total: number; estimated: boolean }> {
+		if (!filterWhere) {
+			const estimate = await this.tableEstimate(conn, db, tableName);
+
+			if (estimate !== undefined && estimate >= EXACT_COUNT_LIMIT)
+				return { total: estimate, estimated: true };
+		}
+
+		const [row] = await this.rows<{ total: unknown }>(
+			conn,
+			`SELECT COUNT(*) AS ${this.quoteIdentifier("total")} FROM ${this.tableRef(tableName, schemaName)} ${filterWhere}`,
+			filterValues,
+		);
+
+		return { total: Number(row?.total ?? 0), estimated: false };
+	}
+
 	/** The rows a table drop deletes, counted before it. */
 	protected async rowCount(conn: Conn, tableName: string, schemaName?: string) {
 		const [row] = await this.rows<{ total: unknown }>(

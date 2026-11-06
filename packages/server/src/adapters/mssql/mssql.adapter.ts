@@ -22,9 +22,9 @@ import type {
 	TableDataResultSchemaType,
 } from "@db-studio/shared/types";
 import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
-import type { ConnectionPool as MssqlPool, Request } from "mssql";
+import type { Request } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { type DriverErrorClass, EXACT_COUNT_LIMIT } from "@/adapters/base.adapter.js";
+import type { DriverErrorClass } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
@@ -196,7 +196,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.primaryKey(pool, tableName),
-			this.countRows(pool, tableName, filterWhere, [...values]),
+			this.pageTotal(pool, db, tableName, undefined, filterWhere, [...values]),
 		]);
 
 		const sql = `SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${buildOrderByClause(sort, order, pkColumns)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`;
@@ -908,33 +908,8 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		}));
 	}
 
-	/**
-	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
-	 * reports that estimate, because an exact count reads the whole table and the total is
-	 * fetched with every page.
-	 */
-	private async countRows(
-		pool: MssqlPool,
-		tableName: string,
-		filterWhere: string,
-		filterValues: unknown[],
-	): Promise<{ total: number; estimated: boolean }> {
-		if (!filterWhere) {
-			const estimate = (await this.rowEstimates(pool, tableName))[0]?.estimate ?? 0;
-
-			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
-		}
-
-		const request = pool.request();
-		filterValues.forEach((val, idx) => {
-			request.input(`p${idx}`, val);
-		});
-
-		const result = await request.query(
-			`SELECT COUNT(*) as total FROM ${quoteMssqlIdent(tableName)} ${filterWhere}`,
-		);
-
-		return { total: Number(result.recordset[0]?.total ?? 0), estimated: false };
+	protected override async tableEstimate(conn: MssqlConn, _db: string, tableName: string) {
+		return (await this.rowEstimates(conn, tableName))[0]?.estimate;
 	}
 
 	protected async primaryKey(conn: MssqlConn, tableName: string): Promise<string[]> {

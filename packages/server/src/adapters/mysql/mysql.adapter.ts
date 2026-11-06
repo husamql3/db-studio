@@ -25,7 +25,6 @@ import type { Connection, Pool as MysqlPool } from "mysql2/promise";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	type DriverErrorClass,
-	EXACT_COUNT_LIMIT,
 	probeOnce,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
@@ -191,7 +190,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.primaryKey(pool, tableName),
-			this.countRows(pool, tableName, whereSql(filterConditions), [...values]),
+			this.pageTotal(pool, db, tableName, undefined, whereSql(filterConditions), [...values]),
 		]);
 
 		const terms = orderTerms(sort, order, pkColumns);
@@ -749,32 +748,9 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		}
 	}
 
-	/**
-	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
-	 * reports that estimate, because an exact count reads the whole table and the total is
-	 * fetched with every page.
-	 */
-	private async countRows(
-		pool: MysqlPool,
-		tableName: string,
-		filterWhere: string,
-		filterValues: unknown[],
-	): Promise<{ total: number; estimated: boolean }> {
-		if (!filterWhere) {
-			const estimate = (await this.rowEstimates(pool, tableName))[0]?.estimate ?? 0;
-
-			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
-		}
-
-		const [rows] = await pool.execute<RowDataPacket[]>(
-			`SELECT COUNT(*) as total FROM ${quoteMysqlIdent(tableName)} ${filterWhere}`,
-			filterValues as any,
-		);
-
-		return {
-			total: Number((rows as Array<{ total: number }>)[0]?.total ?? 0),
-			estimated: false,
-		};
+	protected override async tableEstimate(_conn: Connection, db: string, tableName: string) {
+		return (await this.rowEstimates(await connector("mysql").pool(db), tableName))[0]
+			?.estimate;
 	}
 
 	protected async primaryKey(pool: Connection, tableName: string): Promise<string[]> {

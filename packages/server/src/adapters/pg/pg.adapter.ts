@@ -191,7 +191,14 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		// on the page, so it is counted at the same time instead of after.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.primaryKey(pool, tableName, schemaName),
-			this.countRows(pool, table, whereSql(filterConditions), filterValues),
+			this.pageTotal(
+				pool,
+				db,
+				tableName,
+				schemaName,
+				whereSql(filterConditions),
+				filterValues,
+			),
 		]);
 
 		const terms = orderTerms(sort, order, pkColumns.length ? pkColumns : ["ctid"]);
@@ -230,28 +237,22 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		};
 	}
 
-	/**
-	 * Rows matching the filters. Unfiltered, a table the planner estimates at EXACT_COUNT_LIMIT
-	 * rows or more reports that estimate, because an exact count reads the whole table and the
-	 * total is fetched with every page.
-	 */
-	private async countRows(
-		pool: PgPool,
-		table: string,
+	/** Unfiltered, the planner's estimate and the count are one query. */
+	protected override async pageTotal(
+		conn: PgQueryable,
+		db: string,
+		tableName: string,
+		schemaName: string | undefined,
 		filterWhere: string,
 		filterValues: unknown[],
-	): Promise<{ total: number; estimated: boolean }> {
-		if (filterWhere) {
-			const { rows } = await pool.query(
-				`SELECT COUNT(*) as total FROM ${table} ${filterWhere}`,
-				filterValues,
-			);
+	) {
+		if (filterWhere)
+			return super.pageTotal(conn, db, tableName, schemaName, filterWhere, filterValues);
 
-			return { total: Number(rows[0].total), estimated: false };
-		}
+		const table = qualifiedTable(tableName, schemaName);
 
 		// The COUNT(*) subquery only runs when the CASE reaches it.
-		const { rows } = await pool.query(
+		const { rows } = await conn.query(
 			`SELECT CASE WHEN reltuples >= $1 THEN reltuples::bigint
 					ELSE (SELECT COUNT(*) FROM ${table}) END as total,
 				reltuples >= $1 as estimated
