@@ -1,57 +1,38 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createServer } from "@/app.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { openSqliteApp } from "../sqlite-app.js";
 
-const mockDao = vi.hoisted(() => ({
-	executeQuery: vi.fn(),
-}));
+describe("POST /:dbType/query", () => {
+	let sqlite: Awaited<ReturnType<typeof openSqliteApp>>;
 
-vi.mock("@/adapters/adapter.registry.js", () => ({
-	ADAPTERS: { pg: mockDao, mysql: mockDao, mssql: mockDao, mongodb: mockDao },
-	isDatabaseType: (type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type),
-}));
-
-vi.mock("@/open-connections.js", () => ({
-	requestConnection: vi.fn(() => ({
-		dbType: "pg",
-		parsed: { host: "localhost", port: 5432 },
-	})),
-	getOpenConnection: vi.fn(),
-	latestConnectionId: vi.fn(() => null),
-}));
-
-describe("Query Routes", () => {
-	let app: ReturnType<typeof createServer>["app"];
-
-	beforeEach(() => {
-		vi.clearAllMocks();
-		app = createServer().app;
+	beforeAll(async () => {
+		sqlite = await openSqliteApp();
 	});
 
-	describe("POST /pg/query", () => {
-		it("should return 400 when database query param is missing", async () => {
-			const res = await app.handle(
-				new Request(new URL("/api/pg/query", "http://localhost"), {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ query: "SELECT * FROM users" }),
-				}),
-			);
+	afterAll(() => sqlite.close());
 
-			expect(res.status).toBe(400);
-			expect(mockDao.executeQuery).not.toHaveBeenCalled();
+	it("refuses a query without the database query param, and does not run it", async () => {
+		const res = await sqlite.request("/sqlite/query", {
+			method: "POST",
+			body: { query: "DELETE FROM users" },
 		});
 
-		it("should return 400 when query is missing from body", async () => {
-			const res = await app.handle(
-				new Request(new URL("/api/pg/query?db=testdb", "http://localhost"), {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({}),
-				}),
-			);
+		expect(res.status).toBe(400);
+		expect(await sqlite.users()).toHaveLength(2);
+	});
 
-			expect(res.status).toBe(400);
-			expect(mockDao.executeQuery).not.toHaveBeenCalled();
+	it("refuses a body without a query", async () => {
+		const res = await sqlite.request("/sqlite/query?db=main", { method: "POST", body: {} });
+
+		expect(res.status).toBe(400);
+	});
+
+	it("runs a query with both", async () => {
+		const res = await sqlite.request("/sqlite/query?db=main", {
+			method: "POST",
+			body: { query: "SELECT name FROM users ORDER BY id" },
 		});
+
+		expect(res.status).toBe(200);
+		expect((await res.json()).data.rows).toEqual([{ name: "Linus" }, { name: "Ada" }]);
 	});
 });

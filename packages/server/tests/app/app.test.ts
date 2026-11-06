@@ -1,63 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-
-const mockDao = vi.hoisted(() => ({
-	getDatabasesList: vi.fn().mockResolvedValue([]),
-	getCurrentDatabase: vi.fn().mockResolvedValue({ db: "test" }),
-	getDatabaseConnectionInfo: vi.fn().mockResolvedValue({
-		version: "PostgreSQL 15.2",
-		database: "test",
-		user: "postgres",
-		host: "localhost",
-		port: 5432,
-		active_connections: 1,
-		max_connections: 100,
-	}),
-	getTablesList: vi.fn(),
-	createTable: vi.fn(),
-	deleteTable: vi.fn(),
-	getTableSchema: vi.fn(),
-	getTableColumns: vi.fn(),
-	addColumn: vi.fn(),
-	deleteColumn: vi.fn(),
-	alterColumn: vi.fn(),
-	renameColumn: vi.fn(),
-	getTableData: vi.fn(),
-	addRecord: vi.fn(),
-	updateRecords: vi.fn(),
-	deleteRecords: vi.fn(),
-	forceDeleteRecords: vi.fn(),
-	bulkInsertRecords: vi.fn(),
-	exportTableData: vi.fn(),
-	executeQuery: vi.fn(),
-}));
-
-vi.mock("@/adapters/adapter.registry.js", () => ({
-	ADAPTERS: { pg: mockDao, mysql: mockDao, mssql: mockDao, mongodb: mockDao },
-	isDatabaseType: (type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type),
-}));
-
-vi.mock("@/open-connections.js", () => ({
-	requestConnection: vi.fn(() => ({
-		dbType: "pg",
-		parsed: { host: "localhost", port: 5432 },
-	})),
-	getOpenConnection: vi.fn(),
-	latestConnectionId: vi.fn(() => null),
-}));
-
-import { createServer } from "@/app.js";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { openSqliteApp } from "../sqlite-app.js";
 
 describe("createServer", () => {
-	let server: ReturnType<typeof createServer>;
+	let server: Awaited<ReturnType<typeof openSqliteApp>>;
 
-	beforeEach(() => {
-		vi.clearAllMocks();
-		server = createServer();
+	beforeAll(async () => {
+		server = await openSqliteApp();
 	});
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
+	afterAll(() => server.close());
 
 	describe("Database type validation middleware", () => {
 		it("should reject an unsupported database type with a 400 error payload", async () => {
@@ -346,13 +297,12 @@ describe("createServer", () => {
 			"should refuse an API GET a page on another site sends (%s)",
 			async (site) => {
 				expect(
-					await statusFor("/api/pg/tables/users/data?db=x", {
+					await statusFor("/api/sqlite/tables/users/data?db=main", {
 						"sec-fetch-site": site,
 						origin: "https://evil.example",
 					}),
 				).toBe(403);
 				expect(await statusFor("/api/databases", { "sec-fetch-site": site })).toBe(403);
-				expect(mockDao.getTableData).not.toHaveBeenCalled();
 			},
 		);
 

@@ -74,10 +74,12 @@ describe("sqlite filters", () => {
 		expect(
 			await matching([{ columnName: "deleted_at", operator: "is not", value: "null" }]),
 		).toEqual([2, 4]);
-		expect(await matching([{ columnName: "name", operator: "is", value: "bob" }])).toEqual([2]);
-		expect(await matching([{ columnName: "name", operator: "is not", value: "bob" }])).toEqual([
-			1, 3, 4,
+		expect(await matching([{ columnName: "name", operator: "is", value: "bob" }])).toEqual([
+			2,
 		]);
+		expect(await matching([{ columnName: "name", operator: "is not", value: "bob" }])).toEqual(
+			[1, 3, 4],
+		);
 	});
 
 	// SQLite's LIKE already ignores ASCII case, so LIKE and ILIKE match the same rows.
@@ -97,7 +99,9 @@ describe("sqlite filters", () => {
 	});
 
 	it("matches LIKE against a number column as text", async () => {
-		expect(await matching([{ columnName: "age", operator: "like", value: "4%" }])).toEqual([3]);
+		expect(await matching([{ columnName: "age", operator: "like", value: "4%" }])).toEqual([
+			3,
+		]);
 	});
 
 	it("binds a value holding a quote", async () => {
