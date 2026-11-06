@@ -10,6 +10,7 @@ import {
 } from "@db-studio/ui/dialog";
 import { Label } from "@db-studio/ui/label";
 import { useState } from "react";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDeleteColumn } from "../hooks/use-delete-column";
 
 export const DropColumnDialog = ({
@@ -27,6 +28,7 @@ export const DropColumnDialog = ({
 }) => {
 	const { deleteColumn, isDeletingColumn } = useDeleteColumn();
 	const [cascade, setCascade] = useState(false);
+	const cascadeOffered = useDatabaseEngine()?.dropColumnCascade;
 
 	const handleOpenChange = (next: boolean) => {
 		if (!next) setCascade(false);
@@ -53,24 +55,26 @@ export const DropColumnDialog = ({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="flex gap-3 rounded-lg border border-border p-3">
-					<Checkbox
-						id={`drop-column-cascade-${columnName}`}
-						checked={cascade}
-						onCheckedChange={(checked) => setCascade(checked === true)}
-					/>
-					<div className="space-y-1">
-						<Label
-							htmlFor={`drop-column-cascade-${columnName}`}
-							className="cursor-pointer"
-						>
-							Drop with CASCADE
-						</Label>
-						<p className="text-xs text-muted-foreground">
-							Also remove dependent indexes, constraints, and foreign key references.
-						</p>
+				{cascadeOffered && (
+					<div className="flex gap-3 rounded-lg border border-border p-3">
+						<Checkbox
+							id={`drop-column-cascade-${columnName}`}
+							checked={cascade}
+							onCheckedChange={(checked) => setCascade(checked === true)}
+						/>
+						<div className="space-y-1">
+							<Label
+								htmlFor={`drop-column-cascade-${columnName}`}
+								className="cursor-pointer"
+							>
+								Drop with CASCADE
+							</Label>
+							<p className="text-xs text-muted-foreground">
+								Also remove dependent indexes, constraints, and foreign key references.
+							</p>
+						</div>
 					</div>
-				</div>
+				)}
 
 				<DialogFooter className="gap-2">
 					<Button

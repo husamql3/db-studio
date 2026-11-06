@@ -14,6 +14,8 @@ interface DatabaseEngineBase {
 	cellDefault: boolean;
 	/** Tables and columns can be created, renamed, altered and dropped; `false` refuses with 400. */
 	schemaMutation: boolean;
+	/** Dropping a column can CASCADE to the indexes, constraints and views that depend on it. */
+	dropColumnCascade: boolean;
 	/** A connection can be opened in a read-only session the database itself enforces. */
 	readOnly: boolean;
 	/** How "Copy as SQL INSERT" writes literals; `null` hides it. */
@@ -82,6 +84,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: true,
 		cellDefault: true,
 		schemaMutation: true,
+		dropColumnCascade: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -110,6 +113,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: true,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",
@@ -130,6 +134,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: true,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: false,
 		sqlInsert: {
 			quote: "[",
@@ -153,6 +158,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: false,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -168,6 +174,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: false,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -188,6 +195,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: false,
 		schemaMutation: false,
+		dropColumnCascade: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -203,6 +211,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: true,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -227,6 +236,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: true,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -250,6 +260,7 @@ export const DATABASE_ENGINES = {
 		schemaSelector: false,
 		cellDefault: false,
 		schemaMutation: true,
+		dropColumnCascade: false,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",

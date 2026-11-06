@@ -149,7 +149,7 @@ Three export paths:
 ### Key types
 
 - `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]` in `database.types.ts`
-- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, URL protocols with each one's default port, file or hosted trait and alias driver scheme, data model, editor language, Live mode, schema selector, Indexes and Logs tabs); web reads it via `useDatabaseEngine()`
+- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, URL protocols with each one's default port, file or hosted trait and alias driver scheme, data model, editor language, Live mode, schema selector, drop-column CASCADE, Indexes and Logs tabs); web reads it via `useDatabaseEngine()`
 - `CellVariant` / `DataTypes` — used for table cell rendering
 
 ## Tooling
@@ -428,7 +428,7 @@ export class PgAdapter extends BaseAdapter {
 3. Add `src/connectors/<dbname>.ts` (its clients, `ping()` and `close()`) and add it to `CONNECTORS` in `src/connectors/index.ts`; the adapter reads it with `connector("<dbname>")`.
 4. Add the adapter to `ADAPTERS` in `src/adapters/adapter.registry.ts`: `<dbname>: new MyAdapter()`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
-6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols (each with its default port, or `file` / `hosted`), data model, editor language, Live mode support, schema selector, read-only sessions (`readOnly`), table and column changes (`schemaMutation`), Indexes tab support (`indexes`) and Logs tab support (`serverLogs`); an engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols (each with its default port, or `file` / `hosted`), data model, editor language, Live mode support, schema selector, read-only sessions (`readOnly`), table and column changes (`schemaMutation`), the drop-column CASCADE option (`dropColumnCascade`), Indexes tab support (`indexes`) and Logs tab support (`serverLogs`); an engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 
