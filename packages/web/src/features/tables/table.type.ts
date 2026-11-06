@@ -32,7 +32,6 @@ export type NavigationDirection =
 	| "pagedown";
 
 declare module "@tanstack/react-table" {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface ColumnMeta<TData extends RowData, TValue> {
 		variant?: CellVariant; // Generic type for cell rendering (text/boolean/number/enum/json/date)
 		dataTypeLabel?: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
@@ -46,7 +45,6 @@ declare module "@tanstack/react-table" {
 		hasDefault?: boolean;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface TableMeta<TData extends RowData> {
 		editScope?: EditScope;
 		canMutateRows?: boolean;

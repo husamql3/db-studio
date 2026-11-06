@@ -220,10 +220,10 @@ export * from "./database.types.js";
 export * from "./column-info.types.js";
 ```
 
-**TanStack Table module augmentation** (in `packages/web`):
+**TanStack Table module augmentation** (in `packages/web`; a merged declaration must repeat the library's type parameter names, so keep `TData`/`TValue`):
 ```ts
 declare module "@tanstack/react-table" {
-  interface ColumnMeta<_TData extends RowData, _TValue> {
+  interface ColumnMeta<TData extends RowData, TValue> {
     variant?: CellVariant;
     isPrimaryKey?: boolean;
     // ...
