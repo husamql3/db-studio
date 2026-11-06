@@ -13,7 +13,7 @@ export const EDITOR_FONT_SIZES = [12, 14, 16, 18] as const;
 export type EditorFontSize = (typeof EDITOR_FONT_SIZES)[number];
 
 /** `peek` overlays the content and hides again when the pointer leaves it. */
-export type SidebarMode = "hidden" | "peek" | "pinned";
+type SidebarMode = "hidden" | "peek" | "pinned";
 
 type PersonalPreferencesState = {
 	sidebar: {
