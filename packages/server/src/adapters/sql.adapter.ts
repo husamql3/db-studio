@@ -14,16 +14,35 @@ import {
 	type ExecuteQueryResult,
 	type IndexInfoSchemaType,
 	type RelatedRecord,
+	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
 	type UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
+import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
 	BaseAdapter,
 	type DriverErrorClass,
 	EXACT_COUNT_LIMIT,
+	type NormalizedRow,
 	notImplemented,
 } from "@/adapters/base.adapter.js";
-import { createBinds } from "@/adapters/sql-filters.js";
+import { decodeCursor } from "@/adapters/cursor.js";
+import {
+	buildFilterConditions,
+	createBinds,
+	type FilterDialect,
+	whereSql,
+} from "@/adapters/sql-filters.js";
+import {
+	type KeysetDialect,
+	keysetOrderBy,
+	keysetPage,
+	keysetPredicate,
+	offsetOf,
+	offsetPage,
+	orderTerms,
+	sqlCursorSchema,
+} from "@/adapters/sql-pagination.js";
 import { HTTPException } from "@/http-exception.js";
 
 type Bind = (value: unknown) => string;
@@ -293,6 +312,119 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		);
 
 		return { total: Number(row?.total ?? 0), estimated: false };
+	}
+
+	/**
+	 * What gives every row one place after the requested sorts: the primary key, or `rowId`, a
+	 * row id SELECT * leaves out. With neither, pages go by OFFSET.
+	 */
+	protected async pageKey(
+		conn: Conn,
+		tableName: string,
+		schemaName: string | undefined,
+		_sorted: boolean,
+	): Promise<{ keys: string[]; rowId?: string }> {
+		return { keys: await this.primaryKey(conn, tableName, schemaName) };
+	}
+
+	/** What a page selects: every column, and the row id it is ordered by. */
+	protected pageColumns(_keys: string[], rowId: string | undefined): string {
+		return rowId ? `*, ${rowId}` : "*";
+	}
+
+	/**
+	 * A page after the cursor row, in the order of the sorts and then the key. Without a key or
+	 * row id, ties in the sorts would repeat or skip rows at a page boundary, so such a table
+	 * pages by OFFSET.
+	 */
+	protected keysetTableData(
+		params: GetTableDataParams,
+		dialects: { filters: FilterDialect; keyset: KeysetDialect },
+	): Promise<TableDataResultSchemaType> {
+		const {
+			tableName,
+			schemaName,
+			db,
+			limit = 50,
+			direction = "asc",
+			sort = [],
+			order = "asc",
+			cursor,
+			filters = [],
+		} = params;
+
+		return this.connect(db, async (conn) => {
+			const { values, bind } = createBinds(this.placeholder);
+			const filterConditions = buildFilterConditions(filters, bind, dialects.filters);
+
+			// Counted while the key is read. The key's failure wins, so a missing table answers
+			// the adapter's 404; the count's own failure is held until its await below.
+			const counting = this.pageTotal(
+				conn,
+				db,
+				tableName,
+				schemaName,
+				whereSql(filterConditions),
+				[...values],
+			);
+
+			counting.catch(() => {});
+			const { keys, rowId } = await this.pageKey(conn, tableName, schemaName, sort.length > 0);
+			const { total, estimated } = await counting;
+			const terms = orderTerms(sort, order, rowId ? [rowId] : keys);
+			const select = `SELECT ${this.pageColumns(keys, rowId)} FROM ${this.tableRef(tableName, schemaName)}`;
+			// Inlined: MySQL refuses a bound LIMIT in a prepared statement.
+			const take = `LIMIT ${Math.floor(limit) + 1}`;
+			const backward = direction === "desc";
+
+			const { rows, ...page } = await (async () => {
+				if (!keys.length && !rowId) {
+					const offset = offsetOf(cursor);
+
+					const fetched = await this.rows<NormalizedRow>(
+						conn,
+						`${select} ${whereSql(filterConditions)} ${keysetOrderBy(terms, false, dialects.keyset)} ${take} OFFSET ${offset}`,
+						values,
+					);
+
+					return offsetPage(fetched, offset, limit);
+				}
+
+				const cursorValues = cursor
+					? decodeCursor(cursor, sqlCursorSchema)?.values
+					: undefined;
+
+				const where = whereSql(
+					cursorValues
+						? [
+								...filterConditions,
+								keysetPredicate(terms, cursorValues, backward, bind, dialects.keyset),
+							]
+						: filterConditions,
+				);
+
+				const fetched = await this.rows<NormalizedRow>(
+					conn,
+					`${select} ${where} ${keysetOrderBy(terms, backward, dialects.keyset)} ${take}`,
+					values,
+				);
+
+				return keysetPage(fetched, { limit, cursor, backward, terms });
+			})();
+
+			return {
+				data: rows
+					.map((row) => {
+						if (!rowId) return row;
+						const { [rowId]: _rowId, ...rest } = row;
+
+						return rest;
+					})
+					// A PostgreSQL table can have no columns; its rows have nothing to show.
+					.filter((row) => Object.keys(row).length > 0),
+				meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
+			};
+		});
 	}
 
 	/** The rows a table drop deletes, counted before it. */

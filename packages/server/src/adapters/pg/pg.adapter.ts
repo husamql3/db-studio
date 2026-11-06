@@ -28,16 +28,7 @@ import {
 	probeOnce,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
-import { decodeCursor } from "@/adapters/cursor.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
-import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
-import {
-	sqlCursorSchema,
-	keysetOrderBy,
-	keysetPage,
-	keysetPredicate,
-	orderTerms,
-} from "@/adapters/sql-pagination.js";
 import {
 	type ReferencingKey,
 	SqlAdapter,
@@ -177,73 +168,23 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return status ? { status } : undefined;
 	}
 
-	override async getTableData(params: GetTableDataParams) {
-		const {
-			tableName,
-			schemaName,
-			db,
-			limit = 50,
-			direction = "asc",
-			sort = [],
-			order = "asc",
-			cursor,
-			filters = [],
-		} = params;
+	override getTableData(params: GetTableDataParams) {
+		return this.keysetTableData(params, { filters: pgFilters, keyset: pgKeyset });
+	}
 
-		const pool = await connector("pg").pool(db);
-		const table = qualifiedTable(tableName, schemaName);
-		const { values, bind } = createBinds(pgPlaceholder);
-		const filterConditions = buildFilterConditions(filters, bind, pgFilters);
-		const filterValues = [...values];
+	protected override async pageKey(conn: PgQueryable, tableName: string, schemaName?: string) {
+		const keys = await this.primaryKey(conn, tableName, schemaName);
 
-		// Primary key columns keep cursor pagination stable. The total does not depend on them or
-		// on the page, so it is counted at the same time instead of after.
-		const [pkColumns, { total, estimated }] = await Promise.all([
-			this.primaryKey(pool, tableName, schemaName),
-			this.pageTotal(
-				pool,
-				db,
-				tableName,
-				schemaName,
-				whereSql(filterConditions),
-				filterValues,
-			),
-		]);
+		return keys.length ? { keys } : { keys, rowId: "ctid" };
+	}
 
-		const terms = orderTerms(sort, order, pkColumns.length ? pkColumns : ["ctid"]);
-		const backward = direction === "desc";
-		const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
-
-		const where = whereSql(
-			cursorValues
-				? [...filterConditions, keysetPredicate(terms, cursorValues, backward, bind, pgKeyset)]
-				: filterConditions,
-		);
-
-		// SELECT * omits ctid and CockroachDB's hidden rowid primary key. Primary key columns are
-		// selected explicitly; ctid is a reserved system column name, so selecting it by name
-		// cannot shadow a user column.
-		const usesCtid = terms.some((term) => term.column === "ctid");
-		const extraSelect = [...pkColumns.map(quotePgIdent), ...(usesCtid ? ["ctid"] : [])];
-
-		const dataRes = await pool.query(
-			`SELECT ${["*", ...extraSelect].join(", ")} FROM ${table} ${where} ${keysetOrderBy(terms, backward, pgKeyset)} LIMIT ${bind(limit + 1)}`,
-			values,
-		);
-
-		const { rows, ...page } = keysetPage(dataRes.rows, { limit, cursor, backward, terms });
-
-		return {
-			data: rows
-				.map((row) => {
-					if (!usesCtid) return row;
-					const { ctid: _ctid, ...rest } = row;
-
-					return rest;
-				})
-				.filter((row) => Object.keys(row).length > 0),
-			meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
-		};
+	/**
+	 * SELECT * omits ctid and CockroachDB's hidden rowid primary key, so the key columns are
+	 * selected by name too. ctid is a reserved system column name, so it cannot shadow a user
+	 * column.
+	 */
+	protected override pageColumns(keys: string[], rowId: string | undefined) {
+		return ["*", ...keys.map(quotePgIdent), ...(rowId ? [rowId] : [])].join(", ");
 	}
 
 	/** Unfiltered, the planner's estimate and the count are one query. */

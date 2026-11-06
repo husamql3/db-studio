@@ -15,7 +15,6 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
-	TableDataResultSchemaType,
 } from "@db-studio/shared/types";
 import { isSerialType } from "@db-studio/shared/types";
 import type {
@@ -27,15 +26,6 @@ import type {
 } from "@duckdb/node-api";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
-import { decodeCursor } from "@/adapters/cursor.js";
-import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
-import {
-	sqlCursorSchema,
-	keysetOrderBy,
-	keysetPage,
-	keysetPredicate,
-	orderTerms,
-} from "@/adapters/sql-pagination.js";
 import {
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
@@ -210,60 +200,15 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		return undefined;
 	}
 
-	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		const {
-			tableName,
-			limit = 50,
-			direction = "asc",
-			sort = [],
-			order = "asc",
-			cursor,
-			filters = [],
-		} = params;
+	override getTableData(params: GetTableDataParams) {
+		return this.keysetTableData(params, { filters: duckdbFilters, keyset: duckdbKeyset });
+	}
 
-		return connector("duckdb").withConnection(async (conn) => {
-			await this.requireTable(conn, tableName);
-			const primaryKey = await this.primaryKey(conn, tableName);
-			const terms = orderTerms(sort, order, primaryKey.length ? primaryKey : ["rowid"]);
-			const backward = direction === "desc";
-			const { values, bind } = createBinds(() => "?");
-			const filterConditions = buildFilterConditions(filters, bind, duckdbFilters);
+	protected override async pageKey(conn: DuckDBConnection, tableName: string) {
+		await this.requireTable(conn, tableName);
+		const keys = await this.primaryKey(conn, tableName);
 
-			const [countRow] = await query(
-				conn,
-				`SELECT COUNT(*) AS total FROM ${ident(tableName)} ${whereSql(filterConditions)}`,
-				[...values],
-			);
-
-			const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
-
-			const where = whereSql(
-				cursorValues
-					? [
-							...filterConditions,
-							keysetPredicate(terms, cursorValues, backward, bind, duckdbKeyset),
-						]
-					: filterConditions,
-			);
-
-			const fetched = await query(
-				conn,
-				`SELECT ${primaryKey.length ? "*" : "*, rowid"} FROM ${ident(tableName)} ${where} ${keysetOrderBy(terms, backward, duckdbKeyset)} LIMIT ${bind(limit + 1)}`,
-				values,
-			);
-
-			const { rows, ...page } = keysetPage(fetched, { limit, cursor, backward, terms });
-
-			return {
-				data: rows.map((row) => {
-					if (primaryKey.length) return row;
-					const { rowid: _rowid, ...rest } = row;
-
-					return rest;
-				}),
-				meta: { limit, total: Number(countRow?.total ?? 0), ...page },
-			};
-		});
+		return keys.length ? { keys } : { keys, rowId: "rowid" };
 	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {

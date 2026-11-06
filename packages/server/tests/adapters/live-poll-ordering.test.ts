@@ -144,3 +144,42 @@ for (const engine of engines) {
 		});
 	});
 }
+
+// A sorted table without a key has no tie-breaker: a keyset cursor on the tied sort column
+// alone skipped every row after the first page.
+describe("sqlite sorted table without a key", () => {
+	const adapter = new SqliteAdapter();
+	let opened: Awaited<ReturnType<typeof openEngine>>;
+
+	beforeAll(async () => {
+		opened = await openEngine("sqlite");
+		await opened.exec(
+			"DROP TABLE IF EXISTS keyless_items",
+			"CREATE TABLE keyless_items (id INTEGER NOT NULL, grp INTEGER NOT NULL)",
+			"INSERT INTO keyless_items VALUES (1, 1), (2, 1), (3, 1), (4, 1), (5, 1)",
+		);
+	});
+
+	afterAll(() => opened.close());
+
+	it("pages through every tied row", async () => {
+		const seen: number[] = [];
+		let cursor: string | undefined;
+
+		for (let i = 0; i < 3; i++) {
+			const { data, meta } = await adapter.getTableData({
+				tableName: "keyless_items",
+				db: "",
+				sort: bySharedGroup,
+				limit: 2,
+				cursor,
+			});
+
+			seen.push(...data.map((row) => Number(row.id)));
+			cursor = meta.nextCursor ?? undefined;
+		}
+
+		expect(seen.toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+		expect(cursor).toBeUndefined();
+	});
+});

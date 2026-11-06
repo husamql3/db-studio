@@ -354,13 +354,9 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				buildFilterConditions(filters, bind, oracleFilters(columnTypes, bind)),
 			);
 
-			const filterValues = [...values];
-
-			const [countRow] = await this.rows<{ total: number }>(
-				conn,
-				`SELECT COUNT(*) AS "total" FROM ${ident(tableName)} ${where}`,
-				filterValues,
-			);
+			const { total } = await this.pageTotal(conn, params.db, tableName, undefined, where, [
+				...values,
+			]);
 
 			const fetched = await this.rows(
 				conn,
@@ -372,7 +368,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 			return {
 				data: rows,
-				meta: { limit, total: Number(countRow?.total ?? 0), ...page },
+				meta: { limit, total, ...page },
 			};
 		});
 	}

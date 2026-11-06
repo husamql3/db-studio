@@ -25,7 +25,6 @@ import {
 	probeOnce,
 	READ_ONLY_MESSAGE,
 } from "@/adapters/base.adapter.js";
-import { decodeCursor } from "@/adapters/cursor.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -33,14 +32,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
-import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
-import {
-	sqlCursorSchema,
-	keysetOrderBy,
-	keysetPage,
-	keysetPredicate,
-	orderTerms,
-} from "@/adapters/sql-pagination.js";
+import { createBinds } from "@/adapters/sql-filters.js";
 import {
 	flagOrJsonTarget,
 	groupKeyColumns,
@@ -160,56 +152,8 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 	}
 
-	override async getTableData(params: GetTableDataParams) {
-		const {
-			tableName,
-			db,
-			limit = 50,
-			direction = "asc",
-			sort = [],
-			order = "asc",
-			cursor,
-			filters = [],
-		} = params;
-
-		const pool = await connector("mysql").pool(db);
-		const { values, bind } = createBinds(() => "?");
-		const filterConditions = buildFilterConditions(filters, bind, mysqlFilters);
-
-		const [pkColumns, { total, estimated }] = await Promise.all([
-			this.primaryKey(pool, tableName),
-			this.pageTotal(pool, db, tableName, undefined, whereSql(filterConditions), [...values]),
-		]);
-
-		const terms = orderTerms(sort, order, pkColumns);
-		const backward = direction === "desc";
-		const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
-
-		const where = whereSql(
-			cursorValues && terms.length
-				? [
-						...filterConditions,
-						keysetPredicate(terms, cursorValues, backward, bind, mysqlKeyset),
-					]
-				: filterConditions,
-		);
-
-		const [dataRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT * FROM ${quoteMysqlIdent(tableName)} ${where} ${keysetOrderBy(terms, backward, mysqlKeyset)} LIMIT ${Math.floor(limit) + 1}`,
-			values as any,
-		);
-
-		const { rows, ...page } = keysetPage(dataRows as Record<string, unknown>[], {
-			limit,
-			cursor,
-			backward,
-			terms,
-		});
-
-		return {
-			data: rows,
-			meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
-		};
+	override getTableData(params: GetTableDataParams) {
+		return this.keysetTableData(params, { filters: mysqlFilters, keyset: mysqlKeyset });
 	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {

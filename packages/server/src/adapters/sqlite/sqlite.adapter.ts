@@ -22,16 +22,7 @@ import type {
 } from "@db-studio/shared/types";
 import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
-import { decodeCursor } from "@/adapters/cursor.js";
-import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
-import {
-	sqlCursorSchema,
-	keysetOrderBy,
-	keysetPage,
-	keysetPredicate,
-	orderTerms,
-} from "@/adapters/sql-pagination.js";
+import { type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
@@ -243,70 +234,25 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		return e instanceof Error && e.message.includes("FOREIGN KEY constraint failed");
 	}
 
-	override async getTableData(params: GetTableDataParams) {
-		const {
-			tableName,
-			limit = 50,
-			direction = "asc",
-			sort = [],
-			order = "asc",
-			cursor,
-			filters = [],
-		} = params;
+	override getTableData(params: GetTableDataParams) {
+		return this.keysetTableData(params, { filters: sqliteFilters, keyset: sqliteKeyset });
+	}
 
-		const client = await connector("sqlite").client();
-
-		const colInfoRows = await all<TableInfoRow>(
-			client,
-			`PRAGMA table_info(${quoteSqliteIdent(tableName)})`,
-		);
-
+	/**
+	 * A table without a key pages by rowid when unsorted. A view has no rowid, so a sorted table
+	 * without a key pages by OFFSET.
+	 */
+	protected override async pageKey(
+		client: SqliteClient,
+		tableName: string,
+		_schemaName: string | undefined,
+		sorted: boolean,
+	) {
 		// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
-		if (colInfoRows.length === 0) throw this.tableMissing(tableName);
+		await this.requireTable(client, tableName);
+		const keys = await this.primaryKey(client, tableName);
 
-		const pkColumns: string[] = colInfoRows
-			.filter((c) => c.pk > 0)
-			.sort((a, b) => a.pk - b.pk)
-			.map((c) => c.name);
-
-		// A table without a key pages by rowid when unsorted. A view has no rowid, so a sorted
-		// table without a key gets no tie-breaker.
-		const useRowid = pkColumns.length === 0 && sort.length === 0;
-		const terms = orderTerms(sort, order, useRowid ? ["rowid"] : pkColumns);
-		const backward = direction === "desc";
-
-		const { values, bind } = createBinds(() => "?");
-		const filterConditions = buildFilterConditions(filters, bind, sqliteFilters);
-
-		const [countRow] = await all<{ total: number }>(
-			client,
-			`SELECT COUNT(*) as total FROM ${quoteSqliteIdent(tableName)} ${whereSql(filterConditions)}`,
-			[...values],
-		);
-
-		const cursorValues = cursor ? decodeCursor(cursor, sqlCursorSchema)?.values : undefined;
-
-		const where = whereSql(
-			cursorValues
-				? [
-						...filterConditions,
-						keysetPredicate(terms, cursorValues, backward, bind, sqliteKeyset),
-					]
-				: filterConditions,
-		);
-
-		const fetched = await all(
-			client,
-			`SELECT ${useRowid ? "*, rowid" : "*"} FROM ${quoteSqliteIdent(tableName)} ${where} ${keysetOrderBy(terms, backward, sqliteKeyset)} LIMIT ${bind(limit + 1)}`,
-			values,
-		);
-
-		const { rows, ...page } = keysetPage(fetched, { limit, cursor, backward, terms });
-
-		return {
-			data: (useRowid ? rows.map(({ rowid: _r, ...rest }) => rest) : rows) as NormalizedRow[],
-			meta: { limit, total: Number(countRow?.total ?? 0), ...page },
-		};
+		return keys.length || sorted ? { keys } : { keys, rowId: "rowid" };
 	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
