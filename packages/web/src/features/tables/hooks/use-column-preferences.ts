@@ -1,5 +1,6 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useDatabaseStore } from "@/stores/database.store";
 import {
 	applyColumnPrefs,
@@ -21,6 +22,7 @@ export const useColumnPreferences = ({
 	tableCols?: ColumnInfoSchemaType[];
 }) => {
 	const { dbType, selectedDatabase } = useDatabaseStore();
+	const schemaName = useTableSchemaName();
 	const { prefsByTable, setColumnPrefs, clearColumnPrefs } = useColumnPreferencesStore();
 
 	const schemaCols = useMemo(() => (tableCols ?? []).map((c) => c.columnName), [tableCols]);
@@ -30,8 +32,8 @@ export const useColumnPreferences = ({
 	const schemaKey = useMemo(() => schemaCols.join("\n"), [schemaCols]);
 
 	const key = useMemo(
-		() => ({ dbType: dbType ?? "", database: selectedDatabase ?? "", tableName }),
-		[dbType, selectedDatabase, tableName],
+		() => ({ dbType: dbType ?? "", database: selectedDatabase ?? "", schemaName, tableName }),
+		[dbType, selectedDatabase, schemaName, tableName],
 	);
 
 	// The store keeps every table's preferences, so switching scope is just a
