@@ -23,13 +23,7 @@ export const useExportFile = () => {
 				db: selectedDatabase,
 			});
 
-			const contentDispositionHeader = response.headers["content-disposition"];
-
-			const contentDisposition =
-				typeof contentDispositionHeader === "string" ? contentDispositionHeader : undefined;
-
-			const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-			const filename = filenameMatch?.[1] || `${tableName}_export.${format}`;
+			const filename = `${tableName}_export.${format}`;
 			const contentTypeHeader = response.headers["content-type"];
 
 			const contentType =

@@ -86,4 +86,37 @@ describe("Tables Routes", () => {
 			expect(await names("sort=name")).toEqual(["Ada", "Linus"]);
 		});
 	});
+
+	describe("GET /:dbType/tables/:tableName/export", () => {
+		// A table name outside Latin-1 cannot go into a header as is, so the export threw.
+		it('exports a table whose name is not Latin-1 or holds a "', async () => {
+			const tableName = 'müşteri "vip"';
+
+			const created = await sqlite.request("/sqlite/tables?db=main", {
+				method: "POST",
+				body: {
+					tableName,
+					fields: [{ columnName: "id", columnType: "INTEGER", isPrimaryKey: true }],
+				},
+			});
+
+			expect(created.status).toBe(200);
+
+			const added = await sqlite.request("/sqlite/records?db=main", {
+				method: "POST",
+				body: { tableName, data: { id: 1 } },
+			});
+
+			expect(added.status).toBe(200);
+
+			const res = await sqlite.request(
+				`/sqlite/tables/${encodeURIComponent(tableName)}/export?db=main&format=csv`,
+			);
+
+			expect(res.status).toBe(200);
+			expect(res.headers.get("content-disposition")).toBe(
+				`attachment; filename="m__teri _vip__export.csv"; filename*=UTF-8''m%C3%BC%C5%9Fteri%20%22vip%22_export.csv`,
+			);
+		});
+	});
 });

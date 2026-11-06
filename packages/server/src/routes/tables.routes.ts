@@ -27,6 +27,21 @@ const EXPORT_CONTENT_TYPES = {
 	json: "application/json",
 } as const;
 
+/**
+ * A header value must be Latin-1, and a raw `"` ends the quoted name, so the name goes in twice
+ * (RFC 6266): an ASCII stand-in for old clients, then the exact name percent-encoded as UTF-8.
+ */
+const attachment = (filename: string) => {
+	const ascii = filename.replace(/[^\x20-\x7e]|["\\]/g, "_");
+
+	const utf8 = encodeURIComponent(filename).replace(
+		/['()*]/g,
+		(char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
+
+	return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+};
+
 /** Every table with its columns: the schema visualizer's graph and the AI assistant's schema. */
 export const tablesWithColumns = async (adapter: IDbAdapter, db: DatabaseSchemaType["db"]) =>
 	Promise.all(
@@ -225,7 +240,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			return new Response(await getExportFile({ cols, rows, format, tableName }), {
 				headers: {
 					"Content-Type": EXPORT_CONTENT_TYPES[format],
-					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
+					"Content-Disposition": attachment(`${tableName}_export.${format}`),
 				},
 			});
 		},
