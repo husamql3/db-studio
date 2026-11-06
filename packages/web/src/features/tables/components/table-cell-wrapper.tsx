@@ -1,6 +1,13 @@
 import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
-import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
+import {
+	type ComponentProps,
+	type KeyboardEvent,
+	type MouseEvent,
+	useCallback,
+	useEffect,
+	useRef,
+} from "react";
 import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
@@ -23,6 +30,11 @@ interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
 	isEditing: boolean;
 	isFocused: boolean;
 	isSelected: boolean;
+	/**
+	 * Whether the cell's editor popover is open. Given, Escape and Tab end an edit whose editor
+	 * has not opened yet.
+	 */
+	editorOpen?: boolean;
 }
 
 export function TableCellWrapper<TData>({
@@ -33,6 +45,8 @@ export function TableCellWrapper<TData>({
 	isEditing,
 	isFocused,
 	isSelected,
+	editorOpen,
+	ref,
 	className,
 	onClick: onClickProp,
 	onKeyDown: onKeyDownProp,
@@ -41,6 +55,21 @@ export function TableCellWrapper<TData>({
 	const { getUpdate } = useUpdateCellStore();
 
 	const meta = table.options.meta;
+
+	const elementRef = useRef<HTMLDivElement | null>(null);
+	const setRef = useCallback(
+		(node: HTMLDivElement | null) => {
+			elementRef.current = node;
+
+			if (typeof ref === "function") ref(node);
+			else if (ref) ref.current = node;
+		},
+		[ref],
+	);
+
+	useEffect(() => {
+		if (isFocused && !isEditing && !meta?.isScrolling) elementRef.current?.focus();
+	}, [isFocused, isEditing, meta?.isScrolling]);
 
 	const rowData = cell.row.original as Record<string, unknown>;
 	const hasUpdate = !!getUpdate(rowData, columnId, table.options.meta?.editScope);
@@ -97,6 +126,16 @@ export function TableCellWrapper<TData>({
 
 	const onKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLDivElement>) => {
+			if (isEditing && editorOpen === false) {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.({ direction: event.shiftKey ? "left" : "right" });
+				}
+			}
+
 			onKeyDownProp?.(event);
 
 			if (event.defaultPrevented) return;
@@ -137,7 +176,7 @@ export function TableCellWrapper<TData>({
 				meta?.onCellEditingStart?.(rowIndex, columnId);
 			}
 		},
-		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
+		[onKeyDownProp, isFocused, isEditing, editorOpen, meta, rowIndex, columnId],
 	);
 
 	const { highlightedCellKeys } = useLiveModeStore();
@@ -145,6 +184,7 @@ export function TableCellWrapper<TData>({
 
 	return (
 		<div
+			ref={setRef}
 			role="button"
 			data-slot="grid-cell-wrapper"
 			data-editing={isEditing ? "" : undefined}

@@ -138,7 +138,6 @@ export const TableTextCell = memo(
 		// save again, against a value the first save already changed.
 		const editingRef = useRef(false);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 		const columnMeta = cell.column.columnDef.meta;
 
@@ -209,23 +208,6 @@ export const TableTextCell = memo(
 			}
 		}, []);
 
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !open) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, open, meta],
-		);
-
 		const onTextareaKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLTextAreaElement>) => {
 				if (event.key === "Escape") {
@@ -260,12 +242,6 @@ export const TableTextCell = memo(
 			}
 		}, [isEditing, open, editorStart]);
 
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
-
 		useHotkeys("enter", () => onSave(), { enabled: open });
 		useHotkeys("esc", () => onCancel(), { enabled: open });
 
@@ -286,7 +262,6 @@ export const TableTextCell = memo(
 				onOpenChange={onOpenChange}
 				anchor={
 					<TableCellWrapper
-						ref={containerRef}
 						cell={cell}
 						table={table}
 						rowIndex={rowIndex}
@@ -294,7 +269,7 @@ export const TableTextCell = memo(
 						isEditing={isEditing}
 						isFocused={isFocused}
 						isSelected={isSelected}
-						onKeyDown={onWrapperKeyDown}
+						editorOpen={open}
 					>
 						<CellContent value={currentValue} />
 					</TableCellWrapper>
@@ -398,7 +373,6 @@ export const TableNumberCell = memo(
 		// The input exists only while the cell is edited; a page holds hundreds of number cells.
 		const [value, setValue] = useState(displayValue);
 		const [open, setOpen] = useState(false);
-		const containerRef = useRef<HTMLDivElement>(null);
 
 		// Follow the grid's editing state, starting each edit from the value the cell shows.
 		if (isEditing !== open) {
@@ -480,18 +454,11 @@ export const TableNumberCell = memo(
 			input.value = current;
 		}, []);
 
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
-
 		useHotkeys("enter", () => onSave(), { enabled: open });
 		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<TableCellWrapper
-				ref={containerRef}
 				cell={cell}
 				table={table}
 				rowIndex={rowIndex}
@@ -542,7 +509,6 @@ const TableSelectCell = memo(
 	}) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue();
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
 		const rowData = cell.row.original as Record<string, unknown>;
@@ -561,15 +527,8 @@ const TableSelectCell = memo(
 			meta?.onCellEditingStop?.();
 		};
 
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
-
 		return (
 			<TableCellWrapper
-				ref={containerRef}
 				cell={cell}
 				table={table}
 				rowIndex={rowIndex}
@@ -666,7 +625,6 @@ export const TableDateCell = memo(
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue() as string | null;
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
 		const rowData = cell.row.original as Record<string, unknown>;
@@ -722,17 +680,10 @@ export const TableDateCell = memo(
 			[meta],
 		);
 
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
-
 		const date = currentValue ? new Date(currentValue) : undefined;
 
 		return (
 			<TableCellWrapper
-				ref={containerRef}
 				cell={cell}
 				table={table}
 				rowIndex={rowIndex}
@@ -800,7 +751,6 @@ export const TableJsonCell = memo(
 		);
 
 		const [open, setOpen] = useState(false);
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
 		const rowData = cell.row.original as Record<string, unknown>;
@@ -883,23 +833,6 @@ export const TableJsonCell = memo(
 			event.preventDefault();
 		}, []);
 
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !open) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, open, meta],
-		);
-
 		useEffect(() => {
 			if (isEditing && !open) {
 				setEditorValue(JSON.stringify(currentJsonValue, null, editorPreferences.tabSize));
@@ -908,12 +841,6 @@ export const TableJsonCell = memo(
 				setOpen(false);
 			}
 		}, [isEditing, open, currentJsonValue]);
-
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
 
 		useHotkeys("enter", () => onSave(), { enabled: open });
 		useHotkeys("esc", () => onCancel(), { enabled: open });
@@ -925,7 +852,6 @@ export const TableJsonCell = memo(
 				onOpenChange={onOpenChange}
 				anchor={
 					<TableCellWrapper
-						ref={containerRef}
 						cell={cell}
 						table={table}
 						rowIndex={rowIndex}
@@ -933,7 +859,7 @@ export const TableJsonCell = memo(
 						isEditing={isEditing}
 						isFocused={isFocused}
 						isSelected={isSelected}
-						onKeyDown={onWrapperKeyDown}
+						editorOpen={open}
 					>
 						<CellContent value={currentJsonValue}>{displayValue}</CellContent>
 					</TableCellWrapper>
@@ -1013,7 +939,6 @@ export const TableForeignKeyCell = memo(
 
 		if (drawerOpen && !drawerMounted) setDrawerMounted(true);
 		const textareaRef = useRef<HTMLTextAreaElement>(null);
-		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 		const referencedTable = cell.column.columnDef.meta?.referencedTable;
 
@@ -1082,23 +1007,6 @@ export const TableForeignKeyCell = memo(
 			}
 		}, []);
 
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !open) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, open, meta],
-		);
-
 		const onTextareaKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLTextAreaElement>) => {
 				if (event.key === "Escape") {
@@ -1138,12 +1046,6 @@ export const TableForeignKeyCell = memo(
 			}
 		}, [isEditing, open, displayValue]);
 
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
-
 		return (
 			<>
 				<CellPopover
@@ -1152,7 +1054,6 @@ export const TableForeignKeyCell = memo(
 					onOpenChange={onOpenChange}
 					anchor={
 						<TableCellWrapper
-							ref={containerRef}
 							cell={cell}
 							table={table}
 							rowIndex={rowIndex}
@@ -1160,7 +1061,7 @@ export const TableForeignKeyCell = memo(
 							isEditing={isEditing}
 							isFocused={isFocused}
 							isSelected={isSelected}
-							onKeyDown={onWrapperKeyDown}
+							editorOpen={open}
 						>
 							{pendingUpdate?.newValue === null ||
 							(!pendingUpdate &&
