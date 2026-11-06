@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+import { REQUEST_ID_PATTERN } from "@db-studio/shared/constants";
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { HTTPException } from "@/http-exception.js";
 
@@ -13,12 +14,11 @@ type RequestContext = {
 
 /** Identifies this server process, so logs written outside a request still correlate. */
 const INSTANCE_ID = randomUUID();
-const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const requestContext = new AsyncLocalStorage<RequestContext>();
 
 /** A caller-supplied ID is kept only when it is a plain token, so it stays safe to log. */
 export const resolveRequestId = (incoming: string | undefined): string =>
-	incoming && REQUEST_ID.test(incoming) ? incoming : randomUUID();
+	incoming && REQUEST_ID_PATTERN.test(incoming) ? incoming : randomUUID();
 
 export const runWithRequestContext = <T>(context: RequestContext, callback: () => T): T =>
 	requestContext.run(context, callback);
