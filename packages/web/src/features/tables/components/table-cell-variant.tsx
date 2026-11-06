@@ -521,7 +521,8 @@ export const TableNumberCell = memo(
 
 TableNumberCell.displayName = "TableNumberCell";
 
-export const TableBooleanCell = memo(
+/** A cell edited by picking one of `options` or NULL; the select opens as editing starts. */
+const TableSelectCell = memo(
 	({
 		cell,
 		table,
@@ -530,108 +531,35 @@ export const TableBooleanCell = memo(
 		isEditing,
 		isFocused,
 		isSelected,
-	}: CellVariantProps<TableRecord>) => {
+		options,
+		toOption,
+		fromOption,
+	}: CellVariantProps<TableRecord> & {
+		options: readonly string[];
+		toOption: (value: unknown) => string;
+		/** Turns a picked option into the value to write; the option itself when omitted. */
+		fromOption?: (option: string) => boolean;
+	}) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const initialValue = cell.getValue() as boolean | null;
-		const [selectOpen, setSelectOpen] = useState(false);
+		const initialValue = cell.getValue();
 		const containerRef = useRef<HTMLDivElement>(null);
-		const selectTriggerRef = useRef<HTMLButtonElement>(null);
-		const isEditingRef = useRef(isEditing);
 		const meta = table.options.meta;
 
-		useEffect(() => {
-			isEditingRef.current = isEditing;
-		}, [isEditing]);
-
 		const rowData = cell.row.original as Record<string, unknown>;
-		const columnName = columnId;
+		const pendingUpdate = getUpdate(rowData, columnId, meta?.editScope);
+		const currentValue = pendingUpdate ? pendingUpdate.newValue : initialValue;
+		const isNull = currentValue === null || currentValue === undefined;
 
-		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
-
-		const currentValue = pendingUpdate
-			? (pendingUpdate.newValue as boolean | null)
-			: initialValue;
-
-		const value = useMemo(() => {
-			if (currentValue === null || currentValue === undefined) return "null";
-
-			return currentValue ? "true" : "false";
-		}, [currentValue]);
-
-		const onValueChange = useCallback(
-			(newValue: string) => {
-				let boolValue: boolean | null;
-
-				if (newValue === "null") {
-					boolValue = null;
-				} else {
-					boolValue = newValue === "true";
-				}
-
-				setUpdate(rowData, columnName, boolValue, initialValue, table.options.meta?.editScope);
-
-				setSelectOpen(false);
-				meta?.onCellEditingStop?.();
-			},
-			[columnName, rowData, initialValue, setUpdate, meta],
-		);
-
-		const onCancel = useCallback(() => {
-			clearUpdate(rowData, columnName, table.options.meta?.editScope);
-
-			setSelectOpen(false);
+		const onValueChange = (option: string) => {
+			const newValue = option === "null" ? null : fromOption ? fromOption(option) : option;
+			setUpdate(rowData, columnId, newValue, initialValue, meta?.editScope);
 			meta?.onCellEditingStop?.();
-		}, [rowData, columnName, clearUpdate, meta]);
+		};
 
-		const onOpenChange = useCallback(
-			(open: boolean) => {
-				setSelectOpen(open);
-
-				if (!open && isEditing) {
-					meta?.onCellEditingStop?.();
-				}
-			},
-			[isEditing, meta],
-		);
-
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !selectOpen) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onCancel();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						onCancel();
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, selectOpen, meta, onCancel],
-		);
-
-		useEffect(() => {
-			if (isEditing) {
-				const openTimer = setTimeout(() => {
-					if (isEditingRef.current) {
-						setSelectOpen(true);
-						// Small delay to ensure the trigger is rendered
-						setTimeout(() => {
-							if (isEditingRef.current) {
-								selectTriggerRef.current?.click();
-							}
-						}, 0);
-					}
-				}, 0);
-
-				return () => {
-					clearTimeout(openTimer);
-					setSelectOpen(false);
-				};
-			}
-		}, [isEditing]);
+		const onCancel = () => {
+			clearUpdate(rowData, columnId, meta?.editScope);
+			meta?.onCellEditingStop?.();
+		};
 
 		useEffect(() => {
 			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
@@ -649,18 +577,19 @@ export const TableBooleanCell = memo(
 				isEditing={isEditing}
 				isFocused={isFocused}
 				isSelected={isSelected}
-				onKeyDown={onWrapperKeyDown}
 				className="p-0!"
 			>
 				{isEditing ? (
+					// Mounted only while editing, so it is open whenever it exists; closing it ends the edit.
 					<Select
-						value={value}
+						value={isNull ? "null" : toOption(currentValue)}
 						onValueChange={onValueChange}
-						open={selectOpen}
-						onOpenChange={onOpenChange}
+						open
+						onOpenChange={(open) => {
+							if (!open) meta?.onCellEditingStop?.();
+						}}
 					>
 						<SelectTrigger
-							ref={selectTriggerRef}
 							variant="outline"
 							className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [&_svg]:hidden"
 						>
@@ -675,178 +604,15 @@ export const TableBooleanCell = memo(
 							onPointerDownOutside={(e) => {
 								// Close the select and keep the value
 								e.preventDefault();
-								setSelectOpen(false);
 								meta?.onCellEditingStop?.();
 							}}
 						>
-							<SelectItem value="true">true</SelectItem>
-							<SelectItem value="false">false</SelectItem>
-							<SelectItem value="null">NULL</SelectItem>
-						</SelectContent>
-					</Select>
-				) : (
-					<span className="flex items-center size-full px-2 py-1.5">
-						<CellContent value={currentValue}>{currentValue ? "true" : "false"}</CellContent>
-					</span>
-				)}
-			</TableCellWrapper>
-		);
-	},
-);
-
-TableBooleanCell.displayName = "TableBooleanCell";
-
-export const TableEnumCell = memo(
-	({
-		cell,
-		table,
-		rowIndex,
-		columnId,
-		isEditing,
-		isFocused,
-		isSelected,
-	}: CellVariantProps<TableRecord>) => {
-		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const initialValue = cell.getValue() as string | null;
-		const [selectOpen, setSelectOpen] = useState(false);
-		const containerRef = useRef<HTMLDivElement>(null);
-		const selectTriggerRef = useRef<HTMLButtonElement>(null);
-		const isEditingRef = useRef(isEditing);
-		const meta = table.options.meta;
-		const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
-
-		useEffect(() => {
-			isEditingRef.current = isEditing;
-		}, [isEditing]);
-
-		const rowData = cell.row.original as Record<string, unknown>;
-		const columnName = columnId;
-
-		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
-
-		const currentValue = pendingUpdate
-			? (pendingUpdate.newValue as string | null)
-			: initialValue;
-
-		const onValueChange = useCallback(
-			(newValue: string) => {
-				const enumValue: string | null = newValue === "null" ? null : newValue;
-				setUpdate(rowData, columnName, enumValue, initialValue, table.options.meta?.editScope);
-				setSelectOpen(false);
-				meta?.onCellEditingStop?.();
-			},
-			[columnName, rowData, initialValue, setUpdate, meta],
-		);
-
-		const onCancel = useCallback(() => {
-			clearUpdate(rowData, columnName, table.options.meta?.editScope);
-
-			setSelectOpen(false);
-			meta?.onCellEditingStop?.();
-		}, [rowData, columnName, clearUpdate, meta]);
-
-		const onOpenChange = useCallback(
-			(open: boolean) => {
-				setSelectOpen(open);
-
-				if (!open && isEditing) {
-					meta?.onCellEditingStop?.();
-				}
-			},
-			[isEditing, meta],
-		);
-
-		const onWrapperKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing && !selectOpen) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onCancel();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						onCancel();
-						meta?.onCellEditingStop?.({
-							direction: event.shiftKey ? "left" : "right",
-						});
-					}
-				}
-			},
-			[isEditing, selectOpen, meta, onCancel],
-		);
-
-		useEffect(() => {
-			if (isEditing) {
-				const openTimer = setTimeout(() => {
-					if (isEditingRef.current) {
-						setSelectOpen(true);
-						// Small delay to ensure the trigger is rendered
-						setTimeout(() => {
-							if (isEditingRef.current) {
-								selectTriggerRef.current?.click();
-							}
-						}, 0);
-					}
-				}, 0);
-
-				return () => {
-					clearTimeout(openTimer);
-					setSelectOpen(false);
-				};
-			}
-		}, [isEditing]);
-
-		useEffect(() => {
-			if (isFocused && !isEditing && !meta?.isScrolling && containerRef.current) {
-				containerRef.current.focus();
-			}
-		}, [isFocused, isEditing, meta?.isScrolling]);
-
-		return (
-			<TableCellWrapper
-				ref={containerRef}
-				cell={cell}
-				table={table}
-				rowIndex={rowIndex}
-				columnId={columnId}
-				isEditing={isEditing}
-				isFocused={isFocused}
-				isSelected={isSelected}
-				onKeyDown={onWrapperKeyDown}
-				className="p-0!"
-			>
-				{isEditing ? (
-					<Select
-						value={currentValue === null ? "null" : currentValue}
-						onValueChange={onValueChange}
-						open={selectOpen}
-						onOpenChange={onOpenChange}
-					>
-						<SelectTrigger
-							ref={selectTriggerRef}
-							variant="outline"
-							className="size-full px-2 py-1.5 rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [&_svg]:hidden"
-						>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent
-							data-grid-cell-editor=""
-							alignOffset={-8}
-							sideOffset={-8}
-							className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
-							onEscapeKeyDown={onCancel}
-							onPointerDownOutside={(e) => {
-								// Close the select and keep the value
-								e.preventDefault();
-								setSelectOpen(false);
-								meta?.onCellEditingStop?.();
-							}}
-						>
-							{enumValues?.map((enumValue) => (
+							{options.map((option) => (
 								<SelectItem
-									key={enumValue}
-									value={enumValue}
+									key={option}
+									value={option}
 								>
-									{enumValue}
+									{option}
 								</SelectItem>
 							))}
 							<SelectItem value="null">NULL</SelectItem>
@@ -854,7 +620,9 @@ export const TableEnumCell = memo(
 					</Select>
 				) : (
 					<span className="flex items-center size-full px-2 py-1.5 truncate">
-						<CellContent value={currentValue} />
+						<CellContent value={currentValue}>
+							{isNull ? null : toOption(currentValue)}
+						</CellContent>
 					</span>
 				)}
 			</TableCellWrapper>
@@ -862,7 +630,29 @@ export const TableEnumCell = memo(
 	},
 );
 
-TableEnumCell.displayName = "TableEnumCell";
+TableSelectCell.displayName = "TableSelectCell";
+
+const BOOLEAN_OPTIONS = ["true", "false"];
+const toBooleanOption = (value: unknown) => (value ? "true" : "false");
+const fromBooleanOption = (option: string) => option === "true";
+const NO_OPTIONS: string[] = [];
+
+export const TableBooleanCell = (props: CellVariantProps<TableRecord>) => (
+	<TableSelectCell
+		{...props}
+		options={BOOLEAN_OPTIONS}
+		toOption={toBooleanOption}
+		fromOption={fromBooleanOption}
+	/>
+);
+
+export const TableEnumCell = (props: CellVariantProps<TableRecord>) => (
+	<TableSelectCell
+		{...props}
+		options={props.cell.column.columnDef.meta?.enumValues ?? NO_OPTIONS}
+		toOption={String}
+	/>
+);
 
 export const TableDateCell = memo(
 	({
