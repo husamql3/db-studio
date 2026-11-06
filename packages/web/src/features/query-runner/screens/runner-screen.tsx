@@ -53,7 +53,7 @@ export const RunnerScreen = ({
 	}, [query, editorLanguage, initialQuery]);
 
 	const handleExecuteQuery = useCallback(
-		async (query: string) => {
+		(query: string) => {
 			if (!query.trim()) {
 				toast.error("Query is empty!");
 
@@ -72,11 +72,10 @@ export const RunnerScreen = ({
 
 			setLastExecutedQuery(query);
 
-			const result = await executeQuery({ query });
-
-			if (result) {
-				setQueryResult({ data: result, queryId: queryId ?? "" });
-			}
+			executeQuery(
+				{ query },
+				{ onSuccess: (data) => setQueryResult({ data, queryId: queryId ?? "" }) },
+			);
 		},
 		[isKeyValue, executeQuery, queryId],
 	);

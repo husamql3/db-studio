@@ -8,7 +8,8 @@ export const useExecuteQuery = () => {
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const {
-		mutateAsync: executeQueryMutation,
+		// `mutate` reports a failure through `executeQueryError` only, never as a rejection.
+		mutate: executeQuery,
 		isPending: isExecutingQuery,
 		error: executeQueryError,
 	} = useMutation<ExecuteQueryResult, Error, { query: string }>({
@@ -21,14 +22,6 @@ export const useExecuteQuery = () => {
 			if (dbType) posthogAnalytics.capture("query_executed", { db_type: dbType });
 		},
 	});
-
-	const executeQuery = async ({ query }: { query: string }) => {
-		try {
-			return await executeQueryMutation({ query });
-		} catch {
-			return undefined;
-		}
-	};
 
 	return {
 		executeQuery,
