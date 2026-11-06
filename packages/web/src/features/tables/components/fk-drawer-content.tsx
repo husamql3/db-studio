@@ -14,6 +14,7 @@ import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 import { formatCellValue } from "@/utils/format-cell-value";
+import { toColumnDef } from "../utils/column-def";
 
 export const FkDrawerContent = ({
 	referencedTable,
@@ -42,23 +43,7 @@ export const FkDrawerContent = ({
 	});
 
 	const columns = useMemo<ColumnDef<TableRecord>[]>(
-		() =>
-			tableCols?.map((col) => ({
-				accessorKey: col.columnName,
-				header: col.columnName,
-				meta: {
-					variant: col.enumValues ? "enum" : col.dataType,
-					isPrimaryKey: col.isPrimaryKey,
-					isForeignKey: col.isForeignKey,
-					referencedTable: col.referencedTable,
-					referencedColumn: col.referencedColumn,
-					enumValues: col.enumValues,
-					dataTypeLabel: col.dataTypeLabel,
-				},
-				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
-				minSize: 100,
-				maxSize: 500,
-			})) ?? [],
+		() => tableCols?.map((col) => toColumnDef(col)) ?? [],
 		[tableCols],
 	);
 

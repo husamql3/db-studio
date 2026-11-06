@@ -19,6 +19,7 @@ import { TableCell } from "../components/table-cell";
 import { TableSelector } from "../components/table-selector";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
+import { toColumnDef } from "../utils/column-def";
 import { getRecordKey } from "../utils/table-diff";
 import { useColumnPreferences } from "./use-column-preferences";
 import { useEditScope } from "./use-edit-scope";
@@ -75,24 +76,7 @@ export const useTableModel = ({
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
 			selectorColumn,
-			...(visibleCols?.map((col) => ({
-				accessorKey: col.columnName,
-				header: col.columnName,
-				meta: {
-					variant: col.enumValues ? "enum" : col.dataType,
-					isPrimaryKey: col.isPrimaryKey,
-					isForeignKey: col.isForeignKey,
-					referencedTable: col.referencedTable,
-					referencedColumn: col.referencedColumn,
-					enumValues: col.enumValues,
-					dataTypeLabel: col.dataTypeLabel,
-					isNullable: col.isNullable,
-					hasDefault: cellDefault && col.columnDefault !== null,
-				},
-				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
-				minSize: 100,
-				maxSize: 500,
-			})) || []),
+			...(visibleCols?.map((col) => toColumnDef(col, cellDefault)) ?? []),
 		],
 		[visibleCols, selectorColumn, cellDefault],
 	);
