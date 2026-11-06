@@ -9,7 +9,7 @@ import {
 	databaseTypeForRequest,
 	operationForRequest,
 } from "@/observability.js";
-import { getOpenConnection, requestConnectionId } from "@/open-connections.js";
+import { findRequestConnection } from "@/open-connections.js";
 import { currentRequestId, errorFields, writeOperationalLog } from "@/operational-log.js";
 
 const toApiError = (
@@ -46,7 +46,7 @@ const toApiError = (
 	}
 
 	// The engine whose driver threw: the one the path names, else the one the request reached.
-	const engine = dbType ?? getOpenConnection(requestConnectionId() ?? "")?.dbType;
+	const engine = dbType ?? findRequestConnection()?.dbType;
 
 	if (engine) {
 		const { status, message } = ADAPTERS[engine].classifyError(e);

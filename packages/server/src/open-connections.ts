@@ -77,8 +77,9 @@ export const listOpenConnections = () => [...connections];
 export const latestConnectionId = (): string | null => latestId;
 
 /**
- * The connection this request names when it is still open; none when this server closed it; else
- * (a new tab, or an id from before a restart) the latest.
+ * The connection the requesting tab shows on `/connections` and adopts: the one it names while it
+ * is open; none when this server closed it; else (a new tab, or an id from before a restart) the
+ * latest.
  */
 export const requestConnectionId = (): string | null => {
 	const sent = currentConnectionId();
@@ -89,16 +90,24 @@ export const requestConnectionId = (): string | null => {
 };
 
 /**
- * The connection this request reaches: the one it named, or the latest when it arrived. A request
- * naming a connection that is gone reaches none, never another tab's database. Outside a request
- * (CLI startup, scripts), the latest.
+ * The connection this request reaches: the one it named, or the latest when it arrived. Outside a
+ * request (CLI startup, scripts), the latest. None when that connection is gone: a request is
+ * never handed another tab's database.
  */
+export const findRequestConnection = (): OpenConnection | undefined =>
+	connections.get(currentConnectionId() ?? latestId ?? "");
+
+/** {@link findRequestConnection}, answering 409 when there is none. */
 export const requestConnection = (): OpenConnection => {
-	const connection = connections.get(currentConnectionId() ?? latestId ?? "");
+	const connection = findRequestConnection();
 
-	if (!connection) throw new HTTPException(409, { message: "No database is connected" });
+	if (connection) return connection;
 
-	return connection;
+	throw new HTTPException(409, {
+		message: currentConnectionId()
+			? "The connection closed. Reload the page."
+			: "No database is connected",
+	});
 };
 
 /** The clients of this request's connection; adapters reach their database only through it. */

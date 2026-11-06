@@ -7,7 +7,7 @@ import { Elysia } from "elysia";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { ADAPTERS, isDatabaseType } from "@/adapters/adapter.registry.js";
 import { HTTPException } from "@/http-exception.js";
-import { getOpenConnection, requestConnection } from "@/open-connections.js";
+import { requestConnection } from "@/open-connections.js";
 
 /**
  * Resolves the `/:dbType` path segment to its adapter. Runs before validation, so an
@@ -17,20 +17,13 @@ import { getOpenConnection, requestConnection } from "@/open-connections.js";
  * connection, or another engine than its connection's, is refused rather than sent to the wrong
  * database.
  */
-export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params, headers }) => {
+export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params }) => {
 	const { dbType = "" } = params;
 
 	if (!isDatabaseType(dbType)) {
 		throw new HTTPException(400, {
 			message: `Invalid database type: "${dbType}". Supported types: ${Object.keys(ADAPTERS).join(", ")}`,
 		});
-	}
-
-	// The server restarted since this tab connected.
-	const sent = headers["x-connection-id"];
-
-	if (sent && !getOpenConnection(sent)) {
-		throw new HTTPException(409, { message: "The connection closed. Reload the page." });
 	}
 
 	const { dbType: connected } = requestConnection();
