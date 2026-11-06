@@ -37,7 +37,6 @@ import { useSchemaEditStore } from "@/features/schema";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { hasSection, tablePath } from "@/lib/sections";
 import { useOverlayStore } from "@/stores/overlay.store";
@@ -61,7 +60,6 @@ export const SidebarListTablesMenu = ({
 	const { renameTable, isRenamingTable } = useRenameTable({ tableName, schemaName });
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { setEditingTable } = useSchemaEditStore();
-	const isSchemaless = useIsSchemaless();
 	const engine = useDatabaseEngine();
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
@@ -186,7 +184,7 @@ export const SidebarListTablesMenu = ({
 							<Type className="size-4" />
 							Rename table
 						</DropdownMenuItem>
-						{!isSchemaless && (
+						{engine?.schemaMutation !== false && (
 							<DropdownMenuItem
 								onClick={() => {
 									setEditingTable({ tableName, schemaName });

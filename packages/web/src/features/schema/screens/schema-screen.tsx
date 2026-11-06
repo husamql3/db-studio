@@ -7,7 +7,7 @@ import { Link as LinkIcon } from "lucide-react";
 import { useMemo } from "react";
 import { CopyButton } from "@/components/copy-button";
 import { TableSubScreen } from "@/components/table-sub-screen";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
@@ -27,7 +27,7 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 	} = useTableCols({ tableName, schemaName: useTableSchemaName() });
 
 	const { openOverlay } = useOverlayStore();
-	const isSchemaless = useIsSchemaless();
+	const canMutateSchema = useDatabaseEngine()?.schemaMutation !== false;
 
 	const columns = useMemo<ColumnDef<ColumnInfoSchemaType>[]>(
 		() => [
@@ -179,9 +179,9 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 			refetch={refetchTableCols}
 			isRefetching={isRefetchingTableCols}
 			action={
-				isSchemaless
-					? undefined
-					: { label: "Add Column", onClick: () => openOverlay("schema.add-column") }
+				canMutateSchema
+					? { label: "Add Column", onClick: () => openOverlay("schema.add-column") }
+					: undefined
 			}
 		>
 			<DataGrid

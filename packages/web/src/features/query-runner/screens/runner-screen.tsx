@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
-import { useIsKeyValue } from "@/hooks/use-is-schemaless";
+import { useIsKeyValue } from "@/hooks/use-is-key-value";
 import { useQueriesStore } from "@/stores/queries.store";
 import type { CodeEditorHandle } from "../components/code-editor";
 import { QueryResultContainer } from "../components/query-result-container";

@@ -30,7 +30,7 @@ import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
 import { DropColumnDialog } from "@/features/schema";
 import type { TableRecord } from "@/features/tables/table.type";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 import { TableColumnResizer } from "./table-col-resizer";
@@ -52,7 +52,7 @@ export const TableHeadRow = ({
 	table,
 	tableName,
 }: TableHeadRowProps) => {
-	const isSchemaless = useIsSchemaless();
+	const engine = useDatabaseEngine();
 
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
 	const schemaName = useTableSchemaName();
@@ -186,7 +186,7 @@ export const TableHeadRow = ({
 												className="w-44"
 												align="start"
 											>
-												{!isSchemaless && (
+												{engine?.filterSort !== false && (
 													<>
 														<DropdownMenuGroup>
 															<DropdownMenuItem
@@ -217,7 +217,7 @@ export const TableHeadRow = ({
 												)}
 												<DropdownMenuItem
 													variant="destructive"
-													disabled={isSchemaless}
+													disabled={engine?.schemaMutation === false}
 													onClick={() => setColumnToDelete(header.column.id)}
 												>
 													<Trash2 />

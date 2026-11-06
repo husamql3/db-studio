@@ -3,7 +3,6 @@ import { useQueryState } from "nuqs";
 import { FilterPopup } from "@/components/filter-popup";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { CONSTANTS } from "@/utils/constants";
 import { tableFiltersParser } from "../../hooks/use-grid-page";
 import { useRowMutation } from "../../hooks/use-row-mutation";
@@ -25,7 +24,6 @@ export const TableHeader = ({
 	setRowSelection: OnChangeFn<RowSelectionState>;
 	tableName: string;
 }) => {
-	const isSchemaless = useIsSchemaless();
 	const engine = useDatabaseEngine();
 	const canLiveMode = engine?.liveMode ?? false;
 	const { rowMutationReason } = useRowMutation();
@@ -43,7 +41,7 @@ export const TableHeader = ({
 			<div className="flex items-center ">
 				<RefetchBtn tableName={tableName} />
 				{canLiveMode && <LiveModeToggle />}
-				{!isSchemaless && (
+				{engine?.filterSort !== false && (
 					<FilterPopup
 						tableName={tableName}
 						filters={filters}

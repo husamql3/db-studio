@@ -16,6 +16,8 @@ interface DatabaseEngineBase {
 	schemaMutation: boolean;
 	/** Dropping a column can CASCADE to the indexes, constraints and views that depend on it. */
 	dropColumnCascade: boolean;
+	/** The grid can filter and sort rows; `false` hides Filter and Sort. */
+	filterSort: boolean;
 	/** A connection can be opened in a read-only session the database itself enforces. */
 	readOnly: boolean;
 	/** How "Copy as SQL INSERT" writes literals; `null` hides it. */
@@ -85,6 +87,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: true,
 		schemaMutation: true,
 		dropColumnCascade: true,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -114,6 +117,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: true,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",
@@ -135,6 +139,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: true,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: "[",
@@ -159,6 +164,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: false,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -175,6 +181,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: false,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -196,6 +203,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: false,
 		schemaMutation: false,
 		dropColumnCascade: false,
+		filterSort: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -212,6 +220,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: true,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -237,6 +246,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: true,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -261,6 +271,7 @@ export const DATABASE_ENGINES = {
 		cellDefault: false,
 		schemaMutation: true,
 		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",

@@ -4,7 +4,7 @@ import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-t
 import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 import { RedisKeySidebar } from "@/features/redis-browser";
-import { useIsKeyValue } from "@/hooks/use-is-schemaless";
+import { useIsKeyValue } from "@/hooks/use-is-key-value";
 import { sectionOf } from "@/lib/sections";
 
 export const Sidebar = () => {
