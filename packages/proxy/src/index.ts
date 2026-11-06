@@ -35,7 +35,6 @@ app.use(
 
 app.use("/chat", createProxyLimiter());
 
-/** POST /chat streams a chat completion from the requested provider. */
 app.post("/chat", async (c) => {
 	// Declared out here so a failure log can say which provider and model it was for.
 	let provider: AiProvider | undefined;
