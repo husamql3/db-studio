@@ -4,6 +4,7 @@ import {
 	type AiModel,
 	type AiProvider,
 	BYOK_HEADERS,
+	proxyChatRequestSchema,
 } from "@db-studio/shared/types";
 import { chat, EventType, type ModelMessage, toServerSentEventsResponse } from "@tanstack/ai";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
@@ -28,7 +29,7 @@ app.use(
 	cors({
 		origin: "*",
 		allowMethods: ["POST", "GET", "OPTIONS"],
-		allowHeaders: ["Content-Type", "x-api-key", "x-request-id", ...BYOK_HEADERS],
+		allowHeaders: ["Content-Type", "x-request-id", ...BYOK_HEADERS],
 		exposeHeaders: ["x-request-id"],
 	}),
 );
@@ -42,21 +43,20 @@ app.post("/chat", async (c) => {
 	let byok = false;
 
 	try {
-		const body = await c.req.json<{
-			messages: ModelMessage[];
-			systemPrompt: string;
-			conversationId?: string;
-			provider: AiProvider;
-			model: string;
-		}>();
+		const parsed = proxyChatRequestSchema.safeParse(await c.req.json().catch(() => null));
 
-		const { messages, systemPrompt, conversationId } = body;
-		provider = body.provider;
-		model = body.model;
-
-		if (!messages || !Array.isArray(messages)) {
-			return c.json({ error: "Invalid request: messages array required" }, 400);
+		if (!parsed.success) {
+			return c.json(
+				{ error: `Invalid request: ${parsed.error.issues[0]?.message ?? "malformed body"}` },
+				400,
+			);
 		}
+
+		const { systemPrompt, conversationId } = parsed.data;
+		provider = parsed.data.provider;
+		model = parsed.data.model;
+		// SAFETY: the schema checked each message's shape and kept its other wire fields.
+		const messages = parsed.data.messages as ModelMessage[];
 
 		const providerOption = AI_PROVIDER_OPTIONS.find((option) => option.id === provider);
 

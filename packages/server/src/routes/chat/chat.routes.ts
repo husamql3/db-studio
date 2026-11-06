@@ -1,5 +1,9 @@
 import { LIMIT } from "@db-studio/shared/constants";
-import { BYOK_HEADERS, chatSchema } from "@db-studio/shared/types";
+import {
+	BYOK_HEADERS,
+	chatSchema,
+	type ProxyChatRequestSchemaType,
+} from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { HTTPException } from "@/http-exception.js";
@@ -53,17 +57,28 @@ const resolveProxyUrl = (): string => {
 };
 
 /**
- * The headers the proxy reads from the browser's request: the API key and `extra` (the BYOK keys
- * for a chat request). Not the client IP headers: Cloudflare sets the address the proxy's rate
- * limiter keys on, and this server's own callers are local.
+ * The request ID, and the headers of `forwarded` (the BYOK keys of a chat request) the browser
+ * sent. Not the client IP headers: Cloudflare sets the address the proxy's rate limiter keys
+ * on, and this server's own callers are local.
  */
 const proxyHeaders = (
 	headers: Record<string, string | undefined>,
-	extra: readonly string[] = [],
-): Record<string, string> => ({
-	...Object.fromEntries(["x-api-key", ...extra].map((name) => [name, headers[name] ?? ""])),
-	"x-request-id": currentRequestId() ?? "",
-});
+	forwarded: readonly string[] = [],
+): Record<string, string> => {
+	const sent: Record<string, string> = {};
+
+	for (const name of forwarded) {
+		const value = headers[name];
+
+		if (value !== undefined) sent[name] = value;
+	}
+
+	const requestId = currentRequestId();
+
+	if (requestId) sent["x-request-id"] = requestId;
+
+	return sent;
+};
 
 /** The proxy answers `{ error }`; anything between it and this server may answer plain text. */
 const proxyErrorSchema = z.object({ error: z.string().min(1) });
@@ -113,7 +128,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 			const schema = includeSchema ? await getDetailedSchema(db) : null;
 			const systemPrompt = generateSystemPrompt(schema);
 
-			const payload = {
+			const payload: ProxyChatRequestSchemaType = {
 				messages,
 				conversationId,
 				systemPrompt,
