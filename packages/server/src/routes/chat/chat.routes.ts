@@ -53,19 +53,15 @@ const resolveProxyUrl = (): string => {
 };
 
 /**
- * The headers the proxy reads from the browser's request: the client IP headers, so its rate
- * limiter keys on the real user, the API key, and `extra` (the BYOK keys for a chat request).
+ * The headers the proxy reads from the browser's request: the API key and `extra` (the BYOK keys
+ * for a chat request). Not the client IP headers: Cloudflare sets the address the proxy's rate
+ * limiter keys on, and this server's own callers are local.
  */
 const proxyHeaders = (
 	headers: Record<string, string | undefined>,
 	extra: readonly string[] = [],
 ): Record<string, string> => ({
-	...Object.fromEntries(
-		["cf-connecting-ip", "x-real-ip", "x-forwarded-for", "x-api-key", ...extra].map((name) => [
-			name,
-			headers[name] ?? "",
-		]),
-	),
+	...Object.fromEntries(["x-api-key", ...extra].map((name) => [name, headers[name] ?? ""])),
 	"x-request-id": currentRequestId() ?? "",
 });
 
