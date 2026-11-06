@@ -19,12 +19,6 @@ interface CellPosition {
 /** A rectangle of cells between the cell a selection started at and the one it reaches. */
 export type CellRange = { anchor: CellPosition; focus: CellPosition };
 
-interface UpdateCell {
-	rowIndex: number;
-	columnId: string;
-	value: unknown;
-}
-
 export type NavigationDirection =
 	| "up"
 	| "down"
@@ -40,7 +34,6 @@ export type NavigationDirection =
 declare module "@tanstack/react-table" {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface ColumnMeta<TData extends RowData, TValue> {
-		label?: string;
 		variant?: CellVariant; // Generic type for cell rendering (text/boolean/number/enum/json/date)
 		dataTypeLabel?: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
 		isPrimaryKey?: boolean;
@@ -74,8 +67,6 @@ declare module "@tanstack/react-table" {
 		onCellClick?: (rowIndex: number, columnId: string, event?: React.MouseEvent) => void;
 
 		getIsCellSelected?: (rowIndex: number, columnId: string) => boolean;
-		onCellMouseUp?: () => void;
-		onDataUpdate?: (props: UpdateCell | Array<UpdateCell>) => void;
 
 		onCellDoubleClick?: (rowIndex: number, columnId: string) => void;
 		onCellContextMenu?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;

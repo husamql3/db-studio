@@ -168,8 +168,6 @@ export const useTableModel = ({
 		[tableName],
 	);
 
-	const handleDataUpdate = useCallback(() => {}, []);
-
 	// A press starts a range at the cell, Shift extends the current one, and dragging stretches it.
 	const handleCellMouseDown = useCallback(
 		(rowIndex: number, columnId: string, event: MouseEvent) => {
@@ -252,7 +250,6 @@ export const useTableModel = ({
 			onCellEditingStop: handleCellEditingStop,
 			onCellNavigate: handleCellNavigate,
 			onRowDetailsOpen: handleRowDetailsOpen,
-			onDataUpdate: handleDataUpdate,
 			getIsCellSelected,
 			isRowHighlighted:
 				isRowHighlighted ??
@@ -277,7 +274,6 @@ export const useTableModel = ({
 			handleCellEditingStop,
 			handleCellNavigate,
 			handleRowDetailsOpen,
-			handleDataUpdate,
 			getIsCellSelected,
 			isRowHighlighted,
 			isCellHighlighted,

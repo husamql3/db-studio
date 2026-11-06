@@ -85,12 +85,6 @@ export function TableCellWrapper<TData>({
 		[meta, rowIndex, columnId, isEditing],
 	);
 
-	const onMouseUp = useCallback(() => {
-		if (!isEditing) {
-			meta?.onCellMouseUp?.();
-		}
-	}, [meta, isEditing]);
-
 	const onDoubleClick = useCallback(
 		(event: MouseEvent) => {
 			if (!isEditing) {
@@ -176,7 +170,6 @@ export function TableCellWrapper<TData>({
 			onDoubleClick={onDoubleClick}
 			onMouseDown={onMouseDown}
 			onMouseEnter={onMouseEnter}
-			onMouseUp={onMouseUp}
 			onKeyDown={onKeyDown}
 			{...props}
 		/>
