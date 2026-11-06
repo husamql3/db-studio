@@ -63,6 +63,8 @@ export const SidebarListTablesMenu = ({
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
+	const isOpenTable = params.table === tableName && openSchema === schemaName;
+
 	// Same-named tables in two schemas each get their own dialogs.
 	const overlayKey = tableId({ schemaName, tableName });
 	const renameOverlayId = `tables.rename-table.${overlayKey}` as const;
@@ -86,9 +88,8 @@ export const SidebarListTablesMenu = ({
 		try {
 			await renameTable({ newTableName: trimmed, schemaName });
 			handleRenameDialogChange(false);
-			const activeTable = (params as { table?: string }).table;
 
-			if (activeTable === tableName && openSchema === schemaName) {
+			if (isOpenTable) {
 				const basePath = pathname.startsWith("/schema")
 					? "/schema/$table"
 					: pathname.startsWith("/indexes")
@@ -120,14 +121,16 @@ export const SidebarListTablesMenu = ({
 			openOverlay(forceDeleteOverlayId);
 		} else {
 			closeOverlay(deleteOverlayId);
-			navigate({ to: "/" });
+
+			if (isOpenTable) navigate({ to: "/" });
 		}
 	};
 
 	const handleForceDelete = async () => {
 		await forceDeleteTable(tableName, schemaName);
 		closeOverlay(forceDeleteOverlayId);
-		navigate({ to: "/" });
+
+		if (isOpenTable) navigate({ to: "/" });
 	};
 
 	const handleCancelForceDelete = () => {
