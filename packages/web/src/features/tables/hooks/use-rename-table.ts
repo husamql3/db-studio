@@ -27,7 +27,8 @@ export const useRenameTable = ({
 		mutationFn: async (data) => {
 			const res = await renameTableRequest({
 				tableName,
-				data: { ...data, schemaName },
+				schemaName,
+				data,
 				db: selectedDatabase,
 			});
 

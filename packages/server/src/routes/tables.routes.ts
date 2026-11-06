@@ -94,13 +94,13 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 	.patch(
 		"/:tableName/rename",
-		async ({ adapter, dbType, query: { db }, params: { tableName }, body }) => {
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
 			requireCapability(dbType, "schemaMutation");
-			await adapter.renameTable({ tableName, db, ...body });
+			await adapter.renameTable({ tableName, schemaName, db, ...body });
 
 			return { data: `Table "${tableName}" renamed to "${body.newTableName}"` };
 		},
-		{ query: databaseSchema, params: tableNameSchema, body: renameTableSchema },
+		{ query: tableQuerySchema, params: tableNameSchema, body: renameTableSchema },
 	)
 
 	.delete(

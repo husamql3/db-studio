@@ -89,7 +89,7 @@ export const SidebarListTablesMenu = ({
 		if (!trimmed || trimmed === tableName) return;
 
 		try {
-			await renameTable({ newTableName: trimmed, schemaName });
+			await renameTable({ newTableName: trimmed });
 			handleRenameDialogChange(false);
 
 			if (isOpenTable) {

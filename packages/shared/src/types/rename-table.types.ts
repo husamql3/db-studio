@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableNameSchema } from "./database.types.js";
+import { tableNameSchema, tableQuerySchema } from "./database.types.js";
 
 export const renameTableSchema = z.object({
 	// Trimmed server-side so whitespace-only names are rejected even if a
@@ -8,13 +8,12 @@ export const renameTableSchema = z.object({
 		.string("New table name is required")
 		.trim()
 		.min(1, "New table name is required"),
-	schemaName: z.string().trim().min(1).optional(),
 });
 
 export type RenameTableSchemaType = z.infer<typeof renameTableSchema>;
 
 export const renameTableParamsSchema = renameTableSchema.extend({
-	...databaseSchema.shape,
+	...tableQuerySchema.shape,
 	...tableNameSchema.shape,
 });
 
