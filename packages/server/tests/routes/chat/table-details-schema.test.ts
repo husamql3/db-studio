@@ -67,6 +67,36 @@ describe("getDetailedSchema", () => {
 		});
 	});
 
+	// The relationship was rebuilt by splitting "table.column" on its first dot.
+	it("keeps a referenced table whose name contains a dot", async () => {
+		mocks.getTablesList.mockResolvedValue([{ tableName: "orders", rowCount: 1 }]);
+		mocks.getTableColumns.mockResolvedValue([
+			{
+				columnName: "customer_id",
+				dataType: "number",
+				dataTypeLabel: "integer",
+				isNullable: false,
+				columnDefault: null,
+				isPrimaryKey: false,
+				isForeignKey: true,
+				referencedTable: "crm.customers",
+				referencedColumn: "id",
+				enumValues: null,
+			},
+		]);
+
+		const { relationships } = await getDetailedSchema("dbstudio");
+
+		expect(relationships).toEqual([
+			{
+				fromTable: "orders",
+				fromColumn: "customer_id",
+				toTable: "crm.customers",
+				toColumn: "id",
+			},
+		]);
+	});
+
 	// The driver error reaches the error handler as is, so it keeps its status classification.
 	it("fails with the driver's error when a table cannot be introspected", async () => {
 		await expect(getDetailedSchema("dbstudio")).rejects.toThrow(

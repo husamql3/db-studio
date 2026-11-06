@@ -4,7 +4,6 @@ import {
 	createIndexSchema,
 	createTableSchema,
 	databaseSchema,
-	type DatabaseSchemaType,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	deleteTableQuerySchema,
@@ -17,9 +16,9 @@ import {
 	tableQuerySchema,
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
-import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
 import { getExportFile } from "@/routes/get-export-file.js";
+import { tablesWithColumns } from "@/routes/tables-with-columns.js";
 
 const EXPORT_CONTENT_TYPES = {
 	csv: "text/csv",
@@ -41,19 +40,6 @@ const attachment = (filename: string) => {
 
 	return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
 };
-
-/** Every table with its columns: the schema visualizer's graph and the AI assistant's schema. */
-export const tablesWithColumns = async (adapter: IDbAdapter, db: DatabaseSchemaType["db"]) =>
-	Promise.all(
-		(await adapter.getTablesList(db)).map(async (table) => ({
-			...table,
-			columns: await adapter.getTableColumns({
-				tableName: table.tableName,
-				schemaName: table.schemaName,
-				db,
-			}),
-		})),
-	);
 
 export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	.use(adapterPlugin)
