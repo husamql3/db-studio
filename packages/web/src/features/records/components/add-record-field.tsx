@@ -13,7 +13,7 @@ import { Textarea } from "@db-studio/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { Clock, Link, RefreshCw } from "lucide-react";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
-import type { AddRecordFormData } from "../hooks/use-create-record";
+import type { AddRecordFormData } from "@/shared/api";
 import { openRecordReference } from "../stores/record-reference.store";
 
 const pad = (n: number): string => String(n).padStart(2, "0");

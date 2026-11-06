@@ -6,8 +6,9 @@ import { useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import type { AddRecordFormData } from "@/shared/api";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
+import { useCreateRecord } from "../hooks/use-create-record";
 import { useAddRecordStore } from "../stores/add-record.store";
 import { AddRecordField } from "./add-record-field";
 import { RecordFormProvider } from "./record-form-provider";
@@ -50,14 +51,13 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 						className="flex flex-col h-full"
 					>
 						<div className="space-y-6">
-							{tableCols && tableCols.length > 0 && !isLoadingTableCols
-								? tableCols.map((col) => (
-										<AddRecordField
-											key={col.columnName}
-											{...col}
-										/>
-									))
-								: null}
+							{!isLoadingTableCols &&
+								tableCols.map((col) => (
+									<AddRecordField
+										key={col.columnName}
+										{...col}
+									/>
+								))}
 						</div>
 
 						<div className="flex justify-end gap-2 py-6">

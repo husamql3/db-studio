@@ -32,14 +32,6 @@ export const useUpdateRecord = ({
 			primaryKey?: string;
 			primaryKeys?: string[];
 		}) => {
-			if (!tableName) {
-				throw new Error("No table selected");
-			}
-
-			if (updates.length === 0) {
-				throw new Error("At least one field is required");
-			}
-
 			const payload: Parameters<typeof updateRecords>[0] = {
 				tableName,
 				schemaName,

@@ -18,9 +18,9 @@ import { ReferencedTableSortPopup } from "@/components/referenced-table-sort-pop
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import type { AddRecordFormData } from "@/shared/api";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { formatCellValue } from "@/utils/format-cell-value";
-import type { AddRecordFormData } from "../hooks/use-create-record";
 
 // The picker keeps its own page, sort and filters, so the grid behind it keeps the URL's.
 const PICKER_PAGE_LIMIT = "30";
