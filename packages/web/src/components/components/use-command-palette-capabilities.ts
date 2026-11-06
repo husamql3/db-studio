@@ -1,11 +1,11 @@
 import { useLocation, useParams } from "@tanstack/react-router";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsKeyValue, useIsSchemaless } from "@/hooks/use-is-schemaless";
-import { SECTIONS, type SectionId } from "@/lib/sections";
+import { hasSection, type SectionId } from "@/lib/sections";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const NO_TABLE_HINT = "Select a table first";
-export const SCHEMALESS_HINT = "Not available for schemaless databases";
+const SCHEMALESS_HINT = "Not available for schemaless databases";
 
 /**
  * Which commands the current route and database can actually run, plus the
@@ -34,9 +34,7 @@ export const useCommandPaletteCapabilities = () => {
 		activeTable,
 		dbType,
 		isKeyValue,
-		isSchemaless,
-		hasSection: (id: SectionId) =>
-			Boolean(engine && SECTIONS.find((section) => section.id === id)?.appliesTo(engine)),
+		hasSection: (id: SectionId) => hasSection(engine, id),
 		canCreateTable: !isSchemaless,
 		canEditRecords: Boolean(activeTable) && onTableScreen,
 		recordsHint: !activeTable ? NO_TABLE_HINT : "Open the table data screen first",

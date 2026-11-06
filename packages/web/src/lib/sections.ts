@@ -77,6 +77,9 @@ export const SECTIONS = [
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
 
+export const hasSection = (engine: DatabaseEngine | undefined, id: SectionId) =>
+	Boolean(engine && SECTIONS.find((section) => section.id === id)?.appliesTo(engine));
+
 /** The section a pathname is in; `/` belongs to the table section. */
 export const sectionOf = (pathname: string): (typeof SECTIONS)[number] | undefined => {
 	const segment = pathname.split("/")[1] || "table";

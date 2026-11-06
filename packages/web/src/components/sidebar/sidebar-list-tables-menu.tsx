@@ -36,9 +36,10 @@ import { toast } from "sonner";
 import { useSchemaEditStore } from "@/features/schema";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { tablePath } from "@/lib/sections";
+import { hasSection, tablePath } from "@/lib/sections";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 import { tableId } from "@/utils/table-id";
@@ -61,6 +62,7 @@ export const SidebarListTablesMenu = ({
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { setEditingTable } = useSchemaEditStore();
 	const isSchemaless = useIsSchemaless();
+	const engine = useDatabaseEngine();
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
@@ -162,13 +164,15 @@ export const SidebarListTablesMenu = ({
 							<ClipboardCopy className="size-4" />
 							Copy name
 						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() => copyTableSchema(tableName, schemaName)}
-							disabled={isCopyingSchema}
-						>
-							<FileCode className="size-4" />
-							Copy table schema
-						</DropdownMenuItem>
+						{hasSection(engine, "schema") && (
+							<DropdownMenuItem
+								onClick={() => copyTableSchema(tableName, schemaName)}
+								disabled={isCopyingSchema}
+							>
+								<FileCode className="size-4" />
+								Copy table schema
+							</DropdownMenuItem>
+						)}
 						<DropdownMenuSeparator />
 						<DropdownMenuItem onClick={() => handleRenameDialogChange(true)}>
 							<Type className="size-4" />

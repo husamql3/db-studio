@@ -50,7 +50,6 @@ import { CONSTANTS } from "@/utils/constants";
 import { tableId } from "@/utils/table-id";
 import {
 	NO_TABLE_HINT,
-	SCHEMALESS_HINT,
 	useCommandPaletteCapabilities,
 } from "./use-command-palette-capabilities";
 import { useCommandPaletteState } from "./use-command-palette-state";
@@ -83,7 +82,6 @@ export function CommandPalette() {
 		activeTable,
 		dbType,
 		isKeyValue,
-		isSchemaless,
 		canCreateTable,
 		canEditRecords,
 		recordsHint,
@@ -237,9 +235,9 @@ export function CommandPalette() {
 							</CommandItem>
 							{hasSection("schema") && (
 								<CommandItem
-									disabled={!activeTable || isSchemaless}
+									disabled={!activeTable}
 									onSelect={() => {
-										if (!activeTable || isSchemaless) return;
+										if (!activeTable) return;
 										const table = activeTable;
 										handleAction(() =>
 											navigate({
@@ -255,11 +253,7 @@ export function CommandPalette() {
 									<div className="flex flex-col">
 										<span>Go to Schema</span>
 										<span className="text-xs text-muted-foreground">
-											{isSchemaless
-												? SCHEMALESS_HINT
-												: activeTable
-													? `View the schema of ${activeTable}`
-													: NO_TABLE_HINT}
+											{activeTable ? `View the schema of ${activeTable}` : NO_TABLE_HINT}
 										</span>
 									</div>
 								</CommandItem>
@@ -338,31 +332,31 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							<CommandItem
-								disabled={!activeTable || isSchemaless}
-								onSelect={() => {
-									if (!activeTable || isSchemaless) return;
-									const table = activeTable;
-									handleAction(() =>
-										askAssistant(
-											`Explain the schema of table "${table}": what each column stores and how it relates to other tables.`,
-										),
-									);
-								}}
-								keywords={["ai", "explain", "schema", "table", "understand"]}
-							>
-								<Brain className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Explain Table Schema</span>
-									<span className="text-xs text-muted-foreground">
-										{isSchemaless
-											? SCHEMALESS_HINT
-											: activeTable
+							{hasSection("schema") && (
+								<CommandItem
+									disabled={!activeTable}
+									onSelect={() => {
+										if (!activeTable) return;
+										const table = activeTable;
+										handleAction(() =>
+											askAssistant(
+												`Explain the schema of table "${table}": what each column stores and how it relates to other tables.`,
+											),
+										);
+									}}
+									keywords={["ai", "explain", "schema", "table", "understand"]}
+								>
+									<Brain className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Explain Table Schema</span>
+										<span className="text-xs text-muted-foreground">
+											{activeTable
 												? `Understand the structure of ${activeTable} with AI`
 												: NO_TABLE_HINT}
-									</span>
-								</div>
-							</CommandItem>
+										</span>
+									</div>
+								</CommandItem>
+							)}
 						</CommandGroup>
 
 						<CommandSeparator />
@@ -529,9 +523,9 @@ export function CommandPalette() {
 										</div>
 									</CommandItem>
 									<CommandItem
-										disabled={!activeTable || isCopyingSchema || isSchemaless}
+										disabled={!activeTable || isCopyingSchema}
 										onSelect={() => {
-											if (!activeTable || isSchemaless) return;
+											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
 												void copyTableSchema(tableName, openSchema).catch(() => undefined);
@@ -543,11 +537,9 @@ export function CommandPalette() {
 										<div className="flex flex-col">
 											<span>Copy Table Schema</span>
 											<span className="text-xs text-muted-foreground">
-												{isSchemaless
-													? SCHEMALESS_HINT
-													: activeTable
-														? `Copy the schema of ${activeTable} to the clipboard`
-														: NO_TABLE_HINT}
+												{activeTable
+													? `Copy the schema of ${activeTable} to the clipboard`
+													: NO_TABLE_HINT}
 											</span>
 										</div>
 									</CommandItem>
