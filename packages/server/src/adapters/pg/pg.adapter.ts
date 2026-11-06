@@ -444,8 +444,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 		const schemas = (schemaRows as Array<{ schemaName: string }>).map((r) => r.schemaName);
 
-		if (schemas.length === 0)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (schemas.length === 0) throw this.tableMissing(tableName);
 
 		if (requestedSchema && !schemas.includes(requestedSchema)) {
 			throw new HTTPException(404, {
@@ -494,8 +493,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 		const tableSchema = tableRows[0]?.schemaName;
 
-		if (!tableSchema)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!tableSchema) throw this.tableMissing(tableName);
 
 		interface ColumnInfo {
 			column_name: string;
@@ -688,8 +686,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			[tableName, schemaName ?? null],
 		);
 
-		if (!rows || rows.length === 0)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!rows || rows.length === 0) throw this.tableMissing(tableName);
 
 		return rows.map((r) => {
 			let parsedEnumValues: string[] | null = null;

@@ -413,8 +413,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 				[tableName],
 			);
 
-			if (!row)
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			if (!row) throw this.tableMissing(tableName);
 
 			return row.sql;
 		});

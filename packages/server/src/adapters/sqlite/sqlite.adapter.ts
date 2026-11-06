@@ -262,8 +262,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		);
 
 		// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
-		if (colInfoRows.length === 0)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (colInfoRows.length === 0) throw this.tableMissing(tableName);
 
 		const pkColumns: string[] = colInfoRows
 			.filter((c) => c.pk > 0)
@@ -435,7 +434,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			[tableName],
 		);
 
-		if (!row) throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!row) throw this.tableMissing(tableName);
 
 		return row.sql;
 	}
@@ -660,7 +659,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		const { tableName } = params;
 
 		const keyColumns = this.resolveKeyColumns(params);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
+		const groups = this.groupUpdatesByKey(params.updates, keyColumns);
 
 		const where = keyColumns.map((column) => `${quoteSqliteIdent(column)} = ?`).join(" AND ");
 

@@ -449,7 +449,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		);
 
 		if (!rows || rows.length === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.tableMissing(tableName);
 		}
 
 		return (

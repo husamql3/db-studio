@@ -1035,7 +1035,7 @@ export class MongoAdapter extends BaseAdapter {
 		let totalUpdated = 0;
 		const keyColumns = this.resolveKeyColumns(params).map((column) => column || "_id");
 
-		const groups = this.groupUpdatesByKey({ ...params, primaryKeys: keyColumns }, keyColumns);
+		const groups = this.groupUpdatesByKey(params.updates, keyColumns);
 
 		for (const { keyValues, rowUpdates } of groups) {
 			// MongoDB rejects $set on the immutable _id field, so surface it as a
@@ -1101,10 +1101,6 @@ export class MongoAdapter extends BaseAdapter {
 		params: BulkInsertRecordsParams,
 	): Promise<BulkInsertResult> {
 		const { tableName, records, db } = params;
-
-		if (records.length === 0) {
-			throw new HTTPException(400, { message: "At least one record is required" });
-		}
 
 		const mongoDb = await connector("mongodb").db(db);
 		const collection = mongoDb.collection(tableName);

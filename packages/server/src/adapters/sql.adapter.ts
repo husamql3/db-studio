@@ -5,6 +5,7 @@ import {
 	type CreateIndexParamsSchemaType,
 	DATABASE_ENGINES,
 	type DatabaseSchemaType,
+	type DatabaseTypeSchema,
 	type DeleteRecordParams,
 	type DeleteRecordResult,
 	type DeleteTableParams,
@@ -125,13 +126,10 @@ type ListedIndex = IndexInfoSchemaType & { schemaName?: string };
  * operations every engine does the same way are written once here.
  */
 export abstract class SqlAdapter<Conn> extends BaseAdapter {
-	protected abstract readonly engine:
-		| "pg"
-		| "mysql"
-		| "mssql"
-		| "sqlite"
-		| "duckdb"
-		| "oracle";
+	protected abstract readonly engine: Exclude<
+		DatabaseTypeSchema,
+		"mongodb" | "redis" | "clickhouse"
+	>;
 	protected abstract readonly quoteIdentifier: (name: string) => string;
 	/** The n-th bound value's placeholder, counting from 1. */
 	protected abstract readonly placeholder: (position: number) => string;
@@ -415,10 +413,6 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		schemaName?: string,
 	): Promise<string[] | undefined>;
 
-	protected tableMissing(tableName: string) {
-		return new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-	}
-
 	/** The column names of `tableName`; 404 when there is no such table. */
 	protected async requireTable(
 		conn: Conn,
@@ -655,7 +649,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		const { tableName } = params;
 		const q = this.quoteIdentifier;
 		const keyColumns = this.resolveKeyColumns(params);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
+		const groups = this.groupUpdatesByKey(params.updates, keyColumns);
 
 		const updatedCount = await this.transaction(db, async (conn) => {
 			const { primaryKey, bindValue } = await this.writeTarget(

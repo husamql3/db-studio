@@ -532,7 +532,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			`);
 
 		if (!result.recordset || result.recordset.length === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.tableMissing(tableName);
 		}
 
 		const checkResult = await pool.request().input("tableName", tableName).query(`

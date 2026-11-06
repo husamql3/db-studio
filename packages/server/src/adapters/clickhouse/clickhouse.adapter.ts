@@ -698,8 +698,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 	private async getTable(db: string, tableName: string): Promise<TableRow> {
 		const table = await this.findTable(db, tableName);
 
-		if (!table)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!table) throw this.tableMissing(tableName);
 
 		return table;
 	}

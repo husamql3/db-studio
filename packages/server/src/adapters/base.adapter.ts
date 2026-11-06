@@ -158,12 +158,12 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 * on every key column. Throws 400 when a key column is absent from the row.
 	 */
 	protected groupUpdatesByKey(
-		params: UpdateRecordsSchemaType,
+		updates: UpdateRecordsSchemaType["updates"],
 		keyColumns: string[],
 	): RecordUpdateGroup[] {
 		const groups = new Map<string, RecordUpdateGroup>();
 
-		for (const update of params.updates) {
+		for (const update of updates) {
 			const keyValues = keyColumns.map((column) => {
 				const value = update.rowData[column];
 
@@ -192,6 +192,10 @@ export abstract class BaseAdapter implements IDbAdapter {
 	/** Human-readable `col = value` list used in "record not found" errors. */
 	protected describeKey(keyColumns: string[], keyValues: unknown[]): string {
 		return keyColumns.map((column, i) => `${column} = ${keyValues[i]}`).join(", ");
+	}
+
+	protected tableMissing(tableName: string) {
+		return new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 	}
 
 	protected assertDifferentTableName(tableName: string, newTableName: string): void {
