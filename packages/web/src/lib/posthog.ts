@@ -35,7 +35,6 @@ let config: TelemetryConfig | undefined;
 /** The PostHog client, loaded the first time telemetry turns out to be enabled. */
 let posthog: PostHog | undefined;
 let initialized = false;
-let everInitialized = false;
 
 const globalPrivacyControlEnabled = () =>
 	(navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
@@ -53,16 +52,10 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 
 	if (!config?.enabled || !key) return config;
 
-	if (initialized) return config;
 	posthog ??= (await import("posthog-js")).default;
 
-	if (everInitialized) {
-		posthog.opt_in_capturing();
-		posthog.identify(config.installationId);
-		initialized = true;
-
-		return config;
-	}
+	// A second call (React's development double effect) finishes after the first one's import.
+	if (initialized) return config;
 
 	posthog.init(key, {
 		api_host: import.meta.env.VITE_POSTHOG_HOST ?? "https://eu.i.posthog.com",
@@ -77,7 +70,6 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 		},
 	});
 	initialized = true;
-	everInitialized = true;
 
 	return config;
 };
