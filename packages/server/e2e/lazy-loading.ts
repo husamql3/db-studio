@@ -48,10 +48,15 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 	page.on("request", (request) => {
 		if (request.resourceType() === "script") scripts.push(new URL(request.url()).pathname);
 	});
+	const config = page.waitForResponse("**/api/telemetry/config");
 	await page.goto(`${BASE}/`);
 	await page.waitForSelector('a[href^="/table/"]');
-	// Telemetry starts after the config request; give it time to load and initialize.
-	await page.waitForTimeout(2_000);
+	// Telemetry starts after the config response: wait for it, then for the SDK chunks it
+	// requests to finish loading (no request for 500 ms).
+	await config;
+	await page.waitForLoadState("networkidle");
+
+	if (telemetryEnabled) await page.waitForFunction(() => "__SENTRY__" in globalThis);
 	const startupScripts = scripts.length;
 
 	return {

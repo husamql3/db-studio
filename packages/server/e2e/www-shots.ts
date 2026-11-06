@@ -51,7 +51,7 @@ for (const shot of shots) {
 		content: "body > div:has(button[class^='go'] > img) { display: none !important; }",
 	});
 	await page.evaluate(() => document.fonts.ready);
-	await page.waitForTimeout(1500);
+	await page.waitForLoadState("networkidle");
 	await page.screenshot({
 		path: new URL(`${shot.name}.png`, outDir).pathname,
 		fullPage: shot.fullPage,

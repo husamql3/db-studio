@@ -60,6 +60,35 @@ const canvasState = (page: Page) =>
 		};
 	});
 
+/** Resolves once the canvas has not moved for 10 animation frames, so a pan has finished. */
+let settleRuns = 0;
+
+const viewportSettled = (page: Page) =>
+	page.waitForFunction(
+		(run) => {
+			// SAFETY: page-global scratch state for this wait; `run` starts it afresh on each call.
+			const state = globalThis as {
+				run?: number;
+				lastTransform?: string;
+				stillFrames?: number;
+			};
+
+			const transform =
+				document.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform;
+
+			const still = state.run === run && transform === state.lastTransform;
+			Object.assign(state, {
+				run,
+				lastTransform: transform,
+				stillFrames: still ? (state.stillFrames ?? 0) + 1 : 0,
+			});
+
+			return still && (state.stillFrames ?? 0) >= 10;
+		},
+		++settleRuns,
+		{ polling: "raf" },
+	);
+
 const viewport = (page: Page) =>
 	page.locator(".react-flow__viewport").evaluate((el) => (el as HTMLElement).style.transform);
 
@@ -131,7 +160,7 @@ try {
 	await page.waitForFunction(() =>
 		document.querySelector('.react-flow__node[data-id="hr.employees"] [data-active]'),
 	);
-	await page.waitForTimeout(600); // the pan animates for 400 ms
+	await viewportSettled(page);
 	summary.sidebarPick = {
 		url: new URL(page.url()).search,
 		...(await canvasState(page)),
@@ -160,7 +189,7 @@ try {
 	await page.waitForFunction(() =>
 		document.querySelector('.react-flow__node[data-id="hr.departments"] [data-active]'),
 	);
-	await page.waitForTimeout(600);
+	await viewportSettled(page);
 	summary.canvasClick = {
 		url: new URL(page.url()).search,
 		moved: (await viewport(page)) !== before,
