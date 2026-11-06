@@ -52,15 +52,25 @@ describe("getDetailedSchema", () => {
 		});
 	});
 
-	it("keeps schema generation usable when one table cannot be introspected", async () => {
-		const schema = await getDetailedSchema("dbstudio");
-
-		expect(schema.tables).toEqual([
-			{ name: "analytics.events", columns: [] },
-			{
-				name: "public.projects",
-				columns: [{ name: "id", type: "integer", nullable: false, isPrimaryKey: true }],
-			},
+	// A table outside the search path got its columns looked up without its schema.
+	it("looks each table's columns up in that table's own schema", async () => {
+		mocks.getTablesList.mockResolvedValue([
+			{ schemaName: "public", tableName: "projects", rowCount: 2 },
 		]);
+
+		await getDetailedSchema("dbstudio");
+
+		expect(mocks.getTableColumns).toHaveBeenCalledWith({
+			tableName: "projects",
+			schemaName: "public",
+			db: "dbstudio",
+		});
+	});
+
+	// The driver error reaches the error handler as is, so it keeps its status classification.
+	it("fails with the driver's error when a table cannot be introspected", async () => {
+		await expect(getDetailedSchema("dbstudio")).rejects.toThrow(
+			'relation "events" does not exist',
+		);
 	});
 });

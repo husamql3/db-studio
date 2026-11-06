@@ -4,6 +4,7 @@ import {
 	createIndexSchema,
 	createTableSchema,
 	databaseSchema,
+	type DatabaseSchemaType,
 	deleteColumnParamSchema,
 	deleteColumnQuerySchema,
 	deleteTableQuerySchema,
@@ -16,6 +17,7 @@ import {
 	tableQuerySchema,
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
+import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
 import { getExportFile } from "@/routes/get-export-file.js";
 
@@ -24,6 +26,19 @@ const EXPORT_CONTENT_TYPES = {
 	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 	json: "application/json",
 } as const;
+
+/** Every table with its columns: the schema visualizer's graph and the AI assistant's schema. */
+export const tablesWithColumns = async (adapter: IDbAdapter, db: DatabaseSchemaType["db"]) =>
+	Promise.all(
+		(await adapter.getTablesList(db)).map(async (table) => ({
+			...table,
+			columns: await adapter.getTableColumns({
+				tableName: table.tableName,
+				schemaName: table.schemaName,
+				db,
+			}),
+		})),
+	);
 
 export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	.use(adapterPlugin)
@@ -35,23 +50,10 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	// Every table with its columns, so the visualizer draws the schema in one request.
 	.get(
 		"/graph",
-		async ({ adapter, query: { db } }) => {
-			const tables = await adapter.getTablesList(db);
-
-			return {
-				data: await Promise.all(
-					tables.map(async (table) => ({
-						...table,
-						columns: await adapter.getTableColumns({
-							tableName: table.tableName,
-							schemaName: table.schemaName,
-							db,
-						}),
-					})),
-				),
-			};
+		async ({ adapter, query: { db } }) => ({ data: await tablesWithColumns(adapter, db) }),
+		{
+			query: databaseSchema,
 		},
-		{ query: databaseSchema },
 	)
 
 	.post(
