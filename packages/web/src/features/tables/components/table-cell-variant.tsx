@@ -783,27 +783,15 @@ export const TableJsonCell = memo(
 		const { editor: editorPreferences } = usePersonalPreferencesStore();
 		const rawValue = cell.getValue();
 
-		// If the value is a string (which shouldn't happen but might due to pg driver issues),
-		// parse it to an object
-		let initialValue: Record<string, unknown>;
+		// A JSON column can arrive as its text; text that is not JSON stays a string value.
+		let initialValue = rawValue;
 
 		if (typeof rawValue === "string") {
 			try {
-				initialValue = JSON.parse(rawValue) as Record<string, unknown>;
-				console.warn(
-					`TableJsonCell ${columnId}: initialValue was a string, parsed it to object`,
-					initialValue,
-				);
-			} catch (e) {
-				console.error(
-					`TableJsonCell ${columnId}: Failed to parse initialValue string`,
-					rawValue,
-					e,
-				);
-				initialValue = {};
+				initialValue = JSON.parse(rawValue);
+			} catch {
+				initialValue = rawValue;
 			}
-		} else {
-			initialValue = rawValue as Record<string, unknown>;
 		}
 
 		// Separate editor value (formatted) from display value (compact)
@@ -820,9 +808,7 @@ export const TableJsonCell = memo(
 
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
 
-		const currentJsonValue = pendingUpdate
-			? (pendingUpdate.newValue as Record<string, unknown>)
-			: initialValue;
+		const currentJsonValue = pendingUpdate ? pendingUpdate.newValue : initialValue;
 
 		const displayValue = JSON.stringify(currentJsonValue);
 
