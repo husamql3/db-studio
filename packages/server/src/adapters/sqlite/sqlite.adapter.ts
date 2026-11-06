@@ -24,6 +24,7 @@ import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
+	bulkInserted,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
@@ -565,35 +566,20 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		});
 	}
 
-	async addRecord({
-		params,
-	}: {
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const columns = Object.keys(data);
-
-		if (!columns.length)
-			throw new HTTPException(400, { message: "No data provided for insert" });
-
-		const colNames = columns.map(quoteSqliteIdent).join(", ");
-		const placeholders = columns.map(() => "?").join(", ");
-
+	/** Overrides the shared insert, which runs in a transaction SQLite does not offer. */
+	override async addRecord({ params: { tableName, data } }: { params: AddRecordSchemaType }) {
+		this.assertRecordData(data);
 		const client = await connector("sqlite").client();
+		const insert = await this.inserter(client, "", tableName, undefined, Object.keys(data));
+		const { sql, values } = insert(data);
+		const insertedCount = await this.execute(client, sql, values);
 
-		const result = await client.execute(
-			stmt(
-				`INSERT INTO ${quoteSqliteIdent(tableName)} (${colNames}) VALUES (${placeholders})`,
-				Object.values(data),
-			),
-		);
-
-		if (result.rowsAffected === 0)
+		if (insertedCount === 0)
 			throw new HTTPException(500, {
 				message: `Failed to insert record into "${tableName}"`,
 			});
 
-		return { insertedCount: result.rowsAffected };
+		return { insertedCount };
 	}
 
 	async updateRecords({
@@ -702,32 +688,31 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		}
 	}
 
-	async bulkInsertRecords({
+	/** One write batch, SQLite's only transaction. */
+	override async bulkInsertRecords({
 		tableName,
 		records,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const columns = Object.keys(records[0]);
-		const colNames = columns.map(quoteSqliteIdent).join(", ");
-		const placeholders = columns.map(() => "?").join(", ");
-		const sql = `INSERT INTO ${quoteSqliteIdent(tableName)} (${colNames}) VALUES (${placeholders})`;
-
 		const client = await connector("sqlite").client();
+
+		const insert = await this.inserter(
+			client,
+			"",
+			tableName,
+			undefined,
+			Object.keys(records[0]),
+		);
+
 		await client.batch(
-			records.map((record) =>
-				stmt(
-					sql,
-					columns.map((col) => record[col]),
-				),
-			),
+			records.map((record) => {
+				const { sql, values } = insert(record);
+
+				return stmt(sql, values);
+			}),
 			"write",
 		);
 
-		return {
-			success: true,
-			message: `Bulk insert completed: ${records.length} records inserted`,
-			successCount: records.length,
-			failureCount: 0,
-		};
+		return bulkInserted(records.length);
 	}
 
 	protected async columnNames(client: SqliteClient, tableName: string) {

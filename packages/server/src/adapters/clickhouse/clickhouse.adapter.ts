@@ -34,6 +34,7 @@ import {
 } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
+import { bulkInserted } from "@/adapters/sql.adapter.js";
 import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 import { connector } from "@/open-connections.js";
@@ -503,18 +504,9 @@ export class ClickhouseAdapter extends BaseAdapter {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records?.length) {
-			throw new HTTPException(400, { message: "At least one record is required" });
-		}
-
 		await this.insertRows(db, tableName, records);
 
-		return {
-			success: true,
-			message: `Bulk insert completed: ${records.length} records inserted`,
-			successCount: records.length,
-			failureCount: 0,
-		};
+		return bulkInserted(records.length);
 	}
 
 	async executeQuery({

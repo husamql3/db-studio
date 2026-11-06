@@ -1,6 +1,5 @@
 import type {
 	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
@@ -32,7 +31,6 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
-import { createBinds } from "@/adapters/sql-filters.js";
 import {
 	flagOrJsonTarget,
 	groupKeyColumns,
@@ -570,32 +568,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 			throw e;
 		}
-	}
-
-	async addRecord({
-		db,
-		params,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const pool = await connector("mysql").pool(db);
-		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
-		const columns = Object.keys(data);
-		const { values, bind } = createBinds(this.placeholder);
-
-		const insertedCount = await this.execute(
-			pool,
-			`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map((column) => bindValue(column, data[column], bind)).join(", ")})`,
-			values,
-		);
-
-		if (insertedCount === 0) {
-			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
-		}
-
-		return { insertedCount };
 	}
 
 	protected async runStatement(conn: Connection, statement: string) {

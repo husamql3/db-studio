@@ -1,6 +1,5 @@
 import type {
 	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
@@ -27,6 +26,7 @@ import type {
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
 import {
+	bulkInserted,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
@@ -498,28 +498,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		});
 	}
 
-	async addRecord({
-		params,
-	}: {
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const columns = Object.keys(data);
-
-		if (!columns.length)
-			throw new HTTPException(400, { message: "No data provided for insert" });
-
-		const insertedCount = await connector("duckdb").withConnection((conn) =>
-			this.execute(
-				conn,
-				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
-				Object.values(data),
-			),
-		);
-
-		return { insertedCount };
-	}
-
 	async forceDeleteRecords(params: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const result = await this.deleteRecords(params);
 
@@ -554,12 +532,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 			}),
 		);
 
-		return {
-			success: true,
-			message: `Bulk insert completed: ${successCount} records inserted`,
-			successCount,
-			failureCount: 0,
-		};
+		return bulkInserted(successCount);
 	}
 
 	protected async runStatement(conn: DuckDBConnection, sql: string): Promise<StatementResult> {

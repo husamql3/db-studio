@@ -1,6 +1,5 @@
 import type {
 	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
@@ -34,6 +33,7 @@ import {
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
 import {
+	bulkInserted,
 	groupKeyColumns,
 	RELATED_SAMPLE,
 	type ReferencingKey,
@@ -709,37 +709,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		});
 	}
 
-	async addRecord({
-		db,
-		params,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const columns = Object.keys(data);
-
-		if (!columns.length)
-			throw new HTTPException(400, { message: "No data provided for insert" });
-
-		const insertedCount = await this.transaction(db, async (conn) => {
-			const types = await this.columnTypes(conn, tableName);
-			const { values, bind } = createBinds(oraclePlaceholder);
-
-			const expressions = columns.map((column) =>
-				typedBind(types, bind)(data[column], column),
-			);
-
-			return this.execute(
-				conn,
-				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
-				values,
-			);
-		});
-
-		return { insertedCount };
-	}
-
 	/** Overrides the shared delete: key values bind by their column's type. */
 	override async deleteRecords({
 		tableName,
@@ -892,12 +861,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			return result.rowsAffected ?? records.length;
 		});
 
-		return {
-			success: true,
-			message: `Bulk insert completed: ${successCount} records inserted`,
-			successCount,
-			failureCount: 0,
-		};
+		return bulkInserted(successCount);
 	}
 
 	/**

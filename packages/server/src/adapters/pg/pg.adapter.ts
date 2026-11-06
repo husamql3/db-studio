@@ -1,9 +1,6 @@
 import type {
 	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
-	BulkInsertRecordsParams,
-	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
@@ -131,17 +128,38 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return isPgError(e) && e.code === "23503";
 	}
 
-	/** JSON and array values are sent as JSON text. */
+	/**
+	 * An array goes to an array column as is, which node-postgres sends as an array literal;
+	 * any other object or array is sent as JSON text, as a JSON column takes it.
+	 */
 	protected override async writeTarget(
 		conn: PgQueryable,
 		_db: string,
 		tableName: string,
 		schemaName: string | undefined,
 	) {
+		const [primaryKey, arrayColumns] = await Promise.all([
+			this.primaryKey(conn, tableName, schemaName),
+			this.rows<{ name: string }>(
+				conn,
+				`SELECT column_name AS name FROM information_schema.columns
+				 WHERE table_name = $1 AND table_schema = ${schemaOf("$1", "$2")} AND data_type = 'ARRAY'`,
+				[tableName, schemaName ?? null],
+			),
+		]);
+
+		const arrays = new Set(arrayColumns.map((c) => c.name));
+
 		return {
-			primaryKey: await this.primaryKey(conn, tableName, schemaName),
-			bindValue: (_column: string, value: unknown, bind: (value: unknown) => string) =>
-				bind(value !== null && typeof value === "object" ? JSON.stringify(value) : value),
+			primaryKey,
+			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
+				bind(
+					value !== null &&
+						typeof value === "object" &&
+						!(Array.isArray(value) && arrays.has(column))
+						? JSON.stringify(value)
+						: value,
+				),
 		};
 	}
 
@@ -829,64 +847,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 			throw e;
 		}
-	}
-
-	async addRecord({
-		db,
-		schemaName,
-		params,
-	}: {
-		db: DatabaseSchemaType["db"];
-		schemaName?: string;
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const pool = await connector("pg").pool(db);
-		const columns = Object.keys(data);
-		const values = Object.values(data);
-		const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
-		const colNames = columns.map(quotePgIdent).join(", ");
-
-		const result = await pool.query(
-			`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
-			values,
-		);
-
-		if (result.rowCount === 0)
-			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
-
-		return { insertedCount: result.rowCount ?? 0 };
-	}
-
-	async bulkInsertRecords({
-		tableName,
-		schemaName,
-		records,
-		db,
-	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		return await this.transaction(db, async (client) => {
-			const columns = Object.keys(records[0]);
-			const colNames = columns.map(quotePgIdent).join(", ");
-			let successCount = 0;
-
-			for (const record of records) {
-				const values = columns.map((col) => record[col]);
-				const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
-
-				await client.query(
-					`INSERT INTO ${qualifiedTable(tableName, schemaName)} (${colNames}) VALUES (${placeholders}) RETURNING *`,
-					values,
-				);
-				successCount++;
-			}
-
-			return {
-				success: true,
-				message: `Bulk insert completed: ${successCount} records inserted`,
-				successCount,
-				failureCount: 0,
-			};
-		});
 	}
 
 	protected async runStatement(conn: PgQueryable, statement: string) {

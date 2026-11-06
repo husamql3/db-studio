@@ -1,4 +1,5 @@
 import {
+	type AddRecordSchemaType,
 	type BulkInsertRecordsParams,
 	type BulkInsertResult,
 	type ColumnInfoSchemaType,
@@ -100,6 +101,14 @@ export const safeNumber = <T>(value: T): T | number => {
 	return Number.isSafeInteger(number) ? number : value;
 };
 
+/** The answer to a bulk insert that wrote every record. */
+export const bulkInserted = (count: number): BulkInsertResult => ({
+	success: true,
+	message: `Successfully inserted ${count} record${count !== 1 ? "s" : ""}`,
+	successCount: count,
+	failureCount: 0,
+});
+
 /** Rows shown per foreign key when a delete is refused. */
 export const RELATED_SAMPLE = 100;
 
@@ -167,8 +176,8 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	/**
 	 * Runs `work` on one connection inside a transaction, committed when it resolves.
 	 * SQLite has none to offer (D1 has no interactive transactions; a write batch is its only
-	 * one), so it overrides every template that calls this: updateRecords, forceDeleteRecords
-	 * and bulkInsertRecords. A new template that calls it needs a SQLite override too.
+	 * one), so it overrides every template that calls this: addRecord, updateRecords,
+	 * forceDeleteRecords and bulkInsertRecords. A new template that calls it needs a SQLite override too.
 	 */
 	protected transaction<T>(_db: string, _work: (conn: Conn) => Promise<T>): Promise<T> {
 		return notImplemented("transactions");
@@ -825,6 +834,69 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		return { updatedCount };
 	}
 
+	/** The columns of a record that an INSERT writes. */
+	protected async insertColumns(
+		_conn: Conn,
+		_tableName: string,
+		columns: string[],
+	): Promise<string[]> {
+		return columns;
+	}
+
+	/** The INSERT of a record holding `columns`, with its values bound the way writes bind them. */
+	protected async inserter(
+		conn: Conn,
+		db: string,
+		tableName: string,
+		schemaName: string | undefined,
+		columns: string[],
+	) {
+		const q = this.quoteIdentifier;
+		const { bindValue } = await this.writeTarget(conn, db, tableName, schemaName);
+		const written = await this.insertColumns(conn, tableName, columns);
+
+		return (record: Record<string, unknown>) => {
+			const { values, bind } = createBinds(this.placeholder);
+			const row = written.map((column) => bindValue(column, record[column], bind));
+
+			return {
+				sql: `INSERT INTO ${this.tableRef(tableName, schemaName)} (${written.map(q).join(", ")}) VALUES (${row.join(", ")})`,
+				values,
+			};
+		};
+	}
+
+	/** 400 for a record without a column: an INSERT names at least one. */
+	protected assertRecordData(data: Record<string, unknown>) {
+		if (!Object.keys(data).length)
+			throw new HTTPException(400, { message: "No data provided for insert" });
+	}
+
+	/** One INSERT, committed on its own. */
+	async addRecord({
+		db,
+		schemaName,
+		params: { tableName, data },
+	}: {
+		db: DatabaseSchemaType["db"];
+		schemaName?: string;
+		params: AddRecordSchemaType;
+	}): Promise<{ insertedCount: number }> {
+		this.assertRecordData(data);
+
+		const insertedCount = await this.transaction(db, async (conn) => {
+			const insert = await this.inserter(conn, db, tableName, schemaName, Object.keys(data));
+			const { sql, values } = insert(data);
+
+			return this.execute(conn, sql, values);
+		});
+
+		if (insertedCount === 0)
+			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
+
+		return { insertedCount };
+	}
+
 	/** One INSERT per record, in one transaction; a failure names the record by its position. */
 	async bulkInsertRecords({
 		tableName,
@@ -832,24 +904,20 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const q = this.quoteIdentifier;
-		const columns = Object.keys(records[0]);
-
-		const { bindValue } = await this.connect(db, (conn) =>
-			this.writeTarget(conn, db, tableName, schemaName),
-		);
-
 		await this.transaction(db, async (conn) => {
+			const insert = await this.inserter(
+				conn,
+				db,
+				tableName,
+				schemaName,
+				Object.keys(records[0]),
+			);
+
 			for (const [i, record] of records.entries()) {
-				const { values, bind } = createBinds(this.placeholder);
-				const row = columns.map((column) => bindValue(column, record[column], bind));
+				const { sql, values } = insert(record);
 
 				try {
-					await this.execute(
-						conn,
-						`INSERT INTO ${this.tableRef(tableName, schemaName)} (${columns.map(q).join(", ")}) VALUES (${row.join(", ")})`,
-						values,
-					);
+					await this.execute(conn, sql, values);
 				} catch (error) {
 					const failure = this.classifyError(error);
 
@@ -862,12 +930,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 			}
 		});
 
-		return {
-			success: true,
-			message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
-			successCount: records.length,
-			failureCount: 0,
-		};
+		return bulkInserted(records.length);
 	}
 
 	/** One DELETE; rows another table still references refuse it with those rows. */

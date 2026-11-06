@@ -1,6 +1,5 @@
 import type {
 	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
@@ -150,6 +149,21 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 	protected override async writeTarget(_conn: MssqlConn, db: string, tableName: string) {
 		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
+	}
+
+	/** SQL Server refuses an explicit value for an identity column, so an INSERT skips it. */
+	protected override async insertColumns(
+		conn: MssqlConn,
+		tableName: string,
+		columns: string[],
+	) {
+		const identity = await this.rows<{ name: string }>(
+			conn,
+			"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@p0) AND is_identity = 1",
+			[tableName],
+		);
+
+		return columns.filter((column) => !identity.some((c) => c.name === column));
 	}
 
 	protected override sampleRows(
@@ -744,43 +758,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 			throw e;
 		}
-	}
-
-	async addRecord({
-		db,
-		params,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const pool = await connector("mssql").pool(db);
-		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
-
-		const identityColumns = new Set(
-			(
-				await this.rows<{ name: string }>(
-					pool,
-					"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@p0) AND is_identity = 1",
-					[tableName],
-				)
-			).map((r) => r.name),
-		);
-
-		const columns = Object.keys(data).filter((col) => !identityColumns.has(col));
-		const { values, bind } = createBinds(mssqlPlaceholder);
-
-		const insertedCount = await this.execute(
-			pool,
-			`INSERT INTO ${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")}) VALUES (${columns.map((column) => bindValue(column, data[column], bind)).join(", ")})`,
-			values,
-		);
-
-		if (insertedCount === 0) {
-			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
-		}
-
-		return { insertedCount };
 	}
 
 	protected async runStatement(conn: MssqlConn, statement: string) {
