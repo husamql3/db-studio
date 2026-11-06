@@ -88,7 +88,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 		expect(useLiveModeStore.getState().isLive).toBe(true);
 
@@ -113,7 +113,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 		expect(useLiveModeStore.getState().isLive).toBe(true);
 
@@ -140,7 +140,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 
 		act(() => {
@@ -162,7 +162,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 			useOverlayStore.getState().openOverlay("tables.row-details");
 			useRowDetailsStore.getState().setDirty(true);
 		});
@@ -209,7 +209,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 
 		rows = [
@@ -235,7 +235,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 
 		unmount();
@@ -296,7 +296,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 		expect(useLiveModeStore.getState().isLive).toBe(true);
 
@@ -333,7 +333,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 
 		await act(async () => {
@@ -374,7 +374,7 @@ describe("useLiveTable", () => {
 		);
 
 		act(() => {
-			useLiveModeStore.getState().setLive(true, "users");
+			useLiveModeStore.getState().setLive(true);
 		});
 
 		await act(async () => {

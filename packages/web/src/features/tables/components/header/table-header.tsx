@@ -42,7 +42,7 @@ export const TableHeader = ({
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background sticky top-0 left-0 right-0 z-0">
 			<div className="flex items-center ">
 				<RefetchBtn tableName={tableName} />
-				{canLiveMode && <LiveModeToggle tableName={tableName} />}
+				{canLiveMode && <LiveModeToggle />}
 				{!isSchemaless && (
 					<FilterPopup
 						tableName={tableName}

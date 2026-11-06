@@ -7,12 +7,11 @@ interface LiveModeStore {
 	isLive: boolean;
 	status: LiveModeStatus;
 	isPulsing: boolean;
-	activeTable: string | null;
 	generation: number;
 	highlightedRowIds: Set<string>;
 	highlightedCellKeys: Set<string>;
 
-	setLive: (isLive: boolean, tableName?: string) => void;
+	setLive: (isLive: boolean) => void;
 	pauseLive: () => void;
 	setStatus: (status: LiveModeStatus) => void;
 	triggerPulse: () => void;
@@ -30,12 +29,11 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 	isLive: false,
 	status: "idle",
 	isPulsing: false,
-	activeTable: null,
 	generation: 0,
 	highlightedRowIds: new Set(),
 	highlightedCellKeys: new Set(),
 
-	setLive: (isLive, tableName) => {
+	setLive: (isLive) => {
 		if (!isLive) {
 			set({
 				isLive: false,
@@ -47,7 +45,6 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			set({
 				isLive: true,
 				status: "healthy",
-				activeTable: tableName ?? get().activeTable,
 				generation: get().generation + 1,
 			});
 		}
@@ -138,7 +135,6 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			isLive: false,
 			status: "idle",
 			isPulsing: false,
-			activeTable: null,
 			generation: get().generation + 1,
 			highlightedRowIds: new Set(),
 			highlightedCellKeys: new Set(),

@@ -182,12 +182,8 @@ export const useLiveTable = ({
 	const toggleLive = useCallback(() => {
 		if (!canLiveMode) return;
 
-		if (isLive) {
-			setLive(false);
-		} else {
-			setLive(true, tableName);
-		}
-	}, [canLiveMode, isLive, tableName, setLive]);
+		setLive(!isLive);
+	}, [canLiveMode, isLive, setLive]);
 
 	return {
 		canLiveMode,
