@@ -1,5 +1,6 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import type { PostHog } from "posthog-js";
+import type { SectionId } from "@/lib/sections";
 import { fetchTelemetryConfig, type TelemetryConfig } from "@/shared/api";
 
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
@@ -26,18 +27,7 @@ type AnalyticsEvent =
 	  }
 	| {
 			event: "page_viewed";
-			properties: {
-				page:
-					| "home"
-					| "connect"
-					| "browser"
-					| "table"
-					| "schema"
-					| "runner"
-					| "visualizer"
-					| "logs"
-					| "indexes";
-			};
+			properties: { page: SectionId | "home" | "connect" };
 	  };
 
 let config: TelemetryConfig | undefined;
