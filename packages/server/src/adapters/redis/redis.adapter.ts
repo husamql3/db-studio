@@ -110,7 +110,16 @@ const parseDbIndex = (db: string): number => {
 	return parsed;
 };
 
-const scanCursorSchema = z.object({ scanCursor: z.string(), type: z.enum(REDIS_TABLES) });
+/**
+ * A grid page cursor. SCAN answers in batches that rarely end on a page boundary, so the keys
+ * of the last batch the page had no room for travel in `pending`; `scanCursor` "0" with keys
+ * pending means the scan already finished.
+ */
+const scanCursorSchema = z.object({
+	scanCursor: z.string().regex(/^\d+$/),
+	pending: z.array(z.string()),
+	type: z.enum(REDIS_TABLES),
+});
 
 const keyBrowserCursorSchema = z.object({
 	scanCursor: z.string().regex(/^\d+$/),
@@ -1000,6 +1009,8 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		const client = await connector("redis").client(dbIndex);
 
 		let scanCursor = "0";
+		let keys: string[] = [];
+		let scanComplete = false;
 
 		if (cursor) {
 			const decoded = decodeCursor(cursor, scanCursorSchema);
@@ -1009,13 +1020,15 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			}
 
 			scanCursor = decoded.scanCursor;
+			keys = decoded.pending;
+			scanComplete = scanCursor === "0";
 		}
 
-		const collectedKeys: string[] = [];
-		let rounds = 0;
-		let scanComplete = false;
-
-		while (collectedKeys.length < limit && rounds < SCAN_ROUND_TRIP_CAP) {
+		for (
+			let rounds = 0;
+			!scanComplete && keys.length < limit && rounds < SCAN_ROUND_TRIP_CAP;
+			rounds++
+		) {
 			const [next, batch] = (await client.scan(
 				scanCursor,
 				"MATCH",
@@ -1026,25 +1039,15 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				redisType,
 			)) as [string, string[]];
 
-			collectedKeys.push(...batch);
+			keys.push(...batch);
 			scanCursor = next;
-			rounds++;
-
-			if (next === "0") {
-				scanComplete = true;
-				break;
-			}
+			scanComplete = next === "0";
 		}
 
-		const pageKeys = collectedKeys.slice(0, limit);
-		const overflow = collectedKeys.slice(limit);
-		const rows = await this.hydrateRows(client, table, pageKeys);
-
+		const pending = keys.slice(limit);
+		const rows = await this.hydrateRows(client, table, keys.slice(0, limit));
 		const total = await client.dbsize();
-		const hasNextPage = !scanComplete || overflow.length > 0;
-
-		const nextCursor =
-			hasNextPage && !scanComplete ? encodeCursor({ scanCursor, type: table }) : null;
+		const hasNextPage = !scanComplete || pending.length > 0;
 
 		return {
 			data: rows,
@@ -1053,7 +1056,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 				total,
 				hasNextPage,
 				hasPreviousPage: false,
-				nextCursor,
+				nextCursor: hasNextPage ? encodeCursor({ scanCursor, pending, type: table }) : null,
 				prevCursor: null,
 			},
 		};

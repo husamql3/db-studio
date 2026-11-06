@@ -6,7 +6,8 @@
  *   that already exists; a bulk insert miscounts or overwrites on conflict;
  * - a grid update of a collection merges instead of replacing, or a key edit loses the value;
  * - grid rows of a type come back in the wrong shape (hash object, list array, zset pairs,
- *   stream summary), or a cursor for one type-table is accepted by another;
+ *   stream summary), a cursor for one type-table is accepted by another, or paging a
+ *   type-table skips or repeats keys;
  * - table counts are not refreshed after a grid insert;
  * - the key browser loses binary key names, field names or values, overwrites on create,
  *   applies a write over a newer value, pages a large hash with repeats or gaps, turns
@@ -199,6 +200,33 @@ describe.skipIf(!available)("RedisAdapter against a real Redis", () => {
 			expect(await rows("streams")).toMatchObject([
 				{ key: "x", length: 2, "first-id": "1700000000-0", "last-id": "1700001000-0" },
 			]);
+		});
+
+		it("pages a type-table with every key exactly once", async () => {
+			const keys = Array.from({ length: 1000 }, (_, i) => `s:${i}`);
+			await raw.mset(...keys.flatMap((key) => [key, "v"]));
+			await raw.hset("not-a-string", "f", "v");
+
+			const seen: string[] = [];
+			let cursor: string | undefined;
+
+			for (let page = 0; page < 100; page++) {
+				const { data, meta } = await adapter.getTableData({
+					db: DB,
+					tableName: "strings",
+					limit: 50,
+					cursor,
+				});
+
+				seen.push(...data.map((row) => String(row.key)));
+				expect(Boolean(meta.nextCursor)).toBe(meta.hasNextPage);
+
+				if (!meta.nextCursor) break;
+				cursor = meta.nextCursor;
+			}
+
+			expect(seen).toHaveLength(keys.length);
+			expect(seen.toSorted()).toEqual(keys.toSorted());
 		});
 
 		it("refuses a cursor issued for another type-table", async () => {
