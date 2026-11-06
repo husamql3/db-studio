@@ -202,16 +202,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 	}
 
-	protected normalizeRow(row: Record<string, unknown>): NormalizedRow {
-		const out: NormalizedRow = {};
-
-		for (const [k, v] of Object.entries(row)) {
-			out[k] = v as CellValue;
-		}
-
-		return out;
-	}
-
 	abstract getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;
 
 	abstract exportTableData(params: {

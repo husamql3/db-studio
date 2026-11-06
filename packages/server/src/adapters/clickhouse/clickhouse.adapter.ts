@@ -196,7 +196,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		const { rows, ...page } = offsetPage(fetched, offset, limit);
 
 		return {
-			data: rows.map((row) => this.normalizeRow(row)),
+			data: rows,
 			meta: { limit, total: Number(countRows[0]?.total ?? 0), ...page },
 		};
 	}

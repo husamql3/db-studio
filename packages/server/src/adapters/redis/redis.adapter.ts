@@ -33,11 +33,7 @@ import { redisKeyTypeSchema } from "@db-studio/shared/types";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import {
-	BaseAdapter,
-	type DriverErrorClass,
-	type NormalizedRow,
-} from "@/adapters/base.adapter.js";
+import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
 import { decodeCursor, encodeCursor } from "@/adapters/cursor.js";
 import type { IKeyValueAdapter } from "@/adapters/key-value-adapter.interface.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
@@ -1067,7 +1063,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		client: Redis,
 		table: RedisTable,
 		keys: string[],
-	): Promise<NormalizedRow[]> {
+	): Promise<Record<string, unknown>[]> {
 		if (keys.length === 0) return [];
 
 		const ttlPipeline = client.pipeline();
@@ -1109,13 +1105,13 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 			if (table === "streams") {
 				const info = streamInfoToObject(raw);
 
-				return this.normalizeRow({
+				return {
 					key,
 					length: info.length,
 					"first-id": info.firstId,
 					"last-id": info.lastId,
 					ttl,
-				});
+				};
 			}
 
 			let value: unknown;
@@ -1136,7 +1132,7 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 					break;
 			}
 
-			return this.normalizeRow({ key, value, ttl } as Record<string, unknown>);
+			return { key, value, ttl };
 		});
 	}
 

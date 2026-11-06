@@ -260,10 +260,10 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 
 			return {
 				data: rows.map((row) => {
-					if (primaryKey.length) return this.normalizeRow(row);
+					if (primaryKey.length) return row;
 					const { rowid: _rowid, ...rest } = row;
 
-					return this.normalizeRow(rest);
+					return rest;
 				}),
 				meta: { limit, total: Number(countRow?.total ?? 0), ...page },
 			};

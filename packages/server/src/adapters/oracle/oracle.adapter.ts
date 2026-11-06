@@ -368,7 +368,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			const { rows, ...page } = offsetPage(fetched, offset, limit);
 
 			return {
-				data: rows.map((row) => this.normalizeRow(row)),
+				data: rows,
 				meta: { limit, total: Number(countRow?.total ?? 0), ...page },
 			};
 		});
