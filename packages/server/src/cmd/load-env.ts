@@ -23,23 +23,18 @@ const findEnvPath = async (startDir: string): Promise<string | null> => {
 	}
 };
 
+/** The named `env` file must exist; without one, the nearest `.env` is read when there is one. */
 export const loadEnv = async (env?: string) => {
-	let envPath: string | null;
-
-	if (env) {
-		envPath = resolve(env);
-	} else {
-		envPath = await findEnvPath(process.cwd());
-	}
+	const envPath = env ? resolve(env) : await findEnvPath(process.cwd());
 
 	if (!envPath) return null;
 
 	try {
-		const content = await readFile(envPath, "utf-8");
-
-		return parseDotenv(content);
+		return parseDotenv(await readFile(envPath, "utf-8"));
 	} catch (err) {
-		if (err instanceof Error && err.message.includes("ENOENT")) {
+		if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+			if (env) throw new Error(`No .env file at ${envPath}`, { cause: err });
+
 			return null;
 		}
 

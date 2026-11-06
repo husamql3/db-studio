@@ -88,4 +88,15 @@ describe("main configuration resolution", () => {
 	it("falls back to the default PORT and the loopback HOST when not configured", async () => {
 		expect(await run("")).toMatchObject({ port: DEFAULTS.PORT, hostname: "127.0.0.1" });
 	});
+
+	// A mistyped --env path started the server silently without the file's settings.
+	it("refuses to start when the --env file does not exist", async () => {
+		const missing = join(dir, ".env.missing");
+		process.argv = ["node", "db-studio", "--env", missing, "--no-open"];
+		const { Command } = await import("commander");
+		cli.program = new Command();
+
+		await expect(main()).rejects.toThrow(`No .env file at ${missing}`);
+		expect(listen).not.toHaveBeenCalled();
+	});
 });
