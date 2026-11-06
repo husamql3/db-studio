@@ -17,7 +17,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createProxyLimiter, keyGenerator } from "./limit";
 import { errorType, type ProxyEnv, requestId, writeLog } from "./log";
-import { getRedis, RATE_LIMIT_PREFIX } from "./redis";
+import { getRedisStore, RATE_LIMIT_PREFIX } from "./redis";
 
 const app = new Hono<ProxyEnv>();
 
@@ -140,7 +140,9 @@ app.get("/chat/limit", async (c) => {
 			return c.json({ limit: LIMIT, used: 0, remaining: LIMIT });
 		}
 
-		const used = (await getRedis().get<number>(`${RATE_LIMIT_PREFIX}${keyGenerator(c)}`)) ?? 0;
+		const hits = await getRedisStore(RATE_LIMIT_PREFIX).get(keyGenerator(c));
+		// The store reads a key the limiter has not created yet as NaN hits.
+		const used = hits?.totalHits || 0;
 
 		return c.json({ limit: LIMIT, used, remaining: Math.max(0, LIMIT - used) });
 	} catch (error) {

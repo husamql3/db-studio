@@ -7,7 +7,7 @@ export const RATE_LIMIT_PREFIX = "rate:proxy:";
 let redis: Redis | undefined;
 const redisStores = new Map<string, RedisStore>();
 
-export const getRedis = (): Redis =>
+const getRedis = (): Redis =>
 	(redis ??= new Redis({
 		url: env.UPSTASH_REDIS_REST_URL,
 		token: env.UPSTASH_REDIS_REST_TOKEN,
