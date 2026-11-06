@@ -43,9 +43,9 @@ export const setConnectionId = (id: string | null): void => {
 	else sessionStorage.removeItem(CONNECTION_ID_KEY);
 };
 
-/** What every failed request rejects with; `status` is 500 when no response arrived. */
+/** What every failed request rejects with; `status` is absent when no response arrived. */
 export type ApiError = Error & {
-	status: number;
+	status?: number;
 	details?: string;
 	requestId?: string;
 };
@@ -112,7 +112,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			const duration = Math.round(performance.now() - startTime);
 			logger.error(error, duration);
 
-			const status = error.response?.status ?? 500;
+			const status = error.response?.status;
 			const data = error.response?.data;
 			const message = data?.error ?? error.message ?? "An error occurred";
 			const details = data?.details;
