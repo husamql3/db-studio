@@ -58,7 +58,12 @@ export function CommandPalette() {
 	const navigate = useNavigate();
 	const openSchema = useTableSchemaName();
 	const { openOverlay } = useOverlayStore();
-	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
+
+	const {
+		sidebar: { mode: sidebarMode },
+		setSidebarMode,
+	} = usePersonalPreferencesStore();
+
 	const { toggleTheme, isDark } = useTheme();
 	const { tablesList, isLoadingTablesList, errorTablesList } = useTablesList();
 	const { exportFile, isExportingFile } = useExportFile();
@@ -567,28 +572,36 @@ export function CommandPalette() {
 
 						<CommandGroup heading="View & Settings">
 							<CommandItem
-								onSelect={() => handleAction(toggleSidebarOpen)}
+								onSelect={() =>
+									handleAction(() =>
+										setSidebarMode(sidebarMode === "hidden" ? "peek" : "hidden"),
+									)
+								}
 								keywords={["sidebar", "show", "hide", "toggle", "view"]}
 							>
 								<Sidebar className="mr-2 size-4" />
 								<div className="flex flex-col">
-									<span>{sidebar.isOpen ? "Hide" : "Show"} Sidebar</span>
+									<span>{sidebarMode === "hidden" ? "Show" : "Hide"} Sidebar</span>
 									<span className="text-xs text-muted-foreground">
 										Toggle sidebar visibility
 									</span>
 								</div>
 							</CommandItem>
 							<CommandItem
-								onSelect={() => handleAction(toggleSidebarPinned)}
+								onSelect={() =>
+									handleAction(() =>
+										setSidebarMode(sidebarMode === "pinned" ? "peek" : "pinned"),
+									)
+								}
 								keywords={["sidebar", "pin", "unpin"]}
 							>
-								{sidebar.isPinned ? (
+								{sidebarMode === "pinned" ? (
 									<PinOff className="mr-2 size-4" />
 								) : (
 									<Pin className="mr-2 size-4" />
 								)}
 								<div className="flex flex-col">
-									<span>{sidebar.isPinned ? "Unpin" : "Pin"} Sidebar</span>
+									<span>{sidebarMode === "pinned" ? "Unpin" : "Pin"} Sidebar</span>
 									<span className="text-xs text-muted-foreground">
 										Keep sidebar always visible
 									</span>

@@ -12,11 +12,13 @@ export const EDITOR_FONT_SIZES = [12, 14, 16, 18] as const;
 
 export type EditorFontSize = (typeof EDITOR_FONT_SIZES)[number];
 
+/** `peek` overlays the content and hides again when the pointer leaves it. */
+export type SidebarMode = "hidden" | "peek" | "pinned";
+
 type PersonalPreferencesState = {
 	sidebar: {
 		width: number;
-		isOpen: boolean;
-		isPinned: boolean;
+		mode: SidebarMode;
 	};
 	editor: {
 		tabSize: TabSize;
@@ -27,10 +29,7 @@ type PersonalPreferencesState = {
 	setTheme: (theme: Theme) => void;
 	toggleTheme: () => void;
 	setSidebarWidth: (width: number) => void;
-	setSidebarOpen: (isOpen: boolean) => void;
-	setSidebarPinned: (isPinned: boolean) => void;
-	toggleSidebarOpen: () => void;
-	toggleSidebarPinned: () => void;
+	setSidebarMode: (mode: SidebarMode) => void;
 	setTabSize: (tabSize: TabSize) => void;
 	setEditorFontSize: (fontSize: EditorFontSize) => void;
 	setEditorWordWrap: (wordWrap: boolean) => void;
@@ -41,8 +40,7 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 		(set, get) => ({
 			sidebar: {
 				width: SIDEBAR_DEFAULT_WIDTH,
-				isOpen: true,
-				isPinned: true,
+				mode: "pinned",
 			},
 			editor: {
 				tabSize: 2,
@@ -62,24 +60,9 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 						width: Math.max(250, Math.min(500, width)),
 					},
 				})),
-			setSidebarOpen: (isOpen) =>
+			setSidebarMode: (mode) =>
 				set((state) => ({
-					sidebar: { ...state.sidebar, isOpen },
-				})),
-			setSidebarPinned: (isPinned) =>
-				set((state) => ({
-					sidebar: { ...state.sidebar, isPinned },
-				})),
-			toggleSidebarOpen: () =>
-				set((state) => ({
-					sidebar: { ...state.sidebar, isOpen: !state.sidebar.isOpen },
-				})),
-			toggleSidebarPinned: () =>
-				set((state) => ({
-					sidebar: {
-						...state.sidebar,
-						isPinned: !state.sidebar.isPinned,
-					},
+					sidebar: { ...state.sidebar, mode },
 				})),
 			setTabSize: (tabSize) =>
 				set((state) => ({
@@ -96,6 +79,22 @@ export const usePersonalPreferencesStore = create<PersonalPreferencesState>()(
 		}),
 		{
 			name: "db-studio-personal-preferences",
+			version: 1,
+			// Version 0 kept two flags, `isOpen` and `isPinned`.
+			migrate: (persisted, version) => {
+				// SAFETY: version 0 is the only older shape this key was ever written in.
+				const state = persisted as PersonalPreferencesState & {
+					sidebar: { width: number; isOpen?: boolean; isPinned?: boolean };
+				};
+
+				if (version === 0) {
+					const { width, isOpen, isPinned } = state.sidebar;
+					const mode: SidebarMode = !isOpen ? "hidden" : isPinned ? "pinned" : "peek";
+					state.sidebar = { width, mode };
+				}
+
+				return state;
+			},
 		},
 	),
 );

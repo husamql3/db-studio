@@ -82,10 +82,11 @@ const RailSections = () => {
 
 const SidebarToggle = () => {
 	const {
-		sidebar: { isOpen },
-		setSidebarOpen,
-		setSidebarPinned,
+		sidebar: { mode },
+		setSidebarMode,
 	} = usePersonalPreferencesStore();
+
+	const isOpen = mode !== "hidden";
 
 	return (
 		<RailTip label={isOpen ? "Hide sidebar" : "Show sidebar"}>
@@ -93,12 +94,7 @@ const SidebarToggle = () => {
 				type="button"
 				aria-label="Toggle sidebar"
 				className={railTile}
-				onClick={() => {
-					// Flip both flags from one value: the command palette can unpin an open
-					// sidebar, so they may have drifted apart.
-					setSidebarOpen(!isOpen);
-					setSidebarPinned(!isOpen);
-				}}
+				onClick={() => setSidebarMode(isOpen ? "hidden" : "pinned")}
 			>
 				<PanelLeft className="size-5" />
 			</button>

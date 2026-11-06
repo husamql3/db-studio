@@ -9,10 +9,12 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	const {
-		sidebar: { width, isOpen, isPinned },
+		sidebar: { width, mode },
 		setSidebarWidth,
-		setSidebarOpen,
+		setSidebarMode,
 	} = usePersonalPreferencesStore();
+
+	const isPinned = mode === "pinned";
 
 	const isResizingRef = useRef(false);
 	const startXRef = useRef(0);
@@ -68,17 +70,13 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		[width],
 	);
 
-	const handleMouseEnter = useCallback(() => {
-		if (!isPinned) {
-			setSidebarOpen(true);
-		}
-	}, [isPinned, setSidebarOpen]);
+	const handleMouseEnter = () => {
+		if (!isPinned) setSidebarMode("peek");
+	};
 
-	const handleMouseLeave = useCallback(() => {
-		if (!isPinned) {
-			setSidebarOpen(false);
-		}
-	}, [isPinned, setSidebarOpen]);
+	const handleMouseLeave = () => {
+		if (!isPinned) setSidebarMode("hidden");
+	};
 
 	handleMouseMoveRef.current = handleMouseMove;
 	handleMouseUpRef.current = handleMouseUp;
@@ -86,9 +84,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	handleMouseLeaveRef.current = handleMouseLeave;
 
 	const handleOpenChange = (open: boolean) => {
-		if (!isPinned) {
-			setSidebarOpen(open);
-		}
+		if (!isPinned) setSidebarMode(open ? "peek" : "hidden");
 	};
 
 	useEffect(() => {
@@ -123,7 +119,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 
 	return (
 		<Sheet
-			open={isOpen}
+			open={mode !== "hidden"}
 			onOpenChange={handleOpenChange}
 			modal={false}
 		>

@@ -15,7 +15,7 @@ function RouteComponent() {
 	const section = sectionOf(pathname);
 
 	const {
-		sidebar: { isPinned, width },
+		sidebar: { mode, width },
 	} = usePersonalPreferencesStore();
 
 	if (engine && section && !section.appliesTo(engine)) {
@@ -32,7 +32,7 @@ function RouteComponent() {
 			<div
 				className="rail-content relative flex-1 flex flex-col h-full overflow-hidden"
 				style={{
-					marginLeft: hasSidebar && isPinned ? `${width}px` : "0",
+					marginLeft: hasSidebar && mode === "pinned" ? `${width}px` : "0",
 				}}
 			>
 				<Outlet />
