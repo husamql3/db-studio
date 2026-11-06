@@ -169,8 +169,9 @@ const all = async <T = Record<string, unknown>>(
 
 export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	// alterColumn reads the column list and then rebuilds the table from it; a column added
-	// between the two would be dropped by the rebuild, so column changes run one at a time.
-	private schemaChange: Promise<unknown> = Promise.resolve();
+	// between the two would be dropped by the rebuild, so column changes to one database run
+	// one at a time. Keyed by client: tabs can work with two databases at once.
+	private schemaChanges = new WeakMap<SqliteClient, Promise<unknown>>();
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		// libSQL / Turso answer a bad or missing authToken with HTTP 401 or 403.
@@ -180,9 +181,19 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		return undefined;
 	}
 
-	private serializeSchemaChange<T>(change: () => Promise<T>): Promise<T> {
-		const run = this.schemaChange.then(change);
-		this.schemaChange = run.catch(() => {});
+	private async serializeSchemaChange<T>(
+		change: (client: SqliteClient) => Promise<T>,
+	): Promise<T> {
+		const client = await connector("sqlite").client();
+
+		const run = (this.schemaChanges.get(client) ?? Promise.resolve()).then(() =>
+			change(client),
+		);
+
+		this.schemaChanges.set(
+			client,
+			run.catch(() => {}),
+		);
 
 		return run;
 	}
@@ -474,10 +485,8 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		return this.serializeSchemaChange(async () => {
+		return this.serializeSchemaChange(async (client) => {
 			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique } = params;
-
-			const client = await connector("sqlite").client();
 
 			this.assertColumnAbsent(
 				await this.requireTable(client, tableName),
@@ -498,9 +507,8 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		return this.serializeSchemaChange(async () => {
+		return this.serializeSchemaChange(async (client) => {
 			const { tableName, columnName } = params;
-			const client = await connector("sqlite").client();
 
 			await this.requireColumn(client, tableName, columnName);
 
@@ -513,9 +521,8 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
-		return this.serializeSchemaChange(async () => {
+		return this.serializeSchemaChange(async (client) => {
 			const { tableName, columnName, columnType, isNullable, defaultValue } = params;
-			const client = await connector("sqlite").client();
 
 			await this.requireColumn(client, tableName, columnName);
 
@@ -597,9 +604,8 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		return this.serializeSchemaChange(async () => {
+		return this.serializeSchemaChange(async (client) => {
 			const { tableName, columnName, newColumnName } = params;
-			const client = await connector("sqlite").client();
 
 			this.assertColumnAbsent(
 				await this.requireColumn(client, tableName, columnName),
