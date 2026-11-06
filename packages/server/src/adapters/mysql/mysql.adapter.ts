@@ -17,7 +17,6 @@ import type {
 	ServerLogLevel,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
-import { mapMysqlToDataType, standardizeMysqlDataTypeLabel } from "@db-studio/shared/types";
 import type { FieldPacket, ResultSetHeader, RowDataPacket } from "mysql2";
 import type { Connection, Pool as MysqlPool } from "mysql2/promise";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
@@ -56,6 +55,8 @@ import {
 	mysqlFilters,
 	mysqlKeyset,
 	quoteMysqlIdent,
+	mapMysqlToDataType,
+	standardizeMysqlDataTypeLabel,
 } from "./mysql.query-builder.js";
 
 const MYSQL_FK_VIOLATION = 1451;

@@ -80,6 +80,10 @@ const standardizedDataTypes = [
 
 export const standardizedDataTypeSchema = z.enum(standardizedDataTypes);
 
+export const StandardizedDataType = standardizedDataTypeSchema.enum;
+
+export type StandardizedDataType = z.infer<typeof standardizedDataTypeSchema>;
+
 export const columnInfoSchema = z.object({
 	columnName: z.string(),
 	dataType: dataTypesSchema,

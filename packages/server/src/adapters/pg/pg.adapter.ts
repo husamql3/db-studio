@@ -19,11 +19,7 @@ import type {
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
-import {
-	connectionInfoSchema,
-	mapPostgresToDataType,
-	standardizeDataTypeLabel,
-} from "@db-studio/shared/types";
+import { connectionInfoSchema } from "@db-studio/shared/types";
 import type { DatabaseError, Pool as PgPool, PoolClient } from "pg";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import {
@@ -59,6 +55,8 @@ import {
 	qualifiedTable,
 	quotePgIdent,
 	schemaOf,
+	mapPostgresToDataType,
+	standardizeDataTypeLabel,
 } from "./pg.query-builder.js";
 
 /** A pool, or one connection checked out of it for a transaction. */

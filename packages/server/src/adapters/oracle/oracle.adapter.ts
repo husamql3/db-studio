@@ -20,11 +20,7 @@ import type {
 	ServerLogsResult,
 	TableDataResultSchemaType,
 } from "@db-studio/shared/types";
-import {
-	isSerialType,
-	mapOracleToDataType,
-	standardizeOracleDataTypeLabel,
-} from "@db-studio/shared/types";
+import { isSerialType } from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import type { DriverErrorClass } from "@/adapters/base.adapter.js";
@@ -60,6 +56,8 @@ import {
 	mapColumnTypeToOracle,
 	oracleFilters,
 	oraclePlaceholder,
+	mapOracleToDataType,
+	standardizeOracleDataTypeLabel,
 } from "./oracle.query-builder.js";
 
 type Row = Record<string, unknown>;

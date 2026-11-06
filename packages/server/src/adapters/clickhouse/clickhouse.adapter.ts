@@ -22,12 +22,7 @@ import type {
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 } from "@db-studio/shared/types";
-import {
-	isSerialType,
-	mapClickhouseToDataType,
-	standardizeClickhouseDataTypeLabel,
-	unwrapClickhouseType,
-} from "@db-studio/shared/types";
+import { isSerialType } from "@db-studio/shared/types";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { BaseAdapter, type DriverErrorClass, probeOnce } from "@/adapters/base.adapter.js";
 import {
@@ -47,6 +42,9 @@ import {
 	clickhouseFilters,
 	clickhousePlaceholder,
 	quoteClickhouseIdentifier as q,
+	unwrapClickhouseType,
+	mapClickhouseToDataType,
+	standardizeClickhouseDataTypeLabel,
 } from "./clickhouse.query-builder.js";
 
 interface ColumnRow {

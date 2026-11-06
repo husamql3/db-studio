@@ -17,11 +17,7 @@ import type {
 	RenameTableParamsSchemaType,
 	TableDataResultSchemaType,
 } from "@db-studio/shared/types";
-import {
-	isSerialType,
-	mapDuckdbToDataType,
-	standardizeDuckdbDataTypeLabel,
-} from "@db-studio/shared/types";
+import { isSerialType } from "@db-studio/shared/types";
 import type {
 	DuckDBConnection,
 	DuckDBResultReader,
@@ -58,6 +54,8 @@ import {
 	duckdbKeyset,
 	quoteDuckdbIdent as ident,
 	mapColumnTypeToDuckdb,
+	mapDuckdbToDataType,
+	standardizeDuckdbDataTypeLabel,
 } from "./duckdb.query-builder.js";
 
 type Row = Record<string, Json>;

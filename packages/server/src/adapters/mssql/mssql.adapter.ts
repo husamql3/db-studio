@@ -19,7 +19,6 @@ import type {
 	ServerLogsResult,
 	TableDataResultSchemaType,
 } from "@db-studio/shared/types";
-import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
 import type { Request } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import type { DriverErrorClass } from "@/adapters/base.adapter.js";
@@ -43,6 +42,8 @@ import {
 	mssqlFilters,
 	mssqlPlaceholder,
 	quoteMssqlIdent,
+	mapMssqlToDataType,
+	standardizeMssqlDataTypeLabel,
 } from "./mssql.query-builder.js";
 
 const MSSQL_FK_VIOLATION = 547;

@@ -20,7 +20,6 @@ import type {
 	RenameTableParamsSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { mapSqliteToDataType, standardizeSqliteDataTypeLabel } from "@db-studio/shared/types";
 import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, type NormalizedRow } from "@/adapters/base.adapter.js";
@@ -51,6 +50,8 @@ import {
 	recreateTableWithColumn,
 	sqliteFilters,
 	sqliteKeyset,
+	mapSqliteToDataType,
+	standardizeSqliteDataTypeLabel,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
