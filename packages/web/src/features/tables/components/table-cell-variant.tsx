@@ -488,6 +488,10 @@ export const TableNumberCell = memo(
 
 TableNumberCell.displayName = "TableNumberCell";
 
+// The NULL item's value. Any printable text can be an enum label (even "null"); text columns
+// hold no NUL character, so no label can equal this.
+const NULL_OPTION = "\u0000null";
+
 /** A cell edited by picking one of `options` or NULL; the select opens as editing starts. */
 const TableSelectCell = memo(
 	({
@@ -505,7 +509,7 @@ const TableSelectCell = memo(
 		options: readonly string[];
 		toOption: (value: unknown) => string;
 		/** Turns a picked option into the value to write; the option itself when omitted. */
-		fromOption?: (option: string) => boolean;
+		fromOption?: (option: string) => unknown;
 	}) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue();
@@ -517,7 +521,8 @@ const TableSelectCell = memo(
 		const isNull = currentValue === null || currentValue === undefined;
 
 		const onValueChange = (option: string) => {
-			const newValue = option === "null" ? null : fromOption ? fromOption(option) : option;
+			const newValue =
+				option === NULL_OPTION ? null : fromOption ? fromOption(option) : option;
 			setUpdate(rowData, columnId, newValue, initialValue, meta?.editScope);
 			meta?.onCellEditingStop?.();
 		};
@@ -541,7 +546,7 @@ const TableSelectCell = memo(
 				{isEditing ? (
 					// Mounted only while editing, so it is open whenever it exists; closing it ends the edit.
 					<Select
-						value={isNull ? "null" : toOption(currentValue)}
+						value={isNull ? NULL_OPTION : toOption(currentValue)}
 						onValueChange={onValueChange}
 						open
 						onOpenChange={(open) => {
@@ -574,7 +579,7 @@ const TableSelectCell = memo(
 									{option}
 								</SelectItem>
 							))}
-							<SelectItem value="null">NULL</SelectItem>
+							<SelectItem value={NULL_OPTION}>NULL</SelectItem>
 						</SelectContent>
 					</Select>
 				) : (
