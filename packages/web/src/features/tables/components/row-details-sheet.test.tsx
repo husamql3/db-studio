@@ -141,11 +141,9 @@ vi.mock("@/features/tables/hooks/use-delete-cell", () => ({
 	}),
 }));
 
-vi.mock("@/features/records", async (importOriginal) => {
-	const mod = await importOriginal<typeof import("@/features/records")>();
-
-	return { ...mod, RecordReferenceSheet: () => null };
-});
+vi.mock("@/features/records/components/record-reference-sheet", () => ({
+	RecordReferenceSheet: () => null,
+}));
 
 vi.mock(import("nuqs"), async (importOriginal) => ({
 	...(await importOriginal()),

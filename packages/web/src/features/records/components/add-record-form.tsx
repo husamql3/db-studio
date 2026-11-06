@@ -2,7 +2,7 @@ import { Alert } from "@db-studio/ui/alert";
 import { Button } from "@db-studio/ui/button";
 import { SheetClose } from "@db-studio/ui/sheet";
 import { useEffect } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
@@ -10,7 +10,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
 import { useAddRecordStore } from "../stores/add-record.store";
 import { AddRecordField } from "./add-record-field";
-import { RecordReferenceSheet } from "./record-reference-sheet";
+import { RecordFormProvider } from "./record-form-provider";
 
 export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
@@ -44,7 +44,7 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const renderFormContent = () => {
 		if (tableCols && tableCols.length > 0) {
 			return (
-				<FormProvider {...methods}>
+				<RecordFormProvider methods={methods}>
 					<form
 						onSubmit={methods.handleSubmit(onSubmit)}
 						className="flex flex-col h-full"
@@ -83,9 +83,7 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 							</Button>
 						</div>
 					</form>
-
-					<RecordReferenceSheet />
-				</FormProvider>
+				</RecordFormProvider>
 			);
 		}
 

@@ -13,11 +13,11 @@ import {
 import { Button } from "@db-studio/ui/button";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { FormProvider, useFormContext } from "react-hook-form";
+import { useFormContext } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
 import { CopyButton } from "@/components/copy-button";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { AddRecordField, RecordReferenceSheet } from "@/features/records";
+import { AddRecordField, RecordFormProvider } from "@/features/records";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
@@ -310,7 +310,7 @@ export const RowDetailsSheet = ({
 				}}
 			>
 				{tableCols && tableCols.length > 0 && row ? (
-					<FormProvider {...methods}>
+					<RecordFormProvider methods={methods}>
 						<form
 							onSubmit={handleSubmit(onSubmit)}
 							className="flex flex-col h-full"
@@ -379,9 +379,7 @@ export const RowDetailsSheet = ({
 								</div>
 							</div>
 						</form>
-
-						<RecordReferenceSheet />
-					</FormProvider>
+					</RecordFormProvider>
 				) : (
 					<div className="flex flex-col h-full">
 						<div className="space-y-6">
