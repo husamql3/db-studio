@@ -65,6 +65,10 @@ export interface ReferencingKey {
 	referencedColumns: string[];
 }
 
+/** The query runner's refusal of a script, for the engines that cannot run one. */
+export const ONE_STATEMENT_MESSAGE =
+	"The query runner runs one statement at a time. Run each statement separately.";
+
 /** Rows shown per foreign key when a delete is refused. */
 export const RELATED_SAMPLE = 100;
 

@@ -35,6 +35,7 @@ import {
 } from "@/adapters/sql-pagination.js";
 import {
 	type ReferencingKey,
+	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
 	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
@@ -215,10 +216,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			});
 
 		if (hasMultipleStatements(statement))
-			throw new HTTPException(400, {
-				message:
-					"The query runner runs one statement at a time. Run each statement separately.",
-			});
+			throw new HTTPException(400, { message: ONE_STATEMENT_MESSAGE });
 
 		return statement;
 	}

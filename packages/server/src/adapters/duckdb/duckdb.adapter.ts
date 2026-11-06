@@ -42,6 +42,7 @@ import {
 } from "@/adapters/sql-pagination.js";
 import {
 	type ReferencingKey,
+	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
 	type StatementResult,
 	type TableEstimate,
@@ -626,10 +627,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		const statements = await conn.extractStatements(sql);
 
 		if (statements.count !== 1) {
-			throw new HTTPException(400, {
-				message:
-					"The query runner runs one statement at a time. Run each statement separately.",
-			});
+			throw new HTTPException(400, { message: ONE_STATEMENT_MESSAGE });
 		}
 
 		const statement = await statements.prepare(0);
