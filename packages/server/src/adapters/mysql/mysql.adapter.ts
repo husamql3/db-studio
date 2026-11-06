@@ -375,9 +375,16 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 				try {
 					await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
 					await connection.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
-					await connection.execute("SET FOREIGN_KEY_CHECKS = 1");
 				} finally {
-					connection.release();
+					// The session goes back to the pool, so it must check foreign keys again; one
+					// that cannot be reset is closed instead.
+					await connection.execute("SET FOREIGN_KEY_CHECKS = 1").then(
+						() => connection.release(),
+						(e: unknown) => {
+							connection.destroy();
+							throw e;
+						},
+					);
 				}
 			} else {
 				await pool.execute(`DROP TABLE ${quoteMysqlIdent(tableName)}`);
@@ -385,7 +392,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 		} catch (error) {
-			await pool.execute("SET FOREIGN_KEY_CHECKS = 1").catch(() => {});
 			const mysqlError = error as { errno?: number };
 
 			if (

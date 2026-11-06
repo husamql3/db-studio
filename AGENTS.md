@@ -382,7 +382,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 ### Adapter Pattern
 
-**Architecture**: Strategy. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`, …) with one instance in `ADAPTERS`. Every adapter extends `BaseAdapter` and implements its own `getTableData()`; MySQL, SQL Server, SQLite, DuckDB and ClickHouse extend `SqlAdapter`, whose `exportTableData()` reads the table with one `SELECT *` through their `runQuery()` and `quoteIdentifier()`.
+**Architecture**: Strategy. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`, …) with one instance in `ADAPTERS`. Every adapter extends `BaseAdapter` and implements its own `getTableData()`. The relational engines (PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, Oracle) extend `SqlAdapter<Conn>`, which writes once what they do alike: record updates, deletes and force deletes, related rows of a refused delete, table and column checks, index create/drop, the table list and its row-count policy, the query runner and the export. Each engine supplies small hooks (`connect`, `transaction`, `rows`, `execute`, `primaryKey`, `columnNames`, `referencingKeys`, `listIndexes`, `tableEstimates`, `runStatement`, …) and overrides a template only where its semantics differ (SQLite's one-batch writes, DuckDB's force-delete refusal, Oracle's typed binds and cycle refusal). ClickHouse has no row writes, foreign keys or indexes and extends `BaseAdapter` directly.
 
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
@@ -390,7 +390,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 - `src/adapters/cursor.ts` — `encodeCursor()` / `decodeCursor(cursor, schema)`: the validated base64url JSON cursors of the Mongo and Redis adapters
 - `src/adapters/sql-filters.ts` — the grid's filter conditions for every SQL engine; each builder supplies a `FilterDialect` (quote, LIKE operand, ILIKE strategy) and values bind through a `createBinds()` placeholder closure
 - `src/adapters/sql-pagination.ts` — ORDER BY terms (requested sorts, then key tie-breakers in the leading sort's direction) and cursors. PostgreSQL, MySQL, SQLite and DuckDB page by keyset: NULLs last in both directions (MySQL orders by `col IS NULL` first, having no `NULLS LAST`) and a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …`, never a row-value tuple comparison, which cannot mix directions or match NULL. SQL Server, Oracle and ClickHouse page by OFFSET
-- `src/adapters/sql.adapter.ts` — `SqlAdapter`: the `SELECT *` export
+- `src/adapters/sql.adapter.ts` — `SqlAdapter`: the shared relational templates and their engine hooks
 - `src/adapters/adapter.registry.ts` — `ADAPTERS`, the adapter of each engine
 - `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
 - `src/adapters/[db]/[db].query-builder.ts` — the dialect: its one identifier quote function (every identifier goes through it, escaping the quote character), filter and keyset dialects, type mapping

@@ -359,7 +359,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 	async createTable({
 		tableData,
-		db,
 	}: {
 		tableData: CreateTableSchemaType;
 		db: DatabaseSchemaType["db"];
@@ -401,8 +400,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		await client.execute(
 			`CREATE TABLE ${quoteSqliteIdent(tableName)} (${[...columnDefs, ...fkDefs].join(", ")})`,
 		);
-
-		void db;
 	}
 
 	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
@@ -445,7 +442,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		const { tableName, newTableName, db } = params;
+		const { tableName, newTableName } = params;
 		this.assertDifferentTableName(tableName, newTableName);
 		const client = await connector("sqlite").client();
 
@@ -459,13 +456,10 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		await client.execute(
 			`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME TO ${quoteSqliteIdent(newTableName)}`,
 		);
-
-		void db;
 	}
 
 	async getTableSchema({
 		tableName,
-		db,
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
@@ -477,7 +471,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		);
 
 		if (!row) throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		void db;
 
 		return row.sql;
 	}
@@ -488,7 +481,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 	async getTableColumns({
 		tableName,
-		db,
 	}: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
@@ -513,8 +505,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			fkMap.set(fk.from, fk);
 		}
 
-		void db;
-
 		return columns.map((col) => {
 			const fk = fkMap.get(col.name);
 			const nativeType = col.type.toLowerCase();
@@ -536,8 +526,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
-			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique, db } =
-				params;
+			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique } = params;
 
 			const client = await connector("sqlite").client();
 
@@ -556,14 +545,12 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
 
 			await client.execute(`ALTER TABLE ${quoteSqliteIdent(tableName)} ADD COLUMN ${def}`);
-
-			void db;
 		});
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		return this.serializeSchemaChange(async () => {
-			const { tableName, columnName, db } = params;
+			const { tableName, columnName } = params;
 			const client = await connector("sqlite").client();
 
 			await this.requireColumn(client, tableName, columnName);
@@ -572,15 +559,13 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 				`ALTER TABLE ${quoteSqliteIdent(tableName)} DROP COLUMN ${quoteSqliteIdent(columnName)}`,
 			);
 
-			void db;
-
 			return { deletedCount: 1 };
 		});
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
-			const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
+			const { tableName, columnName, columnType, isNullable, defaultValue } = params;
 			const client = await connector("sqlite").client();
 
 			await this.requireColumn(client, tableName, columnName);
@@ -659,14 +644,12 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 				],
 				[...referencedBy],
 			);
-
-			void db;
 		});
 	}
 
 	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		return this.serializeSchemaChange(async () => {
-			const { tableName, columnName, newColumnName, db } = params;
+			const { tableName, columnName, newColumnName } = params;
 			const client = await connector("sqlite").client();
 
 			this.assertColumnAbsent(
@@ -678,8 +661,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			await client.execute(
 				`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME COLUMN ${quoteSqliteIdent(columnName)} TO ${quoteSqliteIdent(newColumnName)}`,
 			);
-
-			void db;
 		});
 	}
 
@@ -723,7 +704,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async updateRecords({
-		db,
 		params,
 	}: {
 		db: DatabaseSchemaType["db"];
@@ -752,7 +732,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 		try {
 			const results = await client.batch(statements, "write");
-			void db;
 
 			return {
 				updatedCount: results.reduce(
@@ -792,7 +771,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	async forceDeleteRecords({
 		tableName,
 		primaryKeys,
-		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		const pkColumn = primaryKeys[0].columnName;
 		const pkValues = primaryKeys.map((pk) => pk.value);
@@ -820,7 +798,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			await plan(tableName, rootPredicate, [tableName]);
 
 			const results = await client.batch(deletes, "write");
-			void db;
 
 			return { deletedCount: results.reduce((sum, r) => sum + r.rowsAffected, 0) };
 		} catch (e) {
@@ -835,7 +812,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	async bulkInsertRecords({
 		tableName,
 		records,
-		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
 		const columns = Object.keys(records[0]);
 		const colNames = columns.map(quoteSqliteIdent).join(", ");
@@ -852,7 +828,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			),
 			"write",
 		);
-		void db;
 
 		return {
 			success: true,
