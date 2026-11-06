@@ -29,7 +29,7 @@ import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
 import {
-	flagOrJson,
+	flagOrJsonTarget,
 	groupKeyColumns,
 	RELATED_SAMPLE,
 	type ReferencingKey,
@@ -149,19 +149,8 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return (e as { number?: number }).number === MSSQL_FK_VIOLATION;
 	}
 
-	/** One read of the columns gives the key and the boolean columns. */
 	protected override async updateTarget(_conn: MssqlConn, db: string, tableName: string) {
-		const columns = await this.getTableColumns({ tableName, db });
-
-		const booleanColumns = new Set(
-			columns.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName),
-		);
-
-		return {
-			primaryKey: columns.filter((c) => c.isPrimaryKey).map((c) => c.columnName),
-			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
-				bind(flagOrJson(value, booleanColumns.has(column))),
-		};
+		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 	}
 
 	protected override sampleRows(
@@ -767,7 +756,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const pool = await connector("mssql").pool(db);
-		const booleanColumns = await this.booleanColumns(tableName, db);
+		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 
 		const identityColumns = new Set(
 			(
@@ -784,7 +773,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 		const insertedCount = await this.execute(
 			pool,
-			`INSERT INTO ${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")}) VALUES (${columns.map((column) => bind(flagOrJson(data[column], booleanColumns.has(column)))).join(", ")})`,
+			`INSERT INTO ${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")}) VALUES (${columns.map((column) => bindValue(column, data[column], bind)).join(", ")})`,
 			values,
 		);
 
@@ -802,15 +791,13 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
 		const columns = Object.keys(records[0]);
 		const columnNames = columns.map(quoteMssqlIdent).join(", ");
-		const booleanColumns = await this.booleanColumns(tableName, db);
+		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 
 		await this.transaction(db, async (transaction) => {
 			for (const [i, record] of records.entries()) {
 				const { values, bind } = createBinds(mssqlPlaceholder);
 
-				const row = columns.map((column) =>
-					bind(flagOrJson(record[column], booleanColumns.has(column))),
-				);
+				const row = columns.map((column) => bindValue(column, record[column], bind));
 
 				try {
 					await this.execute(
@@ -920,12 +907,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			`);
 
 		return (result.recordset as { columnName: string }[]).map((r) => r.columnName);
-	}
-
-	private async booleanColumns(tableName: string, db: string): Promise<Set<string>> {
-		const cols = await this.getTableColumns({ tableName, db });
-
-		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
 	}
 
 	protected async columnNames(conn: MssqlConn, tableName: string) {

@@ -1,4 +1,5 @@
 import {
+	type ColumnInfoSchemaType,
 	type CreateIndexParamsSchemaType,
 	DATABASE_ENGINES,
 	type DatabaseSchemaType,
@@ -24,20 +25,33 @@ import { HTTPException } from "@/http-exception.js";
 
 type Bind = (value: unknown) => string;
 
-/**
- * A written value for a driver that takes neither objects nor the grid's "true"/"false" for a
- * boolean column: JSON as text, and the boolean as 1 or 0.
- */
-export const flagOrJson = (value: unknown, isBoolean: boolean) => {
-	if (value !== null && typeof value === "object") return JSON.stringify(value);
-
-	if (isBoolean && typeof value === "string") return value === "true" ? 1 : 0;
-
-	return value;
-};
-
 /** How an update writes a value into `column`: the SQL for it, binding through `bind`. */
 export type BindValue = (column: string, value: unknown, bind: Bind) => string;
+
+/**
+ * The key of a table and how its values bind, from its columns, for a driver that takes
+ * neither objects nor the grid's "true"/"false" for a boolean column: JSON as text, and the
+ * boolean as 1 or 0.
+ */
+export const flagOrJsonTarget = (columns: ColumnInfoSchemaType[]) => {
+	const booleans = new Set(
+		columns.flatMap((c) => (c.dataTypeLabel === "boolean" ? [c.columnName] : [])),
+	);
+
+	const bindValue: BindValue = (column, value, bind) => {
+		if (value !== null && typeof value === "object") return bind(JSON.stringify(value));
+
+		if (booleans.has(column) && typeof value === "string")
+			return bind(value === "true" ? 1 : 0);
+
+		return bind(value);
+	};
+
+	return {
+		primaryKey: columns.flatMap((c) => (c.isPrimaryKey ? [c.columnName] : [])),
+		bindValue,
+	};
+};
 
 /** A foreign key that references a table. Composite keys keep their columns in order. */
 export interface ReferencingKey {

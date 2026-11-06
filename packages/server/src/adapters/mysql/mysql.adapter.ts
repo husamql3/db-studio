@@ -45,7 +45,7 @@ import {
 	orderTerms,
 } from "@/adapters/sql-pagination.js";
 import {
-	flagOrJson,
+	flagOrJsonTarget,
 	groupKeyColumns,
 	SqlAdapter,
 	type TableEstimate,
@@ -157,19 +157,8 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return (e as { errno?: number }).errno === MYSQL_FK_VIOLATION;
 	}
 
-	/** One read of the columns gives the key and the boolean columns. */
 	protected override async updateTarget(_conn: Connection, db: string, tableName: string) {
-		const columns = await this.getTableColumns({ tableName, db });
-
-		const booleanColumns = new Set(
-			columns.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName),
-		);
-
-		return {
-			primaryKey: columns.filter((c) => c.isPrimaryKey).map((c) => c.columnName),
-			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
-				bind(flagOrJson(value, booleanColumns.has(column))),
-		};
+		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 	}
 
 	override async getTableData(params: GetTableDataParams) {
@@ -649,13 +638,14 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}): Promise<{ insertedCount: number }> {
 		const { tableName, data } = params;
 		const pool = await connector("mysql").pool(db);
-		const booleanColumns = await this.booleanColumns(tableName, db);
+		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 		const columns = Object.keys(data);
+		const { values, bind } = createBinds(this.placeholder);
 
 		const insertedCount = await this.execute(
 			pool,
-			`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
-			columns.map((column) => flagOrJson(data[column], booleanColumns.has(column))),
+			`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map((column) => bindValue(column, data[column], bind)).join(", ")})`,
+			values,
 		);
 
 		if (insertedCount === 0) {
@@ -671,16 +661,18 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
 		const columns = Object.keys(records[0]);
-		const booleanColumns = await this.booleanColumns(tableName, db);
-		const sql = `INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`;
+		const { bindValue } = flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
 
 		await this.transaction(db, async (connection) => {
 			for (const [i, record] of records.entries()) {
+				const { values, bind } = createBinds(this.placeholder);
+				const row = columns.map((column) => bindValue(column, record[column], bind));
+
 				try {
 					await this.execute(
 						connection,
-						sql,
-						columns.map((column) => flagOrJson(record[column], booleanColumns.has(column))),
+						`INSERT INTO ${quoteMysqlIdent(tableName)} (${columns.map(quoteMysqlIdent).join(", ")}) VALUES (${row.join(", ")})`,
+						values,
 					);
 				} catch (error) {
 					const failure = this.classifyError(error);
@@ -782,12 +774,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		);
 
 		return groupKeyColumns(rows);
-	}
-
-	private async booleanColumns(tableName: string, db: string): Promise<Set<string>> {
-		const cols = await this.getTableColumns({ tableName, db });
-
-		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
 	}
 
 	protected async columnNames(conn: Connection, tableName: string) {
