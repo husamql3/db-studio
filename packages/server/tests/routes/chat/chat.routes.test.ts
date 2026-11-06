@@ -1,38 +1,21 @@
 import { LIMIT } from "@db-studio/shared/constants";
+import { AI_PROVIDER_OPTIONS } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chatRoutes } from "@/routes/chat/chat.routes.js";
 
-const mocks = vi.hoisted(() => ({
-	getDetailedSchema: vi.fn(),
-	generateSystemPrompt: vi.fn(() => "system prompt"),
-}));
-
-vi.mock("@/routes/chat/table-details-schema.js", () => ({
-	getDetailedSchema: mocks.getDetailedSchema,
-}));
-
-vi.mock("@/routes/chat/system-prompt-generator.js", () => ({
-	generateSystemPrompt: mocks.generateSystemPrompt,
-}));
-
-const requestBody = (
-	includeSchema: boolean,
-	provider: "gemini" | "anthropic" = "gemini",
-	model = "gemini-3-flash-preview",
-) => ({
-	provider,
-	model,
+// includeSchema stays false: these tests cover what reaches the proxy, not the database.
+const requestBody = {
+	provider: "gemini",
+	model: "gemini-3-flash-preview",
 	messages: [{ id: "message-1", role: "user", content: "Hello" }],
-	data: { db: "example", includeSchema },
-});
+	data: { db: "example", includeSchema: false },
+};
 
 describe("Chat routes", () => {
 	const app = new Elysia({ prefix: "/api/pg" }).use(chatRoutes);
 
 	beforeEach(() => {
-		vi.clearAllMocks();
-		mocks.getDetailedSchema.mockResolvedValue({ dbType: "pg", tables: [] });
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(() =>
@@ -54,7 +37,7 @@ describe("Chat routes", () => {
 					"Content-Type": "application/json",
 					"x-byok-gemini": "personal-secret",
 				},
-				body: JSON.stringify(requestBody(true)),
+				body: JSON.stringify(requestBody),
 			}),
 		);
 
@@ -80,7 +63,8 @@ describe("Chat routes", () => {
 		expect(response.status).toBe(200);
 		const [, init] = vi.mocked(fetch).mock.calls[0];
 		// A fixed Gemini default here would be rejected by the proxy with a 400.
-		expect(String(init?.body)).toContain('"model":"gpt-5.2"');
+		const openai = AI_PROVIDER_OPTIONS.find((option) => option.id === "openai");
+		expect(JSON.parse(String(init?.body)).model).toBe(openai?.models[0].id);
 	});
 
 	// The CLI loads .env after the server modules are imported, so a proxy URL read at import
@@ -93,7 +77,7 @@ describe("Chat routes", () => {
 				new Request(new URL("/api/pg/chat", "http://localhost"), {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(requestBody(false)),
+					body: JSON.stringify(requestBody),
 				}),
 			);
 		} finally {

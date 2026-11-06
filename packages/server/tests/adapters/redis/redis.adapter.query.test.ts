@@ -87,7 +87,9 @@ describe("RedisAdapter — executeQuery", () => {
 		mockClient.call.mockResolvedValue({ nested: { thing: [1, 2, 3] } });
 		const result = await adapter.executeQuery({ db: "0", query: "WEIRD nested-thing" });
 		expect(result.columns).toEqual(["result"]);
-		expect(typeof result.rows[0].result).toBe("string");
+		expect(JSON.parse(String(result.rows[0].result))).toEqual({
+			nested: { thing: [1, 2, 3] },
+		});
 	});
 
 	it("surfaces Redis reply errors as error rows (not exceptions)", async () => {
