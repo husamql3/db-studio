@@ -10,7 +10,7 @@ import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pag
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
-import { useTableData } from "@/hooks/use-table-data";
+import { DEFAULT_PAGE_LIMIT, useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 import { useGridPage } from "../hooks/use-grid-page";
@@ -37,7 +37,7 @@ export const TableFooter = ({
 	const itemLabel = variant === "document" ? "documents" : "rows";
 	const perPageLabel = variant === "document" ? "Documents per page" : "Rows per page";
 
-	const limitValue = limit ?? "50";
+	const limitValue = limit ?? DEFAULT_PAGE_LIMIT;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const handleLimitChange = (value: string) => {

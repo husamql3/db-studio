@@ -4,6 +4,8 @@ import { getTableData } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
+export const DEFAULT_PAGE_LIMIT = "50";
+
 export type TablePageParams = {
 	tableName: string;
 	schemaName: string | undefined;
@@ -29,7 +31,7 @@ export const useTableData = (params: TablePageParams) => {
 		getTableData({
 			tableName: target.tableName,
 			schemaName: target.schemaName,
-			limit: target.limit || "50",
+			limit: target.limit || DEFAULT_PAGE_LIMIT,
 			db: target.db ?? undefined,
 			cursor: target.cursor,
 			direction: target.direction,
