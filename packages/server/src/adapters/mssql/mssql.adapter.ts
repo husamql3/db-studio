@@ -201,15 +201,8 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 		const sql = `SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${buildOrderByClause(sort, order, pkColumns)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`;
 
-		const dataRequest = pool.request();
-		values.forEach((val, idx) => {
-			dataRequest.input(`p${idx}`, val);
-		});
-
-		const dataResult = await dataRequest.query(sql);
-
 		const { rows, ...page } = offsetPage(
-			dataResult.recordset as Record<string, unknown>[],
+			await this.rows<Record<string, unknown>>(pool, sql, values),
 			offset,
 			limit,
 		);
