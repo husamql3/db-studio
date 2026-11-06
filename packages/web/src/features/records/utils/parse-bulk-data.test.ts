@@ -169,7 +169,6 @@ describe("parseBulkData", () => {
 	});
 
 	describe("CSV parsing (extended)", () => {
-
 		it("should detect semicolon as delimiter", () => {
 			const input = "name;age\nJohn;30";
 			const result = parseBulkData(input);
@@ -182,8 +181,6 @@ describe("parseBulkData", () => {
 			const result = parseBulkData(input);
 			expect(result[0].code).toBe("007");
 		});
-
-
 
 		it("should throw when only a header row is present (no data rows)", () => {
 			expect(() => parseBulkData("name,age")).toThrow(/No records/);

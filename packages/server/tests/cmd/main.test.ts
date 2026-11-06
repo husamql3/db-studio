@@ -15,6 +15,7 @@ const { listen, cli } = vi.hoisted(() => ({
 // commander keeps parsed options on its module-level program, so each run gets a fresh one.
 vi.mock("commander", async (importOriginal) => {
 	const commander = await importOriginal<typeof import("commander")>();
+
 	return {
 		...commander,
 		get program() {
@@ -43,6 +44,7 @@ const run = async (env: string, cliArgs: string[] = []) => {
 	const { Command } = await import("commander");
 	cli.program = new Command();
 	await main();
+
 	return listen.mock.calls.at(-1)?.[0];
 };
 

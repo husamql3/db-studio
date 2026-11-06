@@ -34,6 +34,7 @@ afterAll(() => client.close());
 const matching = async (filters: FilterType[]) => {
 	const { values, bind } = createBinds(() => "?");
 	const where = whereSql(buildFilterConditions(filters, bind, sqliteFilters));
+
 	const { rows } = await client.execute({
 		sql: `SELECT id FROM people ${where} ORDER BY id`,
 		args: values as string[],

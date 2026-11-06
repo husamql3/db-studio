@@ -12,12 +12,14 @@ describe("Tables Routes", () => {
 
 	const tableNames = async () => {
 		const res = await sqlite.request("/sqlite/tables?db=main");
+
 		return ((await res.json()).data as { tableName: string }[]).map((t) => t.tableName);
 	};
 
 	const names = async (query: string) => {
 		const res = await sqlite.request(`/sqlite/tables/users/data?db=main&${query}`);
 		expect(res.status).toBe(200);
+
 		return ((await res.json()).data.data as { name: string }[]).map((row) => row.name);
 	};
 

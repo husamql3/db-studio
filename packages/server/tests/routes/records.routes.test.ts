@@ -5,6 +5,7 @@ import { openSqliteApp } from "../sqlite-app.js";
 // (a record added without its database, an empty update or delete list accepted).
 describe("Records Routes", () => {
 	let sqlite: Awaited<ReturnType<typeof openSqliteApp>>;
+
 	const seeded = [
 		{ id: 1, name: "Linus" },
 		{ id: 2, name: "Ada" },

@@ -48,6 +48,7 @@ const engines: Engine[] = [
 		open: async () => {
 			vi.resetModules();
 			const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
+
 			const { connector, createConnection, registerConnection } =
 				await import("@/open-connections.js");
 
@@ -71,6 +72,7 @@ const engines: Engine[] = [
 		open: async () => {
 			vi.resetModules();
 			const { DuckDbAdapter } = await import("@/adapters/duckdb/duckdb.adapter.js");
+
 			const { closeAllConnections, connector, createConnection, registerConnection } =
 				await import("@/open-connections.js");
 
@@ -78,6 +80,7 @@ const engines: Engine[] = [
 				"test",
 				createConnection(`duckdb://${path.join(dir, "members.duckdb")}`),
 			);
+
 			return {
 				adapter: new DuckDbAdapter(),
 				exec: async (sql) => {
@@ -96,6 +99,7 @@ const engines: Engine[] = [
 for (const engine of engines) {
 	describe(`${engine.name} composite primary key updates`, () => {
 		let opened: Awaited<ReturnType<Engine["open"]>>;
+
 		const update = (params: unknown) =>
 			opened.adapter.updateRecords({ db: engine.db, params } as never);
 
