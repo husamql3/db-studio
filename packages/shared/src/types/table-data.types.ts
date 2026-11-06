@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableQuerySchema } from "./database.types.js";
+import { tableQuerySchema } from "./database.types.js";
 
 export const filterSchema = z.object({
 	columnName: z.string(),
@@ -38,10 +38,8 @@ export const tableDataResultSchema = z.object({
 
 export type TableDataResultSchemaType = z.infer<typeof tableDataResultSchema>;
 
-export const tableDataQuerySchema = z
-	.object({
-		db: databaseSchema.shape.db,
-		schemaName: tableQuerySchema.shape.schemaName,
+export const tableDataQuerySchema = tableQuerySchema
+	.extend({
 		cursor: z.string().optional(), // Base64 encoded cursor for pagination
 		limit: z.string().optional().default("50").transform(Number),
 		direction: z.enum(sortDirections).optional().default(sortDirections[0]),

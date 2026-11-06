@@ -17,11 +17,9 @@ export const renameTableParamSchema = tableNameSchema;
 
 export type RenameTableParamSchemaType = z.infer<typeof renameTableParamSchema>;
 
-export const renameTableParamsSchema = z.object({
-	db: databaseSchema.shape.db,
-	tableName: tableNameSchema.shape.tableName,
-	newTableName: renameTableSchema.shape.newTableName,
-	schemaName: renameTableSchema.shape.schemaName,
+export const renameTableParamsSchema = renameTableSchema.extend({
+	...databaseSchema.shape,
+	...tableNameSchema.shape,
 });
 
 export type RenameTableParamsSchemaType = z.infer<typeof renameTableParamsSchema>;
