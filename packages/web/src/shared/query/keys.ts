@@ -50,8 +50,6 @@ export const tableKeys = {
 			db,
 			schemaName,
 		] as const,
-	schema: (tableName: string, db?: string | null, schemaName?: string) =>
-		["table-schema", tableName, db, schemaName] as const,
 };
 
 export const indexKeys = {
