@@ -61,8 +61,11 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 			<SheetContent
 				side="left"
 				showCloseButton={false}
-				isPinned={isPinned}
-				className="sidebar-behind-rail bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0"
+				showOverlay={!isPinned}
+				className={cn(
+					"sidebar-behind-rail bg-sidebar border-r border-sidebar-border text-sidebar-foreground p-0",
+					isPinned && "absolute",
+				)}
 				style={{ width: `${width}px`, left: `${CONSTANTS.RAIL_WIDTH}px` }}
 				onOpenAutoFocus={(e) => e.preventDefault()}
 				onMouseEnter={() => {
