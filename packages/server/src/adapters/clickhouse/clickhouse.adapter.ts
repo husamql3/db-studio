@@ -213,11 +213,11 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 		if (rows.length) return { cols: Object.keys(rows[0]), rows };
 
-		// SELECT * leaves out MATERIALIZED and ALIAS columns, so an empty export does too.
+		// SELECT * leaves out MATERIALIZED, ALIAS and EPHEMERAL columns, so an empty export does too.
 		const columns = await this.select<{ name: string }>(
 			db,
 			`SELECT name FROM system.columns
-			WHERE database = currentDatabase() AND table = {table:String} AND default_kind NOT IN ('MATERIALIZED', 'ALIAS')
+			WHERE database = currentDatabase() AND table = {table:String} AND default_kind NOT IN ('MATERIALIZED', 'ALIAS', 'EPHEMERAL')
 			ORDER BY position`,
 			{ table: tableName },
 		);
