@@ -10,9 +10,10 @@ import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pag
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
+import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
-import { useGridPage, useTableData } from "../hooks/use-table-data";
+import { useGridPage } from "../hooks/use-grid-page";
 
 const PRESET_SIZES = [5, 10, 25, 50, 100, 500];
 

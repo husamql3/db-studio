@@ -1,16 +1,16 @@
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
+import { FilterPopup } from "@/components/filter-popup";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { CONSTANTS } from "@/utils/constants";
+import { tableFiltersParser } from "../../hooks/use-grid-page";
 import { useRowMutation } from "../../hooks/use-row-mutation";
-import { tableFiltersParser } from "../../hooks/use-table-data";
 import { AddRecordMenu } from "./add-record-menu";
 import { ClearBtn } from "./clear-btn";
 import { ColumnPreferencesMenu } from "./column-preferences-menu";
 import { DeleteBtn } from "./delete-btn";
-import { FilterPopup } from "./filter-popup";
 import { LiveModeToggle } from "./live-mode-toggle";
 import { RefetchBtn } from "./refetch-btn";
 import { ReviewBtn } from "./review-btn";

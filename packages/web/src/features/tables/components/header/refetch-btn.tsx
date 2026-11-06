@@ -2,8 +2,9 @@ import { Button } from "@db-studio/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useCallback } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
+import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { useGridPage, useTableData } from "../../hooks/use-table-data";
+import { useGridPage } from "../../hooks/use-grid-page";
 
 export const RefetchBtn = ({ tableName }: { tableName: string }) => {
 	const schemaName = useTableSchemaName();

@@ -13,13 +13,14 @@ import { flexRender, getCoreRowModel, type Row, useReactTable } from "@tanstack/
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { FilterPopup, useTableData } from "@/features/tables";
+import { FilterPopup } from "@/components/filter-popup";
+import { ReferencedTableSortPopup } from "@/components/referenced-table-sort-popup";
 import { useTableCols } from "@/hooks/use-table-cols";
+import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { formatCellValue } from "@/utils/format-cell-value";
 import type { AddRecordFormData } from "../hooks/use-create-record";
-import { ReferencedTableSortPopup } from "./referenced-table-sort-popup";
 
 // The picker keeps its own page, sort and filters, so the grid behind it keeps the URL's.
 const PICKER_PAGE_LIMIT = "30";

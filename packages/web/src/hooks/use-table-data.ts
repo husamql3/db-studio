@@ -1,14 +1,8 @@
 import type { FilterType } from "@db-studio/shared/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { parseAsJson, useQueryState } from "nuqs";
 import { getTableData } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
-import { CONSTANTS } from "@/utils/constants";
-
-export const tableFiltersParser = parseAsJson((value) => value as FilterType[])
-	.withDefault([])
-	.withOptions({ history: "push" });
 
 export type TablePageParams = {
 	tableName: string;
@@ -20,27 +14,6 @@ export type TablePageParams = {
 	sort: string | null;
 	order: string | null;
 	filters: FilterType[];
-};
-
-/** The page the main grid shows, read from the URL. */
-export const useGridPage = (tableName: string, schemaName: string | undefined) => {
-	const [cursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
-	const [limit] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.LIMIT);
-	const [direction] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
-	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
-	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
-	const [filters] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.FILTERS, tableFiltersParser);
-
-	return {
-		tableName,
-		schemaName,
-		cursor,
-		limit,
-		direction,
-		sort,
-		order,
-		filters,
-	} satisfies TablePageParams;
 };
 
 export const useTableData = (params: TablePageParams) => {
