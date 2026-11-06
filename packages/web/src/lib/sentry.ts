@@ -1,5 +1,6 @@
 import { DATABASE_TYPES } from "@db-studio/shared/types";
 import { getTelemetryConfig } from "@/lib/posthog";
+import { SECTIONS } from "@/lib/sections";
 
 /**
  * The Sentry SDK, set once telemetry is enabled. Loading it then instead of with the app keeps
@@ -9,6 +10,12 @@ export let sentry: typeof import("@sentry/react") | undefined;
 
 const DB_SCOPED_API_PATH = new RegExp(
 	`/api/(?:${DATABASE_TYPES.join("|")})/(databases|tables|records|query|keys|chat)(?:/\\S*)?`,
+	"g",
+);
+
+/** App paths whose second segment names a table or a saved query. */
+const APP_ID_PATH = new RegExp(
+	`/(${[...SECTIONS.filter((section) => section.perTable).map((section) => section.id), "runner"].join("|")})/[^/\\s]+`,
 	"g",
 );
 
@@ -84,16 +91,13 @@ export const initSentry = async (): Promise<void> => {
 			const description = span.description
 				?.replace(/[?#].*$/, "")
 				.replace(DB_SCOPED_API_PATH, "/api/$1")
-				.replace(/\/(table|schema|runner)\/[^/\s]+/g, "/$1/:id");
+				.replace(APP_ID_PATH, "/$1/:id");
 
 			return { ...span, description, data: {} };
 		},
 		beforeSendTransaction(event) {
 			if (event.transaction) {
-				event.transaction = event.transaction.replace(
-					/\/(table|schema|runner)\/[^/]+/g,
-					"/$1/:id",
-				);
+				event.transaction = event.transaction.replace(APP_ID_PATH, "/$1/:id");
 			}
 
 			return event;
