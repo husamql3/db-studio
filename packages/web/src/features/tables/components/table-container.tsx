@@ -69,6 +69,7 @@ export const TableContainer = ({
 					table={table}
 					virtualPaddingLeft={virtualPaddingLeft}
 					virtualPaddingRight={virtualPaddingRight}
+					tableName={tableName}
 				/>
 				<TableBody
 					columnVirtualizer={columnVirtualizer}

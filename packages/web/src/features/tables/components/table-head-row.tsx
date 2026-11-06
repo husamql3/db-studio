@@ -32,7 +32,6 @@ import { DropColumnDialog } from "@/features/schema";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useIsSchemaless } from "@/hooks/use-is-schemaless";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { Route } from "@/routes/_pathlessLayout/table/$table";
 import { CONSTANTS } from "@/utils/constants";
 import { TableColumnResizer } from "./table-col-resizer";
 
@@ -42,6 +41,7 @@ interface TableHeadRowProps {
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
 	table: Table<TableRecord>;
+	tableName: string;
 }
 
 export const TableHeadRow = ({
@@ -50,8 +50,8 @@ export const TableHeadRow = ({
 	virtualPaddingLeft,
 	virtualPaddingRight,
 	table,
+	tableName,
 }: TableHeadRowProps) => {
-	const { table: activeTableName } = Route.useParams();
 	const isSchemaless = useIsSchemaless();
 
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
@@ -246,7 +246,7 @@ export const TableHeadRow = ({
 			</tr>
 
 			<DropColumnDialog
-				tableName={activeTableName}
+				tableName={tableName}
 				schemaName={schemaName}
 				columnName={columnToDelete ?? ""}
 				open={columnToDelete !== null}

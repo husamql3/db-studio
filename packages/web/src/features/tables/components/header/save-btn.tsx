@@ -5,14 +5,16 @@ import { useUpdateCell } from "../../hooks/use-update-cell";
 import { useUpdateCellStore } from "../../stores/update-cell.store";
 
 export const SaveBtn = ({
+	tableName,
 	setRowSelection,
 	disabledReason,
 }: {
+	tableName: string;
 	setRowSelection: OnChangeFn<RowSelectionState>;
 	disabledReason?: string;
 }) => {
 	const { getUpdates, getUpdateCount } = useUpdateCellStore();
-	const { updateCell, isUpdatingCell, editScope } = useUpdateCell();
+	const { updateCell, isUpdatingCell, editScope } = useUpdateCell(tableName);
 
 	const handleSave = useCallback(async () => {
 		if (disabledReason) return;

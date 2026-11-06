@@ -9,12 +9,8 @@ import { column } from "../../../../tests/column";
 import type { CellUpdate } from "../stores/update-cell.store";
 import { useUpdateCell } from "./use-update-cell";
 
-// The hook reads the open table from the router; these tests render it without one.
+// The hook reads the open table's schema from the router; these tests render it without one.
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
-
-vi.mock("@/routes/_pathlessLayout/table/$table", () => ({
-	Route: { useParams: () => ({ table: "members" }) },
-}));
 
 vi.mock("@/lib/logger", () => ({
 	logger: { request: vi.fn(), response: vi.fn(), error: vi.fn() },
@@ -49,7 +45,7 @@ const renderUpdateCell = async (
 		<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 	);
 
-	const { result } = renderHook(() => useUpdateCell(), { wrapper });
+	const { result } = renderHook(() => useUpdateCell("members"), { wrapper });
 	await waitFor(() => expect(sent.length > 0 && queryClient.isFetching() === 0).toBe(true));
 
 	return { result, sent };

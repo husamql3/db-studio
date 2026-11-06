@@ -39,9 +39,9 @@ const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {
 };
 
 /** The pending edits of the open table, by row, each cell revertible; ⌘Z/Ctrl+Z undoes. */
-export const ReviewBtn = () => {
+export const ReviewBtn = ({ tableName }: { tableName: string }) => {
 	const { getUpdates, clearUpdate, undo } = useUpdateCellStore();
-	const { isUpdatingCell, editScope } = useUpdateCell();
+	const { isUpdatingCell, editScope } = useUpdateCell(tableName);
 	const [isOpen, setIsOpen] = useState(false);
 	const updates = getUpdates(editScope.id);
 

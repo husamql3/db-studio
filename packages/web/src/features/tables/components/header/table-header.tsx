@@ -57,11 +57,12 @@ export const TableHeader = ({
 				<ColumnPreferencesMenu tableName={tableName} />
 				<AddRecordMenu />
 				<SaveBtn
+					tableName={tableName}
 					setRowSelection={setRowSelection}
 					disabledReason={rowMutationReason}
 				/>
-				<ReviewBtn />
-				<ClearBtn />
+				<ReviewBtn tableName={tableName} />
+				<ClearBtn tableName={tableName} />
 				<DeleteBtn
 					tableName={tableName}
 					selectedRows={selectedRows}
