@@ -1,11 +1,9 @@
 export const META = {
-	//* author
 	AUTHOR: "Hüsam 🥑 <husam@ql3.dev>",
 	AUTHOR_NAME: "Hüsam",
 	AUTHOR_AVATAR: "/avocado.png",
 	AUTHOR_USERNAME: "husamql3",
 	AUTHOR_GITHUB_LINK: "https://github.com/husamql3",
-	//* site
 	SITE_DESCRIPTION:
 		"Every database. One studio. Browse tables, edit records, and run queries in a free, open-source database GUI.",
 	SITE_KEYWORDS: [

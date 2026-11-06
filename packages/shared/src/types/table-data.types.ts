@@ -44,7 +44,7 @@ export const tableDataQuerySchema = z
 		schemaName: tableQuerySchema.shape.schemaName,
 		cursor: z.string().optional(), // Base64 encoded cursor for pagination
 		limit: z.string().optional().default("50").transform(Number),
-		direction: z.enum(sortDirections).optional().default(sortDirections[0]), // Pagination direction
+		direction: z.enum(sortDirections).optional().default(sortDirections[0]),
 		/** A JSON array of sorts, or one column name sorted in `order`. */
 		sort: z
 			.string()

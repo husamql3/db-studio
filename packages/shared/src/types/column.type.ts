@@ -1,12 +1,8 @@
 import { DataTypes } from "./column-info.types.js";
 
-/**
- * Maps PostgreSQL data types to generic DataType enum
- */
 export function mapPostgresToDataType(pgType: string): DataTypes {
 	const normalized = pgType?.toLowerCase().trim() || "";
 
-	// Handle array types and date/time types
 	if (
 		normalized.includes("[]") ||
 		normalized === "date" ||
@@ -23,7 +19,6 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		return DataTypes.date;
 	}
 
-	// Numeric types
 	if (
 		normalized === "integer" ||
 		normalized === "int" ||
@@ -50,17 +45,14 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		return DataTypes.number;
 	}
 
-	// Boolean
 	if (normalized === "boolean" || normalized === "bool") {
 		return DataTypes.boolean;
 	}
 
-	// JSON types
 	if (normalized === "json" || normalized === "jsonb") {
 		return DataTypes.json;
 	}
 
-	// Enum types and long text types
 	if (
 		normalized.startsWith("user-defined") ||
 		normalized === "enum" ||
@@ -70,7 +62,6 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		return DataTypes.text;
 	}
 
-	// Short string types (varchar, char, uuid, etc.)
 	if (
 		normalized === "character varying" ||
 		normalized.startsWith("varchar") ||
@@ -94,13 +85,9 @@ export function mapPostgresToDataType(pgType: string): DataTypes {
 		return DataTypes.text;
 	}
 
-	// Default to short for unrecognized types
 	return DataTypes.text;
 }
 
-/**
- * Standardized data type labels
- */
 export const StandardizedDataType = {
 	// PostgreSQL numeric types
 	int: "int",
@@ -166,19 +153,15 @@ export const StandardizedDataType = {
 export type StandardizedDataType =
 	(typeof StandardizedDataType)[keyof typeof StandardizedDataType];
 
-/**
- * Maps PostgreSQL data types to standardized display labels
- */
 export function standardizeDataTypeLabel(
 	pgType: string | null | undefined,
 ): StandardizedDataType {
 	if (!pgType) {
-		return StandardizedDataType.text; // Default fallback
+		return StandardizedDataType.text;
 	}
 
 	const normalized = pgType.toLowerCase().trim();
 
-	// Numeric types
 	if (
 		normalized === "integer" ||
 		normalized === "int" ||
@@ -223,12 +206,10 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.money;
 	}
 
-	// Boolean
 	if (normalized === "boolean" || normalized === "bool") {
 		return StandardizedDataType.boolean;
 	}
 
-	// Text types
 	if (normalized === "text") {
 		return StandardizedDataType.text;
 	}
@@ -250,7 +231,6 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.char;
 	}
 
-	// JSON types
 	if (normalized === "json") {
 		return StandardizedDataType.json;
 	}
@@ -263,12 +243,10 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.xml;
 	}
 
-	// UUID
 	if (normalized === "uuid") {
 		return StandardizedDataType.uuid;
 	}
 
-	// Date/Time types
 	if (normalized === "date") {
 		return StandardizedDataType.date;
 	}
@@ -301,12 +279,10 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.interval;
 	}
 
-	// Binary
 	if (normalized === "bytea") {
 		return StandardizedDataType.bytea;
 	}
 
-	// Network types
 	if (normalized === "inet") {
 		return StandardizedDataType.inet;
 	}
@@ -323,7 +299,6 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.macaddr8;
 	}
 
-	// Geometric types
 	if (normalized === "point") {
 		return StandardizedDataType.point;
 	}
@@ -336,7 +311,6 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.polygon;
 	}
 
-	// Array types
 	// todo: handle array types
 	if (normalized.startsWith("array") || normalized.includes("[]")) {
 		return StandardizedDataType.text;
@@ -347,7 +321,6 @@ export function standardizeDataTypeLabel(
 		return StandardizedDataType.enum;
 	}
 
-	// Default: return the original type
 	return StandardizedDataType.text;
 }
 
@@ -365,7 +338,6 @@ export function mapMysqlToDataType(mysqlDataType: string, columnType?: string): 
 		return DataTypes.boolean;
 	}
 
-	// Numeric types
 	if (
 		normalized === "tinyint" ||
 		normalized === "smallint" ||
@@ -383,12 +355,10 @@ export function mapMysqlToDataType(mysqlDataType: string, columnType?: string): 
 		return DataTypes.number;
 	}
 
-	// Boolean (explicit)
 	if (normalized === "boolean" || normalized === "bool") {
 		return DataTypes.boolean;
 	}
 
-	// Date/time types
 	if (
 		normalized === "date" ||
 		normalized === "datetime" ||
@@ -399,7 +369,6 @@ export function mapMysqlToDataType(mysqlDataType: string, columnType?: string): 
 		return DataTypes.date;
 	}
 
-	// JSON
 	if (normalized === "json") {
 		return DataTypes.json;
 	}
@@ -409,7 +378,6 @@ export function mapMysqlToDataType(mysqlDataType: string, columnType?: string): 
 		return DataTypes.enum;
 	}
 
-	// All text and binary types default to text
 	return DataTypes.text;
 }
 
@@ -433,7 +401,6 @@ export function standardizeMysqlDataTypeLabel(
 	if (normalized === "tinyint" && fullType === "tinyint(1)")
 		return StandardizedDataType.boolean;
 
-	// Numeric types
 	if (normalized === "tinyint") return StandardizedDataType.tinyint;
 
 	if (normalized === "smallint") return StandardizedDataType.smallint;
@@ -453,10 +420,8 @@ export function standardizeMysqlDataTypeLabel(
 
 	if (normalized === "bit") return StandardizedDataType.bit;
 
-	// Boolean
 	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
 
-	// Text types
 	if (normalized === "char") return StandardizedDataType.char;
 
 	if (normalized === "varchar") return StandardizedDataType.varchar;
@@ -469,7 +434,6 @@ export function standardizeMysqlDataTypeLabel(
 
 	if (normalized === "longtext") return StandardizedDataType.longtext;
 
-	// Binary types
 	if (normalized === "binary") return StandardizedDataType.binary;
 
 	if (normalized === "varbinary") return StandardizedDataType.varbinary;
@@ -482,10 +446,8 @@ export function standardizeMysqlDataTypeLabel(
 
 	if (normalized === "longblob") return StandardizedDataType.longblob;
 
-	// JSON
 	if (normalized === "json") return StandardizedDataType.json;
 
-	// Date/time types
 	if (normalized === "date") return StandardizedDataType.date;
 
 	if (normalized === "time") return StandardizedDataType.time;
@@ -496,12 +458,10 @@ export function standardizeMysqlDataTypeLabel(
 
 	if (normalized === "year") return StandardizedDataType.year;
 
-	// Complex types
 	if (normalized === "enum") return StandardizedDataType.enum;
 
 	if (normalized === "set") return StandardizedDataType.set;
 
-	// Default
 	return StandardizedDataType.text;
 }
 
@@ -512,7 +472,6 @@ export function standardizeMysqlDataTypeLabel(
 export function mapMssqlToDataType(mssqlDataType: string): DataTypes {
 	const normalized = mssqlDataType?.toLowerCase().trim() || "";
 
-	// Numeric types
 	if (
 		normalized === "tinyint" ||
 		normalized === "smallint" ||
@@ -528,12 +487,10 @@ export function mapMssqlToDataType(mssqlDataType: string): DataTypes {
 		return DataTypes.number;
 	}
 
-	// Boolean (bit with length 1)
 	if (normalized === "bit") {
 		return DataTypes.boolean;
 	}
 
-	// Date/time types
 	if (
 		normalized === "date" ||
 		normalized === "datetime" ||
@@ -550,7 +507,6 @@ export function mapMssqlToDataType(mssqlDataType: string): DataTypes {
 		return DataTypes.json;
 	}
 
-	// All text and binary types default to text
 	return DataTypes.text;
 }
 
@@ -565,7 +521,6 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 
 	const normalized = mssqlDataType.toLowerCase().trim();
 
-	// Numeric types
 	if (normalized === "tinyint") return StandardizedDataType.tinyint;
 
 	if (normalized === "smallint") return StandardizedDataType.smallint;
@@ -583,10 +538,8 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 
 	if (normalized === "money" || normalized === "smallmoney") return StandardizedDataType.money;
 
-	// Boolean
 	if (normalized === "bit") return StandardizedDataType.boolean;
 
-	// Text types
 	if (normalized === "char") return StandardizedDataType.char;
 
 	if (normalized === "varchar") return StandardizedDataType.varchar;
@@ -599,17 +552,14 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 
 	if (normalized === "ntext") return StandardizedDataType.text;
 
-	// Binary types
 	if (normalized === "binary") return StandardizedDataType.binary;
 
 	if (normalized === "varbinary") return StandardizedDataType.varbinary;
 
 	if (normalized === "image") return StandardizedDataType.blob;
 
-	// UUID
 	if (normalized === "uniqueidentifier") return StandardizedDataType.uuid;
 
-	// Date/time types
 	if (normalized === "date") return StandardizedDataType.date;
 
 	if (normalized === "time") return StandardizedDataType.time;
@@ -622,12 +572,10 @@ export function standardizeMssqlDataTypeLabel(mssqlDataType: string): Standardiz
 
 	if (normalized === "datetimeoffset") return StandardizedDataType.timestamptz;
 
-	// JSON and XML
 	if (normalized === "json") return StandardizedDataType.json;
 
 	if (normalized === "xml") return StandardizedDataType.xml;
 
-	// Default
 	return StandardizedDataType.text;
 }
 
@@ -668,9 +616,6 @@ export function mapSqliteToDataType(sqliteType: string): DataTypes {
 	return DataTypes.text;
 }
 
-/**
- * Maps SQLite type strings to the standardized display labels used in ColumnInfoSchemaType.
- */
 export function standardizeSqliteDataTypeLabel(sqliteType: string): StandardizedDataType {
 	const normalized = sqliteType?.toLowerCase().trim() || "";
 
@@ -776,9 +721,6 @@ export function mapDuckdbToDataType(duckdbType: string): DataTypes {
 	return DataTypes.text;
 }
 
-/**
- * Maps DuckDB column types to the standardized display labels used in ColumnInfoSchemaType.
- */
 export function standardizeDuckdbDataTypeLabel(duckdbType: string): StandardizedDataType {
 	const normalized = duckdbType?.toLowerCase().trim() || "";
 
@@ -865,9 +807,6 @@ export function mapOracleToDataType(oracleType: string): DataTypes {
 	return DataTypes.text;
 }
 
-/**
- * Maps Oracle column types to the standardized display labels used in ColumnInfoSchemaType.
- */
 export function standardizeOracleDataTypeLabel(oracleType: string): StandardizedDataType {
 	const normalized = oracleType?.toLowerCase().trim() || "";
 
@@ -951,9 +890,6 @@ export function mapClickhouseToDataType(clickhouseType: string): DataTypes {
 	return DataTypes.text;
 }
 
-/**
- * Maps ClickHouse column types to the standardized display labels used in ColumnInfoSchemaType.
- */
 export function standardizeClickhouseDataTypeLabel(
 	clickhouseType: string,
 ): StandardizedDataType {
