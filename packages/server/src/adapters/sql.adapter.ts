@@ -4,6 +4,7 @@ import {
 	type BulkInsertResult,
 	type ColumnInfoSchemaType,
 	type CreateIndexParamsSchemaType,
+	type CreateTableSchemaType,
 	DATABASE_ENGINES,
 	type DatabaseSchemaType,
 	type DatabaseTypeSchema,
@@ -13,6 +14,8 @@ import {
 	type DeleteTableResult,
 	type DropIndexParamsSchemaType,
 	type ExecuteQueryResult,
+	type FieldDataType,
+	type ForeignKeyDataType,
 	type IndexInfoSchemaType,
 	type RelatedRecord,
 	type TableDataResultSchemaType,
@@ -215,6 +218,66 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		tableName: string,
 		schemaName?: string,
 	): Promise<ReferencingKey[]>;
+
+	/**
+	 * A column as CREATE TABLE and ADD COLUMN write it. `createKey` holds the new table's key
+	 * columns in CREATE TABLE, and is absent in ADD COLUMN.
+	 */
+	protected abstract columnDefinition(
+		conn: Conn,
+		tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
+	): string;
+
+	/** The constraints after the columns: a composite key, as a one-column key goes inline. */
+	protected tableConstraints(
+		_tableName: string,
+		_fields: FieldDataType[],
+		primaryKey: string[],
+	): string[] {
+		return primaryKey.length > 1
+			? [`PRIMARY KEY (${primaryKey.map(this.quoteIdentifier).join(", ")})`]
+			: [];
+	}
+
+	protected foreignKeyClause(_tableName: string, fk: ForeignKeyDataType): string {
+		const q = this.quoteIdentifier;
+
+		return `FOREIGN KEY (${q(fk.columnName)}) REFERENCES ${q(fk.referencedTable)} (${q(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
+	}
+
+	/** What follows the column list, such as MySQL's storage engine. */
+	protected readonly tableOptions: string = "";
+
+	protected async runCreateTable(conn: Conn, sql: string, _tableData: CreateTableSchemaType) {
+		await this.execute(conn, sql);
+	}
+
+	async createTable({
+		tableData,
+		db,
+	}: {
+		tableData: CreateTableSchemaType;
+		db: DatabaseSchemaType["db"];
+	}): Promise<void> {
+		const { tableName, fields, foreignKeys = [] } = tableData;
+		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+
+		await this.connect(db, async (conn) => {
+			const definitions = [
+				...fields.map((field) => this.columnDefinition(conn, tableName, field, primaryKey)),
+				...this.tableConstraints(tableName, fields, primaryKey),
+				...foreignKeys.map((fk) => this.foreignKeyClause(tableName, fk)),
+			];
+
+			await this.runCreateTable(
+				conn,
+				`CREATE TABLE ${this.quoteIdentifier(tableName)} (${definitions.join(", ")})${this.tableOptions}`,
+				tableData,
+			);
+		});
+	}
 
 	/**
 	 * Statements the table list counts its tables in, run at once. A query per table would

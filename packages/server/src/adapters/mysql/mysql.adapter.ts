@@ -3,7 +3,6 @@ import type {
 	AlterColumnParamsSchemaType,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
-	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -225,46 +224,46 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return this.rowEstimates(await connector("mysql").pool(db));
 	}
 
-	async createTable({
-		tableData,
-		db,
-	}: {
-		tableData: CreateTableSchemaType;
-		db: DatabaseSchemaType["db"];
-	}): Promise<void> {
-		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await connector("mysql").pool(db);
-
-		const columnDefs = fields.map((field: FieldDataType) => buildMysqlColumnDefinition(field));
-
-		const constraintDefs: string[] = [];
-		const primaryKeyFields = fields.filter((f: FieldDataType) => f.isPrimaryKey);
-
-		if (primaryKeyFields.length > 0) {
-			constraintDefs.push(
-				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => quoteMysqlIdent(f.columnName)).join(", ")})`,
-			);
-		}
-
-		for (const field of fields as FieldDataType[]) {
-			if (field.isUnique && !field.isPrimaryKey) {
-				constraintDefs.push(
-					`UNIQUE KEY ${quoteMysqlIdent(`uq_${tableName}_${field.columnName}`)} (${quoteMysqlIdent(field.columnName)})`,
-				);
-			}
-		}
-
-		const fkDefs =
-			foreignKeys?.map((fk: ForeignKeyDataType) => {
-				const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
-
-				return `CONSTRAINT ${quoteMysqlIdent(name)} FOREIGN KEY (${quoteMysqlIdent(fk.columnName)}) REFERENCES ${quoteMysqlIdent(fk.referencedTable)} (${quoteMysqlIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
-			}) ?? [];
-
-		await pool.execute<ResultSetHeader>(
-			`CREATE TABLE ${quoteMysqlIdent(tableName)} (\n\t\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t\t")}\n\t\t\t) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-		);
+	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD COLUMN in the column. */
+	protected columnDefinition(
+		_conn: Connection,
+		_tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
+	) {
+		return buildMysqlColumnDefinition(field, {
+			includePrimaryKey: !createKey,
+			includeUnique: !createKey,
+		});
 	}
+
+	protected override tableConstraints(
+		tableName: string,
+		fields: FieldDataType[],
+		primaryKey: string[],
+	) {
+		return [
+			...(primaryKey.length
+				? [`PRIMARY KEY (${primaryKey.map(quoteMysqlIdent).join(", ")})`]
+				: []),
+			...fields.flatMap((field) =>
+				field.isUnique && !field.isPrimaryKey
+					? [
+							`UNIQUE KEY ${quoteMysqlIdent(`uq_${tableName}_${field.columnName}`)} (${quoteMysqlIdent(field.columnName)})`,
+						]
+					: [],
+			),
+		];
+	}
+
+	protected override foreignKeyClause(tableName: string, fk: ForeignKeyDataType) {
+		const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
+
+		return `CONSTRAINT ${quoteMysqlIdent(name)} ${super.foreignKeyClause(tableName, fk)}`;
+	}
+
+	protected override readonly tableOptions =
+		" ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
 	protected override async dropTable(
 		conn: Connection,
@@ -432,39 +431,13 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const {
-			tableName,
-			columnName,
-			columnType,
-			defaultValue,
-			isPrimaryKey,
-			isNullable,
-			isUnique,
-			isIdentity,
-			isArray,
-			db,
-		} = params;
-
+		const { tableName, columnName, db } = params;
 		const pool = await connector("mysql").pool(db);
 
 		this.assertColumnAbsent(await this.requireTable(pool, tableName), tableName, columnName);
 
-		const colDef = buildMysqlColumnDefinition(
-			{
-				columnName,
-				columnType,
-				defaultValue,
-				isPrimaryKey,
-				isNullable,
-				isUnique,
-				isIdentity,
-				isArray,
-			},
-			{ includePrimaryKey: true, includeUnique: true },
-		);
-
 		await pool.execute<ResultSetHeader>(
-			`ALTER TABLE ${quoteMysqlIdent(tableName)} ADD COLUMN ${colDef}`,
+			`ALTER TABLE ${quoteMysqlIdent(tableName)} ADD COLUMN ${this.columnDefinition(pool, tableName, params)}`,
 		);
 	}
 

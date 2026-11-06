@@ -4,7 +4,6 @@ import type {
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
-	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -316,49 +315,34 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		);
 	}
 
-	async createTable({
-		tableData,
-		db,
-	}: {
-		tableData: CreateTableSchemaType;
-		db: DatabaseSchemaType["db"];
-	}): Promise<void> {
-		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await connector("pg").pool(db);
+	protected columnDefinition(
+		_conn: PgQueryable,
+		_tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
+	) {
+		let def = `${quotePgIdent(field.columnName)} ${field.columnType}`;
 
-		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+		if (field.isArray) def += "[]";
 
-		const columnDefs = fields.map((field: FieldDataType) => {
-			let def = `${quotePgIdent(field.columnName)} ${field.columnType}`;
+		if (field.isPrimaryKey && (!createKey || createKey.length === 1)) def += " PRIMARY KEY";
 
-			if (field.isArray) def += "[]";
+		if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 
-			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
+		if (!field.isNullable) def += " NOT NULL";
 
-			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+		if (field.isIdentity) def += " GENERATED ALWAYS AS IDENTITY";
 
-			if (!field.isNullable) def += " NOT NULL";
+		if (field.defaultValue?.trim() && !field.isIdentity)
+			def += ` DEFAULT ${field.defaultValue.trim()}`;
 
-			if (field.isIdentity) def += " GENERATED ALWAYS AS IDENTITY";
+		return def;
+	}
 
-			if (field.defaultValue && !field.isIdentity) def += ` DEFAULT ${field.defaultValue}`;
+	protected override foreignKeyClause(tableName: string, fk: ForeignKeyDataType) {
+		const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
 
-			return def;
-		});
-
-		if (primaryKey.length > 1)
-			columnDefs.push(`PRIMARY KEY (${primaryKey.map(quotePgIdent).join(", ")})`);
-
-		const fkDefs =
-			foreignKeys?.map((fk: ForeignKeyDataType) => {
-				const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
-
-				return `CONSTRAINT ${quotePgIdent(name)} FOREIGN KEY (${quotePgIdent(fk.columnName)}) REFERENCES ${quotePgIdent(fk.referencedTable)} (${quotePgIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
-			}) ?? [];
-
-		await pool.query(
-			`CREATE TABLE ${quotePgIdent(tableName)} (\n\t\t\t\t${[...columnDefs, ...fkDefs].join(",\n\t\t\t\t")}\n\t\t\t);`,
-		);
+		return `CONSTRAINT ${quotePgIdent(name)} ${super.foreignKeyClause(tableName, fk)}`;
 	}
 
 	/**
@@ -682,20 +666,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const {
-			tableName,
-			columnName,
-			columnType,
-			defaultValue,
-			isPrimaryKey,
-			isNullable,
-			isUnique,
-			isIdentity,
-			isArray,
-			schemaName,
-			db,
-		} = params;
-
+		const { tableName, columnName, schemaName, db } = params;
 		const pool = await connector("pg").pool(db);
 
 		this.assertColumnAbsent(
@@ -703,23 +674,10 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			tableName,
 			columnName,
 		);
-		const table = qualifiedTable(tableName, schemaName);
 
-		let def = `${quotePgIdent(columnName)} ${columnType}`;
-
-		if (isArray) def += "[]";
-
-		if (isPrimaryKey) def += " PRIMARY KEY";
-
-		if (isUnique && !isPrimaryKey) def += " UNIQUE";
-
-		if (!isNullable) def += " NOT NULL";
-
-		if (isIdentity) def += " GENERATED ALWAYS AS IDENTITY";
-
-		if (defaultValue?.trim() && !isIdentity) def += ` DEFAULT ${defaultValue.trim()}`;
-
-		await pool.query(`ALTER TABLE ${table} ADD COLUMN ${def}`);
+		await pool.query(
+			`ALTER TABLE ${qualifiedTable(tableName, schemaName)} ADD COLUMN ${this.columnDefinition(pool, tableName, params)}`,
+		);
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {

@@ -7,14 +7,12 @@ import type {
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
-	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DropIndexParamsSchemaType,
 	FieldDataType,
-	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
@@ -300,49 +298,30 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		return counts.map((result) => Number(toRows<{ count: number }>(result)[0]?.count ?? 0));
 	}
 
-	async createTable({
-		tableData,
-	}: {
-		tableData: CreateTableSchemaType;
-		db: DatabaseSchemaType["db"];
-	}): Promise<void> {
-		const { tableName, fields, foreignKeys } = tableData;
+	protected columnDefinition(
+		_client: SqliteClient,
+		_tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
+	) {
+		const inlineKey = field.isPrimaryKey && createKey?.length === 1;
 
-		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+		// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
+		if (inlineKey && field.isIdentity)
+			return `${quoteSqliteIdent(field.columnName)} INTEGER PRIMARY KEY AUTOINCREMENT`;
 
-		const columnDefs = fields.map((field: FieldDataType) => {
-			// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
-			if (primaryKey.length === 1 && field.isPrimaryKey && field.isIdentity) {
-				return `${quoteSqliteIdent(field.columnName)} INTEGER PRIMARY KEY AUTOINCREMENT`;
-			}
+		let def = `${quoteSqliteIdent(field.columnName)} ${field.columnType}`;
 
-			let def = `${quoteSqliteIdent(field.columnName)} ${field.columnType}`;
+		if (inlineKey) def += " PRIMARY KEY";
 
-			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
+		if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 
-			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 
-			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
+		if (field.defaultValue?.trim() && !field.isIdentity)
+			def += ` DEFAULT ${field.defaultValue.trim()}`;
 
-			if (field.defaultValue?.trim() && !field.isIdentity)
-				def += ` DEFAULT ${field.defaultValue.trim()}`;
-
-			return def;
-		});
-
-		if (primaryKey.length > 1)
-			columnDefs.push(`PRIMARY KEY (${primaryKey.map(quoteSqliteIdent).join(", ")})`);
-
-		const fkDefs =
-			foreignKeys?.map(
-				(fk: ForeignKeyDataType) =>
-					`FOREIGN KEY (${quoteSqliteIdent(fk.columnName)}) REFERENCES ${quoteSqliteIdent(fk.referencedTable)} (${quoteSqliteIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
-			) ?? [];
-
-		const client = await connector("sqlite").client();
-		await client.execute(
-			`CREATE TABLE ${quoteSqliteIdent(tableName)} (${[...columnDefs, ...fkDefs].join(", ")})`,
-		);
+		return def;
 	}
 
 	/** SQLite matches table names without case. */
@@ -432,24 +411,23 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		return this.serializeSchemaChange(async (client) => {
-			const { tableName, columnName, columnType, defaultValue, isNullable, isUnique } = params;
+		const { tableName, columnName, isPrimaryKey, isIdentity } = params;
 
+		if (isPrimaryKey || isIdentity)
+			throw new HTTPException(400, {
+				message: `SQLite cannot add ${isPrimaryKey ? "a PRIMARY KEY" : "an identity"} column to an existing table. Add the column without it, or recreate the table.`,
+			});
+
+		return this.serializeSchemaChange(async (client) => {
 			this.assertColumnAbsent(
 				await this.requireTable(client, tableName),
 				tableName,
 				columnName,
 			);
 
-			let def = `${quoteSqliteIdent(columnName)} ${columnType}`;
-
-			if (isUnique) def += " UNIQUE";
-
-			if (!isNullable) def += " NOT NULL";
-
-			if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
-
-			await client.execute(`ALTER TABLE ${quoteSqliteIdent(tableName)} ADD COLUMN ${def}`);
+			await client.execute(
+				`ALTER TABLE ${quoteSqliteIdent(tableName)} ADD COLUMN ${this.columnDefinition(client, tableName, params)}`,
+			);
 		});
 	}
 

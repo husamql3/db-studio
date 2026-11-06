@@ -6,6 +6,7 @@ import type {
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
+	FieldDataType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -162,6 +163,12 @@ const LIMITATIONS: Array<[signature: string, reason: string]> = [
 
 const FK_ACTIONS_DUCKDB_REJECTS = new Set(["CASCADE", "SET NULL", "SET DEFAULT"]);
 
+/** The `<table>_<column>_seq` sequence an identity or serial column takes its default from. */
+const sequenceOf = (
+	tableName: string,
+	{ columnName, columnType, isIdentity }: FieldDataType,
+) => (isIdentity || isSerialType(columnType) ? `${tableName}_${columnName}_seq` : null);
+
 export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	protected readonly quoteIdentifier = ident;
 	protected readonly engine = "duckdb";
@@ -264,10 +271,11 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		);
 	}
 
-	async createTable({ tableData }: { tableData: CreateTableSchemaType }): Promise<void> {
-		const { tableName, fields, foreignKeys = [] } = tableData;
-
-		for (const fk of foreignKeys) {
+	override async createTable(params: {
+		tableData: CreateTableSchemaType;
+		db: DatabaseSchemaType["db"];
+	}): Promise<void> {
+		for (const fk of params.tableData.foreignKeys ?? []) {
 			const rejected = [fk.onUpdate, fk.onDelete].find((a) =>
 				FK_ACTIONS_DUCKDB_REJECTS.has(a),
 			);
@@ -278,45 +286,45 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 				});
 		}
 
-		const sequences: string[] = [];
-		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+		return super.createTable(params);
+	}
 
-		const columnDefs = fields.map((field) => {
-			let def = `${ident(field.columnName)} ${mapColumnTypeToDuckdb(field.columnType, field.isArray)}`;
+	protected columnDefinition(
+		_conn: DuckDBConnection,
+		tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
+	) {
+		const sequence = sequenceOf(tableName, field);
+		let def = `${ident(field.columnName)} ${mapColumnTypeToDuckdb(field.columnType, field.isArray)}`;
 
-			if (primaryKey.length === 1 && field.isPrimaryKey) def += " PRIMARY KEY";
+		if (field.isPrimaryKey && createKey?.length === 1) def += " PRIMARY KEY";
 
-			if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+		if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
 
-			if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
+		// ADD COLUMN takes no constraints, so addColumn sets NOT NULL afterwards.
+		if (createKey && !field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 
-			if (field.isIdentity || isSerialType(field.columnType)) {
-				const sequence = `${tableName}_${field.columnName}_seq`;
-				sequences.push(sequence);
-				def += ` DEFAULT nextval('${sequence.replaceAll("'", "''")}')`;
-			} else if (field.defaultValue?.trim()) {
-				def += ` DEFAULT ${field.defaultValue.trim()}`;
+		if (sequence) def += ` DEFAULT nextval('${sequence.replaceAll("'", "''")}')`;
+		else if (field.defaultValue?.trim()) def += ` DEFAULT ${field.defaultValue.trim()}`;
+
+		return def;
+	}
+
+	protected override runCreateTable(
+		conn: DuckDBConnection,
+		sql: string,
+		{ tableName, fields }: CreateTableSchemaType,
+	) {
+		return inTransaction(conn, async () => {
+			for (const field of fields) {
+				const sequence = sequenceOf(tableName, field);
+
+				if (sequence) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
 			}
 
-			return def;
+			await conn.run(sql);
 		});
-
-		if (primaryKey.length > 1)
-			columnDefs.push(`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`);
-
-		const fkDefs = foreignKeys.map(
-			(fk) =>
-				`FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`,
-		);
-
-		await connector("duckdb").withConnection((conn) =>
-			inTransaction(conn, async () => {
-				for (const sequence of sequences) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
-				await conn.run(
-					`CREATE TABLE ${ident(tableName)} (${[...columnDefs, ...fkDefs].join(", ")})`,
-				);
-			}),
-		);
 	}
 
 	/** The table's `<table>_<column>_seq` sequences go with it. */
@@ -407,35 +415,23 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const {
-			tableName,
-			columnName,
-			columnType,
-			defaultValue,
-			isNullable,
-			isUnique,
-			isPrimaryKey,
-		} = params;
+		const { tableName, columnName, isNullable, isUnique, isPrimaryKey } = params;
 
 		if (isUnique || isPrimaryKey)
 			throw new HTTPException(400, {
 				message: `DuckDB cannot add a ${isPrimaryKey ? "PRIMARY KEY" : "UNIQUE"} column to an existing table. Add the column without it, or recreate the table.`,
 			});
 
-		const sequence =
-			params.isIdentity || isSerialType(columnType) ? `${tableName}_${columnName}_seq` : null;
-
-		let def = `${ident(columnName)} ${mapColumnTypeToDuckdb(columnType, params.isArray)}`;
-
-		if (sequence) def += ` DEFAULT nextval('${sequence.replaceAll("'", "''")}')`;
-		else if (defaultValue?.trim()) def += ` DEFAULT ${defaultValue.trim()}`;
+		const sequence = sequenceOf(tableName, params);
 
 		await connector("duckdb").withConnection(async (conn) => {
 			this.assertColumnAbsent(await this.requireTable(conn, tableName), tableName, columnName);
 			// DuckDB rejects constraints inside ADD COLUMN, so NOT NULL is applied afterwards.
 			await inTransaction(conn, async () => {
 				if (sequence) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
-				await conn.run(`ALTER TABLE ${ident(tableName)} ADD COLUMN ${def}`);
+				await conn.run(
+					`ALTER TABLE ${ident(tableName)} ADD COLUMN ${this.columnDefinition(conn, tableName, params)}`,
+				);
 
 				if (!isNullable)
 					await conn

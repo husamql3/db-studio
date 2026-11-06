@@ -4,7 +4,6 @@ import type {
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
-	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -312,45 +311,38 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return counts;
 	}
 
-	async createTable({
-		tableData,
-		db,
-	}: {
-		tableData: CreateTableSchemaType;
-		db: DatabaseSchemaType["db"];
-	}): Promise<void> {
-		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await connector("mssql").pool(db);
+	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD in the column. */
+	protected columnDefinition(
+		_conn: MssqlConn,
+		_tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
+	) {
+		return buildMssqlColumnDefinition(field, {
+			includePrimaryKey: !createKey,
+			includeUnique: !createKey,
+		});
+	}
 
-		const columnDefs = fields.map((field: FieldDataType) => buildMssqlColumnDefinition(field));
+	protected override tableConstraints(
+		_tableName: string,
+		fields: FieldDataType[],
+		primaryKey: string[],
+	) {
+		return [
+			...(primaryKey.length
+				? [`PRIMARY KEY (${primaryKey.map(quoteMssqlIdent).join(", ")})`]
+				: []),
+			...fields.flatMap((field) =>
+				field.isUnique && !field.isPrimaryKey
+					? [`UNIQUE (${quoteMssqlIdent(field.columnName)})`]
+					: [],
+			),
+		];
+	}
 
-		const constraintDefs: string[] = [];
-		const primaryKeyFields = fields.filter((f: FieldDataType) => f.isPrimaryKey);
-
-		if (primaryKeyFields.length > 0) {
-			constraintDefs.push(
-				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => quoteMssqlIdent(f.columnName)).join(", ")})`,
-			);
-		}
-
-		for (const field of fields as FieldDataType[]) {
-			if (field.isUnique && !field.isPrimaryKey) {
-				constraintDefs.push(`UNIQUE (${quoteMssqlIdent(field.columnName)})`);
-			}
-		}
-
-		const fkDefs =
-			foreignKeys?.map((fk: ForeignKeyDataType) => {
-				const name = `FK_${tableName}_${fk.columnName}`;
-
-				return `CONSTRAINT ${quoteMssqlIdent(name)} FOREIGN KEY (${quoteMssqlIdent(fk.columnName)}) REFERENCES ${quoteMssqlIdent(fk.referencedTable)} (${quoteMssqlIdent(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
-			}) ?? [];
-
-		await pool
-			.request()
-			.query(
-				`CREATE TABLE ${quoteMssqlIdent(tableName)} (\n\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t")}\n\t\t)`,
-			);
+	protected override foreignKeyClause(tableName: string, fk: ForeignKeyDataType) {
+		return `CONSTRAINT ${quoteMssqlIdent(`FK_${tableName}_${fk.columnName}`)} ${super.foreignKeyClause(tableName, fk)}`;
 	}
 
 	/** A login may drop a table it cannot read; its estimate stands in for the count. */
@@ -595,28 +587,16 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const {
-			tableName,
-			columnName,
-			columnType,
-			defaultValue,
-			isPrimaryKey,
-			isNullable,
-			isUnique,
-			isIdentity,
-			db,
-		} = params;
-
+		const { tableName, columnName, db } = params;
 		const pool = await connector("mssql").pool(db);
 
 		this.assertColumnAbsent(await this.requireTable(pool, tableName), tableName, columnName);
 
-		const colDef = buildMssqlColumnDefinition(
-			{ columnName, columnType, defaultValue, isPrimaryKey, isNullable, isUnique, isIdentity },
-			{ includePrimaryKey: true, includeUnique: true },
-		);
-
-		await pool.request().query(`ALTER TABLE ${quoteMssqlIdent(tableName)} ADD ${colDef}`);
+		await pool
+			.request()
+			.query(
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} ADD ${this.columnDefinition(pool, tableName, params)}`,
+			);
 	}
 
 	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {

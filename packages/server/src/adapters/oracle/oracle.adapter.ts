@@ -6,6 +6,8 @@ import type {
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateTableSchemaType,
+	FieldDataType,
+	ForeignKeyDataType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
 	DeleteColumnParamsSchemaType,
@@ -461,10 +463,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	}
 
 	/** One CREATE TABLE statement: identity, keys and foreign keys succeed or fail together. */
-	async createTable({ tableData }: { tableData: CreateTableSchemaType }): Promise<void> {
-		const { tableName, fields, foreignKeys = [] } = tableData;
-
-		for (const fk of foreignKeys) {
+	override async createTable(params: {
+		tableData: CreateTableSchemaType;
+		db: DatabaseSchemaType["db"];
+	}): Promise<void> {
+		for (const fk of params.tableData.foreignKeys ?? []) {
 			if (fk.onUpdate !== "NO ACTION" && fk.onUpdate !== "RESTRICT")
 				throw new HTTPException(400, {
 					message: `Oracle foreign keys have no ON UPDATE actions (${fk.onUpdate} on "${fk.columnName}"). Use NO ACTION.`,
@@ -476,30 +479,25 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				});
 		}
 
-		await this.withConnection(async (conn) => {
-			const native = supportsNativeTypes(conn);
-			const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
+		return super.createTable(params);
+	}
 
-			const definitions = fields.map((field) =>
-				this.columnDefinition(field, { withConstraints: false, native }),
-			);
+	protected override tableConstraints(
+		_tableName: string,
+		fields: FieldDataType[],
+		primaryKey: string[],
+	) {
+		return [
+			...(primaryKey.length ? [`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`] : []),
+			...fields.flatMap((field) =>
+				field.isUnique && !field.isPrimaryKey ? [`UNIQUE (${ident(field.columnName)})`] : [],
+			),
+		];
+	}
 
-			if (primaryKey.length)
-				definitions.push(`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`);
-
-			for (const field of fields) {
-				if (field.isUnique && !field.isPrimaryKey)
-					definitions.push(`UNIQUE (${ident(field.columnName)})`);
-			}
-
-			for (const fk of foreignKeys) {
-				definitions.push(
-					`FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)})${FK_DELETE_ACTIONS[fk.onDelete]}`,
-				);
-			}
-
-			await conn.execute(`CREATE TABLE ${ident(tableName)} (${definitions.join(", ")})`);
-		});
+	/** Oracle has ON DELETE actions only. */
+	protected override foreignKeyClause(_tableName: string, fk: ForeignKeyDataType) {
+		return `FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)})${FK_DELETE_ACTIONS[fk.onDelete]}`;
 	}
 
 	/** CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows. */
@@ -596,12 +594,9 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		await this.withConnection(async (conn) => {
 			this.assertColumnAbsent(await this.requireTable(conn, tableName), tableName, columnName);
 
-			const definition = this.columnDefinition(params, {
-				withConstraints: true,
-				native: supportsNativeTypes(conn),
-			});
-
-			await conn.execute(`ALTER TABLE ${ident(tableName)} ADD (${definition})`);
+			await conn.execute(
+				`ALTER TABLE ${ident(tableName)} ADD (${this.columnDefinition(conn, tableName, params)})`,
+			);
 		});
 	}
 
@@ -914,20 +909,15 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		}
 	}
 
-	private columnDefinition(
-		field: {
-			columnName: string;
-			columnType: string;
-			defaultValue?: string | null;
-			isPrimaryKey?: boolean;
-			isNullable?: boolean;
-			isUnique?: boolean;
-			isIdentity?: boolean;
-			isArray?: boolean;
-		},
-		{ withConstraints, native }: { withConstraints: boolean; native: boolean },
+	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD in the column. */
+	protected columnDefinition(
+		conn: Connection,
+		_tableName: string,
+		field: FieldDataType,
+		createKey?: string[],
 	): string {
-		let def = `${ident(field.columnName)} ${mapColumnTypeToOracle(field.columnType, field.isArray ?? false, native)}`;
+		const native = supportsNativeTypes(conn);
+		let def = `${ident(field.columnName)} ${mapColumnTypeToOracle(field.columnType, field.isArray, native)}`;
 
 		if (field.isIdentity || isSerialType(field.columnType)) def += ` ${IDENTITY_CLAUSE}`;
 		else if (field.defaultValue?.trim())
@@ -935,7 +925,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 
-		if (withConstraints) {
+		if (!createKey) {
 			if (field.isPrimaryKey) def += " PRIMARY KEY";
 			else if (field.isUnique) def += " UNIQUE";
 		}
