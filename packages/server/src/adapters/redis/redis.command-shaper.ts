@@ -184,10 +184,7 @@ const xrangeShape: ShapeFn = (reply) => {
 	return { columns: ["id", "fields"], rows, rowCount: rows.length };
 };
 
-/**
- * Dispatch table keyed on the canonical (uppercase) command name.
- * If a command isn't found here, the reply is wrapped as a single-cell JSON row.
- */
+/** Keyed by uppercase command name; a command missing here replies as a single-cell JSON row. */
 const COMMAND_SHAPES: Record<string, ShapeFn> = {
 	PING: statusShape,
 	GET: scalarShape,
@@ -237,7 +234,6 @@ export function shapeReply(
 	const cmd = argv[0].toUpperCase();
 	const subcmd = argv[1]?.toUpperCase();
 
-	// Special case: ZRANGE … WITHSCORES → pair shape with {member, score}
 	if (
 		(cmd === "ZRANGE" || cmd === "ZREVRANGE" || cmd === "ZRANGEBYSCORE") &&
 		argv.some((a) => a.toUpperCase() === "WITHSCORES")

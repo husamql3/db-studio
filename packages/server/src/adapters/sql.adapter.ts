@@ -72,10 +72,6 @@ export const groupKeyColumns = (rows: KeyColumnRow[]) => {
 	return [...keys.values()];
 };
 
-/**
- * A relational engine. Each one supplies its connection, quoting and catalog hooks; the
- * operations every engine does the same way are written once here.
- */
 /** A table of the list, with the row count the engine estimates for it, if it keeps one. */
 export interface TableEstimate {
 	schemaName?: string;
@@ -91,6 +87,10 @@ export type StatementResult =
 /** An index as an engine lists it; PostgreSQL adds the schema it lives in. */
 type ListedIndex = IndexInfoSchemaType & { schemaName?: string };
 
+/**
+ * A relational engine. Each one supplies its connection, quoting and catalog hooks; the
+ * operations every engine does the same way are written once here.
+ */
 export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	protected abstract readonly engine:
 		| "pg"
@@ -103,7 +103,6 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	/** The n-th bound value's placeholder, counting from 1. */
 	protected abstract readonly placeholder: (position: number) => string;
 
-	/** Runs `work` with a connection to `db`. */
 	protected abstract connect<T>(db: string, work: (conn: Conn) => Promise<T>): Promise<T>;
 
 	protected abstract rows<T = Record<string, unknown>>(

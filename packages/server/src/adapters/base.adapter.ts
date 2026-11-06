@@ -42,7 +42,6 @@ export interface RecordUpdateGroup {
 	rowUpdates: Array<{ columnName: string; value: unknown; useDefault?: boolean }>;
 }
 
-/** A single row after adapter-level normalization (column → CellValue). */
 export type NormalizedRow = Record<string, CellValue>;
 
 /** The answer to a driver error: its status, and a message to send instead of the driver's. */
@@ -203,7 +202,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 	}
 
-	/** Casts each value of a raw row to CellValue. */
 	protected normalizeRow(row: Record<string, unknown>): NormalizedRow {
 		const out: NormalizedRow = {};
 

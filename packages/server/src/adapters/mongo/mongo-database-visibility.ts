@@ -13,13 +13,6 @@ export interface MongoDatabaseSummary {
 	sizeOnDisk?: number;
 }
 
-/**
- * Hide Mongo's system databases while keeping the connected database visible,
- * whether or not `listDatabases` reported it.
- *
- * @param databases - Raw entries from `admin().listDatabases()`
- * @param currentDb - The database the connection string points at
- */
 export const visibleMongoDatabases = (
 	databases: readonly MongoDatabaseSummary[],
 	currentDb: string,
