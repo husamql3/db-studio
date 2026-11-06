@@ -54,11 +54,13 @@ export const useAlterColumn = ({
 	});
 
 	const alterColumn = async (data: AlterColumnSchemaType) =>
-		toast.promise(alterColumnMutation(data), {
-			loading: "Updating column...",
-			success: (message) => message || "Column updated successfully",
-			error: (error: ApiError) => apiErrorMessage(error, "Failed to update column"),
-		});
+		toast
+			.promise(alterColumnMutation(data), {
+				loading: "Updating column...",
+				success: (message) => message || "Column updated successfully",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to update column"),
+			})
+			.unwrap();
 
 	return {
 		alterColumn,

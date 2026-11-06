@@ -97,8 +97,12 @@ export const AddColumnForm = ({ tableName }: { tableName: string }) => {
 	};
 
 	const handleSubmit = async (data: ColumnFieldValues) => {
-		await addColumn(data);
-		methods.reset(DEFAULT_COLUMN_FIELD);
+		try {
+			await addColumn(data);
+			methods.reset(DEFAULT_COLUMN_FIELD);
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
+		}
 	};
 
 	return (

@@ -61,8 +61,12 @@ export const SchemaRowActions = ({
 	};
 
 	const handleRenameColumn = async () => {
-		await renameColumn({ newColumnName: newColumnName.trim() });
-		handleRenameDialogChange(false);
+		try {
+			await renameColumn({ newColumnName: newColumnName.trim() });
+			handleRenameDialogChange(false);
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
+		}
 	};
 
 	return (

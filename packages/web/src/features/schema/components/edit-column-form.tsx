@@ -57,8 +57,12 @@ export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 	};
 
 	const handleSubmit = async (data: EditColumnFormValues) => {
-		await alterColumn(data);
-		methods.reset(getDefaultValues(null));
+		try {
+			await alterColumn(data);
+			methods.reset(getDefaultValues(null));
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
+		}
 	};
 
 	return (

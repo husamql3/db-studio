@@ -43,11 +43,13 @@ export const useRenameColumn = ({
 	});
 
 	const renameColumn = async (data: RenameColumnSchemaType) =>
-		toast.promise(renameColumnMutation(data), {
-			loading: "Renaming column...",
-			success: (message) => message || "Column renamed successfully",
-			error: (error: ApiError) => apiErrorMessage(error, "Failed to rename column"),
-		});
+		toast
+			.promise(renameColumnMutation(data), {
+				loading: "Renaming column...",
+				success: (message) => message || "Column renamed successfully",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to rename column"),
+			})
+			.unwrap();
 
 	return {
 		renameColumn,

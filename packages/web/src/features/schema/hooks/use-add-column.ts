@@ -47,11 +47,13 @@ export const useAddColumn = ({
 	});
 
 	const addColumn = async (data: AddColumnSchemaType) =>
-		toast.promise(addColumnMutation(data), {
-			loading: "Adding column...",
-			success: (message) => message || "Column added successfully",
-			error: (error: ApiError) => apiErrorMessage(error, "Failed to add column"),
-		});
+		toast
+			.promise(addColumnMutation(data), {
+				loading: "Adding column...",
+				success: (message) => message || "Column added successfully",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to add column"),
+			})
+			.unwrap();
 
 	return {
 		addColumn,

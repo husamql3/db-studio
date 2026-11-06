@@ -16,6 +16,7 @@ vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => unde
 
 vi.mock("@/shared/api", () => ({
 	updateRecords: (...args: unknown[]) => fixtures.updateRecords(...args),
+	apiErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 
 vi.mock("@/routes/_pathlessLayout/table/$table", () => ({
@@ -103,5 +104,15 @@ describe("useUpdateCell", () => {
 		const payload = fixtures.updateRecords.mock.calls[0]?.[0] as Record<string, unknown>;
 		expect(payload).not.toHaveProperty("primaryKey");
 		expect(payload).not.toHaveProperty("primaryKeys");
+	});
+
+	it("rejects when the save fails, so the caller keeps the selection", async () => {
+		fixtures.tableCols = [col("id", true), col("name")];
+		fixtures.updateRecords.mockRejectedValue(new Error("connection lost"));
+		const { result } = renderHook(() => useUpdateCell(), { wrapper });
+
+		await expect(
+			result.current.updateCell([{ ...cellUpdate, rowData: { id: 1, name: "Ada" } }]),
+		).rejects.toThrow("connection lost");
 	});
 });

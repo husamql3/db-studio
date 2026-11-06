@@ -30,12 +30,19 @@ export const AiSettingsSection = () => {
 
 		if (!nextKey) return;
 
-		await toast.promise(aiByok.update(settings.provider, nextKey), {
-			loading: `Saving ${providerOption?.label} key...`,
-			success: `${providerOption?.label} key ready for this tab`,
-			error: (error: Error) => error.message || `Could not save ${providerOption?.label} key`,
-		});
-		setApiKey("");
+		try {
+			await toast
+				.promise(aiByok.update(settings.provider, nextKey), {
+					loading: `Saving ${providerOption?.label} key...`,
+					success: `${providerOption?.label} key ready for this tab`,
+					error: (error: Error) =>
+						error.message || `Could not save ${providerOption?.label} key`,
+				})
+				.unwrap();
+			setApiKey("");
+		} catch {
+			// toast.promise already reported the failure.
+		}
 	};
 
 	const removeApiKey = async () => {

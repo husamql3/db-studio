@@ -71,12 +71,14 @@ export const useUpdateCell = () => {
 	const updateCell = async (updates: CellUpdate[]) => {
 		const count = updates.length;
 
-		return toast.promise(updateCellMutation(updates), {
-			loading: "Saving changes...",
-			success: (message) =>
-				message || `${count} ${count === 1 ? "change" : "changes"} saved successfully`,
-			error: (error: ApiError) => apiErrorMessage(error, "Failed to save changes"),
-		});
+		return toast
+			.promise(updateCellMutation(updates), {
+				loading: "Saving changes...",
+				success: (message) =>
+					message || `${count} ${count === 1 ? "change" : "changes"} saved successfully`,
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to save changes"),
+			})
+			.unwrap();
 	};
 
 	return {

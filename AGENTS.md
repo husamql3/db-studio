@@ -463,6 +463,7 @@ const addColumn = async (data: AddColumnSchemaType) =>
 **Rules**:
 - Always use `toast.promise` — never call `toast.success` / `toast.error` manually around mutations
 - `success` callback receives the mutation return value; prefer server message with a fallback string
+- `toast.promise` returns the toast id at once and never rejects; a hook whose callers await the outcome returns `toast.promise(...).unwrap()`, and those callers catch the rejection (the toast already reported it)
 - `error` callback: `apiErrorMessage(error, fallback)` from `src/shared/api/client.ts` (server details, then message, then the fallback). Every failed request rejects with its `ApiError` (`status`, `details`, `requestId`); type mutations with it (`useMutation<Data, ApiError, Variables>`)
 
 ### Client API (`src/shared/api/`)
