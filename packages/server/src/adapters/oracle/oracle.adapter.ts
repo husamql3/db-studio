@@ -119,6 +119,12 @@ const toOracleValue = (
 	return JSON.stringify(value);
 };
 
+/** Binds a value of `column` by the column's type, so a date or timestamp gets an explicit format. */
+const typedBind =
+	(types: Map<string, string>, bind: (value: unknown) => string) =>
+	(value: unknown, column: string) =>
+		bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind);
+
 /** `DEFAULT NULL` is how Oracle clears a default, and it stays visible as the text "NULL". */
 const defaultOf = (c: ColumnRow) => {
 	const value = c.DATA_DEFAULT?.trim();
@@ -315,7 +321,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		return {
 			primaryKey: await this.primaryKey(conn, tableName),
 			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
-				bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
+				typedBind(types, bind)(value, column),
 		};
 	}
 
@@ -732,11 +738,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			const { values, bind } = createBinds(oraclePlaceholder);
 
 			const expressions = columns.map((column) =>
-				bindOracleValue(
-					toOracleValue(data[column], types.get(column)),
-					types.get(column),
-					bind,
-				),
+				typedBind(types, bind)(data[column], column),
 			);
 
 			return this.execute(
@@ -766,9 +768,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			try {
 				const { values, bind } = createBinds(oraclePlaceholder);
 
-				const where = matchesAny(selection, undefined, (value, column) =>
-					bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
-				);
+				const where = matchesAny(selection, undefined, typedBind(types, bind));
 
 				const deletedCount = await this.execute(
 					conn,
@@ -785,9 +785,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				if (!this.isFkViolation(e)) throw e;
 				const { values, bind } = createBinds(oraclePlaceholder);
 
-				const where = matchesAny(selection, "p", (value, column) =>
-					bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
-				);
+				const where = matchesAny(selection, "p", typedBind(types, bind));
 
 				const relatedRecords = await this.rowsReferencingRows(
 					conn,
@@ -829,11 +827,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				const where = matchesAny(selection, "p", (value, column) =>
 					column === "ROWID"
 						? `CHARTOROWID(${bind(value)})`
-						: bindOracleValue(
-								toOracleValue(value, types.get(column)),
-								types.get(column),
-								bind,
-							),
+						: typedBind(types, bind)(value, column),
 				);
 
 				const referenced = await this.rows<{ __rowid: string }>(
@@ -855,7 +849,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			const where = matchesAny(selection, undefined, (value, column) =>
 				column === "ROWID"
 					? `CHARTOROWID(${bind(value)})`
-					: bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
+					: typedBind(types, bind)(value, column),
 			);
 
 			return (
@@ -893,11 +887,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const rowExpressions = columns.map((column) =>
-					bindOracleValue(
-						toOracleValue(record[column], types.get(column)),
-						types.get(column),
-						bind,
-					),
+					typedBind(types, bind)(record[column], column),
 				);
 
 				if (index === 0) expressions = rowExpressions;
