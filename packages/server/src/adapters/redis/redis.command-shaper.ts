@@ -5,8 +5,6 @@ type ShapeFn = (reply: unknown) => Pick<ExecuteQueryResult, "columns" | "rows" |
 const isStringArray = (v: unknown): v is string[] =>
 	Array.isArray(v) && v.every((x) => typeof x === "string" || x === null);
 
-const isFlatPairArray = (v: unknown): v is unknown[] => Array.isArray(v) && v.length % 2 === 0;
-
 /** `[a, b, c, d]` as `[[a, b], [c, d]]`: the field/value and member/score replies Redis flattens. */
 export const pairs = <T>(flat: readonly T[]): Array<[T, T]> => {
 	const out: Array<[T, T]> = [];
@@ -14,6 +12,22 @@ export const pairs = <T>(flat: readonly T[]): Array<[T, T]> => {
 	for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]]);
 
 	return out;
+};
+
+/**
+ * The field/value or member/score pairs of a reply, or null when it has none: RESP2 flattens
+ * them (`[a, b, c, d]`), RESP3 (ioredis's default protocol) nests them (`[[a, b], [c, d]]`).
+ */
+const replyPairs = (reply: unknown): Array<[unknown, unknown]> | null => {
+	if (!Array.isArray(reply)) return null;
+
+	if (
+		reply.every((item): item is [unknown, unknown] => Array.isArray(item) && item.length === 2)
+	) {
+		return reply;
+	}
+
+	return reply.length % 2 === 0 ? pairs(reply) : null;
 };
 
 /**
@@ -129,15 +143,19 @@ const flatArrayShape: ShapeFn = (reply) => {
 };
 
 const pairArrayShape: ShapeFn = (reply) => {
-	if (!isFlatPairArray(reply)) return singleCellFallback(reply);
-	const rows = pairs(reply).map(([field, value]) => ({ field, value }));
+	const entries = replyPairs(reply);
+
+	if (!entries) return singleCellFallback(reply);
+	const rows = entries.map(([field, value]) => ({ field, value }));
 
 	return { columns: ["field", "value"], rows, rowCount: rows.length };
 };
 
 const zrangeWithScoresShape: ShapeFn = (reply) => {
-	if (!isFlatPairArray(reply)) return flatArrayShape(reply);
-	const rows = pairs(reply).map(([member, score]) => ({ member, score }));
+	const entries = replyPairs(reply);
+
+	if (!entries) return flatArrayShape(reply);
+	const rows = entries.map(([member, score]) => ({ member, score }));
 
 	return { columns: ["member", "score"], rows, rowCount: rows.length };
 };
@@ -174,9 +192,7 @@ const xrangeShape: ShapeFn = (reply) => {
 		return {
 			id,
 			fields: Object.fromEntries(
-				Array.isArray(fields)
-					? pairs(fields).map(([field, value]) => [String(field), value])
-					: [],
+				(replyPairs(fields) ?? []).map(([field, value]) => [String(field), value]),
 			),
 		};
 	});

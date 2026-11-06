@@ -13,7 +13,8 @@
  *   applies a write over a newer value, pages a large hash with repeats or gaps, turns
  *   infinite scores into invalid JSON, or reads streams in the wrong order;
  * - a large string downloads in wrong-sized or mis-ordered chunks;
- * - query runner replies get the wrong columns, or a reply error throws instead of a row;
+ * - query runner replies get the wrong columns (RESP3 member/score pairs misread as values),
+ *   or a reply error throws instead of a row;
  * - the database list or connection info disagrees with the server.
  *
  * It uses logical database 13 of the Redis at REDIS_TEST_URL (default redis://127.0.0.1:6379,
@@ -559,6 +560,23 @@ describe.skipIf(!available)("RedisAdapter against a real Redis", () => {
 				key: "redis_version",
 				value: (await raw.info("server")).match(/redis_version:(\S+)/)?.[1],
 			});
+		});
+
+		it("shapes sorted-set replies WITHSCORES as member/score rows", async () => {
+			await raw.zadd("board", 100, "alice", 250, "bob");
+
+			const rows = [
+				{ member: "alice", score: "100" },
+				{ member: "bob", score: "250" },
+			];
+
+			expect(await run("ZRANGE board 0 -1 WITHSCORES")).toMatchObject({
+				columns: ["member", "score"],
+				rows,
+				rowCount: 2,
+			});
+			expect((await run("ZREVRANGE board 0 -1 WITHSCORES")).rows).toEqual(rows.toReversed());
+			expect((await run("ZRANGEBYSCORE board -inf +inf WITHSCORES")).rows).toEqual(rows);
 		});
 
 		it("answers a nested reply of an unlisted command as one JSON cell", async () => {
