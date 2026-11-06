@@ -12,75 +12,24 @@
  * 4. The backward (`direction: "desc"`) query must flip the tie-breaker too. Otherwise paging
  *    back does not return the page the user came from.
  *
- * SQLite runs on a temporary file and DuckDB in memory on every test run. The server engines
+ * SQLite and DuckDB run on temporary files on every test run. The server engines
  * (PostgreSQL, MySQL, SQL Server, Oracle) run the same checks in e2e/live-poll-ordering.ts.
  */
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import type { SortType } from "@db-studio/shared/types";
-import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
-import {
-	type Client as LibsqlClient,
-	createClient as createLibsqlClient,
-} from "@libsql/client";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-const connections = vi.hoisted(() => ({
-	getSqliteClient: vi.fn(),
-	withDuckdbConnection: vi.fn(),
-}));
-
-vi.mock("@/open-connections.js", () => ({
-	connector: (dbType: string) =>
-		({
-			sqlite: { client: connections.getSqliteClient },
-			duckdb: { withConnection: connections.withDuckdbConnection },
-		})[dbType],
-}));
-
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
 import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
-import { loadDriver } from "@/drivers.js";
-import { fromLibsql } from "@/sqlite-client.js";
+import { openEngine } from "../engine.js";
 
 const TABLE = "live_poll_items";
 const INSERT_ORDER = [3, 1, 5, 2, 4];
 const rankOf = (id: number) => 10 - id;
 
-interface Engine {
-	name: string;
-	url: string;
-	adapter: IDbAdapter;
-	connect: (url: string) => Promise<void>;
-	exec: (statement: string) => Promise<void>;
-	close: () => Promise<void>;
-	schema: string[];
-}
-
-let sqliteClient: LibsqlClient | undefined;
-const sqliteDir = mkdtempSync(path.join(tmpdir(), "db-studio-live-poll-"));
-let duckdbInstance: DuckDBInstance | undefined;
-let duckdb: DuckDBConnection | undefined;
-
-const engines: Engine[] = [
+const engines = [
 	{
 		name: "sqlite",
-		url: pathToFileURL(path.join(sqliteDir, "live-poll.db")).href,
 		adapter: new SqliteAdapter(),
-		connect: async (url) => {
-			sqliteClient = createLibsqlClient({ url, intMode: "bigint" });
-			connections.getSqliteClient.mockResolvedValue(fromLibsql(sqliteClient));
-		},
-		exec: async (statement) => {
-			await sqliteClient?.execute(statement);
-		},
-		close: async () => {
-			sqliteClient?.close();
-			rmSync(sqliteDir, { recursive: true, force: true });
-		},
 		schema: [
 			`DROP TABLE IF EXISTS ${TABLE}`,
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name TEXT NOT NULL)`,
@@ -89,31 +38,13 @@ const engines: Engine[] = [
 	},
 	{
 		name: "duckdb",
-		url: ":memory:",
 		adapter: new DuckDbAdapter(),
-		connect: async (url) => {
-			// The adapter reads DuckDB's type ids from the driver its connector loads.
-			await loadDriver("duckdb");
-			duckdbInstance = await DuckDBInstance.create(url);
-			const connection = await duckdbInstance.connect();
-			duckdb = connection;
-			connections.withDuckdbConnection.mockImplementation(
-				<T>(fn: (c: DuckDBConnection) => Promise<T>) => fn(connection),
-			);
-		},
-		exec: async (statement) => {
-			await duckdb?.run(statement);
-		},
-		close: async () => {
-			duckdb?.closeSync();
-			duckdbInstance?.closeSync();
-		},
 		schema: [
 			`DROP TABLE IF EXISTS ${TABLE}`,
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER NOT NULL, rnk INTEGER NOT NULL, name VARCHAR NOT NULL)`,
 		],
 	},
-];
+] as const satisfies { name: "sqlite" | "duckdb"; adapter: IDbAdapter; schema: string[] }[];
 
 const bySharedGroup: SortType[] = [{ columnName: "grp", direction: "asc" }];
 
@@ -126,20 +57,19 @@ for (const engine of engines) {
 			params: Omit<Parameters<IDbAdapter["getTableData"]>[0], "tableName" | "db">,
 		) => adapter.getTableData({ tableName: TABLE, db: "", ...params });
 
+		let opened: Awaited<ReturnType<typeof openEngine>>;
+
 		beforeAll(async () => {
-			await engine.connect(engine.url);
+			opened = await openEngine(engine.name);
 		});
 
-		afterAll(async () => {
-			await engine.exec(`DROP TABLE IF EXISTS ${TABLE}`);
-			await engine.close();
-		});
+		afterAll(() => opened.close());
 
 		beforeEach(async () => {
-			for (const statement of engine.schema) await engine.exec(statement);
+			await opened.exec(...engine.schema);
 
 			for (const id of INSERT_ORDER) {
-				await engine.exec(
+				await opened.exec(
 					`INSERT INTO ${TABLE} (id, grp, rnk, name) VALUES (${id}, 1, ${rankOf(id)}, 'row ${id}')`,
 				);
 			}
@@ -157,7 +87,7 @@ for (const engine of engines) {
 
 		it("keeps rows in place when an unsorted column changes between polls", async () => {
 			const before = await page({ sort: bySharedGroup, limit: 3 });
-			await engine.exec(`UPDATE ${TABLE} SET rnk = 99, name = 'edited' WHERE id IN (1, 5)`);
+			await opened.exec(`UPDATE ${TABLE} SET rnk = 99, name = 'edited' WHERE id IN (1, 5)`);
 			const after = await page({ sort: bySharedGroup, limit: 3 });
 
 			expect(ids(after.data)).toEqual(ids(before.data));

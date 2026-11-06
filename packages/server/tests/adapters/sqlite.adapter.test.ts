@@ -14,32 +14,19 @@
  * - alterColumn keeps the edited column's old NOT NULL or DEFAULT
  * - a `)` inside a comment in the CREATE TABLE ends a column early, so the edit is refused
  */
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { openEngine } from "../engine.js";
 
-const dir = mkdtempSync(path.join(tmpdir(), "db-studio-sqlite-"));
-let adapter: SqliteAdapter;
-let exec: (...statements: string[]) => Promise<void>;
-let select: (sql: string) => Promise<Record<string, unknown>[]>;
+type Engine = Awaited<ReturnType<typeof openEngine>>;
+
+const adapter = new SqliteAdapter();
+let exec: Engine["exec"];
+let select: Engine["rows"];
+let close: Engine["close"];
 
 beforeAll(async () => {
-	vi.resetModules();
-	const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
-
-	const { connector, createConnection, registerConnection } =
-		await import("@/open-connections.js");
-
-	registerConnection("test", createConnection(`sqlite://${path.join(dir, "my db.sqlite")}`));
-	const client = await connector("sqlite").client();
-	exec = async (...statements) => {
-		await client.batch(statements, "write");
-	};
-
-	select = async (sql) => (await client.execute(sql)).rows.map((row) => ({ ...row }));
-	adapter = new SqliteAdapter();
+	({ exec, rows: select, close } = await openEngine("sqlite", "my db.sqlite"));
 
 	await exec(
 		"CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)",
@@ -49,11 +36,7 @@ beforeAll(async () => {
 	);
 });
 
-afterAll(async () => {
-	const { connector } = await import("@/open-connections.js");
-	(await connector("sqlite").client()).close();
-	rmSync(dir, { recursive: true, force: true });
-});
+afterAll(() => close());
 
 describe("SqliteAdapter", () => {
 	it("maps declared column types to cell variants by their affinity", async () => {

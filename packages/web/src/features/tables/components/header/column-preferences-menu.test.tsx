@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
-import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { column } from "../../../../../tests/column";
 import {
 	getColumnPrefs,
 	useColumnPreferencesStore,
@@ -10,18 +10,8 @@ import { ColumnPreferencesMenu } from "./column-preferences-menu";
 
 const parts = { dbType: "pg", database: "dbstudio", tableName: "users" };
 
-const makeCol = (columnName: string, isPrimaryKey = false): ColumnInfoSchemaType => ({
-	columnName,
-	dataType: "text",
-	dataTypeLabel: "text",
-	isNullable: !isPrimaryKey,
-	columnDefault: null,
-	isPrimaryKey,
-	isForeignKey: false,
-	referencedTable: null,
-	referencedColumn: null,
-	enumValues: null,
-});
+const makeCol = (columnName: string, isPrimaryKey = false) =>
+	column(columnName, { isPrimaryKey, isNullable: !isPrimaryKey });
 
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 

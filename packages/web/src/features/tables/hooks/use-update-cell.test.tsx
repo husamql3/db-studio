@@ -4,6 +4,7 @@ import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useDatabaseStore } from "@/stores/database.store";
+import { column } from "../../../../tests/column";
 import type { CellUpdate } from "../stores/update-cell.store";
 import { useUpdateCell } from "./use-update-cell";
 
@@ -27,19 +28,8 @@ vi.mock("@/hooks/use-table-cols", () => ({
 	useTableCols: () => ({ tableCols: fixtures.tableCols }),
 }));
 
-const col = (columnName: string, isPrimaryKey = false): ColumnInfoSchemaType =>
-	({
-		columnName,
-		dataType: "text",
-		dataTypeLabel: "text",
-		isNullable: !isPrimaryKey,
-		columnDefault: null,
-		isPrimaryKey,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	}) as ColumnInfoSchemaType;
+const col = (columnName: string, isPrimaryKey = false) =>
+	column(columnName, { isPrimaryKey, isNullable: !isPrimaryKey });
 
 const wrapper = ({ children }: { children: ReactNode }) => (
 	<QueryClientProvider

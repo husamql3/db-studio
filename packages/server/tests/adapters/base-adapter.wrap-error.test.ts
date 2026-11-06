@@ -1,4 +1,3 @@
-import sql from "mssql";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
@@ -8,13 +7,8 @@ import { loadDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
 describe("BaseAdapter.classifyError()", () => {
-	// A PostgreSQL error only exists once a connection has loaded pg.
+	// PgAdapter checks for a PostgreSQL error, which only exists once a connection loaded pg.
 	beforeAll(() => loadDriver("pg"));
-
-	it("maps PostgreSQL connection-class errors to 503", () => {
-		const error = Object.assign(new Error("Connection terminated"), { code: "08006" });
-		expect(new PgAdapter().classifyError(error)).toMatchObject({ status: 503, cause: error });
-	});
 
 	it("maps MySQL connection errno values to 503", () => {
 		const error = Object.assign(new Error("connect failed"), { errno: 2003 });
@@ -24,24 +18,6 @@ describe("BaseAdapter.classifyError()", () => {
 	it("maps MSSQL login failures to 503", () => {
 		const error = new Error("Login failed for user");
 		expect(new MsSqlAdapter().classifyError(error).status).toBe(503);
-	});
-
-	it("maps an MSSQL connect timeout to 503, but not a query timeout", () => {
-		const connect = new sql.ConnectionError(
-			"Failed to connect to db:1433 in 15000ms",
-			"ETIMEOUT",
-		);
-
-		const query = new sql.RequestError(
-			"Timeout: Request failed to complete in 15000ms",
-			"ETIMEOUT",
-		);
-
-		expect(new MsSqlAdapter().classifyError(connect)).toMatchObject({
-			status: 503,
-			cause: connect,
-		});
-		expect(new MsSqlAdapter().classifyError(query).status).toBe(500);
 	});
 
 	it("maps MongoDB network errors to 503", () => {

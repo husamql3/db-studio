@@ -1,32 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { column } from "../../../../tests/column";
 import { buildRowUpdates, isGeneratedColumn, toFormValues } from "./row-details-utils";
 
 const cols = [
-	{
-		columnName: "id",
+	column("id", {
 		dataType: "number",
 		dataTypeLabel: "int",
 		isNullable: false,
 		columnDefault: "nextval('users_id_seq'::regclass)",
 		isPrimaryKey: true,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "code",
-		dataType: "text",
-		dataTypeLabel: "text",
-		isNullable: false,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-] as const;
+	}),
+	column("code", { isNullable: false }),
+];
 
 describe("row-details-utils", () => {
 	describe("isGeneratedColumn", () => {
@@ -53,9 +38,7 @@ describe("row-details-utils", () => {
 	describe("toFormValues", () => {
 		it("stringifies values for form controls", () => {
 			expect(
-				toFormValues({ id: 1, code: "A", active: true, meta: { a: 1 }, missing: null }, [
-					...cols,
-				]),
+				toFormValues({ id: 1, code: "A", active: true, meta: { a: 1 }, missing: null }, cols),
 			).toEqual({ id: "1", code: "A" });
 		});
 	});

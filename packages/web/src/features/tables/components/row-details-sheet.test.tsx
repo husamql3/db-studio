@@ -2,94 +2,28 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { column } from "../../../../tests/column";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { RowDetailsSheet } from "./row-details-sheet";
 
 const makeCols = () => [
-	{
-		columnName: "id",
+	column("id", {
 		dataType: "number",
 		dataTypeLabel: "int",
 		isNullable: false,
 		columnDefault: "nextval('users_id_seq'::regclass)",
 		isPrimaryKey: true,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "name",
-		dataType: "text",
-		dataTypeLabel: "text",
-		isNullable: true,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "age",
-		dataType: "number",
-		dataTypeLabel: "int",
-		isNullable: true,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "is_active",
+	}),
+	column("name"),
+	column("age", { dataType: "number", dataTypeLabel: "int" }),
+	column("is_active", {
 		dataType: "boolean",
 		dataTypeLabel: "boolean",
-		isNullable: true,
 		columnDefault: "true",
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "role",
-		dataType: "enum",
-		dataTypeLabel: "enum",
-		isNullable: true,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: ["admin", "user"],
-	},
-	{
-		columnName: "meta",
-		dataType: "json",
-		dataTypeLabel: "jsonb",
-		isNullable: true,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "created",
-		dataType: "date",
-		dataTypeLabel: "date",
-		isNullable: true,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
+	}),
+	column("role", { dataType: "enum", dataTypeLabel: "enum", enumValues: ["admin", "user"] }),
+	column("meta", { dataType: "json", dataTypeLabel: "jsonb" }),
+	column("created", { dataType: "date", dataTypeLabel: "date" }),
 ];
 
 const makeRows = () => [

@@ -2,24 +2,13 @@ import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { render, screen, within } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
+import { column } from "../../../../tests/column";
 import { AddRecordField } from "./add-record-field";
 
 vi.mock("nuqs", () => ({ useQueryState: () => [null, vi.fn()] }));
 
-const column = (overrides: Partial<ColumnInfoSchemaType>): ColumnInfoSchemaType =>
-	({
-		columnName: "avatar",
-		dataType: "text",
-		dataTypeLabel: "bytea",
-		isNullable: true,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-		...overrides,
-	}) as ColumnInfoSchemaType;
+const avatar = (overrides: Partial<ColumnInfoSchemaType> = {}) =>
+	column("avatar", { dataTypeLabel: "bytea", ...overrides });
 
 const Harness = ({
 	col,
@@ -46,7 +35,7 @@ describe("AddRecordField — binary columns", () => {
 		// so a populated bytea column must leave the picker uncontrolled.
 		render(
 			<Harness
-				col={column({})}
+				col={avatar()}
 				defaultValues={{ avatar: "\\x89504e47" }}
 			/>,
 		);

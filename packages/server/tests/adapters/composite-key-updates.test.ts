@@ -7,15 +7,11 @@
  * - two edited rows that share a key column collapse into one UPDATE
  * - a table with a single-column key no longer updates
  */
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
-
-const dir = mkdtempSync(path.join(tmpdir(), "db-studio-composite-"));
-
-afterAll(() => rmSync(dir, { recursive: true, force: true }));
+import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
+import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { openEngine } from "../engine.js";
 
 const compositeParams = {
 	tableName: "members",
@@ -30,81 +26,20 @@ const compositeParams = {
 	],
 };
 
-type Engine = {
-	name: string;
-	db: string;
-	open: () => Promise<{
-		adapter: IDbAdapter;
-		exec: (sql: string) => Promise<void>;
-		select: (sql: string) => Promise<unknown[][]>;
-		close: () => Promise<void>;
-	}>;
-};
-
-const engines: Engine[] = [
-	{
-		name: "SqliteAdapter",
-		db: "main",
-		open: async () => {
-			vi.resetModules();
-			const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
-
-			const { connector, createConnection, registerConnection } =
-				await import("@/open-connections.js");
-
-			registerConnection("test", createConnection(`sqlite://${path.join(dir, "members.db")}`));
-			const client = await connector("sqlite").client();
-
-			return {
-				adapter: new SqliteAdapter(),
-				exec: async (sql) => {
-					await client.batch([sql], "write");
-				},
-				select: async (sql) =>
-					(await client.execute(sql)).rows.map((row) => Object.values(row).map(String)),
-				close: async () => client.close(),
-			};
-		},
-	},
-	{
-		name: "DuckDbAdapter",
-		db: "members",
-		open: async () => {
-			vi.resetModules();
-			const { DuckDbAdapter } = await import("@/adapters/duckdb/duckdb.adapter.js");
-
-			const { closeAllConnections, connector, createConnection, registerConnection } =
-				await import("@/open-connections.js");
-
-			registerConnection(
-				"test",
-				createConnection(`duckdb://${path.join(dir, "members.duckdb")}`),
-			);
-
-			return {
-				adapter: new DuckDbAdapter(),
-				exec: async (sql) => {
-					await connector("duckdb").withConnection((conn) => conn.run(sql));
-				},
-				select: async (sql) =>
-					connector("duckdb").withConnection(async (conn) =>
-						(await (await conn.run(sql)).getRowsJson()).map((row) => row.map(String)),
-					),
-				close: closeAllConnections,
-			};
-		},
-	},
-];
+const engines = [
+	{ name: "SqliteAdapter", engine: "sqlite", db: "main", adapter: new SqliteAdapter() },
+	{ name: "DuckDbAdapter", engine: "duckdb", db: "scratch", adapter: new DuckDbAdapter() },
+] as const satisfies { name: string; engine: string; db: string; adapter: IDbAdapter }[];
 
 for (const engine of engines) {
 	describe(`${engine.name} composite primary key updates`, () => {
-		let opened: Awaited<ReturnType<Engine["open"]>>;
+		let opened: Awaited<ReturnType<typeof openEngine>>;
 
 		const update = (params: unknown) =>
-			opened.adapter.updateRecords({ db: engine.db, params } as never);
+			engine.adapter.updateRecords({ db: engine.db, params } as never);
 
 		beforeAll(async () => {
-			opened = await engine.open();
+			opened = await openEngine(engine.engine);
 		});
 
 		afterAll(() => opened.close());
@@ -117,7 +52,10 @@ for (const engine of engines) {
 			await opened.exec("INSERT INTO members VALUES (7, 42, 'Ada'), (7, 43, 'Bob')");
 		});
 
-		const names = () => opened.select("SELECT user_id, name FROM members ORDER BY user_id");
+		const select = async (sql: string) =>
+			(await opened.rows(sql)).map((row) => Object.values(row).map(String));
+
+		const names = () => select("SELECT user_id, name FROM members ORDER BY user_id");
 
 		it("updates only the row matching every key column", async () => {
 			await expect(update(compositeParams)).resolves.toEqual({ updatedCount: 1 });
@@ -172,7 +110,7 @@ for (const engine of engines) {
 					updates: [{ columnName: "name", value: "Grace", rowData: { id: 1 } }],
 				}),
 			).resolves.toEqual({ updatedCount: 1 });
-			expect(await opened.select("SELECT id, name FROM users ORDER BY id")).toEqual([
+			expect(await select("SELECT id, name FROM users ORDER BY id")).toEqual([
 				["1", "Grace"],
 				["2", "Bob"],
 			]);
