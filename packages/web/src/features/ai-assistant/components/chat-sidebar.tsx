@@ -4,33 +4,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-	Conversation,
-	ConversationContent,
-	ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
-import { LoadingText } from "@/components/ai-elements/loading-text";
-import {
-	Message,
-	MessageBranch,
-	MessageBranchContent,
-	MessageContent,
-	MessageResponse,
-} from "@/components/ai-elements/message";
-import {
-	PromptInput,
-	PromptInputBody,
-	PromptInputFooter,
-	type PromptInputMessage,
-	PromptInputSubmit,
-	PromptInputTextarea,
-} from "@/components/ai-elements/prompt-input";
-import {
-	Reasoning,
-	ReasoningContent,
-	ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { SheetSidebar } from "@/components/sheet-sidebar";
 import { aiByok, HOSTED_AI_PROVIDER, useAiSettingsStore } from "@/features/settings";
 import { chatUrl, requestHeaders } from "@/shared/api";
@@ -38,6 +11,24 @@ import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useAiQuota } from "../hooks/use-ai-quota";
 import { useAssistantRequestStore } from "../stores/assistant-request.store";
+import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation";
+import { LoadingText } from "./loading-text";
+import {
+	Message,
+	MessageBranch,
+	MessageBranchContent,
+	MessageContent,
+	MessageResponse,
+} from "./message";
+import {
+	PromptInput,
+	PromptInputBody,
+	PromptInputFooter,
+	PromptInputSubmit,
+	PromptInputTextarea,
+} from "./prompt-input";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
+import { Suggestion, Suggestions } from "./suggestion";
 
 interface ChatController {
 	clear: () => void;
@@ -93,16 +84,11 @@ const ChatSidebarContent = ({ db, onControllerReady }: ChatSidebarContentProps) 
 		});
 	}, [clear, isLoading, onControllerReady]);
 
-	const handleSubmit = (message: PromptInputMessage) => {
-		const hasText = Boolean(message.text);
-		const hasAttachments = Boolean(message.files?.length);
-
-		if (!(hasText || hasAttachments) || isLoading) {
-			return;
-		}
+	const handleSubmit = (message: string) => {
+		if (!message || isLoading) return;
 
 		setErrorMessage(null);
-		sendMessage(message.text);
+		sendMessage(message);
 		setText("");
 	};
 
@@ -225,11 +211,7 @@ const ChatSidebarContent = ({ db, onControllerReady }: ChatSidebarContentProps) 
 				)}
 
 				<div className="w-full px-4 pb-4">
-					<PromptInput
-						globalDrop
-						multiple
-						onSubmit={handleSubmit}
-					>
+					<PromptInput onSubmit={handleSubmit}>
 						<PromptInputBody>
 							<PromptInputTextarea
 								onChange={(event) => setText(event.target.value)}
