@@ -106,6 +106,9 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		if (errno === MYSQL_READ_ONLY) return { status: 403, message: READ_ONLY_MESSAGE };
 
+		// Dropped, renamed, or a stale URL after switching databases.
+		if (errno === MYSQL_NO_SUCH_TABLE) return { status: 404 };
+
 		if (
 			(errno !== undefined && MYSQL_UNREACHABLE_ERRNOS.has(errno)) ||
 			(code !== undefined && MYSQL_UNREACHABLE_CODES.has(code))
@@ -187,15 +190,10 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		const { values, bind } = createBinds(() => "?");
 		const filterConditions = buildFilterConditions(filters, bind, mysqlFilters);
 
-		// The first queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.primaryKey(pool, tableName),
 			this.countRows(pool, tableName, whereSql(filterConditions), [...values]),
-		]).catch((e: unknown) => {
-			if ((e as { errno?: number }).errno === MYSQL_NO_SUCH_TABLE)
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-			throw e;
-		});
+		]);
 
 		const terms = orderTerms(sort, order, pkColumns);
 		const backward = direction === "desc";

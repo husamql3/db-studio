@@ -161,6 +161,9 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		// The connected role lacks a privilege, or a row-level security policy refused the row.
 		if (e.code === "42501") return { status: 403 };
 
+		// undefined_table: dropped, renamed, or a stale URL after switching databases.
+		if (e.code === "42P01") return { status: 404 };
+
 		const status = STATUS_BY_SQLSTATE_CLASS[e.code?.slice(0, 2) ?? ""];
 
 		return status ? { status } : undefined;
@@ -186,16 +189,11 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		const filterValues = [...values];
 
 		// Primary key columns keep cursor pagination stable. The total does not depend on them or
-		// on the page, so it is counted at the same time instead of after. These are the first
-		// queries to touch the table, so a dropped table or a stale URL fails here.
+		// on the page, so it is counted at the same time instead of after.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.primaryKey(pool, tableName, schemaName),
 			this.countRows(pool, table, whereSql(filterConditions), filterValues),
-		]).catch((e: unknown) => {
-			if (isPgError(e) && e.code === "42P01")
-				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-			throw e;
-		});
+		]);
 
 		const terms = orderTerms(sort, order, pkColumns.length ? pkColumns : ["ctid"]);
 		const backward = direction === "desc";

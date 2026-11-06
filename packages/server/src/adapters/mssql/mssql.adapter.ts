@@ -49,6 +49,7 @@ import {
 } from "./mssql.query-builder.js";
 
 const MSSQL_FK_VIOLATION = 547;
+const MSSQL_NO_SUCH_TABLE = 208;
 
 /** sp_readerrorlog is limited to the securityadmin role. */
 const MSSQL_NOT_SECURITYADMIN = 15003;
@@ -94,6 +95,10 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
 		// Before the message check below, whose words a table name in this message can contain.
 		if (e.name === "RequestError" && isSelectDenied(e)) return { status: 403 };
+
+		// Invalid object name: dropped, renamed, or a stale URL after switching databases.
+		if (e.name === "RequestError" && (e as { number?: number }).number === MSSQL_NO_SUCH_TABLE)
+			return { status: 404 };
 
 		// A login failure, connect timeout or socket error.
 		if (e.name === "ConnectionError" || e.message.includes("Login failed"))
