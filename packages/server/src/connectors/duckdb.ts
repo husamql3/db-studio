@@ -3,6 +3,9 @@ import type { ConnectionUrl } from "@/connection-url.js";
 import { loadDriver } from "@/drivers.js";
 import { openOnce } from "./open-once.js";
 
+/** Another process holds the DuckDB file. */
+export class DuckdbFileLocked extends Error {}
+
 export const duckdbConnector = (url: ConnectionUrl, readOnly: boolean) => {
 	const filePath = url.file ?? "";
 
@@ -23,7 +26,7 @@ export const duckdbConnector = (url: ConnectionUrl, readOnly: boolean) => {
 			const message = e instanceof Error ? e.message : String(e);
 
 			if (message.includes("Could not set lock on file")) {
-				throw new Error(
+				throw new DuckdbFileLocked(
 					`The DuckDB file "${filePath}" is locked by another process. Close the other program using it and try again. (${message})`,
 				);
 			}

@@ -46,6 +46,7 @@ import {
 	type StatementResult,
 	type TableEstimate,
 } from "@/adapters/sql.adapter.js";
+import { DuckdbFileLocked } from "@/connectors/duckdb.js";
 import { loadedDriver } from "@/drivers.js";
 import { fileSize } from "@/file-size.js";
 import { HTTPException } from "@/http-exception.js";
@@ -207,8 +208,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		if (e.message.includes("attached in read-only mode"))
 			return { status: 403, message: READ_ONLY_MESSAGE };
 
-		// Another process holds the file.
-		if (e.message.includes("Could not set lock on file")) return { status: 503 };
+		if (e instanceof DuckdbFileLocked) return { status: 503 };
 
 		return undefined;
 	}
