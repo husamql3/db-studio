@@ -15,7 +15,6 @@ export default defineConfig({
 			// only ever gets met by writing the mock-heavy tests AGENTS.md forbids. Feature
 			// verification lives in E2E runs and their artifacts.
 		},
-		setupFiles: ["./tests/setup.ts"],
 	},
 	resolve: {
 		alias: {
