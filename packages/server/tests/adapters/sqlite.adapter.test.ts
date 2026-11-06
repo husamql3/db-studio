@@ -74,13 +74,15 @@ describe("SqliteAdapter", () => {
 	});
 
 	it("exports every row with its column names", async () => {
-		await expect(adapter.exportTableData({ db: "main", tableName: "users" })).resolves.toEqual({
-			cols: ["id", "name"],
-			rows: [
-				{ id: 1, name: "Ada" },
-				{ id: 2, name: "Linus" },
-			],
-		});
+		await expect(adapter.exportTableData({ db: "main", tableName: "users" })).resolves.toEqual(
+			{
+				cols: ["id", "name"],
+				rows: [
+					{ id: 1, name: "Ada" },
+					{ id: 2, name: "Linus" },
+				],
+			},
+		);
 	});
 
 	it("answers 404 when exporting a table with no rows", async () => {

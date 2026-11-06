@@ -37,7 +37,10 @@ describe("BaseAdapter.classifyError()", () => {
 			"ETIMEOUT",
 		);
 
-		expect(new MsSqlAdapter().classifyError(connect)).toMatchObject({ status: 503, cause: connect });
+		expect(new MsSqlAdapter().classifyError(connect)).toMatchObject({
+			status: 503,
+			cause: connect,
+		});
 		expect(new MsSqlAdapter().classifyError(query).status).toBe(500);
 	});
 
@@ -46,7 +49,10 @@ describe("BaseAdapter.classifyError()", () => {
 			name: "MongoServerSelectionError",
 		});
 
-		expect(new MongoAdapter().classifyError(error)).toMatchObject({ status: 503, cause: error });
+		expect(new MongoAdapter().classifyError(error)).toMatchObject({
+			status: 503,
+			cause: error,
+		});
 	});
 
 	it("preserves HTTPException instances and maps generic errors to 500", () => {
