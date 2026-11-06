@@ -37,6 +37,7 @@ seeds one.
 - `pg-invalid-data.ts`: values of the wrong type answer 400. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-invalid-data.ts`
 - `pg-no-key-pagination.ts`: paging a table without a key. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-no-key-pagination.ts`
 - `pg-oversized-query-result.ts`: a result too large for JSON answers 4xx. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-oversized-query-result.ts`
+- `pg-schema-resolution.ts`: bare table names resolve through the widened search path; renames and added columns reach the right schema's table. `DATABASE_URL=postgresql://... bunx tsx e2e/pg-schema-resolution.ts`
 - `pg-permission-denied.ts`: missing privileges answer 403 (superuser URL). `DATABASE_URL=postgresql://... bunx tsx e2e/pg-permission-denied.ts`
 - `http-surface.ts` (source server on a free port, needs `packages/web/dist`): pins routing, errors, CORS, static files and chat streaming for diffing two versions. `DATABASE_URL=postgresql://... bunx tsx e2e/http-surface.ts <label>`
 - `shutdown.ts` (CLI): Ctrl+C and SIGTERM answer the request in flight and exit within 5 s. `DATABASE_URL=postgresql://... bunx tsx e2e/shutdown.ts [build]`

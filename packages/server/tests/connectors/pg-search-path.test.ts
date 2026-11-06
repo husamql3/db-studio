@@ -50,24 +50,13 @@ describe("PostgreSQL pool search_path", () => {
 			settled = true;
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 10));
+		// Let every queued callback run: only the SET finishing may settle the hook.
+		await new Promise((resolve) => setImmediate(resolve));
 		expect(settled).toBe(false);
 
 		finishSet();
 		await hook;
 		expect(settled).toBe(true);
-	});
-
-	it("keeps public first so an ambiguous table name still resolves to public", async () => {
-		const pool = await freshPool();
-		const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
-
-		await pool.config.onConnect(client);
-
-		const sql = client.query.mock.calls[0][0] as string;
-		expect(sql).toContain("'public, ' || string_agg");
-		// Only non-system, non-public schemas are appended after it.
-		expect(sql).toContain("'pg_catalog', 'information_schema', 'public'");
 	});
 
 	it("leaves the connection usable when the statement fails", async () => {
