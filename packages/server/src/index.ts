@@ -5,19 +5,13 @@ import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
 import { openBrowser, shouldOpenBrowser } from "@/cmd/open-browser.js";
-import { showHelp } from "@/cmd/show-help.js";
 import { showStatus } from "@/cmd/show-status.js";
 import { showVersion } from "@/cmd/show-version.js";
 import { isLoopbackAddress } from "@/loopback.js";
 import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 export const main = async () => {
-	const { env, port, databaseUrl, varName, open, status, help, version } = args();
-
-	if (help) {
-		showHelp();
-		process.exit(0);
-	}
+	const { env, port, databaseUrl, varName, open, status, version } = args();
 
 	if (version) {
 		showVersion();
