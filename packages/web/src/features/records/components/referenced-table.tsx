@@ -92,7 +92,7 @@ export const ReferencedTable = ({
 	});
 
 	const handleSelectRow = (row: Row<Record<string, unknown>>) => {
-		setValue(columnName, row.original[referencedColumn] as string);
+		setValue(columnName, row.original[referencedColumn] as string, { shouldDirty: true });
 		closeOverlay("records.record-reference");
 	};
 

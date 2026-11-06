@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@db-studio/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
@@ -109,7 +110,9 @@ describe("RowDetailsSheet", () => {
 		});
 
 		wrapper = ({ children }) => (
-			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+			<QueryClientProvider client={queryClient}>
+				<TooltipProvider>{children}</TooltipProvider>
+			</QueryClientProvider>
 		);
 		useOverlayStore.setState({ openOverlays: [] });
 		useRowDetailsStore.setState({ tableName: null, rowIndex: null });
@@ -143,6 +146,53 @@ describe("RowDetailsSheet", () => {
 			updates: [{ rowData: fixtures.rows[0], columnName: "name", value: "Grace" }],
 			primaryKey: "tenant_id",
 			primaryKeys: ["tenant_id", "user_id"],
+		});
+	});
+
+	it("saves a foreign key picked from the referenced table", async () => {
+		fixtures.cols = [
+			fixtures.cols[0],
+			column("owner_id", {
+				dataType: "number",
+				dataTypeLabel: "int",
+				isForeignKey: true,
+				referencedTable: "owners",
+				referencedColumn: "id",
+			}),
+		] as ReturnType<typeof makeCols>;
+		fixtures.rows = [{ id: 1, owner_id: 10 }] as never;
+		sent = fakeServer({
+			"GET /tables/users/columns": () => ({ data: { data: fixtures.cols } }),
+			"GET /tables/owners/columns": { data: { data: [column("id"), column("label")] } },
+			"GET /tables/owners/data": {
+				data: {
+					data: {
+						data: [
+							{ id: 10, label: "Ten" },
+							{ id: 20, label: "Twenty" },
+						],
+						meta: {
+							limit: 30,
+							total: 2,
+							hasNextPage: false,
+							hasPreviousPage: false,
+							nextCursor: null,
+							prevCursor: null,
+						},
+					},
+				},
+			},
+			"PATCH /records": { data: { data: "Updated 1 record" } },
+		});
+		renderSheet();
+
+		await user.click((await screen.findAllByRole("button", { name: "Go to table" }))[0]);
+		await user.click(await screen.findByText("Twenty"));
+		await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+		await waitFor(() => expect(saves()).toHaveLength(1));
+		expect(saves()[0]?.body).toMatchObject({
+			updates: [{ rowData: fixtures.rows[0], columnName: "owner_id", value: 20 }],
 		});
 	});
 
