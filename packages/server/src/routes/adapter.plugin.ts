@@ -39,7 +39,7 @@ export const adapterPlugin = new Elysia().derive({ as: "scoped" }, ({ params }) 
 	return { dbType, adapter };
 });
 
-type Capability = "indexes" | "serverLogs" | "rowMutation" | "cellDefault";
+type Capability = "indexes" | "serverLogs" | "rowMutation" | "cellDefault" | "schemaMutation";
 
 /** Why the engine cannot do an operation its traits leave out, or undefined when it can. */
 const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
@@ -52,6 +52,10 @@ const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
 				: "Server logs are not supported for this database type";
 		case "rowMutation":
 			return engine.rowMutation ? undefined : engine.rowMutationReason;
+		case "schemaMutation":
+			return engine.schemaMutation
+				? undefined
+				: `Schema is fixed for ${engine.label} tables; this operation is not supported`;
 		case "cellDefault":
 			return engine.cellDefault
 				? undefined

@@ -73,7 +73,8 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 	.post(
 		"/",
-		async ({ adapter, query, body }) => {
+		async ({ adapter, dbType, query, body }) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.createTable({ tableData: body, db: query.db });
 
 			return { data: `Table ${body.tableName} created successfully` };
@@ -83,15 +84,18 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 	.delete(
 		"/:tableName",
-		async ({ adapter, query: { db, schemaName, cascade }, params: { tableName } }) => ({
-			data: await adapter.deleteTable({ tableName, schemaName, db, cascade }),
-		}),
+		async ({ adapter, dbType, query: { db, schemaName, cascade }, params: { tableName } }) => {
+			requireCapability(dbType, "schemaMutation");
+
+			return { data: await adapter.deleteTable({ tableName, schemaName, db, cascade }) };
+		},
 		{ query: deleteTableQuerySchema, params: tableNameSchema },
 	)
 
 	.patch(
 		"/:tableName/rename",
-		async ({ adapter, query: { db }, params: { tableName }, body }) => {
+		async ({ adapter, dbType, query: { db }, params: { tableName }, body }) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.renameTable({ tableName, db, ...body });
 
 			return { data: `Table "${tableName}" renamed to "${body.newTableName}"` };
@@ -103,9 +107,12 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/columns/:columnName",
 		async ({
 			adapter,
+			dbType,
 			query: { db, schemaName, cascade },
 			params: { tableName, columnName },
 		}) => {
+			requireCapability(dbType, "schemaMutation");
+
 			const { deletedCount } = await adapter.deleteColumn({
 				schemaName,
 				tableName,
@@ -123,7 +130,8 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 	.post(
 		"/:tableName/columns",
-		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.addColumn({ tableName, schemaName, db, ...body });
 
 			return {
@@ -140,7 +148,9 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			query: { db, schemaName },
 			params: { tableName, columnName },
 			body,
+			dbType,
 		}) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.renameColumn({ tableName, schemaName, columnName, db, ...body });
 
 			return {
@@ -157,7 +167,9 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			query: { db, schemaName },
 			params: { tableName, columnName },
 			body,
+			dbType,
 		}) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.alterColumn({ tableName, schemaName, columnName, db, ...body });
 
 			return {

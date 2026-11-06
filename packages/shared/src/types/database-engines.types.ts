@@ -12,6 +12,8 @@ interface DatabaseEngineBase {
 	schemaSelector: boolean;
 	/** Grid edits can set a cell to its column default (`UPDATE … SET c = DEFAULT`). */
 	cellDefault: boolean;
+	/** Tables and columns can be created, renamed, altered and dropped; `false` refuses with 400. */
+	schemaMutation: boolean;
 	/** A connection can be opened in a read-only session the database itself enforces. */
 	readOnly: boolean;
 	/** How "Copy as SQL INSERT" writes literals; `null` hides it. */
@@ -79,6 +81,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: true,
 		cellDefault: true,
+		schemaMutation: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -106,6 +109,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",
@@ -125,6 +129,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: "[",
@@ -147,6 +152,7 @@ export const DATABASE_ENGINES = {
 		liveMode: false,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: true,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -161,6 +167,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -180,6 +187,7 @@ export const DATABASE_ENGINES = {
 		liveMode: false,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -194,6 +202,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -217,6 +226,7 @@ export const DATABASE_ENGINES = {
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -239,6 +249,7 @@ export const DATABASE_ENGINES = {
 		liveMode: false,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",

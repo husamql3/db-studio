@@ -1,8 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type {
-	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
-	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
 	CellValue,
@@ -11,13 +9,10 @@ import type {
 	CreateKeySchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DeleteColumnParamsSchemaType,
 	DeleteKeyQuerySchemaType,
 	DeleteKeyResultSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
-	DeleteTableParams,
-	DeleteTableResult,
 	ExecuteQueryResult,
 	KeyActionSchemaType,
 	KeyDetailsQuerySchemaType,
@@ -28,8 +23,6 @@ import type {
 	KeyScanResultSchemaType,
 	KeyWriteResultSchemaType,
 	RedisKeyTypeSchemaType,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	ServerLogEntrySchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
@@ -72,9 +65,6 @@ const TABLE_TO_REDIS_TYPE: Record<RedisTable, Exclude<RedisKeyTypeSchemaType, "u
 	zsets: "zset",
 	streams: "stream",
 };
-
-const SCHEMA_MUTATION_MESSAGE =
-	"Schema is fixed for Redis tables; this operation is not supported";
 
 const SORT_UNSUPPORTED_MESSAGE = "Sorting is not supported for Redis tables";
 const FILTER_UNSUPPORTED_MESSAGE = "Filtering is not supported for Redis tables";
@@ -971,23 +961,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		}));
 	}
 
-	override async createTable(): Promise<void> {
-		throw new HTTPException(400, {
-			message: "Redis tables are fixed; cannot create new ones",
-		});
-	}
-
-	override async deleteTable(_params: DeleteTableParams): Promise<DeleteTableResult> {
-		throw new HTTPException(400, {
-			message:
-				"Bulk deletion of Redis tables is not supported. Use FLUSHDB from the query runner to clear the entire logical database.",
-		});
-	}
-
-	override async renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
-		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
-	}
-
 	override async getTableSchema({
 		tableName,
 	}: {
@@ -1008,24 +981,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 		const table = assertRedisTable(tableName);
 
 		return TABLE_COLUMNS[table];
-	}
-
-	override async addColumn(_params: AddColumnParamsSchemaType): Promise<void> {
-		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
-	}
-
-	override async deleteColumn(
-		_params: DeleteColumnParamsSchemaType,
-	): Promise<{ deletedCount: number }> {
-		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
-	}
-
-	override async alterColumn(_params: AlterColumnParamsSchemaType): Promise<void> {
-		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
-	}
-
-	override async renameColumn(_params: RenameColumnParamsSchemaType): Promise<void> {
-		throw new HTTPException(400, { message: SCHEMA_MUTATION_MESSAGE });
 	}
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
