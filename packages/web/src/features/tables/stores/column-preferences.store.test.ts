@@ -14,6 +14,7 @@ const parts = {
 	schemaName: undefined,
 	tableName: "users",
 };
+
 const store = () => useColumnPreferencesStore.getState();
 
 beforeEach(() => {

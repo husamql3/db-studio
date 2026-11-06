@@ -6,7 +6,7 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
@@ -47,10 +47,7 @@ export const useAlterColumn = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await queryClient.invalidateQueries({
-				queryKey: tableKeys.columnsByTable(tableName),
-				exact: false,
-			});
+			await invalidateTable(queryClient, tableName);
 			setEditingColumn(null);
 			closeOverlay("schema.edit-column");
 		},

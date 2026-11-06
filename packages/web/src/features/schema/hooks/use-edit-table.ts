@@ -2,7 +2,7 @@ import type { AlterColumnSchemaType, ColumnInfoSchemaType } from "@db-studio/sha
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { alterColumn, renameColumn, type ApiError, apiErrorMessage } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export type ColumnChange = {
@@ -79,16 +79,7 @@ export const useEditTable = ({
 		},
 		// Earlier columns may have applied before a failure, so refresh either way.
 		onSettled: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-			]);
+			await invalidateTable(queryClient, tableName);
 		},
 	});
 

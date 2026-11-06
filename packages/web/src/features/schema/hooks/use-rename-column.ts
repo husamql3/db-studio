@@ -6,7 +6,7 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useRenameColumn = ({
@@ -38,16 +38,7 @@ export const useRenameColumn = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-			]);
+			await invalidateTable(queryClient, tableName);
 		},
 	});
 

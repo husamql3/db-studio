@@ -6,7 +6,7 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 
 type DeleteColumnParams = Omit<DeleteColumnParamsSchemaType, "db" | "schemaName"> & {
@@ -28,20 +28,7 @@ export const useDeleteColumn = () => {
 			return res.data.data;
 		},
 		onSuccess: async (_, variables) => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(variables.tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(variables.tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-					exact: false,
-				}),
-			]);
+			await invalidateTable(queryClient, variables.tableName);
 		},
 	});
 
