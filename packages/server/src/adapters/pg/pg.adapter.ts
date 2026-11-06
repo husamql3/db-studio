@@ -1345,7 +1345,13 @@ export class PgAdapter extends BaseAdapter {
 		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
 		const cleaned = query.trim().replace(/;+$/, "");
 		const start = performance.now();
-		const result = await pool.query(cleaned);
+		const result = await pool.query(cleaned).catch((e: unknown) => {
+			// Class 42 (syntax error, missing table or column) is a mistake in the user's SQL.
+			// 42501 is a permission refusal, which the error handler answers with 403.
+			if (isPgDatabaseError(e) && e.code?.startsWith("42") && e.code !== "42501")
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw e;
+		});
 		const duration = performance.now() - start;
 		return {
 			columns: result.fields.map((f) => f.name),
