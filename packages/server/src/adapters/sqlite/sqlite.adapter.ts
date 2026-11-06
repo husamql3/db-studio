@@ -15,7 +15,6 @@ import type {
 	FieldDataType,
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import type { Value } from "@libsql/client";
@@ -331,23 +330,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		);
 	}
 
-	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		const { tableName, newTableName } = params;
-		this.assertDifferentTableName(tableName, newTableName);
-		const client = await connector("sqlite").client();
-
-		await this.requireTable(client, tableName);
-
-		if (await this.columnNames(client, newTableName))
-			throw new HTTPException(409, {
-				message: `Table "${newTableName}" already exists`,
-			});
-
-		await client.execute(
-			`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME TO ${quoteSqliteIdent(newTableName)}`,
-		);
-	}
-
 	async getTableSchema({
 		tableName,
 	}: {
@@ -528,20 +510,9 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		});
 	}
 
-	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		return this.serializeSchemaChange(async (client) => {
-			const { tableName, columnName, newColumnName } = params;
-
-			this.assertColumnAbsent(
-				await this.requireColumn(client, tableName, columnName),
-				tableName,
-				newColumnName,
-			);
-
-			await client.execute(
-				`ALTER TABLE ${quoteSqliteIdent(tableName)} RENAME COLUMN ${quoteSqliteIdent(columnName)} TO ${quoteSqliteIdent(newColumnName)}`,
-			);
-		});
+	// Serialized with column changes: alterColumn rebuilds the table from the columns it read.
+	override renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
+		return this.serializeSchemaChange(() => super.renameColumn(params));
 	}
 
 	/** Overrides the shared insert, which runs in a transaction SQLite does not offer. */

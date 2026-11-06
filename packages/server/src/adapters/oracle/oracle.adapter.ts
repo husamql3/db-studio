@@ -15,8 +15,6 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	IndexInfoSchemaType,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 	TableDataResultSchemaType,
@@ -510,17 +508,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		);
 	}
 
-	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {
-		this.assertDifferentTableName(tableName, newTableName);
-		await this.withConnection(async (conn) => {
-			await this.requireTable(conn, tableName);
-
-			if ((await this.columns(conn, newTableName)).length)
-				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
-			await conn.execute(`ALTER TABLE ${ident(tableName)} RENAME TO ${ident(newTableName)}`);
-		});
-	}
-
 	async getTableSchema({ tableName }: { tableName: string }): Promise<string> {
 		return this.withConnection(async (conn) => {
 			await this.requireTable(conn, tableName);
@@ -638,23 +625,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			if ((column?.NULLABLE === "Y") !== isNullable)
 				definition += isNullable ? " NULL" : " NOT NULL";
 			await conn.execute(`ALTER TABLE ${ident(tableName)} MODIFY (${definition})`);
-		});
-	}
-
-	async renameColumn({
-		tableName,
-		columnName,
-		newColumnName,
-	}: RenameColumnParamsSchemaType): Promise<void> {
-		await this.withConnection(async (conn) => {
-			this.assertColumnAbsent(
-				await this.requireColumn(conn, tableName, columnName),
-				tableName,
-				newColumnName,
-			);
-			await conn.execute(
-				`ALTER TABLE ${ident(tableName)} RENAME COLUMN ${ident(columnName)} TO ${ident(newColumnName)}`,
-			);
 		});
 	}
 

@@ -11,8 +11,6 @@ import type {
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	ServerLogEntrySchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
@@ -380,25 +378,14 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return (e as { number?: number }).number === MSSQL_FK_DEPENDENCY;
 	}
 
-	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		const { tableName, newTableName, db } = params;
-		this.assertDifferentTableName(tableName, newTableName);
-		const pool = await connector("mssql").pool(db);
-
-		await this.requireTable(pool, tableName);
-
-		if (await this.columnNames(pool, newTableName)) {
-			throw new HTTPException(409, {
-				message: `Table "${newTableName}" already exists`,
-			});
-		}
-
-		await pool
-			.request()
-			// sp_rename parses the old name, so it is quoted; the new name is taken as written.
-			.input("oldName", quoteMssqlIdent(tableName))
-			.input("newName", newTableName)
-			.query("EXEC sp_rename @oldName, @newName");
+	// sp_rename parses the old name, so it is quoted; the new name is taken as written.
+	protected override renameTableSql(
+		tableName: string,
+		newTableName: string,
+		_schemaName: string | undefined,
+		bind: (value: unknown) => string,
+	) {
+		return `EXEC sp_rename ${bind(quoteMssqlIdent(tableName))}, ${bind(newTableName)}`;
 	}
 
 	async getTableSchema({
@@ -659,22 +646,15 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		}
 	}
 
-	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, newColumnName, db } = params;
-		const pool = await connector("mssql").pool(db);
-
-		this.assertColumnAbsent(
-			await this.requireColumn(pool, tableName, columnName),
-			tableName,
-			newColumnName,
-		);
-
-		// sp_rename parses the old name, so its parts are quoted; the new name is taken as written.
-		await pool
-			.request()
-			.input("oldName", `${quoteMssqlIdent(tableName)}.${quoteMssqlIdent(columnName)}`)
-			.input("newName", newColumnName)
-			.query("EXEC sp_rename @oldName, @newName, 'COLUMN'");
+	// sp_rename parses the old name, so its parts are quoted; the new name is taken as written.
+	protected override renameColumnSql(
+		tableName: string,
+		columnName: string,
+		newColumnName: string,
+		_schemaName: string | undefined,
+		bind: (value: unknown) => string,
+	) {
+		return `EXEC sp_rename ${bind(`${quoteMssqlIdent(tableName)}.${quoteMssqlIdent(columnName)}`)}, ${bind(newColumnName)}, 'COLUMN'`;
 	}
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {

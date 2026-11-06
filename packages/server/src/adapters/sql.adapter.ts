@@ -18,6 +18,8 @@ import {
 	type ForeignKeyDataType,
 	type IndexInfoSchemaType,
 	type RelatedRecord,
+	type RenameColumnParamsSchemaType,
+	type RenameTableParamsSchemaType,
 	type TableDataResultSchemaType,
 	type TableInfoSchemaType,
 	type UpdateRecordsSchemaType,
@@ -252,6 +254,76 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 
 	protected async runCreateTable(conn: Conn, sql: string, _tableData: CreateTableSchemaType) {
 		await this.execute(conn, sql);
+	}
+
+	protected renameTableSql(
+		tableName: string,
+		newTableName: string,
+		schemaName: string | undefined,
+		_bind: Bind,
+	): string {
+		return `ALTER TABLE ${this.tableRef(tableName, schemaName)} RENAME TO ${this.quoteIdentifier(newTableName)}`;
+	}
+
+	protected renameColumnSql(
+		tableName: string,
+		columnName: string,
+		newColumnName: string,
+		schemaName: string | undefined,
+		_bind: Bind,
+	): string {
+		const q = this.quoteIdentifier;
+
+		return `ALTER TABLE ${this.tableRef(tableName, schemaName)} RENAME COLUMN ${q(columnName)} TO ${q(newColumnName)}`;
+	}
+
+	/** 404 for a missing table, 409 when the new name is taken. */
+	async renameTable({
+		tableName,
+		newTableName,
+		schemaName,
+		db,
+	}: RenameTableParamsSchemaType): Promise<void> {
+		this.assertDifferentTableName(tableName, newTableName);
+
+		await this.connect(db, async (conn) => {
+			await this.requireTable(conn, tableName, schemaName);
+
+			if (await this.columnNames(conn, newTableName, schemaName))
+				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
+
+			const { values, bind } = createBinds(this.placeholder);
+
+			await this.execute(
+				conn,
+				this.renameTableSql(tableName, newTableName, schemaName, bind),
+				values,
+			);
+		});
+	}
+
+	/** 404 for a missing table or column, 409 when the new name is taken. */
+	async renameColumn({
+		tableName,
+		schemaName,
+		columnName,
+		newColumnName,
+		db,
+	}: RenameColumnParamsSchemaType): Promise<void> {
+		await this.connect(db, async (conn) => {
+			this.assertColumnAbsent(
+				await this.requireColumn(conn, tableName, columnName, schemaName),
+				tableName,
+				newColumnName,
+			);
+			const { values, bind } = createBinds(this.placeholder);
+
+			await this.execute(
+				conn,
+				this.renameColumnSql(tableName, columnName, newColumnName, schemaName, bind),
+				values,
+			);
+		});
 	}
 
 	async createTable({

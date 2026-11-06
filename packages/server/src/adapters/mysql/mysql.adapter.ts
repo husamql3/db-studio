@@ -10,8 +10,6 @@ import type {
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
@@ -299,22 +297,8 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		return errno === MYSQL_FK_DEPENDENCY || errno === MYSQL_FK_VIOLATION;
 	}
 
-	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		const { tableName, newTableName, db } = params;
-		this.assertDifferentTableName(tableName, newTableName);
-		const pool = await connector("mysql").pool(db);
-
-		await this.requireTable(pool, tableName);
-
-		if (await this.columnNames(pool, newTableName)) {
-			throw new HTTPException(409, {
-				message: `Table "${newTableName}" already exists`,
-			});
-		}
-
-		await pool.execute<ResultSetHeader>(
-			`RENAME TABLE ${quoteMysqlIdent(tableName)} TO ${quoteMysqlIdent(newTableName)}`,
-		);
+	protected override renameTableSql(tableName: string, newTableName: string) {
+		return `RENAME TABLE ${quoteMysqlIdent(tableName)} TO ${quoteMysqlIdent(newTableName)}`;
 	}
 
 	async getTableSchema({
@@ -480,21 +464,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		await pool.execute<ResultSetHeader>(
 			`ALTER TABLE ${quoteMysqlIdent(tableName)} MODIFY COLUMN ${colDef}`,
-		);
-	}
-
-	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, newColumnName, db } = params;
-		const pool = await connector("mysql").pool(db);
-
-		this.assertColumnAbsent(
-			await this.requireColumn(pool, tableName, columnName),
-			tableName,
-			newColumnName,
-		);
-
-		await pool.execute<ResultSetHeader>(
-			`ALTER TABLE ${quoteMysqlIdent(tableName)} RENAME COLUMN ${quoteMysqlIdent(columnName)} TO ${quoteMysqlIdent(newColumnName)}`,
 		);
 	}
 

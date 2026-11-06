@@ -57,9 +57,9 @@ describe("MsSqlAdapter.renameTable", () => {
 
 	it("renames via parameterized sp_rename (no string interpolation)", async () => {
 		await adapter.renameTable({ db: "appdb", tableName: "users", newTableName: "members" });
-		expect(statements.at(-1)).toBe("EXEC sp_rename @oldName, @newName");
+		expect(statements.at(-1)).toBe("EXEC sp_rename @p0, @p1");
 		const renameParams = boundParams.at(-1);
 		// sp_rename parses the old name, so it arrives quoted.
-		expect(renameParams).toMatchObject({ oldName: "[users]", newName: "members" });
+		expect(renameParams).toMatchObject({ p0: "[users]", p1: "members" });
 	});
 });

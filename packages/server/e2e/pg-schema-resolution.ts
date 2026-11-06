@@ -8,8 +8,9 @@
  * - a name in `public` and another schema returns both tables' columns, or the other one's;
  * - adding a column is refused because a same-named table in another schema already has it;
  * - a rename alters the wrong schema's table, or misses a table outside `public`;
- * - a rename aimed at a schema without the table, onto a taken name, or of a name only in two
- *   non-public schemas does not answer 404, 409 and 400;
+ * - a rename aimed at a schema without the table or onto a taken name does not answer 404 and
+ *   409, or a bare name in two non-public schemas is not renamed in the one the search path
+ *   finds first, as every other route resolves it;
  * - a double quote in a table name breaks the rename statement.
  *
  *   DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio \
@@ -195,11 +196,14 @@ await check(
 );
 
 await check(
-	"renaming a name only in two non-public schemas answers 400",
+	"renaming a bare name in two non-public schemas renames the search path's first",
 	() => rename("e2e_res_amb", "e2e_res_amb2"),
-	400,
-	() => schemasOf("e2e_res_amb"),
-	["e2e_res_a", "e2e_res_b"],
+	200,
+	async () => ({
+		renamed: await schemasOf("e2e_res_amb2"),
+		kept: await schemasOf("e2e_res_amb"),
+	}),
+	{ renamed: ["e2e_res_a"], kept: ["e2e_res_b"] },
 );
 
 await close();

@@ -13,8 +13,6 @@ import type {
 	DeleteRecordParams,
 	DeleteTableParams,
 	IndexInfoSchemaType,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 } from "@db-studio/shared/types";
 import { isSerialType } from "@db-studio/shared/types";
 import type {
@@ -347,17 +345,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		}
 	}
 
-	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {
-		this.assertDifferentTableName(tableName, newTableName);
-		await connector("duckdb").withConnection(async (conn) => {
-			await this.requireTable(conn, tableName);
-
-			if ((await this.columns(conn, newTableName)).length)
-				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
-			await conn.run(`ALTER TABLE ${ident(tableName)} RENAME TO ${ident(newTableName)}`);
-		});
-	}
-
 	async getTableSchema({ tableName }: { tableName: string }): Promise<string> {
 		return connector("duckdb").withConnection(async (conn) => {
 			const [row] = await query<{ sql: string }>(
@@ -474,23 +461,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 						: `${alter} DROP DEFAULT`,
 				);
 			});
-		});
-	}
-
-	async renameColumn({
-		tableName,
-		columnName,
-		newColumnName,
-	}: RenameColumnParamsSchemaType): Promise<void> {
-		await connector("duckdb").withConnection(async (conn) => {
-			this.assertColumnAbsent(
-				await this.requireColumn(conn, tableName, columnName),
-				tableName,
-				newColumnName,
-			);
-			await conn.run(
-				`ALTER TABLE ${ident(tableName)} RENAME COLUMN ${ident(columnName)} TO ${ident(newColumnName)}`,
-			);
 		});
 	}
 

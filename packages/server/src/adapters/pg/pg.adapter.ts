@@ -11,7 +11,6 @@ import type {
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
@@ -380,47 +379,17 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return isPgError(e) && e.code === "2BP01";
 	}
 
-	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		const { tableName, newTableName, schemaName: requestedSchema, db } = params;
-		this.assertDifferentTableName(tableName, newTableName);
-		const pool = await connector("pg").pool(db);
+	/** The new name must be free in the table's own schema, so a bare name resolves first. */
+	override async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+		if (params.schemaName) return super.renameTable(params);
 
-		// Tables are listed from every user schema, so resolve the actual schema
-		// instead of assuming "public".
-		const { rows: schemaRows } = await pool.query(
-			`SELECT table_schema as "schemaName" FROM information_schema.tables WHERE table_name = $1 AND table_schema NOT IN ('pg_catalog', 'information_schema') AND table_schema NOT LIKE 'pg_toast%';`,
-			[tableName],
+		const [row] = await this.rows<{ schema: string | null }>(
+			await connector("pg").pool(params.db),
+			`SELECT ${schemaOf("$1", "$2")} AS schema`,
+			[params.tableName, null],
 		);
 
-		const schemas = (schemaRows as Array<{ schemaName: string }>).map((r) => r.schemaName);
-
-		if (schemas.length === 0) throw this.tableMissing(tableName);
-
-		if (requestedSchema && !schemas.includes(requestedSchema)) {
-			throw new HTTPException(404, {
-				message: `Table "${requestedSchema}"."${tableName}" does not exist`,
-			});
-		}
-
-		if (!requestedSchema && schemas.length > 1)
-			throw new HTTPException(400, {
-				message: `Table "${tableName}" exists in multiple schemas (${schemas.join(", ")}); rename is ambiguous`,
-			});
-		const schemaName = requestedSchema ?? (schemas[0] as string);
-
-		const { rows: targetRows } = await pool.query(
-			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = $2) as exists;`,
-			[newTableName, schemaName],
-		);
-
-		if (targetRows[0]?.exists)
-			throw new HTTPException(409, {
-				message: `Table "${newTableName}" already exists`,
-			});
-
-		await pool.query(
-			`ALTER TABLE ${quotePgIdent(schemaName)}.${quotePgIdent(tableName)} RENAME TO ${quotePgIdent(newTableName)}`,
-		);
+		return super.renameTable({ ...params, schemaName: row?.schema ?? undefined });
 	}
 
 	async getTableSchema({
@@ -721,22 +690,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 				);
 			}
 		});
-	}
-
-	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, schemaName, columnName, newColumnName, db } = params;
-		const pool = await connector("pg").pool(db);
-
-		this.assertColumnAbsent(
-			await this.requireColumn(pool, tableName, columnName, schemaName),
-			tableName,
-			newColumnName,
-		);
-		const table = qualifiedTable(tableName, schemaName);
-
-		await pool.query(
-			`ALTER TABLE ${table} RENAME COLUMN ${quotePgIdent(columnName)} TO ${quotePgIdent(newColumnName)}`,
-		);
 	}
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
