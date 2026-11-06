@@ -72,6 +72,7 @@ export const VisualizerTableNodeView = ({ data }: NodeProps<VisualizerTableNode>
 				<Link
 					to="/table/$table"
 					params={{ table: table.tableName }}
+					search={{ [CONSTANTS.TABLE_SCHEMA]: table.schemaName }}
 					aria-label={`Open ${table.tableName}`}
 					title="Open table"
 					className="nodrag rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
