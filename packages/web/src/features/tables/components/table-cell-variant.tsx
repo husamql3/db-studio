@@ -35,7 +35,11 @@ import { useHotkeys } from "react-hotkeys-hook";
 import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { formatCellValue } from "@/utils/format-cell-value";
-import { CELL_DEFAULT, useUpdateCellStore } from "../stores/update-cell.store";
+import {
+	CELL_DEFAULT,
+	type CellUpdate,
+	useUpdateCellStore,
+} from "../stores/update-cell.store";
 import { FkDrawerContent } from "./fk-drawer-content";
 import { TableCellWrapper } from "./table-cell-wrapper";
 
@@ -509,7 +513,7 @@ const TableSelectCell = memo(
 		options: readonly string[];
 		toOption: (value: unknown) => string;
 		/** Turns a picked option into the value to write; the option itself when omitted. */
-		fromOption?: (option: string) => unknown;
+		fromOption?: (option: string) => CellUpdate["newValue"];
 	}) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const initialValue = cell.getValue();
@@ -523,6 +527,7 @@ const TableSelectCell = memo(
 		const onValueChange = (option: string) => {
 			const newValue =
 				option === NULL_OPTION ? null : fromOption ? fromOption(option) : option;
+
 			setUpdate(rowData, columnId, newValue, initialValue, meta?.editScope);
 			meta?.onCellEditingStop?.();
 		};

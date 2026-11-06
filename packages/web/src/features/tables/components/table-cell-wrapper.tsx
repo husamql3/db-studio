@@ -57,6 +57,7 @@ export function TableCellWrapper<TData>({
 	const meta = table.options.meta;
 
 	const elementRef = useRef<HTMLDivElement | null>(null);
+
 	const setRef = useCallback(
 		(node: HTMLDivElement | null) => {
 			elementRef.current = node;
