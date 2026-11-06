@@ -42,7 +42,6 @@ const sqlOf = (term: OrderTerm, quote: (name: string) => string) =>
 /** A SQL page cursor: the boundary row's values on the order columns. */
 export const sqlCursorSchema = z.object({
 	values: z.record(z.string(), z.unknown()),
-	sortColumns: z.array(z.string()),
 });
 
 /** For OFFSET pagination: each term in its own direction; "" without terms. */
@@ -54,8 +53,7 @@ export const offsetOrderBy = (terms: OrderTerm[], quote: (name: string) => strin
 export const offsetOf = (cursor: string | undefined) =>
 	cursor ? Number(decodeCursor(cursor, sqlCursorSchema)?.values._offset ?? 0) : 0;
 
-const offsetCursor = (offset: number) =>
-	encodeCursor({ values: { _offset: offset }, sortColumns: ["_offset"] });
+const offsetCursor = (offset: number) => encodeCursor({ values: { _offset: offset } });
 
 /** A page read with `OFFSET offset … LIMIT limit + 1`: the extra row tells another page follows. */
 export function offsetPage<T>(fetched: T[], offset: number, limit: number) {
@@ -170,7 +168,6 @@ export function keysetPage<T extends Record<string, unknown>>(
 		row && columns.length
 			? encodeCursor({
 					values: Object.fromEntries(columns.map((col) => [col, row[col]])),
-					sortColumns: columns,
 				})
 			: null;
 
