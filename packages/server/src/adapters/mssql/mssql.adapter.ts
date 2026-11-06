@@ -43,8 +43,6 @@ import { connector } from "@/open-connections.js";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
-	formatMssqlDefaultValue,
-	mapColumnTypeToMssql,
 	mssqlFilters,
 	mssqlPlaceholder,
 	quoteMssqlIdent,
@@ -324,20 +322,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		const { tableName, fields, foreignKeys } = tableData;
 		const pool = await connector("mssql").pool(db);
 
-		const columnDefs = fields.map((field: FieldDataType) => {
-			const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
-			let colDef = `${quoteMssqlIdent(field.columnName)} ${mappedType}`;
-
-			if (!field.isNullable && !field.isPrimaryKey) colDef += " NOT NULL";
-
-			if (field.defaultValue && !mappedType.includes("IDENTITY")) {
-				const dv = formatMssqlDefaultValue(field.defaultValue, mappedType);
-
-				if (dv !== null) colDef += ` DEFAULT ${dv}`;
-			}
-
-			return colDef;
-		});
+		const columnDefs = fields.map((field: FieldDataType) => buildMssqlColumnDefinition(field));
 
 		const constraintDefs: string[] = [];
 		const primaryKeyFields = fields.filter((f: FieldDataType) => f.isPrimaryKey);
