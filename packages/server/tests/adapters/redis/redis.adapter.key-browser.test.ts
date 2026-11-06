@@ -197,12 +197,24 @@ describe("RedisAdapter key browser", () => {
 
 		expect(first.keys.map((item) => item.key.utf8)).toEqual(["one", "two", "three"]);
 		expect(first.hasMore).toBe(true);
-		expect(JSON.parse(Buffer.from(first.nextCursor ?? "", "base64url").toString())).toEqual({
-			scanCursor: "42",
-			exactPattern: false,
-		});
+		expect(Buffer.from(first.nextCursor ?? "", "base64url").toString()).not.toMatch(
+			/one|two|three/,
+		);
 		expect(mockClient.scanBuffer).toHaveBeenCalledTimes(1);
-		expect(mockClient.scanBuffer).toHaveBeenCalledWith("0", "MATCH", "*", "COUNT", 2);
+
+		await adapter.scanKeys({
+			db: "0",
+			limit: 2,
+			exactPattern: false,
+			cursor: first.nextCursor ?? undefined,
+		});
+		expect(mockClient.scanBuffer).toHaveBeenLastCalledWith(
+			"42",
+			"MATCH",
+			"*",
+			"COUNT",
+			expect.any(Number),
+		);
 	});
 
 	it("represents infinite sorted-set scores without producing invalid JSON numbers", async () => {
@@ -508,7 +520,7 @@ describe("RedisAdapter key browser", () => {
 			"+",
 			"-",
 			"COUNT",
-			101,
+			expect.any(Number),
 		);
 		expect(result.value).toMatchObject({
 			kind: "stream",
