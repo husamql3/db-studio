@@ -1,6 +1,7 @@
 import { LIMIT } from "@db-studio/shared/constants";
 import { BYOK_HEADERS, chatSchema } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
+import { z } from "zod";
 import { HTTPException } from "@/http-exception.js";
 import { isLoopbackHostname } from "@/loopback.js";
 import { currentRequestId, writeOperationalLog } from "@/operational-log.js";
@@ -68,6 +69,17 @@ const proxyHeaders = (
 	"x-request-id": currentRequestId() ?? "",
 });
 
+/** The proxy answers `{ error }`; anything between it and this server may answer plain text. */
+const proxyErrorSchema = z.object({ error: z.string().min(1) });
+
+const proxyErrorMessage = (body: string): string => {
+	try {
+		return proxyErrorSchema.parse(JSON.parse(body)).error;
+	} catch {
+		return "Proxy request failed";
+	}
+};
+
 export const chatRoutes = new Elysia({ prefix: "/chat" })
 	.get("/limit", async ({ headers }) => {
 		// Outside the try: a misconfigured proxy URL is a server error, not an
@@ -128,12 +140,9 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 					provider,
 					model,
 				});
-				const errorData = await proxyResponse.json();
-
-				return Response.json(
-					{ error: errorData.error || "Proxy request failed" },
-					{ status: proxyResponse.status },
-				);
+				throw new HTTPException(proxyResponse.status, {
+					message: proxyErrorMessage(await proxyResponse.text()),
+				});
 			}
 
 			// Relay the original stream directly. A detached pipe can reject after this

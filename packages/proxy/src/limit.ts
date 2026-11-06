@@ -42,7 +42,7 @@ export const createProxyLimiter = (): MiddlewareHandler => {
 			store: getRedisStore(prefix),
 			standardHeaders: "draft-7",
 			statusCode: 429,
-			message: "Too many requests",
+			message: { error: "Too many requests" },
 		});
 
 		return limiter(c, next);

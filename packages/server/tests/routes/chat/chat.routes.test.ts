@@ -2,6 +2,7 @@ import { LIMIT } from "@db-studio/shared/constants";
 import { AI_PROVIDER_OPTIONS } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handleError } from "@/middlewares/error-handler.js";
 import { chatRoutes } from "@/routes/chat/chat.routes.js";
 
 // includeSchema stays false: these tests cover what reaches the proxy, not the database.
@@ -13,7 +14,9 @@ const requestBody = {
 };
 
 describe("Chat routes", () => {
-	const app = new Elysia({ prefix: "/api/pg" }).use(chatRoutes);
+	const app = new Elysia({ prefix: "/api/pg" })
+		.onError(({ error, request }) => handleError(error, request))
+		.use(chatRoutes);
 
 	beforeEach(() => {
 		vi.stubGlobal(
@@ -96,5 +99,25 @@ describe("Chat routes", () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ limit: LIMIT, used: LIMIT, remaining: 0 });
+	});
+
+	// The proxy's rate limiter answered 429 in plain text, and reading it as JSON turned the
+	// exhausted quota into a 500.
+	it.each([
+		["plain text", "Too many requests"],
+		["JSON", JSON.stringify({ error: "Too many requests" })],
+	])("answers 429 when the proxy refuses with a %s quota error", async (_, proxyBody) => {
+		vi.mocked(fetch).mockResolvedValueOnce(new Response(proxyBody, { status: 429 }));
+
+		const response = await app.handle(
+			new Request(new URL("/api/pg/chat", "http://localhost"), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(requestBody),
+			}),
+		);
+
+		expect(response.status).toBe(429);
+		expect(await response.json()).toMatchObject({ error: expect.any(String) });
 	});
 });
