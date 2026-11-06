@@ -33,8 +33,7 @@ export const useUpdateCell = () => {
 				throw new Error("No table selected");
 			}
 
-			// Transform updates into the format the API expects. Composite keys are
-			// sent in full so an edit can never match more than its own record.
+			// Composite keys are sent in full so an edit can never match more than its own record.
 			const identityColumnNames = editScope.keyColumns;
 
 			const payload: Parameters<typeof updateRecords>[0] = {

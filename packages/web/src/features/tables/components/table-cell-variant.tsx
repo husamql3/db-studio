@@ -142,7 +142,6 @@ export const TableTextCell = memo(
 		const meta = table.options.meta;
 		const columnMeta = cell.column.columnDef.meta;
 
-		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
@@ -155,7 +154,6 @@ export const TableTextCell = memo(
 		const close = useCallback(
 			(direction?: NavigationDirection) => {
 				editingRef.current = false;
-				// Stop editing first, then close the popover
 				meta?.onCellEditingStop?.({ direction });
 				setOpen(false);
 			},
@@ -183,7 +181,6 @@ export const TableTextCell = memo(
 		);
 
 		const onCancel = useCallback(() => {
-			// Clear this cell's update from the store
 			clearUpdate(rowData, columnName, meta?.editScope);
 			close();
 		}, [close, columnName, rowData, clearUpdate, meta?.editScope]);
@@ -253,7 +250,6 @@ export const TableTextCell = memo(
 			[onCancel, onSave],
 		);
 
-		// Sync open state with isEditing prop and initialize editor value
 		useEffect(() => {
 			if (isEditing && !open) {
 				setEditorValue(editorStart);
@@ -392,7 +388,6 @@ export const TableNumberCell = memo(
 		const initialValue = cell.getValue() as number;
 		const meta = table.options.meta;
 
-		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
@@ -413,10 +408,8 @@ export const TableNumberCell = memo(
 
 		const onSave = useCallback(
 			(direction?: NavigationDirection) => {
-				// Update the store with the final value
 				setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
 
-				// Close the editor
 				setOpen(false);
 				meta?.onCellEditingStop?.({ direction });
 			},
@@ -424,10 +417,8 @@ export const TableNumberCell = memo(
 		);
 
 		const onCancel = useCallback(() => {
-			// Restore the original value
 			setValue(initialValue);
 
-			// Clear this cell's update from the store
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
 
 			setOpen(false);
@@ -439,7 +430,7 @@ export const TableNumberCell = memo(
 				const newValue = event.target.value;
 				setValue(Number(newValue));
 
-				// Debounced update to store (tracks the change but doesn't save)
+				// Stages the change; nothing is saved until Save.
 				setUpdate(
 					rowData,
 					columnName,
@@ -471,7 +462,6 @@ export const TableNumberCell = memo(
 		);
 
 		const onTextInputBlur = useCallback(() => {
-			// Update store on blur (don't auto-save, just track)
 			if (value !== initialValue) {
 				setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
 			}
@@ -549,23 +539,19 @@ export const TableBooleanCell = memo(
 		const isEditingRef = useRef(isEditing);
 		const meta = table.options.meta;
 
-		// Update ref when isEditing changes
 		useEffect(() => {
 			isEditingRef.current = isEditing;
 		}, [isEditing]);
 
-		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
-		// Get the current value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
 
 		const currentValue = pendingUpdate
 			? (pendingUpdate.newValue as boolean | null)
 			: initialValue;
 
-		// Convert boolean value to string for the select component
 		const value = useMemo(() => {
 			if (currentValue === null || currentValue === undefined) return "null";
 
@@ -574,7 +560,6 @@ export const TableBooleanCell = memo(
 
 		const onValueChange = useCallback(
 			(newValue: string) => {
-				// Convert string value back to boolean or null
 				let boolValue: boolean | null;
 
 				if (newValue === "null") {
@@ -583,10 +568,8 @@ export const TableBooleanCell = memo(
 					boolValue = newValue === "true";
 				}
 
-				// Update the store when value changes
 				setUpdate(rowData, columnName, boolValue, initialValue, table.options.meta?.editScope);
 
-				// Close the select and stop editing
 				setSelectOpen(false);
 				meta?.onCellEditingStop?.();
 			},
@@ -594,10 +577,8 @@ export const TableBooleanCell = memo(
 		);
 
 		const onCancel = useCallback(() => {
-			// Clear any pending updates (reverts to initial value)
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
 
-			// Close select and stop editing
 			setSelectOpen(false);
 			meta?.onCellEditingStop?.();
 		}, [rowData, columnName, clearUpdate, meta]);
@@ -606,7 +587,6 @@ export const TableBooleanCell = memo(
 			(open: boolean) => {
 				setSelectOpen(open);
 
-				// If closing the select, stop editing (but keep the value in store)
 				if (!open && isEditing) {
 					meta?.onCellEditingStop?.();
 				}
@@ -632,10 +612,8 @@ export const TableBooleanCell = memo(
 			[isEditing, selectOpen, meta, onCancel],
 		);
 
-		// Auto-open select when entering edit mode, close when exiting
 		useEffect(() => {
 			if (isEditing) {
-				// Open the select and trigger click
 				const openTimer = setTimeout(() => {
 					if (isEditingRef.current) {
 						setSelectOpen(true);
@@ -650,7 +628,6 @@ export const TableBooleanCell = memo(
 
 				return () => {
 					clearTimeout(openTimer);
-					// Cleanup: close select when component unmounts or isEditing changes
 					setSelectOpen(false);
 				};
 			}
@@ -738,16 +715,13 @@ export const TableEnumCell = memo(
 		const meta = table.options.meta;
 		const enumValues = cell.column.columnDef.meta?.enumValues as string[] | undefined;
 
-		// Update ref when isEditing changes
 		useEffect(() => {
 			isEditingRef.current = isEditing;
 		}, [isEditing]);
 
-		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
-		// Get the current value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
 
 		const currentValue = pendingUpdate
@@ -756,7 +730,6 @@ export const TableEnumCell = memo(
 
 		const onValueChange = useCallback(
 			(newValue: string) => {
-				// Convert "null" string to actual null, otherwise use the enum value
 				const enumValue: string | null = newValue === "null" ? null : newValue;
 				setUpdate(rowData, columnName, enumValue, initialValue, table.options.meta?.editScope);
 				setSelectOpen(false);
@@ -766,10 +739,8 @@ export const TableEnumCell = memo(
 		);
 
 		const onCancel = useCallback(() => {
-			// Clear any pending updates (reverts to initial value)
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
 
-			// Close select and stop editing
 			setSelectOpen(false);
 			meta?.onCellEditingStop?.();
 		}, [rowData, columnName, clearUpdate, meta]);
@@ -778,7 +749,6 @@ export const TableEnumCell = memo(
 			(open: boolean) => {
 				setSelectOpen(open);
 
-				// If closing the select, stop editing (but keep the value in store)
 				if (!open && isEditing) {
 					meta?.onCellEditingStop?.();
 				}
@@ -804,10 +774,8 @@ export const TableEnumCell = memo(
 			[isEditing, selectOpen, meta, onCancel],
 		);
 
-		// Auto-open select when entering edit mode, close when exiting
 		useEffect(() => {
 			if (isEditing) {
-				// Open the select and trigger click
 				const openTimer = setTimeout(() => {
 					if (isEditingRef.current) {
 						setSelectOpen(true);
@@ -822,7 +790,6 @@ export const TableEnumCell = memo(
 
 				return () => {
 					clearTimeout(openTimer);
-					// Cleanup: close select when component unmounts or isEditing changes
 					setSelectOpen(false);
 				};
 			}
@@ -912,11 +879,9 @@ export const TableDateCell = memo(
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
-		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
-		// Get the current value from store or use initial value
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
 
 		const currentValue = pendingUpdate
@@ -925,7 +890,6 @@ export const TableDateCell = memo(
 
 		const onDateChange = useCallback(
 			(date: Date | null | undefined) => {
-				// Convert Date to ISO string for storage (or null if undefined)
 				const dateString = date ? date.toISOString() : null;
 				setUpdate(
 					rowData,
@@ -935,17 +899,14 @@ export const TableDateCell = memo(
 					table.options.meta?.editScope,
 				);
 
-				// Close the date picker and stop editing
 				meta?.onCellEditingStop?.();
 			},
 			[columnName, initialValue, rowData, setUpdate, meta],
 		);
 
 		const onCancel = useCallback(() => {
-			// Clear any pending updates (reverts to initial value)
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
 
-			// Stop editing
 			meta?.onCellEditingStop?.();
 		}, [rowData, columnName, clearUpdate, meta, currentValue, initialValue]);
 
@@ -1064,11 +1025,9 @@ export const TableJsonCell = memo(
 		const containerRef = useRef<HTMLDivElement>(null);
 		const meta = table.options.meta;
 
-		// Get the row data and column name for store operations
 		const rowData = cell.row.original as Record<string, unknown>;
 		const columnName = columnId;
 
-		// Get the current display value from store or use initial value (compact format)
 		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
 
 		const currentJsonValue = pendingUpdate
@@ -1116,19 +1075,15 @@ export const TableJsonCell = memo(
 		const onSave = useCallback(() => {
 			if (!commit()) return;
 
-			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
 			setOpen(false);
 		}, [commit, meta]);
 
 		const onCancel = useCallback(() => {
-			// Restore the original value (formatted)
 			setEditorValue(JSON.stringify(initialValue, null, editorPreferences.tabSize) ?? "");
 
-			// Clear this cell's update from the store
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
 
-			// Stop editing first, then close the popover
 			meta?.onCellEditingStop?.();
 			setOpen(false);
 		}, [meta, initialValue, columnName, rowData, clearUpdate, editorPreferences.tabSize]);
@@ -1169,10 +1124,8 @@ export const TableJsonCell = memo(
 			[isEditing, open, meta],
 		);
 
-		// Sync open state with isEditing prop and initialize editor value
 		useEffect(() => {
 			if (isEditing && !open) {
-				// Initialize editor with formatted JSON
 				setEditorValue(JSON.stringify(currentJsonValue, null, editorPreferences.tabSize));
 				setOpen(true);
 			} else if (!isEditing && open) {

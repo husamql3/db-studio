@@ -118,13 +118,11 @@ export const useColumnPreferences = ({
 		[reconciledPrefs, update],
 	);
 
-	// Show all makes every database column visible while preserving column order
 	const showAllColumns = useCallback(() => {
 		const reconciled = reconciledPrefs();
 		update({ ...reconciled, hidden: [] });
 	}, [reconciledPrefs, update]);
 
-	// Reset restores original schema order and default visibility
 	const resetColumns = useCallback(() => {
 		clearColumnPrefs(key);
 	}, [key, clearColumnPrefs]);

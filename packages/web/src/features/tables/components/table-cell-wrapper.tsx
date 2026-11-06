@@ -42,7 +42,6 @@ export function TableCellWrapper<TData>({
 
 	const meta = table.options.meta;
 
-	// Check if this cell has a pending update
 	const rowData = cell.row.original as Record<string, unknown>;
 	const hasUpdate = !!getUpdate(rowData, columnId, table.options.meta?.editScope);
 

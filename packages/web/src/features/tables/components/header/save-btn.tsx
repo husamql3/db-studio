@@ -22,7 +22,6 @@ export const SaveBtn = ({
 
 		try {
 			await updateCell(updates);
-			// Reset row selection after successful save
 			setRowSelection({});
 		} catch (error) {
 			console.error("Failed to save updates:", error);

@@ -144,7 +144,6 @@ export const TableCell = ({
 				/>
 			);
 		case "json":
-			// return a json editor
 			return (
 				<TableJsonCell
 					cell={cell}

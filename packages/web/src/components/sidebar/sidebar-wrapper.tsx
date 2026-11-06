@@ -25,7 +25,6 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 	const handleMouseEnterRef = useRef(() => {});
 	const handleMouseLeaveRef = useRef(() => {});
 
-	// Optimized resize handler using RAF
 	const handleMouseMove = useCallback(
 		(e: MouseEvent) => {
 			if (!isResizingRef.current) return;
@@ -46,7 +45,6 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		isResizingRef.current = false;
 		Object.assign(document.body.style, { cursor: "", userSelect: "" });
 
-		// Remove overlay
 		const overlay = document.getElementById("resize-overlay");
 
 		if (overlay) overlay.remove();
@@ -70,7 +68,6 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		[width],
 	);
 
-	// Handle hover behavior when unpinned
 	const handleMouseEnter = useCallback(() => {
 		if (!isPinned) {
 			setSidebarOpen(true);
@@ -83,7 +80,6 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		}
 	}, [isPinned, setSidebarOpen]);
 
-	// Keep handler refs current every render so stable listeners always use the latest handler
 	handleMouseMoveRef.current = handleMouseMove;
 	handleMouseUpRef.current = handleMouseUp;
 	handleMouseEnterRef.current = handleMouseEnter;
@@ -108,7 +104,6 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 		};
 	}, []); // empty deps — listeners are stable, handlers updated via refs
 
-	// Attach mouse enter/leave handlers to the Sheet content
 	useEffect(() => {
 		const element = sheetContentRef.current;
 
@@ -145,7 +140,6 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 				<div className="relative h-full flex flex-col">
 					{children}
 
-					{/* Resize Handle */}
 					<div
 						role="button"
 						tabIndex={0}

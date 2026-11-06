@@ -5,12 +5,10 @@
 export const parseBulkData = (input: string): Record<string, unknown>[] => {
 	const trimmedInput = input.trim();
 
-	// Try JSON first
 	if (trimmedInput.startsWith("[") || trimmedInput.startsWith("{")) {
 		try {
 			const parsed = JSON.parse(trimmedInput);
 
-			// Handle single object wrapped in array
 			if (Array.isArray(parsed)) {
 				return parsed;
 			}
@@ -29,13 +27,9 @@ export const parseBulkData = (input: string): Record<string, unknown>[] => {
 		}
 	}
 
-	// Try CSV format
 	return parseCSV(trimmedInput);
 };
 
-/**
- * Parse CSV data with automatic delimiter detection
- */
 const parseCSV = (input: string): Record<string, unknown>[] => {
 	const delimiter = detectDelimiter(input.split("\n", 1)[0]);
 	const [headerRow, ...rows] = parseCSVRows(input, delimiter);
@@ -67,16 +61,12 @@ const parseCSV = (input: string): Record<string, unknown>[] => {
 	return records;
 };
 
-/** Pre-compiled delimiter regexes for CSV detection */
 const DELIMITER_REGEXES: Record<string, RegExp> = {
 	",": /,/g,
 	"\t": /\t/g,
 	";": /;/g,
 };
 
-/**
- * Detect CSV delimiter (comma, tab, or semicolon)
- */
 const detectDelimiter = (headerLine: string): string => {
 	const delimiters = [",", "\t", ";"];
 	let maxCount = 0;
@@ -151,9 +141,6 @@ const parseCSVRows = (input: string, delimiter: string): string[][] => {
 	return rows;
 };
 
-/**
- * Convert string values to appropriate types
- */
 type ParsedValue =
 	| string
 	| number
@@ -175,7 +162,6 @@ const parseValue = (value: string): ParsedValue => {
 		return false;
 	}
 
-	// Try to parse as number
 	if (!Number.isNaN(Number(value)) && value !== "") {
 		const num = Number(value);
 
@@ -185,7 +171,6 @@ const parseValue = (value: string): ParsedValue => {
 		}
 	}
 
-	// Try to parse as JSON (for arrays/objects)
 	if (
 		(value.startsWith("{") && value.endsWith("}")) ||
 		(value.startsWith("[") && value.endsWith("]"))

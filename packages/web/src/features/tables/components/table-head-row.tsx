@@ -69,18 +69,16 @@ export const TableHeadRow = ({
 	const createSortHandler = useCallback(
 		(columnId: string) => (direction: SortDirection | null) => {
 			if (direction === null) {
-				// Clear sorting
 				setColumnName(null);
 				setSort(null);
 				setOrder(null);
 			} else {
-				// Update query state (table state will be derived from this)
+				// The table's sort state is derived from these query params.
 				setColumnName(columnId);
 				setSort(columnId);
 				setOrder(direction === "desc" ? "desc" : "asc");
 			}
 
-			// Reset cursor when sort changes
 			setCursor(null);
 			setDirection(null);
 		},
@@ -122,7 +120,6 @@ export const TableHeadRow = ({
 										"border-r border-border",
 										header.column.getCanSort() ? "cursor-pointer select-none" : "",
 									),
-									// onClick: header.column.getToggleSortingHandler(),
 								}}
 							>
 								{virtualColumn.index === 0 ? (
@@ -192,7 +189,6 @@ export const TableHeadRow = ({
 												{!isSchemaless && (
 													<>
 														<DropdownMenuGroup>
-															{/* Sort ascending button */}
 															<DropdownMenuItem
 																onClick={() => createSortHandler(header.column.id)("asc")}
 															>
@@ -200,7 +196,6 @@ export const TableHeadRow = ({
 																Sort ascending
 															</DropdownMenuItem>
 
-															{/* Sort descending button */}
 															<DropdownMenuItem
 																onClick={() => createSortHandler(header.column.id)("desc")}
 															>
@@ -208,7 +203,6 @@ export const TableHeadRow = ({
 																Sort descending
 															</DropdownMenuItem>
 
-															{/* Remove sort button */}
 															{header.column.getIsSorted() && (
 																<DropdownMenuItem
 																	onClick={() => createSortHandler(header.column.id)(null)}

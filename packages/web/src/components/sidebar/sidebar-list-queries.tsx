@@ -46,7 +46,6 @@ export const SidebarListQueries = () => {
 
 	return (
 		<div className="flex-1 overflow-y-auto">
-			{/* Favorite button */}
 			<FolderToggleButton
 				name="Favorites"
 				isExpanded={favoritesExpanded}
@@ -54,7 +53,6 @@ export const SidebarListQueries = () => {
 				count={favoriteQueriesCount}
 			/>
 
-			{/* Favorite queries */}
 			{favoritesExpanded &&
 				favoriteQueries.map((query) => (
 					<SidebarListQueryItem
@@ -66,7 +64,6 @@ export const SidebarListQueries = () => {
 
 			<Separator className="bg-sidebar-border" />
 
-			{/* Queries */}
 			<FolderToggleButton
 				name="Queries"
 				isExpanded={queriesExpanded}

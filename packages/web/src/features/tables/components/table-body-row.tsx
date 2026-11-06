@@ -68,7 +68,6 @@ export const TableBodyRow = memo(function TableBodyRow({
 						className="group relative flex border-r border-border h-8"
 						style={{
 							width: vc.index === 0 ? "64px" : cell.column.getSize(),
-							// height: "33px",
 						}}
 					>
 						{flexRender(cell.column.columnDef.cell, cell.getContext())}

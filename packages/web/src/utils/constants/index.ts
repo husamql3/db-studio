@@ -20,6 +20,5 @@ export const CONSTANTS = {
 		FILTERS: "filters",
 	},
 
-	//* other constants
 	RAIL_WIDTH: 48, // px, the left navigation rail
 };

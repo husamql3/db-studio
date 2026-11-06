@@ -117,9 +117,7 @@ export function CommandPalette() {
 			onOpenChange={handleOpenChange}
 			className="sm:max-w-lg"
 		>
-			{/* Custom input area with mode badge */}
 			<div className="flex items-center border-b border-input px-2 gap-2 w-full">
-				{/* Mode indicator badge */}
 				{mode === "tables" && (
 					<button
 						type="button"
@@ -146,7 +144,6 @@ export function CommandPalette() {
 					{mode === "tables" ? "No tables found." : "No results found."}
 				</CommandEmpty>
 
-				{/* Tables Mode - Only show tables */}
 				{mode === "tables" && !isLoadingTablesList && !errorTablesList && tablesList && (
 					<CommandGroup heading="Tables">
 						{tablesList.length === 0 ? (
@@ -184,10 +181,8 @@ export function CommandPalette() {
 					</div>
 				)}
 
-				{/* All Mode - Show everything */}
 				{mode === "all" && (
 					<>
-						{/* Quick Access - Tables shortcut */}
 						{!isKeyValue && (
 							<>
 								<CommandGroup heading="Quick Access">
@@ -213,7 +208,6 @@ export function CommandPalette() {
 							</>
 						)}
 
-						{/* Navigation */}
 						<CommandGroup heading="Go to">
 							{hasSection("table") && (
 								<CommandItem
@@ -313,7 +307,6 @@ export function CommandPalette() {
 
 						<CommandSeparator />
 
-						{/* AI Assistant Section */}
 						<CommandGroup heading="AI Assistant">
 							<CommandItem
 								onSelect={() => handleAction(() => openOverlay("chat.assistant"))}
@@ -374,7 +367,6 @@ export function CommandPalette() {
 
 						<CommandSeparator />
 
-						{/* Database Actions */}
 						<CommandGroup heading="Database Actions">
 							{canCreateTable && (
 								<CommandItem
@@ -581,7 +573,6 @@ export function CommandPalette() {
 
 						<CommandSeparator />
 
-						{/* View & Settings */}
 						<CommandGroup heading="View & Settings">
 							<CommandItem
 								onSelect={() => handleAction(toggleSidebarOpen)}
@@ -637,7 +628,6 @@ export function CommandPalette() {
 							</CommandItem>
 						</CommandGroup>
 
-						{/* Tables Navigation - Show top 5 tables in all mode */}
 						{!isKeyValue &&
 							!isLoadingTablesList &&
 							!errorTablesList &&

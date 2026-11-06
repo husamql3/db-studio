@@ -1,8 +1,5 @@
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 
-/**
- * Browser logger with timestamps and colors
- */
 export const logger = {
 	getTimestamp(): string {
 		return new Date().toLocaleTimeString("en-US", {

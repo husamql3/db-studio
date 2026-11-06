@@ -8,10 +8,10 @@ export const CELL_DEFAULT = Object.freeze({ default: true });
 
 export type CellUpdate = {
 	scope: string;
-	rowData: Record<string, unknown>; // The entire row data
-	columnName: string; // The column identifier
-	newValue: unknown; // The new value
-	originalValue: unknown; // The original value for comparison
+	rowData: Record<string, unknown>;
+	columnName: string;
+	newValue: unknown;
+	originalValue: unknown;
 };
 
 type Change = [key: string, update: CellUpdate | undefined];

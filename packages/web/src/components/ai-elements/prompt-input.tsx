@@ -69,7 +69,6 @@ const useOptionalProviderAttachments = () => useContext(ProviderAttachmentsConte
 const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
 
 const usePromptInputAttachments = () => {
-	// Dual-mode: prefer provider if present, otherwise use local
 	const provider = useOptionalProviderAttachments();
 	const local = use(LocalAttachmentsContext);
 	const context = provider ?? local;
@@ -95,7 +94,6 @@ type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" | "onEr
 	globalDrop?: boolean;
 	// Render a hidden input with given name and keep it in sync for native form posts. Default false.
 	syncHiddenInput?: boolean;
-	// Minimal constraints
 	maxFiles?: number;
 	maxFileSize?: number; // bytes
 	onError?: (err: { code: "max_files" | "max_file_size" | "accept"; message: string }) => void;
@@ -118,15 +116,12 @@ export const PromptInput = ({
 	children,
 	...props
 }: PromptInputProps) => {
-	// Try to use a provider controller if present
 	const controller = useOptionalPromptInputController();
 	const usingProvider = !!controller;
 
-	// Refs
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);
 
-	// ----- Local attachments (only used when no provider)
 	const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
 	const files = usingProvider ? controller.attachments.files : items;
 
@@ -269,7 +264,6 @@ export const PromptInput = ({
 		}
 	}, [files, syncHiddenInput]);
 
-	// Attach drop handlers on nearest form and document (opt-in)
 	useEffect(() => {
 		const form = formRef.current;
 
@@ -398,13 +392,11 @@ export const PromptInput = ({
 			form.reset();
 		}
 
-		// Convert blob URLs to data URLs asynchronously
 		Promise.all(
 			files.map(async ({ id: _id, ...item }) => {
 				if (item.url?.startsWith("blob:")) {
 					const dataUrl = await convertBlobUrlToDataUrl(item.url);
 
-					// If conversion failed, keep the original blob URL
 					return {
 						...item,
 						url: dataUrl ?? item.url,
@@ -418,7 +410,6 @@ export const PromptInput = ({
 				try {
 					const result = onSubmit({ text, files: convertedFiles }, event);
 
-					// Handle both sync and async onSubmit
 					if (result instanceof Promise) {
 						result
 							.then(() => {
@@ -432,7 +423,6 @@ export const PromptInput = ({
 								// Don't clear on error - user may want to retry
 							});
 					} else {
-						// Sync function completed without throwing, clear attachments
 						clear();
 
 						if (usingProvider) {
@@ -448,7 +438,6 @@ export const PromptInput = ({
 			});
 	};
 
-	// Render with or without local provider
 	const inner = (
 		<>
 			<input
@@ -512,7 +501,6 @@ export const PromptInputTextarea = ({
 
 			e.preventDefault();
 
-			// Check if the submit button is disabled before submitting
 			const form = e.currentTarget.form;
 
 			const submitButton = form?.querySelector(
@@ -526,7 +514,6 @@ export const PromptInputTextarea = ({
 			form?.requestSubmit();
 		}
 
-		// Remove last attachment when Backspace is pressed and textarea is empty
 		if (
 			e.key === "Backspace" &&
 			e.currentTarget.value === "" &&

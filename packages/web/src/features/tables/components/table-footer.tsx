@@ -45,7 +45,6 @@ export const TableFooter = ({
 		if (Number.isNaN(num) || num < 1) return;
 		const clamped = Math.min(num, 10000).toString();
 		setLimit(clamped);
-		// Reset cursor when changing page size
 		setCursor(null);
 		setDirection(null);
 	};
@@ -73,7 +72,6 @@ export const TableFooter = ({
 	};
 
 	const handleFirstPage = () => {
-		// Reset to first page by clearing cursor
 		setCursor(null);
 		setDirection(null);
 	};
@@ -128,7 +126,6 @@ export const TableFooter = ({
 				</div>
 			</div>
 
-			{/* Row count information */}
 			<div className="flex items-center justify-center text-xs text-muted-foreground">
 				<p
 					className="whitespace-nowrap"
@@ -143,7 +140,6 @@ export const TableFooter = ({
 				</p>
 			</div>
 
-			{/* Pagination buttons */}
 			<div className="flex items-center gap-0.5">
 				<Button
 					size="sm"

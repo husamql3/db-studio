@@ -158,10 +158,8 @@ export const Route = createRootRoute({
 					position="top-right"
 					theme={resolvedTheme}
 				/>
-				{/* Global overlays */}
 				{isInApp && <TableBuilderOverlay />}
 				<SettingsOverlay />
-				{/* Devtools */}
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",

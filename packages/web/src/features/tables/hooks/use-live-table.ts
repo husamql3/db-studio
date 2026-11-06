@@ -68,14 +68,12 @@ export const useLiveTable = ({
 	const selectedDatabaseRef = useRef(selectedDatabase);
 	selectedDatabaseRef.current = selectedDatabase;
 
-	// Pause Live mode when editing begins
 	useEffect(() => {
 		if (isLive && isEditing) {
 			pauseLive();
 		}
 	}, [isLive, isEditing, pauseLive]);
 
-	// Diff rows and trigger visual highlights when tableDataRows changes during Live mode
 	useEffect(() => {
 		if (isLive && prevRowsRef.current !== null) {
 			const diff = diffTableRows(prevRowsRef.current, tableDataRows, pkCols);
@@ -89,7 +87,6 @@ export const useLiveTable = ({
 		prevRowsRef.current = tableDataRows;
 	}, [tableDataRows, isLive, pkCols, triggerPulse, setHighlights]);
 
-	// Polling execution helper
 	const executePoll = useCallback(async () => {
 		if (typeof document !== "undefined" && document.hidden) {
 			return;
@@ -144,13 +141,11 @@ export const useLiveTable = ({
 		}
 	}, [isEditing, pauseLive, setStatus]);
 
-	// 1-second polling interval lifecycle
 	useEffect(() => {
 		if (!isLive || !canLiveMode) {
 			return;
 		}
 
-		// Execute immediate poll upon enabling Live mode
 		executePoll();
 
 		const intervalId = setInterval(() => {
@@ -162,7 +157,6 @@ export const useLiveTable = ({
 		};
 	}, [isLive, canLiveMode, executePoll]);
 
-	// Stop polling when tab is hidden, poll immediately when tab becomes visible
 	useEffect(() => {
 		if (!isLive || !canLiveMode) return;
 
@@ -179,7 +173,6 @@ export const useLiveTable = ({
 		};
 	}, [isLive, canLiveMode, executePoll]);
 
-	// Cleanup on table, database, or route switch
 	useEffect(() => {
 		return () => {
 			reset();

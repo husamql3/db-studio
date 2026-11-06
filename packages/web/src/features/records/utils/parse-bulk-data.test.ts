@@ -146,7 +146,6 @@ describe("parseBulkData", () => {
 		});
 	});
 
-	// --- Extended characterization cases (Plan 005) ---
 	describe("JSON parsing (extended)", () => {
 		it("should surface the underlying syntax detail in the JSON error message", () => {
 			// Malformed JSON that starts like an array so the JSON branch is taken.
