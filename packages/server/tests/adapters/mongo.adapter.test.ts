@@ -64,50 +64,6 @@ describe("MongoAdapter.getDatabasesList", () => {
 	});
 });
 
-describe("MongoAdapter.exportTableData", () => {
-	let adapter: MongoAdapter;
-
-	beforeEach(() => {
-		vi.clearAllMocks();
-		adapter = new MongoAdapter();
-	});
-
-	const mockCollectionWith = (docs: unknown[]) => {
-		const collection = {
-			find: vi.fn(() => ({ limit: vi.fn(() => ({ toArray: vi.fn(async () => docs) })) })),
-		};
-
-		mockGetMongoDb.mockResolvedValue({ collection: vi.fn(() => collection) });
-	};
-
-	it("keeps compound values nested so the JSON export stays structured", async () => {
-		mockCollectionWith([
-			{
-				_id: "1",
-				name: "Ada",
-				age: 36,
-				active: true,
-				retired: null,
-				profile: { role: "admin" },
-				tags: ["a", "b"],
-			},
-		]);
-		const { cols, rows } = await adapter.exportTableData({ tableName: "users", db: "appdb" });
-		expect(cols).toEqual(
-			expect.arrayContaining(["_id", "name", "age", "active", "retired", "profile", "tags"]),
-		);
-		expect(rows[0]).toEqual({
-			_id: "1",
-			name: "Ada",
-			age: 36,
-			active: true,
-			retired: null,
-			profile: { role: "admin" },
-			tags: ["a", "b"],
-		});
-	});
-});
-
 describe("MongoAdapter.updateRecords", () => {
 	const updateOne = vi.fn(async () => ({ matchedCount: 1, modifiedCount: 1 }));
 

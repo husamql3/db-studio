@@ -1,7 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { fakeServer, type SentRequest } from "../../../../tests/api";
 import { column } from "../../../../tests/column";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { RowDetailsSheet } from "./row-details-sheet";
@@ -48,35 +52,23 @@ const makeRows = () => [
 	},
 ];
 
-const fixtures = vi.hoisted(() => ({
+const fixtures = {
 	cols: [] as ReturnType<typeof makeCols>,
 	rows: [] as ReturnType<typeof makeRows>,
-	updateRecord: vi.fn(async () => "Updated 1 record"),
-	deleteCells: vi.fn(async () => ({ deletedCount: 1 })),
-}));
+	saveStatus: 200,
+};
 
+let sent: SentRequest[] = [];
+let wrapper: ({ children }: { children: ReactNode }) => ReactNode;
+
+/** The record saves the sheet sent, as the server received them. */
+const saves = () => sent.filter((request) => request.method === "PATCH");
+
+// The sheet reads the open table's schema from the router; these tests render it without one.
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
 
-vi.mock("@/hooks/use-table-cols", () => ({
-	useTableCols: () => ({ tableCols: fixtures.cols, isLoadingTableCols: false }),
-}));
-
-vi.mock("@/features/tables/hooks/use-update-record", () => ({
-	useUpdateRecord: () => ({
-		updateRecord: fixtures.updateRecord,
-		isUpdatingRecord: false,
-	}),
-}));
-
-vi.mock("@/features/tables/hooks/use-delete-cell", () => ({
-	useDeleteCells: () => ({
-		deleteCells: fixtures.deleteCells,
-		isDeletingCells: false,
-	}),
-}));
-
-vi.mock("@/features/records/components/record-reference-sheet", () => ({
-	RecordReferenceSheet: () => null,
+vi.mock("@/lib/logger", () => ({
+	logger: { request: vi.fn(), response: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock(import("nuqs"), async (importOriginal) => ({
@@ -92,6 +84,7 @@ const renderSheet = (rowIndex = 0) => {
 			tableName="users"
 			rows={fixtures.rows}
 		/>,
+		{ wrapper },
 	);
 };
 
@@ -99,9 +92,25 @@ describe("RowDetailsSheet", () => {
 	let user: UserEvent;
 
 	beforeEach(() => {
-		vi.clearAllMocks();
 		fixtures.cols = makeCols();
 		fixtures.rows = makeRows();
+		fixtures.saveStatus = 200;
+		useDatabaseStore.setState({ selectedDatabase: "shop", dbType: "pg" });
+		sent = fakeServer({
+			"GET /tables/users/columns": () => ({ data: { data: fixtures.cols } }),
+			"PATCH /records": () =>
+				fixtures.saveStatus === 200
+					? { data: { data: "Updated 1 record" } }
+					: { status: fixtures.saveStatus, data: { error: "boom" } },
+		});
+
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		});
+
+		wrapper = ({ children }) => (
+			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+		);
 		useOverlayStore.setState({ openOverlays: [] });
 		useRowDetailsStore.setState({ tableName: null, rowIndex: null });
 		user = userEvent.setup();
@@ -123,30 +132,31 @@ describe("RowDetailsSheet", () => {
 		fixtures.rows = [{ tenant_id: 7, user_id: 42, name: "Ada" }] as never;
 		renderSheet();
 
-		const nameInput = screen.getByDisplayValue("Ada");
+		const nameInput = await screen.findByDisplayValue("Ada");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Grace");
 		await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-		expect(fixtures.updateRecord).toHaveBeenCalledWith({
-			rowData: fixtures.rows[0],
-			updates: [{ columnName: "name", value: "Grace" }],
+		await waitFor(() => expect(saves()).toHaveLength(1));
+		expect(saves()[0]?.body).toEqual({
+			tableName: "users",
+			updates: [{ rowData: fixtures.rows[0], columnName: "name", value: "Grace" }],
 			primaryKey: "tenant_id",
 			primaryKeys: ["tenant_id", "user_id"],
 		});
 	});
 
 	it("keeps the sheet open with edits intact when saving fails", async () => {
-		fixtures.updateRecord.mockRejectedValueOnce(new Error("boom"));
+		fixtures.saveStatus = 500;
 		renderSheet();
 
-		const nameInput = screen.getByDisplayValue("Ada");
+		const nameInput = await screen.findByDisplayValue("Ada");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Grace");
 		await user.click(screen.getByRole("button", { name: "Save changes" }));
 
 		await waitFor(() => {
-			expect(fixtures.updateRecord).toHaveBeenCalledTimes(1);
+			expect(saves()).toHaveLength(1);
 		});
 		expect(screen.getByText("Row details")).toBeInTheDocument();
 		expect(screen.getByDisplayValue("Grace")).toBeInTheDocument();
@@ -182,22 +192,23 @@ describe("RowDetailsSheet", () => {
 		fixtures.rows = [{ code: "A1", name: "Ada" }];
 		renderSheet();
 
-		const codeInput = screen.getByDisplayValue("A1");
+		const codeInput = await screen.findByDisplayValue("A1");
 		await user.clear(codeInput);
 		await user.type(codeInput, "A2");
 		await user.click(screen.getByRole("button", { name: "Save changes" }));
 
 		expect(await screen.findByText("Change the primary key?")).toBeInTheDocument();
-		expect(fixtures.updateRecord).not.toHaveBeenCalled();
+		expect(saves()).toEqual([]);
 
 		const dialog = screen.getByText("Change the primary key?").closest("[role='alertdialog']");
 		await user.click(
 			within(dialog as HTMLElement).getByRole("button", { name: "Change primary key" }),
 		);
 
-		expect(fixtures.updateRecord).toHaveBeenCalledWith({
-			rowData: fixtures.rows[0],
-			updates: [{ columnName: "code", value: "A2" }],
+		await waitFor(() => expect(saves()).toHaveLength(1));
+		expect(saves()[0]?.body).toEqual({
+			tableName: "users",
+			updates: [{ rowData: fixtures.rows[0], columnName: "code", value: "A2" }],
 			primaryKey: "code",
 			primaryKeys: ["code"],
 		});
@@ -206,7 +217,7 @@ describe("RowDetailsSheet", () => {
 	it("confirms the discard before showing the delete confirmation", async () => {
 		renderSheet();
 
-		const nameInput = screen.getByDisplayValue("Ada");
+		const nameInput = await screen.findByDisplayValue("Ada");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Grace");
 
@@ -215,7 +226,7 @@ describe("RowDetailsSheet", () => {
 		// The dirty draft is confirmed first; deleting is the queued action.
 		expect(await screen.findByText("Discard unsaved changes?")).toBeInTheDocument();
 		expect(screen.queryByText("Delete record")).not.toBeInTheDocument();
-		expect(fixtures.deleteCells).not.toHaveBeenCalled();
+		expect(sent.filter((request) => request.method === "DELETE")).toEqual([]);
 
 		await user.click(screen.getByRole("button", { name: "Discard changes" }));
 
@@ -232,11 +243,12 @@ describe("RowDetailsSheet", () => {
 				tableName="users"
 				rows={fixtures.rows}
 			/>,
+			{ wrapper },
 		);
 
 		expect(await screen.findByDisplayValue("Cy")).toBeInTheDocument();
 
-		const nameInput = screen.getByDisplayValue("Cy");
+		const nameInput = await screen.findByDisplayValue("Cy");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Cyll");
 
@@ -260,7 +272,7 @@ describe("RowDetailsSheet", () => {
 		});
 	});
 
-	it("resets all fields when untouched draft receives refreshed row data", () => {
+	it("resets all fields when untouched draft receives refreshed row data", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		useRowDetailsStore.getState().setRowDetails("users", 0);
 
@@ -269,9 +281,10 @@ describe("RowDetailsSheet", () => {
 				tableName="users"
 				rows={fixtures.rows}
 			/>,
+			{ wrapper },
 		);
 
-		expect(screen.getByDisplayValue("Ada")).toBeInTheDocument();
+		expect(await screen.findByDisplayValue("Ada")).toBeInTheDocument();
 
 		const updatedRows = makeRows();
 		updatedRows[0] = { ...updatedRows[0], name: "Ada Lovelace" };
@@ -294,9 +307,10 @@ describe("RowDetailsSheet", () => {
 				tableName="users"
 				rows={fixtures.rows}
 			/>,
+			{ wrapper },
 		);
 
-		const nameInput = screen.getByDisplayValue("Ada");
+		const nameInput = await screen.findByDisplayValue("Ada");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Grace");
 
@@ -322,9 +336,10 @@ describe("RowDetailsSheet", () => {
 				tableName="users"
 				rows={fixtures.rows}
 			/>,
+			{ wrapper },
 		);
 
-		const nameInput = screen.getByDisplayValue("Ada");
+		const nameInput = await screen.findByDisplayValue("Ada");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Grace");
 

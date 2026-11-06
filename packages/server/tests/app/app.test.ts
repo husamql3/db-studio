@@ -32,9 +32,10 @@ describe("createServer", () => {
 				}),
 			);
 
-			expect(res.status).not.toBe(400);
-			const body = await res.text();
-			expect(body).not.toContain("Invalid database type");
+			// Under test the web build is not mounted, so a path outside every API route is a 404,
+			// where one taken for a database type would answer 400.
+			expect(res.status).toBe(404);
+			expect(await res.json()).toMatchObject({ error: "Not found" });
 		});
 	});
 

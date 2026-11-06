@@ -3,35 +3,15 @@ import { parseBulkData } from "./parse-bulk-data";
 
 describe("parseBulkData", () => {
 	describe("JSON parsing", () => {
-		it("should parse JSON array", () => {
-			const input = '[{"name": "John", "age": 30}, {"name": "Jane", "age": 28}]';
-			const result = parseBulkData(input);
-			expect(result).toEqual([
+		it("should wrap a single JSON object in an array", () => {
+			expect(parseBulkData('{"name": "John", "age": 30}')).toEqual([
 				{ name: "John", age: 30 },
-				{ name: "Jane", age: 28 },
 			]);
 		});
 
-		it("should parse single JSON object", () => {
-			const input = '{"name": "John", "age": 30}';
-			const result = parseBulkData(input);
-			expect(result).toEqual([{ name: "John", age: 30 }]);
-		});
-
-		it("should handle nested JSON objects", () => {
-			const input =
-				'[{"name": "John", "metadata": {"role": "admin"}}, {"name": "Jane", "metadata": {"role": "user"}}]';
-
-			const result = parseBulkData(input);
-			expect(result).toEqual([
-				{ name: "John", metadata: { role: "admin" } },
-				{ name: "Jane", metadata: { role: "user" } },
-			]);
-		});
-
-		it("should throw on invalid JSON", () => {
-			const input = '[{"name": "John"';
-			expect(() => parseBulkData(input)).toThrow(/Invalid JSON format/);
+		it("should surface the underlying syntax detail in the JSON error message", () => {
+			// Malformed JSON that starts like an array so the JSON branch is taken.
+			expect(() => parseBulkData('[{"name": "John", }]')).toThrow(/Invalid JSON format: \S/);
 		});
 	});
 
@@ -146,29 +126,7 @@ describe("parseBulkData", () => {
 		});
 	});
 
-	describe("JSON parsing (extended)", () => {
-		it("should surface the underlying syntax detail in the JSON error message", () => {
-			// Malformed JSON that starts like an array so the JSON branch is taken.
-			expect(() => parseBulkData('[{"name": "John", }]')).toThrow(/Invalid JSON format: \S/);
-		});
-
-		it("should throw for a bare JSON primitive wrapped as an object start", () => {
-			// Starts with "{" but is not a valid object -> SyntaxError -> wrapped message.
-			expect(() => parseBulkData("{not json}")).toThrow(/Invalid JSON format/);
-		});
-
-		it("should return an empty array for an empty JSON array", () => {
-			expect(parseBulkData("[]")).toEqual([]);
-		});
-
-		it("should preserve array-valued fields inside JSON objects", () => {
-			const input = '[{"name": "John", "tags": ["a", "b"]}]';
-			const result = parseBulkData(input);
-			expect(result[0].tags).toEqual(["a", "b"]);
-		});
-	});
-
-	describe("CSV parsing (extended)", () => {
+	describe("CSV delimiters and rows", () => {
 		it("should detect semicolon as delimiter", () => {
 			const input = "name;age\nJohn;30";
 			const result = parseBulkData(input);

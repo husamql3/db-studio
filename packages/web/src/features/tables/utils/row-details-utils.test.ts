@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { column } from "../../../../tests/column";
-import { buildRowUpdates, isGeneratedColumn, toFormValues } from "./row-details-utils";
+import { isGeneratedColumn, toFormValues } from "./row-details-utils";
 
 const cols = [
 	column("id", {
@@ -40,14 +40,6 @@ describe("row-details-utils", () => {
 			expect(
 				toFormValues({ id: 1, code: "A", active: true, meta: { a: 1 }, missing: null }, cols),
 			).toEqual({ id: "1", code: "A" });
-		});
-	});
-
-	describe("buildRowUpdates", () => {
-		it("maps dirty fields to update payloads", () => {
-			expect(buildRowUpdates({ code: true, id: false }, { id: "1", code: "B" })).toEqual([
-				{ columnName: "code", value: "B" },
-			]);
 		});
 	});
 });

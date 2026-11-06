@@ -1,47 +1,27 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useDatabaseStore } from "@/stores/database.store";
+import { fakeServer, type SentRequest } from "../../../../tests/api";
 import { column } from "../../../../tests/column";
 import type { CellUpdate } from "../stores/update-cell.store";
 import { useUpdateCell } from "./use-update-cell";
 
-const fixtures = vi.hoisted(() => ({
-	updateRecords: vi.fn(),
-	tableCols: [] as ColumnInfoSchemaType[],
-}));
-
+// The hook reads the open table from the router; these tests render it without one.
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
-
-vi.mock("@/shared/api", () => ({
-	updateRecords: (...args: unknown[]) => fixtures.updateRecords(...args),
-	apiErrorMessage: (_error: unknown, fallback: string) => fallback,
-}));
 
 vi.mock("@/routes/_pathlessLayout/table/$table", () => ({
 	Route: { useParams: () => ({ table: "members" }) },
 }));
 
-vi.mock("@/hooks/use-table-cols", () => ({
-	useTableCols: () => ({ tableCols: fixtures.tableCols }),
+vi.mock("@/lib/logger", () => ({
+	logger: { request: vi.fn(), response: vi.fn(), error: vi.fn() },
 }));
 
 const col = (columnName: string, isPrimaryKey = false) =>
 	column(columnName, { isPrimaryKey, isNullable: !isPrimaryKey });
-
-const wrapper = ({ children }: { children: ReactNode }) => (
-	<QueryClientProvider
-		client={
-			new QueryClient({
-				defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-			})
-		}
-	>
-		{children}
-	</QueryClientProvider>
-);
 
 const cellUpdate: CellUpdate = {
 	scope: "members:0",
@@ -51,55 +31,82 @@ const cellUpdate: CellUpdate = {
 	originalValue: "Ada",
 };
 
+/** Renders the hook against a server holding `cols`; resolves once the columns have loaded. */
+const renderUpdateCell = async (
+	cols: ColumnInfoSchemaType[],
+	save: { status?: number; data: unknown } = { data: { data: "ok" } },
+) => {
+	const sent = fakeServer({
+		"GET /tables/members/columns": { data: { data: cols } },
+		"PATCH /records": save,
+	});
+
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+	});
+
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+	);
+
+	const { result } = renderHook(() => useUpdateCell(), { wrapper });
+	await waitFor(() => expect(sent.length > 0 && queryClient.isFetching() === 0).toBe(true));
+
+	return { result, sent };
+};
+
+const saved = (sent: SentRequest[]) => sent.find((request) => request.method === "PATCH");
+
 describe("useUpdateCell", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
 		useDatabaseStore.setState({ selectedDatabase: "shop", dbType: "pg" });
-		fixtures.updateRecords.mockResolvedValue({ data: { data: "Updated 1 record" } });
 	});
 
 	it("addresses the record by every primary key column", async () => {
 		// Matching on tenant_id alone would rewrite every member of the tenant.
-		fixtures.tableCols = [col("tenant_id", true), col("user_id", true), col("name")];
-		const { result } = renderHook(() => useUpdateCell(), { wrapper });
+		const { result, sent } = await renderUpdateCell([
+			col("tenant_id", true),
+			col("user_id", true),
+			col("name"),
+		]);
 
 		await result.current.updateCell([cellUpdate]);
 
-		expect(fixtures.updateRecords).toHaveBeenCalledWith({
-			tableName: "members",
-			updates: [{ rowData: cellUpdate.rowData, columnName: "name", value: "Grace" }],
-			primaryKey: "tenant_id",
-			primaryKeys: ["tenant_id", "user_id"],
-			db: "shop",
+		expect(saved(sent)).toEqual({
+			method: "PATCH",
+			url: "/records",
+			params: { db: "shop" },
+			body: {
+				tableName: "members",
+				updates: [{ rowData: cellUpdate.rowData, columnName: "name", value: "Grace" }],
+				primaryKey: "tenant_id",
+				primaryKeys: ["tenant_id", "user_id"],
+			},
 		});
 	});
 
 	it("falls back to an id column when the table has no primary key", async () => {
-		fixtures.tableCols = [col("id"), col("name")];
-		const { result } = renderHook(() => useUpdateCell(), { wrapper });
+		const { result, sent } = await renderUpdateCell([col("id"), col("name")]);
 
 		await result.current.updateCell([{ ...cellUpdate, rowData: { id: 1, name: "Ada" } }]);
 
-		expect(fixtures.updateRecords).toHaveBeenCalledWith(
-			expect.objectContaining({ primaryKey: "id", primaryKeys: ["id"] }),
-		);
+		expect(saved(sent)?.body).toMatchObject({ primaryKey: "id", primaryKeys: ["id"] });
 	});
 
 	it("sends no key hint when the schema offers nothing to address the record with", async () => {
-		fixtures.tableCols = [col("name")];
-		const { result } = renderHook(() => useUpdateCell(), { wrapper });
+		const { result, sent } = await renderUpdateCell([col("name")]);
 
 		await result.current.updateCell([cellUpdate]);
 
-		const payload = fixtures.updateRecords.mock.calls[0]?.[0] as Record<string, unknown>;
-		expect(payload).not.toHaveProperty("primaryKey");
-		expect(payload).not.toHaveProperty("primaryKeys");
+		expect(saved(sent)?.body).not.toHaveProperty("primaryKey");
+		expect(saved(sent)?.body).not.toHaveProperty("primaryKeys");
 	});
 
 	it("rejects when the save fails, so the caller keeps the selection", async () => {
-		fixtures.tableCols = [col("id", true), col("name")];
-		fixtures.updateRecords.mockRejectedValue(new Error("connection lost"));
-		const { result } = renderHook(() => useUpdateCell(), { wrapper });
+		const { result } = await renderUpdateCell([col("id", true), col("name")], {
+			status: 503,
+			data: { error: "connection lost" },
+		});
 
 		await expect(
 			result.current.updateCell([{ ...cellUpdate, rowData: { id: 1, name: "Ada" } }]),

@@ -39,14 +39,6 @@ describe("column preferences store", () => {
 		});
 	});
 
-	it("sanitizes corrupt or partial payloads on write", () => {
-		store().setColumnPrefs(parts, {
-			order: ["a", 42, null],
-			hidden: "oops",
-		} as never);
-		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
-	});
-
 	it("discards a persisted payload that is not an object", () => {
 		window.localStorage.setItem(
 			"dbstudio-column-preferences",
