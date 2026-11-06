@@ -220,20 +220,36 @@ export abstract class BaseAdapter implements IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
-	// Defaults for the operations an engine does not implement.
+	abstract getDatabasesList(): Promise<DatabaseInfoSchemaType[]>;
+	abstract getCurrentDatabase(): Promise<DatabaseSchemaType>;
+	abstract getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType>;
+	abstract getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]>;
 
-	getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		return notImplemented("getDatabasesList");
-	}
-	getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		return notImplemented("getCurrentDatabase");
-	}
-	getDatabaseConnectionInfo(_server: ServerAddress): Promise<ConnectionInfoSchemaType> {
-		return notImplemented("getDatabaseConnectionInfo");
-	}
-	getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		return notImplemented("getTablesList");
-	}
+	abstract getTableSchema(params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<string>;
+
+	abstract getTableColumns(params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<ColumnInfoSchemaType[]>;
+
+	abstract addRecord(params: {
+		db: DatabaseSchemaType["db"];
+		params: AddRecordSchemaType;
+	}): Promise<{ insertedCount: number }>;
+
+	abstract bulkInsertRecords(params: BulkInsertRecordsParams): Promise<BulkInsertResult>;
+
+	abstract executeQuery(params: {
+		query: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<ExecuteQueryResult>;
+
+	// Unreachable defaults: the routes refuse these operations, by the engine's DATABASE_ENGINES
+	// traits, for the engines that do not implement them.
+
 	createTable(_params: {
 		tableData: CreateTableSchemaType;
 		db: DatabaseSchemaType["db"];
@@ -245,18 +261,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
 		return notImplemented("renameTable");
-	}
-	getTableSchema(_params: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<string> {
-		return notImplemented("getTableSchema");
-	}
-	getTableColumns(_params: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ColumnInfoSchemaType[]> {
-		return notImplemented("getTableColumns");
 	}
 	addColumn(_params: AddColumnParamsSchemaType): Promise<void> {
 		return notImplemented("addColumn");
@@ -285,12 +289,6 @@ export abstract class BaseAdapter implements IDbAdapter {
 	getServerLogs(_params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		return notImplemented("getServerLogs");
 	}
-	addRecord(_params: {
-		db: DatabaseSchemaType["db"];
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		return notImplemented("addRecord");
-	}
 	updateRecords(_params: {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
@@ -302,14 +300,5 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	forceDeleteRecords(_params: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		return notImplemented("forceDeleteRecords");
-	}
-	bulkInsertRecords(_params: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		return notImplemented("bulkInsertRecords");
-	}
-	executeQuery(_params: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		return notImplemented("executeQuery");
 	}
 }

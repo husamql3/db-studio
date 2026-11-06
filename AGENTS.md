@@ -386,7 +386,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
-- `src/adapters/base.adapter.ts` — `BaseAdapter`: `classifyError()`, key helpers, and 501 defaults for the methods an engine does not implement
+- `src/adapters/base.adapter.ts` — `BaseAdapter`: `classifyError()`, key helpers, the methods every engine implements as `abstract`, and 501 defaults for the ones a trait can switch off
 - `src/adapters/cursor.ts` — `encodeCursor()` / `decodeCursor(cursor, schema)`: the validated base64url JSON cursors of the Mongo and Redis adapters
 - `src/adapters/sql-filters.ts` — the grid's filter conditions for every SQL engine; each builder supplies a `FilterDialect` (quote, LIKE operand, ILIKE strategy) and values bind through a `createBinds()` placeholder closure
 - `src/adapters/sql-pagination.ts` — ORDER BY terms (requested sorts, then key tie-breakers in the leading sort's direction) and cursors. PostgreSQL, MySQL, SQLite and DuckDB page by keyset: NULLs last in both directions (MySQL orders by `col IS NULL` first, having no `NULLS LAST`) and a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …`, never a row-value tuple comparison, which cannot mix directions or match NULL. SQL Server, Oracle and ClickHouse page by OFFSET
