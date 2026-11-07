@@ -12,7 +12,6 @@ import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
 import { TableCell } from "../components/table-cell";
 import { TableSelector } from "../components/table-selector";
-import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { toColumnDef } from "../utils/column-def";
 import { getRecordKey } from "../utils/table-diff";
@@ -24,14 +23,10 @@ export const useTableModel = ({
 	tableName,
 	tableCols,
 	tableDataRows,
-	isRowHighlighted,
-	isCellHighlighted,
 }: {
 	tableName: string;
 	tableCols?: ColumnInfoSchemaType[];
 	tableDataRows: TableRecord[];
-	isRowHighlighted?: (rowId: string) => boolean;
-	isCellHighlighted?: (rowId: string, columnId: string) => boolean;
 }) => {
 	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
@@ -241,13 +236,6 @@ export const useTableModel = ({
 			onCellNavigate: handleCellNavigate,
 			onRowDetailsOpen: handleRowDetailsOpen,
 			getIsCellSelected,
-			isRowHighlighted:
-				isRowHighlighted ??
-				((rowId: string) => useLiveModeStore.getState().isRowHighlighted(rowId)),
-			isCellHighlighted:
-				isCellHighlighted ??
-				((rowId: string, columnId: string) =>
-					useLiveModeStore.getState().isCellHighlighted(rowId, columnId)),
 		}),
 		[
 			tableName,
@@ -265,8 +253,6 @@ export const useTableModel = ({
 			handleCellNavigate,
 			handleRowDetailsOpen,
 			getIsCellSelected,
-			isRowHighlighted,
-			isCellHighlighted,
 		],
 	);
 

@@ -28,19 +28,8 @@ export const useLiveTable = ({
 }: UseLiveTableProps) => {
 	const canLiveMode = useDatabaseEngine()?.liveMode ?? false;
 
-	const {
-		isLive,
-		status,
-		isPulsing,
-		setLive,
-		pauseLive,
-		setStatus,
-		triggerPulse,
-		setHighlights,
-		isRowHighlighted,
-		isCellHighlighted,
-		reset,
-	} = useLiveModeStore();
+	const { isLive, pauseLive, setStatus, triggerPulse, setHighlights, reset } =
+		useLiveModeStore();
 
 	const { selectedDatabase } = useDatabaseStore();
 	const { updates } = useUpdateCellStore();
@@ -178,20 +167,4 @@ export const useLiveTable = ({
 			reset();
 		};
 	}, [tableName, selectedDatabase, reset]);
-
-	const toggleLive = useCallback(() => {
-		if (!canLiveMode) return;
-
-		setLive(!isLive);
-	}, [canLiveMode, isLive, setLive]);
-
-	return {
-		canLiveMode,
-		isLive,
-		status,
-		isPulsing,
-		isRowHighlighted,
-		isCellHighlighted,
-		toggleLive,
-	};
 };

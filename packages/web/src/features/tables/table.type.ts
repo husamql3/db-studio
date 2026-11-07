@@ -53,7 +53,6 @@ declare module "@tanstack/react-table" {
 		focusedCell?: CellPosition | null;
 		editingCell?: CellPosition | null;
 		selection?: CellRange | null;
-		isScrolling?: boolean;
 
 		onCellEditingStart?: (rowIndex: number, columnId: string) => void;
 		/** Moves focus from the cell; false when it is already at the grid's edge. */
@@ -68,14 +67,8 @@ declare module "@tanstack/react-table" {
 		getIsCellSelected?: (rowIndex: number, columnId: string) => boolean;
 
 		onCellDoubleClick?: (rowIndex: number, columnId: string) => void;
-		onCellContextMenu?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
 		onCellMouseDown?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
 		onCellMouseEnter?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
-		onCellEditingStop?: (opts?: {
-			direction?: NavigationDirection;
-			moveToNextRow?: boolean;
-		}) => void;
-		isRowHighlighted?: (rowId: string) => boolean;
-		isCellHighlighted?: (rowId: string, columnId: string) => boolean;
+		onCellEditingStop?: (opts?: { direction?: NavigationDirection }) => void;
 	}
 }

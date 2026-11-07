@@ -25,7 +25,7 @@ describe("useLiveTable", () => {
 	it("polls every 1 second when Live mode is enabled", async () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
 
-		const { result } = renderHook(() =>
+		renderHook(() =>
 			useLiveTable({
 				tableName: "users",
 				tableDataRows: [],
@@ -34,10 +34,9 @@ describe("useLiveTable", () => {
 		);
 
 		await act(async () => {
-			result.current.toggleLive();
+			useLiveModeStore.getState().setLive(true);
 		});
 
-		expect(result.current.isLive).toBe(true);
 		expect(refetch).toHaveBeenCalledTimes(1); // Immediate on toggle
 
 		await act(async () => {
@@ -49,29 +48,6 @@ describe("useLiveTable", () => {
 			vi.advanceTimersByTime(1000);
 		});
 		expect(refetch).toHaveBeenCalledTimes(3);
-	});
-
-	it("does not enable or poll if database does not support liveMode", () => {
-		useDatabaseStore.setState({ dbType: "mongodb" });
-		const refetch = vi.fn().mockResolvedValue({ isError: false });
-
-		const { result } = renderHook(() =>
-			useLiveTable({
-				tableName: "users",
-				tableDataRows: [],
-				refetchTableData: refetch,
-			}),
-		);
-
-		expect(result.current.canLiveMode).toBe(false);
-
-		act(() => {
-			result.current.toggleLive();
-		});
-
-		expect(result.current.isLive).toBe(false);
-		vi.advanceTimersByTime(2000);
-		expect(refetch).not.toHaveBeenCalled();
 	});
 
 	it("pauses Live mode when user begins cell editing", () => {
@@ -182,11 +158,11 @@ describe("useLiveTable", () => {
 				}),
 		);
 
-		const { result } = renderHook(() =>
+		renderHook(() =>
 			useLiveTable({ tableName: "users", tableDataRows: [], refetchTableData: refetch }),
 		);
 
-		act(() => result.current.toggleLive());
+		act(() => useLiveModeStore.getState().setLive(true));
 		expect(refetch).toHaveBeenCalledTimes(1);
 		await act(async () => vi.advanceTimersByTime(3_000));
 		expect(refetch).toHaveBeenCalledTimes(1);
@@ -219,8 +195,8 @@ describe("useLiveTable", () => {
 		rerender();
 
 		expect(useLiveModeStore.getState().isPulsing).toBe(true);
-		expect(useLiveModeStore.getState().isRowHighlighted("2")).toBe(true);
-		expect(useLiveModeStore.getState().isCellHighlighted("1", "name")).toBe(true);
+		expect(useLiveModeStore.getState().highlightedRowIds.has("2")).toBe(true);
+		expect(useLiveModeStore.getState().highlightedCellKeys.has("1:name")).toBe(true);
 	});
 
 	it("cleans up Live state on unmount", () => {
@@ -246,7 +222,7 @@ describe("useLiveTable", () => {
 	it("stops polling when tab is hidden and polls immediately when tab becomes visible", async () => {
 		const refetch = vi.fn().mockResolvedValue({ isError: false });
 
-		const { result } = renderHook(() =>
+		renderHook(() =>
 			useLiveTable({
 				tableName: "users",
 				tableDataRows: [],
@@ -255,7 +231,7 @@ describe("useLiveTable", () => {
 		);
 
 		await act(async () => {
-			result.current.toggleLive();
+			useLiveModeStore.getState().setLive(true);
 		});
 		expect(refetch).toHaveBeenCalledTimes(1);
 

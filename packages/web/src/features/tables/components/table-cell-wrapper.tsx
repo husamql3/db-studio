@@ -69,8 +69,8 @@ export function TableCellWrapper<TData>({
 	);
 
 	useEffect(() => {
-		if (isFocused && !isEditing && !meta?.isScrolling) elementRef.current?.focus();
-	}, [isFocused, isEditing, meta?.isScrolling]);
+		if (isFocused && !isEditing) elementRef.current?.focus();
+	}, [isFocused, isEditing]);
 
 	const rowData = cell.row.original as Record<string, unknown>;
 	const hasUpdate = !!getUpdate(rowData, columnId, table.options.meta?.editScope);
@@ -92,9 +92,8 @@ export function TableCellWrapper<TData>({
 		(event: MouseEvent) => {
 			// The editor keeps the browser's menu for cut, copy and paste.
 			if (isEditing) event.stopPropagation();
-			else meta?.onCellContextMenu?.(rowIndex, columnId, event);
 		},
-		[meta, rowIndex, columnId, isEditing],
+		[isEditing],
 	);
 
 	const onMouseDown = useCallback(

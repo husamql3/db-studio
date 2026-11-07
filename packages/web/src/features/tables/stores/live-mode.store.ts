@@ -17,8 +17,6 @@ interface LiveModeStore {
 	triggerPulse: () => void;
 	setHighlights: (rowIds: string[], cellKeys: string[], durationMs?: number) => void;
 	clearHighlights: () => void;
-	isRowHighlighted: (rowId: string) => boolean;
-	isCellHighlighted: (rowId: string, columnId: string) => boolean;
 	reset: () => void;
 }
 
@@ -110,14 +108,6 @@ export const useLiveModeStore = create<LiveModeStore>()((set, get) => ({
 			highlightedRowIds: new Set(),
 			highlightedCellKeys: new Set(),
 		});
-	},
-
-	isRowHighlighted: (rowId) => {
-		return get().highlightedRowIds.has(rowId);
-	},
-
-	isCellHighlighted: (rowId, columnId) => {
-		return get().highlightedCellKeys.has(`${rowId}:${columnId}`);
 	},
 
 	reset: () => {
