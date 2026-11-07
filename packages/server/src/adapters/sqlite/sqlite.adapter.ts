@@ -507,7 +507,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	override async addRecord({ params: { tableName, data } }: { params: AddRecordSchemaType }) {
 		const client = await connector("sqlite").client();
 		const insert = await this.inserter(client, "", tableName, undefined);
-		const { sql, values } = insert(data);
+		const { sql, values } = await insert(data);
 		const insertedCount = await this.execute(client, sql, values);
 
 		if (insertedCount === 0)
@@ -634,14 +634,15 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		const insert = await this.inserter(client, "", tableName, undefined);
 
 		try {
-			await client.batch(
-				records.map((record) => {
-					const { sql, values } = insert(record);
+			const statements = await Promise.all(
+				records.map(async (record) => {
+					const { sql, values } = await insert(record);
 
 					return stmt(sql, values);
 				}),
-				"write",
 			);
+
+			await client.batch(statements, "write");
 		} catch (error) {
 			// libSQL names the failing statement of a batch; D1 does not.
 			if (error instanceof Error && "statementIndex" in error) {

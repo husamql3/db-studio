@@ -1080,12 +1080,15 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		const { bindValue } = await this.writeTarget(conn, db, tableName, schemaName);
 		const skipped = await this.skippedInsertColumns(conn, tableName);
 		const table = this.tableRef(tableName, schemaName);
-		const defaults = `INSERT INTO ${table} ${await this.insertDefaultsSql(conn, tableName)}`;
 
-		return (record: Record<string, unknown>) => {
+		return async (record: Record<string, unknown>) => {
 			const columns = Object.keys(record).filter((column) => !skipped.includes(column));
 
-			if (!columns.length) return { sql: defaults, values: [] };
+			if (!columns.length)
+				return {
+					sql: `INSERT INTO ${table} ${await this.insertDefaultsSql(conn, tableName)}`,
+					values: [],
+				};
 
 			const { values, bind } = createBinds(this.placeholder);
 			const row = columns.map((column) => bindValue(column, record[column] ?? null, bind));
@@ -1109,7 +1112,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	}): Promise<{ insertedCount: number }> {
 		const insertedCount = await this.transaction(db, async (conn) => {
 			const insert = await this.inserter(conn, db, tableName, schemaName);
-			const { sql, values } = insert(data);
+			const { sql, values } = await insert(data);
 
 			return this.execute(conn, sql, values);
 		});
@@ -1141,7 +1144,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 			const insert = await this.inserter(conn, db, tableName, schemaName);
 
 			for (const [i, record] of records.entries()) {
-				const { sql, values } = insert(record);
+				const { sql, values } = await insert(record);
 
 				try {
 					await this.execute(conn, sql, values);

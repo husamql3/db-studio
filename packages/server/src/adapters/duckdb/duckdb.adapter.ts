@@ -490,7 +490,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 				const statements = new Map<string, DuckDBPreparedStatement>();
 
 				for (const [i, record] of records.entries()) {
-					const { sql, values } = insert(record);
+					const { sql, values } = await insert(record);
 					const statement = statements.get(sql) ?? (await conn.prepare(sql));
 
 					statements.set(sql, statement);
