@@ -15,7 +15,7 @@ import {
 import { Textarea } from "@db-studio/ui/textarea";
 import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
 	type ChangeEvent,
 	type ComponentProps,
@@ -33,6 +33,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { formatCellValue } from "@/utils/format-cell-value";
 import {
@@ -623,6 +624,8 @@ export const TableEnumCell = (props: CellVariantProps<TableRecord>) => (
 	/>
 );
 
+const DATE_ONLY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
+
 export const TableDateCell = memo(
 	({
 		cell,
@@ -646,9 +649,20 @@ export const TableDateCell = memo(
 			? (pendingUpdate.newValue as string | null)
 			: initialValue;
 
+		// A DATE column holds a calendar day, written as the picked local day: the ISO instant
+		// of local midnight is the previous day east of UTC. MongoDB labels its BSON dates
+		// "date", and those are instants.
+		const isDocumentModel = useDatabaseEngine()?.dataModel === "document";
+		const dateOnly = cell.column.columnDef.meta?.dataTypeLabel === "date" && !isDocumentModel;
+
 		const onDateChange = useCallback(
 			(date: Date | null | undefined) => {
-				const dateString = date ? date.toISOString() : null;
+				const dateString = date
+					? dateOnly
+						? format(date, "yyyy-MM-dd")
+						: date.toISOString()
+					: null;
+
 				setUpdate(
 					rowData,
 					columnName,
@@ -659,7 +673,7 @@ export const TableDateCell = memo(
 
 				meta?.onCellEditingStop?.();
 			},
-			[columnName, initialValue, rowData, setUpdate, meta],
+			[columnName, initialValue, rowData, setUpdate, meta, dateOnly],
 		);
 
 		const onCancel = useCallback(() => {
@@ -690,7 +704,12 @@ export const TableDateCell = memo(
 			[meta],
 		);
 
-		const date = currentValue ? new Date(currentValue) : undefined;
+		// A bare day parses as UTC midnight with `new Date`, the previous day west of UTC.
+		const date = currentValue
+			? DATE_ONLY_TEXT.test(currentValue)
+				? parseISO(currentValue)
+				: new Date(currentValue)
+			: undefined;
 
 		return (
 			<TableCellWrapper
