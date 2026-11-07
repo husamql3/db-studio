@@ -700,7 +700,7 @@ export const TableDateCell = memo(
 			clearUpdate(rowData, columnName, table.options.meta?.editScope);
 
 			meta?.onCellEditingStop?.();
-		}, [rowData, columnName, clearUpdate, meta, currentValue, initialValue]);
+		}, [rowData, columnName, clearUpdate, meta]);
 
 		const onWrapperKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLDivElement>) => {

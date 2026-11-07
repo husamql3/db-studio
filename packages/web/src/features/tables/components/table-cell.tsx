@@ -83,18 +83,6 @@ export const TableCell = ({
 	}
 
 	switch (cellVariant) {
-		case "text":
-			return (
-				<TableTextCell
-					cell={cell}
-					table={table}
-					rowIndex={rowIndex}
-					columnId={columnId}
-					isEditing={isEditing}
-					isFocused={isFocused}
-					isSelected={isSelected}
-				/>
-			);
 		case "boolean":
 			return (
 				<TableBooleanCell
@@ -146,18 +134,6 @@ export const TableCell = ({
 		case "json":
 			return (
 				<TableJsonCell
-					cell={cell}
-					table={table}
-					rowIndex={rowIndex}
-					columnId={columnId}
-					isEditing={isEditing}
-					isFocused={isFocused}
-					isSelected={isSelected}
-				/>
-			);
-		case "array":
-			return (
-				<TableTextCell
 					cell={cell}
 					table={table}
 					rowIndex={rowIndex}
