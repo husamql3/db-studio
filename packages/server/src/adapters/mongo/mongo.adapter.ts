@@ -204,6 +204,9 @@ const mapBsonType = (rawType: string): string => {
 			return "bool";
 		case "objectid":
 			return "objectId";
+		// The label getTableColumns gives a Date field, sent back by the edit-column form.
+		case "timestamptz":
+			return "date";
 		case "binary":
 			return "binData";
 		default:
@@ -772,7 +775,8 @@ export class MongoAdapter extends BaseAdapter {
 			return {
 				columnName,
 				dataType: dt,
-				dataTypeLabel: dt === "number" ? "numeric" : dt,
+				// A BSON Date is a UTC instant, labeled like PostgreSQL's timestamptz.
+				dataTypeLabel: dt === "number" ? "numeric" : dt === "date" ? "timestamptz" : dt,
 				isNullable,
 				columnDefault: null,
 				isPrimaryKey: columnName === "_id",

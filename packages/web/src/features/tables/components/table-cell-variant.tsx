@@ -33,7 +33,6 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
-import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { formatCellValue } from "@/utils/format-cell-value";
 import {
@@ -678,10 +677,8 @@ export const TableDateCell = memo(
 			: initialValue;
 
 		// A DATE column holds a calendar day, written as the picked local day: the ISO instant
-		// of local midnight is the previous day east of UTC. MongoDB labels its BSON dates
-		// "date", and those are instants.
-		const isDocumentModel = useDatabaseEngine()?.dataModel === "document";
-		const dateOnly = cell.column.columnDef.meta?.dataTypeLabel === "date" && !isDocumentModel;
+		// of local midnight is the previous day east of UTC.
+		const dateOnly = cell.column.columnDef.meta?.dataTypeLabel === "date";
 
 		const onDateChange = useCallback(
 			(date: Date | null | undefined) => {
