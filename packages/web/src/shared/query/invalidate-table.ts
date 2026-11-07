@@ -10,6 +10,15 @@ export const invalidateTable = (queryClient: QueryClient, tableName: string) =>
 		queryClient.invalidateQueries({ queryKey: tableKeys.lists() }),
 	]);
 
+/** Refreshes every table's columns, rows and indexes and the tables list, as a query can change any of them. */
+export const invalidateAllTables = (queryClient: QueryClient) =>
+	Promise.all([
+		queryClient.invalidateQueries({ queryKey: tableKeys.allColumns() }),
+		queryClient.invalidateQueries({ queryKey: tableKeys.allData() }),
+		queryClient.invalidateQueries({ queryKey: indexKeys.all() }),
+		queryClient.invalidateQueries({ queryKey: tableKeys.lists() }),
+	]);
+
 /** Refreshes what a row write makes stale: the table's rows and the tables list's row counts. */
 export const invalidateTableRows = (queryClient: QueryClient, tableName: string) =>
 	Promise.all([
