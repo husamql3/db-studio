@@ -486,24 +486,17 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
 		const successCount = await connector("duckdb").withConnection((conn) =>
 			inTransaction(conn, async () => {
-				// A record names only its own columns, so the others take their DEFAULT: one
-				// prepared statement per set of columns.
+				const insert = await this.inserter(conn, "", tableName, undefined);
+				// One prepared statement per INSERT the records need: each names only its own
+				// columns.
 				const statements = new Map<string, DuckDBPreparedStatement>();
 
 				for (const [i, record] of records.entries()) {
-					const columns = Object.keys(record);
-					const shape = JSON.stringify(columns);
+					const { sql, values } = insert(record);
+					const statement = statements.get(sql) ?? (await conn.prepare(sql));
 
-					const statement =
-						statements.get(shape) ??
-						(await conn.prepare(
-							columns.length
-								? `INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`
-								: `INSERT INTO ${ident(tableName)} DEFAULT VALUES`,
-						));
-
-					statements.set(shape, statement);
-					statement.bind(columns.map((col) => toDuckdbValue(record[col] ?? null)));
+					statements.set(sql, statement);
+					statement.bind(values.map(toDuckdbValue));
 
 					try {
 						await statement.run();
