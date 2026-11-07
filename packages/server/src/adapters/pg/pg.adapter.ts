@@ -302,9 +302,15 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 
 	/**
 	 * reltuples is the planner's row estimate, which autovacuum keeps current; it is -1 (0
-	 * before PostgreSQL 14) for a table never analyzed.
+	 * before PostgreSQL 14) for a table never analyzed. Without `schemaName`, `tableName`
+	 * resolves through search_path.
 	 */
-	protected tableEstimates(conn: PgQueryable) {
+	protected tableEstimates(
+		conn: PgQueryable,
+		_db: string,
+		tableName?: string,
+		schemaName?: string,
+	) {
 		return this.rows<TableEstimate>(
 			conn,
 			`SELECT t.table_schema as "schemaName", t.table_name as "tableName", c.reltuples as "estimate"
@@ -314,7 +320,9 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			WHERE t.table_type = 'BASE TABLE'
 				AND t.table_schema NOT IN ('pg_catalog', 'information_schema')
 				AND t.table_schema NOT LIKE 'pg_toast%'
+				${tableName === undefined ? "" : "AND c.oid = to_regclass($1)"}
 			ORDER BY t.table_schema, t.table_name`,
+			tableName === undefined ? [] : [qualifiedTable(tableName, schemaName)],
 		);
 	}
 

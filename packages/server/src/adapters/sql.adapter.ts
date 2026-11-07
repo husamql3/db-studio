@@ -455,12 +455,13 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 
 	/**
 	 * Every table of the list, in order, each with its row estimate where the engine keeps one;
-	 * only `tableName` when given.
+	 * only `tableName` (of `schemaName`, where the engine has schemas) when given.
 	 */
 	protected abstract tableEstimates(
 		conn: Conn,
 		db: string,
 		tableName?: string,
+		schemaName?: string,
 	): Promise<TableEstimate[]>;
 
 	/** Exact row counts of `tables`, in order; undefined for a table that cannot be counted. */
@@ -537,7 +538,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		filterValues: unknown[],
 	): Promise<{ total: number; estimated: boolean }> {
 		if (!filterWhere) {
-			const [table] = await this.tableEstimates(conn, db, tableName);
+			const [table] = await this.tableEstimates(conn, db, tableName, schemaName);
 			const estimate = table?.estimate;
 
 			if (estimate !== undefined && estimate >= EXACT_COUNT_LIMIT)
