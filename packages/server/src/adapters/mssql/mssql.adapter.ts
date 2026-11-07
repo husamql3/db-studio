@@ -320,26 +320,10 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		});
 	}
 
-	protected override tableConstraints(
-		_tableName: string,
-		fields: FieldDataType[],
-		primaryKey: string[],
-	) {
-		return [
-			...(primaryKey.length
-				? [`PRIMARY KEY (${primaryKey.map(quoteMssqlIdent).join(", ")})`]
-				: []),
-			...fields.flatMap((field) =>
-				field.isUnique && !field.isPrimaryKey
-					? [`UNIQUE (${quoteMssqlIdent(field.columnName)})`]
-					: [],
-			),
-		];
-	}
+	protected override readonly keysAsTableConstraints = true;
 
-	protected override foreignKeyClause(tableName: string, fk: ForeignKeyDataType) {
-		return `CONSTRAINT ${quoteMssqlIdent(`FK_${tableName}_${fk.columnName}`)} ${super.foreignKeyClause(tableName, fk)}`;
-	}
+	protected override readonly foreignKeyName = (tableName: string, fk: ForeignKeyDataType) =>
+		`FK_${tableName}_${fk.columnName}`;
 
 	/** A login may drop a table it cannot read; its estimate stands in for the count. */
 	protected override async rowCount(conn: MssqlConn, tableName: string) {

@@ -1265,10 +1265,6 @@ export class RedisAdapter extends BaseAdapter implements IKeyValueAdapter {
 	): Promise<BulkInsertResult> {
 		const { tableName, records, db } = params;
 
-		if (records.length === 0) {
-			throw new HTTPException(400, { message: "At least one record is required" });
-		}
-
 		const table = assertRedisTable(tableName);
 		const client = await connector("redis").client(parseDbIndex(db));
 

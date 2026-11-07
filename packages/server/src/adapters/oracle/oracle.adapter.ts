@@ -491,18 +491,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		return super.createTable(params);
 	}
 
-	protected override tableConstraints(
-		_tableName: string,
-		fields: FieldDataType[],
-		primaryKey: string[],
-	) {
-		return [
-			...(primaryKey.length ? [`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`] : []),
-			...fields.flatMap((field) =>
-				field.isUnique && !field.isPrimaryKey ? [`UNIQUE (${ident(field.columnName)})`] : [],
-			),
-		];
-	}
+	protected override readonly keysAsTableConstraints = true;
 
 	/** Oracle has ON DELETE actions only. */
 	protected override foreignKeyClause(_tableName: string, fk: ForeignKeyDataType) {

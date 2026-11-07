@@ -6,7 +6,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteTableParams,
 	FieldDataType,
-	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
@@ -27,6 +26,7 @@ import {
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
 import {
+	fullForeignKeyName,
 	flagOrJsonTarget,
 	groupKeyColumns,
 	SqlAdapter,
@@ -248,11 +248,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		];
 	}
 
-	protected override foreignKeyClause(tableName: string, fk: ForeignKeyDataType) {
-		const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
-
-		return `CONSTRAINT ${quoteMysqlIdent(name)} ${super.foreignKeyClause(tableName, fk)}`;
-	}
+	protected override readonly foreignKeyName = fullForeignKeyName;
 
 	protected override readonly tableOptions =
 		" ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";

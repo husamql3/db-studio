@@ -121,6 +121,10 @@ export const recordColumns = (records: Record<string, unknown>[]) => [
 	...new Set(records.flatMap((record) => Object.keys(record))),
 ];
 
+/** The foreign key name PostgreSQL and MySQL tables get: every column it joins. */
+export const fullForeignKeyName = (tableName: string, fk: ForeignKeyDataType) =>
+	`fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
+
 /** Rows shown per foreign key when a delete is refused. */
 export const RELATED_SAMPLE = 100;
 
@@ -239,21 +243,39 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		createKey?: string[],
 	): string;
 
-	/** The constraints after the columns: a composite key, as a one-column key goes inline. */
+	/**
+	 * CREATE TABLE writes the key and UNIQUE as table constraints, and columnDefinition leaves
+	 * them out when it gets `createKey`. Otherwise a one-column key goes inline.
+	 */
+	protected readonly keysAsTableConstraints: boolean = false;
+
+	/** The constraints after the columns. */
 	protected tableConstraints(
 		_tableName: string,
-		_fields: FieldDataType[],
+		fields: FieldDataType[],
 		primaryKey: string[],
 	): string[] {
-		return primaryKey.length > 1
-			? [`PRIMARY KEY (${primaryKey.map(this.quoteIdentifier).join(", ")})`]
-			: [];
+		const q = this.quoteIdentifier;
+		const key = `PRIMARY KEY (${primaryKey.map(q).join(", ")})`;
+
+		if (!this.keysAsTableConstraints) return primaryKey.length > 1 ? [key] : [];
+
+		return [
+			...(primaryKey.length ? [key] : []),
+			...fields.flatMap((field) =>
+				field.isUnique && !field.isPrimaryKey ? [`UNIQUE (${q(field.columnName)})`] : [],
+			),
+		];
 	}
 
-	protected foreignKeyClause(_tableName: string, fk: ForeignKeyDataType): string {
-		const q = this.quoteIdentifier;
+	/** The name CREATE TABLE gives a foreign key, where the engine names them. */
+	protected readonly foreignKeyName?: (tableName: string, fk: ForeignKeyDataType) => string;
 
-		return `FOREIGN KEY (${q(fk.columnName)}) REFERENCES ${q(fk.referencedTable)} (${q(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
+	protected foreignKeyClause(tableName: string, fk: ForeignKeyDataType): string {
+		const q = this.quoteIdentifier;
+		const name = this.foreignKeyName?.(tableName, fk);
+
+		return `${name ? `CONSTRAINT ${q(name)} ` : ""}FOREIGN KEY (${q(fk.columnName)}) REFERENCES ${q(fk.referencedTable)} (${q(fk.referencedColumn)}) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
 	}
 
 	/** What follows the column list, such as MySQL's storage engine. */

@@ -7,7 +7,6 @@ import type {
 	DatabaseSchemaType,
 	DeleteTableParams,
 	FieldDataType,
-	ForeignKeyDataType,
 	IndexInfoSchemaType,
 	RenameTableParamsSchemaType,
 	ServerLogsResult,
@@ -23,6 +22,7 @@ import {
 } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import {
+	fullForeignKeyName,
 	type ReferencingKey,
 	SqlAdapter,
 	type TableEstimate,
@@ -340,11 +340,7 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		return def;
 	}
 
-	protected override foreignKeyClause(tableName: string, fk: ForeignKeyDataType) {
-		const name = `fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
-
-		return `CONSTRAINT ${quotePgIdent(name)} ${super.foreignKeyClause(tableName, fk)}`;
-	}
+	protected override readonly foreignKeyName = fullForeignKeyName;
 
 	/**
 	 * Compared by schema too: without `schemaName` the table resolves through search_path, and a
