@@ -1,10 +1,5 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
-import {
-	type ColumnDef,
-	getCoreRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -38,7 +33,7 @@ export const useTableModel = ({
 	isRowHighlighted?: (rowId: string) => boolean;
 	isCellHighlighted?: (rowId: string, columnId: string) => boolean;
 }) => {
-	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
+	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const { canMutateRows, rowMutationReason } = useRowMutation();
 	const cellDefault = useDatabaseEngine()?.cellDefault ?? false;
@@ -89,13 +84,11 @@ export const useTableModel = ({
 		if (!canMutateRows) setEditingCell(null);
 	}, [canMutateRows]);
 
-	const sorting = useMemo(() => {
-		if (columnName && order) {
-			return [{ id: columnName, desc: order === "desc" }];
-		}
-
-		return [];
-	}, [columnName, order]);
+	// The server sorts the page; the state only marks the sorted column's header.
+	const sorting = useMemo(
+		() => (sort && order ? [{ id: sort, desc: order === "desc" }] : []),
+		[sort, order],
+	);
 
 	// Rows and columns move under a range when the data, sort or visible columns change.
 	useEffect(() => {
@@ -291,13 +284,12 @@ export const useTableModel = ({
 		},
 		getRowId,
 		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
 		state: {
 			sorting,
 			rowSelection,
 			columnSizing,
 		},
-		manualSorting: false,
+		manualSorting: true,
 		enableRowSelection: true,
 		enableMultiRowSelection: true,
 		enableColumnResizing: true,

@@ -10,7 +10,6 @@ export const CONSTANTS = {
 	TABLE_SCHEMA: "tableSchema" as const,
 	// PostgreSQL's default schema, left out of table labels.
 	DEFAULT_SCHEMA: "public",
-	COLUMN_NAME: "columnName", // query state key for column name
 
 	//* table state keys (cursor-based pagination)
 	TABLE_STATE_KEYS: {

@@ -57,7 +57,6 @@ export const TableHeadRow = ({
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
 	const schemaName = useTableSchemaName();
 
-	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
@@ -69,12 +68,10 @@ export const TableHeadRow = ({
 	const createSortHandler = useCallback(
 		(columnId: string) => (direction: SortDirection | null) => {
 			if (direction === null) {
-				setColumnName(null);
 				setSort(null);
 				setOrder(null);
 			} else {
 				// The table's sort state is derived from these query params.
-				setColumnName(columnId);
 				setSort(columnId);
 				setOrder(direction === "desc" ? "desc" : "asc");
 			}
@@ -82,7 +79,7 @@ export const TableHeadRow = ({
 			setCursor(null);
 			setDirection(null);
 		},
-		[setColumnName, setSort, setOrder, setCursor, setDirection],
+		[setSort, setOrder, setCursor, setDirection],
 	);
 
 	return (
