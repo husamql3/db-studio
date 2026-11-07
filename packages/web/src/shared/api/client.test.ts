@@ -94,4 +94,33 @@ describe("API error reporting", () => {
 		expect(JSON.stringify(context)).not.toContain("private-host");
 		expect(JSON.stringify(context)).not.toContain("customer_secrets");
 	});
+
+	it("reads the server's error from a blob response body", async () => {
+		api.defaults.adapter = async (config) => {
+			throw new AxiosError(
+				"Request failed",
+				"ERR_BAD_RESPONSE",
+				config as InternalAxiosRequestConfig,
+				undefined,
+				{
+					config: config as InternalAxiosRequestConfig,
+					data: new Blob(
+						[JSON.stringify({ error: "Table not found", details: 'No table "ghost"' })],
+						{ type: "application/json" },
+					),
+					headers: {},
+					status: 404,
+					statusText: "Not Found",
+				},
+			);
+		};
+
+		await expect(
+			api.get("/pg/tables/ghost/export", { responseType: "blob" }),
+		).rejects.toMatchObject({
+			message: "Table not found",
+			details: 'No table "ghost"',
+			status: 404,
+		});
+	});
 });

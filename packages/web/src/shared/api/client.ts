@@ -91,7 +91,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 
 			return response;
 		},
-		(error: AxiosError<ApiErrorBody>) => {
+		async (error: AxiosError<ApiErrorBody | Blob>) => {
 			const duration = Math.round(
 				performance.now() - (error.config?.metadata?.startTime ?? 0),
 			);
@@ -99,7 +99,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
 			logger.error(error, duration);
 
 			const status = error.response?.status;
-			const data = error.response?.data;
+			const data = await errorBody(error.response?.data);
 			const message = data?.error ?? error.message ?? "An error occurred";
 			const details = data?.details;
 
@@ -150,6 +150,19 @@ const setupInterceptors = (instance: AxiosInstance) => {
 	);
 
 	return instance;
+};
+
+/** A `responseType: "blob"` request (an export) gets its JSON error body as a Blob. */
+const errorBody = async (
+	data: ApiErrorBody | Blob | undefined,
+): Promise<Partial<ApiErrorBody> | undefined> => {
+	if (!(data instanceof Blob)) return data;
+
+	try {
+		return JSON.parse(await data.text());
+	} catch {
+		return undefined;
+	}
 };
 
 const isStackFrame = (line: string): boolean => /^\s*at\s/.test(line);

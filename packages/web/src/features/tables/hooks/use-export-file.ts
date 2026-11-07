@@ -2,7 +2,7 @@ import type { FormatType } from "@db-studio/shared/types";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { exportTable } from "@/shared/api";
+import { type ApiError, apiErrorMessage, exportTable } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
 type ExportFileParams = {
@@ -14,7 +14,11 @@ type ExportFileParams = {
 export const useExportFile = () => {
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
-	const { mutateAsync: exportFileMutation, isPending: isExportingFile } = useMutation({
+	const { mutateAsync: exportFileMutation, isPending: isExportingFile } = useMutation<
+		void,
+		ApiError,
+		ExportFileParams
+	>({
 		mutationFn: async ({ tableName, schemaName, format }: ExportFileParams) => {
 			const response = await exportTable({
 				tableName,
@@ -50,7 +54,7 @@ export const useExportFile = () => {
 		return toast.promise(exportFileMutation(params), {
 			loading: "Exporting file...",
 			success: "File exported successfully",
-			error: (error: Error) => error.message || "Failed to export file",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to export file"),
 		});
 	};
 
