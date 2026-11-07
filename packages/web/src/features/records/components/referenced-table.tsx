@@ -17,7 +17,6 @@ import { FilterPopup } from "@/components/filter-popup";
 import { ReferencedTableSortPopup } from "@/components/referenced-table-sort-popup";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
-import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import type { AddRecordFormData } from "@/shared/api";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { formatCellValue } from "@/utils/format-cell-value";
@@ -27,17 +26,17 @@ const PICKER_PAGE_LIMIT = "30";
 
 export const ReferencedTable = ({
 	tableName,
+	schemaName,
 	referencedColumn,
 	columnName,
 }: {
 	tableName: string;
+	schemaName: string | undefined;
 	referencedColumn: string;
 	columnName: string;
 }) => {
 	const { setValue } = useFormContext<AddRecordFormData>();
 	const { closeOverlay } = useOverlayStore();
-	// An FK references a table in its own schema, the open table's.
-	const schemaName = useTableSchemaName();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 
 	const [cursor, setCursor] = useState<{ cursor: string; direction: SortDirection } | null>(
@@ -110,6 +109,7 @@ export const ReferencedTable = ({
 				<div className="flex items-center h-full">
 					<FilterPopup
 						tableName={tableName}
+						schemaName={schemaName}
 						filters={filters}
 						onApply={(next) => {
 							setFilters(next);
@@ -119,6 +119,7 @@ export const ReferencedTable = ({
 					/>
 					<ReferencedTableSortPopup
 						tableName={tableName}
+						schemaName={schemaName}
 						sorts={sorts}
 						onApply={(next) => {
 							setSorts(next);

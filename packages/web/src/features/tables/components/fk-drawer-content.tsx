@@ -11,22 +11,21 @@ import { CopyButton } from "@/components/copy-button";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableData } from "@/hooks/use-table-data";
-import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { toColumnDef } from "../utils/column-def";
 
 export const FkDrawerContent = ({
 	referencedTable,
+	referencedSchema: schemaName,
 	referencedColumn,
 	fkValue,
 }: {
 	referencedTable: string;
+	referencedSchema: string | undefined;
 	referencedColumn: string;
 	fkValue: string;
 }) => {
-	// An FK references a table in its own schema, the open table's.
-	const schemaName = useTableSchemaName();
 	const { tableCols } = useTableCols({ tableName: referencedTable, schemaName });
 
 	const filter: FilterType = { columnName: referencedColumn, operator: "=", value: fkValue };

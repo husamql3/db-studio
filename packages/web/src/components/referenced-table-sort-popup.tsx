@@ -14,18 +14,19 @@ import { Switch } from "@db-studio/ui/switch";
 import { ArrowUpDown, X } from "lucide-react";
 import { useState } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
-import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 
 export const ReferencedTableSortPopup = ({
 	tableName,
+	schemaName,
 	sorts,
 	onApply,
 }: {
 	tableName: string;
+	schemaName: string | undefined;
 	sorts: Sort[];
 	onApply: (sorts: Sort[]) => void;
 }) => {
-	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
+	const { tableCols } = useTableCols({ tableName, schemaName });
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [localSort, setLocalSort] = useState<Sort[]>([]);

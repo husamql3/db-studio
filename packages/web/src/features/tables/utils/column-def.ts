@@ -14,6 +14,7 @@ export const toColumnDef = (
 		isPrimaryKey: col.isPrimaryKey,
 		isForeignKey: col.isForeignKey,
 		referencedTable: col.referencedTable,
+		referencedSchema: col.referencedSchema,
 		referencedColumn: col.referencedColumn,
 		enumValues: col.enumValues,
 		dataTypeLabel: col.dataTypeLabel,

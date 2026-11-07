@@ -35,6 +35,7 @@ export const AddRecordField = ({
 	enumValues,
 	isForeignKey,
 	referencedTable,
+	referencedSchema,
 	referencedColumn,
 	hideLabel = false,
 }: ColumnInfoSchemaType & { hideLabel?: boolean }) => {
@@ -42,7 +43,12 @@ export const AddRecordField = ({
 
 	const openReference = () => {
 		if (referencedTable && referencedColumn) {
-			openRecordReference({ tableName: referencedTable, columnName, referencedColumn });
+			openRecordReference({
+				tableName: referencedTable,
+				schemaName: referencedSchema,
+				columnName,
+				referencedColumn,
+			});
 		}
 	};
 

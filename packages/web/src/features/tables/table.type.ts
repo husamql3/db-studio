@@ -38,6 +38,7 @@ declare module "@tanstack/react-table" {
 		isPrimaryKey?: boolean;
 		isForeignKey?: boolean;
 		referencedTable?: string | null;
+		referencedSchema?: string;
 		referencedColumn?: string | null;
 		enumValues?: string[] | null;
 		isNullable?: boolean;

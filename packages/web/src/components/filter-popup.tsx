@@ -14,22 +14,23 @@ import { cn } from "@db-studio/ui/utils";
 import { Filter, X } from "lucide-react";
 import { useState } from "react";
 import { useTableCols } from "@/hooks/use-table-cols";
-import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 
 /** Edits a copy of `filters` and hands the result to `onApply`, so callers keep the state. */
 export const FilterPopup = ({
 	tableName,
+	schemaName,
 	filters,
 	onApply,
 	variant = "toolbar",
 }: {
 	tableName: string;
+	schemaName: string | undefined;
 	filters: FilterType[];
 	onApply: (filters: FilterType[]) => void;
 	/** "sheet" labels the trigger and makes the popover modal, for use inside a sheet. */
 	variant?: "toolbar" | "sheet";
 }) => {
-	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
+	const { tableCols } = useTableCols({ tableName, schemaName });
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [localFilters, setLocalFilters] = useState<FilterType[]>([]);

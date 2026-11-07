@@ -1162,6 +1162,7 @@ export const TableForeignKeyCell = memo(
 							{referencedTable && (
 								<FkDrawerContent
 									referencedTable={referencedTable}
+									referencedSchema={cell.column.columnDef.meta?.referencedSchema}
 									referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
 									fkValue={displayValue}
 								/>

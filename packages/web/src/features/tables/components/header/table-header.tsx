@@ -3,6 +3,7 @@ import { useQueryState } from "nuqs";
 import { FilterPopup } from "@/components/filter-popup";
 import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { CONSTANTS } from "@/utils/constants";
 import { tableFiltersParser } from "../../hooks/use-grid-page";
 import { useRowMutation } from "../../hooks/use-row-mutation";
@@ -27,6 +28,7 @@ export const TableHeader = ({
 	const engine = useDatabaseEngine();
 	const canLiveMode = engine?.liveMode ?? false;
 	const { rowMutationReason } = useRowMutation();
+	const schemaName = useTableSchemaName();
 
 	const [filters, setFilters] = useQueryState(
 		CONSTANTS.TABLE_STATE_KEYS.FILTERS,
@@ -44,6 +46,7 @@ export const TableHeader = ({
 				{engine?.filterSort !== false && (
 					<FilterPopup
 						tableName={tableName}
+						schemaName={schemaName}
 						filters={filters}
 						onApply={(next) => {
 							setFilters(next);
