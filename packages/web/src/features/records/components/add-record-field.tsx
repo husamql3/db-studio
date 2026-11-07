@@ -19,6 +19,7 @@ import { openRecordReference } from "../stores/record-reference.store";
 
 export const AddRecordField = ({
 	columnName,
+	dataType,
 	dataTypeLabel,
 	isNullable,
 	columnDefault,
@@ -98,15 +99,35 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (
-			dataTypeLabel === "int" ||
-			dataTypeLabel === "bigint" ||
-			dataTypeLabel === "smallint" ||
-			dataTypeLabel === "numeric" ||
-			dataTypeLabel === "float" ||
-			dataTypeLabel === "double" ||
-			dataTypeLabel === "money"
-		) {
+		// Editors follow the grid's cell variant (`dataType`); the label only picks the inputs
+		// specific to one type.
+		if (enumValues?.length) {
+			return (
+				<Select
+					value={field.value}
+					onValueChange={(value) => field.onChange(value)}
+				>
+					<SelectTrigger
+						aria-label={controlName}
+						className="w-full"
+					>
+						<SelectValue placeholder={columnDefault ?? "Select a value"} />
+					</SelectTrigger>
+					<SelectContent>
+						{enumValues.map((enumValue: string) => (
+							<SelectItem
+								key={enumValue}
+								value={enumValue}
+							>
+								{enumValue}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			);
+		}
+
+		if (dataType === "number") {
 			return (
 				<Input
 					id={columnName}
@@ -118,7 +139,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataTypeLabel === "boolean") {
+		if (dataType === "boolean") {
 			return (
 				<Select
 					value={field.value}
@@ -150,7 +171,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataTypeLabel === "json" || dataTypeLabel === "jsonb") {
+		if (dataType === "json") {
 			return (
 				<Textarea
 					id={columnName}
@@ -162,11 +183,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (
-			dataTypeLabel === "date" ||
-			dataTypeLabel === "timestamptz" ||
-			dataTypeLabel === "timestamp"
-		) {
+		if (dataType === "date") {
 			const showTime = dataTypeLabel !== "date";
 
 			const nowDefaults = showTime
@@ -266,43 +283,6 @@ export const AddRecordField = ({
 					aria-label={controlName}
 					placeholder={columnDefault ?? '["item1", "item2"]'}
 					rows={3}
-					{...safeField}
-				/>
-			);
-		}
-
-		if (dataTypeLabel === "enum") {
-			if (enumValues && enumValues.length > 0) {
-				return (
-					<Select
-						value={field.value}
-						onValueChange={(value) => field.onChange(value)}
-					>
-						<SelectTrigger
-							aria-label={controlName}
-							className="w-full"
-						>
-							<SelectValue placeholder={columnDefault ?? "Select a value"} />
-						</SelectTrigger>
-						<SelectContent>
-							{enumValues.map((enumValue: string) => (
-								<SelectItem
-									key={enumValue}
-									value={enumValue}
-								>
-									{enumValue}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				);
-			}
-
-			return (
-				<Input
-					id={columnName}
-					aria-label={controlName}
-					placeholder={columnDefault ?? ""}
 					{...safeField}
 				/>
 			);
