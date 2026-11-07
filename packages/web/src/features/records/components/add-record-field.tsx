@@ -15,7 +15,7 @@ import { Clock, Link, RefreshCw } from "lucide-react";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import type { AddRecordFormData } from "@/shared/api";
 import { cellVariant } from "@/utils/cell-variant";
-import { parseDateValue, toDateValue } from "@/utils/date-values";
+import { hasTimeOfDay, parseDateValue, toDateValue } from "@/utils/date-values";
 import { openRecordReference } from "../stores/record-reference.store";
 
 export const AddRecordField = ({
@@ -187,7 +187,7 @@ export const AddRecordField = ({
 		}
 
 		if (variant === "date") {
-			const showTime = dataTypeLabel !== "date";
+			const showTime = hasTimeOfDay(dataTypeLabel);
 
 			const nowDefaults = showTime
 				? ["current_timestamp", "now()", "localtimestamp"]

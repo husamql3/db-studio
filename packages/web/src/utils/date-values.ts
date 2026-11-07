@@ -3,6 +3,10 @@ import { format, parseISO } from "date-fns";
 
 const DATE_ONLY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Every date column but DATE carries a time of day. */
+export const hasTimeOfDay = (dataTypeLabel: StandardizedDataType | undefined) =>
+	dataTypeLabel !== "date";
+
 /**
  * The value a picked date is written as. A DATE column takes the picked local day: the ISO
  * instant of local midnight is the previous day east of UTC. A zone-aware column takes the

@@ -1,6 +1,6 @@
 import { Badge } from "@db-studio/ui/badge";
 import { Button } from "@db-studio/ui/button";
-import { DatePicker } from "@db-studio/ui/date-picker";
+import { DatePicker, formatPickerValue } from "@db-studio/ui/date-picker";
 import { Drawer, DrawerContent } from "@db-studio/ui/drawer";
 import { Input } from "@db-studio/ui/input";
 import { Kbd } from "@db-studio/ui/kbd";
@@ -15,7 +15,6 @@ import {
 import { Textarea } from "@db-studio/ui/textarea";
 import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
-import { format } from "date-fns";
 import {
 	type ChangeEvent,
 	type ComponentProps,
@@ -34,7 +33,7 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
-import { parseDateValue, toDateValue } from "@/utils/date-values";
+import { hasTimeOfDay, parseDateValue, toDateValue } from "@/utils/date-values";
 import { formatCellValue } from "@/utils/format-cell-value";
 import {
 	CELL_DEFAULT,
@@ -678,8 +677,7 @@ export const TableDateCell = memo(
 			: initialValue;
 
 		const dataTypeLabel = cell.column.columnDef.meta?.dataTypeLabel;
-		// Every date column but DATE carries a time of day.
-		const showTime = dataTypeLabel !== "date";
+		const showTime = hasTimeOfDay(dataTypeLabel);
 
 		const onDateChange = useCallback(
 			(date: Date | null | undefined) => {
@@ -769,10 +767,9 @@ export const TableDateCell = memo(
 						className="size-full px-2! py-1.5! rounded-none border-none p-0 text-sm shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
 					/>
 				) : (
-					// The text the picker's button shows.
 					<CellContent value={currentValue}>
 						{date && !Number.isNaN(date.getTime())
-							? format(date, showTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd")
+							? formatPickerValue(date, showTime)
 							: currentValue}
 					</CellContent>
 				)}

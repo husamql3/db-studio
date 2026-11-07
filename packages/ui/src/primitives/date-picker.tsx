@@ -40,6 +40,10 @@ function CalendarDropdownNav({ children }: DropdownNavProps) {
 	return <div className="flex w-full items-center gap-2">{children}</div>;
 }
 
+/** A picked date as the picker shows it unformatted, which is also how the grid shows it. */
+export const formatPickerValue = (date: Date, showTime: boolean) =>
+	format(date, showTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd");
+
 interface DatePickerProps {
 	value?: Date | null;
 	onChange?: (date: Date | null | undefined) => void;
@@ -152,9 +156,7 @@ export function DatePicker({
 				? showTime
 					? format(value, "dd/MM/yyyy HH:mm:ss")
 					: format(value, "dd/MM/yyyy")
-				: showTime
-					? format(value, "yyyy-MM-dd HH:mm:ss")
-					: format(value, "yyyy-MM-dd")
+				: formatPickerValue(value, showTime)
 			: value === null
 				? "NULL"
 				: placeholder;
