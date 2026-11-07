@@ -250,11 +250,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	protected readonly keysAsTableConstraints: boolean = false;
 
 	/** The constraints after the columns. */
-	protected tableConstraints(
-		_tableName: string,
-		fields: FieldDataType[],
-		primaryKey: string[],
-	): string[] {
+	private tableConstraints(fields: FieldDataType[], primaryKey: string[]): string[] {
 		const q = this.quoteIdentifier;
 		const key = `PRIMARY KEY (${primaryKey.map(q).join(", ")})`;
 
@@ -411,7 +407,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		await this.connect(db, async (conn) => {
 			const definitions = [
 				...fields.map((field) => this.columnDefinition(conn, tableName, field, primaryKey)),
-				...this.tableConstraints(tableName, fields, primaryKey),
+				...this.tableConstraints(fields, primaryKey),
 				...foreignKeys.map((fk) => this.foreignKeyClause(tableName, fk)),
 			];
 

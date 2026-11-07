@@ -258,24 +258,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		});
 	}
 
-	protected override tableConstraints(
-		tableName: string,
-		fields: FieldDataType[],
-		primaryKey: string[],
-	) {
-		return [
-			...(primaryKey.length
-				? [`PRIMARY KEY (${primaryKey.map(quoteMysqlIdent).join(", ")})`]
-				: []),
-			...fields.flatMap((field) =>
-				field.isUnique && !field.isPrimaryKey
-					? [
-							`UNIQUE KEY ${quoteMysqlIdent(`uq_${tableName}_${field.columnName}`)} (${quoteMysqlIdent(field.columnName)})`,
-						]
-					: [],
-			),
-		];
-	}
+	protected override readonly keysAsTableConstraints = true;
 
 	protected override readonly foreignKeyName = fullForeignKeyName;
 
