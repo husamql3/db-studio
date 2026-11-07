@@ -692,7 +692,7 @@ export class MongoAdapter extends BaseAdapter {
 			validator: {
 				$jsonSchema: {
 					bsonType: "object",
-					required,
+					...(required.length > 0 && { required }),
 					properties,
 					additionalProperties: true,
 				},

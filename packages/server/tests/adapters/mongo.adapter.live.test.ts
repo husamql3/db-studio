@@ -9,7 +9,9 @@
  * - changing a field downgrades the collection's validationAction from "error" to "warn";
  * - dropping or renaming a required field of a collection db-studio created is refused by its
  *   own validator, or leaves the old name in the validator's properties and required list;
- * - dropping a field of a collection that does not exist answers anything but 404.
+ * - dropping a field of a collection that does not exist answers anything but 404;
+ * - creating a collection whose fields are all nullable sends an empty `required`, which the
+ *   server refuses.
  *
  * It uses a scratch database of the MongoDB at MONGO_TEST_URL (default mongodb://127.0.0.1:27017,
  * the `bun run init-db:mongo` container) and drops it after each test. When no MongoDB answers
@@ -213,5 +215,38 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 		await expect(
 			adapter.deleteColumn({ db: DB, tableName: "missing", columnName: "age" }),
 		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it("creates a collection whose fields are all nullable", async () => {
+		await adapter.createTable({
+			db: DB,
+			tableData: {
+				tableName: "optional",
+				fields: [
+					{
+						columnName: "note",
+						columnType: "string",
+						isPrimaryKey: false,
+						isNullable: true,
+						isUnique: false,
+						isIdentity: false,
+						isArray: false,
+					},
+				],
+			},
+		});
+
+		const [info] = await raw
+			.db(DB)
+			.listCollections<CollectionInfo>({ name: "optional" })
+			.toArray();
+
+		expect(info?.options?.validator).toEqual({
+			$jsonSchema: {
+				bsonType: "object",
+				properties: { note: { bsonType: "string" } },
+				additionalProperties: true,
+			},
+		});
 	});
 });
