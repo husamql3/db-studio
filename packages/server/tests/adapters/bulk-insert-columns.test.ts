@@ -4,6 +4,7 @@
  * statement. Failure modes:
  * - the INSERT names only the first record's columns, so a later record loses a value
  * - a record missing a column binds `undefined` instead of NULL and the driver refuses it
+ * - a record a constraint refuses loses its position in the message, or its 409 turns into 500
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { IDbAdapter } from "@/adapters/adapter.interface.js";
@@ -45,6 +46,22 @@ for (const engine of engines) {
 				[2, "Bob", "bob@example.com"],
 				[3, null, "cy@example.com"],
 			]);
+		});
+
+		it("names the record a constraint refuses and keeps the conflict status", async () => {
+			await expect(
+				engine.adapter.bulkInsertRecords({
+					db: engine.db,
+					tableName: "people",
+					records: [
+						{ id: 4, name: "Dee" },
+						{ id: 1, name: "Ada again" },
+					],
+				}),
+			).rejects.toMatchObject({
+				status: 409,
+				message: expect.stringMatching(/^Failed to insert record 2: /),
+			});
 		});
 	});
 }

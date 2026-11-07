@@ -486,9 +486,14 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 					`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
 				);
 
-				for (const record of records) {
+				for (const [i, record] of records.entries()) {
 					statement.bind(columns.map((col) => toDuckdbValue(record[col] ?? null)));
-					await statement.run();
+
+					try {
+						await statement.run();
+					} catch (error) {
+						throw this.recordInsertFailure(error, i);
+					}
 				}
 
 				return records.length;

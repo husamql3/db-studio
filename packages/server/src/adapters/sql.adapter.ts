@@ -1098,6 +1098,16 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		return { insertedCount };
 	}
 
+	/** The error of the record at `index` of a bulk insert: its status, named by its position. */
+	protected recordInsertFailure(error: unknown, index: number): HTTPException {
+		const failure = this.classifyError(error);
+
+		return new HTTPException(failure.status, {
+			message: `Failed to insert record ${index + 1}: ${failure.message}`,
+			cause: error,
+		});
+	}
+
 	/** One INSERT per record, in one transaction; a failure names the record by its position. */
 	async bulkInsertRecords({
 		tableName,
@@ -1120,13 +1130,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 				try {
 					await this.execute(conn, sql, values);
 				} catch (error) {
-					const failure = this.classifyError(error);
-
-					if (failure.status !== 500) throw failure;
-					throw new HTTPException(500, {
-						message: `Failed to insert record ${i + 1}: ${failure.message}`,
-						cause: error,
-					});
+					throw this.recordInsertFailure(error, i);
 				}
 			}
 		});

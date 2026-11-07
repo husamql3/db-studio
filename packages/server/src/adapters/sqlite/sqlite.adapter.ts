@@ -638,14 +638,23 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			recordColumns(records),
 		);
 
-		await client.batch(
-			records.map((record) => {
-				const { sql, values } = insert(record);
+		try {
+			await client.batch(
+				records.map((record) => {
+					const { sql, values } = insert(record);
 
-				return stmt(sql, values);
-			}),
-			"write",
-		);
+					return stmt(sql, values);
+				}),
+				"write",
+			);
+		} catch (error) {
+			// libSQL names the failing statement of a batch; D1 does not.
+			if (error instanceof Error && "statementIndex" in error) {
+				throw this.recordInsertFailure(error, Number(error.statementIndex));
+			}
+
+			throw error;
+		}
 
 		return bulkInserted(records.length);
 	}
