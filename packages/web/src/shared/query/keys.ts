@@ -13,9 +13,11 @@ export const tableKeys = {
 	list: (db?: string | null) => ["tablesList", db] as const,
 	// Under the list key, so invalidating the tables list refreshes the visualizer too.
 	graph: (db?: string | null) => ["tablesList", db, "graph"] as const,
+	allColumns: () => ["tableColumns"] as const,
 	columnsByTable: (tableName: string) => ["tableColumns", tableName] as const,
 	columns: (tableName?: string, db?: string | null, schemaName?: string) =>
 		["tableColumns", tableName, db, schemaName] as const,
+	allData: () => ["tableData"] as const,
 	dataByTable: (tableName: string) => ["tableData", tableName] as const,
 	data: ({
 		tableName,
@@ -53,6 +55,7 @@ export const tableKeys = {
 };
 
 export const indexKeys = {
+	all: () => ["table-indexes"] as const,
 	byTable: (tableName: string) => ["table-indexes", tableName] as const,
 	table: (tableName: string, db?: string | null, schemaName?: string) =>
 		["table-indexes", tableName, db, schemaName] as const,

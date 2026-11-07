@@ -1,10 +1,12 @@
 import type { ExecuteQueryResult } from "@db-studio/shared/types";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { posthogAnalytics } from "@/lib/posthog";
 import { executeQuery as executeQueryRequest } from "@/shared/api";
+import { indexKeys, tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useExecuteQuery = () => {
+	const queryClient = useQueryClient();
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const {
@@ -18,7 +20,18 @@ export const useExecuteQuery = () => {
 
 			return res.data.data;
 		},
+		// A query can change any table's rows, columns or indexes, or create and drop tables.
+		// Not awaited: the result shows while the other screens refetch.
 		onSuccess: () => {
+			for (const queryKey of [
+				tableKeys.lists(),
+				tableKeys.allColumns(),
+				tableKeys.allData(),
+				indexKeys.all(),
+			]) {
+				queryClient.invalidateQueries({ queryKey });
+			}
+
 			if (dbType) posthogAnalytics.capture("query_executed", { db_type: dbType });
 		},
 	});
