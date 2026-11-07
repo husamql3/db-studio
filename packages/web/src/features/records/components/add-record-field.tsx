@@ -14,19 +14,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { Clock, Link, RefreshCw } from "lucide-react";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import type { AddRecordFormData } from "@/shared/api";
+import { parseDateValue, toDateValue } from "@/utils/date-values";
 import { openRecordReference } from "../stores/record-reference.store";
-
-const pad = (n: number): string => String(n).padStart(2, "0");
-
-const formatLocalTimestamp = (date: Date): string => {
-	const yyyy = date.getFullYear();
-	const mm = pad(date.getMonth() + 1);
-	const dd = pad(date.getDate());
-	const hh = pad(date.getHours());
-	const min = pad(date.getMinutes());
-
-	return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-};
 
 export const AddRecordField = ({
 	columnName,
@@ -172,160 +161,63 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataTypeLabel === "date") {
-			const hasDateDefault =
-				columnDefault?.toLowerCase().includes("current_date") ||
-				columnDefault?.toLowerCase().includes("now()") ||
-				columnDefault?.toLowerCase().includes("curdate()");
+		if (
+			dataTypeLabel === "date" ||
+			dataTypeLabel === "timestamptz" ||
+			dataTypeLabel === "timestamp"
+		) {
+			const showTime = dataTypeLabel !== "date";
 
-			if (hasDateDefault) {
-				return (
-					<div className="flex">
-						<DatePicker
-							value={
-								field.value ? new Date(field.value) : field.value === "" ? null : undefined
-							}
-							onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
-							placeholder={columnDefault ?? "Select a date"}
-							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const today = new Date().toISOString().split("T")[0];
-										field.onChange(today);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			}
+			const nowDefaults = showTime
+				? ["current_timestamp", "now()", "localtimestamp"]
+				: ["current_date", "now()", "curdate()"];
 
-			return (
+			const hasNowDefault = nowDefaults.some((name) =>
+				columnDefault?.toLowerCase().includes(name),
+			);
+
+			const picker = (
 				<DatePicker
-					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-					onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
-					placeholder={columnDefault ?? "Select a date"}
+					value={
+						field.value ? parseDateValue(field.value) : field.value === "" ? null : undefined
+					}
+					onChange={(date) => field.onChange(date ? toDateValue(date, dataTypeLabel) : "")}
+					showTime={showTime}
+					isFormatted={!showTime}
+					placeholder={
+						columnDefault ?? (showTime ? "Select a date and time" : "Select a date")
+					}
+					className={
+						hasNowDefault
+							? "-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+							: undefined
+					}
 				/>
 			);
-		}
 
-		if (dataTypeLabel === "timestamptz") {
-			const hasTimestampDefault =
-				columnDefault?.toLowerCase().includes("current_timestamp") ||
-				columnDefault?.toLowerCase().includes("now()") ||
-				columnDefault?.toLowerCase().includes("localtimestamp");
-
-			if (hasTimestampDefault) {
-				return (
-					<div className="flex">
-						<DatePicker
-							value={
-								field.value ? new Date(field.value) : field.value === "" ? null : undefined
-							}
-							onChange={(date) => field.onChange(date ? date.toISOString() : "")}
-							showTime={true}
-							isFormatted={false}
-							placeholder={columnDefault ?? "Select a date and time"}
-							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const today = new Date().toISOString();
-										field.onChange(today);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			}
+			if (!hasNowDefault) return picker;
 
 			return (
-				<DatePicker
-					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-					onChange={(date) => field.onChange(date ? date.toISOString() : "")}
-					showTime={true}
-					isFormatted={false}
-					placeholder={columnDefault ?? "Select a date and time"}
-				/>
-			);
-		}
-
-		if (dataTypeLabel === "timestamp") {
-			const hasTimestampDefault =
-				columnDefault?.toLowerCase().includes("current_timestamp") ||
-				columnDefault?.toLowerCase().includes("now()") ||
-				columnDefault?.toLowerCase().includes("localtimestamp");
-
-			if (hasTimestampDefault) {
-				return (
-					<div className="flex">
-						<DatePicker
-							value={
-								field.value ? new Date(field.value) : field.value === "" ? null : undefined
-							}
-							onChange={(date) => field.onChange(date ? formatLocalTimestamp(date) : "")}
-							showTime={true}
-							isFormatted={false}
-							placeholder={columnDefault ?? "Select a date and time"}
-							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										field.onChange(formatLocalTimestamp(new Date()));
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			}
-
-			return (
-				<DatePicker
-					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-					onChange={(date) => field.onChange(date ? formatLocalTimestamp(date) : "")}
-					showTime={true}
-					isFormatted={false}
-					placeholder={columnDefault ?? "Select a date and time"}
-				/>
+				<div className="flex">
+					{picker}
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								aria-label="Set to now"
+								className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+								type="button"
+								onClick={() => field.onChange(toDateValue(new Date(), dataTypeLabel))}
+							>
+								<Clock
+									aria-hidden="true"
+									className="size-4"
+									size={16}
+								/>
+							</button>
+						</TooltipTrigger>
+						<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
+					</Tooltip>
+				</div>
 			);
 		}
 

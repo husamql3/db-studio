@@ -7,7 +7,6 @@ import type { Cell, Table } from "@tanstack/react-table";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TableRecord } from "@/features/tables/table.type";
-import { useDatabaseStore } from "@/stores/database.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { TableDateCell } from "./table-cell-variant";
 
@@ -40,7 +39,6 @@ const staged = (row: TableRecord) =>
 describe("TableDateCell", () => {
 	beforeEach(() => {
 		useUpdateCellStore.getState().clearUpdates();
-		useDatabaseStore.getState().setDbType("pg");
 		vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 10, 10, 0) });
 	});
 
@@ -66,9 +64,20 @@ describe("TableDateCell", () => {
 		expect(staged(row)).toBe("2026-11-10");
 	});
 
-	it("stages TODAY on a timestamp column as the instant of local midnight", () => {
+	// A timestamp without a zone ignores an offset, so the ISO instant of local midnight stored
+	// 21:00 of the previous day.
+	it("stages TODAY on a timestamp column as the local wall-clock time", () => {
 		const row = { id: 1, day: "2026-11-01T09:30:00.000Z" };
 		renderDateCell(row, "timestamp");
+
+		fireEvent.click(screen.getByRole("button", { name: "TODAY" }));
+
+		expect(staged(row)).toBe("2026-11-10 00:00:00");
+	});
+
+	it("stages TODAY on a timestamptz column as the instant of local midnight", () => {
+		const row = { id: 1, day: "2026-11-01T09:30:00.000Z" };
+		renderDateCell(row, "timestamptz");
 
 		fireEvent.click(screen.getByRole("button", { name: "TODAY" }));
 
