@@ -15,7 +15,7 @@ const renderForeignKeyCell = () => {
 		row: { id: "1", original: row },
 		column: {
 			id: "user_id",
-			columnDef: { meta: { isForeignKey: true, referencedTable: "users" } },
+			columnDef: { meta: { variant: "number", isForeignKey: true, referencedTable: "users" } },
 		},
 	} as Cell<TableRecord, unknown>;
 
@@ -39,6 +39,14 @@ const getUpdate = () => useUpdateCellStore.getState().getUpdate(row, "user_id");
 describe("TableForeignKeyCell", () => {
 	beforeEach(() => {
 		useUpdateCellStore.getState().clearUpdates();
+	});
+
+	it("offers no empty string on a number column", async () => {
+		renderForeignKeyCell();
+
+		await screen.findByRole("textbox");
+
+		expect(screen.queryByRole("button", { name: "Set empty string" })).toBeNull();
 	});
 
 	it("drops the typed value when Cancel is clicked", async () => {

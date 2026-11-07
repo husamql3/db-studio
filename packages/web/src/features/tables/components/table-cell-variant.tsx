@@ -274,7 +274,9 @@ export const TableTextCell = memo(
 		// current one stays in place, pressed, so the buttons never shift between cells.
 		const valueActions: { label: string; title: string; value: unknown }[] = [
 			...(columnMeta?.isNullable ? [{ label: "NULL", title: "Set NULL", value: null }] : []),
-			{ label: "EMPTY", title: "Set empty string", value: "" },
+			...(columnMeta?.variant === "text"
+				? [{ label: "EMPTY", title: "Set empty string", value: "" }]
+				: []),
 			...(columnMeta?.hasDefault
 				? [{ label: "DEFAULT", title: "Use column default", value: CELL_DEFAULT }]
 				: []),
