@@ -407,8 +407,15 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	 */
 	protected readonly countStatements: number = 4;
 
-	/** Every table of the list, in order, each with its row estimate where the engine keeps one. */
-	protected abstract tableEstimates(conn: Conn, db: string): Promise<TableEstimate[]>;
+	/**
+	 * Every table of the list, in order, each with its row estimate where the engine keeps one;
+	 * only `tableName` when given.
+	 */
+	protected abstract tableEstimates(
+		conn: Conn,
+		db: string,
+		tableName?: string,
+	): Promise<TableEstimate[]>;
 
 	/** Exact row counts of `tables`, in order; undefined for a table that cannot be counted. */
 	protected async exactCounts(
@@ -470,15 +477,6 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		});
 	}
 
-	/** The row estimate the engine keeps for one table, where it keeps one. */
-	protected async tableEstimate(
-		_conn: Conn,
-		_db: string,
-		_tableName: string,
-	): Promise<number | undefined> {
-		return undefined;
-	}
-
 	/**
 	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
 	 * reports that estimate, because an exact count reads the whole table and the total is
@@ -493,7 +491,8 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		filterValues: unknown[],
 	): Promise<{ total: number; estimated: boolean }> {
 		if (!filterWhere) {
-			const estimate = await this.tableEstimate(conn, db, tableName);
+			const [table] = await this.tableEstimates(conn, db, tableName);
+			const estimate = table?.estimate;
 
 			if (estimate !== undefined && estimate >= EXACT_COUNT_LIMIT)
 				return { total: estimate, estimated: true };

@@ -283,10 +283,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		};
 	}
 
-	protected tableEstimates(conn: MssqlConn) {
-		return this.rowEstimates(conn);
-	}
-
 	/** A login may see tables it cannot read; those keep their estimate. */
 	protected override async exactCounts(conn: MssqlConn, tables: TableEstimate[]) {
 		try {
@@ -352,7 +348,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		} catch (e) {
 			if (!isSelectDenied(e)) throw e;
 
-			return (await this.rowEstimates(conn, tableName))[0]?.estimate ?? 0;
+			return (await this.tableEstimates(conn, "", tableName))[0]?.estimate ?? 0;
 		}
 	}
 
@@ -736,7 +732,11 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	 * The row count SQL Server keeps for each dbo table (or only `tableName`), in name order. It
 	 * is maintained with every write but documented as approximate.
 	 */
-	private async rowEstimates(conn: MssqlConn, tableName?: string): Promise<TableEstimate[]> {
+	protected async tableEstimates(
+		conn: MssqlConn,
+		_db: string,
+		tableName?: string,
+	): Promise<TableEstimate[]> {
 		const request = conn.request();
 
 		if (tableName !== undefined) request.input("tableName", tableName);
@@ -755,10 +755,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			tableName: row.tableName,
 			estimate: Number(row.estimate),
 		}));
-	}
-
-	protected override async tableEstimate(conn: MssqlConn, _db: string, tableName: string) {
-		return (await this.rowEstimates(conn, tableName))[0]?.estimate;
 	}
 
 	protected async primaryKey(conn: MssqlConn, tableName: string): Promise<string[]> {

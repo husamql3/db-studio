@@ -278,8 +278,10 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		};
 	}
 
-	/** SQLite keeps no row estimates, so every table is counted. */
-	protected tableEstimates(client: SqliteClient) {
+	/** SQLite keeps no row estimates, so every table is counted, and one table has none to read. */
+	protected async tableEstimates(client: SqliteClient, _db: string, tableName?: string) {
+		if (tableName !== undefined) return [];
+
 		return all<TableEstimate>(
 			client,
 			`SELECT name AS tableName FROM sqlite_master

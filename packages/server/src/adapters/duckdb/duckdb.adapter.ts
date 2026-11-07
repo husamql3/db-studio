@@ -262,7 +262,10 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	/** Every table is counted, in one statement: the connection runs one query at a time. */
 	protected readonly countStatements = 1;
 
-	protected tableEstimates(conn: DuckDBConnection) {
+	/** DuckDB keeps no row estimates, so every table is counted, and one table has none to read. */
+	protected async tableEstimates(conn: DuckDBConnection, _db: string, tableName?: string) {
+		if (tableName !== undefined) return [];
+
 		return this.rows<TableEstimate>(
 			conn,
 			`SELECT table_name AS "tableName" FROM duckdb_tables() WHERE ${IN_CURRENT_SCHEMA} AND NOT temporary ORDER BY table_name`,

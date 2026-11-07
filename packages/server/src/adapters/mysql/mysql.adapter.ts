@@ -216,10 +216,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		};
 	}
 
-	protected async tableEstimates(_conn: Connection, db: string) {
-		return this.rowEstimates(await connector("mysql").pool(db));
-	}
-
 	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD COLUMN in the column. */
 	protected columnDefinition(
 		_conn: Connection,
@@ -506,8 +502,12 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	 * morning would still report its old size; the session reads them fresh instead. MariaDB and
 	 * TiDB keep no such cache and reject the variable, which is harmless.
 	 */
-	private async rowEstimates(pool: MysqlPool, tableName?: string): Promise<TableEstimate[]> {
-		const connection = await pool.getConnection();
+	protected async tableEstimates(
+		_conn: Connection,
+		db: string,
+		tableName?: string,
+	): Promise<TableEstimate[]> {
+		const connection = await (await connector("mysql").pool(db)).getConnection();
 
 		try {
 			await connection
@@ -530,11 +530,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		} finally {
 			connection.release();
 		}
-	}
-
-	protected override async tableEstimate(_conn: Connection, db: string, tableName: string) {
-		return (await this.rowEstimates(await connector("mysql").pool(db), tableName))[0]
-			?.estimate;
 	}
 
 	protected async primaryKey(pool: Connection, tableName: string): Promise<string[]> {

@@ -358,9 +358,14 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				buildFilterConditions(filters, bind, oracleFilters(columnTypes, bind)),
 			);
 
-			const { total } = await this.pageTotal(conn, params.db, tableName, undefined, where, [
-				...values,
-			]);
+			const { total, estimated } = await this.pageTotal(
+				conn,
+				params.db,
+				tableName,
+				undefined,
+				where,
+				[...values],
+			);
 
 			const fetched = await this.rows(
 				conn,
@@ -372,7 +377,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 			return {
 				data: rows,
-				meta: { limit, total, ...page },
+				meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
 			};
 		});
 	}
@@ -455,12 +460,14 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 	 * USER_TABLES.NUM_ROWS is an estimate as of the last statistics gathering, and NULL for a
 	 * table never analyzed, which is then counted.
 	 */
-	protected tableEstimates(conn: Connection) {
+	protected tableEstimates(conn: Connection, _db: string, tableName?: string) {
 		return this.rows<TableEstimate>(
 			conn,
 			`SELECT table_name AS "tableName", num_rows AS "estimate" FROM user_tables
 			WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
+				${tableName === undefined ? "" : "AND table_name = :1"}
 			ORDER BY table_name`,
+			tableName === undefined ? [] : [tableName],
 		);
 	}
 
