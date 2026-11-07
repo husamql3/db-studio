@@ -5,6 +5,7 @@ import type {
 	CreateIndexParamsSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
+	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -572,34 +573,49 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		});
 	}
 
+	/**
+	 * A column's DEFAULT is a named constraint, which refuses ALTER COLUMN and DROP COLUMN
+	 * (errors 5074, 4922) while it stands.
+	 */
+	private async dropDefaultConstraint(conn: MssqlConn, tableName: string, columnName: string) {
+		const [constraint] = await this.rows<{ name: string }>(
+			conn,
+			`SELECT dc.name FROM sys.default_constraints dc
+			 JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+			 WHERE OBJECT_NAME(dc.parent_object_id) = @p0 AND c.name = @p1`,
+			[tableName, columnName],
+		);
+
+		if (constraint)
+			await this.execute(
+				conn,
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} DROP CONSTRAINT ${quoteMssqlIdent(constraint.name)}`,
+			);
+	}
+
+	/** 404 for a missing table or column; the column's DEFAULT goes with it. */
+	override async deleteColumn({
+		tableName,
+		columnName,
+		cascade,
+		db,
+	}: DeleteColumnParamsSchemaType): Promise<void> {
+		await this.transaction(db, async (conn) => {
+			await this.requireColumn(conn, tableName, columnName);
+			await this.dropDefaultConstraint(conn, tableName, columnName);
+			await this.execute(
+				conn,
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} ${this.dropColumnSql(columnName, cascade)}`,
+			);
+		});
+	}
+
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
 		const pool = await connector("mssql").pool(db);
 
 		await this.requireColumn(pool, tableName, columnName);
-
-		const defaultConstraintResult = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", columnName).query(`
-				SELECT dc.name AS constraint_name
-				FROM sys.default_constraints dc
-				JOIN sys.columns c
-				  ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
-				WHERE OBJECT_NAME(dc.parent_object_id) = @tableName AND c.name = @columnName
-			`);
-
-		const constraintName = defaultConstraintResult.recordset[0]?.constraint_name as
-			| string
-			| undefined;
-
-		if (constraintName) {
-			await pool
-				.request()
-				.query(
-					`ALTER TABLE ${quoteMssqlIdent(tableName)} DROP CONSTRAINT ${quoteMssqlIdent(constraintName)}`,
-				);
-		}
+		await this.dropDefaultConstraint(pool, tableName, columnName);
 
 		const nullability = isNullable ? "NULL" : "NOT NULL";
 		await pool
