@@ -17,7 +17,7 @@ const CodeEditor = lazy(() =>
 	})),
 );
 
-export type QueryResult = {
+type QueryResult = {
 	data: ExecuteQueryResult;
 	queryId: string;
 };
@@ -114,7 +114,7 @@ export const RunnerScreen = ({
 				isFavorite={isFavorite}
 				queryId={queryId ?? ""}
 				hasUnsavedChanges={hasUnsavedChanges}
-				queryResult={queryResult ?? null}
+				queryResult={queryResult?.data ?? null}
 				currentQuery={currentQuery}
 			/>
 
