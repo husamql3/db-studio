@@ -333,8 +333,9 @@ interface CollectionValidator {
 }
 
 /**
- * Changes one field's entry in the collection's `$jsonSchema` validator, keeping the rest of it
- * and its validationAction: `next` without a `type` moves the entry to `next.name`, with a `type`
+ * Changes one field's entry in the collection's `$jsonSchema` validator, keeping the rest of it,
+ * the validator's other query-operator rules (collMod replaces the whole validator) and its
+ * validationAction: `next` without a `type` moves the entry to `next.name`, with a `type`
  * replaces it (required unless nullable), and no `next` removes it. A collection without a
  * validator gets a "warn" one only when a type is set.
  */
@@ -346,11 +347,11 @@ const editFieldValidator = async (
 	next?: { name: string; type?: { bsonType: string; isNullable: boolean } },
 ) => {
 	const validator = info.options?.validator;
-
-	if (!validator && !next?.type) return;
-
 	const { required: oldRequired = [], ...schema } = validator?.$jsonSchema ?? {};
 	const { [columnName]: property, ...properties } = schema.properties ?? {};
+
+	if (!next?.type && property === undefined && !oldRequired.includes(columnName)) return;
+
 	const required = oldRequired.filter((name) => name !== columnName);
 
 	if (next) {
@@ -369,6 +370,7 @@ const editFieldValidator = async (
 	await mongoDb.command({
 		collMod: tableName,
 		validator: {
+			...validator,
 			$jsonSchema: {
 				...schema,
 				bsonType: "object",

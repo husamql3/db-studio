@@ -9,6 +9,8 @@
  * - changing a field downgrades the collection's validationAction from "error" to "warn";
  * - dropping or renaming a required field of a collection db-studio created is refused by its
  *   own validator, or leaves the old name in the validator's properties and required list;
+ * - dropping or renaming a field wipes the validator's query-operator rules next to `$jsonSchema`
+ *   (collMod replaces the whole validator), or turns a validator without `$jsonSchema` into one;
  * - dropping a field of a collection that does not exist answers anything but 404;
  * - creating a collection whose fields are all nullable sends an empty `required`, which the
  *   server refuses;
@@ -256,6 +258,41 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 		expect(validator.$jsonSchema.required).not.toContain("age");
 		expect(validationAction).toBe("error");
 		expect(await raw.db(DB).collection(COLLECTION).findOne({})).toMatchObject({ years: 36 });
+	});
+
+	it("keeps the validator's query-operator rules when a field is dropped or renamed", async () => {
+		const status = { $in: ["active", "archived"] };
+		const { validator } = await collectionOptions();
+
+		await raw
+			.db(DB)
+			.collection(COLLECTION)
+			.updateOne({}, { $set: { status: "active" } });
+		await raw.db(DB).command({ collMod: COLLECTION, validator: { ...validator, status } });
+		await adapter.deleteColumn({ db: DB, tableName: COLLECTION, columnName: "age" });
+		await adapter.renameColumn({
+			db: DB,
+			tableName: COLLECTION,
+			columnName: "name",
+			newColumnName: "title",
+		});
+
+		const after = await collectionOptions();
+
+		expect(after.validator.status).toEqual(status);
+		expect(after.validator.$jsonSchema.properties).toHaveProperty("title");
+		expect(after.validator.$jsonSchema.properties).not.toHaveProperty("age");
+
+		await raw.db(DB).createCollection("orders", { validator: { status } });
+		await raw.db(DB).collection("orders").insertOne({ status: "active", note: "x" });
+		await adapter.deleteColumn({ db: DB, tableName: "orders", columnName: "note" });
+
+		const [orders] = await raw
+			.db(DB)
+			.listCollections<CollectionInfo>({ name: "orders" })
+			.toArray();
+
+		expect(orders?.options?.validator).toEqual({ status });
 	});
 
 	it("answers 404 when dropping a field of a missing collection", async () => {
