@@ -6,6 +6,10 @@
  * - the edit-column form sends back the type label `getTableColumns` gave a field (`numeric`,
  *   `text`, `json`, `timestamptz`, `boolean`) and the validator rejects it as no BSON type;
  * - a type that is no BSON type reaches the server instead of answering 400;
+ * - changing a field downgrades the collection's validationAction from "error" to "warn";
+ * - dropping or renaming a required field of a collection db-studio created is refused by its
+ *   own validator, or leaves the old name in the validator's properties and required list;
+ * - dropping a field of a collection that does not exist answers anything but 404.
  *
  * It uses a scratch database of the MongoDB at MONGO_TEST_URL (default mongodb://127.0.0.1:27017,
  * the `bun run init-db:mongo` container) and drops it after each test. When no MongoDB answers
@@ -115,7 +119,7 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 			});
 		}
 
-		const { validator } = await collectionOptions();
+		const { validator, validationAction } = await collectionOptions();
 
 		expect(validator.$jsonSchema.properties).toEqual({
 			name: { bsonType: "string" },
@@ -124,6 +128,7 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 			born: { bsonType: "date" },
 			active: { bsonType: "bool" },
 		});
+		expect(validationAction).toBe("error");
 		// "number" accepts every numeric BSON type, so a double still passes the validator.
 		await expect(
 			raw
@@ -131,6 +136,12 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 				.collection(COLLECTION)
 				.updateOne({}, { $set: { age: 36.5 } }),
 		).resolves.toMatchObject({ modifiedCount: 1 });
+		await expect(
+			raw
+				.db(DB)
+				.collection(COLLECTION)
+				.updateOne({}, { $set: { age: "old" } }),
+		).rejects.toMatchObject({ code: 121 });
 	});
 
 	it("answers 400 for a type that is no BSON type", async () => {
@@ -162,5 +173,45 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 				.collection(COLLECTION)
 				.findOne({}, { projection: { _id: 0 } }),
 		).not.toHaveProperty("score");
+	});
+
+	it("drops a required field from the documents and the validator", async () => {
+		await adapter.deleteColumn({ db: DB, tableName: COLLECTION, columnName: "age" });
+
+		const { validator, validationAction } = await collectionOptions();
+
+		expect(Object.keys(validator.$jsonSchema.properties)).toEqual([
+			"name",
+			"profile",
+			"born",
+			"active",
+		]);
+		expect(validator.$jsonSchema.required).toEqual(["name", "profile", "born", "active"]);
+		expect(validationAction).toBe("error");
+		expect(await raw.db(DB).collection(COLLECTION).findOne({})).not.toHaveProperty("age");
+	});
+
+	it("renames a required field in the documents and the validator", async () => {
+		await adapter.renameColumn({
+			db: DB,
+			tableName: COLLECTION,
+			columnName: "age",
+			newColumnName: "years",
+		});
+
+		const { validator, validationAction } = await collectionOptions();
+
+		expect(validator.$jsonSchema.properties).not.toHaveProperty("age");
+		expect(validator.$jsonSchema.properties.years).toEqual({ bsonType: "int" });
+		expect(validator.$jsonSchema.required).toContain("years");
+		expect(validator.$jsonSchema.required).not.toContain("age");
+		expect(validationAction).toBe("error");
+		expect(await raw.db(DB).collection(COLLECTION).findOne({})).toMatchObject({ years: 36 });
+	});
+
+	it("answers 404 when dropping a field of a missing collection", async () => {
+		await expect(
+			adapter.deleteColumn({ db: DB, tableName: "missing", columnName: "age" }),
+		).rejects.toMatchObject({ status: 404 });
 	});
 });

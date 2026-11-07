@@ -197,17 +197,17 @@ const MONGO_BSON_TYPES = new Set([
 ]);
 
 /** The BSON type of each type label `getTableColumns` gives a field, which edit forms send back. */
-const LABEL_BSON_TYPES: Record<string, string> = {
-	numeric: "number",
-	text: "string",
-	json: "object",
-	timestamptz: "date",
-	boolean: "bool",
-};
+const LABEL_BSON_TYPES = new Map([
+	["numeric", "number"],
+	["text", "string"],
+	["json", "object"],
+	["timestamptz", "date"],
+	["boolean", "bool"],
+]);
 
 /** The BSON type a column type names, as a BSON type or a `getTableColumns` label; 400 otherwise. */
 const toBsonType = (columnType: string, columnName: string): string => {
-	const bsonType = LABEL_BSON_TYPES[columnType] ?? columnType;
+	const bsonType = LABEL_BSON_TYPES.get(columnType) ?? columnType;
 
 	if (!MONGO_BSON_TYPES.has(bsonType)) {
 		throw new HTTPException(400, {
@@ -311,43 +311,51 @@ interface CollectionValidator {
 }
 
 /**
- * Sets one field's type in the collection's `$jsonSchema` validator, keeping the rest of it, and
- * lists the field as required unless it is nullable.
+ * Changes one field's entry in the collection's `$jsonSchema` validator, keeping the rest of it
+ * and its validationAction: `next` without a `type` moves the entry to `next.name`, with a `type`
+ * replaces it (required unless nullable), and no `next` removes it. A collection without a
+ * validator gets a "warn" one only when a type is set.
  */
-const setFieldValidator = async (
+const editFieldValidator = async (
 	mongoDb: Db,
 	tableName: string,
 	info: CollectionValidator,
-	{
-		columnName,
-		bsonType,
-		isNullable,
-	}: { columnName: string; bsonType: string; isNullable: boolean },
+	columnName: string,
+	next?: { name: string; type?: { bsonType: string; isNullable: boolean } },
 ) => {
-	const existingSchema = info.options?.validator?.$jsonSchema ?? {};
+	const validator = info.options?.validator;
 
-	const required = (existingSchema.required ?? []).filter(
-		(name) => !isNullable || name !== columnName,
-	);
+	if (!validator && !next?.type) return;
 
-	if (!isNullable && !required.includes(columnName)) required.push(columnName);
+	const { required: oldRequired = [], ...schema } = validator?.$jsonSchema ?? {};
+	const { [columnName]: property, ...properties } = schema.properties ?? {};
+	const required = oldRequired.filter((name) => name !== columnName);
 
-	const jsonSchema: Record<string, unknown> = {
-		...existingSchema,
-		bsonType: "object",
-		properties: {
-			...existingSchema.properties,
-			[columnName]: { bsonType: isNullable ? [bsonType, "null"] : bsonType },
-		},
-	};
+	if (next) {
+		const { name, type } = next;
 
-	if (required.length > 0) jsonSchema.required = required;
+		if (type) {
+			const { bsonType, isNullable } = type;
+			properties[name] = { bsonType: isNullable ? [bsonType, "null"] : bsonType };
+		} else if (property !== undefined) {
+			properties[name] = property;
+		}
 
-	// createTable sets validationAction "error"; changing a field has always set "warn".
+		if (type ? !type.isNullable : oldRequired.includes(columnName)) required.push(name);
+	}
+
 	await mongoDb.command({
 		collMod: tableName,
-		validator: { $jsonSchema: jsonSchema },
-		validationAction: "warn",
+		validator: {
+			$jsonSchema: {
+				...schema,
+				bsonType: "object",
+				properties,
+				// $jsonSchema refuses an empty `required`.
+				...(required.length > 0 && { required }),
+			},
+		},
+		...(!validator && { validationAction: "warn" }),
 	});
 };
 
@@ -808,7 +816,10 @@ export class MongoAdapter extends BaseAdapter {
 			.collection(tableName)
 			.updateMany({}, { $set: { [columnName]: resolvedDefault } });
 
-		await setFieldValidator(mongoDb, tableName, info, { columnName, bsonType, isNullable });
+		await editFieldValidator(mongoDb, tableName, info, columnName, {
+			name: columnName,
+			type: { bsonType, isNullable },
+		});
 	}
 
 	override async deleteColumn({
@@ -817,6 +828,9 @@ export class MongoAdapter extends BaseAdapter {
 		db,
 	}: DeleteColumnParamsSchemaType): Promise<void> {
 		const mongoDb = await connector("mongodb").db(db);
+		const info = await assertCollection(mongoDb, tableName);
+		// A field the validator requires cannot be unset while it does.
+		await editFieldValidator(mongoDb, tableName, info, columnName);
 		await mongoDb.collection(tableName).updateMany({}, { $unset: { [columnName]: "" } });
 	}
 
@@ -829,17 +843,16 @@ export class MongoAdapter extends BaseAdapter {
 			throw new HTTPException(400, { message: 'Cannot alter the "_id" field' });
 		}
 
-		await setFieldValidator(mongoDb, tableName, info, {
-			columnName,
-			bsonType: toBsonType(columnType, columnName),
-			isNullable,
+		await editFieldValidator(mongoDb, tableName, info, columnName, {
+			name: columnName,
+			type: { bsonType: toBsonType(columnType, columnName), isNullable },
 		});
 	}
 
 	override async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, newColumnName, db } = params;
 		const mongoDb = await connector("mongodb").db(db);
-		await assertCollection(mongoDb, tableName);
+		const info = await assertCollection(mongoDb, tableName);
 
 		if (columnName === "_id") {
 			throw new HTTPException(400, { message: 'Cannot rename the "_id" field' });
@@ -865,6 +878,7 @@ export class MongoAdapter extends BaseAdapter {
 			});
 		}
 
+		await editFieldValidator(mongoDb, tableName, info, columnName, { name: newColumnName });
 		await mongoDb
 			.collection(tableName)
 			.updateMany(
