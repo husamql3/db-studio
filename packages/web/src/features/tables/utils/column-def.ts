@@ -1,5 +1,6 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import type { ColumnDef } from "@tanstack/react-table";
+import { cellVariant } from "@/utils/cell-variant";
 import type { TableRecord } from "../table.type";
 
 /** A grid column for a table column; `canWriteDefault` when the engine writes DEFAULT from the grid. */
@@ -10,7 +11,7 @@ export const toColumnDef = (
 	accessorKey: col.columnName,
 	header: col.columnName,
 	meta: {
-		variant: col.enumValues ? "enum" : col.dataType,
+		variant: cellVariant(col),
 		isPrimaryKey: col.isPrimaryKey,
 		isForeignKey: col.isForeignKey,
 		referencedTable: col.referencedTable,

@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { Clock, Link, RefreshCw } from "lucide-react";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
 import type { AddRecordFormData } from "@/shared/api";
+import { cellVariant } from "@/utils/cell-variant";
 import { parseDateValue, toDateValue } from "@/utils/date-values";
 import { openRecordReference } from "../stores/record-reference.store";
 
@@ -99,9 +100,11 @@ export const AddRecordField = ({
 			);
 		}
 
-		// Editors follow the grid's cell variant (`dataType`); the label only picks the inputs
-		// specific to one type.
-		if (enumValues?.length) {
+		// Editors follow the grid's cell variant; the label only picks the inputs specific to one
+		// type.
+		const variant = cellVariant({ enumValues, dataType });
+
+		if (enumValues && variant === "enum") {
 			return (
 				<Select
 					value={field.value}
@@ -127,7 +130,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataType === "number") {
+		if (variant === "number") {
 			return (
 				<Input
 					id={columnName}
@@ -139,7 +142,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataType === "boolean") {
+		if (variant === "boolean") {
 			return (
 				<Select
 					value={field.value}
@@ -171,7 +174,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataType === "json") {
+		if (variant === "json") {
 			return (
 				<Textarea
 					id={columnName}
@@ -183,7 +186,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataType === "date") {
+		if (variant === "date") {
 			const showTime = dataTypeLabel !== "date";
 
 			const nowDefaults = showTime
