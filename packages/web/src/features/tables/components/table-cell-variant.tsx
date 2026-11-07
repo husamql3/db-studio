@@ -523,7 +523,7 @@ TableNumberCell.displayName = "TableNumberCell";
 // hold no NUL character, so no label can equal this.
 const NULL_OPTION = "\u0000null";
 
-/** A cell edited by picking one of `options` or NULL; the select opens as editing starts. */
+/** A cell edited by picking one of `options`, or NULL when nullable; the select opens as editing starts. */
 const TableSelectCell = memo(
 	({
 		cell,
@@ -611,7 +611,9 @@ const TableSelectCell = memo(
 									{option}
 								</SelectItem>
 							))}
-							<SelectItem value={NULL_OPTION}>NULL</SelectItem>
+							{cell.column.columnDef.meta?.isNullable && (
+								<SelectItem value={NULL_OPTION}>NULL</SelectItem>
+							)}
 						</SelectContent>
 					</Select>
 				) : (
