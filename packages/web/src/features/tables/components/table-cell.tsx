@@ -1,6 +1,6 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { useMemo } from "react";
-import type { CellVariant, TableRecord } from "@/features/tables/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import {
 	CellContent,
 	TableBooleanCell,
@@ -43,7 +43,7 @@ export const TableCell = ({
 
 	const isSelected = meta?.getIsCellSelected?.(rowIndex, columnId) ?? false;
 
-	const cellVariant = cell.column.columnDef.meta?.variant as CellVariant | undefined;
+	const cellVariant = cell.column.columnDef.meta?.variant;
 	const isForeignKey = cell.column.columnDef.meta?.isForeignKey;
 	const referencedTable = cell.column.columnDef.meta?.referencedTable;
 

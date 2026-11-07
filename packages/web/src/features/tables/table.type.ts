@@ -33,7 +33,7 @@ export type NavigationDirection =
 
 declare module "@tanstack/react-table" {
 	interface ColumnMeta<TData extends RowData, TValue> {
-		variant?: CellVariant; // Generic type for cell rendering (text/boolean/number/enum/json/date)
+		variant?: CellVariant; // Generic type for cell rendering (text/boolean/number/enum/json/date/array)
 		dataTypeLabel?: StandardizedDataType; // Exact database type (int/varchar/timestamp/etc.)
 		isPrimaryKey?: boolean;
 		isForeignKey?: boolean;
