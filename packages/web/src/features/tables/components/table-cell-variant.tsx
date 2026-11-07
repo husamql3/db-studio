@@ -965,10 +965,9 @@ export const TableForeignKeyCell = memo((props: CellVariantProps<TableRecord>) =
 
 	if (drawerOpen && !drawerMounted) setDrawerMounted(true);
 
-	const renderValue = (value: unknown) =>
-		value === null || value === undefined || value === CELL_DEFAULT ? (
-			<CellContent value={value} />
-		) : (
+	// CellContent shows NULL, EMPTY and DEFAULT in place of the badge.
+	const renderValue = (value: unknown) => (
+		<CellContent value={value}>
 			<span className="flex items-center gap-1.5 size-full overflow-hidden">
 				{meta?.referencedTable && (
 					<Badge
@@ -985,7 +984,8 @@ export const TableForeignKeyCell = memo((props: CellVariantProps<TableRecord>) =
 				)}
 				<span className="truncate text-muted-foreground">{formatCellValue(value)}</span>
 			</span>
-		);
+		</CellContent>
+	);
 
 	return (
 		<>

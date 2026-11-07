@@ -8,11 +8,11 @@ import { TableForeignKeyCell } from "./table-cell-variant";
 
 const row = { id: 1, user_id: 7 };
 
-const renderForeignKeyCell = () => {
+const renderForeignKeyCell = (record: TableRecord = row, isEditing = true) => {
 	const cell = {
 		id: "1_user_id",
-		getValue: () => row.user_id,
-		row: { id: "1", original: row },
+		getValue: () => record.user_id,
+		row: { id: "1", original: record },
 		column: {
 			id: "user_id",
 			columnDef: { meta: { variant: "number", isForeignKey: true, referencedTable: "users" } },
@@ -27,7 +27,7 @@ const renderForeignKeyCell = () => {
 			table={table}
 			rowIndex={0}
 			columnId="user_id"
-			isEditing
+			isEditing={isEditing}
 			isFocused
 			isSelected={false}
 		/>,
@@ -65,5 +65,12 @@ describe("TableForeignKeyCell", () => {
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
 
 		expect(getUpdate()?.newValue).toBe("79");
+	});
+
+	it("shows an empty string as EMPTY, without a badge", () => {
+		renderForeignKeyCell({ id: 1, user_id: "" }, false);
+
+		expect(screen.getByText("EMPTY")).toBeTruthy();
+		expect(screen.queryByText("users")).toBeNull();
 	});
 });
