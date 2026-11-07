@@ -505,7 +505,6 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 	/** Overrides the shared insert, which runs in a transaction SQLite does not offer. */
 	override async addRecord({ params: { tableName, data } }: { params: AddRecordSchemaType }) {
-		this.assertRecordData(data);
 		const client = await connector("sqlite").client();
 		const insert = await this.inserter(client, "", tableName, undefined);
 		const { sql, values } = insert(data);

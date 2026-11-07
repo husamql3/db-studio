@@ -116,14 +116,6 @@ export const bulkInserted = (count: number): BulkInsertResult => ({
 	failureCount: 0,
 });
 
-/**
- * Every column any record names, for an INSERT whose one statement writes every record: imported
- * records can each name a different subset.
- */
-export const recordColumns = (records: Record<string, unknown>[]) => [
-	...new Set(records.flatMap((record) => Object.keys(record))),
-];
-
 /** The foreign key name PostgreSQL and MySQL tables get: every column it joins. */
 export const fullForeignKeyName = (tableName: string, fk: ForeignKeyDataType) =>
 	`fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
@@ -1069,8 +1061,10 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		return [];
 	}
 
-	/** What follows `INSERT INTO <table>` for a record that names no column. */
-	protected readonly insertDefaultsSql: string = "DEFAULT VALUES";
+	/** What follows `INSERT INTO <table>` for a record that names no column: a row of defaults. */
+	protected async insertDefaultsSql(_conn: Conn, _tableName: string): Promise<string> {
+		return "DEFAULT VALUES";
+	}
 
 	/**
 	 * The INSERT of a record, with its values bound the way writes bind them. It names only the
@@ -1086,12 +1080,12 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		const { bindValue } = await this.writeTarget(conn, db, tableName, schemaName);
 		const skipped = await this.skippedInsertColumns(conn, tableName);
 		const table = this.tableRef(tableName, schemaName);
+		const defaults = `INSERT INTO ${table} ${await this.insertDefaultsSql(conn, tableName)}`;
 
 		return (record: Record<string, unknown>) => {
 			const columns = Object.keys(record).filter((column) => !skipped.includes(column));
 
-			if (!columns.length)
-				return { sql: `INSERT INTO ${table} ${this.insertDefaultsSql}`, values: [] };
+			if (!columns.length) return { sql: defaults, values: [] };
 
 			const { values, bind } = createBinds(this.placeholder);
 			const row = columns.map((column) => bindValue(column, record[column] ?? null, bind));
@@ -1101,12 +1095,6 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 				values,
 			};
 		};
-	}
-
-	/** 400 for a record without a column: an INSERT names at least one. */
-	protected assertRecordData(data: Record<string, unknown>) {
-		if (!Object.keys(data).length)
-			throw new HTTPException(400, { message: "No data provided for insert" });
 	}
 
 	/** One INSERT, committed on its own. */
@@ -1119,8 +1107,6 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		schemaName?: string;
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
-		this.assertRecordData(data);
-
 		const insertedCount = await this.transaction(db, async (conn) => {
 			const insert = await this.inserter(conn, db, tableName, schemaName);
 			const { sql, values } = insert(data);

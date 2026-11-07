@@ -33,7 +33,6 @@ import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-
 import {
 	type InlineConstraints,
 	bulkInserted,
-	recordColumns,
 	groupKeyColumns,
 	RELATED_SAMPLE,
 	type ReferencingKey,
@@ -77,6 +76,14 @@ type ColumnRow = {
 
 /** Oracle 23ai is the first release with SQL BOOLEAN and the native JSON type. */
 const supportsNativeTypes = (conn: Connection) => conn.oracleServerVersion >= 2300000000;
+
+/**
+ * Every column any record names, for an INSERT whose one statement writes every record: imported
+ * records can each name a different subset.
+ */
+const recordColumns = (records: Record<string, unknown>[]) => [
+	...new Set(records.flatMap((record) => Object.keys(record))),
+];
 
 const toHex = (value: unknown) => (Buffer.isBuffer(value) ? value.toString("hex") : value);
 
@@ -352,6 +359,13 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
 				typedBind(types, bind)(value, column),
 		};
+	}
+
+	/** Oracle has no DEFAULT VALUES; the first column's DEFAULT keyword gives every column its own. */
+	protected override async insertDefaultsSql(conn: Connection, tableName: string) {
+		const [first] = await this.requireColumns(conn, tableName);
+
+		return `(${ident(first.COLUMN_NAME)}) VALUES (DEFAULT)`;
 	}
 
 	/** One ALTER TABLE ... ADD, constraints inline, so it applies fully or not at all. */
@@ -813,6 +827,12 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		const columns = recordColumns(records);
 
 		const successCount = await this.transaction(db, async (conn) => {
+			if (!columns.length) {
+				const sql = `INSERT INTO ${ident(tableName)} ${await this.insertDefaultsSql(conn, tableName)}`;
+
+				return (await conn.executeMany(sql, records.length)).rowsAffected ?? records.length;
+			}
+
 			const types = await this.columnTypes(conn, tableName);
 			let expressions: string[] = [];
 
