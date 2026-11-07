@@ -24,6 +24,7 @@ import type {
 	ServerLogEntrySchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
+	StandardizedDataType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
@@ -141,24 +142,6 @@ const INDEX_CONFLICT_CODES = new Set([85, 86]);
 /** A duplicate key (11000), also on a unique index build, or a document the validator refuses (121). */
 const CONFLICT_CODES = new Set<unknown>([11000, 121]);
 
-const inferValueType = (value: unknown): DataTypes => {
-	if (value instanceof Date) return "date";
-
-	if (value && typeof value === "object") {
-		if (Array.isArray(value)) return "array";
-
-		if ("_bsontype" in value) return "text";
-
-		return "json";
-	}
-
-	if (typeof value === "boolean") return "boolean";
-
-	if (typeof value === "number" || typeof value === "bigint") return "number";
-
-	return "text";
-};
-
 const formatBytes = (bytes: number): string => {
 	if (!Number.isFinite(bytes)) return "n/a";
 	const units = ["B", "KB", "MB", "GB", "TB"];
@@ -199,14 +182,41 @@ const MONGO_BSON_TYPES = new Set([
 	"number",
 ]);
 
-/** The BSON type of each type label `getTableColumns` gives a field, which edit forms send back. */
-const LABEL_BSON_TYPES = new Map([
-	["numeric", "number"],
-	["text", "string"],
-	["json", "object"],
-	["timestamptz", "date"],
-	["boolean", "bool"],
-]);
+/**
+ * The cell type and type label `getTableColumns` gives a field of each BSON type a sampled value
+ * can have. A type with no closer label is labeled with its BSON type, which `toBsonType` takes
+ * back, so saving an edit form unchanged keeps the field's type.
+ */
+const BSON_COLUMN_TYPES = {
+	string: { dataType: "text", label: "text" },
+	int: { dataType: "number", label: "numeric" },
+	long: { dataType: "number", label: "numeric" },
+	double: { dataType: "number", label: "numeric" },
+	decimal: { dataType: "text", label: "decimal" },
+	object: { dataType: "json", label: "json" },
+	array: { dataType: "array", label: "array" },
+	// A BSON Date is a UTC instant, labeled like PostgreSQL's timestamptz.
+	date: { dataType: "date", label: "timestamptz" },
+	bool: { dataType: "boolean", label: "boolean" },
+	objectId: { dataType: "text", label: "objectId" },
+	binData: { dataType: "text", label: "binData" },
+	timestamp: { dataType: "text", label: "timestamp" },
+	regex: { dataType: "text", label: "regex" },
+	javascript: { dataType: "text", label: "javascript" },
+	symbol: { dataType: "text", label: "symbol" },
+	minKey: { dataType: "text", label: "minKey" },
+	maxKey: { dataType: "text", label: "maxKey" },
+} as const satisfies Record<string, { dataType: DataTypes; label: StandardizedDataType }>;
+
+type SampledBsonType = keyof typeof BSON_COLUMN_TYPES | "null";
+
+/** The BSON type each label stands for; "numeric" is $jsonSchema's "number", any number type. */
+const LABEL_BSON_TYPES = new Map<string, string>(
+	Object.entries(BSON_COLUMN_TYPES).map(([bsonType, { label }]) => [
+		label,
+		label === "numeric" ? "number" : bsonType,
+	]),
+);
 
 /** The BSON type a column type names, as a BSON type or a `getTableColumns` label; 400 otherwise. */
 const toBsonType = (columnType: string, columnName: string): string => {
@@ -221,10 +231,28 @@ const toBsonType = (columnType: string, columnName: string): string => {
 	return bsonType;
 };
 
-const inferBsonType = (value: unknown): string => {
+/** The BSON type of each `_bsontype` the driver's wrapper classes carry. */
+const WRAPPER_BSON_TYPES = new Map<string, SampledBsonType>([
+	["ObjectId", "objectId"],
+	["Decimal128", "decimal"],
+	["Binary", "binData"],
+	["Timestamp", "timestamp"],
+	["BSONRegExp", "regex"],
+	["Code", "javascript"],
+	["BSONSymbol", "symbol"],
+	["MinKey", "minKey"],
+	["MaxKey", "maxKey"],
+	["Long", "long"],
+	["Int32", "int"],
+	["Double", "double"],
+]);
+
+const inferBsonType = (value: unknown): SampledBsonType => {
 	if (value === null || value === undefined) return "null";
 
 	if (value instanceof Date) return "date";
+
+	if (value instanceof RegExp) return "regex";
 
 	if (typeof value === "boolean") return "bool";
 
@@ -237,17 +265,8 @@ const inferBsonType = (value: unknown): string => {
 	if (typeof value === "object") {
 		const bson = (value as { _bsontype?: string })._bsontype;
 
-		if (bson === "ObjectId") return "objectId";
-
-		if (bson === "Decimal128") return "decimal";
-
-		if (bson === "Binary") return "binData";
-
-		if (bson === "Timestamp") return "timestamp";
-
-		if (bson) return bson.toLowerCase();
-
-		return "object";
+		// A DBRef is a document holding $ref and $id.
+		return WRAPPER_BSON_TYPES.get(bson ?? "") ?? "object";
 	}
 
 	return "string";
@@ -363,20 +382,17 @@ const editFieldValidator = async (
 };
 
 /**
- * One pass over the first 200 documents: per field, in first-seen order, the first value seen,
- * every BSON type seen, and whether some sampled document holds null or lacks the field.
+ * One pass over the first 200 documents: per field, in first-seen order, every BSON type seen
+ * in the order seen, and whether some sampled document holds null or lacks the field.
  */
 const sampleFields = async (mongoDb: Db, tableName: string) => {
 	const docs = await mongoDb.collection(tableName).find({}).limit(200).toArray();
 
-	const fields = new Map<
-		string,
-		{ first: unknown; bsonTypes: Set<string>; present: number }
-	>();
+	const fields = new Map<string, { bsonTypes: Set<SampledBsonType>; present: number }>();
 
 	for (const doc of docs) {
 		for (const [key, value] of Object.entries(doc)) {
-			const field = fields.get(key) ?? { first: value, bsonTypes: new Set(), present: 0 };
+			const field = fields.get(key) ?? { bsonTypes: new Set(), present: 0 };
 			field.bsonTypes.add(inferBsonType(value));
 			field.present += 1;
 			fields.set(key, field);
@@ -385,9 +401,8 @@ const sampleFields = async (mongoDb: Db, tableName: string) => {
 
 	return {
 		sampled: docs.length,
-		fields: [...fields].map(([name, { first, bsonTypes, present }]) => ({
+		fields: [...fields].map(([name, { bsonTypes, present }]) => ({
 			name,
-			first,
 			bsonTypes,
 			isNullable: bsonTypes.has("null") || present < docs.length,
 		})),
@@ -778,17 +793,17 @@ export class MongoAdapter extends BaseAdapter {
 		const { fields } = await sampleFields(await connector("mongodb").db(db), tableName);
 
 		if (!fields.some((field) => field.name === "_id"))
-			fields.push({ name: "_id", first: undefined, bsonTypes: new Set(), isNullable: false });
+			fields.push({ name: "_id", bsonTypes: new Set(), isNullable: false });
 
-		return fields.map(({ name: columnName, first, isNullable }) => {
-			// A field reports the type of its first sampled value; one first seen null is text.
-			const dt = first === null || first === undefined ? "text" : inferValueType(first);
+		return fields.map(({ name: columnName, bsonTypes, isNullable }) => {
+			// A field reports the type of its first non-null sampled value; one only seen null is text.
+			const bsonType = [...bsonTypes].find((type) => type !== "null") ?? "string";
+			const { dataType, label } = BSON_COLUMN_TYPES[bsonType];
 
 			return {
 				columnName,
-				dataType: dt,
-				// A BSON Date is a UTC instant, labeled like PostgreSQL's timestamptz.
-				dataTypeLabel: dt === "number" ? "numeric" : dt === "date" ? "timestamptz" : dt,
+				dataType,
+				dataTypeLabel: label,
 				isNullable,
 				columnDefault: null,
 				isPrimaryKey: columnName === "_id",

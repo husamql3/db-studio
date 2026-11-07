@@ -11,13 +11,16 @@
  *   own validator, or leaves the old name in the validator's properties and required list;
  * - dropping a field of a collection that does not exist answers anything but 404;
  * - creating a collection whose fields are all nullable sends an empty `required`, which the
- *   server refuses.
+ *   server refuses;
+ * - a BSON wrapper (ObjectId, Decimal128) or a field first sampled as null is labeled `text`, so
+ *   saving the edit-column form unchanged makes the validator demand a string and refuse the
+ *   field's own values.
  *
  * It uses a scratch database of the MongoDB at MONGO_TEST_URL (default mongodb://127.0.0.1:27017,
  * the `bun run init-db:mongo` container) and drops it after each test. When no MongoDB answers
  * there, the suite is skipped.
  */
-import { type CollectionInfo, MongoClient } from "mongodb";
+import { type CollectionInfo, Decimal128, MongoClient, ObjectId } from "mongodb";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import {
@@ -103,7 +106,7 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 		const label = (name: string) => columns.find((c) => c.columnName === name)?.dataTypeLabel;
 
 		expect(columns.map((c) => [c.columnName, c.dataTypeLabel])).toEqual([
-			["_id", "text"],
+			["_id", "objectId"],
 			["name", "text"],
 			["age", "numeric"],
 			["profile", "json"],
@@ -144,6 +147,50 @@ describe.skipIf(!available)("MongoAdapter field changes against a real MongoDB",
 				.collection(COLLECTION)
 				.updateOne({}, { $set: { age: "old" } }),
 		).rejects.toMatchObject({ code: 121 });
+	});
+
+	it("labels BSON wrappers and fields first seen null so the label saves back unchanged", async () => {
+		const owner = new ObjectId();
+		const people = raw.db(DB).collection(COLLECTION);
+
+		await people.updateOne(
+			{},
+			{ $set: { owner, price: Decimal128.fromString("9.99"), rank: null } },
+		);
+		await people.insertOne({
+			name: "Bob",
+			age: 40,
+			profile: {},
+			born: new Date("1990-01-01T00:00:00Z"),
+			active: false,
+			rank: 3,
+		});
+
+		const columns = await adapter.getTableColumns({ db: DB, tableName: COLLECTION });
+		const label = (name: string) => columns.find((c) => c.columnName === name)?.dataTypeLabel;
+
+		expect(["owner", "price", "rank"].map(label)).toEqual(["objectId", "decimal", "numeric"]);
+
+		for (const columnName of ["owner", "price", "rank"]) {
+			await adapter.alterColumn({
+				db: DB,
+				tableName: COLLECTION,
+				columnName,
+				columnType: label(columnName) ?? "",
+				isNullable: true,
+			});
+		}
+
+		const { validator } = await collectionOptions();
+
+		expect(validator.$jsonSchema.properties).toMatchObject({
+			owner: { bsonType: ["objectId", "null"] },
+			price: { bsonType: ["decimal", "null"] },
+			rank: { bsonType: ["number", "null"] },
+		});
+		await expect(
+			people.updateOne({ owner }, { $set: { owner: new ObjectId(), rank: 1 } }),
+		).resolves.toMatchObject({ modifiedCount: 1 });
 	});
 
 	it("answers 400 for a type that is no BSON type", async () => {

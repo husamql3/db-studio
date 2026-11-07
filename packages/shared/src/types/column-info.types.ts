@@ -76,6 +76,15 @@ const standardizedDataTypes = [
 	"enum",
 	// MySQL set type
 	"set",
+	// MongoDB BSON types with no closer label
+	"decimal",
+	"objectId",
+	"binData",
+	"regex",
+	"javascript",
+	"symbol",
+	"minKey",
+	"maxKey",
 ] as const;
 
 export const standardizedDataTypeSchema = z.enum(standardizedDataTypes);
