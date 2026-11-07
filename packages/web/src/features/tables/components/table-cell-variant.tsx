@@ -388,8 +388,9 @@ export const TableNumberCell = memo(
 		// A pending edit wins over the server value, also after a refetch (e.g. Live mode).
 		const pendingUpdate = getUpdate(rowData, columnId, meta?.editScope);
 		const displayValue = pendingUpdate ? pendingUpdate.newValue : initialValue;
-		// NULL and DEFAULT start empty and show as the placeholder.
-		const editorStart = displayValue === CELL_DEFAULT ? "" : formatCellValue(displayValue);
+		// NULL starts empty and shows as the placeholder. DEFAULT is the text cell's action, so a
+		// number cell never holds it.
+		const editorStart = formatCellValue(displayValue);
 
 		// The input exists only while the cell is edited; a page holds hundreds of number cells.
 		// It keeps the typed text: Number() would round a bigint or numeric past 2^53.
@@ -499,11 +500,7 @@ export const TableNumberCell = memo(
 						ref={focusInput}
 						value={editorValue}
 						placeholder={
-							displayValue === null || displayValue === undefined
-								? "NULL"
-								: displayValue === CELL_DEFAULT
-									? "DEFAULT"
-									: undefined
+							displayValue === null || displayValue === undefined ? "NULL" : undefined
 						}
 						onChange={(event) => setEditorValue(event.target.value)}
 						onKeyDown={onInputKeyDown}
