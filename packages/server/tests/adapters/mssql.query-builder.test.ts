@@ -6,6 +6,7 @@ import {
 	formatMssqlDefaultValue,
 	mapColumnTypeToMssql,
 	mssqlFilters,
+	quoteMssqlIdent,
 } from "@/adapters/mssql/mssql.query-builder.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 
@@ -18,6 +19,11 @@ const buildWhereClause = (filters: FilterType[], startIdx: number) => {
 };
 
 describe("MSSQL query builder", () => {
+	// An unescaped ] in a name would end the identifier and let the rest run as SQL.
+	it("escapes closing brackets in identifiers by doubling them", () => {
+		expect(quoteMssqlIdent("we]ird")).toBe("[we]]ird]");
+	});
+
 	it("builds WHERE clauses with bracket identifiers and named params", () => {
 		const result = buildWhereClause(
 			[

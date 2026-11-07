@@ -5,6 +5,7 @@ import {
 	formatMysqlDefaultValue,
 	mapColumnTypeToMysql,
 	mysqlFilters,
+	quoteMysqlIdent,
 } from "@/adapters/mysql/mysql.query-builder.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 
@@ -15,6 +16,11 @@ const buildWhereClause = (filters: FilterType[]) => {
 };
 
 describe("MySQL query builder", () => {
+	// An unescaped backtick in a name would end the identifier and let the rest run as SQL.
+	it("escapes backticks in identifiers by doubling them", () => {
+		expect(quoteMysqlIdent("we`ird")).toBe("`we``ird`");
+	});
+
 	it("builds WHERE clauses with backtick identifiers and ? placeholders", () => {
 		const result = buildWhereClause([
 			{ columnName: "status", operator: "!=", value: "archived" },
