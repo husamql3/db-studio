@@ -133,7 +133,11 @@ export const TableTextCell = memo(
 		isEditing,
 		isFocused,
 		isSelected,
-	}: CellVariantProps<TableRecord>) => {
+		renderValue,
+	}: CellVariantProps<TableRecord> & {
+		/** How the closed cell shows its value; the plain cell text when omitted. */
+		renderValue?: (value: unknown) => ReactNode;
+	}) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
 		const rawInitialValue = cell.getValue();
 
@@ -276,7 +280,7 @@ export const TableTextCell = memo(
 						isSelected={isSelected}
 						editorOpen={open}
 					>
-						<CellContent value={currentValue} />
+						{renderValue ? renderValue(currentValue) : <CellContent value={currentValue} />}
 					</TableCellWrapper>
 				}
 			>
@@ -958,233 +962,63 @@ export const TableJsonCell = memo(
 
 TableJsonCell.displayName = "TableJsonCell";
 
-export const TableForeignKeyCell = memo(
-	({
-		cell,
-		table,
-		rowIndex,
-		columnId,
-		isEditing,
-		isFocused,
-		isSelected,
-	}: CellVariantProps<TableRecord>) => {
-		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const rawInitialValue = cell.getValue();
-		const initialValue = formatCellValue(rawInitialValue);
+/** A text cell whose value carries a badge that opens the referenced row in a drawer. */
+export const TableForeignKeyCell = memo((props: CellVariantProps<TableRecord>) => {
+	const meta = props.cell.column.columnDef.meta;
+	const [drawerValue, setDrawerValue] = useState("");
+	const [drawerOpen, setDrawerOpen] = useState(false);
+	// Like CellPopover: no idle drawer per cell; mount it on first open and keep it.
+	const [drawerMounted, setDrawerMounted] = useState(false);
 
-		const [editorValue, setEditorValue] = useState(() => initialValue ?? "");
-		const [open, setOpen] = useState(false);
-		const [drawerOpen, setDrawerOpen] = useState(false);
-		// Like CellPopover: no idle drawer per cell; mount it on first open and keep it.
-		const [drawerMounted, setDrawerMounted] = useState(false);
+	if (drawerOpen && !drawerMounted) setDrawerMounted(true);
 
-		if (drawerOpen && !drawerMounted) setDrawerMounted(true);
-		const textareaRef = useRef<HTMLTextAreaElement>(null);
-		const meta = table.options.meta;
-		const referencedTable = cell.column.columnDef.meta?.referencedTable;
-
-		const rowData = cell.row.original as Record<string, unknown>;
-		const columnName = columnId;
-
-		const pendingUpdate = getUpdate(rowData, columnName, table.options.meta?.editScope);
-
-		const displayValue = pendingUpdate
-			? formatCellValue(pendingUpdate.newValue)
-			: (initialValue ?? "");
-
-		const onSave = useCallback(() => {
-			setUpdate(
-				rowData,
-				columnName,
-				editorValue,
-				rawInitialValue,
-				table.options.meta?.editScope,
-			);
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, editorValue, rawInitialValue, columnName, rowData, setUpdate]);
-
-		const onCancel = useCallback(() => {
-			setEditorValue(initialValue ?? "");
-			clearUpdate(rowData, columnName, table.options.meta?.editScope);
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, initialValue, columnName, rowData, clearUpdate]);
-
-		const onChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
-			setEditorValue(event.target.value);
-		}, []);
-
-		const onOpenChange = useCallback(
-			(isOpen: boolean) => {
-				setOpen(isOpen);
-
-				if (!isOpen) {
-					if (editorValue !== initialValue) {
-						setUpdate(
-							rowData,
-							columnName,
-							editorValue,
-							initialValue,
-							table.options.meta?.editScope,
-						);
-					}
-
-					meta?.onCellEditingStop?.();
-				}
-			},
-			[meta, editorValue, initialValue, columnName, rowData, setUpdate],
-		);
-
-		const onOpenAutoFocus: NonNullable<
-			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
-		> = useCallback((event) => {
-			event.preventDefault();
-
-			if (textareaRef.current) {
-				textareaRef.current.focus();
-				const length = textareaRef.current.value.length;
-				textareaRef.current.setSelectionRange(length, length);
-			}
-		}, []);
-
-		const onTextareaKeyDown = useCallback(
-			(event: KeyboardEvent<HTMLTextAreaElement>) => {
-				if (event.key === "Escape") {
-					event.preventDefault();
-					onCancel();
-				} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-					event.preventDefault();
-					onSave();
-				}
-
-				event.stopPropagation();
-			},
-			[onCancel, onSave],
-		);
-
-		const onTextareaBlur = useCallback(() => {
-			if (editorValue !== initialValue) {
-				setUpdate(
-					rowData,
-					columnName,
-					editorValue,
-					initialValue,
-					table.options.meta?.editScope,
-				);
-			}
-
-			meta?.onCellEditingStop?.();
-			setOpen(false);
-		}, [meta, editorValue, initialValue, columnName, rowData, setUpdate]);
-
-		useEffect(() => {
-			if (isEditing && !open) {
-				setEditorValue(displayValue);
-				setOpen(true);
-			} else if (!isEditing && open) {
-				setOpen(false);
-			}
-		}, [isEditing, open, displayValue]);
-
-		return (
-			<>
-				<CellPopover
-					active={open || isEditing}
-					open={open}
-					onOpenChange={onOpenChange}
-					anchor={
-						<TableCellWrapper
-							cell={cell}
-							table={table}
-							rowIndex={rowIndex}
-							columnId={columnId}
-							isEditing={isEditing}
-							isFocused={isFocused}
-							isSelected={isSelected}
-							editorOpen={open}
-						>
-							{pendingUpdate?.newValue === null ||
-							(!pendingUpdate &&
-								(rawInitialValue === null || rawInitialValue === undefined)) ? (
-								<CellContent value={null} />
-							) : (
-								<span className="flex items-center gap-1.5 size-full overflow-hidden">
-									{referencedTable && (
-										<Badge
-											variant="outline"
-											className="shrink-0 cursor-pointer hover:bg-muted"
-											onClick={(e) => {
-												e.stopPropagation();
-												setDrawerOpen(true);
-											}}
-										>
-											{referencedTable}
-										</Badge>
-									)}
-									<span className="truncate text-muted-foreground">{displayValue}</span>
-								</span>
-							)}
-						</TableCellWrapper>
-					}
-				>
-					<PopoverContent
-						data-grid-cell-editor=""
-						align="start"
-						side="bottom"
-						sideOffset={0}
-						className="w-[400px] rounded-none p-0 gap-0"
-						onOpenAutoFocus={onOpenAutoFocus}
+	const renderValue = (value: unknown) =>
+		value === null || value === undefined || value === CELL_DEFAULT ? (
+			<CellContent value={value} />
+		) : (
+			<span className="flex items-center gap-1.5 size-full overflow-hidden">
+				{meta?.referencedTable && (
+					<Badge
+						variant="outline"
+						className="shrink-0 cursor-pointer hover:bg-muted"
+						onClick={(e) => {
+							e.stopPropagation();
+							setDrawerValue(formatCellValue(value));
+							setDrawerOpen(true);
+						}}
 					>
-						<Textarea
-							ref={textareaRef}
-							value={editorValue}
-							onChange={onChange}
-							onKeyDown={onTextareaKeyDown}
-							onBlur={onTextareaBlur}
-							className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
-							placeholder="Enter value..."
-						/>
-						<div className="flex flex-col border-t">
-							<Button
-								variant="ghost"
-								size="sm"
-								className="rounded-none justify-start text-xs py-4 px-2"
-							>
-								<Kbd className="text-xs font-normal">⌘↵</Kbd>
-								<span className="ml-1 text-xs">Save Changes</span>
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="rounded-none justify-start text-xs py-4 px-2"
-							>
-								<Kbd className="text-xs font-normal">esc</Kbd>
-								<span className="ml-1 text-xs">Cancel Changes</span>
-							</Button>
-						</div>
-					</PopoverContent>
-				</CellPopover>
-				{drawerMounted && (
-					<Drawer
-						open={drawerOpen}
-						onOpenChange={setDrawerOpen}
-					>
-						<DrawerContent className="h-[70vh]">
-							{referencedTable && (
-								<FkDrawerContent
-									referencedTable={referencedTable}
-									referencedSchema={cell.column.columnDef.meta?.referencedSchema}
-									referencedColumn={cell.column.columnDef.meta?.referencedColumn ?? "id"}
-									fkValue={displayValue}
-								/>
-							)}
-						</DrawerContent>
-					</Drawer>
+						{meta.referencedTable}
+					</Badge>
 				)}
-			</>
+				<span className="truncate text-muted-foreground">{formatCellValue(value)}</span>
+			</span>
 		);
-	},
-);
+
+	return (
+		<>
+			<TableTextCell
+				{...props}
+				renderValue={renderValue}
+			/>
+			{drawerMounted && (
+				<Drawer
+					open={drawerOpen}
+					onOpenChange={setDrawerOpen}
+				>
+					<DrawerContent className="h-[70vh]">
+						{meta?.referencedTable && (
+							<FkDrawerContent
+								referencedTable={meta.referencedTable}
+								referencedSchema={meta.referencedSchema}
+								referencedColumn={meta.referencedColumn ?? "id"}
+								fkValue={drawerValue}
+							/>
+						)}
+					</DrawerContent>
+				</Drawer>
+			)}
+		</>
+	);
+});
 
 TableForeignKeyCell.displayName = "TableForeignKeyCell";
