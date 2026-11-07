@@ -710,11 +710,11 @@ export const TableDateCell = memo(
 						onCancel();
 					} else if (event.key === "Tab") {
 						event.preventDefault();
-						onCancel();
+						meta?.onCellEditingStop?.({ direction: event.shiftKey ? "left" : "right" });
 					}
 				}
 			},
-			[isEditing, onCancel],
+			[isEditing, onCancel, meta],
 		);
 
 		const onPickerOpenChange = useCallback(

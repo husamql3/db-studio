@@ -10,6 +10,8 @@ import type { TableRecord } from "@/features/tables/table.type";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { TableDateCell } from "./table-cell-variant";
 
+const onCellEditingStop = vi.fn();
+
 const renderDateCell = (row: TableRecord, dataTypeLabel: StandardizedDataType) => {
 	const cell = {
 		id: "1_day",
@@ -18,7 +20,7 @@ const renderDateCell = (row: TableRecord, dataTypeLabel: StandardizedDataType) =
 		column: { id: "day", columnDef: { meta: { dataTypeLabel } } },
 	} as Cell<TableRecord, unknown>;
 
-	const table = { options: { meta: {} } } as Table<TableRecord>;
+	const table = { options: { meta: { onCellEditingStop } } } as Table<TableRecord>;
 
 	render(
 		<TableDateCell
@@ -69,6 +71,19 @@ describe("TableDateCell", () => {
 		fireEvent.click(screen.getByRole("button", { name: /November 1st, 2026/ }));
 
 		expect(staged(row)).not.toBeNull();
+	});
+
+	it("keeps the staged value and moves to the next cell on Tab", () => {
+		const row = { id: 1, day: "2026-11-01" };
+		useUpdateCellStore.getState().setUpdate(row, "day", "2026-11-05", row.day);
+		renderDateCell(row, "date");
+
+		fireEvent.keyDown(screen.getByRole("button", { name: /November 5th, 2026/ }), {
+			key: "Tab",
+		});
+
+		expect(staged(row)).toBe("2026-11-05");
+		expect(onCellEditingStop).toHaveBeenLastCalledWith({ direction: "right" });
 	});
 
 	it("stages a day picked in an empty DATE cell as that day", () => {
