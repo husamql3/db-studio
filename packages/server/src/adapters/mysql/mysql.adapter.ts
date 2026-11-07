@@ -1,11 +1,9 @@
 import type {
-	AddColumnParamsSchemaType,
 	AlterColumnParamsSchemaType,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -412,30 +410,6 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 				enumValues: isEnum ? this.parseMysqlEnumValues(r.columnType) : null,
 			};
 		});
-	}
-
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, db } = params;
-		const pool = await connector("mysql").pool(db);
-
-		this.assertColumnAbsent(await this.requireTable(pool, tableName), tableName, columnName);
-
-		await pool.execute<ResultSetHeader>(
-			`ALTER TABLE ${quoteMysqlIdent(tableName)} ADD COLUMN ${this.columnDefinition(pool, tableName, params)}`,
-		);
-	}
-
-	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, columnName, db } = params;
-		const pool = await connector("mysql").pool(db);
-
-		await this.requireColumn(pool, tableName, columnName);
-
-		const [result] = await pool.execute<ResultSetHeader>(
-			`ALTER TABLE ${quoteMysqlIdent(tableName)} DROP COLUMN ${quoteMysqlIdent(columnName)}`,
-		);
-
-		return { deletedCount: result.affectedRows };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {

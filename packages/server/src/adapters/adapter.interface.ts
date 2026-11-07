@@ -69,7 +69,7 @@ export interface IDbAdapter {
 		schemaName?: string;
 	}): Promise<ColumnInfoSchemaType[]>;
 	addColumn(params: AddColumnParamsSchemaType): Promise<void>;
-	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }>;
+	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<void>;
 	alterColumn(params: AlterColumnParamsSchemaType): Promise<void>;
 	renameColumn(params: RenameColumnParamsSchemaType): Promise<void>;
 

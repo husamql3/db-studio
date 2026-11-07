@@ -99,7 +99,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		}) => {
 			requireCapability(dbType, "schemaMutation");
 
-			const { deletedCount } = await adapter.deleteColumn({
+			await adapter.deleteColumn({
 				schemaName,
 				tableName,
 				columnName,
@@ -108,7 +108,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			});
 
 			return {
-				data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
+				data: `Column "${columnName}" deleted successfully from table "${tableName}"`,
 			};
 		},
 		{ query: deleteColumnQuerySchema, params: deleteColumnParamSchema },

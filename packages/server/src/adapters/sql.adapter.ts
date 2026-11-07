@@ -1,4 +1,5 @@
 import {
+	type AddColumnParamsSchemaType,
 	type AddRecordSchemaType,
 	type BulkInsertRecordsParams,
 	type BulkInsertResult,
@@ -8,6 +9,7 @@ import {
 	DATABASE_ENGINES,
 	type DatabaseSchemaType,
 	type DatabaseTypeSchema,
+	type DeleteColumnParamsSchemaType,
 	type DeleteRecordParams,
 	type DeleteRecordResult,
 	type DeleteTableParams,
@@ -280,6 +282,49 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		const q = this.quoteIdentifier;
 
 		return `ALTER TABLE ${this.tableRef(tableName, schemaName)} RENAME COLUMN ${q(columnName)} TO ${q(newColumnName)}`;
+	}
+
+	/** The ALTER TABLE clause that adds a column with `definition`. */
+	protected addColumnSql(definition: string): string {
+		return `ADD COLUMN ${definition}`;
+	}
+
+	protected dropColumnSql(columnName: string, _cascade: boolean | undefined): string {
+		return `DROP COLUMN ${this.quoteIdentifier(columnName)}`;
+	}
+
+	/** 404 for a missing table, 409 when the column exists. */
+	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
+		const { tableName, columnName, schemaName, db } = params;
+
+		await this.connect(db, async (conn) => {
+			this.assertColumnAbsent(
+				await this.requireTable(conn, tableName, schemaName),
+				tableName,
+				columnName,
+			);
+			await this.execute(
+				conn,
+				`ALTER TABLE ${this.tableRef(tableName, schemaName)} ${this.addColumnSql(this.columnDefinition(conn, tableName, params))}`,
+			);
+		});
+	}
+
+	/** 404 for a missing table or column. */
+	async deleteColumn({
+		tableName,
+		schemaName,
+		columnName,
+		cascade,
+		db,
+	}: DeleteColumnParamsSchemaType): Promise<void> {
+		await this.connect(db, async (conn) => {
+			await this.requireColumn(conn, tableName, columnName, schemaName);
+			await this.execute(
+				conn,
+				`ALTER TABLE ${this.tableRef(tableName, schemaName)} ${this.dropColumnSql(columnName, cascade)}`,
+			);
+		});
 	}
 
 	/** 404 for a missing table, 409 when the new name is taken. */

@@ -435,7 +435,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		tableName,
 		columnName,
 		db,
-	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
+	}: DeleteColumnParamsSchemaType): Promise<void> {
 		const column = await this.getColumn(db, tableName, columnName);
 
 		if (column.is_in_sorting_key) {
@@ -445,8 +445,6 @@ export class ClickhouseAdapter extends BaseAdapter {
 		}
 
 		await this.command(db, `ALTER TABLE ${q(tableName)} DROP COLUMN ${q(columnName)}`);
-
-		return { deletedCount: 1 };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {

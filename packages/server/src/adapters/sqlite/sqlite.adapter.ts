@@ -393,39 +393,19 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		});
 	}
 
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, isPrimaryKey, isIdentity } = params;
+	override async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
+		const { isPrimaryKey, isIdentity } = params;
 
 		if (isPrimaryKey || isIdentity)
 			throw new HTTPException(400, {
 				message: `SQLite cannot add ${isPrimaryKey ? "a PRIMARY KEY" : "an identity"} column to an existing table. Add the column without it, or recreate the table.`,
 			});
 
-		return this.serializeSchemaChange(async (client) => {
-			this.assertColumnAbsent(
-				await this.requireTable(client, tableName),
-				tableName,
-				columnName,
-			);
-
-			await client.execute(
-				`ALTER TABLE ${quoteSqliteIdent(tableName)} ADD COLUMN ${this.columnDefinition(client, tableName, params)}`,
-			);
-		});
+		return this.serializeSchemaChange(() => super.addColumn(params));
 	}
 
-	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		return this.serializeSchemaChange(async (client) => {
-			const { tableName, columnName } = params;
-
-			await this.requireColumn(client, tableName, columnName);
-
-			await client.execute(
-				`ALTER TABLE ${quoteSqliteIdent(tableName)} DROP COLUMN ${quoteSqliteIdent(columnName)}`,
-			);
-
-			return { deletedCount: 1 };
-		});
+	override deleteColumn(params: DeleteColumnParamsSchemaType): Promise<void> {
+		return this.serializeSchemaChange(() => super.deleteColumn(params));
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {

@@ -812,12 +812,9 @@ export class MongoAdapter extends BaseAdapter {
 		tableName,
 		columnName,
 		db,
-	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
+	}: DeleteColumnParamsSchemaType): Promise<void> {
 		const mongoDb = await connector("mongodb").db(db);
-		const collection = mongoDb.collection(tableName);
-		const result = await collection.updateMany({}, { $unset: { [columnName]: "" } });
-
-		return { deletedCount: result.modifiedCount };
+		await mongoDb.collection(tableName).updateMany({}, { $unset: { [columnName]: "" } });
 	}
 
 	override async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {

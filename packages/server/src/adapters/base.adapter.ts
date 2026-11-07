@@ -259,7 +259,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 	addColumn(_params: AddColumnParamsSchemaType): Promise<void> {
 		return notImplemented("addColumn");
 	}
-	deleteColumn(_params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
+	deleteColumn(_params: DeleteColumnParamsSchemaType): Promise<void> {
 		return notImplemented("deleteColumn");
 	}
 	alterColumn(_params: AlterColumnParamsSchemaType): Promise<void> {

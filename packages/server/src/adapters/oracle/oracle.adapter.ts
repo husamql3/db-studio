@@ -1,5 +1,4 @@
 import type {
-	AddColumnParamsSchemaType,
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
@@ -10,7 +9,6 @@ import type {
 	ForeignKeyDataType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
 	DeleteTableParams,
@@ -324,6 +322,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		};
 	}
 
+	/** One ALTER TABLE ... ADD, constraints inline, so it applies fully or not at all. */
+	protected override addColumnSql(definition: string) {
+		return `ADD (${definition})`;
+	}
+
 	protected async execute(conn: Connection, sql: string, values: unknown[] = []) {
 		return (await conn.execute(sql, values)).rowsAffected ?? 0;
 	}
@@ -574,30 +577,6 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				};
 			});
 		});
-	}
-
-	/** One ALTER TABLE ... ADD, constraints inline, so it applies fully or not at all. */
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName } = params;
-		await this.withConnection(async (conn) => {
-			this.assertColumnAbsent(await this.requireTable(conn, tableName), tableName, columnName);
-
-			await conn.execute(
-				`ALTER TABLE ${ident(tableName)} ADD (${this.columnDefinition(conn, tableName, params)})`,
-			);
-		});
-	}
-
-	async deleteColumn({
-		tableName,
-		columnName,
-	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		await this.withConnection(async (conn) => {
-			await this.requireColumn(conn, tableName, columnName);
-			await conn.execute(`ALTER TABLE ${ident(tableName)} DROP COLUMN ${ident(columnName)}`);
-		});
-
-		return { deletedCount: 1 };
 	}
 
 	/**

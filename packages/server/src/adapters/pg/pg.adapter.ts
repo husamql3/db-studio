@@ -1,12 +1,10 @@
 import type {
-	AddColumnParamsSchemaType,
 	AlterColumnParamsSchemaType,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -159,6 +157,10 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 						: value,
 				),
 		};
+	}
+
+	protected override dropColumnSql(columnName: string, cascade: boolean | undefined) {
+		return `DROP COLUMN ${quotePgIdent(columnName)} ${cascade ? "CASCADE" : "RESTRICT"}`;
 	}
 
 	protected override tableRef(tableName: string, schemaName?: string) {
@@ -632,35 +634,6 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 				enumValues: parsedEnumValues,
 			};
 		});
-	}
-
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, schemaName, db } = params;
-		const pool = await connector("pg").pool(db);
-
-		this.assertColumnAbsent(
-			await this.requireTable(pool, tableName, schemaName),
-			tableName,
-			columnName,
-		);
-
-		await pool.query(
-			`ALTER TABLE ${qualifiedTable(tableName, schemaName)} ADD COLUMN ${this.columnDefinition(pool, tableName, params)}`,
-		);
-	}
-
-	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, schemaName, columnName, cascade, db } = params;
-		const pool = await connector("pg").pool(db);
-
-		await this.requireColumn(pool, tableName, columnName, schemaName);
-		const table = qualifiedTable(tableName, schemaName);
-
-		const { rowCount } = await pool.query(
-			`ALTER TABLE ${table} DROP COLUMN ${quotePgIdent(columnName)} ${cascade ? "CASCADE" : "RESTRICT"}`,
-		);
-
-		return { deletedCount: rowCount ?? 0 };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {

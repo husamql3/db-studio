@@ -9,7 +9,6 @@ import type {
 	FieldDataType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteTableParams,
 	IndexInfoSchemaType,
@@ -402,7 +401,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		});
 	}
 
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
+	override async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, isNullable, isUnique, isPrimaryKey } = params;
 
 		if (isUnique || isPrimaryKey)
@@ -434,18 +433,6 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 						});
 			});
 		});
-	}
-
-	async deleteColumn({
-		tableName,
-		columnName,
-	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		await connector("duckdb").withConnection(async (conn) => {
-			await this.requireColumn(conn, tableName, columnName);
-			await conn.run(`ALTER TABLE ${ident(tableName)} DROP COLUMN ${ident(columnName)}`);
-		});
-
-		return { deletedCount: 1 };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {

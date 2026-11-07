@@ -1,12 +1,10 @@
 import type {
-	AddColumnParamsSchemaType,
 	AlterColumnParamsSchemaType,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DeleteColumnParamsSchemaType,
 	DeleteTableParams,
 	FieldDataType,
 	ForeignKeyDataType,
@@ -119,6 +117,10 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 
 	protected async rows<T>(conn: MssqlConn, sql: string, values: unknown[] = []) {
 		return (await this.request(conn, values).query(sql)).recordset as T[];
+	}
+
+	protected override addColumnSql(definition: string) {
+		return `ADD ${definition}`;
 	}
 
 	protected async execute(conn: MssqlConn, sql: string, values: unknown[] = []) {
@@ -571,34 +573,6 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 				enumValues,
 			};
 		});
-	}
-
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, db } = params;
-		const pool = await connector("mssql").pool(db);
-
-		this.assertColumnAbsent(await this.requireTable(pool, tableName), tableName, columnName);
-
-		await pool
-			.request()
-			.query(
-				`ALTER TABLE ${quoteMssqlIdent(tableName)} ADD ${this.columnDefinition(pool, tableName, params)}`,
-			);
-	}
-
-	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, columnName, db } = params;
-		const pool = await connector("mssql").pool(db);
-
-		await this.requireColumn(pool, tableName, columnName);
-
-		const result = await pool
-			.request()
-			.query(
-				`ALTER TABLE ${quoteMssqlIdent(tableName)} DROP COLUMN ${quoteMssqlIdent(columnName)}`,
-			);
-
-		return { deletedCount: result.rowsAffected[0] ?? 1 };
 	}
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
