@@ -1,6 +1,5 @@
 import { useLocation, useParams } from "@tanstack/react-router";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
-import { useIsKeyValue } from "@/hooks/use-is-key-value";
 import { hasSection, type SectionId } from "@/lib/sections";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -19,7 +18,6 @@ export const useCommandPaletteCapabilities = () => {
 	const { dbType } = useDatabaseStore();
 	const engine = useDatabaseEngine();
 	const canMutateSchema = engine?.schemaMutation !== false;
-	const isKeyValue = useIsKeyValue();
 
 	// Record and schema sheets mount per-screen (table-screen.tsx,
 	// schema-screen.tsx), so those commands only run on their own screen.
@@ -30,7 +28,6 @@ export const useCommandPaletteCapabilities = () => {
 		pathname,
 		activeTable,
 		dbType,
-		isKeyValue,
 		hasSection: (id: SectionId) => hasSection(engine, id),
 		canCreateTable: canMutateSchema,
 		canEditRecords: Boolean(activeTable) && onTableScreen,

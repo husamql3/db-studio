@@ -86,7 +86,6 @@ export function CommandPalette() {
 		pathname,
 		activeTable,
 		dbType,
-		isKeyValue,
 		canCreateTable,
 		canEditRecords,
 		recordsHint,
@@ -186,7 +185,7 @@ export function CommandPalette() {
 
 				{mode === "all" && (
 					<>
-						{!isKeyValue && (
+						{hasSection("table") && (
 							<>
 								<CommandGroup heading="Quick Access">
 									<CommandItem
@@ -383,7 +382,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isKeyValue && (
+							{hasSection("browser") && (
 								<CommandItem
 									onSelect={() =>
 										handleAction(() => {
@@ -405,7 +404,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{!isKeyValue && (
+							{hasSection("table") && (
 								<>
 									<CommandItem
 										disabled={!canEditRecords}
@@ -633,7 +632,7 @@ export function CommandPalette() {
 							</CommandItem>
 						</CommandGroup>
 
-						{!isKeyValue &&
+						{hasSection("table") &&
 							!isLoadingTablesList &&
 							!errorTablesList &&
 							tablesList &&
