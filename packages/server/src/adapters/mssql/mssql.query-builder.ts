@@ -7,6 +7,7 @@ import {
 } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import { offsetOrderBy, orderTerms } from "@/adapters/sql-pagination.js";
+import type { InlineConstraints } from "@/adapters/sql.adapter.js";
 
 export const quoteMssqlIdent = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
@@ -124,7 +125,7 @@ type MssqlColumnDefinitionInput = {
 
 export function buildMssqlColumnDefinition(
 	field: MssqlColumnDefinitionInput,
-	options: { includePrimaryKey?: boolean; includeUnique?: boolean } = {},
+	{ inlineKey, inlineUnique }: InlineConstraints,
 ): string {
 	const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
 	let def = `${quoteMssqlIdent(field.columnName)} ${mappedType}`;
@@ -141,9 +142,9 @@ export function buildMssqlColumnDefinition(
 		if (dv !== null) def += ` DEFAULT ${dv}`;
 	}
 
-	if (options.includeUnique && field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+	if (inlineUnique) def += " UNIQUE";
 
-	if (options.includePrimaryKey && field.isPrimaryKey) def += " PRIMARY KEY";
+	if (inlineKey) def += " PRIMARY KEY";
 
 	return def;
 }

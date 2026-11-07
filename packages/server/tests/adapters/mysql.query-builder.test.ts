@@ -78,7 +78,7 @@ describe("MySQL query builder", () => {
 					isUnique: true,
 					defaultValue: "'n/a'",
 				},
-				{ includeUnique: true },
+				{ inlineKey: false, inlineUnique: true },
 			),
 		).toBe("`email` VARCHAR(255) NOT NULL DEFAULT 'n/a' UNIQUE");
 		expect(
@@ -89,7 +89,8 @@ describe("MySQL query builder", () => {
 					isPrimaryKey: true,
 					isIdentity: true,
 				},
-				{ includePrimaryKey: true, preserveAutoIncrement: true },
+				{ inlineKey: true, inlineUnique: false },
+				true,
 			),
 		).toBe("`id` INT AUTO_INCREMENT PRIMARY KEY");
 	});

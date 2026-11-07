@@ -1,6 +1,7 @@
 import { DataTypes, StandardizedDataType, type FormColumnType } from "@db-studio/shared/types";
 import type { FilterDialect } from "@/adapters/sql-filters.js";
 import type { KeysetDialect } from "@/adapters/sql-pagination.js";
+import type { InlineConstraints } from "@/adapters/sql.adapter.js";
 
 export const quoteMysqlIdent = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
@@ -18,12 +19,6 @@ type MysqlColumnDefinitionInput = {
 	isUnique?: boolean;
 	isIdentity?: boolean;
 	isArray?: boolean;
-};
-
-type BuildMysqlColumnDefinitionOptions = {
-	includePrimaryKey?: boolean;
-	includeUnique?: boolean;
-	preserveAutoIncrement?: boolean;
 };
 
 export function mapColumnTypeToMysql(columnType: string, isArray: boolean): string {
@@ -121,7 +116,8 @@ export function formatMysqlDefaultValue(
 
 export function buildMysqlColumnDefinition(
 	field: MysqlColumnDefinitionInput,
-	options: BuildMysqlColumnDefinitionOptions = {},
+	{ inlineKey, inlineUnique }: InlineConstraints,
+	preserveAutoIncrement = false,
 ): string {
 	const mappedType = mapColumnTypeToMysql(field.columnType, field.isArray ?? false);
 	let def = `${quoteMysqlIdent(field.columnName)} ${mappedType}`;
@@ -134,16 +130,13 @@ export function buildMysqlColumnDefinition(
 		if (dv !== null) def += ` DEFAULT ${dv}`;
 	}
 
-	if (
-		(field.isIdentity || options.preserveAutoIncrement) &&
-		!mappedType.includes("AUTO_INCREMENT")
-	) {
+	if ((field.isIdentity || preserveAutoIncrement) && !mappedType.includes("AUTO_INCREMENT")) {
 		def += " AUTO_INCREMENT";
 	}
 
-	if (options.includeUnique && field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+	if (inlineUnique) def += " UNIQUE";
 
-	if (options.includePrimaryKey && field.isPrimaryKey) def += " PRIMARY KEY";
+	if (inlineKey) def += " PRIMARY KEY";
 
 	return def;
 }

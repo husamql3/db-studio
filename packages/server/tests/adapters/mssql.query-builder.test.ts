@@ -87,7 +87,7 @@ describe("MSSQL query builder", () => {
 					isUnique: true,
 					defaultValue: "'n/a'",
 				},
-				{ includeUnique: true },
+				{ inlineKey: false, inlineUnique: true },
 			),
 		).toBe("[email] VARCHAR(255) NOT NULL DEFAULT 'n/a' UNIQUE");
 		expect(
@@ -98,7 +98,7 @@ describe("MSSQL query builder", () => {
 					isPrimaryKey: true,
 					isIdentity: true,
 				},
-				{ includePrimaryKey: true },
+				{ inlineKey: true, inlineUnique: false },
 			),
 		).toBe("[id] INT IDENTITY(1,1) PRIMARY KEY");
 	});

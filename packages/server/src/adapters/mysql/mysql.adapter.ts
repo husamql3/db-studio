@@ -252,12 +252,9 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		_conn: Connection,
 		_tableName: string,
 		field: FieldDataType,
-		{ inlineKey, inlineUnique }: InlineConstraints,
+		inline: InlineConstraints,
 	) {
-		return buildMysqlColumnDefinition(field, {
-			includePrimaryKey: inlineKey,
-			includeUnique: inlineUnique,
-		});
+		return buildMysqlColumnDefinition(field, inline);
 	}
 
 	protected override readonly keysAsTableConstraints = true;
@@ -439,7 +436,8 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 
 		const colDef = buildMysqlColumnDefinition(
 			{ columnName, columnType, defaultValue, isNullable },
-			{ preserveAutoIncrement: colRow.EXTRA?.toLowerCase().includes("auto_increment") },
+			{ inlineKey: false, inlineUnique: false },
+			colRow.EXTRA?.toLowerCase().includes("auto_increment"),
 		);
 
 		await pool.execute<ResultSetHeader>(

@@ -333,12 +333,9 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		_conn: MssqlConn,
 		_tableName: string,
 		field: FieldDataType,
-		{ inlineKey, inlineUnique }: InlineConstraints,
+		inline: InlineConstraints,
 	) {
-		return buildMssqlColumnDefinition(field, {
-			includePrimaryKey: inlineKey,
-			includeUnique: inlineUnique,
-		});
+		return buildMssqlColumnDefinition(field, inline);
 	}
 
 	protected override readonly keysAsTableConstraints = true;
