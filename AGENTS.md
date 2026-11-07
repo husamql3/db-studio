@@ -86,7 +86,7 @@ This is a **Bun + Turbo monorepo** with these packages:
 - shadcn/ui primitives live in `packages/ui`; Monaco editor for JSON/query editing
 - API calls go through `src/shared/api/` — pure transport wrappers over Axios
 - App sections (`/table`, `/runner`, `/browser`, …) are listed once in `src/lib/sections.ts` with their icon, sidebar and the engines they apply to; the layout guard, nav rail, sidebar, command palette and page-view events read it
-- Cell rendering: `CellVariant` = `"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`
+- Cell rendering: a column's variant (`"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`) comes from `cellVariant()` in `src/utils/cell-variant.ts`, used by the grid and the add-record form
 
 **Feature-first structure** — domain logic lives in `src/features/`, not flat `src/hooks/` or `src/components/`:
 
@@ -101,7 +101,7 @@ src/
     ai-assistant/   — chat sidebar, askAssistant(prompt), hosted quota (useAiQuota)
   shared/
     api/            — endpoint functions (pure transport wrappers)
-    query/          — query-key factories
+    query/          — query-key factories and the table cache refreshes (invalidate-table.ts)
   stores/           — app-wide Zustand: database, overlay registry, preferences
   hooks/            — cross-cutting hooks (databases list, engine, theme)
   routes/           — file-based routes; each renders a feature screen only
@@ -149,8 +149,8 @@ Three export paths:
 ### Key types
 
 - `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]` in `database.types.ts`
-- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, URL protocols with each one's default port, file or hosted trait and alias driver scheme, data model, editor language, Live mode, schema selector, drop-column CASCADE, filter and sort, Indexes and Logs tabs); web reads it via `useDatabaseEngine()`
-- `CellVariant` / `DataTypes` — used for table cell rendering
+- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits, each field commented there (label, URL protocols, data model, editor language, and the capability flags the routes and web gate on); web reads it via `useDatabaseEngine()`
+- `DataTypes` — the cell variants a column type maps to
 
 ## Tooling
 
@@ -428,7 +428,7 @@ export class PgAdapter extends BaseAdapter {
 3. Add `src/connectors/<dbname>.ts` (its clients, `ping()` and `close()`) and add it to `CONNECTORS` in `src/connectors/index.ts`; the adapter reads it with `connector("<dbname>")`.
 4. Add the adapter to `ADAPTERS` in `src/adapters/adapter.registry.ts`: `<dbname>: new MyAdapter()`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
-6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols (each with its default port, or `file` / `hosted`), data model, editor language, Live mode support, schema selector, read-only sessions (`readOnly`), table and column changes (`schemaMutation`), the drop-column CASCADE option (`dropColumnCascade`), grid filter and sort (`filterSort`), Indexes tab support (`indexes`) and Logs tab support (`serverLogs`); an engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do), filling every field the type requires; each is commented there. An engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 
@@ -473,11 +473,15 @@ Canonical API layer — pure transport wrappers, no React or Zustand:
 ```txt
 src/shared/api/
   client.ts      — two Axios instances (rootApi + api) and setDbType()
+  connections.ts — open, saved and closed connections
   databases.ts   — database list endpoints
   tables.ts      — table data, schema, export endpoints
   records.ts     — record CRUD endpoints
   query.ts       — SQL query execution endpoint
+  redis-keys.ts  — Redis key browser endpoints
+  logs.ts        — server log endpoint
   chat.ts        — AI assistant rate limit and stream URL
+  telemetry.ts   — telemetry preference
   index.ts       — barrel re-export
 ```
 
@@ -485,7 +489,6 @@ Two Axios instances in `client.ts`:
 - `rootApi` — unscoped base URL, used for `/databases` etc.
 - `api` — scoped to `/{dbType}`; `useDatabaseStore`'s `setDbType` moves its base URL, so set the engine only through the store.
 
-`src/lib/api.ts` is a legacy compatibility facade — do not add new code there.
 
 ### Testing
 
