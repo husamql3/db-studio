@@ -72,6 +72,8 @@ describe("Tables Routes", () => {
 			],
 			["an invalid direction", "direction=invalid"],
 			["an invalid order", "order=invalid"],
+			["a limit that is not a number", "limit=abc"],
+			["a limit below one", "limit=0"],
 		])("refuses %s", async (_, query) => {
 			const res = await sqlite.request(`/sqlite/tables/users/data?db=main&${query}`);
 

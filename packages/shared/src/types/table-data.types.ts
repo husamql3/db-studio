@@ -41,7 +41,7 @@ export type TableDataResultSchemaType = z.infer<typeof tableDataResultSchema>;
 export const tableDataQuerySchema = tableQuerySchema
 	.extend({
 		cursor: z.string().optional(), // Base64 encoded cursor for pagination
-		limit: z.string().optional().default("50").transform(Number),
+		limit: z.coerce.number().int().min(1).default(50),
 		direction: z.enum(sortDirections).optional().default(sortDirections[0]),
 		/** A JSON array of sorts, or one column name sorted in `order`. */
 		sort: z
