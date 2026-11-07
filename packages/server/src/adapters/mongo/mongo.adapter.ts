@@ -192,26 +192,30 @@ const MONGO_BSON_TYPES = new Set([
 	"decimal",
 	"minKey",
 	"maxKey",
+	// $jsonSchema's alias for int, long, double and decimal.
+	"number",
 ]);
 
-const mapBsonType = (rawType: string): string => {
-	const n = rawType.trim();
+/** The BSON type of each type label `getTableColumns` gives a field, which edit forms send back. */
+const LABEL_BSON_TYPES: Record<string, string> = {
+	numeric: "number",
+	text: "string",
+	json: "object",
+	timestamptz: "date",
+	boolean: "bool",
+};
 
-	if (MONGO_BSON_TYPES.has(n)) return n;
+/** The BSON type a column type names, as a BSON type or a `getTableColumns` label; 400 otherwise. */
+const toBsonType = (columnType: string, columnName: string): string => {
+	const bsonType = LABEL_BSON_TYPES[columnType] ?? columnType;
 
-	switch (n.toLowerCase()) {
-		case "boolean":
-			return "bool";
-		case "objectid":
-			return "objectId";
-		// The label getTableColumns gives a Date field, sent back by the edit-column form.
-		case "timestamptz":
-			return "date";
-		case "binary":
-			return "binData";
-		default:
-			return n;
+	if (!MONGO_BSON_TYPES.has(bsonType)) {
+		throw new HTTPException(400, {
+			message: `Unsupported MongoDB BSON type "${columnType}" for field "${columnName}"`,
+		});
 	}
+
+	return bsonType;
 };
 
 const inferBsonType = (value: unknown): string => {
@@ -270,6 +274,7 @@ const resolveFieldDefault = (
 	switch (columnType) {
 		case "string":
 			return "";
+		case "number":
 		case "int":
 		case "long":
 		case "double":
@@ -655,13 +660,7 @@ export class MongoAdapter extends BaseAdapter {
 		const required: string[] = [];
 
 		for (const field of fields) {
-			const bsonType = mapBsonType(field.columnType);
-
-			if (!MONGO_BSON_TYPES.has(bsonType)) {
-				throw new HTTPException(400, {
-					message: `Unsupported MongoDB BSON type "${field.columnType}" for field "${field.columnName}"`,
-				});
-			}
+			const bsonType = toBsonType(field.columnType, field.columnName);
 
 			if (field.isArray) {
 				const property: Record<string, unknown> = { bsonType: "array" };
@@ -790,7 +789,7 @@ export class MongoAdapter extends BaseAdapter {
 
 	override async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, defaultValue, isNullable, db } = params;
-		const bsonType = mapBsonType(params.columnType);
+		const bsonType = toBsonType(params.columnType, columnName);
 		const mongoDb = await connector("mongodb").db(db);
 		const info = await assertCollection(mongoDb, tableName);
 
@@ -832,7 +831,7 @@ export class MongoAdapter extends BaseAdapter {
 
 		await setFieldValidator(mongoDb, tableName, info, {
 			columnName,
-			bsonType: mapBsonType(columnType),
+			bsonType: toBsonType(columnType, columnName),
 			isNullable,
 		});
 	}
