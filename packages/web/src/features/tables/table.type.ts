@@ -3,7 +3,7 @@ import type { RowData } from "@tanstack/react-table";
 
 export type TableRecord = Record<string, unknown>;
 
-export type CellVariant = DataTypes;
+type CellVariant = DataTypes;
 
 /** The table a draft cell edit belongs to, and the columns that tell its rows apart. */
 export type EditScope = {
