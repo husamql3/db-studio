@@ -10,6 +10,10 @@ import { ADAPTERS } from "@/adapters/adapter.registry.js";
 import { requestConnection } from "@/open-connections.js";
 import { tablesWithColumns } from "@/routes/tables-with-columns.js";
 
+/** A table as the prompt names it: schema-qualified where the engine has schemas. */
+const qualifiedName = (schemaName: string | undefined, tableName: string) =>
+	schemaName ? `${schemaName}.${tableName}` : tableName;
+
 function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	const column: Column = {
 		name: col.columnName,
@@ -22,7 +26,7 @@ function convertColumnInfo(col: ColumnInfoSchemaType): Column {
 	}
 
 	if (col.isForeignKey && col.referencedTable && col.referencedColumn) {
-		column.foreignKey = `${col.referencedTable}.${col.referencedColumn}`;
+		column.foreignKey = `${qualifiedName(col.referencedSchema, col.referencedTable)}.${col.referencedColumn}`;
 	}
 
 	if (col.enumValues && col.enumValues.length > 0) {
@@ -46,7 +50,7 @@ export async function getDetailedSchema(
 		ADAPTERS[dbType],
 		db,
 	)) {
-		const name = schemaName ? `${schemaName}.${tableName}` : tableName;
+		const name = qualifiedName(schemaName, tableName);
 		tables.push({ name, columns: columns.map(convertColumnInfo) });
 
 		for (const col of columns)
@@ -54,7 +58,7 @@ export async function getDetailedSchema(
 				relationships.push({
 					fromTable: name,
 					fromColumn: col.columnName,
-					toTable: col.referencedTable,
+					toTable: qualifiedName(col.referencedSchema, col.referencedTable),
 					toColumn: col.referencedColumn,
 				});
 	}
