@@ -8,6 +8,7 @@ import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import type { AddRecordFormData } from "@/shared/api";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { toWriteValues } from "@/utils/cell-variant";
 import { useCreateRecord } from "../hooks/use-create-record";
 import { useAddRecordStore } from "../stores/add-record.store";
 import { AddRecordField } from "./add-record-field";
@@ -29,7 +30,7 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	}, [prefill, methods, clearPrefill]);
 
 	const onSubmit = async (data: AddRecordFormData) => {
-		createRecord(data, {
+		createRecord(toWriteValues(data, tableCols ?? []), {
 			onSuccess: () => {
 				methods.reset();
 				closeOverlay("records.add-record");

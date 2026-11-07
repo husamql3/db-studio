@@ -195,8 +195,8 @@ export const RowDetailsSheet = ({
 	};
 
 	const doSave = async (data: Record<string, string>) => {
-		if (!row || !canMutateRows) return;
-		const updates = buildRowUpdates(formState.dirtyFields, data);
+		if (!row || !tableCols || !canMutateRows) return;
+		const updates = buildRowUpdates(formState.dirtyFields, data, tableCols);
 
 		if (updates.length === 0) return;
 

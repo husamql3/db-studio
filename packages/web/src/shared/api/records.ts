@@ -8,6 +8,9 @@ import { api } from "./client";
 
 export type AddRecordFormData = Record<string, string>;
 
+/** A record's values as written; NULL is null. */
+export type RecordValues = Record<string, string | null>;
+
 export const createRecord = ({
 	tableName,
 	schemaName,
@@ -16,7 +19,7 @@ export const createRecord = ({
 }: {
 	tableName: string;
 	schemaName?: string;
-	data: AddRecordFormData;
+	data: RecordValues;
 	db?: string | null;
 }) =>
 	api.post<BaseResponse<string>>(

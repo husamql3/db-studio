@@ -196,6 +196,31 @@ describe("RowDetailsSheet", () => {
 		});
 	});
 
+	// An emptied number field and the date picker's NULL preset both sent "", which a number or
+	// date column rejects. Only a text column keeps "" as the empty string.
+	it("saves emptied number and date fields as NULL and an emptied text field as empty", async () => {
+		renderSheet();
+
+		await user.clear(await screen.findByDisplayValue("36"));
+		await user.clear(screen.getByDisplayValue("Ada"));
+		await user.click(
+			within(screen.getByRole("group", { name: "created" })).getByRole("button"),
+		);
+		await user.click(await screen.findByRole("button", { name: "NULL" }));
+		await user.keyboard("{Escape}");
+		await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+		await waitFor(() => expect(saves()).toHaveLength(1));
+
+		expect(saves()[0]?.body).toMatchObject({
+			updates: expect.arrayContaining([
+				expect.objectContaining({ columnName: "age", value: null }),
+				expect.objectContaining({ columnName: "name", value: "" }),
+				expect.objectContaining({ columnName: "created", value: null }),
+			]),
+		});
+	});
+
 	it("keeps the sheet open with edits intact when saving fails", async () => {
 		fixtures.saveStatus = 500;
 		renderSheet();

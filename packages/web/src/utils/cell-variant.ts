@@ -10,3 +10,22 @@ export const cellVariant = ({
 	dataType,
 }: Pick<ColumnInfoSchemaType, "enumValues" | "dataType">): DataTypes =>
 	enumValues ? "enum" : dataType;
+
+/**
+ * Record form values as they are written. A form shows NULL as an empty field, so an empty
+ * field is NULL, except in a text column, where it is the empty string.
+ */
+export const toWriteValues = <V>(
+	values: Record<string, V>,
+	tableCols: ColumnInfoSchemaType[],
+): Record<string, V | null> => {
+	const written: Record<string, V | null> = { ...values };
+
+	for (const col of tableCols) {
+		if (written[col.columnName] === "" && cellVariant(col) !== "text") {
+			written[col.columnName] = null;
+		}
+	}
+
+	return written;
+};

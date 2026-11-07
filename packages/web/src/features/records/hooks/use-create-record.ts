@@ -3,9 +3,9 @@ import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
 import {
 	createRecord as createRecordRequest,
-	type AddRecordFormData,
 	type ApiError,
 	apiErrorMessage,
+	type RecordValues,
 } from "@/shared/api";
 import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -23,7 +23,7 @@ export const useCreateRecord = ({
 	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation<
 		string,
 		ApiError,
-		AddRecordFormData
+		RecordValues
 	>({
 		mutationFn: async (data) => {
 			const res = await createRecordRequest({
@@ -43,7 +43,7 @@ export const useCreateRecord = ({
 	});
 
 	const createRecord = async (
-		data: AddRecordFormData,
+		data: RecordValues,
 		options: {
 			onSuccess?: () => void;
 			onError?: (error: ApiError) => void;
