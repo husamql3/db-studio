@@ -238,7 +238,7 @@ export const useTableModel = ({
 			getIsCellSelected,
 		}),
 		[
-			tableName,
+			editScope,
 			canMutateRows,
 			rowMutationReason,
 			focusedCell,
