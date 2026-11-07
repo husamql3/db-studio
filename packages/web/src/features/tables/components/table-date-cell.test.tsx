@@ -61,6 +61,16 @@ describe("TableDateCell", () => {
 		expect(screen.queryByRole("button", { name: "NULL" })).toBeNull();
 	});
 
+	// react-day-picker's single mode deselects the selected day, which staged NULL.
+	it("keeps the value when the selected day is clicked again", () => {
+		const row = { id: 1, day: "2026-11-01" };
+		renderDateCell(row, "date");
+
+		fireEvent.click(screen.getByRole("button", { name: /November 1st, 2026/ }));
+
+		expect(staged(row)).not.toBeNull();
+	});
+
 	it("stages a day picked in an empty DATE cell as that day", () => {
 		const row = { id: 1, day: null };
 		renderDateCell(row, "date");

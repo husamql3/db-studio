@@ -89,11 +89,9 @@ export function DatePicker({
 	const minutes = value ? value.getMinutes() : 0;
 	const seconds = value ? value.getSeconds() : 0;
 
-	const handleSelect = (date: Date | undefined) => {
-		if (date && value) {
-			date.setHours(value.getHours());
-			date.setMinutes(value.getMinutes());
-			date.setSeconds(value.getSeconds());
+	const handleSelect = (date: Date) => {
+		if (value) {
+			date.setHours(value.getHours(), value.getMinutes(), value.getSeconds());
 		}
 
 		onChange?.(date);
@@ -227,6 +225,8 @@ export function DatePicker({
 						defaultMonth={value || today}
 						hideNavigation
 						mode="single"
+						// Clicking the selected day would otherwise deselect it; NULL is the only clear.
+						required
 						onSelect={handleSelect}
 						selected={value || undefined}
 						startMonth={new Date(startYear, 0)}
