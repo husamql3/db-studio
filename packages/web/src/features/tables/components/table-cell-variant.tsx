@@ -744,6 +744,7 @@ export const TableDateCell = memo(
 						icon={false}
 						value={date}
 						onChange={onDateChange}
+						nullable={cell.column.columnDef.meta?.isNullable}
 						open
 						onOpenChange={onPickerOpenChange}
 						placeholder="Pick a date"

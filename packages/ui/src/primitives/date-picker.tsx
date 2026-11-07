@@ -51,6 +51,8 @@ interface DatePickerProps {
 	icon?: boolean;
 	isFormatted?: boolean;
 	showTime?: boolean;
+	/** Offers the NULL preset. */
+	nullable?: boolean;
 	modal?: boolean;
 	/** Controls the calendar; leave unset to let the trigger open and close it. */
 	open?: boolean;
@@ -68,6 +70,7 @@ export function DatePicker({
 	icon = true,
 	isFormatted = true,
 	showTime = false,
+	nullable = false,
 	modal,
 	open: openProp,
 	onOpenChange,
@@ -176,14 +179,16 @@ export function DatePicker({
 			>
 				<div className="flex">
 					<div className="flex flex-col gap-1 p-2 border-r">
-						<Button
-							variant="ghost"
-							size="sm"
-							className="justify-start text-xs h-7"
-							onClick={() => handlePreset("NULL")}
-						>
-							NULL
-						</Button>
+						{nullable && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="justify-start text-xs h-7"
+								onClick={() => handlePreset("NULL")}
+							>
+								NULL
+							</Button>
+						)}
 						<Button
 							variant="ghost"
 							size="sm"

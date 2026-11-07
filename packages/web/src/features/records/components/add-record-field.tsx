@@ -20,6 +20,7 @@ import { openRecordReference } from "../stores/record-reference.store";
 export const AddRecordField = ({
 	columnName,
 	dataTypeLabel,
+	isNullable,
 	columnDefault,
 	enumValues,
 	isForeignKey,
@@ -184,6 +185,7 @@ export const AddRecordField = ({
 					onChange={(date) => field.onChange(date ? toDateValue(date, dataTypeLabel) : "")}
 					showTime={showTime}
 					isFormatted={!showTime}
+					nullable={isNullable}
 					placeholder={
 						columnDefault ?? (showTime ? "Select a date and time" : "Select a date")
 					}

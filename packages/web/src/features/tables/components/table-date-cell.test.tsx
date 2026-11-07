@@ -55,6 +55,12 @@ describe("TableDateCell", () => {
 		expect(staged(row)).toBe("2026-11-10");
 	});
 
+	it("offers no NULL preset on a NOT NULL column", () => {
+		renderDateCell({ id: 1, day: "2026-11-01" }, "date");
+
+		expect(screen.queryByRole("button", { name: "NULL" })).toBeNull();
+	});
+
 	it("stages a day picked in an empty DATE cell as that day", () => {
 		const row = { id: 1, day: null };
 		renderDateCell(row, "date");
