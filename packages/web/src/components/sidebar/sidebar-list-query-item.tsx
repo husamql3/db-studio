@@ -81,7 +81,7 @@ export const SidebarListQueryItem = ({
 
 	const handleDuplicate = useCallback(() => {
 		const query = getQuery(id);
-		const newQueryId = addQuery(`${query?.name} (Copy)`);
+		const newQueryId = addQuery(query?.query, { name: `${query?.name} (Copy)` });
 		navigate({ to: "/runner/$queryId", params: { queryId: newQueryId } });
 		toast.success("Query duplicated successfully");
 	}, [addQuery, getQuery, navigate, id]);
@@ -124,7 +124,6 @@ export const SidebarListQueryItem = ({
 
 	const handleMoveSubmit = useCallback(() => {
 		if (isCreatingFolder && newFolderName.trim()) {
-			// Create new folder and move query
 			const newFolderId = Math.random().toString(36).substring(2, 15);
 			addFolder({
 				id: newFolderId,

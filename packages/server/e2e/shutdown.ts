@@ -14,55 +14,19 @@
  * the database. Writes e2e/artifacts/shutdown-<build>.json.
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { cliPath, databaseName, requireDatabaseUrl, startCli, writeArtifact } from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to a PostgreSQL database");
-}
-
-const db = new URL(databaseUrl).pathname.slice(1);
+const { url: databaseUrl } = requireDatabaseUrl("pg");
+const db = databaseName(databaseUrl);
 const build = process.argv[2];
-
-const cli = fileURLToPath(
-	new URL(
-		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
-		import.meta.url,
-	),
-);
-
-const PORT = 4525;
-const BASE = `http://127.0.0.1:${PORT}`;
 const EXIT_WITHIN_MS = 5_000;
 
 const stopWith = async (signal: NodeJS.Signals) => {
-	const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-		cwd: tmpdir(),
-		env: {
-			...process.env,
-			NODE_ENV: "production",
-			DB_STUDIO_TELEMETRY: "0",
-			HOST: "127.0.0.1",
-		},
-		stdio: "ignore",
-	});
-
-	const exited = new Promise<number | null>((resolve) => server.on("exit", resolve));
-
-	for (;;) {
-		if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
-
-		const ready = await fetch(`${BASE}/api/databases`)
-			.then((response) => response.ok)
-			.catch(() => false);
-
-		if (ready) break;
-		await new Promise((resolve) => setTimeout(resolve, 50));
-	}
+	const {
+		child: server,
+		base: BASE,
+		exited,
+	} = await startCli({ cli: cliPath(build), args: ["-d", databaseUrl] });
 
 	// A query that takes a second, so it is still running when the signal arrives.
 	const inFlight = fetch(`${BASE}/api/pg/query?db=${encodeURIComponent(db)}`, {
@@ -111,10 +75,7 @@ const stopWith = async (signal: NodeJS.Signals) => {
 
 const results = [await stopWith("SIGINT"), await stopWith("SIGTERM")];
 
-await writeFile(
-	new URL(`./artifacts/shutdown-${build ?? "dist"}.json`, import.meta.url),
-	`${JSON.stringify(results, null, 2)}\n`,
-);
+await writeArtifact(`shutdown-${build ?? "dist"}.json`, results);
 
 for (const result of results) {
 	assert.deepEqual(result, {

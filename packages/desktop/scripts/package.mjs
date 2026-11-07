@@ -32,7 +32,7 @@ run(process.execPath, [path.join(desktopDir, "scripts/ensure-electron.mjs")]);
 
 run(process.execPath, [path.join(desktopDir, "scripts/stage-server.mjs"), "--arch", arch]);
 
-run("npx", [
+run("bunx", [
 	"electron-builder",
 	...forwarded,
 	`--${arch}`,

@@ -1,15 +1,15 @@
 import type { AlterColumnSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { alterColumn as alterColumnRequest } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import {
+	alterColumn as alterColumnRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 const normalizeAlterColumnPayload = (data: AlterColumnSchemaType): AlterColumnSchemaType => ({
 	...data,
@@ -32,7 +32,7 @@ export const useAlterColumn = ({
 
 	const { mutateAsync: alterColumnMutation, isPending: isAlteringColumn } = useMutation<
 		string,
-		MutationError,
+		ApiError,
 		AlterColumnSchemaType
 	>({
 		mutationFn: async (data) => {
@@ -47,30 +47,20 @@ export const useAlterColumn = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await queryClient.invalidateQueries({
-				queryKey: tableKeys.columnsByTable(tableName),
-				exact: false,
-			});
+			await invalidateTable(queryClient, tableName);
 			setEditingColumn(null);
 			closeOverlay("schema.edit-column");
 		},
 	});
 
-	const alterColumn = async (
-		data: AlterColumnSchemaType,
-		options?: {
-			onSuccess?: () => void;
-			onError?: (error: MutationError) => void;
-		},
-	) =>
-		toast.promise(alterColumnMutation(data, options), {
-			loading: "Updating column...",
-			success: (message) => message || "Column updated successfully",
-			error: (error: MutationError) =>
-				(typeof error.details === "string" && error.details) ||
-				error.message ||
-				"Failed to update column",
-		});
+	const alterColumn = async (data: AlterColumnSchemaType) =>
+		toast
+			.promise(alterColumnMutation(data), {
+				loading: "Updating column...",
+				success: (message) => message || "Column updated successfully",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to update column"),
+			})
+			.unwrap();
 
 	return {
 		alterColumn,

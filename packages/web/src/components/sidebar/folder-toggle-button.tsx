@@ -75,7 +75,7 @@ export const FolderToggleButton = ({
 	}, [deleteFolder, folderId]);
 
 	const handleAddFolderQuery = useCallback(() => {
-		const queryId = addQuery(undefined, folderId);
+		const queryId = addQuery("", { folderId });
 		navigate({ to: "/runner/$queryId", params: { queryId } });
 	}, [addQuery, folderId, navigate]);
 

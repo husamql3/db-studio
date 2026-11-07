@@ -5,20 +5,37 @@ export type DataModel = "relational" | "document" | "key-value";
 interface DatabaseEngineBase {
 	label: string;
 	/** URL schemes; the first is canonical. */
-	protocols: readonly string[];
-	/** `null` for file-based engines. */
-	defaultPort: number | null;
+	protocols: Readonly<Record<string, ProtocolTraits>>;
 	dataModel: DataModel;
 	editorLanguage: "pgsql" | "json" | "plaintext";
 	liveMode: boolean;
 	schemaSelector: boolean;
 	/** Grid edits can set a cell to its column default (`UPDATE … SET c = DEFAULT`). */
 	cellDefault: boolean;
+	/** Tables and columns can be created, renamed, altered and dropped; `false` refuses with 400. */
+	schemaMutation: boolean;
+	/** Dropping a column can CASCADE to the indexes, constraints and views that depend on it. */
+	dropColumnCascade: boolean;
+	/** The grid can filter and sort rows; `false` hides Filter and Sort. */
+	filterSort: boolean;
 	/** A connection can be opened in a read-only session the database itself enforces. */
 	readOnly: boolean;
 	/** How "Copy as SQL INSERT" writes literals; `null` hides it. */
 	sqlInsert: SqlInsertDialect | null;
 }
+
+/** How a URL scheme names its database. */
+export type ProtocolTraits =
+	| {
+			/** The server port when the URL names none. */
+			defaultPort: number;
+			/** The scheme the driver expects, for a wire-compatible alias it does not know. */
+			driverScheme?: string;
+	  }
+	/** `scheme://<path>`: a local file, or `:memory:`. */
+	| { file: true }
+	/** A hosted database its client addresses by the URL alone (libSQL / Turso, Cloudflare D1). */
+	| { hosted: true };
 
 export type SqlInsertDialect = {
 	/** Opening identifier quote; `[` closes with `]`. */
@@ -58,13 +75,19 @@ export type DatabaseEngine = DatabaseEngineBase &
 export const DATABASE_ENGINES = {
 	pg: {
 		label: "PostgreSQL",
-		protocols: ["postgres", "postgresql", "cockroachdb"],
-		defaultPort: 5432,
+		protocols: {
+			postgres: { defaultPort: 5432 },
+			postgresql: { defaultPort: 5432 },
+			cockroachdb: { defaultPort: 26257, driverScheme: "postgresql" },
+		},
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: true,
 		cellDefault: true,
+		schemaMutation: true,
+		dropColumnCascade: true,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -81,13 +104,20 @@ export const DATABASE_ENGINES = {
 	},
 	mysql: {
 		label: "MySQL",
-		protocols: ["mysql", "mysql2", "mariadb", "tidb"],
-		defaultPort: 3306,
+		protocols: {
+			mysql: { defaultPort: 3306 },
+			mysql2: { defaultPort: 3306 },
+			mariadb: { defaultPort: 3306, driverScheme: "mysql" },
+			tidb: { defaultPort: 4000, driverScheme: "mysql" },
+		},
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",
@@ -101,13 +131,15 @@ export const DATABASE_ENGINES = {
 	},
 	mssql: {
 		label: "SQL Server",
-		protocols: ["mssql", "sqlserver"],
-		defaultPort: 1433,
+		protocols: { mssql: { defaultPort: 1433 }, sqlserver: { defaultPort: 1433 } },
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: "[",
@@ -124,13 +156,15 @@ export const DATABASE_ENGINES = {
 	},
 	mongodb: {
 		label: "MongoDB",
-		protocols: ["mongodb", "mongodb+srv"],
-		defaultPort: 27017,
+		protocols: { mongodb: { defaultPort: 27017 }, "mongodb+srv": { defaultPort: 27017 } },
 		dataModel: "document",
 		editorLanguage: "json",
 		liveMode: false,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -139,13 +173,15 @@ export const DATABASE_ENGINES = {
 	},
 	sqlite: {
 		label: "SQLite / libSQL / D1",
-		protocols: ["sqlite", "libsql", "d1"],
-		defaultPort: null,
+		protocols: { sqlite: { file: true }, libsql: { hosted: true }, d1: { hosted: true } },
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -159,13 +195,15 @@ export const DATABASE_ENGINES = {
 	},
 	redis: {
 		label: "Redis",
-		protocols: ["redis", "rediss"],
-		defaultPort: 6379,
+		protocols: { redis: { defaultPort: 6379 }, rediss: { defaultPort: 6379 } },
 		dataModel: "key-value",
 		editorLanguage: "plaintext",
 		liveMode: false,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: false,
+		dropColumnCascade: false,
+		filterSort: false,
 		readOnly: false,
 		sqlInsert: null,
 		rowMutation: true,
@@ -174,13 +212,15 @@ export const DATABASE_ENGINES = {
 	},
 	duckdb: {
 		label: "DuckDB",
-		protocols: ["duckdb"],
-		defaultPort: null,
+		protocols: { duckdb: { file: true } },
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: '"',
@@ -198,13 +238,15 @@ export const DATABASE_ENGINES = {
 	},
 	oracle: {
 		label: "Oracle",
-		protocols: ["oracle"],
-		defaultPort: 1521,
+		protocols: { oracle: { defaultPort: 1521 } },
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: true,
 		schemaSelector: false,
 		cellDefault: true,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: false,
 		sqlInsert: {
 			quote: '"',
@@ -221,13 +263,15 @@ export const DATABASE_ENGINES = {
 	},
 	clickhouse: {
 		label: "ClickHouse",
-		protocols: ["clickhouse", "clickhouses"],
-		defaultPort: 8123,
+		protocols: { clickhouse: { defaultPort: 8123 }, clickhouses: { defaultPort: 8443 } },
 		dataModel: "relational",
 		editorLanguage: "pgsql",
 		liveMode: false,
 		schemaSelector: false,
 		cellDefault: false,
+		schemaMutation: true,
+		dropColumnCascade: false,
+		filterSort: true,
 		readOnly: true,
 		sqlInsert: {
 			quote: "`",
@@ -245,4 +289,4 @@ export const DATABASE_ENGINES = {
 
 /** Maps a URL scheme without the trailing colon (e.g. `"postgresql"`) to its db type. */
 export const dbTypeFromProtocol = (protocol: string): DatabaseTypeSchema | undefined =>
-	DATABASE_TYPES.find((type) => DATABASE_ENGINES[type].protocols.includes(protocol));
+	DATABASE_TYPES.find((type) => Object.hasOwn(DATABASE_ENGINES[type].protocols, protocol));

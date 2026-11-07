@@ -1,6 +1,6 @@
 import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiClient, apiOperationForRequest } from "./client";
+import { api, apiOperationForRequest } from "./client";
 
 const sentry = vi.hoisted(() => ({
 	addBreadcrumb: vi.fn(),
@@ -17,8 +17,7 @@ describe("API error reporting", () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	it("does not duplicate server errors in the browser project", async () => {
-		const client = new ApiClient(() => "https://db-studio.test");
-		client.api.defaults.adapter = async (config) => {
+		api.defaults.adapter = async (config) => {
 			throw new AxiosError(
 				"Request failed",
 				"ERR_BAD_RESPONSE",
@@ -34,7 +33,7 @@ describe("API error reporting", () => {
 			);
 		};
 
-		await expect(client.api.get("/pg/tables")).rejects.toMatchObject({
+		await expect(api.get("/pg/tables")).rejects.toMatchObject({
 			message: "Database connection failed",
 			status: 503,
 		});
@@ -42,8 +41,7 @@ describe("API error reporting", () => {
 	});
 
 	it("records API breadcrumbs without database or table identifiers", async () => {
-		const client = new ApiClient(() => "https://db-studio.test");
-		client.api.defaults.adapter = async (config) => ({
+		api.defaults.adapter = async (config) => ({
 			config: config as InternalAxiosRequestConfig,
 			data: {},
 			headers: {},
@@ -51,7 +49,7 @@ describe("API error reporting", () => {
 			statusText: "OK",
 		});
 
-		await client.api.get("/pg/tables/customer_secrets?db=private_database");
+		await api.get("/pg/tables/customer_secrets?db=private_database");
 
 		expect(
 			apiOperationForRequest("GET", "/pg/tables/customer_secrets?db=private_database"),
@@ -66,8 +64,7 @@ describe("API error reporting", () => {
 	});
 
 	it("reports a network failure that never reached the server", async () => {
-		const client = new ApiClient(() => "https://db-studio.test");
-		client.api.defaults.adapter = async (config) => {
+		api.defaults.adapter = async (config) => {
 			throw new AxiosError(
 				"connect ECONNREFUSED private-host",
 				"ERR_NETWORK",
@@ -75,9 +72,7 @@ describe("API error reporting", () => {
 			);
 		};
 
-		await expect(
-			client.api.get("/pg/tables/customer_secrets?db=private_database"),
-		).rejects.toThrow();
+		await expect(api.get("/pg/tables/customer_secrets?db=private_database")).rejects.toThrow();
 
 		expect(sentry.captureException).toHaveBeenCalledOnce();
 		const [error, context] = sentry.captureException.mock.calls[0];
@@ -98,5 +93,34 @@ describe("API error reporting", () => {
 		});
 		expect(JSON.stringify(context)).not.toContain("private-host");
 		expect(JSON.stringify(context)).not.toContain("customer_secrets");
+	});
+
+	it("reads the server's error from a blob response body", async () => {
+		api.defaults.adapter = async (config) => {
+			throw new AxiosError(
+				"Request failed",
+				"ERR_BAD_RESPONSE",
+				config as InternalAxiosRequestConfig,
+				undefined,
+				{
+					config: config as InternalAxiosRequestConfig,
+					data: new Blob(
+						[JSON.stringify({ error: "Table not found", details: 'No table "ghost"' })],
+						{ type: "application/json" },
+					),
+					headers: {},
+					status: 404,
+					statusText: "Not Found",
+				},
+			);
+		};
+
+		await expect(
+			api.get("/pg/tables/ghost/export", { responseType: "blob" }),
+		).rejects.toMatchObject({
+			message: "Table not found",
+			details: 'No table "ghost"',
+			status: 404,
+		});
 	});
 });

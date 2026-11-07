@@ -1,60 +1,49 @@
 import type {
-	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
-	BulkInsertRecordsParams,
-	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
-	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
-	DeleteRecordParams,
-	DeleteRecordResult,
-	DeleteRecordSchemaType,
 	DeleteTableParams,
-	DeleteTableResult,
-	DropIndexParamsSchemaType,
-	ExecuteQueryResult,
 	FieldDataType,
-	ForeignKeyConstraint,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
-	RelatedRecord,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	ServerLogEntrySchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
-	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { mapMssqlToDataType, standardizeMssqlDataTypeLabel } from "@db-studio/shared/types";
-import type { ConnectionPool as MssqlPool } from "mssql";
+import type { Request } from "mssql";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import {
-	BaseAdapter,
-	EXACT_COUNT_LIMIT,
-	type NormalizedRow,
-	type QueryBundle,
-} from "@/adapters/base.adapter.js";
-import { getConnectionUrl, getMssqlPool } from "@/adapters/connections.js";
+import type { DriverErrorClass } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
+import {
+	type InlineConstraints,
+	flagOrJsonTarget,
+	groupKeyColumns,
+	RELATED_SAMPLE,
+	type ReferencingKey,
+	SqlAdapter,
+	type TableEstimate,
+} from "@/adapters/sql.adapter.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
+import { connector } from "@/open-connections.js";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
-	buildSortClause,
-	buildWhereClause,
-	formatMssqlDefaultValue,
-	mapColumnTypeToMssql,
+	mssqlFilters,
+	mssqlPlaceholder,
+	quoteMssqlIdent,
+	mapMssqlToDataType,
+	standardizeMssqlDataTypeLabel,
 } from "./mssql.query-builder.js";
 
 const MSSQL_FK_VIOLATION = 547;
+const MSSQL_NO_SUCH_TABLE = 208;
 
 /** sp_readerrorlog is limited to the securityadmin role. */
 const MSSQL_NOT_SECURITYADMIN = 15003;
@@ -73,15 +62,24 @@ const MSSQL_NO_SUCH_PROCEDURE = 2812;
 const ERRORLOG_HEADER = /^Error: (\d+), Severity: (\d+), State: (\d+)\.?$/;
 const MSSQL_FK_DEPENDENCY = 3726;
 const MSSQL_DUP_INDEX_NAME = 1913;
-const MSSQL_DUP_KEY = 1505;
+
+/**
+ * A constraint refused the row: duplicate key (2601, 2627, and 1505 when a new unique index or
+ * constraint finds one), foreign key or CHECK conflict (547), NULL in a NOT NULL column (515).
+ */
+const MSSQL_CONSTRAINT_VIOLATIONS = new Set([515, 547, 1505, 2601, 2627]);
+
+/**
+ * A value the column cannot hold: conversion failed (241, 245, 295, 8114), out of range (220,
+ * 242, 8115), too long (2628, 8152).
+ */
+const MSSQL_INVALID_VALUES = new Set([220, 241, 242, 245, 295, 2628, 8114, 8115, 8152]);
 
 /** The column type cannot be an index key (1919, 1978), e.g. NVARCHAR(MAX). */
 const MSSQL_CANNOT_INDEX = new Set([1919, 1978]);
 
 /** The index enforces a constraint, or a foreign key references it. */
 const MSSQL_INDEX_IN_USE = 3723;
-
-const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
 interface IndexColumnRow {
 	indexName: string;
@@ -95,171 +93,155 @@ interface IndexColumnRow {
 	isIncluded: boolean | null;
 }
 
-interface FkConstraintRow {
-	constraint_name: string;
-	referencing_table: string;
-	referencing_column: string;
-	referenced_table: string;
-	referenced_column: string;
-}
+/**
+ * The object id of the dbo table whose name `param` binds. Each part is quoted, so a name with a
+ * dot is not read as `schema.table`.
+ */
+const dboObjectId = (param: string) =>
+	`OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(${param}))`;
 
-export class MsSqlAdapter extends BaseAdapter {
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
+/** A pool, or a transaction: either hands out requests. */
+type MssqlConn = { request(): Request };
 
-	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-		const pool = await getMssqlPool(db);
-		const request = pool.request();
-		values.forEach((val, idx) => {
-			request.input(`p${idx}`, val);
-		});
-		const result = await request.query(sql);
+export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		const { number = 0 } = e as { number?: number };
 
-		return result.recordset as T;
+		// Before the message check below, whose words a table name in this message can contain.
+		if (e.name === "RequestError" && isSelectDenied(e)) return { status: 403 };
+
+		// Invalid object name: dropped, renamed, or a stale URL after switching databases.
+		if (e.name === "RequestError" && number === MSSQL_NO_SUCH_TABLE) return { status: 404 };
+
+		// A login failure, connect timeout or socket error.
+		if (e.name === "ConnectionError" || e.message.includes("Login failed"))
+			return { status: 503 };
+
+		if (e.name === "RequestError" && MSSQL_CONSTRAINT_VIOLATIONS.has(number))
+			return { status: 409 };
+
+		if (e.name === "RequestError" && MSSQL_INVALID_VALUES.has(number)) return { status: 400 };
+
+		return undefined;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return quote(name);
+	protected readonly quoteIdentifier = quoteMssqlIdent;
+	protected readonly engine = "mssql";
+	protected readonly placeholder = mssqlPlaceholder;
+
+	protected async connect<T>(db: string, work: (conn: MssqlConn) => Promise<T>) {
+		return work(await connector("mssql").pool(db));
 	}
 
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapMssqlToDataType(nativeType);
+	/** A request with `values` bound as `@p0`, `@p1`, … (see `mssqlPlaceholder`). */
+	private request(conn: MssqlConn, values: unknown[]) {
+		const request = conn.request();
+		values.forEach((value, i) => request.input(`p${i}`, value));
+
+		return request;
 	}
 
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "NVARCHAR(MAX)",
-			number: "INT",
-			boolean: "BIT",
-			json: "NVARCHAR(MAX)",
-			date: "DATETIME2",
-			array: "NVARCHAR(MAX)",
-			enum: "NVARCHAR(255)",
-		};
-
-		return map[universalType] ?? "NVARCHAR(MAX)";
+	protected async rows<T>(conn: MssqlConn, sql: string, values: unknown[] = []) {
+		return (await this.request(conn, values).query(sql)).recordset as T[];
 	}
 
-	protected buildTableDataQuery(params: GetTableDataParams): QueryBundle {
-		const { tableName, filters = [], sort = [], order = "asc", limit = 50, cursor } = params;
-
-		const {
-			clause: filterWhere,
-			values: filterValues,
-			nextIdx,
-		} = buildWhereClause(filters, 0);
-
-		const sortClause = buildSortClause(sort, order) || "ORDER BY (SELECT NULL)";
-		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-
-		const sql = `SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`;
-		const values = [...filterValues, currentOffset, limit + 1];
-
-		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
-
-		return { sql, values, countSql, countValues: filterValues };
+	protected override addColumnSql(definition: string) {
+		return `ADD ${definition}`;
 	}
 
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Record<string, unknown>[]).map((row) => this.normalizeRow(row));
+	protected async execute(conn: MssqlConn, sql: string, values: unknown[] = []) {
+		return (await this.request(conn, values).query(sql)).rowsAffected[0] ?? 0;
 	}
 
-	protected buildCursors(
-		params: GetTableDataParams,
-		_rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null } {
-		const { cursor, limit = 50 } = params;
-		const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
+	protected async transaction<T>(db: string, work: (conn: MssqlConn) => Promise<T>) {
+		const transaction = (await connector("mssql").pool(db)).transaction();
+		await transaction.begin();
 
-		return {
-			nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
-			prevCursor:
-				currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
-		};
-	}
-
-	// =========================================================
-	// Override getTableData for MSSQL OFFSET/FETCH pagination
-	// =========================================================
-
-	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		try {
-			const {
-				tableName,
-				db,
-				limit = 50,
-				sort = [],
-				order = "asc",
-				cursor,
-				filters = [],
-			} = params;
+			const result = await work(transaction);
+			await transaction.commit();
 
-			const pool = await getMssqlPool(db);
-
-			const currentOffset = cursor ? this.decodeOffsetCursor(cursor) : 0;
-
-			const {
-				clause: filterWhere,
-				values: filterValues,
-				nextIdx,
-			} = buildWhereClause(filters, 0);
-
-			const [pkColumns, { total, estimated }] = await Promise.all([
-				this.getPrimaryKeyColumns(pool, tableName),
-				this.countRows(pool, tableName, filterWhere, filterValues),
-			]);
-
-			const sortClause = buildOrderByClause(sort, order, pkColumns);
-
-			const dataRequest = pool.request();
-			filterValues.forEach((val, idx) => {
-				dataRequest.input(`p${idx}`, val);
-			});
-			dataRequest.input(`p${nextIdx}`, currentOffset);
-			dataRequest.input(`p${nextIdx + 1}`, limit + 1);
-
-			const dataResult = await dataRequest.query(
-				`SELECT * FROM ${quote(tableName)} ${filterWhere} ${sortClause} OFFSET @p${nextIdx} ROWS FETCH NEXT @p${nextIdx + 1} ROWS ONLY`,
-			);
-
-			let rows = dataResult.recordset as Record<string, unknown>[];
-			const hasMore = rows.length > limit;
-
-			if (hasMore) rows = rows.slice(0, limit);
-
-			return {
-				data: rows,
-				meta: {
-					limit,
-					total,
-					...(estimated && { totalEstimated: true }),
-					hasNextPage: hasMore,
-					hasPreviousPage: currentOffset > 0,
-					nextCursor: hasMore ? this.makeCursor(currentOffset + limit) : null,
-					prevCursor:
-						currentOffset > 0 ? this.makeCursor(Math.max(0, currentOffset - limit)) : null,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+			return result;
+		} catch (error) {
+			await transaction.rollback().catch(() => {});
+			throw error;
 		}
 	}
 
-	// =========================================================
-	// IDbAdapter implementations
-	// =========================================================
+	protected isFkViolation(e: unknown) {
+		return (e as { number?: number }).number === MSSQL_FK_VIOLATION;
+	}
 
-	// --- Databases ---
+	protected override async writeTarget(_conn: MssqlConn, db: string, tableName: string) {
+		return flagOrJsonTarget(await this.getTableColumns({ tableName, db }));
+	}
+
+	/** SQL Server refuses an explicit value for an identity column, so an INSERT skips it. */
+	protected override async skippedInsertColumns(conn: MssqlConn, tableName: string) {
+		const identity = await this.rows<{ name: string }>(
+			conn,
+			`SELECT name FROM sys.columns WHERE object_id = ${dboObjectId("@p0")} AND is_identity = 1`,
+			[tableName],
+		);
+
+		return identity.map(({ name }) => name);
+	}
+
+	protected override sampleRows(
+		conn: MssqlConn,
+		fk: ReferencingKey,
+		rest: string,
+		values: unknown[],
+	) {
+		return this.rows<Record<string, unknown>>(
+			conn,
+			`SELECT TOP ${RELATED_SAMPLE} c.* FROM ${quoteMssqlIdent(fk.table)} c ${rest}`,
+			values,
+		);
+	}
+
+	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
+		const {
+			tableName,
+			db,
+			limit = 50,
+			sort = [],
+			order = "asc",
+			cursor,
+			filters = [],
+		} = params;
+
+		const pool = await connector("mssql").pool(db);
+
+		const offset = offsetOf(cursor);
+		const { values, bind } = createBinds(mssqlPlaceholder);
+		const filterWhere = whereSql(buildFilterConditions(filters, bind, mssqlFilters));
+
+		const [pkColumns, { total, estimated }] = await Promise.all([
+			this.primaryKey(pool, tableName),
+			this.pageTotal(pool, db, tableName, undefined, filterWhere, [...values]),
+		]);
+
+		const sql = `SELECT * FROM ${quoteMssqlIdent(tableName)} ${filterWhere} ${buildOrderByClause(sort, order, pkColumns)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`;
+
+		const { rows, ...page } = offsetPage(
+			await this.rows<Record<string, unknown>>(pool, sql, values),
+			offset,
+			limit,
+		);
+
+		return {
+			data: rows,
+			meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
+		};
+	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const pool = await getMssqlPool();
+		const pool = await connector("mssql").pool();
 
-			// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
-			// optional; HAS_DBACCESS drops databases the login cannot open.
-			const result = await pool.request().query(`
+		// sys.master_files shows no rows to a login without VIEW ANY DEFINITION, so its size is
+		// optional; HAS_DBACCESS drops databases the login cannot open.
+		const result = await pool.request().query(`
 				SELECT
 				  d.name AS name,
 				  ISNULL(CAST(ROUND(CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(10,2)), 2) AS VARCHAR(20)) + ' MB', '') AS size,
@@ -272,18 +254,15 @@ export class MsSqlAdapter extends BaseAdapter {
 				ORDER BY d.name
 			`);
 
-			if (!result.recordset[0]) {
-				throw new HTTPException(500, { message: "No databases returned from server" });
-			}
-
-			return result.recordset as DatabaseInfoSchemaType[];
-		} catch (e) {
-			throw this.wrapError(e);
+		if (!result.recordset[0]) {
+			throw new HTTPException(500, { message: "No databases returned from server" });
 		}
+
+		return result.recordset as DatabaseInfoSchemaType[];
 	}
 
 	async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		const pool = await getMssqlPool();
+		const pool = await connector("mssql").pool();
 		const result = await pool.request().query("SELECT DB_NAME() AS db");
 
 		if (!result.recordset[0]) {
@@ -293,8 +272,8 @@ export class MsSqlAdapter extends BaseAdapter {
 		return result.recordset[0] as DatabaseSchemaType;
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = await getMssqlPool();
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
+		const pool = await connector("mssql").pool();
 
 		const result = await pool.request().query(`
 			SELECT
@@ -314,11 +293,10 @@ export class MsSqlAdapter extends BaseAdapter {
 		}
 
 		const info = result.recordset[0] as Record<string, string | number>;
-		const urlDefaults = parseDatabaseUrl(getConnectionUrl());
 
 		return {
-			host: String(info.host || urlDefaults.host),
-			port: Number(info.port || urlDefaults.port),
+			host: String(info.host || server.host),
+			port: Number(info.port || server.port),
 			user: String(info.user),
 			database: String(info.database_name ?? ""),
 			version: String(info.version),
@@ -327,169 +305,87 @@ export class MsSqlAdapter extends BaseAdapter {
 		};
 	}
 
-	// --- Tables ---
+	/** A login may see tables it cannot read; those keep their estimate. */
+	protected override async exactCounts(conn: MssqlConn, tables: TableEstimate[]) {
+		try {
+			return await super.exactCounts(conn, tables);
+		} catch (e) {
+			if (!isSelectDenied(e)) throw e;
+		}
 
-	async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		const pool = await getMssqlPool(db);
-		const estimates = await this.rowEstimates(pool);
+		const counts: Array<number | undefined> = [];
 
-		// Counting a table reads all of it, so only tables estimated below EXACT_COUNT_LIMIT rows
-		// are counted; larger ones report their estimate.
-		return Promise.all(
-			[...estimates].map(async ([tableName, estimate]) => {
-				if (estimate >= EXACT_COUNT_LIMIT) {
-					return { tableName, rowCount: estimate, rowCountEstimated: true };
-				}
-
-				try {
-					const countResult = await pool
-						.request()
-						.query(`SELECT COUNT(*) as count FROM ${quote(tableName)}`);
-
-					return { tableName, rowCount: Number(countResult.recordset[0]?.count ?? 0) };
-				} catch (e) {
+		// super's exact count: this class's rowCount would answer a refusal with the estimate.
+		for (const table of tables) {
+			counts.push(
+				await super.rowCount(conn, table.tableName).catch((e: unknown) => {
 					if (!isSelectDenied(e)) throw e;
 
-					return { tableName, rowCount: estimate, rowCountEstimated: true };
-				}
-			}),
-		);
-	}
-
-	async createTable({
-		tableData,
-		db,
-	}: {
-		tableData: CreateTableSchemaType;
-		db: DatabaseSchemaType["db"];
-	}): Promise<void> {
-		const { tableName, fields, foreignKeys } = tableData;
-		const pool = await getMssqlPool(db);
-
-		const columnDefs = fields.map((field: FieldDataType) => {
-			const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
-			let colDef = `[${field.columnName}] ${mappedType}`;
-
-			if (!field.isNullable && !field.isPrimaryKey) colDef += " NOT NULL";
-
-			if (field.defaultValue && !mappedType.includes("IDENTITY")) {
-				const dv = formatMssqlDefaultValue(field.defaultValue, mappedType);
-
-				if (dv !== null) colDef += ` DEFAULT ${dv}`;
-			}
-
-			return colDef;
-		});
-
-		const constraintDefs: string[] = [];
-		const primaryKeyFields = fields.filter((f: FieldDataType) => f.isPrimaryKey);
-
-		if (primaryKeyFields.length > 0) {
-			constraintDefs.push(
-				`PRIMARY KEY (${primaryKeyFields.map((f: FieldDataType) => `[${f.columnName}]`).join(", ")})`,
+					return undefined;
+				}),
 			);
 		}
 
-		for (const field of fields as FieldDataType[]) {
-			if (field.isUnique && !field.isPrimaryKey) {
-				constraintDefs.push(`UNIQUE ([${field.columnName}])`);
-			}
-		}
-
-		const fkDefs =
-			foreignKeys?.map((fk: ForeignKeyDataType) => {
-				const name = `FK_${tableName}_${fk.columnName}`;
-
-				return `CONSTRAINT [${name}] FOREIGN KEY ([${fk.columnName}]) REFERENCES [${fk.referencedTable}] ([${fk.referencedColumn}]) ON UPDATE ${fk.onUpdate} ON DELETE ${fk.onDelete}`;
-			}) ?? [];
-
-		await pool
-			.request()
-			.query(
-				`CREATE TABLE [${tableName}] (\n\t\t\t${[...columnDefs, ...constraintDefs, ...fkDefs].join(",\n\t\t\t")}\n\t\t)`,
-			);
+		return counts;
 	}
 
-	async deleteTable(params: DeleteTableParams): Promise<DeleteTableResult> {
-		const { tableName, db, cascade } = params;
-		const pool = await getMssqlPool(db);
-
-		const tableCheck = await pool.request().input("tableName", tableName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(tableCheck.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
-
-		const rowCount = await this.getTableRowCount(tableName, db);
-
-		if (!cascade) {
-			const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
-
-			if (relatedRecords.length > 0) {
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-		}
-
-		try {
-			if (cascade) {
-				const fkConstraints = await this.getForeignKeyReferences(tableName, db);
-
-				for (const fk of fkConstraints) {
-					await pool
-						.request()
-						.query(
-							`ALTER TABLE [${fk.referencingTable}] DROP CONSTRAINT [${fk.constraintName}]`,
-						);
-				}
-			}
-
-			await pool.request().query(`DROP TABLE [${tableName}]`);
-
-			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
-		} catch (error: unknown) {
-			const mssqlError = error as { number?: number };
-
-			if (mssqlError.number === MSSQL_FK_DEPENDENCY) {
-				const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
-		}
+	protected columnDefinition(
+		_conn: MssqlConn,
+		_tableName: string,
+		field: FieldDataType,
+		inline: InlineConstraints,
+	) {
+		return buildMssqlColumnDefinition(field, inline);
 	}
 
-	async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
+	protected override readonly keysAsTableConstraints = true;
+
+	protected override readonly foreignKeyName = (tableName: string, fk: ForeignKeyDataType) =>
+		`FK_${tableName}_${fk.columnName}`;
+
+	/** A login may drop a table it cannot read; its estimate stands in for the count. */
+	protected override async rowCount(conn: MssqlConn, tableName: string) {
 		try {
-			const { tableName, newTableName, db } = params;
-			this.assertDifferentTableName(tableName, newTableName);
-			const pool = await getMssqlPool(db);
-
-			await this.assertTableExists(pool, tableName);
-
-			const targetCheck = await pool.request().input("tableName", newTableName).query(`
-					SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-				`);
-
-			if (Number(targetCheck.recordset[0]?.cnt ?? 0) > 0) {
-				throw new HTTPException(409, {
-					message: `Table "${newTableName}" already exists`,
-				});
-			}
-
-			await pool
-				.request()
-				.input("oldName", tableName)
-				.input("newName", newTableName)
-				.query("EXEC sp_rename @oldName, @newName");
+			return await super.rowCount(conn, tableName);
 		} catch (e) {
-			throw this.wrapError(e);
+			if (!isSelectDenied(e)) throw e;
+
+			return (await this.tableEstimates(conn, "", tableName))[0]?.estimate ?? 0;
 		}
+	}
+
+	/**
+	 * With `cascade`, the referencing foreign keys are dropped first, in the same transaction
+	 * as the table, so a failed DROP TABLE keeps them.
+	 */
+	protected override async dropTable(
+		_conn: MssqlConn,
+		{ tableName, db }: DeleteTableParams,
+		referencing: ReferencingKey[],
+	) {
+		await this.transaction(db, async (tx) => {
+			for (const fk of referencing)
+				await this.execute(
+					tx,
+					`ALTER TABLE ${quoteMssqlIdent(fk.table)} DROP CONSTRAINT ${quoteMssqlIdent(fk.constraintName)}`,
+				);
+
+			await this.execute(tx, `DROP TABLE ${quoteMssqlIdent(tableName)}`);
+		});
+	}
+
+	protected override isDropRefused(e: unknown) {
+		return (e as { number?: number }).number === MSSQL_FK_DEPENDENCY;
+	}
+
+	// sp_rename parses the old name, so it is quoted; the new name is taken as written.
+	protected override renameTableSql(
+		tableName: string,
+		newTableName: string,
+		_schemaName: string | undefined,
+		bind: (value: unknown) => string,
+	) {
+		return `EXEC sp_rename ${bind(quoteMssqlIdent(tableName))}, ${bind(newTableName)}`;
 	}
 
 	async getTableSchema({
@@ -499,16 +395,9 @@ export class MsSqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
-		const tableCheck = await pool.request().input("tableName", tableName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(tableCheck.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
+		await this.requireTable(pool, tableName);
 
 		const schemaResult = await pool.request().input("tableName", tableName).query(`
 				SELECT
@@ -565,7 +454,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				COLUMN_DEFAULT: string | null;
 			}>
 		).map((col) => {
-			let colDef = `  [${col.COLUMN_NAME}] ${col.DATA_TYPE}`;
+			let colDef = `  ${quoteMssqlIdent(col.COLUMN_NAME)} ${col.DATA_TYPE}`;
 
 			if (col.CHARACTER_MAXIMUM_LENGTH) {
 				colDef +=
@@ -583,10 +472,8 @@ export class MsSqlAdapter extends BaseAdapter {
 			return colDef;
 		});
 
-		return `CREATE TABLE [${tableName}] (\n${columns.join(",\n")}\n)`;
+		return `CREATE TABLE ${quoteMssqlIdent(tableName)} (\n${columns.join(",\n")}\n)`;
 	}
-
-	// --- Columns ---
 
 	async getTableColumns({
 		tableName,
@@ -595,7 +482,7 @@ export class MsSqlAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		const result = await pool.request().input("tableName", tableName).query(`
 				SELECT
@@ -638,7 +525,7 @@ export class MsSqlAdapter extends BaseAdapter {
 			`);
 
 		if (!result.recordset || result.recordset.length === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.tableMissing(tableName);
 		}
 
 		const checkResult = await pool.request().input("tableName", tableName).query(`
@@ -686,133 +573,78 @@ export class MsSqlAdapter extends BaseAdapter {
 		});
 	}
 
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const {
-			tableName,
-			columnName,
-			columnType,
-			defaultValue,
-			isPrimaryKey,
-			isNullable,
-			isUnique,
-			isIdentity,
-			db,
-		} = params;
-
-		const pool = await getMssqlPool(db);
-
-		await this.assertTableExists(pool, tableName);
-
-		const colCheck = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", columnName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND COLUMN_NAME = @columnName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(colCheck.recordset[0]?.cnt ?? 0) > 0) {
-			throw new HTTPException(409, {
-				message: `Column "${columnName}" already exists in table "${tableName}"`,
-			});
-		}
-
-		const colDef = buildMssqlColumnDefinition(
-			{ columnName, columnType, defaultValue, isPrimaryKey, isNullable, isUnique, isIdentity },
-			{ includePrimaryKey: true, includeUnique: true },
+	/**
+	 * A column's DEFAULT is a named constraint, which refuses ALTER COLUMN and DROP COLUMN
+	 * (errors 5074, 4922) while it stands.
+	 */
+	private async dropDefaultConstraint(conn: MssqlConn, tableName: string, columnName: string) {
+		const [constraint] = await this.rows<{ name: string }>(
+			conn,
+			`SELECT dc.name FROM sys.default_constraints dc
+			 JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+			 WHERE dc.parent_object_id = ${dboObjectId("@p0")} AND c.name = @p1`,
+			[tableName, columnName],
 		);
 
-		await pool.request().query(`ALTER TABLE [${tableName}] ADD ${colDef}`);
+		if (constraint)
+			await this.execute(
+				conn,
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} DROP CONSTRAINT ${quoteMssqlIdent(constraint.name)}`,
+			);
 	}
 
-	async deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		const { tableName, columnName, db } = params;
-		const pool = await getMssqlPool(db);
-
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
-
-		const result = await pool
-			.request()
-			.query(`ALTER TABLE [${tableName}] DROP COLUMN [${columnName}]`);
-
-		return { deletedCount: result.rowsAffected[0] ?? 1 };
+	/** 404 for a missing table or column; the column's DEFAULT goes with it. */
+	override async deleteColumn({
+		tableName,
+		columnName,
+		cascade,
+		db,
+	}: DeleteColumnParamsSchemaType): Promise<void> {
+		await this.transaction(db, async (conn) => {
+			await this.requireColumn(conn, tableName, columnName);
+			await this.dropDefaultConstraint(conn, tableName, columnName);
+			await this.execute(
+				conn,
+				`ALTER TABLE ${quoteMssqlIdent(tableName)} ${this.dropColumnSql(columnName, cascade)}`,
+			);
+		});
 	}
 
+	/** The DEFAULT is dropped and re-added in the ALTER's transaction, so a failed ALTER keeps it. */
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const pool = await getMssqlPool(db);
+		const table = quoteMssqlIdent(tableName);
+		const column = quoteMssqlIdent(columnName);
 
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
-
-		const defaultConstraintResult = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", columnName).query(`
-				SELECT dc.name AS constraint_name
-				FROM sys.default_constraints dc
-				JOIN sys.columns c
-				  ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
-				WHERE OBJECT_NAME(dc.parent_object_id) = @tableName AND c.name = @columnName
-			`);
-
-		const constraintName = defaultConstraintResult.recordset[0]?.constraint_name as
-			| string
-			| undefined;
-
-		if (constraintName) {
-			await pool
-				.request()
-				.query(`ALTER TABLE [${tableName}] DROP CONSTRAINT [${constraintName}]`);
-		}
-
-		const nullability = isNullable ? "NULL" : "NOT NULL";
-		await pool
-			.request()
-			.query(
-				`ALTER TABLE [${tableName}] ALTER COLUMN [${columnName}] ${columnType} ${nullability}`,
+		await this.transaction(db, async (conn) => {
+			await this.requireColumn(conn, tableName, columnName);
+			await this.dropDefaultConstraint(conn, tableName, columnName);
+			await this.execute(
+				conn,
+				`ALTER TABLE ${table} ALTER COLUMN ${column} ${columnType} ${isNullable ? "NULL" : "NOT NULL"}`,
 			);
 
-		if (defaultValue?.trim()) {
-			await pool
-				.request()
-				.query(
-					`ALTER TABLE [${tableName}] ADD DEFAULT ${defaultValue.trim()} FOR [${columnName}]`,
+			if (defaultValue?.trim())
+				await this.execute(
+					conn,
+					`ALTER TABLE ${table} ADD DEFAULT ${defaultValue.trim()} FOR ${column}`,
 				);
-		}
+		});
 	}
 
-	async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName, newColumnName, db } = params;
-		const pool = await getMssqlPool(db);
-
-		await this.assertTableExists(pool, tableName);
-		await this.assertColumnExists(pool, tableName, columnName);
-
-		const newColCheck = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", newColumnName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND COLUMN_NAME = @columnName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(newColCheck.recordset[0]?.cnt ?? 0) > 0) {
-			throw new HTTPException(409, {
-				message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-			});
-		}
-
-		await pool
-			.request()
-			.query(`EXEC sp_rename '${tableName}.${columnName}', '${newColumnName}', 'COLUMN'`);
+	// sp_rename parses the old name, so its parts are quoted; the new name is taken as written.
+	protected override renameColumnSql(
+		tableName: string,
+		columnName: string,
+		newColumnName: string,
+		_schemaName: string | undefined,
+		bind: (value: unknown) => string,
+	) {
+		return `EXEC sp_rename ${bind(`${quoteMssqlIdent(tableName)}.${quoteMssqlIdent(columnName)}`)}, ${bind(newColumnName)}, 'COLUMN'`;
 	}
-
-	// --- Server logs ---
 
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		const pool = await getMssqlPool(db);
+		const pool = await connector("mssql").pool(db);
 
 		try {
 			const result = await pool
@@ -870,618 +702,58 @@ export class MsSqlAdapter extends BaseAdapter {
 				);
 			}
 
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
-	// --- Indexes ---
+	protected async runStatement(conn: MssqlConn, statement: string) {
+		const result = await conn.request().query(statement);
 
-	async getTableIndexes({
-		tableName,
-		db,
-	}: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<IndexInfoSchemaType[]> {
-		try {
-			return await this.listIndexes(await getMssqlPool(db), tableName);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
-	}
+		if (!result.recordset) return { affected: result.rowsAffected[0] ?? 0 };
 
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method, db } = params;
-
-		try {
-			const pool = await getMssqlPool(db);
-			await this.assertTableExists(pool, tableName);
-
-			const columnRows = await pool.request().input("tableName", tableName).query<{
-				columnName: string;
-			}>(`
-					SELECT COLUMN_NAME AS columnName FROM INFORMATION_SCHEMA.COLUMNS
-					WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-				`);
-
-			const existing = new Set(columnRows.recordset.map((row) => row.columnName));
-			const missing = columns.find((column) => !existing.has(column));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (method !== undefined)
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			await pool
-				.request()
-				.query(
-					`CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quote(indexName)} ON [dbo].${quote(tableName)} (${columns.map(quote).join(", ")})`,
-				);
-		} catch (e) {
-			const number = (e as { number?: number }).number;
-
-			if (e instanceof Error && (number === MSSQL_DUP_INDEX_NAME || number === MSSQL_DUP_KEY))
-				throw new HTTPException(409, { message: e.message, cause: e });
-
-			if (e instanceof Error && number !== undefined && MSSQL_CANNOT_INDEX.has(number))
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
-		}
-	}
-
-	async dropIndex({ tableName, indexName, db }: DropIndexParamsSchemaType): Promise<void> {
-		try {
-			const pool = await getMssqlPool(db);
-
-			const index = (await this.listIndexes(pool, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
-
-			await pool
-				.request()
-				.query(`DROP INDEX ${quote(indexName)} ON [dbo].${quote(tableName)}`);
-		} catch (e) {
-			if (e instanceof Error && (e as { number?: number }).number === MSSQL_INDEX_IN_USE)
-				throw new HTTPException(400, { message: e.message, cause: e });
-			throw this.wrapError(e);
-		}
-	}
-
-	// --- Records ---
-
-	async addRecord({
-		db,
-		params,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const pool = await getMssqlPool(db);
-
-		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-		const identityResult = await pool
-			.request()
-			.input("tableName", tableName)
-			.query(
-				`SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@tableName) AND is_identity = 1`,
-			);
-
-		const identityColumns = new Set(
-			(identityResult.recordset as { name: string }[]).map((r) => r.name),
-		);
-
-		const columns = Object.keys(data).filter((col) => !identityColumns.has(col));
-
-		const values = columns.map((col) => {
-			const value = data[col];
-
-			if (booleanColumns.has(col) && typeof value === "string") {
-				return value === "true" ? 1 : 0;
-			}
-
-			return value;
-		});
-
-		const columnNames = columns.map((col) => `[${col}]`).join(", ");
-		const paramNames = columns.map((_col, idx) => `@param${idx}`).join(", ");
-
-		const request = pool.request();
-		columns.forEach((_col, idx) => {
-			request.input(`param${idx}`, values[idx]);
-		});
-
-		const result = await request.query(
-			`INSERT INTO [${tableName}] (${columnNames}) VALUES (${paramNames})`,
-		);
-
-		if (result.rowsAffected[0] === 0) {
-			throw new HTTPException(500, { message: `Failed to insert record into "${tableName}"` });
-		}
-
-		return { insertedCount: result.rowsAffected[0] ?? 0 };
-	}
-
-	async updateRecords({
-		params,
-		db,
-	}: {
-		db: DatabaseSchemaType["db"];
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const pool = await getMssqlPool(db);
-
-		const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-		const keyColumns = this.resolveKeyColumns(params);
-		this.assertWholeKey(await this.getPrimaryKeyColumns(pool, tableName), keyColumns);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		const transaction = pool.transaction();
-		await transaction.begin();
-
-		try {
-			let total = 0;
-
-			for (const { keyValues, rowUpdates } of groups) {
-				const request = transaction.request();
-
-				const setClauses = rowUpdates.map(
-					(u, idx) => `[${u.columnName}] = ${u.useDefault ? "DEFAULT" : `@value${idx}`}`,
-				);
-
-				rowUpdates.forEach((u, idx) => {
-					if (u.useDefault) return;
-					let value = u.value;
-
-					if (value !== null && typeof value === "object") value = JSON.stringify(value);
-
-					if (booleanColumns.has(u.columnName) && typeof value === "string") {
-						value = value === "true" ? 1 : 0;
-					}
-
-					request.input(`value${idx}`, value);
-				});
-				keyValues.forEach((value, idx) => {
-					request.input(`pkValue${idx}`, value);
-				});
-				const whereClauses = keyColumns.map((column, idx) => `[${column}] = @pkValue${idx}`);
-
-				const result = await request.query(
-					`UPDATE [${tableName}] SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`,
-				);
-
-				if (result.rowsAffected[0] === 0) {
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				}
-
-				total += result.rowsAffected[0] ?? 0;
-			}
-
-			await transaction.commit();
-
-			return { updatedCount: total };
-		} catch (error) {
-			await transaction.rollback();
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
-		}
-	}
-
-	async deleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pool = await getMssqlPool(db);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const transaction = pool.transaction();
-		await transaction.begin();
-
-		try {
-			const request = transaction.request();
-			pkValues.forEach((value, idx) => {
-				request.input(`pk${idx}`, value);
-			});
-			const paramList = pkValues.map((_, idx) => `@pk${idx}`).join(", ");
-
-			const result = await request.query(
-				`DELETE FROM [${tableName}] WHERE [${pkColumn}] IN (${paramList})`,
-			);
-
-			await transaction.commit();
-
-			return {
-				deletedCount: result.rowsAffected[0] ?? 0,
-				fkViolation: false,
-				relatedRecords: [],
-			};
-		} catch (error: unknown) {
-			await transaction.rollback();
-			const mssqlError = error as { number?: number };
-
-			if (mssqlError.number === MSSQL_FK_VIOLATION) {
-				const relatedRecords = await this.getRelatedRecords(tableName, primaryKeys, db);
-
-				return { deletedCount: 0, fkViolation: true, relatedRecords };
-			}
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to delete records from "${tableName}"`,
-			});
-		}
-	}
-
-	async forceDeleteRecords({
-		tableName,
-		primaryKeys,
-		db,
-	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pool = await getMssqlPool(db);
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-		this.assertDeletableKey(await this.getPrimaryKeyColumns(pool, tableName));
-
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const transaction = pool.transaction();
-		await transaction.begin();
-
-		try {
-			const fkConstraints = await this.getForeignKeyReferences(tableName, db);
-			let totalRelated = 0;
-			const deletedTables = new Set<string>();
-			const visited = new Set<string>();
-
-			const deleteRelatedRecursively = async (
-				targetTable: string,
-				targetColumn: string,
-				values: unknown[],
-				visitedSet: Set<string>,
-			) => {
-				const key = `${targetTable}.${targetColumn}`;
-
-				if (visitedSet.has(key)) return;
-				visitedSet.add(key);
-
-				const nestedFks = await this.getForeignKeyReferences(targetTable, db);
-
-				for (const nestedFk of nestedFks) {
-					const selectRequest = transaction.request();
-					values.forEach((val, idx) => {
-						selectRequest.input(`val${idx}`, val);
-					});
-					const selectParamList = values.map((_, idx) => `@val${idx}`).join(", ");
-
-					const selectResult = await selectRequest.query(
-						`SELECT [${nestedFk.referencedColumn}] FROM [${targetTable}] WHERE [${targetColumn}] IN (${selectParamList})`,
-					);
-
-					const nestedValues = (selectResult.recordset as Record<string, unknown>[]).map(
-						(row) => row[nestedFk.referencedColumn],
-					);
-
-					if (nestedValues.length > 0) {
-						await deleteRelatedRecursively(
-							nestedFk.referencingTable,
-							nestedFk.referencingColumn,
-							nestedValues,
-							visitedSet,
-						);
-					}
-				}
-
-				const deleteRequest = transaction.request();
-				values.forEach((val, idx) => {
-					deleteRequest.input(`delVal${idx}`, val);
-				});
-				const deleteParamList = values.map((_, idx) => `@delVal${idx}`).join(", ");
-
-				const deleteResult = await deleteRequest.query(
-					`DELETE FROM [${targetTable}] WHERE [${targetColumn}] IN (${deleteParamList})`,
-				);
-
-				totalRelated += deleteResult.rowsAffected[0] ?? 0;
-				deletedTables.add(targetTable);
-			};
-
-			for (const constraint of fkConstraints) {
-				if (!deletedTables.has(constraint.referencingTable)) {
-					await deleteRelatedRecursively(
-						constraint.referencingTable,
-						constraint.referencingColumn,
-						pkValues,
-						visited,
-					);
-				}
-			}
-
-			const mainRequest = transaction.request();
-			pkValues.forEach((val, idx) => {
-				mainRequest.input(`mainPk${idx}`, val);
-			});
-			const mainParamList = pkValues.map((_, idx) => `@mainPk${idx}`).join(", ");
-
-			const result = await mainRequest.query(
-				`DELETE FROM [${tableName}] WHERE [${pkColumn}] IN (${mainParamList})`,
-			);
-
-			await transaction.commit();
-
-			return { deletedCount: (result.rowsAffected[0] ?? 0) + totalRelated };
-		} catch (error) {
-			await transaction.rollback();
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to force delete records from "${tableName}"`,
-			});
-		}
-	}
-
-	async bulkInsertRecords({
-		tableName,
-		records,
-		db,
-	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records || records.length === 0) {
-			throw new HTTPException(400, { message: "At least one record is required" });
-		}
-
-		const pool = await getMssqlPool(db);
-		const transaction = pool.transaction();
-
-		try {
-			const columns = Object.keys(records[0]);
-			const columnNames = columns.map((col) => `[${col}]`).join(", ");
-			const booleanColumns = await this.getBooleanColumnSet(tableName, db);
-
-			await transaction.begin();
-
-			for (let i = 0; i < records.length; i++) {
-				const record = records[i];
-				const request = transaction.request();
-
-				const values = columns.map((col) => {
-					const value = record[col];
-
-					if (booleanColumns.has(col) && typeof value === "string") {
-						return value === "true" ? 1 : 0;
-					}
-
-					return value;
-				});
-
-				const paramNames = columns.map((_, idx) => `@p${i}_${idx}`).join(", ");
-				columns.forEach((_col, idx) => {
-					request.input(`p${i}_${idx}`, values[idx]);
-				});
-
-				try {
-					await request.query(
-						`INSERT INTO [${tableName}] (${columnNames}) VALUES (${paramNames})`,
-					);
-				} catch (error) {
-					throw new HTTPException(500, {
-						message: `Failed to insert record ${i + 1}: ${error instanceof Error ? error.message : String(error)}`,
-					});
-				}
-			}
-
-			await transaction.commit();
-
-			return {
-				success: true,
-				message: `Successfully inserted ${records.length} record${records.length !== 1 ? "s" : ""}`,
-				successCount: records.length,
-				failureCount: 0,
-			};
-		} catch (error) {
-			await transaction.rollback();
-
-			if (error instanceof HTTPException) throw error;
-			throw new HTTPException(500, {
-				message: `Failed to bulk insert records into "${tableName}"`,
-			});
-		}
-	}
-
-	// --- Query ---
-
-	async executeQuery({
-		query,
-		db,
-	}: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		const pool = await getMssqlPool(db);
-
-		if (!query?.trim()) throw new HTTPException(400, { message: "Query is required" });
-
-		const cleanedQuery = query.trim().replace(/;+$/, "");
-		const start = performance.now();
-
-		const result = await pool
-			.request()
-			.query(cleanedQuery)
-			.catch((e) => {
-				throw this.wrapError(e);
-			});
-
-		const duration = performance.now() - start;
-
-		if (result.recordset) {
-			const rows = result.recordset as Record<string, unknown>[];
-
-			const columns = result.recordset.columns
-				? Object.keys(result.recordset.columns)
-				: Object.keys(rows[0] ?? {});
-
-			return {
-				columns,
-				rows,
-				rowCount: rows.length,
-				duration,
-				message: rows.length === 0 ? "OK" : undefined,
-			};
-		}
+		const rows = result.recordset as Record<string, unknown>[];
 
 		return {
-			columns: [],
-			rows: [],
-			rowCount: result.rowsAffected[0] ?? 0,
-			duration,
-			message: `OK — ${result.rowsAffected[0] ?? 0} row(s) affected`,
+			columns: result.recordset.columns
+				? Object.keys(result.recordset.columns)
+				: Object.keys(rows[0] ?? {}),
+			rows,
 		};
 	}
 
-	// =========================================================
-	// Private helpers
-	// =========================================================
+	protected async referencingKeys(conn: MssqlConn, tableName: string) {
+		const rows = await this.rows<{
+			constraintName: string;
+			table: string;
+			column: string;
+			referencedColumn: string;
+		}>(
+			conn,
+			`SELECT
+				fk.name AS constraintName,
+				OBJECT_NAME(fk.parent_object_id) AS [table],
+				COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS [column],
+				COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS referencedColumn
+			FROM sys.foreign_keys fk
+			JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+			WHERE fk.referenced_object_id = ${dboObjectId("@p0")}
+			ORDER BY [table], fk.name, fkc.constraint_column_id`,
+			[tableName],
+		);
 
-	private async getForeignKeyReferences(
-		tableName: string,
-		db: string,
-	): Promise<ForeignKeyConstraint[]> {
-		const pool = await getMssqlPool(db);
-
-		const result = await pool.request().input("tableName", tableName).query(`
-				SELECT
-				  fk.name AS constraint_name,
-				  OBJECT_NAME(fk.parent_object_id) AS referencing_table,
-				  COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS referencing_column,
-				  OBJECT_NAME(fk.referenced_object_id) AS referenced_table,
-				  COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS referenced_column
-				FROM sys.foreign_keys fk
-				INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-				WHERE OBJECT_NAME(fk.referenced_object_id) = @tableName
-			`);
-
-		return (result.recordset as FkConstraintRow[]).map((row) => ({
-			constraintName: row.constraint_name,
-			referencingTable: row.referencing_table,
-			referencingColumn: row.referencing_column,
-			referencedTable: row.referenced_table,
-			referencedColumn: row.referenced_column,
-		}));
-	}
-
-	private async getRelatedRecordsForTable(
-		tableName: string,
-		db: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getForeignKeyReferences(tableName, db);
-
-		if (fks.length === 0) return [];
-		const pool = await getMssqlPool(db);
-		const results: RelatedRecord[] = [];
-
-		for (const fk of fks) {
-			const relatedResult = await pool
-				.request()
-				.query(`SELECT TOP 100 * FROM [${fk.referencingTable}]`);
-
-			if (relatedResult.recordset.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: relatedResult.recordset as Record<string, unknown>[],
-				});
-			}
-		}
-
-		return results;
-	}
-
-	private async getRelatedRecords(
-		tableName: string,
-		primaryKeys: DeleteRecordSchemaType["primaryKeys"],
-		db: string,
-	): Promise<RelatedRecord[]> {
-		const fks = await this.getForeignKeyReferences(tableName, db);
-
-		if (fks.length === 0) return [];
-		const pool = await getMssqlPool(db);
-		const pkValues = primaryKeys.map((pk) => pk.value);
-		const results: RelatedRecord[] = [];
-
-		const constraintsByTable = new Map<string, ForeignKeyConstraint[]>();
-
-		for (const fk of fks) {
-			const key = `${fk.referencingTable}.${fk.referencingColumn}`;
-
-			if (!constraintsByTable.has(key)) constraintsByTable.set(key, []);
-			constraintsByTable.get(key)?.push(fk);
-		}
-
-		for (const [, constraints] of constraintsByTable) {
-			const fk = constraints[0];
-
-			if (!fk) continue;
-			const matchingPk = primaryKeys.find((pk) => pk.columnName === fk.referencedColumn);
-
-			if (!matchingPk) continue;
-
-			const request = pool.request();
-			pkValues.forEach((value, idx) => {
-				request.input(`pk${idx}`, value);
-			});
-			const paramList = pkValues.map((_, idx) => `@pk${idx}`).join(", ");
-
-			const relatedResult = await request.query(
-				`SELECT TOP 100 * FROM [${fk.referencingTable}] WHERE [${fk.referencingColumn}] IN (${paramList})`,
-			);
-
-			if (relatedResult.recordset.length > 0) {
-				results.push({
-					tableName: fk.referencingTable,
-					columnName: fk.referencingColumn,
-					constraintName: fk.constraintName,
-					records: relatedResult.recordset as Record<string, unknown>[],
-				});
-			}
-		}
-
-		return results;
+		return groupKeyColumns(rows);
 	}
 
 	/**
 	 * The row count SQL Server keeps for each dbo table (or only `tableName`), in name order. It
 	 * is maintained with every write but documented as approximate.
 	 */
-	private async rowEstimates(
-		pool: MssqlPool,
+	protected async tableEstimates(
+		conn: MssqlConn,
+		_db: string,
 		tableName?: string,
-	): Promise<Map<string, number>> {
-		const request = pool.request();
+	): Promise<TableEstimate[]> {
+		const request = conn.request();
 
 		if (tableName !== undefined) request.input("tableName", tableName);
 
@@ -1495,57 +767,14 @@ export class MsSqlAdapter extends BaseAdapter {
 			ORDER BY t.name
 		`);
 
-		return new Map(result.recordset.map((row) => [row.tableName, Number(row.estimate)]));
+		return result.recordset.map((row) => ({
+			tableName: row.tableName,
+			estimate: Number(row.estimate),
+		}));
 	}
 
-	/**
-	 * Rows matching the filters. Unfiltered, a table estimated at EXACT_COUNT_LIMIT rows or more
-	 * reports that estimate, because an exact count reads the whole table and the total is
-	 * fetched with every page.
-	 */
-	private async countRows(
-		pool: MssqlPool,
-		tableName: string,
-		filterWhere: string,
-		filterValues: unknown[],
-	): Promise<{ total: number; estimated: boolean }> {
-		if (!filterWhere) {
-			const estimate = (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
-
-			if (estimate >= EXACT_COUNT_LIMIT) return { total: estimate, estimated: true };
-		}
-
-		const request = pool.request();
-		filterValues.forEach((val, idx) => {
-			request.input(`p${idx}`, val);
-		});
-
-		const result = await request.query(
-			`SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`,
-		);
-
-		return { total: Number(result.recordset[0]?.total ?? 0), estimated: false };
-	}
-
-	private async getTableRowCount(tableName: string, db: string): Promise<number> {
-		const pool = await getMssqlPool(db);
-
-		try {
-			const result = await pool
-				.request()
-				.query(`SELECT COUNT(*) as count FROM [${tableName}]`);
-
-			return Number(result.recordset[0]?.count ?? 0);
-		} catch (e) {
-			// A login may drop a table it cannot read.
-			if (!isSelectDenied(e)) throw e;
-
-			return (await this.rowEstimates(pool, tableName)).get(tableName) ?? 0;
-		}
-	}
-
-	private async getPrimaryKeyColumns(pool: MssqlPool, tableName: string): Promise<string[]> {
-		const result = await pool.request().input("tableName", tableName).query(`
+	protected async primaryKey(conn: MssqlConn, tableName: string): Promise<string[]> {
+		const result = await conn.request().input("tableName", tableName).query(`
 				SELECT ku.COLUMN_NAME AS columnName
 				FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
 				JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
@@ -1561,17 +790,50 @@ export class MsSqlAdapter extends BaseAdapter {
 		return (result.recordset as { columnName: string }[]).map((r) => r.columnName);
 	}
 
-	private async getBooleanColumnSet(tableName: string, db: string): Promise<Set<string>> {
-		const cols = await this.getTableColumns({ tableName, db });
+	protected async columnNames(conn: MssqlConn, tableName: string) {
+		const rows = await this.rows<{ name: string }>(
+			conn,
+			`SELECT COLUMN_NAME AS name FROM INFORMATION_SCHEMA.COLUMNS
+			WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @p0 AND TABLE_SCHEMA = 'dbo'
+			ORDER BY ORDINAL_POSITION`,
+			[tableName],
+		);
 
-		return new Set(cols.filter((c) => c.dataTypeLabel === "boolean").map((c) => c.columnName));
+		return rows.length ? rows.map((row) => row.name) : undefined;
 	}
 
-	private async listIndexes(
-		pool: MssqlPool,
+	protected override createIndexSql({
+		tableName,
+		indexName,
+		columns,
+		isUnique,
+	}: CreateIndexParamsSchemaType) {
+		return `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${quoteMssqlIdent(indexName)} ON [dbo].${quoteMssqlIdent(tableName)} (${columns.map(quoteMssqlIdent).join(", ")})`;
+	}
+
+	protected override dropIndexSql(index: IndexInfoSchemaType, tableName: string) {
+		return `DROP INDEX ${quoteMssqlIdent(index.indexName)} ON [dbo].${quoteMssqlIdent(tableName)}`;
+	}
+
+	protected override indexError(e: Error) {
+		const { number } = e as { number?: number };
+
+		if (number === MSSQL_DUP_INDEX_NAME) return { status: 409 };
+
+		if (
+			number === MSSQL_INDEX_IN_USE ||
+			(number !== undefined && MSSQL_CANNOT_INDEX.has(number))
+		)
+			return { status: 400 };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
+		pool: MssqlConn,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		await this.assertTableExists(pool, tableName);
+		await this.requireTable(pool, tableName);
 
 		// type 0 is the heap, which is the table itself rather than an index.
 		const result = await pool.request().input("tableName", tableName).query<IndexColumnRow>(`
@@ -1588,7 +850,7 @@ export class MsSqlAdapter extends BaseAdapter {
 				FROM sys.indexes i
 				LEFT JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
 				LEFT JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-				WHERE i.object_id = OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(@tableName))
+				WHERE i.object_id = ${dboObjectId("@tableName")}
 				  AND i.type > 0 AND i.is_hypothetical = 0
 				ORDER BY i.is_primary_key DESC, i.name, ic.is_included_column, ic.key_ordinal, ic.index_column_id
 			`);
@@ -1623,10 +885,12 @@ export class MsSqlAdapter extends BaseAdapter {
 
 			// SQL Server marks every columnstore column as included, not only B-tree INCLUDEs.
 			if (row.isIncluded && !row.typeDesc.endsWith("COLUMNSTORE")) {
-				entry.included.push(quote(row.columnName));
+				entry.included.push(quoteMssqlIdent(row.columnName));
 			} else {
 				entry.index.columns.push(row.columnName);
-				entry.keys.push(`${quote(row.columnName)}${row.isDescending ? " DESC" : ""}`);
+				entry.keys.push(
+					`${quoteMssqlIdent(row.columnName)}${row.isDescending ? " DESC" : ""}`,
+				);
 			}
 		}
 
@@ -1636,39 +900,8 @@ export class MsSqlAdapter extends BaseAdapter {
 			definition:
 				row.filterDefinition === null
 					? null
-					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quote(row.indexName)} ON ${quote(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
+					: `CREATE ${row.isUnique ? "UNIQUE " : ""}${row.typeDesc} INDEX ${quoteMssqlIdent(row.indexName)} ON ${quoteMssqlIdent(tableName)} (${keys.join(", ")})${included.length ? ` INCLUDE (${included.join(", ")})` : ""} WHERE ${row.filterDefinition}`,
 		}));
-	}
-
-	private async assertTableExists(pool: MssqlPool, tableName: string): Promise<void> {
-		const result = await pool.request().input("tableName", tableName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLES
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(result.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
-		}
-	}
-
-	private async assertColumnExists(
-		pool: MssqlPool,
-		tableName: string,
-		columnName: string,
-	): Promise<void> {
-		const result = await pool
-			.request()
-			.input("tableName", tableName)
-			.input("columnName", columnName).query(`
-				SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
-				WHERE TABLE_CATALOG = DB_NAME() AND TABLE_NAME = @tableName AND COLUMN_NAME = @columnName AND TABLE_SCHEMA = 'dbo'
-			`);
-
-		if (Number(result.recordset[0]?.cnt ?? 0) === 0) {
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-		}
 	}
 
 	private parseCheckConstraintValues(checkClause: string): string[] | null {
@@ -1677,15 +910,5 @@ export class MsSqlAdapter extends BaseAdapter {
 		if (!matches || matches.length === 0) return null;
 
 		return matches.map((m) => m.slice(1, -1));
-	}
-
-	private makeCursor(offset: number): string {
-		return this.encodeCursor({ values: { _offset: offset }, sortColumns: ["_offset"] });
-	}
-
-	private decodeOffsetCursor(cursor: string): number {
-		const data = this.decodeCursor(cursor);
-
-		return Number(data?.values._offset ?? 0);
 	}
 }

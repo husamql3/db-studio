@@ -11,8 +11,6 @@ import path from "node:path";
 import { createClient } from "@libsql/client";
 import { afterAll, expect, it, vi } from "vitest";
 
-vi.unmock("@/db-manager.js");
-
 const dir = mkdtempSync(path.join(tmpdir(), "db-studio-connections-"));
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -28,15 +26,15 @@ const sqliteFile = async (name: string, table: string) => {
 
 it("keeps a request without X-Connection-Id on the connection that was latest when it arrived", async () => {
 	vi.resetModules();
-	const { createServer } = await import("@/utils/create-server.js");
-	const { DatabaseManager, openConnection } = await import("@/db-manager.js");
-	const { getAdapter } = await import("@/adapters/adapter.registry.js");
+	const { createServer } = await import("@/app.js");
+	const { createConnection, registerConnection } = await import("@/open-connections.js");
+	const { ADAPTERS } = await import("@/adapters/adapter.registry.js");
 	const a = await sqliteFile("a.sqlite", "only_in_a");
 	const b = await sqliteFile("b.sqlite", "only_in_b");
 
-	openConnection("a", new DatabaseManager(`sqlite://${a}`));
+	registerConnection("a", createConnection(`sqlite://${a}`));
 	const { app } = createServer();
-	const adapter = getAdapter("sqlite");
+	const adapter = ADAPTERS.sqlite;
 	const getTablesList = adapter.getTablesList.bind(adapter);
 	const entered = Promise.withResolvers<void>();
 	const resume = Promise.withResolvers<void>();
@@ -50,7 +48,7 @@ it("keeps a request without X-Connection-Id on the connection that was latest wh
 
 	const response = app.handle(new Request("http://localhost/api/sqlite/tables?db=main"));
 	await entered.promise;
-	openConnection("b", new DatabaseManager(`sqlite://${b}`));
+	registerConnection("b", createConnection(`sqlite://${b}`));
 	resume.resolve();
 
 	const { data } = (await (await response).json()) as { data: { tableName: string }[] };

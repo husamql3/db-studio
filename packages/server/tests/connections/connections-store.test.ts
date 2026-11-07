@@ -21,12 +21,12 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { normalizeConnectionUrl } from "@/connection-url.js";
 import {
 	defaultConnectionName,
 	deleteSavedConnection,
 	listSavedConnections,
 	maskConnectionUrl,
-	normalizeConnectionUrl,
 	recordConnection,
 	updateSavedConnection,
 } from "@/connections-store.js";

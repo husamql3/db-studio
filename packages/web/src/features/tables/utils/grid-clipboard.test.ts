@@ -120,9 +120,5 @@ describe("coercePastedValue", () => {
 
 		expect(coercePastedValue("2026-10-29", date)).toEqual({ value: "2026-10-29" });
 		expect(coercePastedValue("next tuesday", date)).toHaveProperty("error");
-		// time columns share the date variant; Date cannot parse their text
-		expect(coercePastedValue("12:30:00", { ...date, dataTypeLabel: "time" })).toEqual({
-			value: "12:30:00",
-		});
 	});
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableNameSchema, tableQuerySchema } from "./database.types.js";
+import { tableNameSchema, tableQuerySchema } from "./database.types.js";
 
 export const addColumnSchema = z.object({
 	columnName: z.string("Column name is required"),
@@ -14,22 +14,9 @@ export const addColumnSchema = z.object({
 
 export type AddColumnSchemaType = z.infer<typeof addColumnSchema>;
 
-export const addColumnParamSchema = tableNameSchema;
-
-export type AddColumnParamSchemaType = z.infer<typeof addColumnParamSchema>;
-
-export const addColumnParamsSchema = z.object({
-	db: databaseSchema.shape.db,
-	tableName: tableNameSchema.shape.tableName,
-	schemaName: tableQuerySchema.shape.schemaName,
-	columnName: addColumnSchema.shape.columnName,
-	columnType: addColumnSchema.shape.columnType,
-	defaultValue: addColumnSchema.shape.defaultValue,
-	isPrimaryKey: addColumnSchema.shape.isPrimaryKey,
-	isNullable: addColumnSchema.shape.isNullable,
-	isUnique: addColumnSchema.shape.isUnique,
-	isIdentity: addColumnSchema.shape.isIdentity,
-	isArray: addColumnSchema.shape.isArray,
+export const addColumnParamsSchema = addColumnSchema.extend({
+	...tableQuerySchema.shape,
+	...tableNameSchema.shape,
 });
 
 export type AddColumnParamsSchemaType = z.infer<typeof addColumnParamsSchema>;

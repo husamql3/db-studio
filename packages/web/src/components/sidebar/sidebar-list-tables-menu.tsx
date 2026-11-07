@@ -36,10 +36,12 @@ import { toast } from "sonner";
 import { useSchemaEditStore } from "@/features/schema";
 import { useCopyTableSchema } from "@/features/table-builder";
 import { useDeleteTable, useExportFile, useRenameTable } from "@/features/tables";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { hasSection, tablePath } from "@/lib/sections";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { CONSTANTS } from "@/utils/constants";
+import { tableId } from "@/utils/table-id";
 
 export const SidebarListTablesMenu = ({
 	tableName,
@@ -58,12 +60,14 @@ export const SidebarListTablesMenu = ({
 	const { renameTable, isRenamingTable } = useRenameTable({ tableName, schemaName });
 	const { openOverlay, closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { setEditingTable } = useSchemaEditStore();
-	const isSchemaless = useIsSchemaless();
+	const engine = useDatabaseEngine();
 	const [newTableName, setNewTableName] = useState(tableName);
 	const [relatedRecords, setRelatedRecords] = useState<RelatedRecord[]>([]);
 
+	const isOpenTable = params.table === tableName && openSchema === schemaName;
+
 	// Same-named tables in two schemas each get their own dialogs.
-	const overlayKey = schemaName ? `${schemaName}.${tableName}` : tableName;
+	const overlayKey = tableId({ schemaName, tableName });
 	const renameOverlayId = `tables.rename-table.${overlayKey}` as const;
 	const deleteOverlayId = `tables.delete-table.${overlayKey}` as const;
 	const forceDeleteOverlayId = `tables.force-delete-table.${overlayKey}` as const;
@@ -83,19 +87,12 @@ export const SidebarListTablesMenu = ({
 		if (!trimmed || trimmed === tableName) return;
 
 		try {
-			await renameTable({ newTableName: trimmed, schemaName });
+			await renameTable({ newTableName: trimmed });
 			handleRenameDialogChange(false);
-			const activeTable = (params as { table?: string }).table;
 
-			if (activeTable === tableName && openSchema === schemaName) {
-				const basePath = pathname.startsWith("/schema")
-					? "/schema/$table"
-					: pathname.startsWith("/indexes")
-						? "/indexes/$table"
-						: "/table/$table";
-
+			if (isOpenTable) {
 				navigate({
-					to: basePath,
+					to: tablePath(pathname),
 					params: { table: trimmed },
 					search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
 				});
@@ -111,22 +108,32 @@ export const SidebarListTablesMenu = ({
 	};
 
 	const handleDelete = async () => {
-		const result = await deleteTable(tableName, schemaName);
+		try {
+			const result = await deleteTable(tableName, schemaName);
 
-		if (result.fkViolation) {
-			setRelatedRecords(result.relatedRecords);
-			closeOverlay(deleteOverlayId);
-			openOverlay(forceDeleteOverlayId);
-		} else {
-			closeOverlay(deleteOverlayId);
-			navigate({ to: "/" });
+			if (result.fkViolation) {
+				setRelatedRecords(result.relatedRecords);
+				closeOverlay(deleteOverlayId);
+				openOverlay(forceDeleteOverlayId);
+			} else {
+				closeOverlay(deleteOverlayId);
+
+				if (isOpenTable) navigate({ to: "/" });
+			}
+		} catch {
+			// Error notification handled by toast.promise in useDeleteTable
 		}
 	};
 
 	const handleForceDelete = async () => {
-		await forceDeleteTable(tableName, schemaName);
-		closeOverlay(forceDeleteOverlayId);
-		navigate({ to: "/" });
+		try {
+			await forceDeleteTable(tableName, schemaName);
+			closeOverlay(forceDeleteOverlayId);
+
+			if (isOpenTable) navigate({ to: "/" });
+		} catch {
+			// Error notification handled by toast.promise in useDeleteTable
+		}
 	};
 
 	const handleCancelForceDelete = () => {
@@ -163,19 +170,21 @@ export const SidebarListTablesMenu = ({
 							<ClipboardCopy className="size-4" />
 							Copy name
 						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() => copyTableSchema(tableName, schemaName)}
-							disabled={isCopyingSchema}
-						>
-							<FileCode className="size-4" />
-							Copy table schema
-						</DropdownMenuItem>
+						{hasSection(engine, "schema") && (
+							<DropdownMenuItem
+								onClick={() => copyTableSchema(tableName, schemaName)}
+								disabled={isCopyingSchema}
+							>
+								<FileCode className="size-4" />
+								Copy table schema
+							</DropdownMenuItem>
+						)}
 						<DropdownMenuSeparator />
 						<DropdownMenuItem onClick={() => handleRenameDialogChange(true)}>
 							<Type className="size-4" />
 							Rename table
 						</DropdownMenuItem>
-						{!isSchemaless && (
+						{engine?.schemaMutation !== false && (
 							<DropdownMenuItem
 								onClick={() => {
 									setEditingTable({ tableName, schemaName });

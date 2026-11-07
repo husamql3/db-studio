@@ -90,7 +90,8 @@ await build({
 	bundle: true,
 	platform: "node",
 	format: "esm",
-	target: "node22",
+	// Electron's own Node runs this bundle (ELECTRON_RUN_AS_NODE): Electron 45 ships Node 24.
+	target: "node24",
 	external: ["*.node"],
 	logLevel: "error",
 	// CJS dependencies call require() and read __dirname, which an ES module does not define.

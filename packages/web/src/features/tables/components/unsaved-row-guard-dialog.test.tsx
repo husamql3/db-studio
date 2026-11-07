@@ -25,7 +25,7 @@ describe("UnsavedRowGuardDialog", () => {
 		vi.clearAllMocks();
 		blocker.status = "idle";
 		useOverlayStore.setState({ openOverlays: [] });
-		useRowDetailsStore.setState({ tableName: null, rowIndex: null, isDirty: false });
+		useRowDetailsStore.setState({ rowIndex: null, isDirty: false });
 	});
 
 	it("lets navigation through while the row draft is clean", () => {
@@ -46,7 +46,7 @@ describe("UnsavedRowGuardDialog", () => {
 	it("keeps the draft when the prompt is dismissed", async () => {
 		const user = userEvent.setup();
 		blocker.status = "blocked";
-		useRowDetailsStore.setState({ tableName: "users", rowIndex: 0, isDirty: true });
+		useRowDetailsStore.setState({ rowIndex: 0, isDirty: true });
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		render(<UnsavedRowGuardDialog />);
 
@@ -61,7 +61,7 @@ describe("UnsavedRowGuardDialog", () => {
 	it("closes the sheet and resumes navigation when the draft is discarded", async () => {
 		const user = userEvent.setup();
 		blocker.status = "blocked";
-		useRowDetailsStore.setState({ tableName: "users", rowIndex: 0, isDirty: true });
+		useRowDetailsStore.setState({ rowIndex: 0, isDirty: true });
 		useOverlayStore.getState().openOverlay("tables.row-details");
 		render(<UnsavedRowGuardDialog />);
 

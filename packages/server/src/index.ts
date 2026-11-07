@@ -1,31 +1,23 @@
 import { intro, log, outro, spinner } from "@clack/prompts";
 import { DEFAULTS } from "@db-studio/shared/constants";
+import openUrl from "open";
 import color from "picocolors";
 import { args } from "@/cmd/args.js";
 import { getDatabaseUrl } from "@/cmd/get-db-url.js";
 import { loadEnv } from "@/cmd/load-env.js";
-import { openBrowser, shouldOpenBrowser } from "@/cmd/open-browser.js";
-import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
-import { showHelp } from "@/cmd/show-help.js";
 import { showStatus } from "@/cmd/show-status.js";
 import { showVersion } from "@/cmd/show-version.js";
+import { isLoopbackAddress } from "@/loopback.js";
+import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 export const main = async () => {
-	const { env, port, databaseUrl, varName, open, status, help, version } = args();
+	const { env, port, databaseUrl, varName, open, status, version } = args();
 
-	// Handle help flag
-	if (help) {
-		showHelp();
-		process.exit(0);
-	}
-
-	// Handle version flag
 	if (version) {
 		showVersion();
 		process.exit(0);
 	}
 
-	// Handle status flag
 	if (status) {
 		await showStatus(env, databaseUrl, varName);
 		process.exit(0);
@@ -33,7 +25,7 @@ export const main = async () => {
 
 	intro(color.inverse(" db-studio "));
 
-	const ENV = env ? await loadEnv(env) : await loadEnv();
+	const ENV = await loadEnv(env);
 
 	// Populate other env variables from .env if not already set in process.env
 	if (ENV) {
@@ -49,7 +41,7 @@ export const main = async () => {
 	const HOST = process.env.HOST ?? "127.0.0.1";
 
 	// Off loopback, anyone who reaches the port could use the API, so require a password.
-	if (!["127.0.0.1", "localhost", "::1"].includes(HOST) && !process.env.DB_STUDIO_PASSWORD) {
+	if (!isLoopbackAddress(HOST) && !process.env.DB_STUDIO_PASSWORD) {
 		const { randomBytes } = await import("node:crypto");
 		process.env.DB_STUDIO_PASSWORD = randomBytes(18).toString("base64url");
 		log.warn(
@@ -74,7 +66,7 @@ export const main = async () => {
 					: `Found ${VAR_NAME} in environment`,
 		);
 		// Imported after the .env file is loaded: the database layer reads driver settings from it.
-		const { getDatabaseConnectionDetails } = await import("@/cmd/check-database.js");
+		const { getDatabaseConnectionDetails } = await import("@/cmd/connection-details.js");
 		const { connect } = await import("@/connection.js");
 		const details = getDatabaseConnectionDetails(DATABASE_URL);
 		const label = details ? `${details.name} at ${details.destination}` : "the database";
@@ -92,8 +84,8 @@ export const main = async () => {
 		log.info(`No ${VAR_NAME} found. Choose a database in the browser.`);
 	}
 
-	const { createServer } = await import("./utils/create-server.js");
-	const { closeAllDbPools } = await import("@/db-manager.js");
+	const { createServer } = await import("@/app.js");
+	const { closeAllConnections } = await import("@/open-connections.js");
 	const { app } = createServer();
 
 	// Ctrl+C or SIGTERM: let open requests finish, then close the database connections, whose
@@ -103,7 +95,7 @@ export const main = async () => {
 		const deadline = new Promise((resolve) => setTimeout(resolve, 5_000));
 		await Promise.race([app.server?.stop(), deadline]);
 		await Promise.race([
-			Promise.allSettled([closeAllDbPools(), flushServerObservability()]),
+			Promise.allSettled([closeAllConnections(), flushServerObservability()]),
 			deadline,
 		]);
 		process.exit(0);
@@ -118,9 +110,9 @@ export const main = async () => {
 
 	log.success(`Server listening at ${color.cyan(serverUrl)}`);
 
-	if (shouldOpenBrowser(open)) {
+	if (open) {
 		try {
-			await openBrowser(serverUrl);
+			await openUrl(serverUrl);
 			log.success("Opened db-studio in your browser");
 		} catch {
 			log.warn(`Could not open your browser. Visit ${color.cyan(serverUrl)}`);

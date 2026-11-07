@@ -1,12 +1,12 @@
+import { META } from "@db-studio/shared/constants";
 import rawDocs from "virtual:raw-docs";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
 import { supportedDatabases } from "@/lib/content/databases";
+import { INSTALL_COMMANDS } from "@/lib/content/install-commands";
 import { roadmapItems } from "@/lib/content/roadmap";
 import { SPONSOR_EMAIL, type Sponsor, sponsorTiers } from "@/lib/content/sponsors";
 import { readSponsors } from "@/lib/sponsors-store";
 import { mdxToMarkdown } from "./mdx-to-markdown";
-
-const SITE_URL = "https://dbstudio.sh";
 
 const docsMarkdown = new Map<string, string>();
 
@@ -27,7 +27,7 @@ const changelogMarkdown = (): string => {
 
 		if (item.tags?.length) lines.push(`Tags: ${item.tags.join(", ")}`);
 
-		if (item.image) lines.push(`![v${item.version}](${SITE_URL}${item.image})`);
+		if (item.image) lines.push(`![v${item.version}](${META.SITE_URL}${item.image})`);
 
 		if (item.features?.length)
 			lines.push("### Features", item.features.map(changelogEntryLine).join("\n"));
@@ -72,7 +72,7 @@ Browse tables, edit records, design schemas, and run queries in a free, open-sou
 Launch instantly from your terminal, no installation needed:
 
 \`\`\`bash
-npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
+${INSTALL_COMMANDS.npx}    # or: ${INSTALL_COMMANDS.yarn} / ${INSTALL_COMMANDS.pnpm} / ${INSTALL_COMMANDS.bun}
 \`\`\`
 
 ## Works with your stack
@@ -80,7 +80,7 @@ npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
 ${supportedDatabases
 	.map(
 		({ name, slug, scheme }) =>
-			`- [${name}](${SITE_URL}/docs/databases#${slug}) — \`${scheme}\``,
+			`- [${name}](${META.SITE_URL}/docs/databases#${slug}) — \`${scheme}\``,
 	)
 	.join("\n")}
 
@@ -95,13 +95,13 @@ ${supportedDatabases
 
 ## Links
 
-- [Documentation](${SITE_URL}/docs)
-- [Getting Started](${SITE_URL}/docs/getting-started)
-- [Desktop App](${SITE_URL}/docs/desktop)
-- [FAQ](${SITE_URL}/docs/faq)
-- [Roadmap](${SITE_URL}/roadmap)
-- [Changelog](${SITE_URL}/changelog)
-- [GitHub](https://github.com/husamql3/db-studio)
+- [Documentation](${META.SITE_URL}/docs)
+- [Getting Started](${META.SITE_URL}/docs/getting-started)
+- [Desktop App](${META.SITE_URL}/docs/desktop)
+- [FAQ](${META.SITE_URL}/docs/faq)
+- [Roadmap](${META.SITE_URL}/roadmap)
+- [Changelog](${META.SITE_URL}/changelog)
+- [GitHub](${META.SITE_GITHUB_LINK})
 
 ## Sponsors
 

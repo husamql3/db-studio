@@ -1,3 +1,4 @@
+import { META } from "@db-studio/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 
 export type Week = { start: string; count: number };
@@ -6,7 +7,7 @@ type NpmRange = { downloads: { downloads: number; day: string }[] };
 
 type Analytics = { pageViews: number; referrers: { name: string; views: number }[] };
 
-const SITE_HOST = "dbstudio.sh";
+const SITE_HOST = new URL(META.SITE_URL).hostname;
 
 // The homepage waits for these calls, so a slow API must not hold it up.
 const timeout = () => AbortSignal.timeout(3000);
@@ -144,6 +145,8 @@ async function getAnalytics(): Promise<Analytics | null> {
 			signal: timeout(),
 		});
 
+		if (!response.ok) return null;
+
 		const account = ((await response.json()) as AnalyticsResponse).data?.viewer.accounts[0];
 
 		if (!account) return null;
@@ -175,6 +178,7 @@ async function getAnalytics(): Promise<Analytics | null> {
 
 		return analytics;
 	} catch {
+		// Analytics are optional; the homepage renders without them.
 		return null;
 	}
 }

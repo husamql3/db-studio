@@ -1,8 +1,9 @@
+import { META } from "@db-studio/shared/constants";
 import handler from "@tanstack/react-start/server-entry";
 import { getMarkdownForPath } from "./markdown/pages";
 import { prefersMarkdown } from "./markdown/prefers-markdown";
 
-const CANONICAL_HOST = "dbstudio.sh";
+const CANONICAL_HOST = new URL(META.SITE_URL).hostname;
 
 const markdownResponse = (body: string | null, status: number): Response =>
 	new Response(body, {

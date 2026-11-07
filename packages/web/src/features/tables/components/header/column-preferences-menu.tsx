@@ -13,7 +13,7 @@ import {
 	Settings2,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useColumnPreferences } from "../../hooks/use-column-preferences";
 import { reorderColumns } from "../../stores/column-preferences.store";

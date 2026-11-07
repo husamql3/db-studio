@@ -1,3 +1,4 @@
+import type { RelatedRecord } from "@db-studio/shared/types";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -11,9 +12,9 @@ import {
 import { Button } from "@db-studio/ui/button";
 import type { OnChangeFn, Row, RowSelectionState } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import type { TableRecord } from "@/types/table.type";
-import { type RelatedRecord, useDeleteCells } from "../../hooks/use-delete-cell";
+import { useDeleteCells } from "../../hooks/use-delete-cell";
 import { ForceDeleteDialog } from "./force-delete-dialog";
 
 export const DeleteBtn = ({
@@ -27,12 +28,10 @@ export const DeleteBtn = ({
 	setRowSelection: OnChangeFn<RowSelectionState>;
 	disabledReason?: string;
 }) => {
-	const { deleteCells, forceDeleteCells, isDeletingCells, resetDeleteResult } = useDeleteCells(
-		{
-			tableName,
-			schemaName: useTableSchemaName(),
-		},
-	);
+	const { deleteCells, isDeletingCells, resetDeleteResult } = useDeleteCells({
+		tableName,
+		schemaName: useTableSchemaName(),
+	});
 
 	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
@@ -50,28 +49,37 @@ export const DeleteBtn = ({
 		setIsOpenConfirmDialog(false);
 
 		try {
-			await deleteCells(rowData);
+			const result = await deleteCells(rowData);
+
+			if (result.fkViolation) {
+				setPendingRowData(rowData);
+				setRelatedRecords(result.relatedRecords);
+				setIsOpenFkDialog(true);
+
+				return;
+			}
+
 			setRowSelection({});
 		} catch {
-			setPendingRowData(rowData);
-			setRelatedRecords([]);
-			setIsOpenFkDialog(true);
+			// The mutation hook already reported the failure through toast.promise.
 		}
 	}, [disabledReason, deleteCells, selectedRows, setRowSelection]);
 
 	const handleForceDelete = async () => {
 		if (disabledReason || pendingRowData.length === 0) return;
 
-		const res = await forceDeleteCells(pendingRowData);
+		try {
+			const result = await deleteCells(pendingRowData, { force: true });
 
-		// Only close dialog after successful deletion
-		if (res?.deletedCount > 0) {
-			setIsOpenFkDialog(false);
-			setPendingRowData([]);
-			setRelatedRecords([]);
-			resetDeleteResult();
-			// Reset row selection after successful force deletion
-			setRowSelection({});
+			if (result.deletedCount > 0) {
+				setIsOpenFkDialog(false);
+				setPendingRowData([]);
+				setRelatedRecords([]);
+				resetDeleteResult();
+				setRowSelection({});
+			}
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
 		}
 	};
 
@@ -83,7 +91,6 @@ export const DeleteBtn = ({
 	}, [resetDeleteResult]);
 
 	const handleDialogClose = (isOpen: boolean) => {
-		// Only allow closing if not currently deleting
 		if (isDeletingCells) return;
 
 		if (!isOpen) {

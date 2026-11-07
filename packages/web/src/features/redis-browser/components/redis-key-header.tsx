@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import { ArrowRight, Pencil, RefreshCw, Terminal, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useReducer, useState } from "react";
-import { RedisCopyButton } from "./redis-copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { RedisValueInput } from "./redis-value";
 import type { RedisAct } from "./redis-value-editors";
 
@@ -145,9 +145,11 @@ export const RedisKeyHeader = ({
 						>
 							{label || "(empty key)"}
 						</code>
-						<RedisCopyButton
-							text={detail.key.utf8 ?? detail.key.base64}
+						<CopyButton
+							getValue={() => detail.key.utf8 ?? detail.key.base64}
 							label="Copy key name"
+							variant="ghost"
+							tooltip
 							className="shrink-0 text-muted-foreground"
 						/>
 						<Badge

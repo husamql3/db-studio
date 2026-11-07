@@ -1,10 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { DEFAULTS } from "@db-studio/shared/constants";
-
-process.env.DB_STUDIO_TELEMETRY = "0";
+import { checks, inProcessApp, normalize, writeArtifact } from "./lib.js";
 
 const PARENT = "dbstudio_d1_Parent";
 const CHILD = "dbstudio_d1_child";
@@ -21,50 +16,15 @@ if (!label || !databaseUrl) {
 }
 
 const isD1 = databaseUrl.startsWith("d1://");
-
-const { createServer } = await import("../src/utils/create-server.js");
-const { app } = createServer();
-
-const current = await app.handle(
-	new Request(new URL(`${DEFAULTS.API_PREFIX}/databases/current`, "http://localhost")),
-);
-
-const { db } = ((await current.json()) as { data: { db: string } }).data;
-
-const call = async (method: string, route: string, body?: unknown) => {
-	const url = new URL(`${DEFAULTS.API_PREFIX}/sqlite${route}`, "http://localhost");
-	url.searchParams.set("db", db);
-
-	const res = await app.handle(
-		new Request(url, {
-			method,
-			headers: body === undefined ? {} : { "Content-Type": "application/json" },
-			body: body === undefined ? undefined : JSON.stringify(body),
-		}),
-	);
-
-	return {
-		status: res.status,
-		body: (await res.json()) as { data?: unknown; error?: string },
-	};
-};
-
-const sql = async (query: string) => {
-	const res = await call("POST", "/query", { query });
-
-	if (res.status !== 200)
-		throw new Error(`${query}: ${res.status} ${JSON.stringify(res.body)}`);
-
-	return (res.body.data as { rows: Record<string, unknown>[] }).rows;
-};
+const { call, close, query: sql } = await inProcessApp(databaseUrl);
 
 const results: { check: string; ok: boolean; observed: unknown }[] = [];
 
+const { report, finish } = checks();
+
 const check = (name: string, ok: boolean, observed: unknown) => {
 	results.push({ check: name, ok, observed });
-	console.log(
-		`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : ` -> ${JSON.stringify(observed)}`}`,
-	);
+	report(name, ok ? undefined : JSON.stringify(observed));
 };
 
 await sql(`DROP TABLE IF EXISTS ${CHILD}`);
@@ -119,7 +79,7 @@ check(
 );
 
 const tables = await call("GET", "/tables");
-const names = (tables.body.data as { tableName: string }[]).map((t) => t.tableName);
+const names = (tables.body as { data: { tableName: string }[] }).data.map((t) => t.tableName);
 
 check(
 	"internal _cf_ tables are hidden and ours are listed",
@@ -170,27 +130,11 @@ await sql(`DROP TABLE ${CHILD}`);
 
 await sql(`DROP TABLE ${PARENT}`);
 
-const out = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
-
-await mkdir(out, { recursive: true });
-
-const artifact = results.map(({ check, ok, observed }) => ({
-	check,
-	ok,
-	observed: JSON.parse(
-		JSON.stringify(observed).replace(/"requestId":"[^"]*"/g, '"requestId":"<requestId>"'),
-	),
-}));
-
-await writeFile(
-	path.join(out, `d1-specifics-${label}.json`),
-	`${JSON.stringify(artifact, null, "\t")}\n`,
+const artifactPath = await writeArtifact(
+	`d1-specifics-${label}.json`,
+	normalize(results, { keys: ["requestId"] }),
 );
 
-const failed = results.filter((r) => !r.ok).length;
+await close();
 
-console.log(
-	`${failed ? "FAIL" : "PASS"}  ${results.length - failed}/${results.length} checks`,
-);
-
-process.exit(failed ? 1 : 0);
+finish(artifactPath);

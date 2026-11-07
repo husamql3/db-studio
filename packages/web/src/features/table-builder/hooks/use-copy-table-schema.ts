@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getTableSchema } from "@/shared/api";
+import { apiErrorMessage, getTableSchema } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useCopyTableSchema = () => {
@@ -26,7 +26,7 @@ export const useCopyTableSchema = () => {
 		return toast.promise(copyTableSchemaMutation({ tableName, schemaName }), {
 			loading: "Copying table schema...",
 			success: "Table schema copied to clipboard",
-			error: (error: Error) => error.message || "Failed to copy table schema",
+			error: (error: Error) => apiErrorMessage(error, "Failed to copy table schema"),
 		});
 	};
 

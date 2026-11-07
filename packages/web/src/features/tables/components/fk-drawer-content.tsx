@@ -1,82 +1,48 @@
-import type {
-	BaseResponse,
-	FilterType,
-	TableDataResultSchemaType,
-} from "@db-studio/shared/types";
+import type { FilterType } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import { DataGrid } from "@db-studio/ui/data-grid";
 import { DrawerHeader, DrawerTitle } from "@db-studio/ui/drawer";
 import { Spinner } from "@db-studio/ui/spinner";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
-import { useTableCols } from "@/features/schema";
-import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { api } from "@/shared/api/client";
-import { useDatabaseStore } from "@/stores/database.store";
-import type { TableRecord } from "@/types/table.type";
+import { CopyButton } from "@/components/copy-button";
+import type { TableRecord } from "@/features/tables/table.type";
+import { useTableCols } from "@/hooks/use-table-cols";
+import { useTableData } from "@/hooks/use-table-data";
 import { CONSTANTS } from "@/utils/constants";
-import { CellCopyButton } from "./cell-copy-button";
+import { formatCellValue } from "@/utils/format-cell-value";
+import { toColumnDef } from "../utils/column-def";
 
 export const FkDrawerContent = ({
 	referencedTable,
+	referencedSchema: schemaName,
 	referencedColumn,
 	fkValue,
 }: {
 	referencedTable: string;
+	referencedSchema: string | undefined;
 	referencedColumn: string;
 	fkValue: string;
 }) => {
-	const { selectedDatabase } = useDatabaseStore();
-
-	// An FK references a table in its own schema, the open table's.
-	const schemaName = useTableSchemaName();
 	const { tableCols } = useTableCols({ tableName: referencedTable, schemaName });
 
-	const filter: FilterType = useMemo(
-		() => ({ columnName: referencedColumn, operator: "=", value: fkValue }),
-		[referencedColumn, fkValue],
-	);
+	const filter: FilterType = { columnName: referencedColumn, operator: "=", value: fkValue };
 
-	const { data: tableData, isLoading } = useQuery({
-		queryKey: ["fk-drawer", referencedTable, referencedColumn, fkValue, selectedDatabase],
-		queryFn: async () => {
-			const res = await api.get<BaseResponse<TableDataResultSchemaType>>(
-				`/tables/${referencedTable}/data`,
-				{
-					params: {
-						db: selectedDatabase ?? "",
-						limit: "50",
-						filters: JSON.stringify([filter]),
-					},
-				},
-			);
-
-			return res.data.data;
-		},
-		enabled: !!referencedTable && !!selectedDatabase && fkValue !== "",
+	const { tableData, isLoadingTableData } = useTableData({
+		tableName: referencedTable,
+		schemaName,
+		cursor: null,
+		direction: null,
+		limit: null,
+		sort: null,
+		order: null,
+		filters: [filter],
 	});
 
 	const columns = useMemo<ColumnDef<TableRecord>[]>(
-		() =>
-			tableCols?.map((col) => ({
-				accessorKey: col.columnName,
-				header: col.columnName,
-				meta: {
-					variant: col.enumValues ? "enum" : col.dataType,
-					isPrimaryKey: col.isPrimaryKey,
-					isForeignKey: col.isForeignKey,
-					referencedTable: col.referencedTable,
-					referencedColumn: col.referencedColumn,
-					enumValues: col.enumValues,
-					dataTypeLabel: col.dataTypeLabel,
-				},
-				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
-				minSize: 100,
-				maxSize: 500,
-			})) ?? [],
+		() => tableCols?.map((col) => toColumnDef(col)) ?? [],
 		[tableCols],
 	);
 
@@ -104,7 +70,7 @@ export const FkDrawerContent = ({
 				</Button>
 			</DrawerHeader>
 			<div className="flex flex-1 overflow-hidden border-t">
-				{isLoading ? (
+				{isLoadingTableData ? (
 					<div className="flex items-center justify-center w-full text-sm text-muted-foreground">
 						<Spinner />
 					</div>
@@ -112,7 +78,7 @@ export const FkDrawerContent = ({
 					<DataGrid
 						columns={columns}
 						data={tableData?.data ?? []}
-						renderCellAccessory={(value) => <CellCopyButton value={value} />}
+						renderCellAccessory={(value) => <CopyButton value={formatCellValue(value)} />}
 					/>
 				)}
 			</div>

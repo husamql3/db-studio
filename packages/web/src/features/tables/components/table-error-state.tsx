@@ -1,3 +1,5 @@
+import type { ApiError } from "@/shared/api";
+
 export const TableErrorState = ({
 	tableName,
 	errorTableData,
@@ -10,10 +12,11 @@ export const TableErrorState = ({
 	const error = errorTableData || errorTableCols;
 	const errorMessage = error?.message || "";
 
+	// SAFETY: both errors come from API requests, and every failed request rejects with ApiError.
 	const isTableNotFound =
 		errorMessage.includes("does not exist") ||
 		errorMessage.includes("404") ||
-		(error as Error & { status?: number })?.status === 404;
+		(error as ApiError | null)?.status === 404;
 
 	const isNetworkError =
 		errorMessage.includes("Network Error") || errorMessage.includes("Failed to fetch");

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { updateRecords } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { updateRecords, type ApiError, apiErrorMessage } from "@/shared/api";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export type RowFieldUpdate = {
@@ -32,14 +32,6 @@ export const useUpdateRecord = ({
 			primaryKey?: string;
 			primaryKeys?: string[];
 		}) => {
-			if (!tableName) {
-				throw new Error("No table selected");
-			}
-
-			if (updates.length === 0) {
-				throw new Error("At least one field is required");
-			}
-
 			const payload: Parameters<typeof updateRecords>[0] = {
 				tableName,
 				schemaName,
@@ -56,15 +48,7 @@ export const useUpdateRecord = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-				}),
-			]);
+			await invalidateTableRows(queryClient, tableName);
 
 			if (dbType) posthogAnalytics.capture("record_updated", { db_type: dbType });
 		},
@@ -89,7 +73,7 @@ export const useUpdateRecord = ({
 			.promise(updateRecordMutation({ rowData, updates, primaryKey, primaryKeys }), {
 				loading: "Saving changes...",
 				success: (message) => message || "Record updated successfully",
-				error: (error: Error) => error.message || "Failed to update record",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to update record"),
 			})
 			.unwrap();
 	};

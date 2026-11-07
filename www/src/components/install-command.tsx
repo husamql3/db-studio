@@ -1,14 +1,8 @@
 import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";
+import { INSTALL_COMMANDS as COMMANDS } from "@/lib/content/install-commands";
 import { cn } from "@/lib/utils";
-
-const COMMANDS = {
-	npx: "npx db-studio",
-	pnpm: "pnpm dlx db-studio",
-	yarn: "yarn dlx db-studio",
-	bun: "bunx db-studio",
-};
 
 type Runner = keyof typeof COMMANDS;
 

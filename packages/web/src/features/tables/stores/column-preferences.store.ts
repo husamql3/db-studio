@@ -9,6 +9,7 @@ export type ColumnPrefs = {
 export type ColumnPrefKeyParts = {
 	dbType: string;
 	database: string;
+	schemaName: string | undefined;
 	tableName: string;
 };
 
@@ -21,12 +22,21 @@ export const sameColumnPrefs = (a: ColumnPrefs, b: ColumnPrefs): boolean =>
 	a.order.every((name, i) => name === b.order[i]) &&
 	a.hidden.every((name, i) => name === b.hidden[i]);
 
-/** JSON-encoded so a colon inside a database or table name cannot collide. */
+/**
+ * JSON-encoded so a colon inside a name cannot collide. A table without a schema keeps the
+ * three-part key used before the schema joined it, so its saved preferences still load.
+ */
 export const makeColumnPrefKey = ({
 	dbType,
 	database,
+	schemaName,
 	tableName,
-}: ColumnPrefKeyParts): string => JSON.stringify([dbType, database, tableName]);
+}: ColumnPrefKeyParts): string =>
+	JSON.stringify(
+		schemaName === undefined
+			? [dbType, database, tableName]
+			: [dbType, database, schemaName, tableName],
+	);
 
 const sanitize = (value: unknown): ColumnPrefs => {
 	const raw = (value ?? {}) as Partial<ColumnPrefs>;

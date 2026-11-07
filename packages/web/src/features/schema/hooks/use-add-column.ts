@@ -2,14 +2,10 @@ import type { AddColumnSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { addColumn as addColumnRequest } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { addColumn as addColumnRequest, type ApiError, apiErrorMessage } from "@/shared/api";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 const normalizeAddColumnPayload = (data: AddColumnSchemaType): AddColumnSchemaType => ({
 	...data,
@@ -29,7 +25,7 @@ export const useAddColumn = ({
 
 	const { mutateAsync: addColumnMutation, isPending: isAddingColumn } = useMutation<
 		string,
-		MutationError,
+		ApiError,
 		AddColumnSchemaType
 	>({
 		mutationFn: async (data) => {
@@ -43,37 +39,21 @@ export const useAddColumn = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-			]);
+			await invalidateTable(queryClient, tableName);
 			closeOverlay("schema.add-column");
 
 			if (dbType) posthogAnalytics.capture("column_added", { db_type: dbType });
 		},
 	});
 
-	const addColumn = async (
-		data: AddColumnSchemaType,
-		options?: {
-			onSuccess?: () => void;
-			onError?: (error: MutationError) => void;
-		},
-	) =>
-		toast.promise(addColumnMutation(data, options), {
-			loading: "Adding column...",
-			success: (message) => message || "Column added successfully",
-			error: (error: MutationError) =>
-				(typeof error.details === "string" && error.details) ||
-				error.message ||
-				"Failed to add column",
-		});
+	const addColumn = async (data: AddColumnSchemaType) =>
+		toast
+			.promise(addColumnMutation(data), {
+				loading: "Adding column...",
+				success: (message) => message || "Column added successfully",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to add column"),
+			})
+			.unwrap();
 
 	return {
 		addColumn,

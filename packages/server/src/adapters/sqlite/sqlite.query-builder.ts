@@ -1,114 +1,16 @@
-import type { CursorData, FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
+import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
-const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+export const quoteSqliteIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-export function buildWhereClause(filters: FilterType[]): {
-	clause: string;
-	values: unknown[];
-} {
-	if (!filters.length) return { clause: "", values: [] };
+export const sqliteFilters: FilterDialect = {
+	quote: quoteSqliteIdent,
+	likeOperand: (column) => `CAST(${column} AS TEXT)`,
+	ilike: "nocase",
+};
 
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-
-	for (const filter of filters) {
-		const col = quote(filter.columnName);
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${filter.operator} ?`);
-				values.push(filter.value);
-				break;
-			case "is":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NULL`);
-				} else {
-					conditions.push(`${col} = ?`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "is not":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NOT NULL`);
-				} else {
-					conditions.push(`${col} != ?`);
-					values.push(filter.value);
-				}
-
-				break;
-			case "like":
-				conditions.push(`CAST(${col} AS TEXT) LIKE ?`);
-				values.push(filter.value);
-				break;
-			case "not like":
-				conditions.push(`CAST(${col} AS TEXT) NOT LIKE ?`);
-				values.push(filter.value);
-				break;
-			case "ilike":
-				conditions.push(`CAST(${col} AS TEXT) LIKE ? COLLATE NOCASE`);
-				values.push(filter.value);
-				break;
-			case "not ilike":
-				conditions.push(`CAST(${col} AS TEXT) NOT LIKE ? COLLATE NOCASE`);
-				values.push(filter.value);
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (!conditions.length) return { clause: "", values: [] };
-
-	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
-}
-
-export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
-	if (Array.isArray(sorts)) {
-		if (!sorts.length) return "";
-
-		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
-	}
-
-	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
-	}
-
-	return "";
-}
-
-/**
- * Builds cursor WHERE clause using SQLite row-value comparison (supported since 3.15.0).
- * Uses `?` positional placeholders.
- */
-export function buildCursorWhereClause(
-	cursorData: CursorData,
-	direction: SortDirection,
-	sortDirection: SortDirection,
-): { clause: string; values: unknown[] } {
-	const { values, sortColumns } = cursorData;
-
-	if (!sortColumns.length) return { clause: "", values: [] };
-
-	const isAscending = sortDirection === "asc";
-	const isForward = direction === "asc";
-	const useGreaterThan = isAscending === isForward;
-	const operator = useGreaterThan ? ">" : "<";
-
-	const columnList = sortColumns.map(quote).join(", ");
-	const placeholders = sortColumns.map(() => "?").join(", ");
-	const queryValues = sortColumns.map((col) => values[col]);
-
-	return {
-		clause: `(${columnList}) ${operator} (${placeholders})`,
-		values: queryValues,
-	};
-}
+export const sqliteKeyset: KeysetDialect = { quote: quoteSqliteIdent, nulls: "keyword" };
 
 const CLOSING_QUOTE: Record<string, string> = { "'": "'", '"': '"', "`": "`", "[": "]" };
 
@@ -356,5 +258,103 @@ export function recreateTableWithColumn(
 
 	const options = tokens.slice(bodyIndex + 1).map((token) => token.text);
 
-	return [`CREATE TABLE ${quote(newName)} (${definitions.join(", ")})`, ...options].join(" ");
+	return [
+		`CREATE TABLE ${quoteSqliteIdent(newName)} (${definitions.join(", ")})`,
+		...options,
+	].join(" ");
+}
+
+/**
+ * Maps SQLite type affinity strings to generic DataTypes (used for cell rendering).
+ * SQLite has flexible typing — column types are user-declared strings, so we use affinity rules.
+ */
+export function mapSqliteToDataType(sqliteType: string): DataTypes {
+	const normalized = sqliteType?.toLowerCase().trim() || "";
+
+	if (normalized === "boolean" || normalized === "bool") return DataTypes.boolean;
+
+	if (normalized === "json") return DataTypes.json;
+
+	if (normalized === "date" || normalized === "datetime" || normalized === "timestamp") {
+		return DataTypes.date;
+	}
+
+	// SQLite integer affinity: any type name containing "INT"
+	if (
+		normalized.includes("int") ||
+		normalized === "real" ||
+		normalized.includes("floa") ||
+		normalized.includes("doub") ||
+		normalized === "numeric" ||
+		normalized.startsWith("numeric(") ||
+		normalized === "decimal" ||
+		normalized.startsWith("decimal(")
+	) {
+		return DataTypes.number;
+	}
+
+	return DataTypes.text;
+}
+
+export function standardizeSqliteDataTypeLabel(sqliteType: string): StandardizedDataType {
+	const normalized = sqliteType?.toLowerCase().trim() || "";
+
+	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
+
+	if (normalized === "bigint" || normalized.startsWith("bigint("))
+		return StandardizedDataType.bigint;
+
+	if (normalized === "smallint" || normalized.startsWith("smallint("))
+		return StandardizedDataType.smallint;
+
+	if (normalized === "tinyint" || normalized.startsWith("tinyint("))
+		return StandardizedDataType.tinyint;
+
+	if (normalized === "mediumint" || normalized.startsWith("mediumint("))
+		return StandardizedDataType.mediumint;
+
+	if (normalized.includes("int")) return StandardizedDataType.int;
+
+	if (normalized === "real" || normalized === "float" || normalized.startsWith("float("))
+		return StandardizedDataType.float;
+
+	if (
+		normalized === "double" ||
+		normalized === "double precision" ||
+		normalized.startsWith("double(")
+	)
+		return StandardizedDataType.double;
+
+	if (
+		normalized === "numeric" ||
+		normalized.startsWith("numeric(") ||
+		normalized === "decimal" ||
+		normalized.startsWith("decimal(")
+	) {
+		return StandardizedDataType.numeric;
+	}
+
+	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
+
+	if (normalized === "text" || normalized === "clob") return StandardizedDataType.text;
+
+	if (normalized === "varchar" || normalized.startsWith("varchar("))
+		return StandardizedDataType.varchar;
+
+	if (normalized === "char" || normalized.startsWith("char("))
+		return StandardizedDataType.char;
+
+	if (normalized === "json") return StandardizedDataType.json;
+
+	if (normalized === "date") return StandardizedDataType.date;
+
+	if (normalized === "time") return StandardizedDataType.time;
+
+	if (normalized === "datetime") return StandardizedDataType.datetime;
+
+	if (normalized === "timestamp") return StandardizedDataType.timestamp;
+
+	if (normalized === "blob") return StandardizedDataType.blob;
+
+	return StandardizedDataType.text;
 }

@@ -13,31 +13,29 @@
  * PERF_DB_LATENCY_MS (default 0) delays every packet between server and database by that much
  * each way, standing in for a database across a network.
  */
-import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
 import { connect, createServer, type Socket } from "node:net";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
-import { type Browser, chromium, type Page } from "playwright-core";
+import type { Browser, Page } from "playwright-core";
+import {
+	cliPath,
+	databaseName,
+	freePort,
+	launchBrowser,
+	requireDatabaseUrl,
+	startCli,
+	writeArtifact,
+} from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to a PostgreSQL database seeded by e2e/perf-seed.sql");
-}
-
-const db = encodeURIComponent(decodeURIComponent(new URL(databaseUrl).pathname.slice(1)));
+const { url: databaseUrl } = requireDatabaseUrl("pg");
+const db = encodeURIComponent(databaseName(databaseUrl));
 const builds = process.argv.slice(2);
 
 if (builds.length === 0) throw new Error("Name at least one build in e2e/artifacts/builds/");
 
-const cliFor = (build: string) =>
-	fileURLToPath(new URL(`./artifacts/builds/${build}/index.js`, import.meta.url));
-
 for (const build of builds) {
-	if (!existsSync(cliFor(build))) throw new Error(`Missing ${cliFor(build)}`);
+	if (!existsSync(cliPath(build))) throw new Error(`Missing ${cliPath(build)}`);
 }
 
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
@@ -74,7 +72,9 @@ const serverDatabaseUrl =
 	DB_LATENCY_MS > 0 ? await startLatencyRelay(new URL(databaseUrl)) : databaseUrl;
 
 const CPU_THROTTLE = Number(process.env.PERF_CPU_THROTTLE ?? 1);
-const PORT = 4517;
+
+// One port for every server the run starts: they run one at a time.
+const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const median = (values: number[]) => {
@@ -89,40 +89,9 @@ const median = (values: number[]) => {
 
 const startServer = async (cli: string) => {
 	const startedAt = performance.now();
+	const { child } = await startCli({ cli, port: PORT, args: ["-d", serverDatabaseUrl] });
 
-	// A temporary cwd keeps the CLI from picking up a developer's .env.
-	const child = spawn(
-		"node",
-		[cli, "--no-open", "-p", String(PORT), "-d", serverDatabaseUrl],
-		{
-			cwd: tmpdir(),
-			env: {
-				...process.env,
-				NODE_ENV: "production",
-				DB_STUDIO_TELEMETRY: "0",
-				HOST: "127.0.0.1",
-			},
-			stdio: ["ignore", "ignore", "pipe"],
-		},
-	);
-
-	let stderr = "";
-	child.stderr?.on("data", (chunk) => {
-		stderr += chunk;
-	});
-
-	for (;;) {
-		if (child.exitCode !== null) {
-			throw new Error(`server exited with ${child.exitCode}: ${stderr.slice(-2000)}`);
-		}
-
-		const ready = await fetch(`${BASE}/api/databases`)
-			.then((response) => response.ok)
-			.catch(() => false);
-
-		if (ready) return { child, startupMs: performance.now() - startedAt };
-		await new Promise((resolve) => setTimeout(resolve, 5));
-	}
+	return { child, startupMs: performance.now() - startedAt };
 };
 
 /** CPU time a process has used so far, from `ps` (10 ms resolution). */
@@ -454,10 +423,7 @@ const measure = async (browser: Browser, cli: string, pageErrors: Set<string>) =
 	return metrics;
 };
 
-const browser = await chromium.launch({
-	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
-	headless: true,
-});
+const browser = await launchBrowser();
 
 const samples = new Map(builds.map((build) => [build, [] as Record<string, number>[]]));
 const pageErrors = new Set<string>();
@@ -465,7 +431,7 @@ const pageErrors = new Set<string>();
 try {
 	// A discarded first pass warms the OS file cache, Postgres buffers and the browser.
 	console.error(`[perf] warm-up ${builds[0]}`);
-	await measure(browser, cliFor(builds[0] ?? ""), pageErrors);
+	await measure(browser, cliPath(builds[0]), pageErrors);
 
 	for (let run = 0; run < RUNS; run++) {
 		// Alternate the order so neither build always runs first.
@@ -473,7 +439,7 @@ try {
 
 		for (const build of order) {
 			console.error(`[perf] run ${run + 1}/${RUNS} ${build}`);
-			samples.get(build)?.push(await measure(browser, cliFor(build), pageErrors));
+			samples.get(build)?.push(await measure(browser, cliPath(build), pageErrors));
 		}
 	}
 } finally {
@@ -539,14 +505,9 @@ const results = {
 	pageErrors: [...pageErrors],
 };
 
-await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-
-await writeFile(
-	new URL(
-		`./artifacts/perf-${builds.join("-vs-")}${CPU_THROTTLE > 1 ? `-${CPU_THROTTLE}x-cpu` : ""}${DB_LATENCY_MS ? `-${DB_LATENCY_MS}ms-db` : ""}.json`,
-		import.meta.url,
-	),
-	`${JSON.stringify(results, null, 2)}\n`,
+await writeArtifact(
+	`perf-${builds.join("-vs-")}${CPU_THROTTLE > 1 ? `-${CPU_THROTTLE}x-cpu` : ""}${DB_LATENCY_MS ? `-${DB_LATENCY_MS}ms-db` : ""}.json`,
+	results,
 );
 
 const transpose = (table: Record<string, Record<string, number>>) =>

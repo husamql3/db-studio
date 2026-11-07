@@ -3,30 +3,32 @@ import { access } from "node:fs/promises";
 import {
 	type ConnectionSummarySchemaType,
 	type ConnectionsStateSchemaType,
-	DATABASE_ENGINES,
-	dbTypeFromProtocol,
 	type UpdateConnectionSchemaType,
 } from "@db-studio/shared/types";
-import { checkDatabaseConnection } from "@/cmd/check-database.js";
-import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
+import { normalizeConnectionUrl, parseConnectionUrl, urlDbType } from "@/connection-url.js";
 import {
 	findSavedConnection,
 	listSavedConnections,
 	maskConnectionUrl,
-	normalizeConnectionUrl,
 	recordConnection,
 	type SavedConnection,
+	sameConnection,
 	updateSavedConnection,
 } from "@/connections-store.js";
-import {
-	closeConnection,
-	DatabaseManager,
-	getOpenConnection,
-	openConnection,
-	requestConnectionId,
-} from "@/db-manager.js";
+import { checkConnection } from "@/connectors/index.js";
 import { HTTPException } from "@/http-exception.js";
+import {
+	assertCanOpenReadOnly,
+	closeConnection,
+	createConnection,
+	getOpenConnection,
+	listOpenConnections,
+	type OpenConnection,
+	registerConnection,
+	requestConnectionId,
+} from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { sanitizeErrorMessage } from "@/sanitize-error.js";
 
 /**
  * Opening connections and switching their mode, one at a time: an open that read the old mode must
@@ -42,34 +44,21 @@ const queued = <T>(run: () => Promise<T>): Promise<T> => {
 	return result;
 };
 
-/** Each open connection's URL as the user gave it, before driver aliases are rewritten. */
-const openUrls = new Map<string, { url: string; readOnly: boolean }>();
-
-const FILE_URL = /^(?:sqlite|duckdb):\/\/(.+)$/;
-
 const message = (error: unknown) =>
 	sanitizeErrorMessage(error instanceof Error ? error.message : String(error));
 
-/** Resolves to the id the opening tab sends back as `X-Connection-Id`. */
-const open = async (url: string, readOnly: boolean): Promise<string> => {
-	// Already open: a second client on the same DuckDB file would fail to lock it.
-	const existing = [...openUrls].find(
+/** Already open: a second client on the same DuckDB file would fail to lock it. */
+const reuseOpen = (url: string, readOnly: boolean) =>
+	listOpenConnections().find(
 		([, open]) => open.url === url && open.readOnly === readOnly,
 	)?.[0];
 
-	if (existing) return existing;
-	let candidate: DatabaseManager;
-
+/** Tests `candidate` on its own clients, then opens it; resolves to the id the tab sends back. */
+const open = async (candidate: OpenConnection): Promise<string> => {
 	try {
-		candidate = new DatabaseManager(url, readOnly);
+		await checkConnection(candidate.connector);
 	} catch (error) {
-		throw new HTTPException(400, { message: message(error), cause: error });
-	}
-
-	try {
-		await checkDatabaseConnection(candidate);
-	} catch (error) {
-		await candidate.closeAll().catch(() => {});
+		await candidate.connector.close().catch(() => {});
 		throw new HTTPException(400, {
 			message: `Could not connect: ${message(error)}`,
 			cause: error,
@@ -77,8 +66,7 @@ const open = async (url: string, readOnly: boolean): Promise<string> => {
 	}
 
 	const id = randomUUID();
-	openConnection(id, candidate);
-	openUrls.set(id, { url, readOnly });
+	registerConnection(id, candidate);
 
 	return id;
 };
@@ -95,20 +83,28 @@ export const connect = (
 	const url = normalizeConnectionUrl(rawUrl);
 
 	return queued(async () => {
-		const file = url.match(FILE_URL)?.[1];
+		// A pasted URL of a read-only saved connection opens read-only too.
+		const readOnly = (await listSavedConnections()).some(
+			(c) => c.readOnly && sameConnection(c.url, url),
+		);
 
-		if (requireExistingFile && file && file !== ":memory:") {
+		let candidate: OpenConnection;
+
+		try {
+			candidate = createConnection(url, readOnly);
+		} catch (error) {
+			throw new HTTPException(400, { message: message(error), cause: error });
+		}
+
+		const { file, inMemory } = candidate.parsed;
+
+		if (requireExistingFile && file && !inMemory) {
 			await access(file).catch(() => {
 				throw new HTTPException(400, { message: `No database file at ${file}` });
 			});
 		}
 
-		// A pasted URL of a read-only saved connection opens read-only too.
-		const readOnly = (await listSavedConnections()).some(
-			(c) => c.readOnly && maskConnectionUrl(c.url) === maskConnectionUrl(url),
-		);
-
-		const id = await open(url, readOnly);
+		const id = reuseOpen(url, readOnly) ?? (await open(candidate));
 		await recordConnection(url).catch((error) => {
 			// The connection works; only remembering it failed.
 			writeOperationalLog("warn", "connection_save_failed", errorFields(error));
@@ -125,7 +121,7 @@ export const connectSaved = async (id: string) => {
 };
 
 const toSummary = (saved: SavedConnection): ConnectionSummarySchemaType | null => {
-	const dbType = dbTypeFromProtocol(saved.url.split("://")[0]?.toLowerCase() ?? "");
+	const dbType = urlDbType(saved.url);
 
 	if (!dbType) return null;
 	const { id, name, color, readOnly, lastUsedAt } = saved;
@@ -152,16 +148,15 @@ export const getConnectionsState = async (
 		.filter((summary) => summary !== null)
 		.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
 
-	const url = connectionId && openUrls.get(connectionId)?.url;
-	const manager = connectionId && getOpenConnection(connectionId);
+	const open = connectionId && getOpenConnection(connectionId);
 
-	if (!connectionId || !url || !manager) return { connections, active: null };
+	if (!connectionId || !open) return { connections, active: null };
 
 	return {
 		connections,
 		active: {
-			id: saved.find((c) => maskConnectionUrl(c.url) === maskConnectionUrl(url))?.id ?? null,
-			dbType: manager.getDbType(),
+			id: saved.find((c) => sameConnection(c.url, open.url))?.id ?? null,
+			dbType: open.dbType,
 			connectionId,
 		},
 	};
@@ -183,29 +178,15 @@ const summarize = (saved: SavedConnection) => {
 export const updateConnection = (id: string, change: UpdateConnectionSchemaType) =>
 	queued(async () => {
 		const found = await findSavedConnection(id);
-		const saved = summarize(found);
+		// Refuses a saved URL of an unknown engine before anything is changed.
+		summarize(found);
 
-		if (change.readOnly && !DATABASE_ENGINES[saved.dbType].readOnly) {
-			throw new HTTPException(400, {
-				message: `${DATABASE_ENGINES[saved.dbType].label} connections cannot be opened read-only`,
-			});
-		}
-
-		// Closing its only instance would delete its data, and DuckDB cannot reopen memory read-only.
-		if (change.readOnly && found.url.match(FILE_URL)?.[1] === ":memory:") {
-			throw new HTTPException(400, {
-				message: "An in-memory database cannot be opened read-only",
-			});
-		}
+		if (change.readOnly) assertCanOpenReadOnly(parseConnectionUrl(found.url));
 
 		const updated = await updateSavedConnection(id, change);
 
-		for (const [connectionId, open] of openUrls) {
-			if (
-				open.readOnly !== updated.readOnly &&
-				maskConnectionUrl(open.url) === maskConnectionUrl(updated.url)
-			) {
-				openUrls.delete(connectionId);
+		for (const [connectionId, open] of listOpenConnections()) {
+			if (open.readOnly !== updated.readOnly && sameConnection(open.url, updated.url)) {
 				await closeConnection(connectionId);
 			}
 		}

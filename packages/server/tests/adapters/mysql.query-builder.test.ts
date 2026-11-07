@@ -1,14 +1,26 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
 import {
-	buildCursorWhereClause,
 	buildMysqlColumnDefinition,
 	formatMysqlDefaultValue,
-	buildSortClause,
-	buildWhereClause,
 	mapColumnTypeToMysql,
+	mysqlFilters,
+	quoteMysqlIdent,
 } from "@/adapters/mysql/mysql.query-builder.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+
+const buildWhereClause = (filters: FilterType[]) => {
+	const { values, bind } = createBinds(() => "?");
+
+	return { clause: whereSql(buildFilterConditions(filters, bind, mysqlFilters)), values };
+};
 
 describe("MySQL query builder", () => {
+	// An unescaped backtick in a name would end the identifier and let the rest run as SQL.
+	it("escapes backticks in identifiers by doubling them", () => {
+		expect(quoteMysqlIdent("we`ird")).toBe("`we``ird`");
+	});
+
 	it("builds WHERE clauses with backtick identifiers and ? placeholders", () => {
 		const result = buildWhereClause([
 			{ columnName: "status", operator: "!=", value: "archived" },
@@ -34,33 +46,6 @@ describe("MySQL query builder", () => {
 			buildWhereClause([{ columnName: "x", operator: "unknown", value: "1" }]).clause,
 		).toBe("");
 		expect(buildWhereClause([])).toEqual({ clause: "", values: [] });
-	});
-
-	it("builds ORDER BY clauses with MySQL quoting", () => {
-		expect(buildSortClause([{ columnName: "id", direction: "desc" }], "asc")).toBe(
-			"ORDER BY `id` DESC",
-		);
-		expect(buildSortClause("created_at", "asc")).toBe("ORDER BY `created_at` ASC");
-		expect(buildSortClause([], "asc")).toBe("");
-		expect(buildSortClause("", "asc")).toBe("");
-	});
-
-	it("builds cursor predicates with tuple comparison", () => {
-		const result = buildCursorWhereClause(
-			{ sortColumns: ["score", "id"], values: { score: 90, id: 7 } },
-			"desc",
-			"asc",
-		);
-
-		expect(result.clause).toBe("(`score`, `id`) < (?, ?)");
-		expect(result.values).toEqual([90, 7]);
-		expect(buildCursorWhereClause({ sortColumns: [], values: {} }, "asc", "asc")).toEqual({
-			clause: "",
-			values: [],
-		});
-		expect(
-			buildCursorWhereClause({ sortColumns: ["id"], values: { id: 7 } }, "asc", "asc").clause,
-		).toBe("(`id`) > (?)");
 	});
 
 	it("maps portable column definitions to MySQL syntax", () => {
@@ -93,7 +78,7 @@ describe("MySQL query builder", () => {
 					isUnique: true,
 					defaultValue: "'n/a'",
 				},
-				{ includeUnique: true },
+				{ inlineKey: false, inlineUnique: true },
 			),
 		).toBe("`email` VARCHAR(255) NOT NULL DEFAULT 'n/a' UNIQUE");
 		expect(
@@ -104,7 +89,8 @@ describe("MySQL query builder", () => {
 					isPrimaryKey: true,
 					isIdentity: true,
 				},
-				{ includePrimaryKey: true, preserveAutoIncrement: true },
+				{ inlineKey: true, inlineUnique: false },
+				true,
 			),
 		).toBe("`id` INT AUTO_INCREMENT PRIMARY KEY");
 	});

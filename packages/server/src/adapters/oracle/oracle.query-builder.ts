@@ -1,4 +1,5 @@
-import type { FilterType, SortDirection } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType, type FormColumnType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -15,18 +16,7 @@ export const quoteOracleIdent = (name: string) => {
 	return `"${name}"`;
 };
 
-/** Collects positional binds and returns the `:n` placeholder for each value. */
-export const createBinds = () => {
-	const values: unknown[] = [];
-
-	const bind = (value: unknown) => {
-		values.push(value);
-
-		return `:${values.length}`;
-	};
-
-	return { values, bind };
-};
+export const oraclePlaceholder = (position: number) => `:${position}`;
 
 type OracleTemporalType = "date" | "timestamp" | "timestampTz" | "timestampLtz";
 
@@ -131,135 +121,21 @@ export const buildOracleSelectList = (
 		})
 		.join(", ");
 
-export type OracleForeignKeyRow = {
-	CONSTRAINT_NAME: string;
-	REFERENCING_TABLE: string;
-	REFERENCING_COLUMN: string;
-	REFERENCED_TABLE: string;
-	REFERENCED_COLUMN: string;
-};
-
-export type OracleForeignKey = {
-	constraintName: string;
-	referencingTable: string;
-	columns: string[];
-	referencedTable: string;
-	referencedColumns: string[];
-};
-
-export const groupOracleForeignKeys = (rows: OracleForeignKeyRow[]): OracleForeignKey[] => {
-	const constraints = new Map<string, OracleForeignKey>();
-
-	for (const row of rows) {
-		const existing = constraints.get(row.CONSTRAINT_NAME);
-
-		if (existing) {
-			existing.columns.push(row.REFERENCING_COLUMN);
-			existing.referencedColumns.push(row.REFERENCED_COLUMN);
-			continue;
-		}
-
-		constraints.set(row.CONSTRAINT_NAME, {
-			constraintName: row.CONSTRAINT_NAME,
-			referencingTable: row.REFERENCING_TABLE,
-			columns: [row.REFERENCING_COLUMN],
-			referencedTable: row.REFERENCED_TABLE,
-			referencedColumns: [row.REFERENCED_COLUMN],
-		});
-	}
-
-	return [...constraints.values()];
-};
-
-export const whereSql = (conditions: string[]) =>
-	conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-export function buildFilterConditions(
-	filters: FilterType[],
-	bind: (value: unknown) => string,
+/**
+ * Comparisons bind through `bindOracleValue`, so a temporal value gets an explicit format;
+ * LIKE compares the canonical string a table read returns.
+ */
+export const oracleFilters = (
 	columnTypes: ReadonlyMap<string, string>,
-): string[] {
-	const conditions: string[] = [];
-
-	for (const filter of filters) {
-		const col = quoteOracleIdent(filter.columnName);
-		const columnType = columnTypes.get(filter.columnName);
-		const isNull = filter.value.toLowerCase() === "null";
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(
-					`${col} ${filter.operator} ${bindOracleValue(filter.value, columnType, bind)}`,
-				);
-				break;
-			case "is":
-				conditions.push(
-					isNull
-						? `${col} IS NULL`
-						: `${col} = ${bindOracleValue(filter.value, columnType, bind)}`,
-				);
-				break;
-			case "is not":
-				conditions.push(
-					isNull
-						? `${col} IS NOT NULL`
-						: `${col} != ${bindOracleValue(filter.value, columnType, bind)}`,
-				);
-				break;
-			case "like":
-				conditions.push(`${formatTemporalColumn(col, columnType)} LIKE ${bind(filter.value)}`);
-				break;
-			case "not like":
-				conditions.push(
-					`${formatTemporalColumn(col, columnType)} NOT LIKE ${bind(filter.value)}`,
-				);
-				break;
-			case "ilike":
-				conditions.push(
-					`UPPER(${formatTemporalColumn(col, columnType)}) LIKE UPPER(${bind(filter.value)})`,
-				);
-				break;
-			case "not ilike":
-				conditions.push(
-					`UPPER(${formatTemporalColumn(col, columnType)}) NOT LIKE UPPER(${bind(filter.value)})`,
-				);
-				break;
-		}
-	}
-
-	return conditions;
-}
-
-/** One ORDER BY term; `column: null` orders by ROWID, the tie-breaker for tables without a key. */
-export interface OrderTerm {
-	column: string | null;
-	direction: SortDirection;
-}
-
-export const buildOrderBy = (terms: OrderTerm[], tableAlias?: string) =>
-	`ORDER BY ${terms
-		.map(
-			(t) =>
-				`${tableAlias ? `${tableAlias}.` : ""}${t.column === null ? "ROWID" : quoteOracleIdent(t.column)} ${t.direction.toUpperCase()}`,
-		)
-		.join(", ")}`;
-
-const SERIAL_TYPES = new Set([
-	"serial",
-	"serial4",
-	"bigserial",
-	"serial8",
-	"smallserial",
-	"serial2",
-]);
-
-export const isSerialType = (columnType: string) =>
-	SERIAL_TYPES.has(columnType.toLowerCase().trim());
+	bind: (value: unknown) => string,
+): FilterDialect => ({
+	quote: quoteOracleIdent,
+	likeOperand: (column, columnName) =>
+		formatTemporalColumn(column, columnTypes.get(columnName)),
+	ilike: "upper",
+	bindComparison: (value, columnName) =>
+		bindOracleValue(value, columnTypes.get(columnName), bind),
+});
 
 /**
  * Translate a PostgreSQL type name from the web form into an Oracle column type.
@@ -281,7 +157,7 @@ export function mapColumnTypeToOracle(
 
 	const normalized = columnType.toLowerCase().trim();
 
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string> & Record<FormColumnType, string> = {
 		serial: "NUMBER(10)",
 		serial4: "NUMBER(10)",
 		bigserial: "NUMBER(19)",
@@ -356,3 +232,79 @@ export function formatOracleDefault(defaultValue: string, native: boolean): stri
 }
 
 export const IDENTITY_CLAUSE = "GENERATED BY DEFAULT ON NULL AS IDENTITY";
+
+/**
+ * Maps Oracle column types (as formatted from `USER_TAB_COLUMNS`, e.g. `NUMBER(10)`,
+ * `TIMESTAMP(6) WITH TIME ZONE`) to generic DataTypes. Oracle DATE carries a time of day.
+ */
+export function mapOracleToDataType(oracleType: string): DataTypes {
+	const normalized = oracleType?.toLowerCase().trim() || "";
+
+	if (normalized === "boolean") return DataTypes.boolean;
+
+	if (normalized === "json") return DataTypes.json;
+
+	if (normalized === "date" || normalized.startsWith("timestamp")) return DataTypes.date;
+
+	if (
+		normalized.startsWith("number") ||
+		normalized.startsWith("float") ||
+		normalized === "integer" ||
+		normalized === "binary_float" ||
+		normalized === "binary_double"
+	) {
+		return DataTypes.number;
+	}
+
+	return DataTypes.text;
+}
+
+export function standardizeOracleDataTypeLabel(oracleType: string): StandardizedDataType {
+	const normalized = oracleType?.toLowerCase().trim() || "";
+
+	if (normalized === "boolean") return StandardizedDataType.boolean;
+
+	if (normalized === "json") return StandardizedDataType.json;
+
+	if (normalized === "xmltype") return StandardizedDataType.xml;
+
+	if (normalized === "integer") return StandardizedDataType.int;
+	const integer = normalized.match(/^number\((\d+)(?:,0)?\)$/);
+
+	if (integer) {
+		const precision = Number(integer[1]);
+
+		if (precision <= 4) return StandardizedDataType.smallint;
+
+		if (precision <= 10) return StandardizedDataType.int;
+
+		if (precision <= 19) return StandardizedDataType.bigint;
+	}
+
+	if (normalized.startsWith("number")) return StandardizedDataType.numeric;
+
+	if (normalized === "binary_float") return StandardizedDataType.float;
+
+	if (normalized === "binary_double" || normalized.startsWith("float"))
+		return StandardizedDataType.double;
+
+	if (normalized.startsWith("varchar") || normalized.startsWith("nvarchar"))
+		return StandardizedDataType.varchar;
+
+	if (normalized.startsWith("char") || normalized.startsWith("nchar"))
+		return StandardizedDataType.char;
+
+	if (normalized.startsWith("timestamp") && normalized.endsWith("time zone"))
+		return StandardizedDataType.timestamptz;
+
+	if (normalized === "date" || normalized.startsWith("timestamp"))
+		return StandardizedDataType.timestamp;
+
+	if (normalized.startsWith("interval")) return StandardizedDataType.interval;
+
+	if (normalized === "blob" || normalized === "long raw") return StandardizedDataType.blob;
+
+	if (normalized.startsWith("raw")) return StandardizedDataType.varbinary;
+
+	return StandardizedDataType.text;
+}

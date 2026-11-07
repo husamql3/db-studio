@@ -14,8 +14,6 @@ export const tableQuerySchema = databaseSchema.extend({
 	schemaName: z.string().optional(),
 });
 
-export type TableQuerySchemaType = z.infer<typeof tableQuerySchema>;
-
 export const DATABASE_TYPES = [
 	"pg",
 	"mysql",
@@ -40,12 +38,6 @@ export const currentDatabaseSchema = databaseSchema.extend({
 
 export type CurrentDatabaseSchemaType = z.infer<typeof currentDatabaseSchema>;
 
-export const databaseTypeParamSchema = z.object({
-	dbType: databaseTypeSchema,
-});
-
 export const tableNameSchema = z.object({
 	tableName: z.string("Table name is required"),
 });
-
-export type TableNameSchemaType = z.infer<typeof tableNameSchema>;

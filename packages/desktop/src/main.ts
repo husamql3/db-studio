@@ -25,12 +25,12 @@ if (!app.requestSingleInstanceLock()) {
 
 	app.whenReady().then(async () => {
 		const log = createLogger();
-		log.info("app", `db-studio ${app.getVersion()} starting`);
+		log.info("app", `${app.name} ${app.getVersion()} starting`);
 
 		const fail = (message: string) => {
 			if (quitting) return;
 			log.error("app", message);
-			dialog.showErrorBox("db-studio server failed", `${message}\n\nLog file: ${log.file}`);
+			dialog.showErrorBox(`${app.name} server failed`, `${message}\n\nLog file: ${log.file}`);
 			app.quit();
 		};
 

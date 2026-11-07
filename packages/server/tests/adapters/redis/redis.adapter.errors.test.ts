@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { RedisAdapter } from "@/adapters/redis/redis.adapter.js";
+import { UNSUPPORTED_SERVER_MODE } from "@/connectors/redis.js";
 import { HTTPException } from "@/http-exception.js";
 
-// Bracket access reaches the protected method with its real signature.
 const wrap = (adapter: RedisAdapter, error: unknown): HTTPException =>
-	adapter["wrapError"](error);
+	adapter.classifyError(error);
 
-describe("RedisAdapter — error mapping (wrapError)", () => {
+describe("RedisAdapter — error mapping (classifyError)", () => {
 	const adapter = new RedisAdapter();
 
 	const cases: { name: string; message: string }[] = [
@@ -29,7 +29,7 @@ describe("RedisAdapter — error mapping (wrapError)", () => {
 	}
 
 	it("maps cluster-not-supported rejection to 503", () => {
-		const wrapped = wrap(adapter, new Error("Redis cluster mode is not supported"));
+		const wrapped = wrap(adapter, new Error(UNSUPPORTED_SERVER_MODE));
 		expect(wrapped.status).toBe(503);
 	});
 

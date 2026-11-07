@@ -1,13 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { dropIndex as dropIndexRequest } from "@/shared/api";
+import { dropIndex as dropIndexRequest, type ApiError, apiErrorMessage } from "@/shared/api";
 import { indexKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 export const useDropIndex = ({
 	tableName,
@@ -22,7 +18,7 @@ export const useDropIndex = ({
 
 	const { mutateAsync: dropIndexMutation, isPending: isDroppingIndex } = useMutation<
 		string,
-		MutationError,
+		ApiError,
 		string
 	>({
 		mutationFn: async (indexName) => {
@@ -48,10 +44,7 @@ export const useDropIndex = ({
 		toast.promise(dropIndexMutation(indexName), {
 			loading: "Dropping index...",
 			success: (message) => message || "Index dropped successfully",
-			error: (error: MutationError) =>
-				(typeof error.details === "string" && error.details) ||
-				error.message ||
-				"Failed to drop index",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to drop index"),
 		});
 
 	return {

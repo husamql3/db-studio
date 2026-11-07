@@ -1,13 +1,15 @@
 import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { useNavigate } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useIsKeyValue } from "@/hooks/use-is-key-value";
 import { useQueriesStore } from "@/stores/queries.store";
-import { PLACEHOLDER_QUERIES } from "@/utils/constants/placeholders";
+import type { CodeEditorHandle } from "../components/code-editor";
 import { QueryResultContainer } from "../components/query-result-container";
 import { RunnerHeader } from "../components/runner-header";
 import { useExecuteQuery } from "../hooks/use-execute-query";
+import { PLACEHOLDER_QUERIES } from "../placeholders";
 
 const CodeEditor = lazy(() =>
 	import("../components/code-editor").then((module) => ({
@@ -15,7 +17,7 @@ const CodeEditor = lazy(() =>
 	})),
 );
 
-export type QueryResult = {
+type QueryResult = {
 	data: ExecuteQueryResult;
 	queryId: string;
 };
@@ -28,6 +30,7 @@ export const RunnerScreen = ({
 	initialQuery?: string;
 }) => {
 	const navigate = useNavigate();
+	const editorRef = useRef<CodeEditorHandle>(null);
 	const [queryResult, setQueryResult] = useState<QueryResult | undefined>(undefined);
 	const { getQuery, updateQuery, toggleFavorite, addQuery } = useQueriesStore();
 	const query = queryId ? getQuery(queryId) : null;
@@ -38,7 +41,7 @@ export const RunnerScreen = ({
 	const [lastExecutedQuery, setLastExecutedQuery] = useState("");
 	const engine = useDatabaseEngine();
 	const editorLanguage = engine?.editorLanguage ?? "pgsql";
-	const isKeyValue = engine?.dataModel === "key-value";
+	const isKeyValue = useIsKeyValue();
 
 	const getInitialQuery = useCallback(() => {
 		if (initialQuery) return initialQuery;
@@ -50,7 +53,7 @@ export const RunnerScreen = ({
 	}, [query, editorLanguage, initialQuery]);
 
 	const handleExecuteQuery = useCallback(
-		async (query: string) => {
+		(query: string) => {
 			if (!query.trim()) {
 				toast.error("Query is empty!");
 
@@ -69,24 +72,13 @@ export const RunnerScreen = ({
 
 			setLastExecutedQuery(query);
 
-			const result = await executeQuery({ query });
-
-			if (result) {
-				setQueryResult({ data: result, queryId: queryId ?? "" });
-			}
+			executeQuery(
+				{ query },
+				{ onSuccess: (data) => setQueryResult({ data, queryId: queryId ?? "" }) },
+			);
 		},
 		[isKeyValue, executeQuery, queryId],
 	);
-
-	const handleButtonClick = useCallback(() => {
-		if (!currentQuery.trim()) {
-			toast.error("Query is empty!");
-
-			return;
-		}
-
-		handleExecuteQuery(currentQuery);
-	}, [handleExecuteQuery, currentQuery]);
 
 	const handleFavorite = useCallback(() => {
 		if (!queryId) return;
@@ -94,16 +86,11 @@ export const RunnerScreen = ({
 		toast.success(isFavorite ? "Query unfavorited" : "Query favorited");
 	}, [toggleFavorite, queryId, isFavorite]);
 
-	const handleFormatQuery = useCallback(() => {
-		// passed to Monaco component
-	}, []);
-
 	const handleSaveQuery = useCallback(() => {
 		if (!currentQuery) return;
 
 		if (!queryId) {
-			const newQueryId = addQuery();
-			updateQuery(newQueryId, { query: currentQuery });
+			const newQueryId = addQuery(currentQuery);
 			navigate({
 				to: "/runner/$queryId",
 				params: { queryId: newQueryId },
@@ -120,14 +107,14 @@ export const RunnerScreen = ({
 		<div className="flex-1 relative w-full flex flex-col">
 			<RunnerHeader
 				isExecutingQuery={isExecutingQuery}
-				handleButtonClick={handleButtonClick}
-				handleFormatQuery={handleFormatQuery}
+				handleButtonClick={() => handleExecuteQuery(currentQuery)}
+				handleFormatQuery={() => editorRef.current?.format()}
 				handleSaveQuery={handleSaveQuery}
 				handleFavorite={handleFavorite}
 				isFavorite={isFavorite}
 				queryId={queryId ?? ""}
 				hasUnsavedChanges={hasUnsavedChanges}
-				queryResult={queryResult ?? null}
+				queryResult={queryResult?.data ?? null}
 				currentQuery={currentQuery}
 			/>
 
@@ -139,8 +126,8 @@ export const RunnerScreen = ({
 					language={editorLanguage}
 					onQueryChange={setCurrentQuery}
 					onUnsavedChanges={setHasUnsavedChanges}
+					ref={editorRef}
 					onExecuteQuery={handleExecuteQuery}
-					onFormatQuery={handleFormatQuery}
 					onSaveQuery={handleSaveQuery}
 				/>
 			</Suspense>

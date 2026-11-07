@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { createRecord as createRecordRequest } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import {
+	createRecord as createRecordRequest,
+	type ApiError,
+	apiErrorMessage,
+	type RecordValues,
+} from "@/shared/api";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
-import { useOverlayStore } from "@/stores/overlay.store";
-
-export interface AddRecordFormData {
-	[key: string]: string;
-}
 
 export const useCreateRecord = ({
 	tableName,
@@ -18,11 +18,14 @@ export const useCreateRecord = ({
 	schemaName: string | undefined;
 }) => {
 	const queryClient = useQueryClient();
-	const { closeOverlay } = useOverlayStore();
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
-	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation({
-		mutationFn: async (data: AddRecordFormData) => {
+	const { mutateAsync: createRecordMutation, isPending: isCreatingRecord } = useMutation<
+		string,
+		ApiError,
+		RecordValues
+	>({
+		mutationFn: async (data) => {
 			const res = await createRecordRequest({
 				tableName,
 				schemaName,
@@ -33,37 +36,23 @@ export const useCreateRecord = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-				}),
-			]);
-			closeOverlay("records.add-record");
+			await invalidateTableRows(queryClient, tableName);
 
 			if (dbType) posthogAnalytics.capture("record_created", { db_type: dbType });
 		},
 	});
 
 	const createRecord = async (
-		data: AddRecordFormData,
+		data: RecordValues,
 		options: {
 			onSuccess?: () => void;
-			onError?: (error: Error & { detail?: string }) => void;
+			onError?: (error: ApiError) => void;
 		},
 	) => {
-		if (!data || Object.keys(data).length === 0) {
-			throw new Error("At least one field is required");
-		}
-
 		return toast.promise(createRecordMutation(data, options), {
 			loading: "Creating record...",
 			success: (message) => message || "Record created successfully",
-			error: (error: Error & { detail?: string }) =>
-				error.detail || error.message || "Failed to create record",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to create record"),
 		});
 	};
 
