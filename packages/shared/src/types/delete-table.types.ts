@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { tableQuerySchema } from "./database.types";
-import type { RelatedRecord } from "./delete-record.types";
+import { tableQuerySchema } from "./database.types.js";
+import type { RelatedRecord } from "./delete-record.types.js";
 
 export const deleteTableQuerySchema = tableQuerySchema.extend({
 	cascade: z

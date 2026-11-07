@@ -1,7 +1,7 @@
 import { type ConnectionSummarySchemaType, DATABASE_ENGINES } from "@db-studio/shared/types";
 import { Kbd } from "@db-studio/ui/kbd";
 import { cn } from "@db-studio/ui/utils";
-import { Search } from "lucide-react";
+import { Lock, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useConnect, useConnections } from "../hooks/use-connections";
@@ -50,6 +50,12 @@ const SavedConnectionRow = ({
 					/>
 				) : (
 					<span className="truncate">{connection.name}</span>
+				)}
+				{connection.readOnly && (
+					<Lock
+						aria-label="Read-only"
+						className="size-3 shrink-0 text-muted-foreground"
+					/>
 				)}
 			</div>
 			<span className="truncate font-mono text-xs text-muted-foreground">

@@ -16,6 +16,278 @@ export type ChangelogItem = {
 
 export const changelog: ChangelogItem[] = [
 	{
+		version: "2.2.1",
+		date: "2026-11-04",
+		title: "Faster Linux launch",
+		bugsFixed: [
+			{
+				text: "The Linux AppImage opens faster",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "2.2.0",
+		date: "2026-11-03",
+		title: "MongoDB document cards and connection fixes",
+		improvements: [
+			{
+				text: "Browse MongoDB documents in individual cards with collapsible fields and editor colors",
+				username: ["a7medayman6", "husamql3"],
+			},
+			{
+				text: "Updated the desktop app and CLI dependencies",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Writes refused by a read-only connection now show clear guidance",
+				username: "husamql3",
+			},
+			{
+				text: "Your home directory is removed from error reports, including encoded Windows paths",
+				username: "husamql3",
+			},
+			{
+				text: "MongoDB databases with views now list their collections correctly",
+				username: "husamql3",
+			},
+			{
+				text: "Unreachable SQL Server connections now show a connection error",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "2.1.0",
+		date: "2026-10-30",
+		title: "Spreadsheet-style editing",
+		features: [
+			{
+				text: "Select a range of cells, copy it with headers, and paste cells from a spreadsheet",
+				username: "husamql3",
+			},
+			{
+				text: "Review unsaved cell edits, revert a single cell, and undo with Cmd/Ctrl+Z",
+				username: "husamql3",
+			},
+			{
+				text: "Set a cell to NULL, empty text or its column default as explicit choices",
+				username: "husamql3",
+			},
+			{
+				text: "Copy a row as JSON or as a SQL INSERT, and duplicate it from the row menu",
+				username: "husamql3",
+			},
+			{
+				text: "Mark a saved connection read-only so the database refuses any write",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Saving a value PostgreSQL cannot read as the column's type now shows a clear error",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a MySQL table that no longer exists now says so instead of a server error",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "2.0.1",
+		date: "2026-10-29",
+		title: "Every database. One studio",
+		improvements: [
+			{
+				text: "The website and docs now use our new slogan: Every database. One studio",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "2.0.0",
+		date: "2026-10-29",
+		title: "Desktop app and a new website",
+		features: [
+			{
+				text: "db-studio is now a desktop app for macOS, Windows and Linux, sharing saved connections with the CLI",
+				username: "husamql3",
+			},
+		],
+		improvements: [
+			{
+				text: "The website has a new design",
+				username: "husamql3",
+			},
+			{
+				text: "Menus, dialogs, tooltips and tabs open with smoother motion and consistent corners, and respect reduced motion",
+				username: "husamql3",
+			},
+			{
+				text: "The visualizer uses the full width without the tables sidebar",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "A query result too large to send now shows a clear error asking you to add a LIMIT",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.24.1",
+		date: "2026-10-28",
+		title: "Safer record and column edits",
+		bugsFixed: [
+			{
+				text: "A failed record or column edit no longer saves part of the change, and SQLite column edits keep UNIQUE, CHECK and other column rules",
+				username: "husamql3",
+			},
+			{
+				text: "Sorting a PostgreSQL table by several columns or by a column with empty values no longer skips rows",
+				username: "husamql3",
+			},
+			{
+				text: "Force deleting a row also removes rows that reach it through a second foreign key",
+				username: "husamql3",
+			},
+			{
+				text: "Unsaved grid edits stay with their own table, including rows whose keys look alike",
+				username: "husamql3",
+			},
+			{
+				text: "CSV import handles multiline values and quoted empty rows",
+				username: "husamql3",
+			},
+			{
+				text: "SQLite tables with comments in their definition open again",
+				username: "husamql3",
+			},
+			{
+				text: "Including the database schema in AI chat sends only table and column details, never row values",
+				username: "husamql3",
+			},
+			{
+				text: "Your own AI API key raises the request limit only for the provider it belongs to",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.24.0",
+		date: "2026-10-27",
+		title: "One connection per browser tab",
+		features: [
+			{
+				text: "Each browser tab keeps its own database connection, so opening another connection in a new tab no longer switches your other tabs",
+				username: "husamql3",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "SQL Server logins without server-wide permissions can open their databases and list their tables again",
+				username: "ahmedmohamedneom",
+			},
+		],
+	},
+	{
+		version: "1.23.0",
+		date: "2026-10-25",
+		title: "A password for network access",
+		tags: ["Security"],
+		features: [
+			{
+				text: "When db-studio listens on your network or runs in Docker, the browser asks for a password; set it with DB_STUDIO_PASSWORD or use the one printed at startup",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "Table filters and sorting no longer let crafted column names run SQL",
+				username: "SecFathy",
+			},
+			{
+				text: "Other websites can no longer make your browser send requests to db-studio",
+				username: "SecFathy",
+			},
+		],
+	},
+	{
+		version: "1.22.1",
+		date: "2026-10-25",
+		title: "Passwords with special characters",
+		bugsFixed: [
+			{
+				text: "MySQL, MariaDB and SQL Server connections now accept usernames, passwords and database names with special characters such as @, ; or =",
+				username: "husamql3",
+			},
+		],
+	},
+	{
+		version: "1.22.0",
+		date: "2026-10-23",
+		title: "Docker Compose and a tidier sidebar",
+		features: [
+			{
+				text: "Run db-studio with Docker Compose; the image now reports its health",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Sidebar row counts update while Live mode is on",
+			},
+			{
+				text: "The sidebar hides the schema prefix when one schema is selected, and truncates long table names",
+			},
+		],
+		bugsFixed: [
+			{
+				text: "PostgreSQL permission errors now say the role lacks a privilege instead of showing a server error",
+			},
+		],
+	},
+	{
+		version: "1.21.0",
+		date: "2026-10-23",
+		title: "Docker support and safer network access",
+		tags: ["Breaking change"],
+		features: [
+			{
+				text: "Build and run db-studio in Docker, with saved connections kept between runs",
+				username: "yousifsabah0",
+			},
+		],
+		improvements: [
+			{
+				text: "Network access now requires ALLOWED_HOSTS alongside HOST; list the hostname or IP you use to connect",
+				username: "yousifsabah0",
+			},
+		],
+	},
+	{
+		version: "1.20.1",
+		date: "2026-10-22",
+		title: "Clearer errors for bad data, missing tables and missing builds",
+		bugsFixed: [
+			{
+				text: "Saving a PostgreSQL row that breaks a foreign key, unique or NOT NULL rule now shows the database's reason instead of a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Opening a SQLite table that no longer exists now says the table does not exist instead of showing a server error",
+				username: "husamql3",
+			},
+			{
+				text: "Running db-studio from a source checkout without a web build now explains how to build it instead of failing",
+				username: "husamql3",
+			},
+		],
+	},
+	{
 		version: "1.20.0",
 		date: "2026-10-20",
 		title: "Connect and switch databases from the app",

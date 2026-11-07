@@ -1,6 +1,6 @@
 # db-studio
 
-> The modern pgAdmin alternative that works with every database
+> Every database. One studio
 
 ## Overview
 
@@ -31,7 +31,7 @@ db-studio is a modern database management tool designed to work with multiple da
 
 ## About
 
-db-studio is built as a modern alternative to traditional database management tools like pgAdmin, offering a streamlined experience that works consistently across different database systems.
+db-studio brings SQL, document, and key-value databases into one local, open-source studio. Browse tables, edit records, design schemas, and run queries from the same interface.
 
 ## Supported Databases
 

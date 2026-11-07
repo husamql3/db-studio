@@ -54,7 +54,9 @@ const roadmapMarkdown = (): string => {
 
 const landingMarkdown = (sponsors: Sponsor[]): string => `# db-studio
 
-A modern (pgAdmin alternative but good) database management studio for any database.
+Every database. One studio
+
+Browse tables, edit records, design schemas, and run queries in a free, open-source database GUI that runs locally.
 
 ## Getting Started
 
@@ -79,11 +81,14 @@ ${supportedDatabases
 - **Multi-Database** — PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, ClickHouse, and more from one UI.
 - **Table Browser** — Browse, filter, sort, and paginate rows. Full CRUD without writing SQL.
 - **Query Editor** — Monaco-powered SQL editor with syntax highlighting built right in.
+- **Saved Connections** — Every database you open is remembered. Switch, rename, and color connections without leaving the app.
+- **AI Assistant** — Ask about your schema and draft queries in chat, with your own AI provider key.
 
 ## Links
 
 - [Documentation](${SITE_URL}/docs)
 - [Getting Started](${SITE_URL}/docs/getting-started)
+- [Desktop App](${SITE_URL}/docs/desktop)
 - [FAQ](${SITE_URL}/docs/faq)
 - [Roadmap](${SITE_URL}/roadmap)
 - [Changelog](${SITE_URL}/changelog)

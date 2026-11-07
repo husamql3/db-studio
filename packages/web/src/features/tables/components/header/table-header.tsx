@@ -10,6 +10,7 @@ import { DeleteBtn } from "./delete-btn";
 import { FilterPopup } from "./filter-popup";
 import { LiveModeToggle } from "./live-mode-toggle";
 import { RefetchBtn } from "./refetch-btn";
+import { ReviewBtn } from "./review-btn";
 import { SaveBtn } from "./save-btn";
 
 export const TableHeader = ({
@@ -38,6 +39,7 @@ export const TableHeader = ({
 					setRowSelection={setRowSelection}
 					disabledReason={rowMutationReason}
 				/>
+				<ReviewBtn />
 				<ClearBtn />
 				<DeleteBtn
 					tableName={tableName}

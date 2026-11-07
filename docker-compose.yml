@@ -1,0 +1,25 @@
+services:
+  db-studio:
+    build: .
+    ports:
+      - "127.0.0.1:3333:3333"
+
+    volumes:
+      - db-studio-config:/home/node/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    # environment:
+    #   DATABASE_URL: postgresql://user:pass@host.docker.internal:5432/db
+    #   ALLOWED_HOSTS: db.lan
+    #   DB_STUDIO_PASSWORD: ${DB_STUDIO_PASSWORD:?set DB_STUDIO_PASSWORD in your shell or .env}
+
+volumes:
+  db-studio-config:

@@ -27,16 +27,18 @@ jobs:
         with:
           node-version: "22"
 
+      # bun check (the typecheck scripts) needs Bun 1.4.4+; packageManager pins it.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: package.json
 
       - name: Install dependencies
         run: bun install --ignore-scripts
 
       - name: Build project
-        run: bun run build
+        # Desktop packaging has its own workflow with app-specific path filters.
+        run: bun run build --filter='!@db-studio/desktop'
 
       - parallel:
           - name: Biome checks

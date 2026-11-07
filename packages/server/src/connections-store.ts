@@ -19,6 +19,8 @@ const savedConnectionSchema = z.object({
 	name: z.string(),
 	url: z.string(),
 	color: connectionColorSchema.nullable(),
+	// Files written before read-only connections existed have no flag.
+	readOnly: z.boolean().default(false),
 	lastUsedAt: z.number(),
 });
 export type SavedConnection = z.infer<typeof savedConnectionSchema>;
@@ -140,6 +142,7 @@ export const recordConnection = (url: string): Promise<SavedConnection> =>
 					name: defaultConnectionName(url),
 					url,
 					color: null,
+					readOnly: false,
 					lastUsedAt: Date.now(),
 				};
 		return [
@@ -152,7 +155,7 @@ export const recordConnection = (url: string): Promise<SavedConnection> =>
 
 export const updateSavedConnection = (
 	id: string,
-	{ name, color }: UpdateConnectionSchemaType,
+	{ name, color, readOnly }: UpdateConnectionSchemaType,
 ): Promise<SavedConnection> =>
 	mutate((connections) => {
 		const existing = connections.find((c) => c.id === id);
@@ -161,6 +164,7 @@ export const updateSavedConnection = (
 			...existing,
 			name: name ?? existing.name,
 			color: color === undefined ? existing.color : color,
+			readOnly: readOnly ?? existing.readOnly,
 		};
 		return [connections.map((c) => (c.id === id ? updated : c)), updated];
 	});

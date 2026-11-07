@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { databaseSchema, tableQuerySchema } from "./database.types";
-import { deleteColumnParamSchema } from "./delete-column.types";
+import { databaseSchema, tableQuerySchema } from "./database.types.js";
+import { deleteColumnParamSchema } from "./delete-column.types.js";
 
 export const renameColumnSchema = z.object({
 	newColumnName: z.string("New column name is required"),

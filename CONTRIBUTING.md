@@ -341,7 +341,7 @@ Examples:
    ```
 2. Open a Pull Request targeting the `stage` branch.
 3. Keep your PR title clear and descriptive, matching your commit format or branch name.
-4. Describe your changes, why they are needed, and link any related issues (such as `Closes #142`).
+4. Fill in the PR template: describe your changes, why they are needed, link any related issues (such as `Closes #142`), and add before/after screenshots or recordings.
 5. Automated CI checks will run project build, Biome formatting checks, TypeScript type checking, and tests on pull requests targeting `stage` or `main` (and on pushes to `stage`). Maintainers will review your PR and provide feedback.
 
 ## First-Time Contributors

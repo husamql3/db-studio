@@ -52,6 +52,7 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { isReadOnlyRefusal } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
@@ -87,7 +88,8 @@ const MYSQL_LOG_LEVELS: Record<string, ServerLogLevel> = {
 const quote = (name: string) => `\`${name.replaceAll("`", "``")}\``;
 
 export class MySqlAdapter extends BaseAdapter {
-	private mariaDb?: Promise<boolean>;
+	// Keyed by pool: tabs can work with a MySQL and a MariaDB server at once.
+	private mariaDb = new WeakMap<MysqlPool, Promise<boolean>>();
 
 	// =========================================================
 	// Abstract method implementations
@@ -101,7 +103,7 @@ export class MySqlAdapter extends BaseAdapter {
 	}
 
 	protected quoteIdentifier(name: string): string {
-		return `\`${name}\``;
+		return quote(name);
 	}
 
 	mapToUniversalType(nativeType: string): DataTypes {
@@ -172,15 +174,15 @@ export class MySqlAdapter extends BaseAdapter {
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
 			} else if (sortColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `\`${col}\` ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${quote(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause && sortColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
-		const sql = `SELECT * FROM \`${tableName}\` ${combinedWhere} ${effectiveSortClause} LIMIT ${limit + 1}`;
+		const sql = `SELECT * FROM ${quote(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${limit + 1}`;
 		const values = [...filterValues, ...cursorValues];
-		const countSql = `SELECT COUNT(*) as total FROM \`${tableName}\` ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${quote(tableName)} ${filterWhere}`;
 
 		return { sql, values, countSql, countValues: filterValues };
 	}
@@ -244,10 +246,15 @@ export class MySqlAdapter extends BaseAdapter {
 		const pool = await getMysqlPool(db);
 		const { clause: filterWhere, values: filterValues } = buildWhereClause(filters);
 
+		// The first queries to touch the table, so a dropped table or a stale URL fails here.
 		const [pkColumns, { total, estimated }] = await Promise.all([
 			this.getPrimaryKeyColumns(pool, tableName),
 			this.countRows(pool, tableName, filterWhere, filterValues),
-		]);
+		]).catch((e: unknown) => {
+			if ((e as { errno?: number }).errno === MYSQL_NO_SUCH_TABLE)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+			throw this.wrapError(e);
+		});
 
 		let sortColumns: string[] = [];
 		let effectiveSortDirection: SortDirection = order;
@@ -294,19 +301,19 @@ export class MySqlAdapter extends BaseAdapter {
 					.replace(/TEMP_DESC/g, "DESC");
 				if (pkTieBreakerCols.length) {
 					const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${tbDir}`).join(", ")}`;
+					effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${tbDir}`).join(", ")}`;
 				}
 			} else if (cursorColumns.length > 0) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `\`${col}\` ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quote(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause && cursorColumns.length > 0) {
-			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		} else if (pkTieBreakerCols.length) {
-			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `\`${col}\` ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${quote(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
 		const [dataRows] = await pool.execute<RowDataPacket[]>(
-			`SELECT * FROM \`${tableName}\` ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
+			`SELECT * FROM ${quote(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ${Math.floor(limit) + 1}`,
 			[...filterValues, ...cursorValues] as any,
 		);
 
@@ -547,7 +554,7 @@ export class MySqlAdapter extends BaseAdapter {
 				const relatedRecords = await this.getRelatedRecordsForTable(tableName, db);
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to delete table "${tableName}"` });
 		}
 	}
@@ -960,14 +967,19 @@ export class MySqlAdapter extends BaseAdapter {
 		try {
 			let total = 0;
 			for (const { keyValues, rowUpdates } of groups) {
-				const setClauses = rowUpdates.map((u) => `\`${u.columnName}\` = ?`);
-				const values: unknown[] = rowUpdates.map((u) => {
-					if (u.value !== null && typeof u.value === "object") return JSON.stringify(u.value);
-					if (booleanColumns.has(u.columnName) && typeof u.value === "string") {
-						return u.value === "true" ? 1 : 0;
-					}
-					return u.value;
-				});
+				const setClauses = rowUpdates.map(
+					(u) => `\`${u.columnName}\` = ${u.useDefault ? "DEFAULT" : "?"}`,
+				);
+				const values: unknown[] = rowUpdates
+					.filter((u) => !u.useDefault)
+					.map((u) => {
+						if (u.value !== null && typeof u.value === "object")
+							return JSON.stringify(u.value);
+						if (booleanColumns.has(u.columnName) && typeof u.value === "string") {
+							return u.value === "true" ? 1 : 0;
+						}
+						return u.value;
+					});
 				values.push(...keyValues);
 				const whereClauses = keyColumns.map((column) => `\`${column}\` = ?`);
 
@@ -986,7 +998,7 @@ export class MySqlAdapter extends BaseAdapter {
 			return { updatedCount: total };
 		} catch (error) {
 			await connection.rollback();
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, { message: `Failed to update records in "${tableName}"` });
 		} finally {
 			connection.release();
@@ -1023,7 +1035,7 @@ export class MySqlAdapter extends BaseAdapter {
 				const relatedRecords = await this.getRelatedRecords(tableName, primaryKeys, db);
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to delete records from "${tableName}"`,
 			});
@@ -1047,23 +1059,26 @@ export class MySqlAdapter extends BaseAdapter {
 		const connection = await pool.getConnection();
 		await connection.beginTransaction();
 
+		// Foreign-key checks stay on: a dependent row this walk misses fails the delete and rolls
+		// it back, instead of committing a reference to a deleted row.
 		try {
-			await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
-
 			const fkConstraints = await this.getForeignKeyReferences(tableName, db);
 			let totalRelated = 0;
-			const deletedTables = new Set<string>();
-			const visited = new Set<string>();
+			// Values already handled per relationship: a relationship reached again (a second FK
+			// path) still processes its new values, and a cycle ends once no value is new.
+			const handled = new Map<string, Set<string>>();
 
 			const deleteRelatedRecursively = async (
 				targetTable: string,
 				targetColumn: string,
-				values: unknown[],
-				visitedSet: Set<string>,
+				reached: unknown[],
 			) => {
 				const key = `${targetTable}.${targetColumn}`;
-				if (visitedSet.has(key)) return;
-				visitedSet.add(key);
+				const seen = handled.get(key) ?? new Set<string>();
+				handled.set(key, seen);
+				const values = reached.filter((value) => !seen.has(String(value)));
+				if (values.length === 0) return;
+				for (const value of values) seen.add(String(value));
 
 				const nestedFks = await this.getForeignKeyReferences(targetTable, db);
 				for (const nestedFk of nestedFks) {
@@ -1080,7 +1095,6 @@ export class MySqlAdapter extends BaseAdapter {
 							nestedFk.referencingTable,
 							nestedFk.referencingColumn,
 							nestedValues,
-							visitedSet,
 						);
 					}
 				}
@@ -1091,18 +1105,16 @@ export class MySqlAdapter extends BaseAdapter {
 					values as any[],
 				);
 				totalRelated += deleteResult.affectedRows;
-				deletedTables.add(targetTable);
 			};
 
+			// Every relationship, even a second one from the same child table: a message's
+			// recipient_id must go as well as its sender_id.
 			for (const constraint of fkConstraints) {
-				if (!deletedTables.has(constraint.referencingTable)) {
-					await deleteRelatedRecursively(
-						constraint.referencingTable,
-						constraint.referencingColumn,
-						pkValues,
-						visited,
-					);
-				}
+				await deleteRelatedRecursively(
+					constraint.referencingTable,
+					constraint.referencingColumn,
+					pkValues,
+				);
 			}
 
 			const mainPh = pkValues.map(() => "?").join(", ");
@@ -1111,13 +1123,11 @@ export class MySqlAdapter extends BaseAdapter {
 				pkValues as any,
 			);
 
-			await connection.execute("SET FOREIGN_KEY_CHECKS = 1");
 			await connection.commit();
 			return { deletedCount: result.affectedRows + totalRelated };
 		} catch (error) {
-			await connection.execute("SET FOREIGN_KEY_CHECKS = 1").catch(() => {});
 			await connection.rollback();
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to force delete records from "${tableName}"`,
 			});
@@ -1160,6 +1170,7 @@ export class MySqlAdapter extends BaseAdapter {
 						values as any,
 					);
 				} catch (error) {
+					if (isReadOnlyRefusal(error)) throw error;
 					throw new HTTPException(500, {
 						message: `Failed to insert record ${i + 1}: ${error instanceof Error ? error.message : String(error)}`,
 					});
@@ -1175,7 +1186,7 @@ export class MySqlAdapter extends BaseAdapter {
 			};
 		} catch (error) {
 			await connection.rollback();
-			if (error instanceof HTTPException) throw error;
+			if (error instanceof HTTPException || isReadOnlyRefusal(error)) throw error;
 			throw new HTTPException(500, {
 				message: `Failed to bulk insert records into "${tableName}"`,
 			});
@@ -1290,14 +1301,18 @@ export class MySqlAdapter extends BaseAdapter {
 	}
 
 	private isMariaDb(pool: MysqlPool): Promise<boolean> {
-		this.mariaDb ??= pool
-			.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
-			.then(([rows]) => Number(rows[0]?.mariadb) === 1)
-			.catch((e) => {
-				this.mariaDb = undefined;
-				throw e;
-			});
-		return this.mariaDb;
+		let mariaDb = this.mariaDb.get(pool);
+		if (!mariaDb) {
+			mariaDb = pool
+				.query<RowDataPacket[]>("SELECT VERSION() LIKE '%MariaDB%' AS mariadb")
+				.then(([rows]) => Number(rows[0]?.mariadb) === 1)
+				.catch((e) => {
+					this.mariaDb.delete(pool);
+					throw e;
+				});
+			this.mariaDb.set(pool, mariaDb);
+		}
+		return mariaDb;
 	}
 
 	private async getPrimaryKeyColumns(pool: MysqlPool, tableName: string): Promise<string[]> {

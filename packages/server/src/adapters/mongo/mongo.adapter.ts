@@ -590,6 +590,9 @@ export class MongoAdapter extends BaseAdapter {
 			const collections = await mongoDb.listCollections().toArray();
 			const results: TableInfoSchemaType[] = [];
 			for (const col of collections) {
+				// MongoDB reserves `system.*` for internal collections. A database with a view
+				// holds `system.views`, which no role may count, so listing it failed every request.
+				if (col.name.startsWith("system.")) continue;
 				const rowCount = await mongoDb.collection(col.name).estimatedDocumentCount();
 				results.push({ tableName: col.name, rowCount });
 			}

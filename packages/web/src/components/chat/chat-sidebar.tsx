@@ -37,7 +37,7 @@ import { SheetSidebar } from "@/components/sheet-sidebar";
 import { useAssistantRequestStore } from "@/features/ai-assistant";
 import { aiByok, useAiByokReady, useAiSettingsStore } from "@/features/settings";
 import { useRateLimit } from "@/hooks/use-rate-limit";
-import { getBaseUrl } from "@/shared/api/client";
+import { connectionHeaders, getBaseUrl } from "@/shared/api/client";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 
@@ -76,7 +76,9 @@ const ChatSidebarContent = ({
 	const canSend = hasPersonalKey || (provider === "gemini" && remaining > 0);
 
 	const { messages, sendMessage, isLoading, clear, stop } = useChat({
-		connection: fetchServerSentEvents(`${getBaseUrl()}${DEFAULTS.API_PREFIX}/chat`),
+		connection: fetchServerSentEvents(`${getBaseUrl()}${DEFAULTS.API_PREFIX}/chat`, () => ({
+			headers: connectionHeaders(),
+		})),
 		body: { db, includeSchema: includeSchemaInAiContext },
 		byok: aiByok,
 		forwardedProps: { provider, model },

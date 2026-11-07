@@ -45,6 +45,15 @@ const compositeParams = {
 	updates: [{ columnName: "name", value: "Grace", rowData: compositeRow }],
 };
 
+/** A pg pool whose statements, and those of the clients it checks out, land in `statements`. */
+const recordingPgPool = (statements: Array<{ sql: string; values: unknown[] }>) => {
+	const query = vi.fn(async (sql: string, values: unknown[] = []) => {
+		statements.push({ sql, values });
+		return { rows: [], rowCount: 1, fields: [] };
+	});
+	return { query, connect: async () => ({ query, release: () => {} }) };
+};
+
 describe("composite primary key updates", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -53,12 +62,7 @@ describe("composite primary key updates", () => {
 	describe("PgAdapter", () => {
 		it("matches on every key column", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getDbPool.mockReturnValue({
-				query: vi.fn(async (sql: string, values: unknown[] = []) => {
-					statements.push({ sql, values });
-					return { rows: [], rowCount: 1, fields: [] };
-				}),
-			});
+			mocks.getDbPool.mockReturnValue(recordingPgPool(statements));
 
 			const adapter = new PgAdapter();
 			await expect(
@@ -72,12 +76,7 @@ describe("composite primary key updates", () => {
 
 		it("still matches on the single key column when no composite key is sent", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getDbPool.mockReturnValue({
-				query: vi.fn(async (sql: string, values: unknown[] = []) => {
-					statements.push({ sql, values });
-					return { rows: [], rowCount: 1, fields: [] };
-				}),
-			});
+			mocks.getDbPool.mockReturnValue(recordingPgPool(statements));
 
 			const adapter = new PgAdapter();
 			await adapter.updateRecords({
@@ -111,12 +110,7 @@ describe("composite primary key updates", () => {
 
 		it("writes one statement per record when two rows share a key column", async () => {
 			const statements: Array<{ sql: string; values: unknown[] }> = [];
-			mocks.getDbPool.mockReturnValue({
-				query: vi.fn(async (sql: string, values: unknown[] = []) => {
-					statements.push({ sql, values });
-					return { rows: [], rowCount: 1, fields: [] };
-				}),
-			});
+			mocks.getDbPool.mockReturnValue(recordingPgPool(statements));
 
 			const adapter = new PgAdapter();
 			await adapter.updateRecords({

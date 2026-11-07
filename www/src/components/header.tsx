@@ -1,6 +1,5 @@
 import { HEADER_LINKS, META } from "@db-studio/shared/constants";
 import { Link } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoLogoGithub } from "react-icons/io";
@@ -8,12 +7,16 @@ import { IoMenuOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/btn";
 import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
 
+// TanStack marks the current route's link with data-status="active".
+const NAV_LINK =
+	"flex h-8 items-center rounded-sm px-3 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground data-[status=active]:text-foreground";
+
 export const Header = () => {
 	const [open, setOpen] = useState(false);
 
 	return (
-		<header className="border-b">
-			<div className="max-w-2xl mx-auto px-4 py-4 md:py-5 flex items-center justify-between relative border-x">
+		<header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
+			<div className="mx-auto flex h-14 max-w-5xl items-center justify-between border-x px-3 md:px-5">
 				<div className="flex items-center gap-1">
 					<Sheet
 						open={open}
@@ -25,8 +28,8 @@ export const Header = () => {
 						>
 							<Button
 								variant="ghost"
-								size="icon"
-								className="flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground/10"
+								size="icon-sm"
+								aria-label="Open menu"
 							>
 								<IoMenuOutline className="size-5" />
 							</Button>
@@ -37,89 +40,82 @@ export const Header = () => {
 							showCloseButton={false}
 							onOpenAutoFocus={(e) => e.preventDefault()}
 						>
-							<SheetHeader className="flex flex-col">
+							<SheetHeader className="flex flex-col gap-0.5">
 								{HEADER_LINKS.map((link) => (
 									<Link
 										to={link.href}
 										key={link.href}
+										activeOptions={{ exact: link.href === "/" }}
 										onClick={() => setOpen(false)}
-										className="w-full"
+										className={NAV_LINK}
 									>
-										<Button
-											variant="ghost"
-											className="w-full justify-start text-xs hover:bg-primary-foreground/10"
-										>
-											{link.label}
-										</Button>
+										{link.label}
 									</Link>
 								))}
 							</SheetHeader>
 						</SheetContent>
 					</Sheet>
 
-					<Link to="/">
+					<Link
+						to="/"
+						className="flex items-center gap-2 rounded-sm px-1 text-sm font-semibold tracking-tight"
+					>
 						<img
 							src="/logo.png"
-							alt="db-studio"
-							width={32}
-							className="md:w-8 w-6"
+							alt=""
+							width={24}
+							height={24}
 						/>
+						db-studio
 					</Link>
 				</div>
 
-				{/* Desktop nav */}
-				<div className="items-center gap-1 flex">
+				<nav className="flex items-center gap-0.5">
 					{HEADER_LINKS.map((link) => (
 						<Link
 							to={link.href}
 							key={link.href}
-							className="hidden md:block"
+							activeOptions={{ exact: link.href === "/" }}
+							className={`${NAV_LINK} hidden md:flex`}
 						>
-							<Button
-								variant="ghost"
-								className="gap-2 flex items-center justify-center text-xs cursor-pointer hover:bg-primary-foreground/10"
-							>
-								{link.label}
-							</Button>
+							{link.label}
 						</Link>
 					))}
 
-					<a
-						href={META.SITE_GITHUB_LINK}
-						target="_blank"
-						rel="noopener noreferrer"
-						aria-label="GitHub"
+					<span
+						aria-hidden
+						className="mx-2 hidden h-4 w-px bg-border md:block"
+					/>
+
+					<Button
+						asChild
+						variant="ghost"
+						size="icon-sm"
 					>
-						<Button
-							variant="ghost"
-							className="gap-2 items-center"
+						<a
+							href={META.SITE_GITHUB_LINK}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="GitHub"
 						>
 							<IoLogoGithub className="size-4" />
-						</Button>
-					</a>
-
-					<a
-						href={META.SITE_X_LINK}
-						target="_blank"
-						rel="noopener noreferrer"
+						</a>
+					</Button>
+					<Button
+						asChild
+						variant="ghost"
+						size="icon-sm"
 					>
-						<Button
-							variant="ghost"
-							className="gap-2 items-center"
+						<a
+							href={META.SITE_X_LINK}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="X"
 						>
 							<FaXTwitter className="size-3.5" />
-						</Button>
-					</a>
-				</div>
-
-				<PlusIcon
-					className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-					strokeWidth={1}
-				/>
-				<PlusIcon
-					className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-					strokeWidth={1}
-				/>
+						</a>
+					</Button>
+				</nav>
 			</div>
 		</header>
 	);

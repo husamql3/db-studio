@@ -703,8 +703,8 @@ export class DuckDbAdapter extends BaseAdapter {
 				for (const { keyValues, rowUpdates } of groups) {
 					const changed = await execute(
 						conn,
-						`UPDATE ${ident(tableName)} SET ${rowUpdates.map((u) => `${ident(u.columnName)} = ?`).join(", ")} WHERE ${keyColumns.map((c) => `${ident(c)} = ?`).join(" AND ")}`,
-						[...rowUpdates.map((u) => u.value), ...keyValues],
+						`UPDATE ${ident(tableName)} SET ${rowUpdates.map((u) => `${ident(u.columnName)} = ${u.useDefault ? "DEFAULT" : "?"}`).join(", ")} WHERE ${keyColumns.map((c) => `${ident(c)} = ?`).join(" AND ")}`,
+						[...rowUpdates.filter((u) => !u.useDefault).map((u) => u.value), ...keyValues],
 					);
 					if (changed === 0)
 						throw new HTTPException(404, {

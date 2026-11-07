@@ -61,7 +61,7 @@ function DownloadsChart({ weeks }: { weeks: Week[] }) {
 						<stop
 							offset="0%"
 							stopColor={BRAND}
-							stopOpacity="0.4"
+							stopOpacity="0.3"
 						/>
 						<stop
 							offset="100%"
@@ -78,7 +78,7 @@ function DownloadsChart({ weeks }: { weeks: Week[] }) {
 					d={line}
 					fill="none"
 					stroke={BRAND}
-					strokeWidth="2"
+					strokeWidth="1.5"
 					vectorEffect="non-scaling-stroke"
 				/>
 				{h && (
@@ -154,10 +154,10 @@ function LinkBadge({
 			target="_blank"
 			rel="noreferrer"
 			aria-label={label}
-			className="group flex items-stretch text-xs"
+			className="group flex items-stretch overflow-hidden rounded-sm text-xs"
 		>
 			<span className={cn("flex items-center px-2", iconClassName)}>{icon}</span>
-			<span className="flex items-center gap-1.5 border border-l-0 px-2.5 py-1.5 tabular-nums group-hover:bg-muted">
+			<span className="flex items-center gap-1.5 rounded-r-sm border border-l-0 px-2.5 py-1.5 tabular-nums transition-colors duration-150 group-hover:bg-white/5">
 				{children}
 				<ArrowUpRightIcon className="size-3 text-muted-foreground" />
 			</span>
@@ -186,24 +186,22 @@ function DownloadsOverview({
 }) {
 	return (
 		<>
-			<div className="flex flex-col gap-3 px-4 pt-6 md:px-8">
+			<div className="flex flex-col gap-3 px-5 pt-10 md:px-8">
 				<p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
 					Built in public
 				</p>
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
 						<p className="text-5xl font-semibold tracking-tight tabular-nums">
-							{stats.npmYearly.toLocaleString()}
+							{stats.npmTotal?.toLocaleString() ?? "—"}
 						</p>
-						<p className="mt-1 text-xs text-muted-foreground">
-							npm downloads in the last 12 months
-						</p>
+						<p className="mt-1 text-xs text-muted-foreground">total npm downloads</p>
 					</div>
 					<div className="flex flex-wrap gap-2">{badges}</div>
 				</div>
 			</div>
 
-			<div className="px-4 pt-10 md:px-8">
+			<div className="px-5 pt-8 md:px-8">
 				<DownloadsChart weeks={stats.npmWeeks} />
 			</div>
 		</>
@@ -212,7 +210,7 @@ function DownloadsOverview({
 
 export function BuiltInPublic({ stats }: { stats: HomeStatsData }) {
 	return (
-		<div className="flex flex-col pb-4">
+		<div className="flex flex-col pb-6">
 			<DownloadsOverview
 				stats={stats}
 				badges={

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableNameSchema, tableQuerySchema } from "./database.types";
+import { databaseSchema, tableNameSchema, tableQuerySchema } from "./database.types.js";
 
 export const addColumnSchema = z.object({
 	columnName: z.string("Column name is required"),

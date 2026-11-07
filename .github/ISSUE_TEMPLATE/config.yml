@@ -3,3 +3,6 @@ contact_links:
   - name: Questions & Discussions
     url: https://github.com/husamql3/db-studio/discussions
     about: Please ask general questions or start discussions here instead of opening an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/husamql3/db-studio/security/advisories/new
+    about: Please report security issues privately. Do not open a public issue.

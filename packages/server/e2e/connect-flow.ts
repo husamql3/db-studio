@@ -9,7 +9,9 @@
  * - a relative SQLite path is saved relative, so it breaks from another directory;
  * - after connecting, the app still shows the previous database's tables;
  * - a failed switch drops the working connection;
- * - a tab opened on the previous connection still reaches the new one (same engine);
+ * - opening a connection in one tab moves another tab, or a reload loses the tab's connection;
+ * - a tab's grid edit is saved into the database another tab has open;
+ * - a tab naming a connection the server no longer has open is answered from another one;
  * - an unsaved cell edit survives a switch and can be saved into the wrong database;
  * - the saved file is readable by other users, or the browser receives a password;
  * - a request with a foreign Host header (DNS rebinding) is answered.
@@ -53,11 +55,27 @@ const seed = async (file: string, statements: string[]) => {
 	await client.batch(statements, "write");
 	client.close();
 };
+// Both files have a `notes` row 1, so an edit saved into the wrong file looks right in the grid.
+const notes = [
+	"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
+	"INSERT INTO notes (id, body) VALUES (1, 'seed')",
+];
 await seed("shop.sqlite", [
 	"CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT)",
 	"INSERT INTO customers (name) VALUES ('Ada')",
+	...notes,
 ]);
-await seed("blog.sqlite", ["CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)"]);
+await seed("blog.sqlite", [
+	"CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)",
+	...notes,
+]);
+/** `notes` as stored in `file`, read past the server. */
+const notesIn = async (file: string) => {
+	const client = createClient({ url: `file:${join(dir, file)}` });
+	const { rows } = await client.execute("SELECT id, body FROM notes ORDER BY id");
+	client.close();
+	return rows.map(({ id, body }) => ({ id: Number(id), body }));
+};
 await writeFile(join(dir, "empty.env"), "");
 
 const env = { ...process.env };
@@ -132,13 +150,7 @@ const shot = async (page: Page, name: string) => {
 	await page.evaluate(() => (window as unknown as { undoShot: () => void }).undoShot());
 };
 
-const connectionId = async () => {
-	const state = (await (await fetch(`${BASE}/api/connections`)).json()) as {
-		data: { active: { connectionId: string } };
-	};
-	return state.data.active.connectionId;
-};
-/** Status of a database request from a tab that last saw connection `id`. */
+/** Status of a database request from a tab that works with connection `id`. */
 const tablesStatusFrom = async (id: string) =>
 	(await fetch(`${BASE}/api/sqlite/tables?db=main`, { headers: { "X-Connection-Id": id } }))
 		.status;
@@ -147,13 +159,26 @@ const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+// One context: its pages are tabs of one browser window, sharing localStorage.
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 // tsx wraps named functions in `__name(...)`, which the page does not define.
-await page.addInitScript("globalThis.__name = (fn) => fn;");
+await context.addInitScript("globalThis.__name = (fn) => fn;");
+const page = await context.newPage();
 const urlField = page.getByRole("textbox", { name: "Connection URL" });
 const footerConnection = (name: string) =>
 	page.getByRole("button", { name, exact: true }).last();
-const saveButton = () => page.getByRole("button", { name: "Save changes to the table" });
+const saveButton = (tab = page) =>
+	tab.getByRole("button", { name: "Save changes to the table" });
+/** Changes `notes` row 1 to `body` through the grid and saves it. */
+const editNote = async (tab: Page, body: string) => {
+	await tab.getByRole("link", { name: "notes" }).click();
+	await tab.locator("tbody tr[data-index] td", { hasText: /^seed$/ }).dblclick();
+	const cellEditor = tab.locator("[data-grid-cell-editor] textarea");
+	await cellEditor.fill(body);
+	await cellEditor.press("ControlOrMeta+Enter");
+	await saveButton(tab).click();
+	await saveButton(tab).waitFor({ state: "hidden" });
+};
 
 try {
 	const pageErrors: string[] = [];
@@ -186,7 +211,6 @@ try {
 	await page.waitForURL(`${BASE}/`);
 	await page.getByRole("link", { name: "customers" }).waitFor();
 	await shot(page, "3-connected");
-	const shopConnection = await connectionId();
 
 	// An edit left unsaved before switching away.
 	await page.getByRole("link", { name: "customers" }).click();
@@ -208,11 +232,31 @@ try {
 	};
 	await shot(page, "4-switched");
 
-	// A tab that still shows shop.sqlite is refused, not answered from blog.sqlite.
-	summary.staleTab = {
-		previousConnection: await tablesStatusFrom(shopConnection),
-		currentConnection: await tablesStatusFrom(await connectionId()),
+	// A second tab opens shop.sqlite while this one stays on blog.sqlite.
+	const secondTab = await context.newPage();
+	await secondTab.goto(`${BASE}/`);
+	// A new tab starts on the connection opened last.
+	await secondTab.getByRole("link", { name: "posts" }).waitFor();
+	await secondTab.getByRole("button", { name: "blog.sqlite", exact: true }).last().click();
+	await secondTab.getByRole("menuitem", { name: /shop\.sqlite/ }).click();
+	await secondTab.getByRole("link", { name: "customers" }).waitFor();
+	await shot(secondTab, "4b-second-tab");
+	// Focus refetches the connection state, and a reload starts the tab over.
+	await page.bringToFront();
+	await page.reload();
+	await page.getByRole("link", { name: "posts" }).waitFor();
+	const tables = (tab: Page) =>
+		tab.getByRole("link", { name: /^(posts|customers)$/ }).allTextContents();
+	const tabTables = { firstTab: await tables(page), secondTab: await tables(secondTab) };
+	// Each tab saves its own edit to the same table and row id.
+	await editNote(page, "edited in the blog tab");
+	await editNote(secondTab, "edited in the shop tab");
+	summary.twoTabs = {
+		...tabTables,
+		notes: { blog: await notesIn("blog.sqlite"), shop: await notesIn("shop.sqlite") },
+		closedConnection: await tablesStatusFrom("closed-connection"),
 	};
+	await secondTab.close();
 
 	// Switch back from the footer menu.
 	await footerConnection("blog.sqlite").click();
@@ -292,7 +336,15 @@ try {
 		firstRun: { path: "/connect" },
 		missingFile: { message: "No database file at <tmp>/shpo.sqlite", created: false },
 		afterSwitch: { tables: ["posts"] },
-		staleTab: { previousConnection: 409, currentConnection: 200 },
+		twoTabs: {
+			firstTab: ["posts"],
+			secondTab: ["customers"],
+			notes: {
+				blog: [{ id: 1, body: "edited in the blog tab" }],
+				shop: [{ id: 1, body: "edited in the shop tab" }],
+			},
+			closedConnection: 409,
+		},
 		unsavedEditAfterSwitch: { saveButtonShown: false, names: ["Ada"] },
 		failedSwitch: {
 			toast: "No database file at <tmp>/blog.sqlite. Still on the previous connection.",

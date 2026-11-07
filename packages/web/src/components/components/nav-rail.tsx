@@ -148,17 +148,15 @@ const MoreMenu = () => {
 
 	return (
 		<DropdownMenu>
-			<RailTip label="More">
-				<DropdownMenuTrigger asChild>
-					<button
-						type="button"
-						aria-label="More"
-						className={railTile}
-					>
-						<Ellipsis className="size-5" />
-					</button>
-				</DropdownMenuTrigger>
-			</RailTip>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					aria-label="More"
+					className={railTile}
+				>
+					<Ellipsis className="size-5" />
+				</button>
+			</DropdownMenuTrigger>
 
 			<DropdownMenuContent
 				side="right"
@@ -215,6 +213,8 @@ const Divider = () => <div className="h-px w-full shrink-0 bg-border" />;
 // Navigation on top, utilities pinned to the bottom; there is no top header.
 export const NavRail = () => {
 	const { openOverlay } = useOverlayStore();
+	const { pathname } = useLocation();
+	const hasSidebar = pathname.split("/")[1] !== "visualizer";
 
 	return (
 		<nav
@@ -222,8 +222,12 @@ export const NavRail = () => {
 			className="flex shrink-0 flex-col border-r border-border bg-background"
 			style={{ width: CONSTANTS.RAIL_WIDTH }}
 		>
-			<SidebarToggle />
-			<Divider />
+			{hasSidebar && (
+				<>
+					<SidebarToggle />
+					<Divider />
+				</>
+			)}
 			<RailSections />
 			<div className="mt-auto flex flex-col">
 				<Divider />

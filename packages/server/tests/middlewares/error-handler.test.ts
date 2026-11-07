@@ -3,6 +3,7 @@ import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
 import { z } from "zod";
 import { DatabaseError } from "pg";
+import sql from "mssql";
 
 import { loadDriver } from "@/drivers.js";
 import { handleError } from "@/middlewares/error-handler.js";
@@ -37,6 +38,19 @@ describe("Error Handler Middleware", () => {
 	});
 
 	describe("Database connection error handling", () => {
+		it.each([
+			[new sql.ConnectionError("Failed to connect to db:1433 in 15000ms", "ETIMEOUT"), 503],
+			[new sql.RequestError("Timeout: Request failed to complete in 15000ms", "ETIMEOUT"), 500],
+		])("returns the correct status for an unwrapped MSSQL %s", async (error, status) => {
+			app.get("/test", () => {
+				throw error;
+			});
+
+			const res = await app.handle(new Request("http://localhost/test"));
+
+			expect(res.status).toBe(status);
+		});
+
 		it("should return 503 for ECONNREFUSED error", async () => {
 			app.get("/test", () => {
 				throw new Error("connect ECONNREFUSED 127.0.0.1:5432");

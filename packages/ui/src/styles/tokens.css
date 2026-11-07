@@ -145,3 +145,23 @@ button {
 		}
 	}
 }
+
+/* Motion. A strong ease-out for anything that enters or answers a press, replacing Tailwind's
+   weak default so every `ease-out` utility uses it, and an iOS-like curve for sheets. */
+@theme {
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Reduced motion keeps the fades and drops the movement. Unlayered, so it beats the utilities
+   that set these variables. */
+@media (prefers-reduced-motion: reduce) {
+	* {
+		--tw-enter-scale: 1;
+		--tw-exit-scale: 1;
+		--tw-enter-translate-x: 0;
+		--tw-enter-translate-y: 0;
+		--tw-exit-translate-x: 0;
+		--tw-exit-translate-y: 0;
+	}
+}

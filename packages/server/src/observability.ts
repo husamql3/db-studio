@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { DATABASE_TYPES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import * as Sentry from "@sentry/node";
 import { PostHog } from "posthog-node";
@@ -225,13 +226,25 @@ const sanitizedError = (error: unknown, errorType: string, message: string): Err
 	const sanitized = new Error(message);
 	sanitized.name = errorType;
 	if (error instanceof Error && error.stack) {
-		// npx installs under the home directory, whose path names the account.
+		// npx installs under the home directory, whose path names the account. ESM
+		// frames name it as a file URL, with forward slashes and percent-encoding.
 		const home = homedir();
+		const forwardSlashed = home.replaceAll("\\", "/");
+		// A decoded home ending in % is a prefix of its longer %25-encoded form.
+		const homeForms = home
+			? [
+					home,
+					forwardSlashed,
+					pathToFileURL(home, {
+						windows: path.win32.isAbsolute(home) && !path.posix.isAbsolute(home),
+					}).pathname.replace(/^\/(?=[a-z]:\/)/i, ""),
+				].sort((a, b) => b.length - a.length)
+			: [];
 		const frames = error.stack
 			.split("\n")
 			.slice(1)
 			.filter((line) => /^\s*at\s/.test(line))
-			.map((line) => line.replaceAll(home, "~"));
+			.map((line) => homeForms.reduce((frame, form) => frame.replaceAll(form, "~"), line));
 		sanitized.stack = [`${errorType}: ${message}`, ...frames].join("\n");
 	}
 	return sanitized;

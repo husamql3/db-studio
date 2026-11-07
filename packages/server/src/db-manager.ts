@@ -16,9 +16,21 @@ import type { Pool, PoolConfig } from "pg";
 import { createD1Client, parseD1Url } from "@/d1-client.js";
 import { loadDriver, loadedDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { errorFields, writeOperationalLog } from "@/operational-log.js";
+import { currentConnectionId, errorFields, writeOperationalLog } from "@/operational-log.js";
 import { fromLibsql, type SqliteClient } from "@/sqlite-client.js";
 import { toDriverUrl } from "@/utils/parse-database-url.js";
+
+/**
+ * Decode a URL's username, password or path segment, which `URL` keeps percent-encoded
+ * (`p%40ss` for `p@ss`). A `%` that starts no escape is kept as typed.
+ */
+const decodeUrlPart = (value: string): string => {
+	try {
+		return decodeURIComponent(value.replace(/%(?![0-9a-fA-F]{2})/g, "%25"));
+	} catch {
+		return value;
+	}
+};
 
 /**
  * DatabaseManager - Manages multiple database connection pools for PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, SQLite / libSQL, DuckDB and Redis
@@ -45,9 +57,19 @@ export class DatabaseManager {
 		dbType: DatabaseTypeSchema;
 	} | null;
 
-	/** Throws when `databaseUrl` is malformed or names an unsupported engine; connects lazily. */
-	constructor(databaseUrl: string | null = null) {
+	/**
+	 * Throws when `databaseUrl` is malformed or names an unsupported engine, or when `readOnly` is
+	 * set for an engine that cannot open a read-only session; connects lazily.
+	 */
+	constructor(
+		databaseUrl: string | null = null,
+		private readonly readOnly = false,
+	) {
 		this.baseConfig = databaseUrl ? this.parseConfig(databaseUrl) : null;
+		const engine = this.baseConfig && DATABASE_ENGINES[this.baseConfig.dbType];
+		if (readOnly && engine && !engine.readOnly) {
+			throw new Error(`${engine.label} connections cannot be opened read-only`);
+		}
 	}
 
 	/**
@@ -93,8 +115,8 @@ export class DatabaseManager {
 			url: driverUrl,
 			host: url.hostname,
 			port: Number.parseInt(url.port, 10) || (DATABASE_ENGINES[detectedType].defaultPort ?? 0),
-			user: url.username,
-			password: url.password,
+			user: decodeUrlPart(url.username),
+			password: decodeUrlPart(url.password),
 			dbType: detectedType,
 		};
 	}
@@ -129,14 +151,10 @@ export class DatabaseManager {
 			return config.url;
 		}
 
-		if (!database) {
-			const url = new URL(config.url);
-			database = url.pathname.slice(1);
-		}
-
 		try {
 			const url = new URL(config.url);
-			url.pathname = `/${database}`;
+			// The name is literal; encoded, the drivers decode it back (`sales%41` stays `sales%41`).
+			if (database) url.pathname = `/${encodeURIComponent(database)}`;
 			return url.toString();
 		} catch (error) {
 			throw new Error(
@@ -216,6 +234,7 @@ export class DatabaseManager {
 					const { DuckDBInstance } = await loadDriver("duckdb");
 					const instance = await DuckDBInstance.create(filePath, {
 						checkpoint_threshold: "0b",
+						...(this.readOnly && { access_mode: "READ_ONLY" }),
 					});
 					return { instance, connection: await instance.connect() };
 				} catch (e) {
@@ -254,8 +273,8 @@ export class DatabaseManager {
 		this.oraclePool ??= loadDriver("oracle")
 			.then((oracledb) =>
 				oracledb.createPool({
-					user: decodeURIComponent(user),
-					password: decodeURIComponent(password),
+					user,
+					password,
 					connectString: `${host}:${port}/${service}`,
 					poolMin: 0,
 					poolMax: 10,
@@ -316,8 +335,13 @@ export class DatabaseManager {
 			// block, because CockroachDB does not run PL/pgSQL.
 			const pool = new Pool({
 				...poolConfig,
-				onConnect: (client) =>
-					client
+				onConnect: async (client) => {
+					// shortcut: a transaction-mode pooler (PgBouncer, Neon -pooler, Supabase :6543) can
+					// run later queries on a server connection that never got this SET; connect directly
+					// for a guaranteed read-only session, or wrap each request in BEGIN READ ONLY.
+					// Unlike search_path below, a failure here fails the connection instead of allowing writes.
+					if (this.readOnly) await client.query("SET default_transaction_read_only = on");
+					await client
 						.query(
 							`SELECT set_config(
 								'search_path',
@@ -340,7 +364,8 @@ export class DatabaseManager {
 									...errorFields(err),
 								});
 							},
-						),
+						);
+				},
 			});
 
 			pool.on("error", (err) => {
@@ -363,7 +388,7 @@ export class DatabaseManager {
 
 		if (!this.mysqlPools.has(connectionString)) {
 			const url = new URL(connectionString);
-			const dbName = url.pathname.slice(1);
+			const dbName = decodeUrlPart(url.pathname.slice(1));
 
 			const pool = createPool({
 				host: config.host,
@@ -378,6 +403,15 @@ export class DatabaseManager {
 				// Enable multiple statements for raw query support
 				multipleStatements: false,
 			});
+			// mysql2 queues commands per connection, so this runs before the connection's first
+			// query; a connection that cannot be made read-only is dropped instead of writing.
+			if (this.readOnly) {
+				pool.pool.on("connection", (connection) =>
+					connection.query("SET SESSION TRANSACTION READ ONLY", (error) => {
+						if (error) connection.destroy();
+					}),
+				);
+			}
 
 			this.mysqlPools.set(connectionString, pool);
 		}
@@ -395,7 +429,7 @@ export class DatabaseManager {
 
 		if (!this.mssqlPools.has(connectionString)) {
 			const url = new URL(connectionString);
-			const dbName = url.pathname.slice(1);
+			const dbName = decodeUrlPart(url.pathname.slice(1));
 
 			const poolConfig: MssqlConfig = {
 				server: config.host,
@@ -436,8 +470,9 @@ export class DatabaseManager {
 	 * `clickhouse://` maps to http, `clickhouses://` to https (default port 8443).
 	 */
 	async getClickhouseClient(database?: string): Promise<ClickHouseClient> {
+		const config = this.config();
 		const url = new URL(this.buildConnectionString(database));
-		const dbName = decodeURIComponent(url.pathname.slice(1)) || "default";
+		const dbName = decodeUrlPart(url.pathname.slice(1)) || "default";
 		const { ClickHouseLogLevel, createClient } = await loadDriver("clickhouse");
 
 		const existing = this.clickhouseClients.get(dbName);
@@ -446,104 +481,22 @@ export class DatabaseManager {
 		const tls = url.protocol === "clickhouses:";
 		const client = createClient({
 			url: `${tls ? "https" : "http"}://${url.hostname}:${url.port || (tls ? 8443 : 8123)}`,
-			username: decodeURIComponent(url.username) || "default",
-			password: decodeURIComponent(url.password),
+			username: config.user || "default",
+			password: config.password,
 			database: dbName,
 			request_timeout: 30_000,
 			clickhouse_settings: {
 				output_format_json_quote_64bit_integers: 1,
 				output_format_json_quote_decimals: 1,
 				wait_end_of_query: 1,
+				// 2, not 1: read-only that still lets each request change settings like the one above.
+				...(this.readOnly && { readonly: "2" }),
 			},
 			// Failures surface through the adapter's error mapping; the client's own log would duplicate them.
 			log: { level: ClickHouseLogLevel.OFF },
 		});
 		this.clickhouseClients.set(dbName, client);
 		return client;
-	}
-
-	/**
-	 * Get the appropriate pool based on database type (legacy/PG-only helper)
-	 */
-	getPool(database?: string): Promise<Pool> {
-		return this.getPgPool(database);
-	}
-
-	/**
-	 * Close a specific PostgreSQL pool by connection string
-	 */
-	async closePgPool(connectionString: string): Promise<void> {
-		const pool = this.pgPools.get(connectionString);
-		if (pool) {
-			await pool.end();
-			this.pgPools.delete(connectionString);
-			writeOperationalLog("info", "db_pool_closed", { db_type: "pg" });
-		}
-	}
-
-	/**
-	 * Close a specific MySQL pool by connection string
-	 */
-	async closeMysqlPool(connectionString: string): Promise<void> {
-		const pool = this.mysqlPools.get(connectionString);
-		if (pool) {
-			await pool.end();
-			this.mysqlPools.delete(connectionString);
-			writeOperationalLog("info", "db_pool_closed", { db_type: "mysql" });
-		}
-	}
-
-	/**
-	 * Close a specific SQL Server pool by connection string
-	 */
-	async closeMssqlPool(connectionString: string): Promise<void> {
-		const pool = this.mssqlPools.get(connectionString);
-		if (pool) {
-			await pool.close();
-			this.mssqlPools.delete(connectionString);
-			writeOperationalLog("info", "db_pool_closed", { db_type: "mssql" });
-		}
-	}
-
-	/**
-	 * Close a specific database pool by connection string (both types)
-	 */
-	async closePool(connectionString: string): Promise<void> {
-		if (this.baseConfig?.dbType === "sqlite" && connectionString === this.baseConfig.url) {
-			await this.closeSqliteClient();
-			return;
-		}
-		if (this.baseConfig?.dbType === "duckdb" && connectionString === this.baseConfig.url) {
-			await this.closeDuckdb();
-			return;
-		}
-		if (this.baseConfig?.dbType === "oracle") {
-			await this.closeOraclePool();
-			return;
-		}
-		await this.closePgPool(connectionString);
-		await this.closeMysqlPool(connectionString);
-		await this.closeMssqlPool(connectionString);
-	}
-
-	/**
-	 * Close a specific database pool by database name
-	 */
-	async closePoolByDatabase(database: string): Promise<void> {
-		if (this.baseConfig?.dbType === "sqlite") {
-			await this.closeSqliteClient();
-			return;
-		}
-		if (this.baseConfig?.dbType === "duckdb") {
-			await this.closeDuckdb();
-			return;
-		}
-		if (this.baseConfig?.dbType === "oracle") {
-			await this.closeOraclePool();
-			return;
-		}
-		const connectionString = this.buildConnectionString(database);
-		await this.closePool(connectionString);
 	}
 
 	/**
@@ -573,13 +526,9 @@ export class DatabaseManager {
 	 * Get the MongoDB database name from the connection URL
 	 */
 	getMongoDbName(): string {
-		const raw = new URL(this.config().url).pathname.replace(/^\/+|\/+$/g, "");
-		try {
-			return decodeURIComponent(raw) || "admin";
-		} catch {
-			// Malformed percent-encoding — fall back to the literal path segment.
-			return raw || "admin";
-		}
+		return (
+			decodeUrlPart(new URL(this.config().url).pathname.replace(/^\/+|\/+$/g, "")) || "admin"
+		);
 	}
 
 	/**
@@ -614,8 +563,8 @@ export class DatabaseManager {
 			enableReadyCheck: true,
 			connectTimeout: 2000,
 		};
-		if (config.user) options.username = decodeURIComponent(config.user);
-		if (config.password) options.password = decodeURIComponent(config.password);
+		if (config.user) options.username = config.user;
+		if (config.password) options.password = config.password;
 		if (url.protocol === "rediss:") options.tls = {};
 
 		const { Redis } = await loadDriver("redis");
@@ -710,114 +659,109 @@ export class DatabaseManager {
 		);
 		this.clickhouseClients.clear();
 	}
-
-	/**
-	 * Get all active pool connection strings
-	 */
-	getActivePools(): string[] {
-		return [
-			...Array.from(this.pgPools.keys()),
-			...Array.from(this.mysqlPools.keys()),
-			...Array.from(this.mssqlPools.keys()),
-		];
-	}
 }
 
-// The open connection; replaced as a whole when the user switches databases
-let databaseManager = new DatabaseManager();
+/**
+ * The open connections by id. Each browser tab names its own in `X-Connection-Id`, so two tabs
+ * work with two databases at once.
+ * shortcut: a connection stays open until the server stops, add idle eviction if users open many.
+ */
+const connections = new Map<string, DatabaseManager>();
+/** Serves a request that names no connection: the CLI's `--database-url`, curl, scripts. */
+let latestId: string | null = null;
+const notConnected = new DatabaseManager();
+/** Closed while this server runs: a tab naming one is told it is gone, not handed the latest. */
+const closedIds = new Set<string>();
+
+/** Close connection `id`; requests that name it get 409 from then on. */
+export const closeConnection = async (id: string): Promise<void> => {
+	const manager = connections.get(id);
+	connections.delete(id);
+	closedIds.add(id);
+	if (latestId === id) latestId = null;
+	await manager?.closeAll();
+};
+
+/** Add `manager` as connection `id` and make it the latest. */
+export const openConnection = (id: string, manager: DatabaseManager): void => {
+	connections.set(id, manager);
+	latestId = id;
+};
+
+export const getOpenConnection = (id: string) => connections.get(id);
+
+/** Read once when a request arrives that names no connection; it keeps that one throughout. */
+export const latestConnectionId = (): string | null => latestId;
 
 /**
- * Make `next` the open connection, then close the previous one's clients. A request that already
- * holds one of those clients fails; every later call reaches `next`.
+ * The connection this request names when it is still open; none when this server closed it; else
+ * (a new tab, or an id from before a restart) the latest.
  */
-export const replaceDatabaseManager = async (next: DatabaseManager): Promise<void> => {
-	const previous = databaseManager;
-	databaseManager = next;
-	await previous.closeAll();
+export const requestConnectionId = (): string | null => {
+	const sent = currentConnectionId();
+	if (sent && closedIds.has(sent)) return null;
+	return sent && connections.has(sent) ? sent : latestId;
 };
+
+// A request naming a connection that is gone reaches none, never another tab's database. Outside
+// a request (CLI startup), the latest.
+const current = (): DatabaseManager =>
+	connections.get(currentConnectionId() ?? latestId ?? "") ?? notConnected;
 
 /**
  * Get a PostgreSQL pool for the specified database
  */
 export const getDbPool = (database?: string): Promise<Pool> => {
-	return databaseManager.getPgPool(database);
+	return current().getPgPool(database);
 };
 
 /**
  * Get a MySQL pool for the specified database
  */
 export const getMysqlPool = (database?: string): Promise<MysqlPool> => {
-	return databaseManager.getMysqlPool(database);
+	return current().getMysqlPool(database);
 };
 
 /**
  * Get a SQL Server pool for the specified database
  */
 export const getMssqlPool = async (database?: string): Promise<MssqlPool> => {
-	return databaseManager.getMssqlPool(database);
+	return current().getMssqlPool(database);
 };
 
 /**
  * Get a ClickHouse client for the specified database
  */
 export const getClickhouseClient = (database?: string): Promise<ClickHouseClient> => {
-	return databaseManager.getClickhouseClient(database);
+	return current().getClickhouseClient(database);
 };
 
 /**
  * Get the type of the connected database. Throws a 409 HTTPException when none is connected.
  */
 export const getDbType = (): DatabaseTypeSchema => {
-	return databaseManager.getDbType();
+	return current().getDbType();
 };
 
 /**
  * Get the URL of the open connection. Throws a 409 HTTPException when none is connected.
  */
 export const getConnectionUrl = (): string => {
-	return databaseManager.getConnectionUrl();
-};
-
-/**
- * Build a connection string for the specified database
- */
-const _buildDbConnectionString = (database?: string): string => {
-	return databaseManager.buildConnectionString(database);
-};
-
-/**
- * Close a specific database pool by database name
- */
-const _closeDbPool = async (database: string): Promise<void> => {
-	return databaseManager.closePoolByDatabase(database);
-};
-
-/**
- * Close a specific database pool by connection string
- */
-const _closeDbPoolByConnectionString = async (connectionString: string): Promise<void> => {
-	return databaseManager.closePool(connectionString);
+	return current().getConnectionUrl();
 };
 
 /**
  * Close all database pools
  */
 export const closeAllDbPools = async (): Promise<void> => {
-	return databaseManager.closeAll();
-};
-
-/**
- * Get list of active pool connection strings
- */
-const _getActivePools = (): string[] => {
-	return databaseManager.getActivePools();
+	await Promise.all([...connections.values()].map((manager) => manager.closeAll()));
 };
 
 /**
  * Get the client for the configured SQLite file, libSQL / Turso or Cloudflare D1 database
  */
 export const getSqliteClient = (): Promise<SqliteClient> => {
-	return databaseManager.getSqliteClient();
+	return current().getSqliteClient();
 };
 
 /**
@@ -826,53 +770,53 @@ export const getSqliteClient = (): Promise<SqliteClient> => {
 export const withDuckdbConnection = <T>(
 	fn: (connection: DuckDBConnection) => Promise<T>,
 ): Promise<T> => {
-	return databaseManager.withDuckdbConnection(fn);
+	return current().withDuckdbConnection(fn);
 };
 
 /**
  * Get or create the Oracle pool for the configured service
  */
 export const getOraclePool = (): Promise<OraclePool> => {
-	return databaseManager.getOraclePool();
+	return current().getOraclePool();
 };
 
 /**
  * Get or create the MongoDB client
  */
 export const getMongoClient = (): Promise<MongoClient> => {
-	return databaseManager.getMongoClient();
+	return current().getMongoClient();
 };
 
 /**
  * Get the MongoDB database name from the connection URL
  */
 export const getMongoDbName = (): string => {
-	return databaseManager.getMongoDbName();
+	return current().getMongoDbName();
 };
 
 /**
  * Get a MongoDB database instance
  */
 export const getMongoDb = (dbName?: string) => {
-	return databaseManager.getMongoDb(dbName);
+	return current().getMongoDb(dbName);
 };
 
 /**
  * Get or create a Redis client for the specified logical DB index
  */
 export const getRedisClient = (dbIndex?: number): Promise<Redis> => {
-	return databaseManager.getRedisClient(dbIndex);
+	return current().getRedisClient(dbIndex);
 };
 
 export const getIsolatedRedisClient = (dbIndex?: number): Promise<Redis> => {
-	return databaseManager.getIsolatedRedisClient(dbIndex);
+	return current().getIsolatedRedisClient(dbIndex);
 };
 
 /**
  * Get the default Redis logical DB index from the connection URL
  */
 export const getRedisDefaultDb = (): number => {
-	return databaseManager.getRedisDefaultDb();
+	return current().getRedisDefaultDb();
 };
 
 export const isValidObjectId = (value: unknown): value is string => {

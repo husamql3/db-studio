@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, Loader2Icon, PlusIcon } from "lucide-react";
+import { CheckIcon, CircleDashedIcon, CircleDotIcon } from "lucide-react";
+import { SectionHeader } from "@/components/section";
 import { Silk } from "@/components/silk";
 import {
 	type RoadmapItem,
@@ -11,20 +12,17 @@ import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
-const getTaskIcon = (status: RoadmapItemStatus) => {
-	switch (status) {
-		case "completed":
-			return <CheckIcon className={cn("size-4 mt-0.5 shrink-0", getTaskIconClass(status))} />;
-		case "in-progress":
-			return (
-				<Loader2Icon
-					className={cn("size-4 mt-0.5 shrink-0 animate-spin", getTaskIconClass(status))}
-				/>
-			);
-		case "planned":
-			return <PlusIcon className={cn("size-4 mt-0.5 shrink-0", getTaskIconClass(status))} />;
-	}
-};
+// Static icons: a spinner says "loading", not "being built".
+const TASK_ICONS = {
+	completed: CheckIcon,
+	"in-progress": CircleDotIcon,
+	planned: CircleDashedIcon,
+} satisfies Record<RoadmapItemStatus, unknown>;
+
+const shipped = (tasks: RoadmapItemTask[]) =>
+	tasks.filter((task) => task.status === "completed").length;
+
+const allTasks = roadmapItems.flatMap((item) => item.items);
 
 export const Route = createFileRoute("/(main)/_pathlessLayout/roadmap")({
 	component: RouteComponent,
@@ -37,93 +35,88 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/roadmap")({
 		}),
 });
 
+function Progress({ tasks }: { tasks: RoadmapItemTask[] }) {
+	return (
+		<p className="flex items-baseline gap-2 text-xs tabular-nums text-muted-foreground">
+			<span className="text-2xl font-medium tracking-tight text-foreground">
+				{shipped(tasks)}
+			</span>
+			/ {tasks.length} shipped
+		</p>
+	);
+}
+
 function RouteComponent() {
 	return (
-		<main className="flex-1 mx-auto border-x max-w-2xl w-full">
-			<div className="h-full w-full flex-1 flex flex-col gap-4">
-				{/* Page Title Section */}
-				<div
-					className={
-						"relative w-full flex flex-col border-b px-4 py-10 md:px-8 md:py-10 gap-4"
-						//  dark:bg-[radial-gradient(35%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]
-					}
-				>
-					<Silk
-						speed={4}
-						scale={1}
-						color="#222222"
-						noiseIntensity={0.4}
-						rotation={0}
-					/>
-
-					<div className="w-full max-w-xl mx-auto text-center">
-						<h1 className="text-2xl md:text-3xl font-semibold mb-2">Product Roadmap</h1>
-						<p className="text-sm">
-							Follow our journey as we build the future of database management
-						</p>
-					</div>
-
-					<PlusIcon
-						className="-bottom-[12.5px] -left-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-					<PlusIcon
-						className="-right-[12.5px] -bottom-[12.5px] absolute size-6"
-						strokeWidth={1}
-					/>
-				</div>
-
-				{/* Timeline Section */}
-				<div className="relative px-4 max-w-lg mx-auto py-6 md:py-12">
-					<div className="relative">
-						{/* Vertical Timeline Line */}
-						<div className="absolute left-[11.5px] top-0 bottom-0 w-px bg-border" />
-
-						{roadmapItems.map((item: RoadmapItem) => (
-							<div
-								key={item.title}
-								className="relative pl-10 pb-10 last:pb-0"
-							>
-								{/* Plus Icon as Timeline Bullet */}
-								<div className="absolute left-0 top-0 bg-background">
-									<PlusIcon
-										className="size-6"
-										strokeWidth={1}
-									/>
-								</div>
-
-								{/* Content Card */}
-								<div className="space-y-3 md:space-y-6">
-									<div className="flex flex-col-reverse sm:flex-row sm:items-center gap-1">
-										<h2 className="text-lg font-semibold">{item.title}</h2>
-
-										<span
-											className={cn(
-												"inline-flex w-fit items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-												getStatusStyles(item.status),
-											)}
-										>
-											{getStatusLabel(item.status)}
-										</span>
-									</div>
-
-									<ul className="space-y-2">
-										{item.items.map((task: RoadmapItemTask, taskIndex: number) => (
-											<li
-												key={`${item.title}-${task.title}-${taskIndex}`}
-												className="flex items-start gap-2 text-sm text-muted-foreground"
-											>
-												{getTaskIcon(task.status)}
-												<span>{task.title}</span>
-											</li>
-										))}
-									</ul>
-								</div>
-							</div>
-						))}
-					</div>
+		<main className="mx-auto w-full max-w-5xl flex-1 border-x">
+			<div className="relative isolate overflow-hidden">
+				<Silk
+					speed={4}
+					scale={1}
+					color="#222222"
+					noiseIntensity={0.4}
+					rotation={0}
+				/>
+				<SectionHeader
+					level={1}
+					eyebrow="Roadmap"
+					title="Where db-studio is going"
+					description="What's shipped, what's being built, and what's next."
+				/>
+				<div className="px-5 pb-10 md:px-8">
+					<Progress tasks={allTasks} />
 				</div>
 			</div>
+
+			<ol className="border-t">
+				{roadmapItems.map((item: RoadmapItem) => (
+					<li
+						key={item.title}
+						className="grid gap-5 border-b px-5 py-8 last:border-b-0 md:grid-cols-[220px_1fr] md:gap-8 md:px-8"
+					>
+						<div className="flex flex-col gap-3 md:sticky md:top-24 md:self-start">
+							<div className="flex flex-wrap items-center gap-2">
+								<h2 className="text-base font-medium tracking-tight">{item.title}</h2>
+								<span
+									className={cn(
+										"rounded-[3px] border px-1.5 py-0.5 text-[10px]",
+										getStatusStyles(item.status),
+									)}
+								>
+									{getStatusLabel(item.status)}
+								</span>
+							</div>
+							<Progress tasks={item.items} />
+						</div>
+
+						<ul className="flex max-w-2xl flex-col gap-2.5">
+							{item.items.map((task: RoadmapItemTask) => {
+								const Icon = TASK_ICONS[task.status];
+								return (
+									<li
+										key={task.title}
+										className={cn(
+											"flex items-start gap-2.5 text-[13px] leading-relaxed text-pretty",
+											task.status === "planned"
+												? "text-muted-foreground"
+												: "text-foreground/85",
+										)}
+									>
+										<Icon
+											aria-label={getStatusLabel(task.status)}
+											className={cn(
+												"mt-[3px] size-3.5 shrink-0",
+												getTaskIconClass(task.status),
+											)}
+										/>
+										{task.title}
+									</li>
+								);
+							})}
+						</ul>
+					</li>
+				))}
+			</ol>
 		</main>
 	);
 }

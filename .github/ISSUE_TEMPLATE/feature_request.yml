@@ -71,6 +71,12 @@ body:
       required: true
 
   - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Mockups
+      description: Drag and drop screenshots, mockups, or screen recordings that show the current behavior or the idea.
+
+  - type: textarea
     id: alternatives
     attributes:
       label: Alternatives Considered
@@ -115,4 +121,4 @@ body:
     id: additional-context
     attributes:
       label: Additional Context
-      description: Add mockups, examples from other tools, screenshots, or anything else that helps explain the request.
+      description: Add examples from other tools, links, or anything else that helps explain the request.

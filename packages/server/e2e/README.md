@@ -72,6 +72,21 @@ DATABASE_URL='mssql://sa:DbStudio1!@127.0.0.1:1433/dbstudio' bunx tsx e2e/row-es
 
 The database must be disposable. Writes `e2e/artifacts/row-estimates-<mysql|mssql>.json`.
 
+## Record writes and paging regressions
+
+Force deletes a user referenced twice from one table (as sender and as recipient) and checks that
+both messages go. On PostgreSQL it also saves an edit that fails halfway, 20 times while looping
+queries keep the pool busy, and checks the first change was rolled back and no save hung; then it
+pages one row at a time, forward and back, through NULL sort values and a mixed-direction sort.
+
+```bash
+cd packages/server
+DATABASE_URL=postgresql://dbstudio:dbstudio@127.0.0.1:5434/dbstudio bunx tsx e2e/audit-regressions.ts
+DATABASE_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/audit-regressions.ts
+```
+
+The database must be disposable. Writes `e2e/artifacts/audit-regressions-<pg|mysql>.json`.
+
 ## Run the Oracle review probe
 
 The five Oracle review scenarios check composite foreign-key deletion, nanosecond timestamp
@@ -143,3 +158,18 @@ DATABASE_URL='d1://<account id>/<database id>?authToken=<api token>' bunx tsx e2
 ```
 
 It writes `e2e/artifacts/d1-specifics-<label>.json`.
+
+## Read-only connections
+
+Marks a saved connection read-only and checks that reads work, query-runner writes and DDL fail,
+the tab's old read-write connection closes without moving that tab to another database, a
+connection opened during the switch cannot write, a pasted URL of the same connection opens
+read-only, and an in-memory DuckDB database refuses the switch and keeps its rows. DuckDB and SQLite run on scratch files; set `PG_URL`, `MYSQL_URL` or `CLICKHOUSE_URL`
+to include those engines.
+
+```bash
+cd packages/server
+MYSQL_URL=mysql://root@127.0.0.1:3306/dbstudio bunx tsx e2e/read-only.ts
+```
+
+It writes `e2e/artifacts/read-only.json`.

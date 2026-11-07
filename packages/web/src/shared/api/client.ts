@@ -15,12 +15,27 @@ const newRequestId = (): string =>
 		byte.toString(16).padStart(2, "0"),
 	).join("");
 
+const CONNECTION_ID_KEY = "dbstudio-connection-id";
+/** The server connection this tab works with. Per tab: another tab can work with another one. */
+let connectionId = sessionStorage.getItem(CONNECTION_ID_KEY);
+
+/** Every request names this tab's connection; the server answers from that connection. */
+export const connectionHeaders = (): Record<string, string> =>
+	connectionId ? { "X-Connection-Id": connectionId } : {};
+
+export const setConnectionId = (id: string | null): void => {
+	connectionId = id;
+	if (id) sessionStorage.setItem(CONNECTION_ID_KEY, id);
+	else sessionStorage.removeItem(CONNECTION_ID_KEY);
+};
+
 const setupInterceptors = (instance: AxiosInstance) => {
 	instance.interceptors.request.use(
 		(config) => {
 			// The server adopts this ID, so its log line and error report name the same request.
 			const requestId = newRequestId();
 			config.headers.set("X-Request-Id", requestId);
+			config.headers.set(connectionHeaders());
 			(
 				config as InternalAxiosRequestConfig & {
 					metadata?: { startTime: number };
@@ -157,9 +172,3 @@ const apiClient = new ApiClient();
 export const rootApi = apiClient.rootApi;
 export const api = apiClient.api;
 export const setDbType = (type: DatabaseTypeSchema): void => apiClient.setDbType(type);
-
-/** Database requests name the connection this tab shows; the server refuses one it replaced. */
-export const setConnectionId = (id: string | null): void => {
-	if (id) api.defaults.headers.common["X-Connection-Id"] = id;
-	else delete api.defaults.headers.common["X-Connection-Id"];
-};

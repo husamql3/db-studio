@@ -2,10 +2,12 @@ import {
 	CONNECTION_COLORS,
 	type ConnectionColorSchemaType,
 	type ConnectionSummarySchemaType,
+	DATABASE_ENGINES,
 } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
@@ -15,12 +17,12 @@ import {
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
 import { cn } from "@db-studio/ui/utils";
-import { Ellipsis, Palette, Pencil, Trash2 } from "lucide-react";
+import { Ellipsis, Lock, Palette, Pencil, Trash2 } from "lucide-react";
 import { useRef } from "react";
 import { useManageConnection } from "../hooks/use-manage-connection";
 import { ConnectionColorDot } from "./connection-color-dot";
 
-/** The "…" menu of a saved connection: rename, color, delete. */
+/** The "…" menu of a saved connection: rename, color, read-only, delete. */
 export const ConnectionActionsMenu = ({
 	connection,
 	onRename,
@@ -28,7 +30,7 @@ export const ConnectionActionsMenu = ({
 	connection: ConnectionSummarySchemaType;
 	onRename: () => void;
 }) => {
-	const { setColor, remove } = useManageConnection(connection);
+	const { setColor, setReadOnly, remove } = useManageConnection(connection);
 	const colors: (ConnectionColorSchemaType | null)[] = [null, ...CONNECTION_COLORS];
 	// Rename shows an auto-focused field. It mounts once the menu has closed: before that the
 	// menu holds focus, and closing it would return focus to the "…" button.
@@ -90,6 +92,15 @@ export const ConnectionActionsMenu = ({
 						))}
 					</DropdownMenuSubContent>
 				</DropdownMenuSub>
+				{DATABASE_ENGINES[connection.dbType].readOnly && (
+					<DropdownMenuCheckboxItem
+						checked={connection.readOnly}
+						onCheckedChange={setReadOnly}
+						className="whitespace-nowrap"
+					>
+						<Lock /> Read-only
+					</DropdownMenuCheckboxItem>
+				)}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					variant="destructive"

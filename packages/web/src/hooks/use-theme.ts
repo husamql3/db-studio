@@ -2,8 +2,6 @@ import { useEffect, useSyncExternalStore } from "react";
 import { COLOR_SCHEME_QUERY, type ResolvedTheme } from "@/lib/theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 
-export type { ResolvedTheme };
-
 function subscribeToSystemTheme(callback: () => void) {
 	if (typeof window === "undefined" || !window.matchMedia) {
 		return () => {};

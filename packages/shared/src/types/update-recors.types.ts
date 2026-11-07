@@ -16,6 +16,8 @@ export const updateRecordsSchema = z.object({
 					rowData: z.record(z.string("Column name is required"), z.any()),
 					columnName: z.string("Column name is required"),
 					value: z.any(),
+					/** Sets the column to its declared default; `value` is ignored. */
+					useDefault: z.boolean().optional(),
 				},
 				{
 					message: "Each update must have a row data, column name, and value.",

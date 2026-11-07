@@ -829,10 +829,8 @@ const main = async () => {
 		process.exit(2);
 	}
 
-	const { DatabaseManager, getDbType, replaceDatabaseManager } = await import(
-		"../src/db-manager.js"
-	);
-	await replaceDatabaseManager(new DatabaseManager(databaseUrl));
+	const { DatabaseManager, getDbType, openConnection } = await import("../src/db-manager.js");
+	openConnection("e2e", new DatabaseManager(databaseUrl));
 	const dbType = getDbType();
 	if (dbType === "mongodb" || dbType === "redis") {
 		console.error(`${dbType} is out of scope: this contract covers SQL engines only.`);

@@ -7,6 +7,8 @@ type RequestContext = {
 	requestId: string;
 	operation: string;
 	dbType?: DatabaseTypeSchema;
+	/** `X-Connection-Id`, or the latest connection when the request arrived without one. */
+	connectionId?: string;
 };
 
 /** Identifies this server process, so logs written outside a request still correlate. */
@@ -22,6 +24,9 @@ export const runWithRequestContext = <T>(context: RequestContext, callback: () =
 	requestContext.run(context, callback);
 
 export const currentRequestId = (): string | undefined => requestContext.getStore()?.requestId;
+
+export const currentConnectionId = (): string | undefined =>
+	requestContext.getStore()?.connectionId;
 
 const safeErrorType = (error: unknown): string => {
 	const name =
