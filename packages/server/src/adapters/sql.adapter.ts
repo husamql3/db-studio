@@ -515,7 +515,6 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		conn: Conn,
 		tableName: string,
 		schemaName: string | undefined,
-		_sorted: boolean,
 	): Promise<{ keys: string[]; rowId?: string }> {
 		return { keys: await this.primaryKey(conn, tableName, schemaName) };
 	}
@@ -562,7 +561,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 			);
 
 			counting.catch(() => {});
-			const { keys, rowId } = await this.pageKey(conn, tableName, schemaName, sort.length > 0);
+			const { keys, rowId } = await this.pageKey(conn, tableName, schemaName);
 			const { total, estimated } = await counting;
 			const terms = orderTerms(sort, order, rowId ? [rowId] : keys);
 			const select = `SELECT ${this.pageColumns(keys, rowId)} FROM ${this.tableRef(tableName, schemaName)}`;

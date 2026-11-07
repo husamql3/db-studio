@@ -238,20 +238,15 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}
 
 	/**
-	 * A table without a key pages by rowid when unsorted. A view has no rowid, so a sorted table
-	 * without a key pages by OFFSET.
+	 * A table without a key pages by rowid. Views have none, but requireTable admits only
+	 * tables, and a WITHOUT ROWID table always has a primary key.
 	 */
-	protected override async pageKey(
-		client: SqliteClient,
-		tableName: string,
-		_schemaName: string | undefined,
-		sorted: boolean,
-	) {
+	protected override async pageKey(client: SqliteClient, tableName: string) {
 		// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
 		await this.requireTable(client, tableName);
 		const keys = await this.primaryKey(client, tableName);
 
-		return keys.length || sorted ? { keys } : { keys, rowId: "rowid" };
+		return keys.length ? { keys } : { keys, rowId: "rowid" };
 	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
