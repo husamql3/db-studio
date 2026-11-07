@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
 import { updateRecords, type ApiError, apiErrorMessage } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export type RowFieldUpdate = {
@@ -48,15 +48,7 @@ export const useUpdateRecord = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-				}),
-			]);
+			await invalidateTableRows(queryClient, tableName);
 
 			if (dbType) posthogAnalytics.capture("record_updated", { db_type: dbType });
 		},

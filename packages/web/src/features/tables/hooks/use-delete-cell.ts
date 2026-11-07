@@ -5,7 +5,7 @@ import type { TableRecord } from "@/features/tables/table.type";
 import { useTableCols } from "@/hooks/use-table-cols";
 import { posthogAnalytics } from "@/lib/posthog";
 import { type ApiError, apiErrorMessage, deleteRecords } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 import { getIdentityColumnNames } from "../utils/row-details-utils";
 
@@ -56,15 +56,7 @@ export const useDeleteCells = ({
 		onSuccess: async (result) => {
 			if (result.fkViolation) return;
 
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-				}),
-			]);
+			await invalidateTableRows(queryClient, tableName);
 
 			if (dbType) posthogAnalytics.capture("record_deleted", { db_type: dbType });
 		},

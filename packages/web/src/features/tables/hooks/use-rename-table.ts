@@ -6,7 +6,8 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
-import { indexKeys, tableKeys } from "@/shared/query/keys";
+import { forgetTable } from "@/shared/query/invalidate-table";
+import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useRenameTable = ({
@@ -34,18 +35,9 @@ export const useRenameTable = ({
 
 			return res.data.data;
 		},
-		// Drop the old name's entries rather than invalidate them: a refetch would ask for a
-		// table that no longer exists before the caller navigates to the new name.
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
-
-			for (const queryKey of [
-				tableKeys.dataByTable(tableName),
-				tableKeys.columnsByTable(tableName),
-				indexKeys.byTable(tableName),
-			]) {
-				queryClient.removeQueries({ queryKey });
-			}
+			forgetTable(queryClient, tableName);
 		},
 	});
 

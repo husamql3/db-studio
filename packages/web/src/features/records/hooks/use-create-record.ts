@@ -7,7 +7,7 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useCreateRecord = ({
@@ -36,15 +36,7 @@ export const useCreateRecord = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-				}),
-			]);
+			await invalidateTableRows(queryClient, tableName);
 
 			if (dbType) posthogAnalytics.capture("record_created", { db_type: dbType });
 		},

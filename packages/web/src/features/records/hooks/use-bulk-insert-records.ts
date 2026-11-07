@@ -7,6 +7,7 @@ import {
 	type ApiError,
 	apiErrorMessage,
 } from "@/shared/api";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -33,18 +34,8 @@ export const useBulkInsertRecords = ({
 		},
 		onSuccess: async () => {
 			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
+				invalidateTableRows(queryClient, tableName),
+				queryClient.invalidateQueries({ queryKey: tableKeys.columnsByTable(tableName) }),
 			]);
 		},
 	});
