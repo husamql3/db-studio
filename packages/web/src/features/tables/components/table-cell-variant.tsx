@@ -365,63 +365,80 @@ export const TableNumberCell = memo(
 		isSelected,
 	}: CellVariantProps<TableRecord>) => {
 		const { setUpdate, clearUpdate, getUpdate } = useUpdateCellStore();
-		const initialValue = cell.getValue() as number;
+		const initialValue = cell.getValue();
 		const meta = table.options.meta;
-
+		const isNullable = cell.column.columnDef.meta?.isNullable ?? false;
 		const rowData = cell.row.original as Record<string, unknown>;
-		const columnName = columnId;
 
 		// A pending edit wins over the server value, also after a refetch (e.g. Live mode).
-		const pendingUpdate = getUpdate(rowData, columnName, meta?.editScope);
-		const displayValue = pendingUpdate ? (pendingUpdate.newValue as number) : initialValue;
+		const pendingUpdate = getUpdate(rowData, columnId, meta?.editScope);
+		const displayValue = pendingUpdate ? pendingUpdate.newValue : initialValue;
+		// NULL and DEFAULT start empty and show as the placeholder.
+		const editorStart = displayValue === CELL_DEFAULT ? "" : formatCellValue(displayValue);
 
 		// The input exists only while the cell is edited; a page holds hundreds of number cells.
-		const [value, setValue] = useState(displayValue);
+		// It keeps the typed text: Number() would round a bigint or numeric past 2^53.
+		const [editorValue, setEditorValue] = useState(editorStart);
 		const [open, setOpen] = useState(false);
+		// True from opening until the first save or cancel; the blur that closing causes must not
+		// save again.
+		const editingRef = useRef(false);
 
 		// Follow the grid's editing state, starting each edit from the value the cell shows.
 		if (isEditing !== open) {
-			if (isEditing) setValue(displayValue);
+			if (isEditing) {
+				setEditorValue(editorStart);
+				editingRef.current = true;
+			}
+
 			setOpen(isEditing);
 		}
 
-		const onSave = useCallback(
+		const close = useCallback(
 			(direction?: NavigationDirection) => {
-				setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
-
+				editingRef.current = false;
 				setOpen(false);
 				meta?.onCellEditingStop?.({ direction });
 			},
-			[meta, value, initialValue, columnName, rowData, setUpdate],
+			[meta],
+		);
+
+		// Untouched text, or a cleared NOT NULL cell, keeps the value it had.
+		const onSave = useCallback(
+			(direction?: NavigationDirection) => {
+				if (!editingRef.current) return;
+
+				if (editorValue !== editorStart && (editorValue !== "" || isNullable)) {
+					setUpdate(
+						rowData,
+						columnId,
+						editorValue === "" ? null : editorValue,
+						initialValue,
+						meta?.editScope,
+					);
+				}
+
+				close(direction);
+			},
+			[
+				editorValue,
+				editorStart,
+				isNullable,
+				rowData,
+				columnId,
+				initialValue,
+				meta,
+				setUpdate,
+				close,
+			],
 		);
 
 		const onCancel = useCallback(() => {
-			setValue(initialValue);
+			clearUpdate(rowData, columnId, meta?.editScope);
+			close();
+		}, [rowData, columnId, meta, clearUpdate, close]);
 
-			clearUpdate(rowData, columnName, table.options.meta?.editScope);
-
-			setOpen(false);
-			meta?.onCellEditingStop?.();
-		}, [meta, initialValue, columnName, rowData, clearUpdate, value]);
-
-		const onChange = useCallback(
-			(event: ChangeEvent<HTMLInputElement>) => {
-				const newValue = event.target.value;
-				setValue(Number(newValue));
-
-				// Stages the change; nothing is saved until Save.
-				setUpdate(
-					rowData,
-					columnName,
-					Number(newValue),
-					initialValue,
-					table.options.meta?.editScope,
-				);
-			},
-			[columnName, value, initialValue, rowData, setUpdate],
-		);
-
-		const onTextInputKeyDown = useCallback(
+		const onInputKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLInputElement>) => {
 				if (event.key === "Escape") {
 					event.preventDefault();
@@ -437,17 +454,8 @@ export const TableNumberCell = memo(
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
 			},
-			[onCancel, onSave, value, initialValue],
+			[onCancel, onSave],
 		);
-
-		const onTextInputBlur = useCallback(() => {
-			if (value !== initialValue) {
-				setUpdate(rowData, columnName, value, initialValue, table.options.meta?.editScope);
-			}
-
-			setOpen(false);
-			meta?.onCellEditingStop?.();
-		}, [meta, value, initialValue, columnName, rowData, setUpdate]);
 
 		// Focus the input as it mounts, with the caret after the current value.
 		const focusInput = useCallback((input: HTMLInputElement | null) => {
@@ -458,9 +466,6 @@ export const TableNumberCell = memo(
 			input.value = "";
 			input.value = current;
 		}, []);
-
-		useHotkeys("enter", () => onSave(), { enabled: open });
-		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<TableCellWrapper
@@ -477,10 +482,17 @@ export const TableNumberCell = memo(
 						type="number"
 						variant="outline"
 						ref={focusInput}
-						value={value ?? ""}
-						onChange={(event) => onChange(event as ChangeEvent<HTMLInputElement>)}
-						onKeyDown={(event) => onTextInputKeyDown(event as KeyboardEvent<HTMLInputElement>)}
-						onBlur={onTextInputBlur}
+						value={editorValue}
+						placeholder={
+							displayValue === null || displayValue === undefined
+								? "NULL"
+								: displayValue === CELL_DEFAULT
+									? "DEFAULT"
+									: undefined
+						}
+						onChange={(event) => setEditorValue(event.target.value)}
+						onKeyDown={onInputKeyDown}
+						onBlur={() => onSave()}
 						className="size-full rounded-none border-none p-0 shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					/>
 				) : (
