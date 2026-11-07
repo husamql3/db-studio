@@ -137,8 +137,6 @@ const inTransaction = async <T>(conn: DuckDBConnection, fn: () => Promise<T>): P
 	}
 };
 
-const placeholders = (values: unknown[]) => values.map(() => "?").join(", ");
-
 const sequenceNamesIn = (columns: ColumnRow[]) =>
 	columns.flatMap((c) =>
 		[...(c.column_default ?? "").matchAll(/nextval\('([^']+)'\)/g)].map((m) => m[1]),
