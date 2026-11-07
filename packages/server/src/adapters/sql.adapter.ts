@@ -394,6 +394,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		});
 	}
 
+	/** 409 when the name is taken. */
 	async createTable({
 		tableData,
 		db,
@@ -405,6 +406,9 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
 
 		await this.connect(db, async (conn) => {
+			if (await this.columnNames(conn, tableName))
+				throw new HTTPException(409, { message: `Table "${tableName}" already exists` });
+
 			const definitions = [
 				...fields.map((field) => this.columnDefinition(conn, tableName, field, primaryKey)),
 				...this.tableConstraints(fields, primaryKey),

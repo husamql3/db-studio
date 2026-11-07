@@ -77,6 +77,7 @@ const STATUS_BY_SQLSTATE_CLASS: Record<string, number> = {
 	"08": 503, // connection exception
 	"22": 400, // data exception: invalid date, text in a number column, value too long
 	"23": 409, // integrity constraint violation: foreign key, unique, not null, check
+	"2B": 409, // dependent objects still exist: a view or constraint uses what a DROP removes
 };
 
 /** The codes `errorFields` gives node-postgres's codeless connection failures. */

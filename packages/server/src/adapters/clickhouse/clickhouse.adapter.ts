@@ -315,6 +315,10 @@ export class ClickhouseAdapter extends BaseAdapter {
 			});
 		}
 
+		if (await this.findTable(db, tableName)) {
+			throw new HTTPException(409, { message: `Table "${tableName}" already exists` });
+		}
+
 		const supportsJson = await this.isAtLeast(db, 25, 3);
 
 		if (fields.some((f) => f.isIdentity || isSerialType(f.columnType))) {

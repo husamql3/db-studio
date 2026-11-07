@@ -673,7 +673,7 @@ export class MongoAdapter extends BaseAdapter {
 		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
 		if (collections.length > 0) {
-			throw new HTTPException(400, {
+			throw new HTTPException(409, {
 				message: `Collection "${tableName}" already exists`,
 			});
 		}

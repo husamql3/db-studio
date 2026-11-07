@@ -177,6 +177,10 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 		if (e.message.includes("constraint failed")) return { status: 409 };
 
+		// A column ADD or DROP COLUMN cannot change: a key, UNIQUE or NOT NULL column without a
+		// default to add; a key, UNIQUE or indexed column, or one a view or trigger uses, to drop.
+		if (/Cannot add a |cannot drop |after drop column/.test(e.message)) return { status: 400 };
+
 		return undefined;
 	}
 
