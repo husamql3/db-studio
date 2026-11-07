@@ -79,7 +79,7 @@ vi.mock(import("nuqs"), async (importOriginal) => ({
 
 const renderSheet = (rowIndex = 0) => {
 	useOverlayStore.getState().openOverlay("tables.row-details");
-	useRowDetailsStore.getState().setRowDetails("users", rowIndex);
+	useRowDetailsStore.getState().selectRowDetails(rowIndex);
 	render(
 		<RowDetailsSheet
 			tableName="users"
@@ -115,7 +115,7 @@ describe("RowDetailsSheet", () => {
 			</QueryClientProvider>
 		);
 		useOverlayStore.setState({ openOverlays: [] });
-		useRowDetailsStore.setState({ tableName: null, rowIndex: null });
+		useRowDetailsStore.setState({ rowIndex: null });
 		user = userEvent.setup();
 	});
 
@@ -286,7 +286,7 @@ describe("RowDetailsSheet", () => {
 
 	it("asks before dropping a dirty row that falls off the page", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
-		useRowDetailsStore.getState().setRowDetails("users", 2);
+		useRowDetailsStore.getState().selectRowDetails(2);
 
 		const { rerender } = render(
 			<RowDetailsSheet
@@ -324,7 +324,7 @@ describe("RowDetailsSheet", () => {
 
 	it("resets all fields when untouched draft receives refreshed row data", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
-		useRowDetailsStore.getState().setRowDetails("users", 0);
+		useRowDetailsStore.getState().selectRowDetails(0);
 
 		const { rerender } = render(
 			<RowDetailsSheet
@@ -350,7 +350,7 @@ describe("RowDetailsSheet", () => {
 
 	it("preserves dirty fields when refreshed row has the same record identity", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
-		useRowDetailsStore.getState().setRowDetails("users", 0);
+		useRowDetailsStore.getState().selectRowDetails(0);
 
 		const { rerender } = render(
 			<RowDetailsSheet
@@ -379,7 +379,7 @@ describe("RowDetailsSheet", () => {
 
 	it("resets to new record values when row identity changes underneath", async () => {
 		useOverlayStore.getState().openOverlay("tables.row-details");
-		useRowDetailsStore.getState().setRowDetails("users", 0);
+		useRowDetailsStore.getState().selectRowDetails(0);
 
 		const { rerender } = render(
 			<RowDetailsSheet

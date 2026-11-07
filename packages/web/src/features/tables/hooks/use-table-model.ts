@@ -153,13 +153,10 @@ export const useTableModel = ({
 		[editingCell, handleCellNavigate],
 	);
 
-	const handleRowDetailsOpen = useCallback(
-		(rowIndex: number) => {
-			useRowDetailsStore.getState().setRowDetails(tableName, rowIndex);
-			useOverlayStore.getState().openOverlay("tables.row-details");
-		},
-		[tableName],
-	);
+	const handleRowDetailsOpen = useCallback((rowIndex: number) => {
+		useRowDetailsStore.getState().selectRowDetails(rowIndex);
+		useOverlayStore.getState().openOverlay("tables.row-details");
+	}, []);
 
 	// A press starts a range at the cell, Shift extends the current one, and dragging stretches it.
 	const handleCellMouseDown = useCallback(

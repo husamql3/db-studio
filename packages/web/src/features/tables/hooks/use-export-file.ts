@@ -50,13 +50,13 @@ export const useExportFile = () => {
 		},
 	});
 
-	const exportFile = async (params: ExportFileParams) => {
-		return toast.promise(exportFileMutation(params), {
+	// The toast reports a failure; the returned toast id never rejects.
+	const exportFile = (params: ExportFileParams) =>
+		toast.promise(exportFileMutation(params), {
 			loading: "Exporting file...",
 			success: "File exported successfully",
 			error: (error: ApiError) => apiErrorMessage(error, "Failed to export file"),
 		});
-	};
 
 	return {
 		exportFile,

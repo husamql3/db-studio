@@ -484,11 +484,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({
+												exportFile({
 													tableName,
 													schemaName: openSchema,
 													format: "csv",
-												}).catch(() => undefined);
+												});
 											});
 										}}
 										keywords={["export", "download", "csv"]}
@@ -507,11 +507,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({
+												exportFile({
 													tableName,
 													schemaName: openSchema,
 													format: "json",
-												}).catch(() => undefined);
+												});
 											});
 										}}
 										keywords={["export", "download", "json"]}
