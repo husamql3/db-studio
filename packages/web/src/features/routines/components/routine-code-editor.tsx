@@ -11,17 +11,25 @@ import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store
 export const RoutineCodeEditor = ({
 	value,
 	onChange,
+	onExecute,
+	onSelectionChange,
 }: {
 	value: string;
 	onChange: (value: string) => void;
+	onExecute: (query: string) => void;
+	onSelectionChange: (query: string) => void;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const onChangeRef = useRef(onChange);
+	const onExecuteRef = useRef(onExecute);
+	const onSelectionChangeRef = useRef(onSelectionChange);
 	const { isDark } = useTheme();
 	const { editor: preferences } = usePersonalPreferencesStore();
 
 	onChangeRef.current = onChange;
+	onExecuteRef.current = onExecute;
+	onSelectionChangeRef.current = onSelectionChange;
 
 	useEffect(() => {
 		if (!containerRef.current) return;
@@ -43,9 +51,21 @@ export const RoutineCodeEditor = ({
 		const changeSubscription = editor.onDidChangeModelContent(() => {
 			onChangeRef.current(editor.getValue());
 		});
+		const getSelectedCode = () => {
+			const selection = editor.getSelection();
+			return selection ? (editor.getModel()?.getValueInRange(selection) ?? "") : "";
+		};
+		const selectionSubscription = editor.onDidChangeCursorSelection(() => {
+			onSelectionChangeRef.current(getSelectedCode());
+		});
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+			const selectedCode = getSelectedCode();
+			onExecuteRef.current(selectedCode?.trim() ? selectedCode : editor.getValue());
+		});
 		editorRef.current = editor;
 
 		return () => {
+			selectionSubscription.dispose();
 			changeSubscription.dispose();
 			editor.dispose();
 			editorRef.current = null;

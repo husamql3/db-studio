@@ -8,7 +8,7 @@ import {
 } from "@db-studio/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { ConnectionMenu } from "@/features/connections";
@@ -23,10 +23,15 @@ export function SidebarFooter() {
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const engine = useDatabaseEngine();
 	const navigate = useNavigate();
+	const { pathname } = useLocation();
 	const busy = isLoadingDatabases || isRefetchingDatabases;
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
+		if (pathname === "/routines" && engine?.routines) {
+			void navigate({ to: "/routines", search: {} });
+			return;
+		}
 		navigate({ to: engine?.dataModel === "key-value" ? "/browser" : "/table", search: {} });
 	};
 
