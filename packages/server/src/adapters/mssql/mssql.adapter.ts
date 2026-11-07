@@ -21,6 +21,7 @@ import { logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetPage } from "@/adapters/sql-pagination.js";
 import {
+	type InlineConstraints,
 	flagOrJsonTarget,
 	groupKeyColumns,
 	RELATED_SAMPLE,
@@ -321,16 +322,15 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		return counts;
 	}
 
-	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD in the column. */
 	protected columnDefinition(
 		_conn: MssqlConn,
 		_tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	) {
 		return buildMssqlColumnDefinition(field, {
-			includePrimaryKey: !createKey,
-			includeUnique: !createKey,
+			includePrimaryKey: inlineKey,
+			includeUnique: inlineUnique,
 		});
 	}
 

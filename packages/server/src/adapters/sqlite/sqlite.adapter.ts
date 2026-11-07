@@ -21,6 +21,7 @@ import type { Value } from "@libsql/client";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
+	type InlineConstraints,
 	bulkInserted,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
@@ -310,10 +311,8 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		_client: SqliteClient,
 		_tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	) {
-		const inlineKey = field.isPrimaryKey && createKey?.length === 1;
-
 		// SQLite AUTOINCREMENT requires "INTEGER PRIMARY KEY AUTOINCREMENT"
 		if (inlineKey && field.isIdentity)
 			return `${quoteSqliteIdent(field.columnName)} INTEGER PRIMARY KEY AUTOINCREMENT`;
@@ -322,7 +321,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 		if (inlineKey) def += " PRIMARY KEY";
 
-		if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+		if (inlineUnique) def += " UNIQUE";
 
 		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 

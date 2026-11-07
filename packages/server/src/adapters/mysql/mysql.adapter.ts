@@ -26,6 +26,7 @@ import {
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
 import {
+	type InlineConstraints,
 	fullForeignKeyName,
 	flagOrJsonTarget,
 	groupKeyColumns,
@@ -247,16 +248,15 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		};
 	}
 
-	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD COLUMN in the column. */
 	protected columnDefinition(
 		_conn: Connection,
 		_tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	) {
 		return buildMysqlColumnDefinition(field, {
-			includePrimaryKey: !createKey,
-			includeUnique: !createKey,
+			includePrimaryKey: inlineKey,
+			includeUnique: inlineUnique,
 		});
 	}
 

@@ -25,6 +25,7 @@ import type {
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
 import {
+	type InlineConstraints,
 	bulkInserted,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
@@ -300,17 +301,16 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		_conn: DuckDBConnection,
 		tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	) {
 		const sequence = sequenceOf(tableName, field);
 		let def = `${ident(field.columnName)} ${mapColumnTypeToDuckdb(field.columnType, field.isArray)}`;
 
-		if (field.isPrimaryKey && createKey?.length === 1) def += " PRIMARY KEY";
+		if (inlineKey) def += " PRIMARY KEY";
 
-		if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+		if (inlineUnique) def += " UNIQUE";
 
-		// ADD COLUMN takes no constraints, so addColumn sets NOT NULL afterwards.
-		if (createKey && !field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
+		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 
 		if (sequence) def += ` DEFAULT nextval('${sequence.replaceAll("'", "''")}')`;
 		else if (field.defaultValue?.trim()) def += ` DEFAULT ${field.defaultValue.trim()}`;
@@ -422,12 +422,18 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 
 		await connector("duckdb").withConnection(async (conn) => {
 			this.assertColumnAbsent(await this.requireTable(conn, tableName), tableName, columnName);
+
 			// DuckDB rejects constraints inside ADD COLUMN, so NOT NULL is applied afterwards.
+			const definition = this.columnDefinition(
+				conn,
+				tableName,
+				{ ...params, isNullable: true },
+				{ inlineKey: false, inlineUnique: false },
+			);
+
 			await inTransaction(conn, async () => {
 				if (sequence) await conn.run(`CREATE SEQUENCE ${ident(sequence)}`);
-				await conn.run(
-					`ALTER TABLE ${ident(tableName)} ADD COLUMN ${this.columnDefinition(conn, tableName, params)}`,
-				);
+				await conn.run(`ALTER TABLE ${ident(tableName)} ADD COLUMN ${definition}`);
 
 				if (!isNullable)
 					await conn

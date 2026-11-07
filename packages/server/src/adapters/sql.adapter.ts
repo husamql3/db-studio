@@ -128,6 +128,9 @@ export const recordColumns = (records: Record<string, unknown>[]) => [
 export const fullForeignKeyName = (tableName: string, fk: ForeignKeyDataType) =>
 	`fk_${tableName}_${fk.columnName}_${fk.referencedTable}_${fk.referencedColumn}`;
 
+/** Whether a column definition carries its PRIMARY KEY and UNIQUE. */
+export type InlineConstraints = { inlineKey: boolean; inlineUnique: boolean };
+
 /** Rows shown per foreign key when a delete is refused. */
 export const RELATED_SAMPLE = 100;
 
@@ -236,21 +239,32 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	): Promise<ReferencingKey[]>;
 
 	/**
-	 * A column as CREATE TABLE and ADD COLUMN write it. `createKey` holds the new table's key
-	 * columns in CREATE TABLE, and is absent in ADD COLUMN.
+	 * A column as CREATE TABLE and ADD COLUMN write it, with PRIMARY KEY and UNIQUE where
+	 * `inline` says (see `inlineConstraints`).
 	 */
 	protected abstract columnDefinition(
 		conn: Conn,
 		tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		inline: InlineConstraints,
 	): string;
 
-	/**
-	 * CREATE TABLE writes the key and UNIQUE as table constraints, and columnDefinition leaves
-	 * them out when it gets `createKey`. Otherwise a one-column key goes inline.
-	 */
+	/** CREATE TABLE writes the key and UNIQUE as table constraints, after the columns. */
 	protected readonly keysAsTableConstraints: boolean = false;
+
+	/**
+	 * Whether a column's key and UNIQUE go in its definition: always in ADD COLUMN; in CREATE
+	 * TABLE (given its key columns, `createKey`) unless they are table constraints, and the key
+	 * only when it is one column.
+	 */
+	private inlineConstraints(field: FieldDataType, createKey?: string[]): InlineConstraints {
+		const inline = !(createKey && this.keysAsTableConstraints);
+
+		return {
+			inlineKey: inline && field.isPrimaryKey && (!createKey || createKey.length === 1),
+			inlineUnique: inline && field.isUnique && !field.isPrimaryKey,
+		};
+	}
 
 	/** The constraints after the columns. */
 	private tableConstraints(fields: FieldDataType[], primaryKey: string[]): string[] {
@@ -326,7 +340,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 			);
 			await this.execute(
 				conn,
-				`ALTER TABLE ${this.tableRef(tableName, schemaName)} ${this.addColumnSql(this.columnDefinition(conn, tableName, params))}`,
+				`ALTER TABLE ${this.tableRef(tableName, schemaName)} ${this.addColumnSql(this.columnDefinition(conn, tableName, params, this.inlineConstraints(params)))}`,
 			);
 		});
 	}
@@ -413,7 +427,14 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 				throw new HTTPException(409, { message: `Table "${tableName}" already exists` });
 
 			const definitions = [
-				...fields.map((field) => this.columnDefinition(conn, tableName, field, primaryKey)),
+				...fields.map((field) =>
+					this.columnDefinition(
+						conn,
+						tableName,
+						field,
+						this.inlineConstraints(field, primaryKey),
+					),
+				),
 				...this.tableConstraints(fields, primaryKey),
 				...foreignKeys.map((fk) => this.foreignKeyClause(tableName, fk)),
 			];

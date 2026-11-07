@@ -22,6 +22,7 @@ import {
 } from "@/adapters/base.adapter.js";
 import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/server-logs.js";
 import {
+	type InlineConstraints,
 	fullForeignKeyName,
 	type ReferencingKey,
 	SqlAdapter,
@@ -321,15 +322,15 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		_conn: PgQueryable,
 		_tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	) {
 		let def = `${quotePgIdent(field.columnName)} ${field.columnType}`;
 
 		if (field.isArray) def += "[]";
 
-		if (field.isPrimaryKey && (!createKey || createKey.length === 1)) def += " PRIMARY KEY";
+		if (inlineKey) def += " PRIMARY KEY";
 
-		if (field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+		if (inlineUnique) def += " UNIQUE";
 
 		if (!field.isNullable) def += " NOT NULL";
 

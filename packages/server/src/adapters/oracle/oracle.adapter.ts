@@ -31,6 +31,7 @@ import {
 import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
 import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
 import {
+	type InlineConstraints,
 	bulkInserted,
 	recordColumns,
 	groupKeyColumns,
@@ -888,12 +889,11 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		}
 	}
 
-	/** CREATE TABLE writes the key and UNIQUE as table constraints, ADD in the column. */
 	protected columnDefinition(
 		conn: Connection,
 		_tableName: string,
 		field: FieldDataType,
-		createKey?: string[],
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	): string {
 		const native = supportsNativeTypes(conn);
 		let def = `${ident(field.columnName)} ${mapColumnTypeToOracle(field.columnType, field.isArray, native)}`;
@@ -904,10 +904,9 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 
-		if (!createKey) {
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
-			else if (field.isUnique) def += " UNIQUE";
-		}
+		if (inlineKey) def += " PRIMARY KEY";
+
+		if (inlineUnique) def += " UNIQUE";
 
 		return def;
 	}
