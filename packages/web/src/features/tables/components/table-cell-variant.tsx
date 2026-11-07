@@ -705,19 +705,30 @@ export const TableDateCell = memo(
 			meta?.onCellEditingStop?.();
 		}, [rowData, columnName, clearUpdate, meta]);
 
+		// Keys inside the picker reach the wrapper through the portal. Escape is the picker's.
 		const onWrapperKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLDivElement>) => {
-				if (isEditing) {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onCancel();
-					} else if (event.key === "Tab") {
-						event.preventDefault();
-						meta?.onCellEditingStop?.({ direction: event.shiftKey ? "left" : "right" });
-					}
+				if (!isEditing) return;
+
+				if (event.key === "Tab") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.({ direction: event.shiftKey ? "left" : "right" });
+				} else if (
+					event.key === "Enter" &&
+					// A month or year select handles its own Enter.
+					!event.defaultPrevented &&
+					!(event.target as Element).closest("[role=listbox]")
+				) {
+					// Enter confirms like the text cell. A focused day, time or preset is picked
+					// first: a click leaves focus on the button it picked.
+					event.preventDefault();
+
+					if (event.target instanceof HTMLButtonElement) event.target.click();
+
+					meta?.onCellEditingStop?.();
 				}
 			},
-			[isEditing, onCancel, meta],
+			[isEditing, meta],
 		);
 
 		const onPickerOpenChange = useCallback(
@@ -753,6 +764,7 @@ export const TableDateCell = memo(
 						nullable={cell.column.columnDef.meta?.isNullable}
 						open
 						onOpenChange={onPickerOpenChange}
+						onEscapeKeyDown={onCancel}
 						placeholder="Pick a date"
 						className="size-full px-2! py-1.5! rounded-none border-none p-0 text-sm shadow-none hover:bg-transparent! focus-visible:ring-0 bg-transparent dark:bg-transparent! [&_svg]:hidden"
 					/>

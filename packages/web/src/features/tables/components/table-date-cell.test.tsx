@@ -41,6 +41,7 @@ const staged = (row: TableRecord) =>
 describe("TableDateCell", () => {
 	beforeEach(() => {
 		useUpdateCellStore.getState().clearUpdates();
+		onCellEditingStop.mockClear();
 		vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 10, 10, 0) });
 	});
 
@@ -122,5 +123,32 @@ describe("TableDateCell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "TODAY" }));
 
 		expect(staged(row)).toBe("2026-11-09T21:00:00.000Z");
+	});
+
+	// A timestamp picker stays open after a pick so the time can be set; Enter on the picked
+	// day, where a click leaves focus, did nothing.
+	it("keeps a picked timestamp and stops editing on Enter", () => {
+		const row = { id: 1, day: "2026-11-01 09:30:00" };
+		renderDateCell(row, "timestamp");
+
+		fireEvent.click(screen.getByRole("button", { name: /November 5th, 2026/ }));
+		fireEvent.keyDown(screen.getByRole("button", { name: /November 5th, 2026/ }), {
+			key: "Enter",
+		});
+
+		expect(staged(row)).toBe("2026-11-05 09:30:00");
+		expect(onCellEditingStop).toHaveBeenCalledOnce();
+	});
+
+	it("drops a picked timestamp on Escape", () => {
+		const row = { id: 1, day: "2026-11-01 09:30:00" };
+		renderDateCell(row, "timestamp");
+
+		fireEvent.click(screen.getByRole("button", { name: /November 5th, 2026/ }));
+		fireEvent.keyDown(screen.getByRole("button", { name: /November 5th, 2026/ }), {
+			key: "Escape",
+		});
+
+		expect(staged(row)).toBeUndefined();
 	});
 });

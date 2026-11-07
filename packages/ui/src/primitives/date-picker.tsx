@@ -57,6 +57,8 @@ interface DatePickerProps {
 	/** Controls the calendar; leave unset to let the trigger open and close it. */
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
+	/** Replaces closing on Escape. */
+	onEscapeKeyDown?: () => void;
 }
 
 export function DatePicker({
@@ -74,6 +76,7 @@ export function DatePicker({
 	modal,
 	open: openProp,
 	onOpenChange,
+	onEscapeKeyDown,
 }: DatePickerProps) {
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
 	const open = openProp ?? uncontrolledOpen;
@@ -179,6 +182,13 @@ export function DatePicker({
 			<PopoverContent
 				className="w-auto p-0"
 				align="end"
+				onEscapeKeyDown={
+					onEscapeKeyDown &&
+					((event) => {
+						event.preventDefault();
+						onEscapeKeyDown();
+					})
+				}
 			>
 				<div className="flex">
 					<div className="flex flex-col gap-1 p-2 border-r">
