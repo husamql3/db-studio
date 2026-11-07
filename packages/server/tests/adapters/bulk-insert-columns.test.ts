@@ -1,0 +1,50 @@
+/**
+ * Bulk insert of records that name different columns (a CSV or JSON import with sparse fields),
+ * run against real SQLite and DuckDB files. SQLite has its own batch; DuckDB its own prepared
+ * statement. Failure modes:
+ * - the INSERT names only the first record's columns, so a later record loses a value
+ * - a record missing a column binds `undefined` instead of NULL and the driver refuses it
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { IDbAdapter } from "@/adapters/adapter.interface.js";
+import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
+import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { openEngine } from "../engine.js";
+
+const engines = [
+	{ name: "SqliteAdapter", engine: "sqlite", db: "main", adapter: new SqliteAdapter() },
+	{ name: "DuckDbAdapter", engine: "duckdb", db: "scratch", adapter: new DuckDbAdapter() },
+] as const satisfies { name: string; engine: string; db: string; adapter: IDbAdapter }[];
+
+for (const engine of engines) {
+	describe(`${engine.name} bulk insert of records with different columns`, () => {
+		let opened: Awaited<ReturnType<typeof openEngine>>;
+
+		beforeAll(async () => {
+			opened = await openEngine(engine.engine);
+			await opened.exec("CREATE TABLE people (id INTEGER PRIMARY KEY, name TEXT, email TEXT)");
+		});
+
+		afterAll(() => opened.close());
+
+		it("writes every column any record names and NULL where a record has none", async () => {
+			await engine.adapter.bulkInsertRecords({
+				db: engine.db,
+				tableName: "people",
+				records: [
+					{ id: 1, name: "Ada" },
+					{ id: 2, name: "Bob", email: "bob@example.com" },
+					{ id: 3, email: "cy@example.com" },
+				],
+			});
+
+			const rows = await opened.rows("SELECT id, name, email FROM people ORDER BY id");
+
+			expect(rows.map((row) => [Number(row.id), row.name, row.email])).toEqual([
+				[1, "Ada", null],
+				[2, "Bob", "bob@example.com"],
+				[3, null, "cy@example.com"],
+			]);
+		});
+	});
+}

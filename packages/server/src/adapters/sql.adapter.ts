@@ -114,6 +114,11 @@ export const bulkInserted = (count: number): BulkInsertResult => ({
 	failureCount: 0,
 });
 
+/** Every column any record names: imported records can each name a different subset. */
+export const recordColumns = (records: Record<string, unknown>[]) => [
+	...new Set(records.flatMap((record) => Object.keys(record))),
+];
+
 /** Rows shown per foreign key when a delete is refused. */
 export const RELATED_SAMPLE = 100;
 
@@ -992,7 +997,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 
 		return (record: Record<string, unknown>) => {
 			const { values, bind } = createBinds(this.placeholder);
-			const row = written.map((column) => bindValue(column, record[column], bind));
+			const row = written.map((column) => bindValue(column, record[column] ?? null, bind));
 
 			return {
 				sql: `INSERT INTO ${this.tableRef(tableName, schemaName)} (${written.map(q).join(", ")}) VALUES (${row.join(", ")})`,
@@ -1045,7 +1050,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 				db,
 				tableName,
 				schemaName,
-				Object.keys(records[0]),
+				recordColumns(records),
 			);
 
 			for (const [i, record] of records.entries()) {

@@ -26,6 +26,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
 import {
 	bulkInserted,
+	recordColumns,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
@@ -481,7 +482,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		tableName,
 		records,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const columns = Object.keys(records[0]);
+		const columns = recordColumns(records);
 
 		const successCount = await connector("duckdb").withConnection((conn) =>
 			inTransaction(conn, async () => {
@@ -490,7 +491,7 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 				);
 
 				for (const record of records) {
-					statement.bind(columns.map((col) => toDuckdbValue(record[col])));
+					statement.bind(columns.map((col) => toDuckdbValue(record[col] ?? null)));
 					await statement.run();
 				}
 

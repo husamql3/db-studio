@@ -34,6 +34,7 @@ import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-fil
 import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
 import {
 	bulkInserted,
+	recordColumns,
 	groupKeyColumns,
 	RELATED_SAMPLE,
 	type ReferencingKey,
@@ -800,7 +801,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const columns = Object.keys(records[0]);
+		const columns = recordColumns(records);
 
 		const successCount = await this.transaction(db, async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
@@ -810,7 +811,7 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const rowExpressions = columns.map((column) =>
-					typedBind(types, bind)(record[column], column),
+					typedBind(types, bind)(record[column] ?? null, column),
 				);
 
 				if (index === 0) expressions = rowExpressions;

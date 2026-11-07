@@ -22,6 +22,7 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	bulkInserted,
+	recordColumns,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
@@ -649,7 +650,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 			"",
 			tableName,
 			undefined,
-			Object.keys(records[0]),
+			recordColumns(records),
 		);
 
 		await client.batch(
