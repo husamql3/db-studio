@@ -93,6 +93,13 @@ interface IndexColumnRow {
 	isIncluded: boolean | null;
 }
 
+/**
+ * The object id of the dbo table whose name `param` binds. Each part is quoted, so a name with a
+ * dot is not read as `schema.table`.
+ */
+const dboObjectId = (param: string) =>
+	`OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(${param}))`;
+
 /** A pool, or a transaction: either hands out requests. */
 type MssqlConn = { request(): Request };
 
@@ -173,7 +180,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	protected override async skippedInsertColumns(conn: MssqlConn, tableName: string) {
 		const identity = await this.rows<{ name: string }>(
 			conn,
-			"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@p0) AND is_identity = 1",
+			`SELECT name FROM sys.columns WHERE object_id = ${dboObjectId("@p0")} AND is_identity = 1`,
 			[tableName],
 		);
 
@@ -578,7 +585,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			conn,
 			`SELECT dc.name FROM sys.default_constraints dc
 			 JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
-			 WHERE OBJECT_NAME(dc.parent_object_id) = @p0 AND c.name = @p1`,
+			 WHERE dc.parent_object_id = ${dboObjectId("@p0")} AND c.name = @p1`,
 			[tableName, columnName],
 		);
 
@@ -606,27 +613,26 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 		});
 	}
 
+	/** The DEFAULT is dropped and re-added in the ALTER's transaction, so a failed ALTER keeps it. */
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, columnType, isNullable, defaultValue, db } = params;
-		const pool = await connector("mssql").pool(db);
+		const table = quoteMssqlIdent(tableName);
+		const column = quoteMssqlIdent(columnName);
 
-		await this.requireColumn(pool, tableName, columnName);
-		await this.dropDefaultConstraint(pool, tableName, columnName);
-
-		const nullability = isNullable ? "NULL" : "NOT NULL";
-		await pool
-			.request()
-			.query(
-				`ALTER TABLE ${quoteMssqlIdent(tableName)} ALTER COLUMN ${quoteMssqlIdent(columnName)} ${columnType} ${nullability}`,
+		await this.transaction(db, async (conn) => {
+			await this.requireColumn(conn, tableName, columnName);
+			await this.dropDefaultConstraint(conn, tableName, columnName);
+			await this.execute(
+				conn,
+				`ALTER TABLE ${table} ALTER COLUMN ${column} ${columnType} ${isNullable ? "NULL" : "NOT NULL"}`,
 			);
 
-		if (defaultValue?.trim()) {
-			await pool
-				.request()
-				.query(
-					`ALTER TABLE ${quoteMssqlIdent(tableName)} ADD DEFAULT ${defaultValue.trim()} FOR ${quoteMssqlIdent(columnName)}`,
+			if (defaultValue?.trim())
+				await this.execute(
+					conn,
+					`ALTER TABLE ${table} ADD DEFAULT ${defaultValue.trim()} FOR ${column}`,
 				);
-		}
+		});
 	}
 
 	// sp_rename parses the old name, so its parts are quoted; the new name is taken as written.
@@ -733,7 +739,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 				COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS referencedColumn
 			FROM sys.foreign_keys fk
 			JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-			WHERE fk.referenced_object_id = OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(@p0))
+			WHERE fk.referenced_object_id = ${dboObjectId("@p0")}
 			ORDER BY [table], fk.name, fkc.constraint_column_id`,
 			[tableName],
 		);
@@ -847,7 +853,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 				FROM sys.indexes i
 				LEFT JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
 				LEFT JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-				WHERE i.object_id = OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(@tableName))
+				WHERE i.object_id = ${dboObjectId("@tableName")}
 				  AND i.type > 0 AND i.is_hypothetical = 0
 				ORDER BY i.is_primary_key DESC, i.name, ic.is_included_column, ic.key_ordinal, ic.index_column_id
 			`);
