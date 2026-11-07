@@ -179,7 +179,6 @@ export function mapMssqlToDataType(mssqlDataType: string): DataTypes {
 		normalized === "datetime" ||
 		normalized === "datetime2" ||
 		normalized === "smalldatetime" ||
-		normalized === "time" ||
 		normalized === "datetimeoffset"
 	) {
 		return DataTypes.date;

@@ -167,7 +167,7 @@ export function mapClickhouseToDataType(clickhouseType: string): DataTypes {
 
 	if (type === "Bool") return DataTypes.boolean;
 
-	if (/^(Date|Date32|DateTime|DateTime64|Time|Time64)\b/.test(type)) return DataTypes.date;
+	if (/^(Date|Date32|DateTime|DateTime64)\b/.test(type)) return DataTypes.date;
 
 	if (/^(U?Int\d+|Float\d+|BFloat16|Decimal\d*)\b/.test(type)) return DataTypes.number;
 

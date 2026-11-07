@@ -47,12 +47,11 @@ export const qualifiedTable = (tableName: string, schemaName?: string): string =
 export function mapPostgresToDataType(pgType: string): DataTypes {
 	const normalized = pgType?.toLowerCase().trim() || "";
 
+	// information_schema reports every array column as `ARRAY`
+	if (normalized === "array" || normalized.includes("[]")) return DataTypes.array;
+
 	if (
-		normalized.includes("[]") ||
 		normalized === "date" ||
-		normalized === "time" ||
-		normalized === "time without time zone" ||
-		normalized.startsWith("time(") ||
 		normalized === "timestamp" ||
 		normalized === "timestamp without time zone" ||
 		normalized.startsWith("timestamp(") ||

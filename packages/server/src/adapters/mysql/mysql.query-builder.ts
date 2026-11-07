@@ -183,13 +183,7 @@ export function mapMysqlToDataType(mysqlDataType: string, columnType?: string): 
 		return DataTypes.boolean;
 	}
 
-	if (
-		normalized === "date" ||
-		normalized === "datetime" ||
-		normalized === "timestamp" ||
-		normalized === "time" ||
-		normalized === "year"
-	) {
+	if (normalized === "date" || normalized === "datetime" || normalized === "timestamp") {
 		return DataTypes.date;
 	}
 

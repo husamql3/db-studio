@@ -67,9 +67,6 @@ export const parseClipboardText = (text: string): string[][] => {
 
 const INTEGER_TYPES = new Set(["int", "bigint", "smallint", "tinyint", "mediumint"]);
 
-// The date variant also covers time and array columns, whose text Date cannot parse.
-const DATE_TYPES = new Set(["date", "timestamp", "timestamptz", "datetime"]);
-
 const BOOLEANS: Record<string, boolean> = {
 	true: true,
 	t: true,
@@ -127,9 +124,7 @@ export const coercePastedValue = (
 			}
 
 		case "date":
-			return DATE_TYPES.has(column.dataTypeLabel ?? "") && Number.isNaN(Date.parse(text))
-				? { error: "Not a date" }
-				: { value: text };
+			return Number.isNaN(Date.parse(text)) ? { error: "Not a date" } : { value: text };
 		default:
 			return { value: text };
 	}

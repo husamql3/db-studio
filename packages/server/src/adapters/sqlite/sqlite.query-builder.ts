@@ -275,12 +275,7 @@ export function mapSqliteToDataType(sqliteType: string): DataTypes {
 
 	if (normalized === "json") return DataTypes.json;
 
-	if (
-		normalized === "date" ||
-		normalized === "datetime" ||
-		normalized === "timestamp" ||
-		normalized === "time"
-	) {
+	if (normalized === "date" || normalized === "datetime" || normalized === "timestamp") {
 		return DataTypes.date;
 	}
 

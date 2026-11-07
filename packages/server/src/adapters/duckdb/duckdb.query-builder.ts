@@ -96,7 +96,11 @@ export function mapDuckdbToDataType(duckdbType: string): DataTypes {
 
 	if (normalized === "interval") return DataTypes.text;
 
-	if (normalized === "date" || normalized.startsWith("time") || normalized === "datetime") {
+	if (
+		normalized === "date" ||
+		normalized.startsWith("timestamp") ||
+		normalized === "datetime"
+	) {
 		return DataTypes.date;
 	}
 
