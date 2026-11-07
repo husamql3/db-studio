@@ -807,6 +807,8 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
+		// executeMany runs one statement, so it names every column any record has, and a record
+		// without one writes NULL there rather than the column's DEFAULT.
 		const columns = recordColumns(records);
 
 		const successCount = await this.transaction(db, async (conn) => {

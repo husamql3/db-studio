@@ -22,7 +22,6 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	bulkInserted,
-	recordColumns,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
@@ -509,7 +508,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	override async addRecord({ params: { tableName, data } }: { params: AddRecordSchemaType }) {
 		this.assertRecordData(data);
 		const client = await connector("sqlite").client();
-		const insert = await this.inserter(client, "", tableName, undefined, Object.keys(data));
+		const insert = await this.inserter(client, "", tableName, undefined);
 		const { sql, values } = insert(data);
 		const insertedCount = await this.execute(client, sql, values);
 
@@ -634,13 +633,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
 		const client = await connector("sqlite").client();
 
-		const insert = await this.inserter(
-			client,
-			"",
-			tableName,
-			undefined,
-			recordColumns(records),
-		);
+		const insert = await this.inserter(client, "", tableName, undefined);
 
 		try {
 			await client.batch(

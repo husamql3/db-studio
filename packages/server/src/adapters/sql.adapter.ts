@@ -116,7 +116,10 @@ export const bulkInserted = (count: number): BulkInsertResult => ({
 	failureCount: 0,
 });
 
-/** Every column any record names: imported records can each name a different subset. */
+/**
+ * Every column any record names, for an INSERT whose one statement writes every record: imported
+ * records can each name a different subset.
+ */
 export const recordColumns = (records: Record<string, unknown>[]) => [
 	...new Set(records.flatMap((record) => Object.keys(record))),
 ];
@@ -1039,33 +1042,40 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		return { updatedCount };
 	}
 
-	/** The columns of a record that an INSERT writes. */
-	protected async insertColumns(
-		_conn: Conn,
-		_tableName: string,
-		columns: string[],
-	): Promise<string[]> {
-		return columns;
+	/** Columns an INSERT leaves out even when a record names them. */
+	protected async skippedInsertColumns(_conn: Conn, _tableName: string): Promise<string[]> {
+		return [];
 	}
 
-	/** The INSERT of a record holding `columns`, with its values bound the way writes bind them. */
+	/** What follows `INSERT INTO <table>` for a record that names no column. */
+	protected readonly insertDefaultsSql: string = "DEFAULT VALUES";
+
+	/**
+	 * The INSERT of a record, with its values bound the way writes bind them. It names only the
+	 * record's own columns, so every other column takes its DEFAULT.
+	 */
 	protected async inserter(
 		conn: Conn,
 		db: string,
 		tableName: string,
 		schemaName: string | undefined,
-		columns: string[],
 	) {
 		const q = this.quoteIdentifier;
 		const { bindValue } = await this.writeTarget(conn, db, tableName, schemaName);
-		const written = await this.insertColumns(conn, tableName, columns);
+		const skipped = await this.skippedInsertColumns(conn, tableName);
+		const table = this.tableRef(tableName, schemaName);
 
 		return (record: Record<string, unknown>) => {
+			const columns = Object.keys(record).filter((column) => !skipped.includes(column));
+
+			if (!columns.length)
+				return { sql: `INSERT INTO ${table} ${this.insertDefaultsSql}`, values: [] };
+
 			const { values, bind } = createBinds(this.placeholder);
-			const row = written.map((column) => bindValue(column, record[column] ?? null, bind));
+			const row = columns.map((column) => bindValue(column, record[column] ?? null, bind));
 
 			return {
-				sql: `INSERT INTO ${this.tableRef(tableName, schemaName)} (${written.map(q).join(", ")}) VALUES (${row.join(", ")})`,
+				sql: `INSERT INTO ${table} (${columns.map(q).join(", ")}) VALUES (${row.join(", ")})`,
 				values,
 			};
 		};
@@ -1090,7 +1100,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		this.assertRecordData(data);
 
 		const insertedCount = await this.transaction(db, async (conn) => {
-			const insert = await this.inserter(conn, db, tableName, schemaName, Object.keys(data));
+			const insert = await this.inserter(conn, db, tableName, schemaName);
 			const { sql, values } = insert(data);
 
 			return this.execute(conn, sql, values);
@@ -1120,13 +1130,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
 		await this.transaction(db, async (conn) => {
-			const insert = await this.inserter(
-				conn,
-				db,
-				tableName,
-				schemaName,
-				recordColumns(records),
-			);
+			const insert = await this.inserter(conn, db, tableName, schemaName);
 
 			for (const [i, record] of records.entries()) {
 				const { sql, values } = insert(record);

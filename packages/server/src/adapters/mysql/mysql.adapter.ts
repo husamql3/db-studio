@@ -132,6 +132,8 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	protected readonly quoteIdentifier = quoteMysqlIdent;
 	protected readonly engine = "mysql";
 	protected readonly placeholder = () => "?";
+	// MySQL has no DEFAULT VALUES.
+	protected override readonly insertDefaultsSql = "() VALUES ()";
 
 	protected async connect<T>(db: string, work: (conn: Connection) => Promise<T>) {
 		return work(await connector("mysql").pool(db));

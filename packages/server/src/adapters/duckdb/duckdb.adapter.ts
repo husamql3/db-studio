@@ -16,6 +16,7 @@ import type {
 import { isSerialType } from "@db-studio/shared/types";
 import type {
 	DuckDBConnection,
+	DuckDBPreparedStatement,
 	DuckDBResultReader,
 	DuckDBTypeId,
 	DuckDBValue,
@@ -25,7 +26,6 @@ import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
 import { type DriverErrorClass, READ_ONLY_MESSAGE } from "@/adapters/base.adapter.js";
 import {
 	bulkInserted,
-	recordColumns,
 	type ReferencingKey,
 	ONE_STATEMENT_MESSAGE,
 	SqlAdapter,
@@ -478,15 +478,25 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		tableName,
 		records,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		const columns = recordColumns(records);
-
 		const successCount = await connector("duckdb").withConnection((conn) =>
 			inTransaction(conn, async () => {
-				const statement = await conn.prepare(
-					`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`,
-				);
+				// A record names only its own columns, so the others take their DEFAULT: one
+				// prepared statement per set of columns.
+				const statements = new Map<string, DuckDBPreparedStatement>();
 
 				for (const [i, record] of records.entries()) {
+					const columns = Object.keys(record);
+					const shape = JSON.stringify(columns);
+
+					const statement =
+						statements.get(shape) ??
+						(await conn.prepare(
+							columns.length
+								? `INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${placeholders(columns)})`
+								: `INSERT INTO ${ident(tableName)} DEFAULT VALUES`,
+						));
+
+					statements.set(shape, statement);
 					statement.bind(columns.map((col) => toDuckdbValue(record[col] ?? null)));
 
 					try {

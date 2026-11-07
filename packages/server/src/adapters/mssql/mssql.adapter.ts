@@ -169,18 +169,14 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	}
 
 	/** SQL Server refuses an explicit value for an identity column, so an INSERT skips it. */
-	protected override async insertColumns(
-		conn: MssqlConn,
-		tableName: string,
-		columns: string[],
-	) {
+	protected override async skippedInsertColumns(conn: MssqlConn, tableName: string) {
 		const identity = await this.rows<{ name: string }>(
 			conn,
 			"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@p0) AND is_identity = 1",
 			[tableName],
 		);
 
-		return columns.filter((column) => !identity.some((c) => c.name === column));
+		return identity.map(({ name }) => name);
 	}
 
 	protected override sampleRows(

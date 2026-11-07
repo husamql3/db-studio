@@ -4,6 +4,7 @@
  * statement. Failure modes:
  * - the INSERT names only the first record's columns, so a later record loses a value
  * - a record missing a column binds `undefined` instead of NULL and the driver refuses it
+ * - a column a record leaves out gets NULL instead of its DEFAULT
  * - a record a constraint refuses loses its position in the message, or its 409 turns into 500
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -23,12 +24,14 @@ for (const engine of engines) {
 
 		beforeAll(async () => {
 			opened = await openEngine(engine.engine);
-			await opened.exec("CREATE TABLE people (id INTEGER PRIMARY KEY, name TEXT, email TEXT)");
+			await opened.exec(
+				"CREATE TABLE people (id INTEGER PRIMARY KEY, name TEXT, email TEXT DEFAULT 'none')",
+			);
 		});
 
 		afterAll(() => opened.close());
 
-		it("writes every column any record names and NULL where a record has none", async () => {
+		it("writes the columns each record names and the DEFAULT of the others", async () => {
 			await engine.adapter.bulkInsertRecords({
 				db: engine.db,
 				tableName: "people",
@@ -42,7 +45,7 @@ for (const engine of engines) {
 			const rows = await opened.rows("SELECT id, name, email FROM people ORDER BY id");
 
 			expect(rows.map((row) => [Number(row.id), row.name, row.email])).toEqual([
-				[1, "Ada", null],
+				[1, "Ada", "none"],
 				[2, "Bob", "bob@example.com"],
 				[3, null, "cy@example.com"],
 			]);
