@@ -678,6 +678,8 @@ export const TableDateCell = memo(
 			: initialValue;
 
 		const dataTypeLabel = cell.column.columnDef.meta?.dataTypeLabel;
+		// Every date column but DATE carries a time of day.
+		const showTime = dataTypeLabel !== "date";
 
 		const onDateChange = useCallback(
 			(date: Date | null | undefined) => {
@@ -691,9 +693,10 @@ export const TableDateCell = memo(
 					table.options.meta?.editScope,
 				);
 
-				meta?.onCellEditingStop?.();
+				// With a time to set, the picker stays open until it is closed.
+				if (!showTime) meta?.onCellEditingStop?.();
 			},
-			[columnName, initialValue, rowData, setUpdate, meta, dataTypeLabel],
+			[columnName, initialValue, rowData, setUpdate, meta, dataTypeLabel, showTime],
 		);
 
 		const onCancel = useCallback(() => {
@@ -746,6 +749,7 @@ export const TableDateCell = memo(
 						icon={false}
 						value={date}
 						onChange={onDateChange}
+						showTime={showTime}
 						nullable={cell.column.columnDef.meta?.isNullable}
 						open
 						onOpenChange={onPickerOpenChange}
@@ -755,7 +759,9 @@ export const TableDateCell = memo(
 				) : (
 					// The text the picker's button shows.
 					<CellContent value={currentValue}>
-						{date && !Number.isNaN(date.getTime()) ? format(date, "yyyy-MM-dd") : currentValue}
+						{date && !Number.isNaN(date.getTime())
+							? format(date, showTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd")
+							: currentValue}
 					</CellContent>
 				)}
 			</TableCellWrapper>

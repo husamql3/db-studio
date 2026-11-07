@@ -86,6 +86,15 @@ describe("TableDateCell", () => {
 		expect(onCellEditingStop).toHaveBeenLastCalledWith({ direction: "right" });
 	});
 
+	it("keeps the time, milliseconds included, when a day is picked on a timestamp", () => {
+		const row = { id: 1, day: "2026-11-01 09:30:15.250" };
+		renderDateCell(row, "timestamp");
+
+		fireEvent.click(screen.getByRole("button", { name: /November 5th, 2026/ }));
+
+		expect(staged(row)).toBe("2026-11-05 09:30:15.250");
+	});
+
 	it("stages a day picked in an empty DATE cell as that day", () => {
 		const row = { id: 1, day: null };
 		renderDateCell(row, "date");

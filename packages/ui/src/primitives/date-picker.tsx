@@ -91,7 +91,12 @@ export function DatePicker({
 
 	const handleSelect = (date: Date) => {
 		if (value) {
-			date.setHours(value.getHours(), value.getMinutes(), value.getSeconds());
+			date.setHours(
+				value.getHours(),
+				value.getMinutes(),
+				value.getSeconds(),
+				value.getMilliseconds(),
+			);
 		}
 
 		onChange?.(date);
