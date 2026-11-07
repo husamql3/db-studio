@@ -79,6 +79,8 @@ const JsonEditor = lazy(() =>
 	import("./json-editor").then((module) => ({ default: module.JsonEditor })),
 );
 
+type PopoverContentProps = ComponentProps<typeof PopoverContent>;
+
 /**
  * A cell's editor popover, mounted the first time the cell is edited. Until then only the anchor
  * renders: a page holds hundreds of cells, and an idle Radix popover in each was a large share
@@ -88,13 +90,20 @@ const CellPopover = ({
 	active,
 	open,
 	onOpenChange,
+	onCancel,
+	onOpenAutoFocus,
 	anchor,
+	className,
 	children,
 }: {
 	active: boolean;
 	open: boolean;
+	/** Closing by an outside click saves; Escape cancels instead. */
 	onOpenChange: (open: boolean) => void;
+	onCancel: () => void;
+	onOpenAutoFocus: PopoverContentProps["onOpenAutoFocus"];
 	anchor: ReactElement;
+	className: string;
 	children: ReactNode;
 }) => {
 	const [mounted, setMounted] = useState(active);
@@ -109,7 +118,21 @@ const CellPopover = ({
 			onOpenChange={onOpenChange}
 		>
 			<PopoverAnchor asChild>{anchor}</PopoverAnchor>
-			{children}
+			<PopoverContent
+				data-grid-cell-editor=""
+				align="start"
+				side="bottom"
+				sideOffset={0}
+				className={cn("rounded-none p-0 gap-0", className)}
+				onOpenAutoFocus={onOpenAutoFocus}
+				onEscapeKeyDown={(event) => {
+					// Radix would close through onOpenChange(false), which saves.
+					event.preventDefault();
+					onCancel();
+				}}
+			>
+				{children}
+			</PopoverContent>
 		</Popover>
 	);
 };
@@ -205,28 +228,22 @@ export const TableTextCell = memo(
 			[onSave],
 		);
 
-		const onOpenAutoFocus: NonNullable<
-			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
-		> = useCallback((event) => {
-			event.preventDefault();
+		const onOpenAutoFocus: PopoverContentProps["onOpenAutoFocus"] = useCallback(
+			(event: Event) => {
+				event.preventDefault();
 
-			if (textareaRef.current) {
-				textareaRef.current.focus();
-				const length = textareaRef.current.value.length;
-				textareaRef.current.setSelectionRange(length, length);
-			}
-		}, []);
+				if (textareaRef.current) {
+					textareaRef.current.focus();
+					const length = textareaRef.current.value.length;
+					textareaRef.current.setSelectionRange(length, length);
+				}
+			},
+			[],
+		);
 
 		const onTextareaKeyDown = useCallback(
 			(event: KeyboardEvent<HTMLTextAreaElement>) => {
-				if (event.key === "Escape") {
-					event.preventDefault();
-					onCancel();
-				} else if (
-					event.key === "Enter" &&
-					!event.shiftKey &&
-					!event.nativeEvent.isComposing
-				) {
+				if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
 					// Enter confirms like a spreadsheet; Shift+Enter adds a line break.
 					event.preventDefault();
 					onSave();
@@ -238,7 +255,7 @@ export const TableTextCell = memo(
 				// Stop propagation to prevent grid navigation
 				event.stopPropagation();
 			},
-			[onCancel, onSave],
+			[onSave],
 		);
 
 		useEffect(() => {
@@ -252,7 +269,6 @@ export const TableTextCell = memo(
 		}, [isEditing, open, editorStart]);
 
 		useHotkeys("enter", () => onSave(), { enabled: open });
-		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		// Explicit values the textarea cannot express. Labels match the grid's markers; the
 		// current one stays in place, pressed, so the buttons never shift between cells.
@@ -269,6 +285,9 @@ export const TableTextCell = memo(
 				active={open || isEditing}
 				open={open}
 				onOpenChange={onOpenChange}
+				onCancel={onCancel}
+				onOpenAutoFocus={onOpenAutoFocus}
+				className="w-[400px]"
 				anchor={
 					<TableCellWrapper
 						cell={cell}
@@ -284,73 +303,64 @@ export const TableTextCell = memo(
 					</TableCellWrapper>
 				}
 			>
-				<PopoverContent
-					data-grid-cell-editor=""
-					align="start"
-					side="bottom"
-					sideOffset={0}
-					className="w-[400px] rounded-none p-0 gap-0"
-					onOpenAutoFocus={onOpenAutoFocus}
-				>
-					<Textarea
-						ref={textareaRef}
-						value={editorValue}
-						onChange={onChange}
-						onKeyDown={onTextareaKeyDown}
-						onBlur={() => onSave()}
-						className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
-						placeholder={
-							currentValue === null || currentValue === undefined
-								? "NULL"
-								: currentValue === CELL_DEFAULT
-									? "DEFAULT"
-									: "Enter text..."
-						}
-					/>
-					{/* Mouse down keeps focus in the textarea, so its blur does not save typed text first. */}
-					<div className="flex h-8 items-center gap-1 border-t px-1.5">
-						<span className="px-1 text-[0.625rem] text-muted-foreground/70">Set</span>
-						{valueActions.map((action) => {
-							const isCurrent = (currentValue ?? null) === action.value;
+				<Textarea
+					ref={textareaRef}
+					value={editorValue}
+					onChange={onChange}
+					onKeyDown={onTextareaKeyDown}
+					onBlur={() => onSave()}
+					className="min-h-[150px] resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+					placeholder={
+						currentValue === null || currentValue === undefined
+							? "NULL"
+							: currentValue === CELL_DEFAULT
+								? "DEFAULT"
+								: "Enter text..."
+					}
+				/>
+				{/* Mouse down keeps focus in the textarea, so its blur does not save typed text first. */}
+				<div className="flex h-8 items-center gap-1 border-t px-1.5">
+					<span className="px-1 text-[0.625rem] text-muted-foreground/70">Set</span>
+					{valueActions.map((action) => {
+						const isCurrent = (currentValue ?? null) === action.value;
 
-							return (
-								<Button
-									key={action.label}
-									variant="ghost"
-									size="xs"
-									aria-pressed={isCurrent}
-									aria-label={action.title}
-									title={action.title}
-									disabled={isCurrent}
-									className="font-mono disabled:opacity-100 aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border aria-pressed:ring-inset"
-									onMouseDown={(event) => event.preventDefault()}
-									onClick={() => commit(action.value)}
-								>
-									{action.label}
-								</Button>
-							);
-						})}
-						<Button
-							variant="ghost"
-							size="xs"
-							className="ml-auto"
-							onMouseDown={(event) => event.preventDefault()}
-							onClick={onCancel}
-						>
-							<Kbd className="h-4 min-w-4">esc</Kbd>
-							Cancel
-						</Button>
-						<Button
-							variant="ghost"
-							size="xs"
-							onMouseDown={(event) => event.preventDefault()}
-							onClick={() => onSave()}
-						>
-							<Kbd className="h-4 min-w-4">↵</Kbd>
-							Save
-						</Button>
-					</div>
-				</PopoverContent>
+						return (
+							<Button
+								key={action.label}
+								variant="ghost"
+								size="xs"
+								aria-pressed={isCurrent}
+								aria-label={action.title}
+								title={action.title}
+								disabled={isCurrent}
+								className="font-mono disabled:opacity-100 aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border aria-pressed:ring-inset"
+								onMouseDown={(event) => event.preventDefault()}
+								onClick={() => commit(action.value)}
+							>
+								{action.label}
+							</Button>
+						);
+					})}
+					<Button
+						variant="ghost"
+						size="xs"
+						className="ml-auto"
+						onMouseDown={(event) => event.preventDefault()}
+						onClick={onCancel}
+					>
+						<Kbd className="h-4 min-w-4">esc</Kbd>
+						Cancel
+					</Button>
+					<Button
+						variant="ghost"
+						size="xs"
+						onMouseDown={(event) => event.preventDefault()}
+						onClick={() => onSave()}
+					>
+						<Kbd className="h-4 min-w-4">↵</Kbd>
+						Save
+					</Button>
+				</div>
 			</CellPopover>
 		);
 	},
@@ -871,12 +881,13 @@ export const TableJsonCell = memo(
 			[commit, meta],
 		);
 
-		const onOpenAutoFocus: NonNullable<
-			ComponentProps<typeof PopoverContent>["onOpenAutoFocus"]
-		> = useCallback((event) => {
-			// The editor focuses itself once it mounts.
-			event.preventDefault();
-		}, []);
+		const onOpenAutoFocus: PopoverContentProps["onOpenAutoFocus"] = useCallback(
+			(event: Event) => {
+				// The editor focuses itself once it mounts.
+				event.preventDefault();
+			},
+			[],
+		);
 
 		useEffect(() => {
 			if (isEditing && !open) {
@@ -888,13 +899,15 @@ export const TableJsonCell = memo(
 		}, [isEditing, open, currentJsonValue]);
 
 		useHotkeys("enter", () => onSave(), { enabled: open });
-		useHotkeys("esc", () => onCancel(), { enabled: open });
 
 		return (
 			<CellPopover
 				active={open || isEditing}
 				open={open}
 				onOpenChange={onOpenChange}
+				onCancel={onCancel}
+				onOpenAutoFocus={onOpenAutoFocus}
+				className="w-[440px]"
 				anchor={
 					<TableCellWrapper
 						cell={cell}
@@ -910,51 +923,41 @@ export const TableJsonCell = memo(
 					</TableCellWrapper>
 				}
 			>
-				<PopoverContent
-					data-grid-cell-editor=""
-					align="start"
-					side="bottom"
-					sideOffset={0}
-					className="w-[440px] rounded-none p-0 gap-0"
-					onOpenAutoFocus={onOpenAutoFocus}
-				>
-					<Suspense fallback={<div className="h-[240px]" />}>
-						<JsonEditor
-							value={editorValue}
-							onChange={setEditorValue}
-							onSave={onSave}
-							onCancel={onCancel}
-							className="h-[240px]"
-						/>
-					</Suspense>
-					{parseError && (
-						<p className="border-t px-2 py-1.5 text-xs text-destructive truncate">
-							{parseError}
-						</p>
-					)}
-					<div className="flex flex-col border-t">
-						<Button
-							variant="ghost"
-							size="sm"
-							disabled={Boolean(parseError)}
-							onClick={onSave}
-							className="rounded-none justify-start text-xs py-4 px-2"
-						>
-							<Kbd className="text-xs font-normal">⌘↵</Kbd>
-							<span className="ml-1 text-xs">Save Changes</span>
-						</Button>
+				<Suspense fallback={<div className="h-[240px]" />}>
+					<JsonEditor
+						value={editorValue}
+						onChange={setEditorValue}
+						onSave={onSave}
+						className="h-[240px]"
+					/>
+				</Suspense>
+				{parseError && (
+					<p className="border-t px-2 py-1.5 text-xs text-destructive truncate">
+						{parseError}
+					</p>
+				)}
+				<div className="flex flex-col border-t">
+					<Button
+						variant="ghost"
+						size="sm"
+						disabled={Boolean(parseError)}
+						onClick={onSave}
+						className="rounded-none justify-start text-xs py-4 px-2"
+					>
+						<Kbd className="text-xs font-normal">⌘↵</Kbd>
+						<span className="ml-1 text-xs">Save Changes</span>
+					</Button>
 
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={onCancel}
-							className="rounded-none justify-start text-xs py-4 px-2"
-						>
-							<Kbd className="text-xs font-normal">esc</Kbd>
-							<span className="ml-1 text-xs">Cancel Changes</span>
-						</Button>
-					</div>
-				</PopoverContent>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={onCancel}
+						className="rounded-none justify-start text-xs py-4 px-2"
+					>
+						<Kbd className="text-xs font-normal">esc</Kbd>
+						<span className="ml-1 text-xs">Cancel Changes</span>
+					</Button>
+				</div>
 			</CellPopover>
 		);
 	},
