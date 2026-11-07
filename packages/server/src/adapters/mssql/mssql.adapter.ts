@@ -60,7 +60,18 @@ const MSSQL_NO_SUCH_PROCEDURE = 2812;
 const ERRORLOG_HEADER = /^Error: (\d+), Severity: (\d+), State: (\d+)\.?$/;
 const MSSQL_FK_DEPENDENCY = 3726;
 const MSSQL_DUP_INDEX_NAME = 1913;
-const MSSQL_DUP_KEY = 1505;
+
+/**
+ * A constraint refused the row: duplicate key (2601, 2627, and 1505 when a new unique index or
+ * constraint finds one), foreign key or CHECK conflict (547), NULL in a NOT NULL column (515).
+ */
+const MSSQL_CONSTRAINT_VIOLATIONS = new Set([515, 547, 1505, 2601, 2627]);
+
+/**
+ * A value the column cannot hold: conversion failed (241, 245, 295, 8114), out of range (220,
+ * 242, 8115), too long (2628, 8152).
+ */
+const MSSQL_INVALID_VALUES = new Set([220, 241, 242, 245, 295, 2628, 8114, 8115, 8152]);
 
 /** The column type cannot be an index key (1919, 1978), e.g. NVARCHAR(MAX). */
 const MSSQL_CANNOT_INDEX = new Set([1919, 1978]);
@@ -85,16 +96,22 @@ type MssqlConn = { request(): Request };
 
 export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		const { number = 0 } = e as { number?: number };
+
 		// Before the message check below, whose words a table name in this message can contain.
 		if (e.name === "RequestError" && isSelectDenied(e)) return { status: 403 };
 
 		// Invalid object name: dropped, renamed, or a stale URL after switching databases.
-		if (e.name === "RequestError" && (e as { number?: number }).number === MSSQL_NO_SUCH_TABLE)
-			return { status: 404 };
+		if (e.name === "RequestError" && number === MSSQL_NO_SUCH_TABLE) return { status: 404 };
 
 		// A login failure, connect timeout or socket error.
 		if (e.name === "ConnectionError" || e.message.includes("Login failed"))
 			return { status: 503 };
+
+		if (e.name === "RequestError" && MSSQL_CONSTRAINT_VIOLATIONS.has(number))
+			return { status: 409 };
+
+		if (e.name === "RequestError" && MSSQL_INVALID_VALUES.has(number)) return { status: 400 };
 
 		return undefined;
 	}
@@ -786,7 +803,7 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 	protected override indexError(e: Error) {
 		const { number } = e as { number?: number };
 
-		if (number === MSSQL_DUP_INDEX_NAME || number === MSSQL_DUP_KEY) return { status: 409 };
+		if (number === MSSQL_DUP_INDEX_NAME) return { status: 409 };
 
 		if (
 			number === MSSQL_INDEX_IN_USE ||

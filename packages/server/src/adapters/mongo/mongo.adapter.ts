@@ -135,8 +135,11 @@ const UNREACHABLE_ERRORS = new Set([
 	"MongoTopologyClosedError",
 ]);
 
-/** 85 IndexOptionsConflict, 86 IndexKeySpecsConflict, 11000 duplicate key on a unique build. */
-const INDEX_CONFLICT_CODES = new Set([85, 86, 11000]);
+/** 85 IndexOptionsConflict, 86 IndexKeySpecsConflict. */
+const INDEX_CONFLICT_CODES = new Set([85, 86]);
+
+/** A duplicate key (11000), also on a unique index build, or a document the validator refuses (121). */
+const CONFLICT_CODES = new Set<unknown>([11000, 121]);
 
 const inferValueType = (value: unknown): DataTypes => {
 	if (value instanceof Date) return "date";
@@ -516,6 +519,8 @@ export class MongoAdapter extends BaseAdapter {
 			e.message.includes("MongoServerSelectionError")
 		)
 			return { status: 503 };
+
+		if ("code" in e && CONFLICT_CODES.has(e.code)) return { status: 409 };
 
 		return undefined;
 	}

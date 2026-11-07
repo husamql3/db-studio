@@ -47,7 +47,6 @@ import {
 const MYSQL_FK_VIOLATION = 1451;
 const MYSQL_FK_DEPENDENCY = 1217;
 const MYSQL_DUP_KEYNAME = 1061;
-const MYSQL_DUP_ENTRY = 1062;
 const MYSQL_DROP_INDEX_FK = 1553;
 
 /**
@@ -59,6 +58,28 @@ const MYSQL_CANNOT_INDEX = new Set([1059, 1071, 1167, 1170, 1280, 3152]);
 const MYSQL_TABLE_ACCESS_DENIED = 1142;
 const MYSQL_NO_SUCH_TABLE = 1146;
 const MYSQL_READ_ONLY = 1792;
+
+/**
+ * SQLSTATE class 22, a data exception (value out of range, too long, invalid JSON), is 400; class
+ * 23, an integrity constraint violation (duplicate key, foreign key, NULL in a NOT NULL column),
+ * is 409, as on PostgreSQL.
+ */
+const STATUS_BY_SQLSTATE_CLASS = new Map([
+	["22", 400],
+	["23", 409],
+]);
+
+/**
+ * Errors MySQL files under the general SQLSTATE HY000: a CHECK constraint (3819) or a NOT NULL
+ * column without a default (1364) is 409; a value the column type cannot hold (1366) or truncated
+ * (1265) is 400.
+ */
+const STATUS_BY_ERRNO = new Map([
+	[3819, 409],
+	[1364, 409],
+	[1366, 400],
+	[1265, 400],
+]);
 
 /**
  * The server cannot be reached or refused the login: access denied (1045), cannot connect to
@@ -84,7 +105,11 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	});
 
 	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
-		const { code, errno } = e as { code?: string; errno?: number };
+		const { code, errno, sqlState } = e as {
+			code?: string;
+			errno?: number;
+			sqlState?: string;
+		};
 
 		if (errno === MYSQL_READ_ONLY) return { status: 403, message: READ_ONLY_MESSAGE };
 
@@ -97,7 +122,11 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 		)
 			return { status: 503 };
 
-		return undefined;
+		const status =
+			(errno !== undefined && STATUS_BY_ERRNO.get(errno)) ||
+			STATUS_BY_SQLSTATE_CLASS.get(sqlState?.slice(0, 2) ?? "");
+
+		return status ? { status } : undefined;
 	}
 
 	protected readonly quoteIdentifier = quoteMysqlIdent;
@@ -576,7 +605,7 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	protected override indexError(e: Error) {
 		const { errno } = e as { errno?: number };
 
-		if (errno === MYSQL_DUP_KEYNAME || errno === MYSQL_DUP_ENTRY) return { status: 409 };
+		if (errno === MYSQL_DUP_KEYNAME) return { status: 409 };
 
 		if (
 			errno === MYSQL_DROP_INDEX_FK ||

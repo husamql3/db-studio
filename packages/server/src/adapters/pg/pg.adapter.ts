@@ -776,8 +776,8 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	protected override indexError(e: Error) {
 		const code = (e as { code?: string }).code;
 
-		// 42P07: the name is taken; 23505: existing rows break the new unique index.
-		if (code === "42P07" || code === "23505") return { status: 409 };
+		// 42P07: the name is taken.
+		if (code === "42P07") return { status: 409 };
 
 		// 0A000 and 42704: the method cannot index these columns (hash on two columns, gin on a
 		// type with no operator class).

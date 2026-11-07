@@ -221,8 +221,37 @@ type IndexKeyRow = {
 	COLUMN_EXPRESSION: string | null;
 };
 
-/** The new index repeats an existing one: name taken, same column list, or duplicate keys. */
-const INDEX_CONFLICTS = ["ORA-00955", "ORA-01408", "ORA-01452"];
+/**
+ * A constraint refused the row: unique (ORA-00001), NULL in a NOT NULL column (ORA-01400,
+ * ORA-01407), check (ORA-02290), foreign key (ORA-02291, ORA-02292); or the name is taken
+ * (ORA-00955).
+ */
+const CONFLICTS = [
+	"ORA-00001",
+	"ORA-00955",
+	"ORA-01400",
+	"ORA-01407",
+	"ORA-02290",
+	"ORA-02291",
+	"ORA-02292",
+];
+
+/**
+ * A value the column cannot hold: not a number (ORA-01722), too many digits (ORA-01438), a date
+ * part out of range (ORA-01840, ORA-01841, ORA-01847, ORA-01858), invalid JSON (ORA-40441).
+ */
+const INVALID_VALUES = [
+	"ORA-01438",
+	"ORA-01722",
+	"ORA-01840",
+	"ORA-01841",
+	"ORA-01847",
+	"ORA-01858",
+	"ORA-40441",
+];
+
+/** The new index repeats an existing one: same column list, or duplicate keys. */
+const INDEX_CONFLICTS = ["ORA-01408", "ORA-01452"];
 
 /**
  * The column or name cannot be indexed: identifier too long (ORA-00972), key too long
@@ -233,8 +262,8 @@ const CANNOT_INDEX = ["ORA-00972", "ORA-01450", "ORA-02327", "ORA-02329"];
 /** The index enforces a primary key or unique constraint. */
 const INDEX_IN_USE = "ORA-02429";
 
-const startsWithAny = (e: unknown, codes: string[]): e is Error =>
-	e instanceof Error && codes.some((code) => e.message.startsWith(code));
+const startsWithAny = (e: Error, codes: string[]) =>
+	codes.some((code) => e.message.startsWith(code));
 
 /** ON UPDATE actions do not exist in Oracle, and ON DELETE has no SET DEFAULT. */
 const FK_DELETE_ACTIONS: Record<string, string> = {
@@ -263,7 +292,9 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 
 		if (limitation) return { status: 400, message: `${limitation[1]} (${firstLine})` };
 
-		if (e.message.startsWith("ORA-00955")) return { status: 409, message: firstLine };
+		if (startsWithAny(e, CONFLICTS)) return { status: 409, message: firstLine };
+
+		if (startsWithAny(e, INVALID_VALUES)) return { status: 400, message: firstLine };
 
 		if (UNREACHABLE.test(e.message)) return { status: 503 };
 

@@ -202,6 +202,12 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 
 		if (e instanceof DuckdbFileLocked) return { status: 503 };
 
+		// DuckDB names an error's class first: a duplicate, foreign key, NOT NULL or CHECK
+		// violation is a "Constraint Error", a value the type cannot hold a "Conversion Error".
+		if (e.message.startsWith("Constraint Error")) return { status: 409 };
+
+		if (/^(Conversion|Out of Range) Error/.test(e.message)) return { status: 400 };
+
 		return undefined;
 	}
 
@@ -549,10 +555,8 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 	}
 
 	protected override indexError(e: Error) {
-		// The name is taken, or existing rows break the new unique index.
-		return /already exists|Data contains duplicates/.test(e.message)
-			? { status: 409 }
-			: undefined;
+		// The name is taken.
+		return e.message.includes("already exists") ? { status: 409 } : undefined;
 	}
 
 	/** The indexes behind PRIMARY KEY and UNIQUE constraints are not listed: all are droppable. */

@@ -169,6 +169,14 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 		if (e instanceof D1TokenRefused || /HTTP status (401|403)\b/.test(e.message))
 			return { status: 503 };
 
+		// Matched by message, the part a local file, a libSQL server and D1 share: libSQL prefixes
+		// "SQLITE_CONSTRAINT: " and D1 appends ": SQLITE_CONSTRAINT" to "UNIQUE constraint failed".
+		// A STRICT column refusing a value's type is SQLITE_CONSTRAINT too, but an invalid value.
+		if (/cannot store \S+ value in \S+ column|datatype mismatch/.test(e.message))
+			return { status: 400 };
+
+		if (e.message.includes("constraint failed")) return { status: 409 };
+
 		return undefined;
 	}
 
@@ -663,8 +671,7 @@ export class SqliteAdapter extends SqlAdapter<SqliteClient> {
 
 	protected override indexError(e: Error) {
 		// Indexes share one namespace with tables, so either can already hold the name.
-		if (/already exists|there is already|UNIQUE constraint failed/.test(e.message))
-			return { status: 409 };
+		if (/already exists|there is already/.test(e.message)) return { status: 409 };
 
 		if (e.message.includes("reserved for internal use")) return { status: 400 };
 
