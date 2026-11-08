@@ -1,4 +1,4 @@
-# db-studio - The modern pgAdmin alternative that works with every database.
+# db-studio | Every database. One studio
 # https://dbstudio.sh
 
 User-agent: *

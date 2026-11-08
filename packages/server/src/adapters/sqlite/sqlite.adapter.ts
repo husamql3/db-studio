@@ -43,6 +43,7 @@ import {
 	buildWhereClause,
 	hasMultipleStatements,
 	isTransactionControl,
+	recreateTableWithColumn,
 } from "./sqlite.query-builder.js";
 
 interface TableInfoRow {
@@ -259,15 +260,15 @@ export class SqliteAdapter extends BaseAdapter {
 					.replace(/\bDESC\b/gi, "ASC")
 					.replace(/TEMP_DESC/g, "DESC");
 			} else {
-				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 			}
 		} else if (!sortClause) {
-			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+			effectiveSortClause = `ORDER BY ${sortColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 		}
 
-		const sql = `SELECT * FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT ?`;
+		const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`;
 		const values = [...filterValues, ...cursorValues, limit + 1];
-		const countSql = `SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`;
+		const countSql = `SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`;
 
 		return { sql, values, countSql, countValues: filterValues };
 	}
@@ -335,7 +336,13 @@ export class SqliteAdapter extends BaseAdapter {
 
 			const client = await getSqliteClient();
 
-			const colInfoRows = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfoRows = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
+			// PRAGMA table_info returns no rows instead of failing for a dropped table or stale URL.
+			if (colInfoRows.length === 0)
+				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 			const pkColumns: string[] = colInfoRows
 				.filter((c) => c.pk > 0)
 				.sort((a, b) => a.pk - b.pk)
@@ -391,20 +398,20 @@ export class SqliteAdapter extends BaseAdapter {
 						.replace(/TEMP_DESC/g, "DESC");
 					if (pkTieBreakerCols.length) {
 						const tbDir = effectiveSortDirection === "asc" ? "DESC" : "ASC";
-						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${tbDir}`).join(", ")}`;
+						effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${tbDir}`).join(", ")}`;
 					}
 				} else {
-					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
+					effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection === "asc" ? "DESC" : "ASC"}`).join(", ")}`;
 				}
 			} else if (!sortClause) {
-				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+				effectiveSortClause = `ORDER BY ${cursorColumns.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			} else if (pkTieBreakerCols.length) {
-				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `"${col}" ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
+				effectiveSortClause += `, ${pkTieBreakerCols.map((col) => `${this.quoteIdentifier(col)} ${effectiveSortDirection.toUpperCase()}`).join(", ")}`;
 			}
 
 			const [countRow] = await all<{ total: number }>(
 				client,
-				`SELECT COUNT(*) as total FROM "${tableName}" ${filterWhere}`,
+				`SELECT COUNT(*) as total FROM ${this.quoteIdentifier(tableName)} ${filterWhere}`,
 				filterValues,
 			);
 			const total = Number(countRow?.total ?? 0);
@@ -413,7 +420,7 @@ export class SqliteAdapter extends BaseAdapter {
 			const selectClause = useRowid ? "*, rowid" : "*";
 			const dataRows = await all(
 				client,
-				`SELECT ${selectClause} FROM "${tableName}" ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
+				`SELECT ${selectClause} FROM ${this.quoteIdentifier(tableName)} ${combinedWhere} ${effectiveSortClause} LIMIT ?`,
 				[...filterValues, ...cursorValues, limit + 1],
 			);
 
@@ -673,7 +680,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const columns = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const columns = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list("${tableName}")`);
 
 			const fkMap = new Map<string, FkRow>();
@@ -713,7 +723,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
@@ -743,7 +756,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
@@ -771,51 +787,43 @@ export class SqliteAdapter extends BaseAdapter {
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
 			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info(${q(tableName)})`);
-			if (!colInfo.some((c) => c.name === columnName)) {
+			const target = colInfo.find((c) => c.name === columnName);
+			if (!target) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,
 				});
 			}
 
-			// SQLite doesn't support ALTER COLUMN — use the recreate-table approach
-			const pkCols = colInfo.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk);
-			const hasCompositePk = pkCols.length > 1;
-
-			const newColDefs = colInfo.map((col) => {
-				const isTarget = col.name === columnName;
-				const type = isTarget ? columnType : col.type;
-				const nullable = isTarget ? isNullable : col.notnull === 0;
-				const defVal = isTarget ? defaultValue?.trim() || null : col.dflt_value;
-				const isPk = col.pk > 0;
-
-				let def = `${q(col.name)} ${type}`;
-				if (!hasCompositePk && isPk) def += " PRIMARY KEY";
-				if (!isPk && !nullable) def += " NOT NULL";
-				if (defVal) def += ` DEFAULT ${defVal}`;
-				return def;
-			});
-
-			if (hasCompositePk) {
-				newColDefs.push(`PRIMARY KEY (${pkCols.map((c) => q(c.name)).join(", ")})`);
-			}
-
-			const fks = await all<FkRow>(client, `PRAGMA foreign_key_list(${q(tableName)})`);
-			const fksByGroup = new Map<number, FkRow[]>();
-			for (const fk of fks) {
-				const arr = fksByGroup.get(fk.id) ?? [];
-				arr.push(fk);
-				fksByGroup.set(fk.id, arr);
-			}
-			const fkDefs = Array.from(fksByGroup.values()).map((group) => {
-				const from = group.map((f) => q(f.from)).join(", ");
-				const toColumns = group.map((f) => f.to);
-				const to = allNamed(toColumns) ? ` (${toColumns.map(q).join(", ")})` : "";
-				const { table, on_update, on_delete } = group[0];
-				return `FOREIGN KEY (${from}) REFERENCES ${q(table)}${to} ON UPDATE ${on_update} ON DELETE ${on_delete}`;
-			});
-
-			const colNames = colInfo.map((c) => q(c.name)).join(", ");
+			// SQLite has no ALTER COLUMN, so the table is recreated from its own CREATE TABLE.
+			// Rebuilding it from PRAGMA output instead would drop UNIQUE, CHECK, COLLATE,
+			// AUTOINCREMENT and generated columns, which the PRAGMAs do not report.
 			const tempName = `${tableName}_alter_${Date.now()}`;
+			const [table] = await all<{ sql: string }>(
+				client,
+				`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+				[tableName],
+			);
+			const createTemp = recreateTableWithColumn(table?.sql ?? "", tempName, columnName, {
+				type: columnType,
+				notNull: !isNullable && !target.pk,
+				defaultValue: defaultValue?.trim() || null,
+			});
+			if (!createTemp) {
+				throw new HTTPException(400, {
+					message: `Cannot edit columns of "${tableName}": its definition could not be read`,
+				});
+			}
+			// Generated columns are absent from table_info and are computed again on insert.
+			const colNames = colInfo.map((c) => q(c.name)).join(", ");
+			// Copying rows sets the AUTOINCREMENT counter to the highest id copied; carry the old
+			// one over so ids of rows deleted earlier are never handed out again.
+			const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
+			const keepSequence = /\bAUTOINCREMENT\b/i.test(createTemp)
+				? [
+						`DELETE FROM sqlite_sequence WHERE name = ${literal(tempName)}`,
+						`INSERT INTO sqlite_sequence (name, seq) SELECT ${literal(tempName)}, seq FROM sqlite_sequence WHERE name = ${literal(tableName)}`,
+					]
+				: [];
 
 			const existingIndexes = await all<{ sql: string }>(
 				client,
@@ -839,8 +847,9 @@ export class SqliteAdapter extends BaseAdapter {
 			try {
 				await client.rebuildTable(
 					[
-						`CREATE TABLE ${q(tempName)} (${[...newColDefs, ...fkDefs].join(", ")})`,
+						createTemp,
 						`INSERT INTO ${q(tempName)} (${colNames}) SELECT ${colNames} FROM ${q(tableName)}`,
+						...keepSequence,
 						`DROP TABLE ${q(tableName)}`,
 						`ALTER TABLE ${q(tempName)} RENAME TO ${q(tableName)}`,
 						...existingIndexes.map(({ sql }) => sql),
@@ -864,7 +873,10 @@ export class SqliteAdapter extends BaseAdapter {
 			if (!(await this.tableExists(client, tableName)))
 				throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 
-			const colInfo = await all<TableInfoRow>(client, `PRAGMA table_info("${tableName}")`);
+			const colInfo = await all<TableInfoRow>(
+				client,
+				`PRAGMA table_info(${this.quoteIdentifier(tableName)})`,
+			);
 			if (!colInfo.some((c) => c.name === columnName)) {
 				throw new HTTPException(404, {
 					message: `Column "${columnName}" does not exist in table "${tableName}"`,

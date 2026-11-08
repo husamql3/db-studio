@@ -1,20 +1,17 @@
-// Server only: reads and writes the SPONSORS KV namespace.
+// Server only: reads the SPONSORS KV namespace. avocado-admin owns the writes,
+// so keep the keys in step with it.
 import { env } from "cloudflare:workers";
 import type { Sponsor } from "@/lib/content/sponsors";
 
-const LIST_KEY = "sponsors";
-const logoKey = (id: string) => `logo:${id}`;
-
-export const readSponsors = async (): Promise<Sponsor[]> =>
-	(await env.SPONSORS.get<Sponsor[]>(LIST_KEY, "json")) ?? [];
-
-export const writeSponsors = (sponsors: Sponsor[]) =>
-	env.SPONSORS.put(LIST_KEY, JSON.stringify(sponsors));
+// A failed read hides the sponsors instead of failing the whole homepage.
+export const readSponsors = (): Promise<Sponsor[]> =>
+	env.SPONSORS.get<Sponsor[]>("sponsors", "json").then(
+		(sponsors) => sponsors ?? [],
+		(error) => {
+			console.error("Sponsors could not be read from KV", error);
+			return [];
+		},
+	);
 
 export const readLogo = (id: string) =>
-	env.SPONSORS.getWithMetadata<{ type: string }>(logoKey(id), "arrayBuffer");
-
-export const writeLogo = async (id: string, file: File) =>
-	env.SPONSORS.put(logoKey(id), await file.arrayBuffer(), { metadata: { type: file.type } });
-
-export const deleteLogo = (id: string) => env.SPONSORS.delete(logoKey(id));
+	env.SPONSORS.getWithMetadata<{ type: string }>(`logo:${id}`, "arrayBuffer");

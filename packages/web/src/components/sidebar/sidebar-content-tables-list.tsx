@@ -71,7 +71,8 @@ export const SidebarContentTablesList = () => {
 		<>
 			<SidebarSchemaDropdown />
 			<SidebarSearchTables />
-			<ScrollArea className="flex-1 overflow-y-auto pb-3 block h-full w-full">
+			{/* Radix wraps the list in a `display: table` div that widens to the longest name and pushes the row counts off-screen. */}
+			<ScrollArea className="flex-1 overflow-y-auto pb-3 block h-full w-full [&_[data-slot=scroll-area-viewport]>div]:block!">
 				<SidebarListTables />
 			</ScrollArea>
 		</>

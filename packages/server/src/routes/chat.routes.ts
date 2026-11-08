@@ -2,7 +2,7 @@ import { DEFAULTS, LIMIT } from "@db-studio/shared/constants";
 import { chatSchema } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
 import { HTTPException } from "@/http-exception.js";
-import { currentRequestId, errorFields, writeOperationalLog } from "@/operational-log.js";
+import { currentRequestId, writeOperationalLog } from "@/operational-log.js";
 import { generateSystemPrompt } from "@/utils/system-prompt-generator.js";
 import { getDetailedSchema } from "@/utils/table-details-schema.js";
 
@@ -70,8 +70,8 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
 				return { limit: LIMIT, used: LIMIT, remaining: 0 };
 			}
 			return await proxyResponse.json();
-		} catch (error) {
-			writeOperationalLog("warn", "chat_limit_unavailable", errorFields(error));
+		} catch {
+			// An unreachable proxy (offline, or not running in dev) is expected; not worth a log line.
 			return { limit: LIMIT, used: LIMIT, remaining: 0 };
 		}
 	})

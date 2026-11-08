@@ -10,6 +10,7 @@
     "dev:server": "turbo run dev --filter=db-studio",
     "dev:proxy": "turbo run dev --filter=@db-studio/proxy",
     "dev:www": "turbo run dev --filter=@db-studio/www",
+    "dev:desktop": "turbo run electron --filter=@db-studio/desktop",
     "start": "turbo run start",
     "init-db:pgsql": "bash ./scripts/init-db-pgsql.sh",
     "init-db:mysql": "bash ./scripts/init-db-mysql.sh",
@@ -31,6 +32,8 @@
     "build:server": "turbo run build --filter=db-studio",
     "build:proxy": "turbo run build --filter=@db-studio/proxy",
     "build:www": "turbo run build --filter=@db-studio/www",
+    "build:desktop": "turbo run build --filter=@db-studio/desktop",
+    "package:desktop": "turbo run package --filter=@db-studio/desktop",
     "deploy:www": "turbo run deploy --filter=@db-studio/www",
     "deploy:www:preview": "turbo run deploy:preview --filter=@db-studio/www",
     "deploy:proxy": "turbo run deploy --filter=@db-studio/proxy",
@@ -44,24 +47,27 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "turbo": "^2.9.14"
+    "@biomejs/biome": "^2.6.4",
+    "turbo": "^2.11.10"
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "knip": "^6.14.1",
-    "portless": "^0.15.1"
+    "knip": "^6.44.1",
+    "portless": "^0.15.12"
   },
   "peerDependencies": {
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "overrides": {
-    "esbuild": "0.27.2",
+    "esbuild": "0.28.2",
     "@tanstack/ai-client": "0.32.1"
   },
+  "trustedDependencies": [
+    "electron"
+  ],
   "engines": {
     "node": ">=20.x",
-    "bun": ">=1.2.19"
+    "bun": ">=1.4.4"
   },
-  "packageManager": "bun@1.2.19"
+  "packageManager": "bun@1.4.4"
 }

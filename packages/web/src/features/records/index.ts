@@ -5,3 +5,4 @@ export { BulkInsertExcelSheet } from "./components/bulk-insert-excel-sheet";
 export { BulkInsertJsonSheet } from "./components/bulk-insert-json-sheet";
 export { BulkInsertSheet } from "./components/bulk-insert-sheet";
 export { RecordReferenceSheet } from "./components/record-reference-sheet";
+export { useAddRecordStore } from "./stores/add-record.store";

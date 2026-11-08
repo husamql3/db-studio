@@ -124,6 +124,7 @@ export function CommandPalette() {
 		<CommandDialog
 			open={open}
 			onOpenChange={handleOpenChange}
+			className="sm:max-w-lg"
 		>
 			{/* Custom input area with mode badge */}
 			<div className="flex items-center border-b border-input px-2 gap-2 w-full">
@@ -133,7 +134,7 @@ export function CommandPalette() {
 						type="button"
 						onClick={switchToAllMode}
 						aria-label="Back to all commands"
-						className="flex items-center gap-1.5 h-8! rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20 shrink-0"
+						className="flex items-center gap-1.5 h-8! rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 shrink-0"
 					>
 						<Table2 className="size-3.5" />
 						<span>Tables</span>

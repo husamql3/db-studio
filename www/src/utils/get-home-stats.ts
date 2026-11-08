@@ -11,6 +11,7 @@ const timeout = () => AbortSignal.timeout(3000);
 // Last good answers, kept for when an API refuses (GitHub allows 60 unauthenticated calls an hour).
 let lastGithub = { stars: 269, forks: 23 };
 let lastNpm: NpmRange = { downloads: [] };
+let lastNpmTotal: number | null = null;
 
 const getGithub = () =>
 	fetch("https://api.github.com/repos/husamql3/db-studio", {
@@ -38,6 +39,47 @@ const getNpm = () =>
 			return lastNpm;
 		})
 		.catch(() => lastNpm);
+
+async function getNpmTotal(): Promise<number | null> {
+	const end = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+	const periods: string[] = [];
+	// First publication was 2025-10-28. Split by year to stay below npm's 18-month limit.
+	for (let year = 2025; year <= Number(end.slice(0, 4)); year++) {
+		const start = year === 2025 ? "2025-10-28" : `${year}-01-01`;
+		periods.push(`${start}:${year === Number(end.slice(0, 4)) ? end : `${year}-12-31`}`);
+	}
+
+	try {
+		const counts = await Promise.all(
+			periods.map(async (period) => {
+				const response = await fetch(
+					`https://api.npmjs.org/downloads/point/${period}/db-studio`,
+					{
+						signal: timeout(),
+						cf: { cacheTtlByStatus: { "200-299": 3600, "400-599": 0 } },
+					},
+				);
+				if (!response.ok) throw new Error(`npm downloads request failed: ${response.status}`);
+				const data: unknown = await response.json();
+				if (
+					typeof data !== "object" ||
+					data === null ||
+					!("downloads" in data) ||
+					typeof data.downloads !== "number" ||
+					!Number.isSafeInteger(data.downloads) ||
+					data.downloads < 0
+				) {
+					throw new Error("Invalid npm download count");
+				}
+				return data.downloads;
+			}),
+		);
+		lastNpmTotal = counts.reduce((sum, count) => sum + count, 0);
+	} catch {
+		// Keep the last complete total rather than showing a partial count.
+	}
+	return lastNpmTotal;
+}
 
 const ANALYTICS_QUERY = `query ($account: string!, $site: string!, $since: Time!) {
 	viewer { accounts(filter: { accountTag: $account }) {
@@ -118,7 +160,12 @@ async function getAnalytics(): Promise<Analytics | null> {
 }
 
 export const getHomeStats = createServerFn().handler(async () => {
-	const [github, npm, analytics] = await Promise.all([getGithub(), getNpm(), getAnalytics()]);
+	const [github, npm, npmTotal, analytics] = await Promise.all([
+		getGithub(),
+		getNpm(),
+		getNpmTotal(),
+		getAnalytics(),
+	]);
 
 	// Whole weeks, aligned to end on the latest day, starting at the first week with downloads.
 	const days = npm.downloads.slice(npm.downloads.length % 7);
@@ -132,7 +179,7 @@ export const getHomeStats = createServerFn().handler(async () => {
 
 	return {
 		...github,
-		npmYearly: npm.downloads.reduce((sum, d) => sum + d.downloads, 0),
+		npmTotal,
 		npmWeeks: weeks.slice(
 			Math.max(
 				0,

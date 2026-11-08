@@ -47,6 +47,14 @@ export const main = async () => {
 	const PORT = Number.parseInt(port ?? process.env.PORT ?? String(DEFAULTS.PORT), 10);
 	// Loopback only by default: the server holds saved database passwords. HOST opts in to more.
 	const HOST = process.env.HOST ?? "127.0.0.1";
+	// Off loopback, anyone who reaches the port could use the API, so require a password.
+	if (!["127.0.0.1", "localhost", "::1"].includes(HOST) && !process.env.DB_STUDIO_PASSWORD) {
+		const { randomBytes } = await import("node:crypto");
+		process.env.DB_STUDIO_PASSWORD = randomBytes(18).toString("base64url");
+		log.warn(
+			`HOST=${HOST} exposes db-studio to the network, so it asks for a password (set DB_STUDIO_PASSWORD to choose one). Sign in with any username and the password ${color.cyan(process.env.DB_STUDIO_PASSWORD)}`,
+		);
+	}
 	const VAR_NAME = varName || DEFAULTS.VAR_NAME;
 	const DATABASE_URL = databaseUrl || getDatabaseUrl(ENV, VAR_NAME);
 

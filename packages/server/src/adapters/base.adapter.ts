@@ -31,7 +31,12 @@ import type {
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
-import { isPgDatabaseError } from "@/drivers.js";
+import {
+	isPgDatabaseError,
+	isPgDataException,
+	isReadOnlyRefusal,
+	READ_ONLY_MESSAGE,
+} from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -43,7 +48,7 @@ export const EXACT_COUNT_LIMIT = 50_000;
 /** One record's pending updates, addressed by every one of its key columns. */
 export interface RecordUpdateGroup {
 	keyValues: unknown[];
-	rowUpdates: Array<{ columnName: string; value: unknown }>;
+	rowUpdates: Array<{ columnName: string; value: unknown; useDefault?: boolean }>;
 }
 
 /** Bundles a paginated data query together with its companion COUNT query. */
@@ -140,6 +145,25 @@ export abstract class BaseAdapter implements IDbAdapter {
 			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
 			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
 
+			// Before the message checks below, whose words a table name in this message can contain.
+			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
+			// SQL Server 229/230: the login lacks a permission on a table or column.
+			const mssqlNumber = (e as { number?: number }).number;
+			if (
+				(isPgDatabaseError(e) && e.code === "42501") ||
+				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
+			) {
+				return new HTTPException(403, { message: e.message, cause: e });
+			}
+			if (isPgDataException(e))
+				return new HTTPException(400, { message: e.message, cause: e });
+			if (isReadOnlyRefusal(e)) {
+				return new HTTPException(403, {
+					message: READ_ONLY_MESSAGE,
+					cause: e,
+				});
+			}
+
 			const isConnectionError =
 				code === "ECONNREFUSED" ||
 				code === "ENOTFOUND" ||
@@ -147,6 +171,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 				code === "ER_ACCESS_DENIED_ERROR" ||
 				code === "ER_BAD_HOST_ERROR" ||
 				code === "ECONNRESET" ||
+				e.name === "ConnectionError" || // mssql: login failure, connect timeout or socket error
 				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
 				err.errno === 2003 || // MySQL can't connect to server
 				err.errno === 2002 || // MySQL can't connect to local server
@@ -228,7 +253,11 @@ export abstract class BaseAdapter implements IDbAdapter {
 
 			const groupKey = JSON.stringify(keyValues.map((value) => String(value)));
 			const group: RecordUpdateGroup = groups.get(groupKey) ?? { keyValues, rowUpdates: [] };
-			group.rowUpdates.push({ columnName: update.columnName, value: update.value });
+			group.rowUpdates.push({
+				columnName: update.columnName,
+				value: update.value,
+				useDefault: update.useDefault,
+			});
 			groups.set(groupKey, group);
 		}
 

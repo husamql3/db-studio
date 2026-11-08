@@ -35,7 +35,7 @@ export const Route = createRootRoute({
 			{ property: "og:image:height", content: META.SITE_IMAGE_HEIGHT },
 			{
 				property: "og:image:alt",
-				content: `${META.SITE_NAME} – ${META.SITE_DESCRIPTION}`,
+				content: META.SITE_IMAGE_ALT,
 			},
 			{ name: "twitter:card", content: "summary_large_image" },
 		],
@@ -98,7 +98,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					dangerouslySetInnerHTML={{ __html: structuredData }}
 				/>
 			</head>
-			<body className="dark .dark">
+			<body className="dark">
 				<RootProvider>{children}</RootProvider>
 
 				<TanStackDevtools
@@ -113,6 +113,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					]}
 				/>
 				<Scripts />
+				<script
+					src="/google-analytics.js"
+					async
+				/>
 			</body>
 		</html>
 	);

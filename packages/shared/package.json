@@ -11,13 +11,13 @@
     "build": "tsc"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.6",
+    "@biomejs/biome": "^2.6.4",
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
-    "zod": "^4.3.5"
+    "zod": "^4.6.7"
   }
 }

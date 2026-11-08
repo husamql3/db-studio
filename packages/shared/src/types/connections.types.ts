@@ -19,6 +19,8 @@ export const connectionSummarySchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	color: connectionColorSchema.nullable(),
+	/** Opens in a read-only database session, so a stray write fails. */
+	readOnly: z.boolean(),
 	lastUsedAt: z.number(),
 	dbType: databaseTypeSchema,
 	/** The URL with its password and auth token replaced by `••••`. */
@@ -29,10 +31,10 @@ export type ConnectionSummarySchemaType = z.infer<typeof connectionSummarySchema
 export const connectionsStateSchema = z.object({
 	connections: z.array(connectionSummarySchema),
 	/**
-	 * The database the server is connected to, or `null` before the first connection. `id` is
-	 * `null` when the user deleted the saved entry of the connection that is still open.
-	 * `connectionId` changes on every switch, so a browser tab can tell it missed one. Tabs send it
-	 * as `X-Connection-Id`, and the server refuses a database request that carries an old one.
+	 * The open connection this browser tab works with, or `null` before the first connection. `id`
+	 * is `null` when the user deleted the saved entry of the connection that is still open.
+	 * Each open connection has its own `connectionId`. A tab sends it as `X-Connection-Id`, the
+	 * server answers from that connection, and it refuses one the server no longer has open.
 	 */
 	active: z
 		.object({
@@ -52,5 +54,6 @@ export type ConnectUrlSchemaType = z.infer<typeof connectUrlSchema>;
 export const updateConnectionSchema = z.object({
 	name: z.string().trim().min(1, "Name is required").max(100).optional(),
 	color: connectionColorSchema.nullable().optional(),
+	readOnly: z.boolean().optional(),
 });
 export type UpdateConnectionSchemaType = z.infer<typeof updateConnectionSchema>;

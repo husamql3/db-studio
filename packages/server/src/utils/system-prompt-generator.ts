@@ -158,12 +158,6 @@ function formatSchemaForPrompt(schema: DatabaseSchema): string {
 				output += `    ${col.description}\n`;
 			}
 		}
-
-		// Add sample data if available
-		if (table.sampleData && table.sampleData.length > 0) {
-			output += `Sample data (${table.sampleData.length} rows):\n`;
-			output += `${JSON.stringify(table.sampleData.slice(0, 3), null, 2)}\n`;
-		}
 	}
 
 	// Add relationships

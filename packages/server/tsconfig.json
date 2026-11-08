@@ -12,6 +12,7 @@
 			"vitest/globals"
 		],
 		"outDir": "./dist",
+		"rootDir": "..",
 		"ignoreDeprecations": "6.0",
 		"paths": {
 			"@/*": [

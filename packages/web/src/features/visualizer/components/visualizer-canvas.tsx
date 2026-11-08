@@ -78,7 +78,6 @@ const Canvas = ({ tables, edges }: CanvasProps) => {
 	const { fitView } = useReactFlow();
 	const measured = useNodesInitialized();
 	const [focused, setFocused] = useQueryState(CONSTANTS.ACTIVE_TABLE, { defaultValue: "" });
-	const [search] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, { defaultValue: "" });
 	const [hovered, setHovered] = useState<string | null>(null);
 
 	const initial = useMemo(() => layoutNodes({ tables, edges }), [tables, edges]);
@@ -89,7 +88,7 @@ const Canvas = ({ tables, edges }: CanvasProps) => {
 		fitted.current = false;
 	}, [initial, setNodes]);
 
-	// Pan to a table picked in the sidebar (or the URL), but not to one clicked on the canvas:
+	// Pan to a table picked in the URL, but not to one clicked on the canvas:
 	// the click is already where the user is looking.
 	const focusedFromCanvas = useRef(false);
 	useEffect(() => {
@@ -109,16 +108,13 @@ const Canvas = ({ tables, edges }: CanvasProps) => {
 
 	const activeId = hovered ?? (focused || null);
 	const near = activeId ? neighbourhood(edges, activeId) : null;
-	const term = search.trim().toLowerCase();
 
 	const displayNodes = nodes.map((node) => ({
 		...node,
 		data: {
 			...node.data,
 			active: node.id === focused,
-			dimmed:
-				(near !== null && !near.tables.has(node.id)) ||
-				(term !== "" && !node.data.table.tableName.toLowerCase().includes(term)),
+			dimmed: near !== null && !near.tables.has(node.id),
 			highlightedColumns: near?.columns ?? new Set<string>(),
 		},
 	}));

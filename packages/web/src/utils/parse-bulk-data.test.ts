@@ -45,9 +45,28 @@ describe("parseBulkData", () => {
 		});
 
 		it("should parse tab-separated CSV", () => {
-			const input = "name\tage\nemail\nJohn\t30\tjohn@example.com";
+			const input = "name\tage\temail\nJohn\t30\tjohn@example.com";
 			const result = parseBulkData(input);
-			expect(Array.isArray(result)).toBe(true);
+			expect(result).toEqual([{ name: "John", age: 30, email: "john@example.com" }]);
+		});
+
+		it("should keep a quoted newline inside its field", () => {
+			// Splitting lines first turned this into three records, one with a made-up id.
+			const input = 'id,note\n1,"first line\nsecond line"\r\n2,ok';
+			const result = parseBulkData(input);
+			expect(result).toEqual([
+				{ id: 1, note: "first line\nsecond line" },
+				{ id: 2, note: "ok" },
+			]);
+		});
+
+		it("should reject a row whose field count does not match the header", () => {
+			expect(() => parseBulkData("name,age\nJohn,30,extra")).toThrow(/Row 2 has 3 values/);
+			expect(() => parseBulkData("name,age\nJohn")).toThrow(/Row 2 has 1 value/);
+		});
+
+		it("should reject a quote that is never closed", () => {
+			expect(() => parseBulkData('name,note\nJohn,"open')).toThrow(/closing quote/);
 		});
 
 		it("should handle quoted fields with delimiters", () => {
@@ -191,6 +210,11 @@ describe("parseBulkData", () => {
 			const result = parseBulkData(input);
 			expect(result).toHaveLength(2);
 			expect(result[1]).toEqual({ name: "Jane", age: 28 });
+		});
+
+		it("should keep a row holding only a quoted empty field", () => {
+			expect(parseBulkData('note\n""\nkept')).toEqual([{ note: null }, { note: "kept" }]);
+			expect(parseBulkData('note\n""')).toEqual([{ note: null }]);
 		});
 	});
 });

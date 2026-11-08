@@ -1,0 +1,74 @@
+---
+title: Running db studio with Docker
+description: "Run db-studio in a Docker container, no local Node or Bun needed"
+---
+
+Run `db-studio` in a container. There is no published image yet. Building it from source directly.
+
+```bash
+docker build -t db-studio .
+docker run --rm -p 127.0.0.1:3333:3333 -v db-studio-config:/home/node/config db-studio
+```
+
+Open `http://127.0.0.1:3333` and pick a database connection string/url in the browser.
+
+> **Publish the port on `127.0.0.1`.** db-studio has no login and holds your saved database passwords. Publishing on loopback stops other machines from reaching it. The server also rejects any request whose `Host` header is not `localhost`, `127.0.0.1` or `[::1]`, which blocks DNS-rebinding attacks from web pages in your own browser.
+
+### Docker Compose
+
+```bash
+docker compose up -d
+```
+
+Builds the image, publishes the port on `127.0.0.1:3333`, and keeps saved connections in a named volume. Uncomment `environment:` in `docker-compose.yml` to set `DATABASE_URL` or `ALLOWED_HOSTS`.
+
+### Health
+
+The image has a healthcheck that requests the web UI on `127.0.0.1:$PORT`. It never touches your databases. If you set `HOST` to a single non-loopback address, the check will report unhealthy because it can't reach the server there.
+
+#### Connect to a database on your machine
+
+Inside the container, `localhost` is the container itself, not your machine. Use `host.docker.internal` instead.
+
+```bash
+docker run --rm -p 127.0.0.1:3333:3333 \
+  -v db-studio-config:/home/node/config \
+  -e DATABASE_URL=postgresql://user:pass@host.docker.internal:5432/db \
+  db-studio
+```
+
+On Linux, add `--add-host=host.docker.internal:host-gateway` to the command.
+
+### Saved connections
+ 
+Saved connections are stored in `/home/node/config` inside the container. The named volume in the commands above keeps them across restarts. Without `-v`, they are lost when the container is removed/restarted.
+ 
+### Environment variables
+ 
+| Variable | Image default | Purpose |
+| --- | --- | --- |
+| `HOST` | `0.0.0.0` | Address the server binds to |
+| `PORT` | `3333` | Port the server listens on |
+| `DB_STUDIO_CONFIG_DIR` | `/home/node/config` | Where saved connections are stored |
+| `ALLOWED_HOSTS` | (empty) | Extra hostnames allowed in the `Host` header, comma-separated, no ports or wildcards |
+| `DB_STUDIO_PASSWORD` | (generated) | Password the browser asks for; any username works |
+ 
+The container runs as the unprivileged `node` user (uid 1000).
+
+### Reaching db-studio under another hostname
+
+Requests are accepted only for loopback hostnames. To use another name, such as a LAN hostname or a reverse proxy, list it in `ALLOWED_HOSTS` (hostnames only, IPv6 in brackets):
+
+```bash
+-e ALLOWED_HOSTS=db.lan,10.0.0.5
+```
+
+### Password
+
+Because the image binds to `0.0.0.0`, db-studio asks for a password. Sign in with any username and the password printed in `docker logs`; it changes on every start. To keep a fixed one, export `DB_STUDIO_PASSWORD` in your shell and pass it through:
+
+```bash
+-e DB_STUDIO_PASSWORD
+```
+
+The password travels in plain text over HTTP, so put db-studio behind a TLS reverse proxy before you open it to an untrusted network.

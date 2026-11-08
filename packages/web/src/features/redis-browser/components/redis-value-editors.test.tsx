@@ -1,4 +1,5 @@
 import type { KeyDetailsResultSchemaType } from "@db-studio/shared/types";
+import { TooltipProvider } from "@db-studio/ui/tooltip";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { base64UrlFromBytes, encodeTextValue } from "./redis-value";
@@ -49,7 +50,7 @@ const renderEditor = (
 		streamDirection: overrides.streamDirection ?? ("forward" as const),
 		onStreamDirectionChange: vi.fn(),
 	};
-	const view = render(<RedisValueEditor {...props} />);
+	const view = render(<RedisValueEditor {...props} />, { wrapper: TooltipProvider });
 	return { ...view, props };
 };
 

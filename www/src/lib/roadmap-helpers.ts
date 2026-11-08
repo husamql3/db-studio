@@ -3,11 +3,11 @@ import type { RoadmapItemStatus } from "./content/roadmap";
 export function getStatusStyles(status: RoadmapItemStatus) {
 	switch (status) {
 		case "completed":
-			return "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+			return "bg-emerald-400/10 text-emerald-400 border-emerald-400/25";
 		case "in-progress":
-			return "bg-[#1447e6]/10 text-[#1447e6] border-[#1447e6]/30";
+			return "bg-brand/15 text-brand-light border-brand-light/25";
 		case "planned":
-			return "bg-amber-500/10 text-amber-600 border-amber-500/30";
+			return "bg-amber-400/10 text-amber-400 border-amber-400/25";
 		default:
 			return "bg-muted text-muted-foreground border-border";
 	}
@@ -29,10 +29,10 @@ export function getStatusLabel(status: RoadmapItemStatus) {
 export function getTaskIconClass(status: RoadmapItemStatus) {
 	switch (status) {
 		case "completed":
-			return "text-emerald-600";
+			return "text-emerald-400";
 		case "in-progress":
-			return "text-[#1447e6]";
+			return "text-brand-light";
 		case "planned":
-			return "text-muted-foreground";
+			return "text-muted-foreground/60";
 	}
 }

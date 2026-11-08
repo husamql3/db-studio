@@ -29,7 +29,6 @@ export const Sidebar = () => {
 				return <SidebarContentTablesList />;
 			// todo
 			// case "logs":
-			// case "visualizer":
 		}
 	}, [isKeyValue, path]);
 

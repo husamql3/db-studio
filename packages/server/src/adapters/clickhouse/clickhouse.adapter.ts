@@ -1,4 +1,4 @@
-import { ClickHouseError } from "@clickhouse/client";
+import { type ClickHouseClient, ClickHouseError } from "@clickhouse/client";
 import type {
 	AddColumnParamsSchemaType,
 	AddRecordSchemaType,
@@ -122,7 +122,8 @@ const TEXT_LOG_LEVELS: Record<string, ServerLogLevel> = {
 };
 
 export class ClickhouseAdapter extends BaseAdapter {
-	private serverVersion: number[] | null = null;
+	// Keyed by client: tabs can work with two ClickHouse servers at once.
+	private serverVersion = new WeakMap<ClickHouseClient, number[]>();
 
 	// =========================================================
 	// Abstract method implementations
@@ -821,11 +822,14 @@ export class ClickhouseAdapter extends BaseAdapter {
 	}
 
 	private async isAtLeast(db: string, major: number, minor: number): Promise<boolean> {
-		if (!this.serverVersion) {
+		const client = await getClickhouseClient(db);
+		let version = this.serverVersion.get(client);
+		if (!version) {
 			const [row] = await this.select<{ version: string }>(db, "SELECT version() AS version");
-			this.serverVersion = (row?.version ?? "0.0").split(".").map(Number);
+			version = (row?.version ?? "0.0").split(".").map(Number);
+			this.serverVersion.set(client, version);
 		}
-		const [actualMajor = 0, actualMinor = 0] = this.serverVersion;
+		const [actualMajor = 0, actualMinor = 0] = version;
 		return actualMajor > major || (actualMajor === major && actualMinor >= minor);
 	}
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableQuerySchema } from "./database.types";
+import { databaseSchema, tableQuerySchema } from "./database.types.js";
 
 export const deleteColumnQuerySchema = tableQuerySchema.extend({
 	cascade: z

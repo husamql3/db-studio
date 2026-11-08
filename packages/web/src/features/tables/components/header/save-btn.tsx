@@ -12,11 +12,11 @@ export const SaveBtn = ({
 	disabledReason?: string;
 }) => {
 	const { getUpdates, getUpdateCount } = useUpdateCellStore();
-	const { updateCell, isUpdatingCell } = useUpdateCell();
+	const { updateCell, isUpdatingCell, editScope } = useUpdateCell();
 
 	const handleSave = useCallback(async () => {
 		if (disabledReason) return;
-		const updates = getUpdates();
+		const updates = getUpdates(editScope.id);
 		if (updates.length === 0) return;
 		try {
 			await updateCell(updates);
@@ -25,14 +25,12 @@ export const SaveBtn = ({
 		} catch (error) {
 			console.error("Failed to save updates:", error);
 		}
-	}, [disabledReason, getUpdates, updateCell, setRowSelection]);
+	}, [disabledReason, getUpdates, editScope.id, updateCell, setRowSelection]);
 
-	// Hide button if no updates
-	if (getUpdateCount() === 0) {
+	const updateCount = getUpdateCount(editScope.id);
+	if (updateCount === 0) {
 		return null;
 	}
-
-	const updateCount = getUpdateCount();
 
 	return (
 		<Button

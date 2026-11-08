@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-A modern, universal database studio (the pgAdmin alternative) for every database.<br>
+Every database. One studio<br>
 Browse tables, edit records, design schemas, and run queries from one UI, launched with a single <code>npx</code> command.
 </p>
 

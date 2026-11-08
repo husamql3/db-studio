@@ -1,8 +1,8 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { useMemo } from "react";
 import type { CellVariant, TableRecord } from "@/types/table.type";
-import { formatCellValue } from "@/utils/format-cell-value";
 import {
+	CellContent,
 	TableBooleanCell,
 	TableDateCell,
 	TableEnumCell,
@@ -57,7 +57,7 @@ export const TableCell = ({
 				title={meta.rowMutationReason}
 				className="pr-7"
 			>
-				<span data-slot="grid-cell-content">{formatCellValue(value)}</span>
+				<CellContent value={value} />
 			</TableCellWrapper>
 		);
 	}

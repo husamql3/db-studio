@@ -1,8 +1,9 @@
 import type { Row, Table } from "@tanstack/react-table";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
-import type { RefObject } from "react";
+import { type RefObject, useState } from "react";
 import type { TableRecord } from "@/types/table.type";
 import { TableBodyRow } from "./table-body-row";
+import { TableRowMenu } from "./table-row-menu";
 
 const ROW_HEIGHT = 33;
 
@@ -36,32 +37,46 @@ export const TableBody = ({
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 	const virtualColumns = columnVirtualizer.getVirtualItems();
+	const [menuRowIndex, setMenuRowIndex] = useState<number>();
 
 	return (
-		<tbody
-			style={{
-				display: "grid",
-				height: `${rowVirtualizer.getTotalSize()}px`, //tells scrollbar how big the table is
-				position: "relative", //needed for absolute positioning of rows
+		<TableRowMenu
+			table={table}
+			tableName={tableName}
+			row={menuRowIndex === undefined ? undefined : rows[menuRowIndex]?.original}
+			onOpenChange={(open) => {
+				if (!open) setMenuRowIndex(undefined);
 			}}
 		>
-			{virtualRows.map((virtualRow) => {
-				const row = rows[virtualRow.index] as Row<TableRecord>;
+			<tbody
+				onContextMenu={(event) => {
+					const index = (event.target as HTMLElement).closest("tr")?.dataset.index;
+					setMenuRowIndex(index === undefined ? undefined : Number(index));
+				}}
+				style={{
+					display: "grid",
+					height: `${rowVirtualizer.getTotalSize()}px`, //tells scrollbar how big the table is
+					position: "relative", //needed for absolute positioning of rows
+				}}
+			>
+				{virtualRows.map((virtualRow) => {
+					const row = rows[virtualRow.index] as Row<TableRecord>;
 
-				return (
-					<TableBodyRow
-						key={row.id}
-						row={row}
-						tableName={tableName}
-						tableState={table.getState()}
-						tableMeta={table.options.meta}
-						virtualColumns={virtualColumns}
-						virtualPaddingLeft={virtualPaddingLeft}
-						virtualPaddingRight={virtualPaddingRight}
-						virtualRow={virtualRow}
-					/>
-				);
-			})}
-		</tbody>
+					return (
+						<TableBodyRow
+							key={row.id}
+							row={row}
+							tableState={table.getState()}
+							tableMeta={table.options.meta}
+							virtualColumns={virtualColumns}
+							virtualPaddingLeft={virtualPaddingLeft}
+							virtualPaddingRight={virtualPaddingRight}
+							virtualRow={virtualRow}
+							isMenuOpen={virtualRow.index === menuRowIndex}
+						/>
+					);
+				})}
+			</tbody>
+		</TableRowMenu>
 	);
 };
