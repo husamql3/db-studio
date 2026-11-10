@@ -1,5 +1,5 @@
 import type { ColumnInfoSchemaType, SqlInsertDialect } from "@db-studio/shared/types";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { isGeneratedColumn, toFormValues } from "./row-details-utils";
 
 const quoteIdentifier = (name: string, { quote }: SqlInsertDialect) => {

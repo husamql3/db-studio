@@ -1,37 +1,17 @@
 import { describe, expect, it } from "vitest";
-import {
-	buildRowUpdates,
-	getRecordIdentity,
-	isGeneratedColumn,
-	toFormValues,
-} from "./row-details-utils";
+import { column } from "../../../../tests/column";
+import { isGeneratedColumn, toFormValues } from "./row-details-utils";
 
 const cols = [
-	{
-		columnName: "id",
+	column("id", {
 		dataType: "number",
 		dataTypeLabel: "int",
 		isNullable: false,
 		columnDefault: "nextval('users_id_seq'::regclass)",
 		isPrimaryKey: true,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-	{
-		columnName: "code",
-		dataType: "text",
-		dataTypeLabel: "text",
-		isNullable: false,
-		columnDefault: null,
-		isPrimaryKey: false,
-		isForeignKey: false,
-		referencedTable: null,
-		referencedColumn: null,
-		enumValues: null,
-	},
-] as const;
+	}),
+	column("code", { isNullable: false }),
+];
 
 describe("row-details-utils", () => {
 	describe("isGeneratedColumn", () => {
@@ -55,66 +35,11 @@ describe("row-details-utils", () => {
 		});
 	});
 
-	describe("getRecordIdentity", () => {
-		it("returns primary key identity for single key", () => {
-			expect(getRecordIdentity({ id: 1, code: "A" }, [...cols])).toBe(
-				JSON.stringify([["id", "1"]]),
-			);
-		});
-
-		it("returns composite primary key identity without delimiter collisions", () => {
-			const compositeCols = [
-				{ ...cols[0], columnName: "tenant_id", isPrimaryKey: true },
-				{ ...cols[1], columnName: "user_id", isPrimaryKey: true },
-			];
-
-			const id1 = getRecordIdentity({ tenant_id: "org:1|part", user_id: "42" }, compositeCols);
-			const id2 = getRecordIdentity({ tenant_id: "org", user_id: "1|part:42" }, compositeCols);
-			expect(id1).toBe(
-				JSON.stringify([
-					["tenant_id", "org:1|part"],
-					["user_id", "42"],
-				]),
-			);
-			expect(id2).toBe(
-				JSON.stringify([
-					["tenant_id", "org"],
-					["user_id", "1|part:42"],
-				]),
-			);
-			expect(id1).not.toBe(id2);
-		});
-
-		it("falls back to id column without a primary key", () => {
-			const nonPkCols = cols.map((col) => ({ ...col, isPrimaryKey: false }));
-			expect(getRecordIdentity({ id: 123, code: "A" }, nonPkCols)).toBe(
-				JSON.stringify(["id", "123"]),
-			);
-		});
-
-		it("returns undefined when no key or id is present", () => {
-			const noIdCols = [{ ...cols[1], columnName: "title", isPrimaryKey: false }];
-			expect(getRecordIdentity({ title: "test" }, noIdCols)).toBeUndefined();
-			expect(getRecordIdentity(undefined, cols)).toBeUndefined();
-			expect(getRecordIdentity({ id: 1 }, undefined)).toBeUndefined();
-		});
-	});
-
 	describe("toFormValues", () => {
 		it("stringifies values for form controls", () => {
 			expect(
-				toFormValues({ id: 1, code: "A", active: true, meta: { a: 1 }, missing: null }, [
-					...cols,
-				]),
+				toFormValues({ id: 1, code: "A", active: true, meta: { a: 1 }, missing: null }, cols),
 			).toEqual({ id: "1", code: "A" });
-		});
-	});
-
-	describe("buildRowUpdates", () => {
-		it("maps dirty fields to update payloads", () => {
-			expect(buildRowUpdates({ code: true, id: false }, { id: "1", code: "B" })).toEqual([
-				{ columnName: "code", value: "B" },
-			]);
 		});
 	});
 });

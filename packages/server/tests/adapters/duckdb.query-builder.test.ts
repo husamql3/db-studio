@@ -1,7 +1,7 @@
 /**
- * DuckDB keyset pagination: `buildOrderBy` orders a page and `buildKeysetPredicate` selects
+ * DuckDB keyset pagination: `keysetOrderBy` orders a page and `keysetPredicate` selects
  * the rows after the cursor row in that order. Ways it can fail, each run against a real
- * in-memory DuckDB:
+ * DuckDB file:
  *
  * 1. Mixed sort directions compared as one row-value tuple `(a, b, id) > (?, ?, ?)` take every
  *    column in the first column's direction, so a column sorted the other way skips or repeats
@@ -20,47 +20,35 @@
  * specs and checks forward and backward paging against one hand-written ORDER BY query.
  */
 import type { SortType } from "@db-studio/shared/types";
-import { type DuckDBConnection, DuckDBInstance, type DuckDBValue } from "@duckdb/node-api";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-
-const connections = vi.hoisted(() => ({ withDuckdbConnection: vi.fn() }));
-
-vi.mock("@/adapters/connections.js", () => connections);
-
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
-import {
-	buildKeysetPredicate,
-	buildOrderBy,
-	type OrderTerm,
-} from "@/adapters/duckdb/duckdb.query-builder.js";
-import { loadDriver } from "@/drivers.js";
+import { duckdbKeyset } from "@/adapters/duckdb/duckdb.query-builder.js";
+import { createBinds } from "@/adapters/sql-filters.js";
+import { keysetOrderBy, keysetPredicate, type OrderTerm } from "@/adapters/sql-pagination.js";
+import type { SqlParam } from "@/sqlite-client.js";
+import { openEngine } from "../engine.js";
 
-let instance: DuckDBInstance;
-let conn: DuckDBConnection;
+type Engine = Awaited<ReturnType<typeof openEngine>>;
+
+let exec: Engine["exec"];
+let rows: Engine["rows"];
+let close: Engine["close"];
 
 const ids = async (sql: string, values: unknown[] = []) =>
-	(await conn.runAndReadAll(sql, values as DuckDBValue[]))
-		.getRowObjectsJson()
-		.map((r) => Number(r.id));
+	// SAFETY: every bind value createBinds collects here is a cursor number or null.
+	(await rows(sql, values as SqlParam[])).map((r) => Number(r.id));
 
 beforeAll(async () => {
-	// The adapter reads DuckDB's type ids from the driver that db-manager loads.
-	await loadDriver("duckdb");
-	instance = await DuckDBInstance.create(":memory:");
-	conn = await instance.connect();
-	connections.withDuckdbConnection.mockImplementation(
-		<T>(fn: (c: DuckDBConnection) => Promise<T>) => fn(conn),
+	({ exec, rows, close } = await openEngine("duckdb"));
+	await exec(
+		"CREATE TABLE mixed (id INTEGER PRIMARY KEY, a INTEGER, b INTEGER)",
+		"INSERT INTO mixed VALUES (1, 1, 3), (2, 1, 2), (3, 1, 1), (4, 2, 9)",
+		"CREATE TABLE nulls (id INTEGER PRIMARY KEY, v INTEGER)",
+		"INSERT INTO nulls VALUES (1, 5), (2, 3), (3, NULL), (4, NULL)",
 	);
-	await conn.run("CREATE TABLE mixed (id INTEGER PRIMARY KEY, a INTEGER, b INTEGER)");
-	await conn.run("INSERT INTO mixed VALUES (1, 1, 3), (2, 1, 2), (3, 1, 1), (4, 2, 9)");
-	await conn.run("CREATE TABLE nulls (id INTEGER PRIMARY KEY, v INTEGER)");
-	await conn.run("INSERT INTO nulls VALUES (1, 5), (2, 3), (3, NULL), (4, NULL)");
 });
 
-afterAll(() => {
-	conn.closeSync();
-	instance.closeSync();
-});
+afterAll(() => close());
 
 /** Ids of the `limit` rows after `cursor` (or before it, when `backward`), in display order. */
 const pageAfter = async (
@@ -70,10 +58,11 @@ const pageAfter = async (
 	limit: number,
 	backward = false,
 ) => {
-	const { clause, values } = buildKeysetPredicate(terms, cursor, backward);
+	const { values, bind } = createBinds(() => "?");
+	const clause = keysetPredicate(terms, cursor, backward, bind, duckdbKeyset);
 
 	const page = await ids(
-		`SELECT id FROM ${table} WHERE ${clause} ${buildOrderBy(terms, backward)} LIMIT ${limit}`,
+		`SELECT id FROM ${table} WHERE ${clause} ${keysetOrderBy(terms, backward, duckdbKeyset)} LIMIT ${limit}`,
 		values,
 	);
 
@@ -117,7 +106,9 @@ describe("duckdb keyset predicate", () => {
 	});
 
 	it("puts NULLs last when ascending as well", async () => {
-		expect(await ids(`SELECT id FROM nulls ${buildOrderBy(vAsc)}`)).toEqual([2, 1, 3, 4]);
+		expect(
+			await ids(`SELECT id FROM nulls ${keysetOrderBy(vAsc, false, duckdbKeyset)}`),
+		).toEqual([2, 1, 3, 4]);
 		expect(await pageAfter("nulls", vAsc, { v: 5, id: 1 }, 2)).toEqual([3, 4]);
 	});
 
@@ -137,7 +128,7 @@ describe("duckdb getTableData paging", () => {
 	const LIMIT = 4;
 
 	beforeAll(async () => {
-		await conn.run(
+		await exec(
 			`CREATE TABLE ${TABLE} (id INTEGER PRIMARY KEY, grp INTEGER, score INTEGER, created DATE)`,
 		);
 
@@ -145,7 +136,7 @@ describe("duckdb getTableData paging", () => {
 			const grp = i % 4 === 0 ? "NULL" : i % 3;
 			const score = i % 5 === 0 ? "NULL" : (i * 7) % 6;
 			const created = i % 6 === 0 ? "NULL" : `DATE '2024-01-01' + ${i % 4}`;
-			await conn.run(`INSERT INTO ${TABLE} VALUES (${i}, ${grp}, ${score}, ${created})`);
+			await exec(`INSERT INTO ${TABLE} VALUES (${i}, ${grp}, ${score}, ${created})`);
 		}
 	});
 

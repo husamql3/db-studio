@@ -1,5 +1,7 @@
 import { graphlib, layout } from "@dagrejs/dagre";
 import type { SchemaGraphTable } from "@/shared/api";
+import { CONSTANTS } from "@/utils/constants";
+import { tableId } from "@/utils/table-id";
 
 export type GraphTable = SchemaGraphTable & { id: string };
 
@@ -11,21 +13,15 @@ export type GraphEdge = {
 	targetColumn: string;
 };
 
-export const tableId = ({
-	schemaName,
-	tableName,
-}: {
-	schemaName?: string;
-	tableName: string;
-}) => (schemaName ? `${schemaName}.${tableName}` : tableName);
-
 /**
- * Keeps the tables of the selected schema ("all" keeps every table) and turns each FK
+ * Keeps the tables of the selected schema (ALL_SCHEMAS keeps every table) and turns each FK
  * column into an edge. FKs into a table outside the selection are dropped.
  */
 export const buildSchemaGraph = (tables: SchemaGraphTable[], schema: string) => {
 	const visible = (
-		schema === "all" ? tables : tables.filter((table) => table.schemaName === schema)
+		schema === CONSTANTS.ALL_SCHEMAS
+			? tables
+			: tables.filter((table) => table.schemaName === schema)
 	).map((table) => ({ ...table, id: tableId(table) }));
 
 	const edges: GraphEdge[] = visible.flatMap((table) =>

@@ -20,15 +20,16 @@
  * Writes e2e/artifacts/read-only.json; it holds no ids, paths or URLs, so reruns match.
  */
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { checks, databaseName, writeArtifact } from "./lib.js";
 
 const dir = await mkdtemp(path.join(tmpdir(), "db-studio-read-only-"));
 
 process.env.DB_STUDIO_CONFIG_DIR = path.join(dir, "config");
 
-const { createServer } = await import("../src/utils/create-server.js");
+const { createServer } = await import("../src/app.js");
 const { app } = createServer();
 
 const call = async (method: string, route: string, body?: unknown, connectionId?: string) => {
@@ -75,12 +76,12 @@ for (const [env, dbType] of [
 ] as const) {
 	const url = process.env[env];
 
-	if (url) engines.push({ dbType, url, db: new URL(url).pathname.slice(1), supported: true });
+	if (url) engines.push({ dbType, url, db: databaseName(url), supported: true });
 }
 
 const TABLE = "dbstudio_ro_probe";
 const report: Record<string, Record<string, unknown>> = {};
-let failures = 0;
+const tally = checks();
 
 for (const engine of engines) {
 	const steps: Record<string, unknown> = {};
@@ -92,14 +93,12 @@ for (const engine of engines) {
 	const step = async <T>(name: string, run: () => Promise<T>) => {
 		try {
 			steps[name] = (await run()) ?? "ok";
+			tally.report(`${engine.dbType}: ${name}`);
 		} catch (error) {
-			failures++;
-			steps[name] = `FAIL: ${error instanceof Error ? error.message : String(error)}`;
+			const message = error instanceof Error ? error.message : String(error);
+			steps[name] = `FAIL: ${message}`;
+			tally.report(`${engine.dbType}: ${name}`, message);
 		}
-
-		console.log(
-			`${String(steps[name]).startsWith("FAIL") ? "FAIL" : "PASS"}  ${engine.dbType}: ${name}`,
-		);
 	};
 
 	const create =
@@ -271,14 +270,8 @@ for (const engine of engines) {
 	}
 }
 
-const out = new URL("./artifacts/read-only.json", import.meta.url);
-
-await mkdir(new URL(".", out), { recursive: true });
-
-await writeFile(out, `${JSON.stringify(report, null, "\t")}\n`);
+const artifactPath = await writeArtifact("read-only.json", report);
 
 await rm(dir, { recursive: true, force: true });
 
-console.log(failures ? `${failures} failed` : "all passed");
-
-process.exit(failures ? 1 : 0);
+tally.finish(artifactPath);

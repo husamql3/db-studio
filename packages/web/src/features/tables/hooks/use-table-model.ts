@@ -1,20 +1,19 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
-import {
-	type ColumnDef,
-	getCoreRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useQueryState } from "nuqs";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+	CellRange,
+	NavigationDirection,
+	TableRecord,
+} from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { CellRange, NavigationDirection, TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableCell } from "../components/table-cell";
 import { TableSelector } from "../components/table-selector";
-import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
+import { toColumnDef } from "../utils/column-def";
 import { getRecordKey } from "../utils/table-diff";
 import { useColumnPreferences } from "./use-column-preferences";
 import { useEditScope } from "./use-edit-scope";
@@ -24,16 +23,12 @@ export const useTableModel = ({
 	tableName,
 	tableCols,
 	tableDataRows,
-	isRowHighlighted,
-	isCellHighlighted,
 }: {
 	tableName: string;
 	tableCols?: ColumnInfoSchemaType[];
 	tableDataRows: TableRecord[];
-	isRowHighlighted?: (rowId: string) => boolean;
-	isCellHighlighted?: (rowId: string, columnId: string) => boolean;
 }) => {
-	const [columnName] = useQueryState(CONSTANTS.COLUMN_NAME);
+	const [sort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [order] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const { canMutateRows, rowMutationReason } = useRowMutation();
 	const cellDefault = useDatabaseEngine()?.cellDefault ?? false;
@@ -71,24 +66,7 @@ export const useTableModel = ({
 	const columns = useMemo<ColumnDef<TableRecord, unknown>[]>(
 		() => [
 			selectorColumn,
-			...(visibleCols?.map((col) => ({
-				accessorKey: col.columnName,
-				header: col.columnName,
-				meta: {
-					variant: col.enumValues ? "enum" : col.dataType,
-					isPrimaryKey: col.isPrimaryKey,
-					isForeignKey: col.isForeignKey,
-					referencedTable: col.referencedTable,
-					referencedColumn: col.referencedColumn,
-					enumValues: col.enumValues,
-					dataTypeLabel: col.dataTypeLabel,
-					isNullable: col.isNullable,
-					hasDefault: cellDefault && col.columnDefault !== null,
-				},
-				size: (col.columnName.length + (col.dataTypeLabel?.length || 0)) * 5 + 100,
-				minSize: 100,
-				maxSize: 500,
-			})) || []),
+			...(visibleCols?.map((col) => toColumnDef(col, cellDefault)) ?? []),
 		],
 		[visibleCols, selectorColumn, cellDefault],
 	);
@@ -101,13 +79,11 @@ export const useTableModel = ({
 		if (!canMutateRows) setEditingCell(null);
 	}, [canMutateRows]);
 
-	const sorting = useMemo(() => {
-		if (columnName && order) {
-			return [{ id: columnName, desc: order === "desc" }];
-		}
-
-		return [];
-	}, [columnName, order]);
+	// The server sorts the page; the state only marks the sorted column's header.
+	const sorting = useMemo(
+		() => (sort && order ? [{ id: sort, desc: order === "desc" }] : []),
+		[sort, order],
+	);
 
 	// Rows and columns move under a range when the data, sort or visible columns change.
 	useEffect(() => {
@@ -172,15 +148,10 @@ export const useTableModel = ({
 		[editingCell, handleCellNavigate],
 	);
 
-	const handleRowDetailsOpen = useCallback(
-		(rowIndex: number) => {
-			useRowDetailsStore.getState().setRowDetails(tableName, rowIndex);
-			useOverlayStore.getState().openOverlay("tables.row-details");
-		},
-		[tableName],
-	);
-
-	const handleDataUpdate = useCallback(() => {}, []);
+	const handleRowDetailsOpen = useCallback((rowIndex: number) => {
+		useRowDetailsStore.getState().selectRowDetails(rowIndex);
+		useOverlayStore.getState().openOverlay("tables.row-details");
+	}, []);
 
 	// A press starts a range at the cell, Shift extends the current one, and dragging stretches it.
 	const handleCellMouseDown = useCallback(
@@ -264,18 +235,10 @@ export const useTableModel = ({
 			onCellEditingStop: handleCellEditingStop,
 			onCellNavigate: handleCellNavigate,
 			onRowDetailsOpen: handleRowDetailsOpen,
-			onDataUpdate: handleDataUpdate,
 			getIsCellSelected,
-			isRowHighlighted:
-				isRowHighlighted ??
-				((rowId: string) => useLiveModeStore.getState().isRowHighlighted(rowId)),
-			isCellHighlighted:
-				isCellHighlighted ??
-				((rowId: string, columnId: string) =>
-					useLiveModeStore.getState().isCellHighlighted(rowId, columnId)),
 		}),
 		[
-			tableName,
+			editScope,
 			canMutateRows,
 			rowMutationReason,
 			focusedCell,
@@ -289,10 +252,7 @@ export const useTableModel = ({
 			handleCellEditingStop,
 			handleCellNavigate,
 			handleRowDetailsOpen,
-			handleDataUpdate,
 			getIsCellSelected,
-			isRowHighlighted,
-			isCellHighlighted,
 		],
 	);
 
@@ -307,13 +267,12 @@ export const useTableModel = ({
 		},
 		getRowId,
 		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
 		state: {
 			sorting,
 			rowSelection,
 			columnSizing,
 		},
-		manualSorting: false,
+		manualSorting: true,
 		enableRowSelection: true,
 		enableMultiRowSelection: true,
 		enableColumnResizing: true,

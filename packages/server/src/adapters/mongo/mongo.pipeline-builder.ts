@@ -1,6 +1,8 @@
-import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { FilterType, SortType } from "@db-studio/shared/types";
 import type { ObjectId } from "mongodb";
-import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import { z } from "zod";
+import { decodeCursor, encodeCursor } from "@/adapters/cursor.js";
+import { coerceObjectId } from "./object-id.js";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -16,9 +18,7 @@ const parseFilterValue = (raw: string): string | number | boolean | ObjectId | n
 
 	if (!Number.isNaN(asNumber) && trimmed !== "") return asNumber;
 
-	if (isValidObjectId(trimmed)) return coerceObjectId(trimmed);
-
-	return trimmed;
+	return coerceObjectId(trimmed);
 };
 
 export function buildMatchStage(filters: FilterType[]): Record<string, unknown> {
@@ -82,41 +82,15 @@ export function buildMatchStage(filters: FilterType[]): Record<string, unknown> 
 	return andConditions.length ? { $and: andConditions } : {};
 }
 
-export function buildSortStage(
-	sort: string | SortType[] | undefined,
-	order?: SortDirection,
-): Record<string, 1 | -1> {
-	if (!sort) return { _id: 1 };
+export function buildSortStage(sort: SortType[]): Record<string, 1 | -1> {
+	if (sort.length === 0) return { _id: 1 };
 
-	if (Array.isArray(sort)) {
-		if (sort.length === 0) return { _id: 1 };
-
-		return Object.fromEntries(
-			sort.map((s) => [s.columnName, s.direction === "desc" ? -1 : 1]),
-		);
-	}
-
-	if (typeof sort === "string" && sort.length > 0) {
-		return { [sort]: order === "desc" ? -1 : 1 };
-	}
-
-	return { _id: 1 };
+	return Object.fromEntries(sort.map((s) => [s.columnName, s.direction === "desc" ? -1 : 1]));
 }
 
-export function encodeMongoCursor(offset: number): string {
-	return Buffer.from(JSON.stringify({ offset })).toString("base64url");
-}
+const offsetCursorSchema = z.object({ offset: z.number() });
 
-export function decodeMongoCursor(cursor?: string): number {
-	if (!cursor) return 0;
+export const encodeMongoCursor = (offset: number): string => encodeCursor({ offset });
 
-	try {
-		const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")) as {
-			offset?: number;
-		};
-
-		return typeof parsed.offset === "number" ? parsed.offset : 0;
-	} catch {
-		return 0;
-	}
-}
+export const decodeMongoCursor = (cursor?: string): number =>
+	(cursor ? decodeCursor(cursor, offsetCursorSchema)?.offset : undefined) ?? 0;

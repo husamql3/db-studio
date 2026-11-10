@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableQuerySchema } from "./database.types.js";
+import { tableQuerySchema } from "./database.types.js";
 
 export const filterSchema = z.object({
 	columnName: z.string(),
@@ -38,47 +38,50 @@ export const tableDataResultSchema = z.object({
 
 export type TableDataResultSchemaType = z.infer<typeof tableDataResultSchema>;
 
-export const tableDataQuerySchema = z.object({
-	db: databaseSchema.shape.db,
-	schemaName: tableQuerySchema.shape.schemaName,
-	cursor: z.string().optional(), // Base64 encoded cursor for pagination
-	limit: z.string().optional().default("50").transform(Number),
-	direction: z.enum(sortDirections).optional().default(sortDirections[0]), // Pagination direction
-	sort: z
-		.string()
-		.optional()
-		.transform((val) => {
-			if (!val) return "";
+export const tableDataQuerySchema = tableQuerySchema
+	.extend({
+		cursor: z.string().optional(), // Base64 encoded cursor for pagination
+		limit: z.coerce.number().int().min(1).default(50),
+		direction: z.enum(sortDirections).optional().default(sortDirections[0]),
+		/** A JSON array of sorts, or one column name sorted in `order`. */
+		sort: z
+			.string()
+			.optional()
+			.transform((val) => {
+				if (!val) return "";
 
-			try {
-				const parsed = JSON.parse(val);
+				try {
+					const parsed = JSON.parse(val);
 
-				return Array.isArray(parsed) ? parsed : val;
-			} catch {
-				return val;
-			}
-		})
-		// Re-validate the parsed JSON: its fields reach SQL as identifiers and keywords.
-		.pipe(z.union([z.string(), z.array(sortSchema)])),
-	order: z.enum(sortDirections).optional(),
-	filters: z
-		.string()
-		.optional()
-		.transform((val) => {
-			if (!val) return [];
+					return Array.isArray(parsed) ? parsed : val;
+				} catch {
+					return val;
+				}
+			})
+			// Re-validate the parsed JSON: its fields reach SQL as identifiers and keywords.
+			.pipe(z.union([z.string(), z.array(sortSchema)])),
+		order: z.enum(sortDirections).optional().default(sortDirections[0]),
+		filters: z
+			.string()
+			.optional()
+			.transform((val) => {
+				if (!val) return [];
 
-			try {
-				return JSON.parse(val);
-			} catch {
-				return [];
-			}
-		})
-		.pipe(z.array(filterSchema)),
-});
-
-export type TableDataQuerySchemaType = z.infer<typeof tableDataQuerySchema>;
-
-export interface CursorData {
-	values: Record<string, unknown>;
-	sortColumns: string[];
-}
+				try {
+					return JSON.parse(val);
+				} catch {
+					return [];
+				}
+			})
+			.pipe(z.array(filterSchema)),
+	})
+	// Adapters see the sort as a list; `order` stays the key's direction when nothing is sorted.
+	.transform(({ sort, ...query }) => ({
+		...query,
+		sort:
+			typeof sort === "string"
+				? sort
+					? [{ columnName: sort, direction: query.order }]
+					: []
+				: sort,
+	}));

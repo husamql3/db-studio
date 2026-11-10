@@ -10,9 +10,12 @@ import { Pagination, PaginationContent, PaginationItem } from "@db-studio/ui/pag
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useRef } from "react";
+import { DEFAULT_PAGE_LIMIT, useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { CONSTANTS, PRESET_SIZES } from "@/utils/constants";
-import { useTableData } from "../hooks/use-table-data";
+import { CONSTANTS } from "@/utils/constants";
+import { useGridPage } from "../hooks/use-grid-page";
+
+const PRESET_SIZES = [5, 10, 25, 50, 100, 500];
 
 export const TableFooter = ({
 	tableName,
@@ -25,17 +28,16 @@ export const TableFooter = ({
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 
-	const { tableData, prefetchPage } = useTableData({
-		tableName,
-		schemaName: useTableSchemaName(),
-	});
+	const { tableData, prefetchPage } = useTableData(
+		useGridPage(tableName, useTableSchemaName()),
+	);
 
 	const totalRows = tableData?.meta?.total ?? 0;
 	const dataLength = tableData?.data?.length ?? 0;
 	const itemLabel = variant === "document" ? "documents" : "rows";
 	const perPageLabel = variant === "document" ? "Documents per page" : "Rows per page";
 
-	const limitValue = limit ?? "50";
+	const limitValue = limit ?? DEFAULT_PAGE_LIMIT;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const handleLimitChange = (value: string) => {
@@ -44,7 +46,6 @@ export const TableFooter = ({
 		if (Number.isNaN(num) || num < 1) return;
 		const clamped = Math.min(num, 10000).toString();
 		setLimit(clamped);
-		// Reset cursor when changing page size
 		setCursor(null);
 		setDirection(null);
 	};
@@ -72,7 +73,6 @@ export const TableFooter = ({
 	};
 
 	const handleFirstPage = () => {
-		// Reset to first page by clearing cursor
 		setCursor(null);
 		setDirection(null);
 	};
@@ -127,7 +127,6 @@ export const TableFooter = ({
 				</div>
 			</div>
 
-			{/* Row count information */}
 			<div className="flex items-center justify-center text-xs text-muted-foreground">
 				<p
 					className="whitespace-nowrap"
@@ -142,7 +141,6 @@ export const TableFooter = ({
 				</p>
 			</div>
 
-			{/* Pagination buttons */}
 			<div className="flex items-center gap-0.5">
 				<Button
 					size="sm"

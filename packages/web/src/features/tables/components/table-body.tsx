@@ -1,7 +1,7 @@
 import type { Row, Table } from "@tanstack/react-table";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useState } from "react";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { TableBodyRow } from "./table-body-row";
 import { TableRowMenu } from "./table-row-menu";
 

@@ -53,7 +53,7 @@ export const Footer = () => {
 						GitHub
 					</a>
 					<a
-						href="https://www.npmjs.com/package/db-studio"
+						href={META.SITE_NPM_LINK}
 						target="_blank"
 						rel="noopener noreferrer"
 						className={LINK}

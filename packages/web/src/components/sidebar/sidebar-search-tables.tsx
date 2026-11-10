@@ -49,7 +49,7 @@ export const SidebarSearchTables = () => {
 					/>
 					<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
 				</div>
-				{engine?.dataModel !== "document" && (
+				{engine?.schemaMutation !== false && (
 					<Button
 						size="icon-lg"
 						className="shrink-0 rounded-sm"

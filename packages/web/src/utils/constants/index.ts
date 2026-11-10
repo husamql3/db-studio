@@ -1,40 +1,15 @@
-//* header tabs routes
-export const TABS = [
-	"table",
-	"runner",
-	"schema",
-	"indexes",
-	"logs",
-	"visualizer",
-	// "assistant",
-] as const;
-
 export const CONSTANTS = {
 	//* sidebar search query state key
 	SIDEBAR_SEARCH: "search",
 
 	ACTIVE_TABLE: "table", // query state key for active table
 	ACTIVE_SCHEMA: "schema", // query state key for selected schema
+	// The ACTIVE_SCHEMA value that selects every schema.
+	ALL_SCHEMAS: "all",
 	// The open table's schema on engines that list schemas, so same-named tables stay apart.
 	TABLE_SCHEMA: "tableSchema" as const,
-	ACTIVE_TAB: "t", // query state key for active tab
-	COLUMN_NAME: "columnName", // query state key for column name
-
-	//* cache keys
-	CACHE_KEYS: {
-		TABLES_LIST: "tablesList",
-		TABLE_COLUMNS: "tableColumns",
-		TABLE_DATA: "tableData",
-		TABLE_DEFAULT_PAGE: 1,
-		TABLE_DEFAULT_LIMIT: 50,
-		DATABASES_LIST: "databasesList",
-		CURRENT_DATABASE: "currentDatabase",
-		DATABASE_CONNECTION_INFO: "databaseConnectionInfo",
-	},
-
-	RUNNER_STATE_KEYS: {
-		SHOW_AS: "view",
-	},
+	// PostgreSQL's default schema, left out of table labels.
+	DEFAULT_SCHEMA: "public",
 
 	//* table state keys (cursor-based pagination)
 	TABLE_STATE_KEYS: {
@@ -46,21 +21,5 @@ export const CONSTANTS = {
 		FILTERS: "filters",
 	},
 
-	//* referenced table state keys (cursor-based pagination)
-	REFERENCED_TABLE_STATE_KEYS: {
-		ACTIVE_TABLE: "rTable",
-		CURSOR: "rCursor",
-		DIRECTION: "rDir",
-		DEFAULT_PAGE: 1, // Keep for backwards compatibility during transition
-		LIMIT: "rLimit",
-		DEFAULT_LIMIT: 30,
-		FILTERS: "rFilters",
-		SORT: "rSort",
-		ORDER: "rOrder",
-	},
-
-	//* other constants
 	RAIL_WIDTH: 48, // px, the left navigation rail
 };
-
-export const PRESET_SIZES = [5, 10, 25, 50, 100, 500];

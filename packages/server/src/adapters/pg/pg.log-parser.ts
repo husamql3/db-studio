@@ -81,10 +81,8 @@ const toEntry = (raw: RawEntry): ServerLogEntrySchemaType => {
 const isOwnQuery = (raw: RawEntry) =>
 	raw.message.includes(SERVER_LOGS_MARKER) || raw.statement?.includes(SERVER_LOGS_MARKER);
 
-// ─── stderr ──────────────────────────────────────────────────────────────────────────
-// The line prefix is whatever log_line_prefix says, so only the parts every prefix shares
-// are read: a timestamp if %m or %t is in it, and a pid if %p is wrapped in brackets.
-
+// A stderr line's prefix is whatever log_line_prefix says, so only the parts every prefix
+// shares are read: a timestamp if %m or %t is in it, and a pid if %p is wrapped in brackets.
 const STDERR_LINE =
 	/^(.*?)\b(DEBUG[1-5]|LOG|INFO|NOTICE|WARNING|ERROR|FATAL|PANIC|DETAIL|HINT|QUERY|CONTEXT|LOCATION|STATEMENT): {2}(.*)$/;
 
@@ -150,8 +148,6 @@ const parseStderr = (lines: string[], opts: ParseOptions): RawEntry[] => {
 
 	return entries;
 };
-
-// ─── csvlog ──────────────────────────────────────────────────────────────────────────
 
 /** Splits CSV into records; quoted fields may hold commas, `""` and newlines. */
 const parseCsv = (text: string): string[][] => {
@@ -237,8 +233,6 @@ const parseCsvlog = (text: string, opts: ParseOptions): RawEntry[] => {
 
 	return entries;
 };
-
-// ─── jsonlog ─────────────────────────────────────────────────────────────────────────
 
 interface JsonlogLine {
 	timestamp?: string;

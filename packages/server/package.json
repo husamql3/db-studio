@@ -52,8 +52,12 @@
     "e2e": "tsx e2e/contract.ts",
     "e2e:perf": "tsx e2e/perf.ts",
     "e2e:grid": "tsx e2e/grid.ts",
+    "e2e:grid-clipboard": "tsx e2e/grid-clipboard.ts",
     "e2e:schema-routing": "tsx e2e/schema-routing.ts",
-    "e2e:visualizer": "tsx e2e/visualizer.ts"
+    "e2e:visualizer": "tsx e2e/visualizer.ts",
+    "e2e:connect-flow": "tsx e2e/connect-flow.ts",
+    "e2e:read-only": "tsx e2e/read-only.ts",
+    "e2e:row-estimates": "tsx e2e/row-estimates.ts"
   },
   "portless": {
     "name": "api.db-studio",

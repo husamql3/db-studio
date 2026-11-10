@@ -1,17 +1,16 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { DEFAULTS } from "@db-studio/shared/constants";
+import {
+	type ApiResponse,
+	assert,
+	assertEqual,
+	checks,
+	inProcessApp,
+	normalize,
+	redactUrl,
+	requireDatabaseUrl,
+	writeArtifact,
+} from "./lib.js";
 
 process.env.TZ = "UTC";
-
-process.env.DB_STUDIO_TELEMETRY = "0";
-
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
-
-type ApiResponse = { status: number; body: unknown };
 
 type ProbeResult = ApiResponse & { name: string; ok: boolean; error?: string };
 
@@ -21,54 +20,15 @@ const MUTATION_TABLE = "dbstudio_clickhouse_mutation_probe";
 const ROW_MUTATION_ERROR =
 	"Use a SQL query to update or delete ClickHouse rows; sorting keys are not unique.";
 
-const databaseUrl = process.env.DATABASE_URL;
 const label = process.argv[2] ?? "current";
-
-if (!databaseUrl) {
-	console.error(
-		"usage: DATABASE_URL=<url> node --import tsx e2e/clickhouse-regressions.ts <label>",
-	);
-	process.exit(2);
-}
 
 if (process.versions.node.split(".")[0] !== "20") {
 	console.error(`Node 20 is required; received ${process.versions.node}`);
 	process.exit(2);
 }
 
-const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
-const { app } = createServer();
-
-const request = async (
-	method: Method,
-	route: string,
-	body?: unknown,
-): Promise<ApiResponse> => {
-	const url = new URL(`${DEFAULTS.API_PREFIX}/clickhouse${route}`, "http://db-studio.local");
-	url.searchParams.set("db", db);
-
-	const response = await app.handle(
-		new Request(
-			new URL(`${url.pathname}?${url.searchParams.toString()}`, "http://localhost"),
-			{
-				method,
-				headers: body === undefined ? {} : { "Content-Type": "application/json" },
-				body: body === undefined ? undefined : JSON.stringify(body),
-			},
-		),
-	);
-
-	const text = await response.text();
-	let parsed: unknown = text;
-
-	try {
-		parsed = JSON.parse(text);
-	} catch {}
-
-	return { status: response.status, body: parsed };
-};
-
+const { url: databaseUrl } = requireDatabaseUrl("clickhouse");
+const { call: request, close } = await inProcessApp(databaseUrl);
 const query = (sql: string) => request("POST", "/query", { query: sql });
 
 const asRecord = (value: unknown, label: string): Record<string, unknown> => {
@@ -77,19 +37,6 @@ const asRecord = (value: unknown, label: string): Record<string, unknown> => {
 	}
 
 	return value as Record<string, unknown>;
-};
-
-const assert: (condition: unknown, message: string) => asserts condition = (
-	condition,
-	message,
-) => {
-	if (!condition) throw new Error(message);
-};
-
-const assertEqual = (actual: unknown, expected: unknown, message: string) => {
-	const received = JSON.stringify(actual);
-	const wanted = JSON.stringify(expected);
-	assert(received === wanted, `${message}: expected ${wanted}, received ${received}`);
 };
 
 const assertStatus = (response: ApiResponse, expected: number) => {
@@ -135,6 +82,7 @@ const requireOk = async (name: string, response: Promise<ApiResponse>) => {
 };
 
 const results: ProbeResult[] = [];
+const { report, finish } = checks();
 
 const probe = async (
 	name: string,
@@ -151,36 +99,10 @@ const probe = async (
 		error = cause instanceof Error ? cause.message : String(cause);
 	}
 
-	const ok = error === undefined;
-	const result: ProbeResult = { name, ...observed, ok };
+	const result: ProbeResult = { name, ...observed, ok: report(name, error) };
 
 	if (error) result.error = error;
 	results.push(result);
-	console.log(`${ok ? "PASS" : "FAIL"}  ${name}${error ? `  -- ${error}` : ""}`);
-};
-
-const normalize = (value: unknown, secrets: string[], key?: string): Json => {
-	if (value === null || value === undefined) return null;
-
-	if (key === "duration") return "<duration>";
-
-	if (Array.isArray(value)) return value.map((item) => normalize(item, secrets));
-
-	if (typeof value === "object") {
-		return Object.fromEntries(
-			Object.entries(value)
-				.sort(([left], [right]) => left.localeCompare(right))
-				.map(([entryKey, item]) => [entryKey, normalize(item, secrets, entryKey)]),
-		);
-	}
-
-	if (typeof value === "string") {
-		return secrets.reduce((text, secret) => text.replaceAll(secret, "<redacted>"), value);
-	}
-
-	if (typeof value === "number" || typeof value === "boolean") return value;
-
-	return String(value);
 };
 
 for (const table of [PRECISION_TABLE, MUTATION_TABLE]) {
@@ -376,25 +298,14 @@ for (const table of [PRECISION_TABLE, MUTATION_TABLE]) {
 	await requireOk(`clean up ${table}`, query(`DROP TABLE IF EXISTS ${table}`));
 }
 
-const secrets = [databaseUrl, databaseUrl.replace(/^[a-z0-9+]+:\/\//i, "")];
-const artifactDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
+await close();
 
-const artifactPath = path.join(
-	artifactDir,
+const artifactPath = await writeArtifact(
 	`clickhouse-regressions-${label.replace(/[^a-z0-9_-]/gi, "-")}.json`,
+	normalize(
+		{ engine: "clickhouse", steps: results },
+		{ keys: ["duration", "requestId"], replace: redactUrl(databaseUrl) },
+	),
 );
 
-await mkdir(artifactDir, { recursive: true });
-
-await writeFile(
-	artifactPath,
-	`${JSON.stringify(normalize({ engine: "clickhouse", steps: results }, secrets), null, 2)}\n`,
-);
-
-const failures = results.filter((result) => !result.ok).length;
-
-console.log(
-	`${failures ? "FAIL" : "PASS"}  ${results.length - failures}/${results.length} probes -> ${path.relative(process.cwd(), artifactPath)}`,
-);
-
-process.exit(failures ? 1 : 0);
+finish(artifactPath);

@@ -1,3 +1,4 @@
+import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
@@ -13,10 +14,8 @@ import {
 	Zap,
 } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { useAssistantRequestStore } from "@/features/ai-assistant";
-import { useOverlayStore } from "@/stores/overlay.store";
-import { CONSTANTS } from "@/utils/constants";
-import type { QueryResult } from "../screens/runner-screen";
+import { askAssistant } from "@/features/ai-assistant";
+import { RUNNER_STATE_KEYS } from "../constants";
 
 export const RunnerHeader = ({
 	isExecutingQuery,
@@ -38,17 +37,10 @@ export const RunnerHeader = ({
 	isFavorite: boolean;
 	queryId: string;
 	hasUnsavedChanges: boolean;
-	queryResult: QueryResult | null;
+	queryResult: ExecuteQueryResult | null;
 	currentQuery: string;
 }) => {
-	const [showAs, setShowAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
-	const { requestAssistant } = useAssistantRequestStore();
-	const { openOverlay } = useOverlayStore();
-
-	const askAssistant = (prompt: string) => {
-		requestAssistant(prompt);
-		openOverlay("chat.assistant");
-	};
+	const [showAs, setShowAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS);
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background text-foreground sticky top-0 left-0 right-0 z-0">
@@ -148,12 +140,10 @@ export const RunnerHeader = ({
 				{queryResult && (
 					<div className="flex items-center gap-1 px-2">
 						<span className="text-xs text-muted-foreground">
-							{queryResult.data?.duration?.toFixed(2)}ms
+							{queryResult.duration.toFixed(2)}ms
 						</span>
 						<span className="text-xs text-muted-foreground">•</span>
-						<span className="text-xs text-muted-foreground">
-							{queryResult.data?.rowCount ?? 0} rows
-						</span>
+						<span className="text-xs text-muted-foreground">{queryResult.rowCount} rows</span>
 					</div>
 				)}
 

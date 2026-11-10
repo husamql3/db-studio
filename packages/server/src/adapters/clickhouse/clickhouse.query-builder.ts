@@ -1,4 +1,10 @@
-import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import {
+	DataTypes,
+	isSerialType,
+	StandardizedDataType,
+	type FormColumnType,
+} from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
 
 export const quoteClickhouseIdentifier = (name: string): string =>
 	`\`${name.replaceAll("\\", "\\\\").replaceAll("`", "\\`")}\``;
@@ -10,80 +16,13 @@ const q = quoteClickhouseIdentifier;
  * string operand to the column's type for comparisons. LIKE needs a string column,
  * so it compares the column's text form.
  */
-export function buildWhereClause(filters: FilterType[]): { clause: string; values: string[] } {
-	const conditions: string[] = [];
-	const values: string[] = [];
+export const clickhouseFilters: FilterDialect = {
+	quote: quoteClickhouseIdentifier,
+	likeOperand: (column) => `toString(${column})`,
+	ilike: "keyword",
+};
 
-	const bind = (value: string) => {
-		values.push(value);
-
-		return `{p${values.length - 1}:String}`;
-	};
-
-	for (const { columnName, operator, value } of filters) {
-		const col = q(columnName);
-
-		switch (operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${operator} ${bind(value)}`);
-				break;
-			case "is":
-				conditions.push(
-					value.toLowerCase() === "null" ? `${col} IS NULL` : `${col} = ${bind(value)}`,
-				);
-				break;
-			case "is not":
-				conditions.push(
-					value.toLowerCase() === "null" ? `${col} IS NOT NULL` : `${col} != ${bind(value)}`,
-				);
-				break;
-			case "like":
-				conditions.push(`toString(${col}) LIKE ${bind(value)}`);
-				break;
-			case "not like":
-				conditions.push(`toString(${col}) NOT LIKE ${bind(value)}`);
-				break;
-			case "ilike":
-				conditions.push(`toString(${col}) ILIKE ${bind(value)}`);
-				break;
-			case "not ilike":
-				conditions.push(`toString(${col}) NOT ILIKE ${bind(value)}`);
-				break;
-		}
-	}
-
-	return { clause: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", values };
-}
-
-/**
- * User sort first, then `tieBreakers` (raw expressions such as the table's sorting
- * key) in the leading sort direction, so OFFSET pages stay stable.
- */
-export function buildOrderByClause(
-	sort: SortType[] | string,
-	order: SortDirection,
-	tieBreakers: string[],
-): string {
-	const sorts: SortType[] = Array.isArray(sort)
-		? sort
-		: sort
-			? [{ columnName: sort, direction: order }]
-			: [];
-
-	const direction = (sorts[0]?.direction ?? order).toUpperCase();
-
-	const terms = [
-		...sorts.map((s) => `${q(s.columnName)} ${s.direction.toUpperCase()}`),
-		...tieBreakers.map((expr) => `${expr} ${direction}`),
-	];
-
-	return terms.length ? `ORDER BY ${terms.join(", ")}` : "";
-}
+export const clickhousePlaceholder = (position: number) => `{p${position - 1}:String}`;
 
 /** Postgres types (from the web form) to ClickHouse. Unknown names pass through as native ClickHouse types. */
 function mapColumnTypeToClickhouse(
@@ -91,7 +30,8 @@ function mapColumnTypeToClickhouse(
 	isArray: boolean,
 	supportsJsonType: boolean,
 ): string {
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string | undefined> &
+		Record<FormColumnType, string | undefined> = {
 		smallserial: "UInt16",
 		serial2: "UInt16",
 		serial: "UInt32",
@@ -140,6 +80,10 @@ function mapColumnTypeToClickhouse(
 		cidr: "String",
 		macaddr: "String",
 		macaddr8: "String",
+		// No ClickHouse type is mapped for these; the name passes through unchanged.
+		point: undefined,
+		line: undefined,
+		polygon: undefined,
 	};
 
 	const base = typeMap[columnType.toLowerCase().trim()] ?? columnType.trim();
@@ -177,7 +121,7 @@ export function buildClickhouseColumnDefinition(
 ): string {
 	const name = q(field.columnName);
 
-	if (field.isIdentity || /serial/i.test(field.columnType)) {
+	if (field.isIdentity || isSerialType(field.columnType)) {
 		return `${name} UInt64 DEFAULT generateSnowflakeID()`;
 	}
 
@@ -197,4 +141,83 @@ export function buildClickhouseColumnDefinition(
 	}
 
 	return def;
+}
+
+/** Strips the `Nullable(...)` and `LowCardinality(...)` wrappers, which do not change how a value renders. */
+export function unwrapClickhouseType(clickhouseType: string): string {
+	let type = clickhouseType.trim();
+
+	for (;;) {
+		const match = type.match(/^(?:Nullable|LowCardinality)\((.*)\)$/);
+
+		if (!match?.[1]) return type;
+		type = match[1].trim();
+	}
+}
+
+/**
+ * Maps ClickHouse column types (as reported by `system.columns.type`) to generic DataTypes.
+ */
+export function mapClickhouseToDataType(clickhouseType: string): DataTypes {
+	const type = unwrapClickhouseType(clickhouseType);
+
+	if (type.startsWith("Array(")) return DataTypes.array;
+
+	if (type.startsWith("Enum8(") || type.startsWith("Enum16(")) return DataTypes.enum;
+
+	if (type === "Bool") return DataTypes.boolean;
+
+	if (/^(Date|Date32|DateTime|DateTime64)\b/.test(type)) return DataTypes.date;
+
+	if (/^(U?Int\d+|Float\d+|BFloat16|Decimal\d*)\b/.test(type)) return DataTypes.number;
+
+	if (/^(JSON|Object|Map|Tuple|Variant|Dynamic|Nested)\b/.test(type)) return DataTypes.json;
+
+	return DataTypes.text;
+}
+
+export function standardizeClickhouseDataTypeLabel(
+	clickhouseType: string,
+): StandardizedDataType {
+	const type = unwrapClickhouseType(clickhouseType);
+
+	if (type.startsWith("Array(")) return StandardizedDataType.array;
+
+	if (type.startsWith("Enum8(") || type.startsWith("Enum16("))
+		return StandardizedDataType.enum;
+
+	if (type === "Bool") return StandardizedDataType.boolean;
+
+	if (/^U?Int8$/.test(type)) return StandardizedDataType.tinyint;
+
+	if (/^U?Int16$/.test(type)) return StandardizedDataType.smallint;
+
+	if (/^U?Int32$/.test(type)) return StandardizedDataType.int;
+
+	if (/^U?Int(64|128|256)$/.test(type)) return StandardizedDataType.bigint;
+
+	if (type === "Float32" || type === "BFloat16") return StandardizedDataType.float;
+
+	if (type === "Float64") return StandardizedDataType.double;
+
+	if (type.startsWith("Decimal")) return StandardizedDataType.numeric;
+
+	if (type.startsWith("FixedString(")) return StandardizedDataType.char;
+
+	if (type === "UUID") return StandardizedDataType.uuid;
+
+	if (type === "IPv4" || type === "IPv6") return StandardizedDataType.inet;
+
+	if (type === "Date" || type === "Date32") return StandardizedDataType.date;
+
+	if (type.startsWith("DateTime64")) return StandardizedDataType.timestamp;
+
+	if (type.startsWith("DateTime")) return StandardizedDataType.datetime;
+
+	if (type.startsWith("Time")) return StandardizedDataType.time;
+
+	if (/^(JSON|Object|Map|Tuple|Variant|Dynamic|Nested)\b/.test(type))
+		return StandardizedDataType.json;
+
+	return StandardizedDataType.text;
 }

@@ -39,7 +39,6 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.66.0",
     "monaco-editor": "^0.57.0",
-    "nanoid": "^6.0.2",
     "nuqs": "^2.10.2",
     "posthog-js": "^1.444.0",
     "react": "^19.3.1",

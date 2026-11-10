@@ -17,7 +17,7 @@ import { DatabaseZap, Plus } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { getRedisStringChunk } from "@/shared/api";
+import { type ApiError, getRedisStringChunk } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useQueriesStore } from "@/stores/queries.store";
@@ -72,7 +72,7 @@ export const RedisBrowserScreen = () => {
 	const navigate = useNavigate();
 	const { selectedDatabase } = useDatabaseStore();
 	const { openOverlay } = useOverlayStore();
-	const { addQuery, updateQuery } = useQueriesStore();
+	const { addQuery } = useQueriesStore();
 	const [selectedKey, setSelectedKey] = useQueryState("key");
 	const [fullKey, setFullKey] = useState<string | null>(null);
 	const [reverseStreamKey, setReverseStreamKey] = useState<string | null>(null);
@@ -138,8 +138,8 @@ export const RedisBrowserScreen = () => {
 			return true;
 		} catch (error) {
 			// toast.promise in the mutation hook already surfaced the failure.
-			if ((error as Error & { status?: number }).status === 409)
-				setConflictOperation(operation);
+			// SAFETY: `applyAction` is an API request, and every failed request rejects with ApiError.
+			if ((error as ApiError).status === 409) setConflictOperation(operation);
 
 			return false;
 		}
@@ -147,8 +147,7 @@ export const RedisBrowserScreen = () => {
 
 	const openInRunner = () => {
 		if (!command) return;
-		const queryId = addQuery(`redis: ${label.slice(0, 40)}`);
-		updateQuery(queryId, { query: command });
+		const queryId = addQuery(command, { name: `redis: ${label.slice(0, 40)}` });
 		navigate({ to: "/runner/$queryId", params: { queryId } });
 	};
 

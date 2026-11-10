@@ -1,13 +1,13 @@
 import type { RenameColumnSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { renameColumn as renameColumnRequest } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import {
+	renameColumn as renameColumnRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 export const useRenameColumn = ({
 	tableName,
@@ -23,7 +23,7 @@ export const useRenameColumn = ({
 
 	const { mutateAsync: renameColumnMutation, isPending: isRenamingColumn } = useMutation<
 		string,
-		MutationError,
+		ApiError,
 		RenameColumnSchemaType
 	>({
 		mutationFn: async (data) => {
@@ -38,34 +38,18 @@ export const useRenameColumn = ({
 			return res.data.data;
 		},
 		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-			]);
+			await invalidateTable(queryClient, tableName);
 		},
 	});
 
-	const renameColumn = async (
-		data: RenameColumnSchemaType,
-		options?: {
-			onSuccess?: () => void;
-			onError?: (error: MutationError) => void;
-		},
-	) =>
-		toast.promise(renameColumnMutation(data, options), {
-			loading: "Renaming column...",
-			success: (message) => message || "Column renamed successfully",
-			error: (error: MutationError) =>
-				(typeof error.details === "string" && error.details) ||
-				error.message ||
-				"Failed to rename column",
-		});
+	const renameColumn = async (data: RenameColumnSchemaType) =>
+		toast
+			.promise(renameColumnMutation(data), {
+				loading: "Renaming column...",
+				success: (message) => message || "Column renamed successfully",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to rename column"),
+			})
+			.unwrap();
 
 	return {
 		renameColumn,

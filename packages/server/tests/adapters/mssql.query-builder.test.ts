@@ -1,14 +1,29 @@
+import type { FilterType } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
 import {
 	buildMssqlColumnDefinition,
 	buildOrderByClause,
 	formatMssqlDefaultValue,
-	buildSortClause,
-	buildWhereClause,
 	mapColumnTypeToMssql,
+	mssqlFilters,
+	quoteMssqlIdent,
 } from "@/adapters/mssql/mssql.query-builder.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+
+/** Filters after `startIdx` values already bound, as the data query binds them. */
+const buildWhereClause = (filters: FilterType[], startIdx: number) => {
+	const { values, bind } = createBinds((n) => `@p${startIdx + n - 1}`);
+	const clause = whereSql(buildFilterConditions(filters, bind, mssqlFilters));
+
+	return { clause, values, nextIdx: startIdx + values.length };
+};
 
 describe("MSSQL query builder", () => {
+	// An unescaped ] in a name would end the identifier and let the rest run as SQL.
+	it("escapes closing brackets in identifiers by doubling them", () => {
+		expect(quoteMssqlIdent("we]ird")).toBe("[we]]ird]");
+	});
+
 	it("builds WHERE clauses with bracket identifiers and named params", () => {
 		const result = buildWhereClause(
 			[
@@ -44,15 +59,6 @@ describe("MSSQL query builder", () => {
 		expect(buildWhereClause([], 2)).toEqual({ clause: "", values: [], nextIdx: 2 });
 	});
 
-	it("builds ORDER BY clauses for OFFSET/FETCH queries", () => {
-		expect(buildSortClause([{ columnName: "created_at", direction: "desc" }], "asc")).toBe(
-			"ORDER BY [created_at] DESC",
-		);
-		expect(buildSortClause("id", "asc")).toBe("ORDER BY [id] ASC");
-		expect(buildSortClause([], "asc")).toBe("");
-		expect(buildSortClause("", "asc")).toBe("");
-	});
-
 	it("maps portable column definitions to MSSQL syntax", () => {
 		expect(mapColumnTypeToMssql("serial", false)).toBe("INT IDENTITY(1,1)");
 		expect(mapColumnTypeToMssql("bigserial", false)).toBe("BIGINT IDENTITY(1,1)");
@@ -81,7 +87,7 @@ describe("MSSQL query builder", () => {
 					isUnique: true,
 					defaultValue: "'n/a'",
 				},
-				{ includeUnique: true },
+				{ inlineKey: false, inlineUnique: true },
 			),
 		).toBe("[email] VARCHAR(255) NOT NULL DEFAULT 'n/a' UNIQUE");
 		expect(
@@ -92,7 +98,7 @@ describe("MSSQL query builder", () => {
 					isPrimaryKey: true,
 					isIdentity: true,
 				},
-				{ includePrimaryKey: true },
+				{ inlineKey: true, inlineUnique: false },
 			),
 		).toBe("[id] INT IDENTITY(1,1) PRIMARY KEY");
 	});
@@ -113,7 +119,7 @@ describe("MSSQL buildOrderByClause", () => {
 		expect(
 			buildOrderByClause([{ columnName: "created_at", direction: "desc" }], "asc", ["id"]),
 		).toBe("ORDER BY [created_at] DESC, [id] DESC");
-		expect(buildOrderByClause("name", "desc", ["id"])).toBe("ORDER BY [name] DESC, [id] DESC");
+		expect(buildOrderByClause([], "desc", ["id"])).toBe("ORDER BY [id] DESC");
 	});
 
 	it("does not repeat a key column that is already sorted", () => {

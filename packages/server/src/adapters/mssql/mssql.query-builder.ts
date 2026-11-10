@@ -1,114 +1,37 @@
-import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import {
+	DataTypes,
+	type SortDirection,
+	type SortType,
+	StandardizedDataType,
+	type FormColumnType,
+} from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
+import { offsetOrderBy, orderTerms } from "@/adapters/sql-pagination.js";
+import type { InlineConstraints } from "@/adapters/sql.adapter.js";
 
-const quote = (name: string) => `[${name.replaceAll("]", "]]")}]`;
+export const quoteMssqlIdent = (name: string) => `[${name.replaceAll("]", "]]")}]`;
 
-export function buildWhereClause(
-	filters: FilterType[],
-	startIdx = 0,
-): { clause: string; values: unknown[]; nextIdx: number } {
-	if (filters.length === 0) return { clause: "", values: [], nextIdx: startIdx };
+export const mssqlFilters: FilterDialect = { quote: quoteMssqlIdent, ilike: "like" };
 
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-	let idx = startIdx;
+/** `mssql` binds each value by name: `@p0`, `@p1`, … */
+export const mssqlPlaceholder = (position: number) => `@p${position - 1}`;
 
-	for (const filter of filters) {
-		const col = quote(filter.columnName);
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${filter.operator} @p${idx}`);
-				values.push(filter.value);
-				idx++;
-				break;
-			case "is":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NULL`);
-				} else {
-					conditions.push(`${col} = @p${idx}`);
-					values.push(filter.value);
-					idx++;
-				}
-
-				break;
-			case "is not":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${col} IS NOT NULL`);
-				} else {
-					conditions.push(`${col} != @p${idx}`);
-					values.push(filter.value);
-					idx++;
-				}
-
-				break;
-			case "like":
-			case "ilike":
-				conditions.push(`${col} LIKE @p${idx}`);
-				values.push(filter.value);
-				idx++;
-				break;
-			case "not like":
-			case "not ilike":
-				conditions.push(`${col} NOT LIKE @p${idx}`);
-				values.push(filter.value);
-				idx++;
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (conditions.length === 0) return { clause: "", values: [], nextIdx: startIdx };
-
-	return { clause: `WHERE ${conditions.join(" AND ")}`, values, nextIdx: idx };
-}
-
-export function buildSortClause(sorts: SortType[] | string, order: SortDirection): string {
-	if (Array.isArray(sorts)) {
-		if (sorts.length === 0) return "";
-
-		return `ORDER BY ${sorts.map((s) => `${quote(s.columnName)} ${s.direction.toUpperCase()}`).join(", ")}`;
-	}
-
-	if (sorts && typeof sorts === "string") {
-		return `ORDER BY ${quote(sorts)} ${order?.toUpperCase() || "ASC"}`;
-	}
-
-	return "";
-}
-
-export function buildOrderByClause(
-	sorts: SortType[] | string,
+/** OFFSET/FETCH requires an ORDER BY, so an unsorted table without a key gets a no-op one. */
+export const buildOrderByClause = (
+	sorts: SortType[],
 	order: SortDirection,
 	keyColumns: string[],
-): string {
-	const sortClause = buildSortClause(sorts, order);
-	const sortColumns = Array.isArray(sorts) ? sorts.map((s) => s.columnName) : [sorts];
-
-	const direction = (
-		Array.isArray(sorts) ? (sorts[0]?.direction ?? order) : order
-	).toUpperCase();
-
-	const tieBreakers = keyColumns
-		.flatMap((col) => (sortColumns.includes(col) ? [] : [`${quote(col)} ${direction}`]))
-		.join(", ");
-
-	if (!tieBreakers) return sortClause || "ORDER BY (SELECT NULL)";
-
-	return sortClause ? `${sortClause}, ${tieBreakers}` : `ORDER BY ${tieBreakers}`;
-}
+) =>
+	offsetOrderBy(orderTerms(sorts, order, keyColumns), quoteMssqlIdent) ||
+	"ORDER BY (SELECT NULL)";
 
 export function mapColumnTypeToMssql(columnType: string, isArray: boolean): string {
 	if (isArray) return "NVARCHAR(MAX)";
 
 	const normalized = columnType.toLowerCase().trim();
 
-	const typeMap: Record<string, string> = {
+	const typeMap: Record<string, string | undefined> &
+		Record<FormColumnType, string | undefined> = {
 		serial: "INT IDENTITY(1,1)",
 		serial4: "INT IDENTITY(1,1)",
 		bigserial: "BIGINT IDENTITY(1,1)",
@@ -154,6 +77,10 @@ export function mapColumnTypeToMssql(columnType: string, isArray: boolean): stri
 		cidr: "VARCHAR(45)",
 		macaddr: "VARCHAR(17)",
 		macaddr8: "VARCHAR(23)",
+		// No SQL Server type is mapped for these; the name passes through upper-cased.
+		point: undefined,
+		line: undefined,
+		polygon: undefined,
 	};
 
 	return typeMap[normalized] || columnType.toUpperCase();
@@ -198,10 +125,10 @@ type MssqlColumnDefinitionInput = {
 
 export function buildMssqlColumnDefinition(
 	field: MssqlColumnDefinitionInput,
-	options: { includePrimaryKey?: boolean; includeUnique?: boolean } = {},
+	{ inlineKey, inlineUnique }: InlineConstraints,
 ): string {
 	const mappedType = mapColumnTypeToMssql(field.columnType, field.isArray ?? false);
-	let def = `[${field.columnName}] ${mappedType}`;
+	let def = `${quoteMssqlIdent(field.columnName)} ${mappedType}`;
 
 	if (field.isIdentity && !mappedType.includes("IDENTITY")) {
 		def += " IDENTITY(1,1)";
@@ -215,9 +142,122 @@ export function buildMssqlColumnDefinition(
 		if (dv !== null) def += ` DEFAULT ${dv}`;
 	}
 
-	if (options.includeUnique && field.isUnique && !field.isPrimaryKey) def += " UNIQUE";
+	if (inlineUnique) def += " UNIQUE";
 
-	if (options.includePrimaryKey && field.isPrimaryKey) def += " PRIMARY KEY";
+	if (inlineKey) def += " PRIMARY KEY";
 
 	return def;
+}
+
+/**
+ * Maps SQL Server data types to generic DataType enum (used for cell rendering)
+ * @param mssqlDataType - The data type from sys.columns or information_schema.columns
+ */
+export function mapMssqlToDataType(mssqlDataType: string): DataTypes {
+	const normalized = mssqlDataType?.toLowerCase().trim() || "";
+
+	if (
+		normalized === "tinyint" ||
+		normalized === "smallint" ||
+		normalized === "int" ||
+		normalized === "bigint" ||
+		normalized === "decimal" ||
+		normalized === "numeric" ||
+		normalized === "float" ||
+		normalized === "real" ||
+		normalized === "money" ||
+		normalized === "smallmoney"
+	) {
+		return DataTypes.number;
+	}
+
+	if (normalized === "bit") {
+		return DataTypes.boolean;
+	}
+
+	if (
+		normalized === "date" ||
+		normalized === "datetime" ||
+		normalized === "datetime2" ||
+		normalized === "smalldatetime" ||
+		normalized === "datetimeoffset"
+	) {
+		return DataTypes.date;
+	}
+
+	// JSON (SQL Server 2016+)
+	if (normalized === "json") {
+		return DataTypes.json;
+	}
+
+	return DataTypes.text;
+}
+
+/**
+ * Maps SQL Server data types to standardized display labels
+ * @param mssqlDataType - The data type from sys.columns or information_schema.columns
+ */
+export function standardizeMssqlDataTypeLabel(mssqlDataType: string): StandardizedDataType {
+	if (!mssqlDataType) {
+		return StandardizedDataType.text;
+	}
+
+	const normalized = mssqlDataType.toLowerCase().trim();
+
+	if (normalized === "tinyint") return StandardizedDataType.tinyint;
+
+	if (normalized === "smallint") return StandardizedDataType.smallint;
+
+	if (normalized === "int") return StandardizedDataType.int;
+
+	if (normalized === "bigint") return StandardizedDataType.bigint;
+
+	if (normalized === "decimal" || normalized === "numeric")
+		return StandardizedDataType.numeric;
+
+	if (normalized === "float") return StandardizedDataType.float;
+
+	if (normalized === "real") return StandardizedDataType.float;
+
+	if (normalized === "money" || normalized === "smallmoney") return StandardizedDataType.money;
+
+	if (normalized === "bit") return StandardizedDataType.boolean;
+
+	if (normalized === "char") return StandardizedDataType.char;
+
+	if (normalized === "varchar") return StandardizedDataType.varchar;
+
+	if (normalized === "text") return StandardizedDataType.text;
+
+	if (normalized === "nchar") return StandardizedDataType.char;
+
+	if (normalized === "nvarchar") return StandardizedDataType.varchar;
+
+	if (normalized === "ntext") return StandardizedDataType.text;
+
+	if (normalized === "binary") return StandardizedDataType.binary;
+
+	if (normalized === "varbinary") return StandardizedDataType.varbinary;
+
+	if (normalized === "image") return StandardizedDataType.blob;
+
+	if (normalized === "uniqueidentifier") return StandardizedDataType.uuid;
+
+	if (normalized === "date") return StandardizedDataType.date;
+
+	if (normalized === "time") return StandardizedDataType.time;
+
+	if (normalized === "datetime") return StandardizedDataType.datetime;
+
+	if (normalized === "datetime2") return StandardizedDataType.datetime;
+
+	if (normalized === "smalldatetime") return StandardizedDataType.datetime;
+
+	if (normalized === "datetimeoffset") return StandardizedDataType.timestamptz;
+
+	if (normalized === "json") return StandardizedDataType.json;
+
+	if (normalized === "xml") return StandardizedDataType.xml;
+
+	return StandardizedDataType.text;
 }

@@ -1,8 +1,5 @@
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 
-/**
- * Browser logger with timestamps and colors
- */
 export const logger = {
 	getTimestamp(): string {
 		return new Date().toLocaleTimeString("en-US", {
@@ -14,7 +11,7 @@ export const logger = {
 		});
 	},
 
-	request(config: InternalAxiosRequestConfig & { metadata?: { startTime: number } }) {
+	request(config: InternalAxiosRequestConfig) {
 		if (!import.meta.env.DEV) return;
 		const method = config.method?.toUpperCase() ?? "GET";
 

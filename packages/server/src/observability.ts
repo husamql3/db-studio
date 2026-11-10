@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { API_DB_RESOURCES, API_ROOT_RESOURCES, DEFAULTS } from "@db-studio/shared/constants";
 import { DATABASE_TYPES, type DatabaseTypeSchema } from "@db-studio/shared/types";
 import * as Sentry from "@sentry/node";
 import { PostHog } from "posthog-node";
@@ -140,21 +141,19 @@ export const outcomeForStatus = (status: number): Outcome => {
 	return "success";
 };
 
-const DB_TYPE_PATH = new RegExp(`^/api/(${DATABASE_TYPES.join("|")})(?=/|$)`);
+const DB_TYPE_PATH = new RegExp(
+	`^${DEFAULTS.API_PREFIX}/(${DATABASE_TYPES.join("|")})(?=/|$)`,
+);
+
+/** Any other path reports as "other", so operation names stay a fixed set. */
+const API_RESOURCE = new RegExp(
+	`^${DEFAULTS.API_PREFIX}/(${[...API_ROOT_RESOURCES, ...API_DB_RESOURCES].join("|")})(?=/|$)`,
+);
 
 export const operationForRequest = (method: string, pathname: string): string => {
-	const pathWithoutType = pathname.replace(DB_TYPE_PATH, "/api");
+	const pathWithoutType = pathname.replace(DB_TYPE_PATH, DEFAULTS.API_PREFIX);
 
-	const rules: Array<[RegExp, string]> = [
-		[/^\/api\/databases(?:\/|$)/, "databases"],
-		[/^\/api\/tables(?:\/|$)/, "tables"],
-		[/^\/api\/records(?:\/|$)/, "records"],
-		[/^\/api\/query(?:\/|$)/, "query"],
-		[/^\/api\/keys(?:\/|$)/, "keys"],
-		[/^\/api\/chat(?:\/|$)/, "chat"],
-	];
-
-	const resource = rules.find(([pattern]) => pattern.test(pathWithoutType))?.[1] ?? "other";
+	const resource = pathWithoutType.match(API_RESOURCE)?.[1] ?? "other";
 
 	return `${method.toLowerCase()}_${resource}`;
 };

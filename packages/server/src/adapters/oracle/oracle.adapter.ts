@@ -1,38 +1,26 @@
 import type {
-	AddColumnParamsSchemaType,
-	AddRecordSchemaType,
 	AlterColumnParamsSchemaType,
 	BulkInsertRecordsParams,
 	BulkInsertResult,
 	ColumnInfoSchemaType,
 	ConnectionInfoSchemaType,
-	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
+	FieldDataType,
+	ForeignKeyDataType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
-	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
 	DeleteTableParams,
-	DeleteTableResult,
-	DropIndexParamsSchemaType,
-	ExecuteQueryResult,
 	IndexInfoSchemaType,
-	RelatedRecord,
-	RenameColumnParamsSchemaType,
-	RenameTableParamsSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 	TableDataResultSchemaType,
-	TableInfoSchemaType,
-	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import { mapOracleToDataType, standardizeOracleDataTypeLabel } from "@db-studio/shared/types";
+import { isSerialType } from "@db-studio/shared/types";
 import type { Connection, Metadata } from "oracledb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import { getConnectionUrl, getOraclePool } from "@/adapters/connections.js";
+import type { DriverErrorClass } from "@/adapters/base.adapter.js";
 import {
 	logDetail,
 	logsUnavailable,
@@ -40,27 +28,36 @@ import {
 	SERVER_LOGS_LIMIT,
 	SERVER_LOGS_MARKER,
 } from "@/adapters/server-logs.js";
+import { buildFilterConditions, createBinds, whereSql } from "@/adapters/sql-filters.js";
+import { offsetOf, offsetOrderBy, offsetPage, orderTerms } from "@/adapters/sql-pagination.js";
+import {
+	type InlineConstraints,
+	bulkInserted,
+	groupKeyColumns,
+	RELATED_SAMPLE,
+	type ReferencingKey,
+	SqlAdapter,
+	safeNumber,
+	type StatementResult,
+	type TableEstimate,
+} from "@/adapters/sql.adapter.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { loadedDriver } from "@/drivers.js";
+import { formatFileSize } from "@/file-size.js";
 import { HTTPException } from "@/http-exception.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
+import { connector } from "@/open-connections.js";
 import {
 	bindOracleValue,
-	buildFilterConditions,
 	buildOracleSelectList,
-	buildOrderBy,
-	createBinds,
 	formatOracleDefault,
-	groupOracleForeignKeys,
 	IDENTITY_CLAUSE,
 	quoteOracleIdent as ident,
-	isSerialType,
 	mapColumnTypeToOracle,
-	type OracleForeignKey,
-	type OracleForeignKeyRow,
-	type OrderTerm,
-	whereSql,
+	oracleFilters,
+	oraclePlaceholder,
+	mapOracleToDataType,
+	standardizeOracleDataTypeLabel,
 } from "./oracle.query-builder.js";
-import { toJsonNumber } from "./oracle.values.js";
 
 type Row = Record<string, unknown>;
 
@@ -80,6 +77,27 @@ type ColumnRow = {
 /** Oracle 23ai is the first release with SQL BOOLEAN and the native JSON type. */
 const supportsNativeTypes = (conn: Connection) => conn.oracleServerVersion >= 2300000000;
 
+/**
+ * Consecutive records that name the same columns, in order: one executeMany statement writes
+ * each run, so a column a record leaves out takes its DEFAULT instead of NULL.
+ */
+const columnRuns = (records: Record<string, unknown>[]) => {
+	const runs: { columns: string[]; records: Record<string, unknown>[] }[] = [];
+	let runKey: string | undefined;
+
+	for (const record of records) {
+		const columns = Object.keys(record);
+		const key = JSON.stringify([...columns].sort());
+
+		if (key === runKey) runs[runs.length - 1].records.push(record);
+		else runs.push({ columns, records: [record] });
+
+		runKey = key;
+	}
+
+	return runs;
+};
+
 const toHex = (value: unknown) => (Buffer.isBuffer(value) ? value.toString("hex") : value);
 
 /** Thin mode converts native timestamps to millisecond-only Date, so adapter reads use TO_CHAR. */
@@ -88,7 +106,7 @@ const fetchTypeHandler = (meta: Metadata<unknown>) => {
 
 	switch (meta.dbType) {
 		case oracledb.DB_TYPE_NUMBER:
-			return { type: oracledb.STRING, converter: toJsonNumber };
+			return { type: oracledb.STRING, converter: safeNumber };
 		case oracledb.DB_TYPE_CLOB:
 		case oracledb.DB_TYPE_NCLOB:
 			return { type: oracledb.STRING };
@@ -118,6 +136,12 @@ const toOracleValue = (
 
 	return JSON.stringify(value);
 };
+
+/** Binds a value of `column` by the column's type, so a date or timestamp gets an explicit format. */
+const typedBind =
+	(types: Map<string, string>, bind: (value: unknown) => string) =>
+	(value: unknown, column: string) =>
+		bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind);
 
 /** `DEFAULT NULL` is how Oracle clears a default, and it stays visible as the text "NULL". */
 const defaultOf = (c: ColumnRow) => {
@@ -153,7 +177,7 @@ type RowSelection = { columns: string[]; keys: unknown[][] };
 const columnRef = (column: string, alias?: string) =>
 	`${alias ? `${alias}.` : ""}${column === "ROWID" ? "ROWID" : ident(column)}`;
 
-const joinOn = (fk: OracleForeignKey) =>
+const joinOn = (fk: ReferencingKey) =>
 	fk.columns
 		.map((column, index) => `c.${ident(column)} = p.${ident(fk.referencedColumns[index])}`)
 		.join(" AND ");
@@ -201,6 +225,13 @@ const LIMITATIONS: Array<[code: string, reason: string]> = [
 	["ORA-01843", "Dates must be written as YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS."],
 ];
 
+/**
+ * No listener, unknown service or SID, bad credentials, locked account, timeout or lost
+ * connection; NJS-5xx are the thin driver's network errors.
+ */
+const UNREACHABLE =
+	/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/;
+
 type IndexKeyRow = {
 	INDEX_NAME: string;
 	INDEX_TYPE: string;
@@ -211,8 +242,37 @@ type IndexKeyRow = {
 	COLUMN_EXPRESSION: string | null;
 };
 
-/** The new index repeats an existing one: name taken, same column list, or duplicate keys. */
-const INDEX_CONFLICTS = ["ORA-00955", "ORA-01408", "ORA-01452"];
+/**
+ * A constraint refused the row: unique (ORA-00001), NULL in a NOT NULL column (ORA-01400,
+ * ORA-01407), check (ORA-02290), foreign key (ORA-02291, ORA-02292); or the name is taken
+ * (ORA-00955).
+ */
+const CONFLICTS = [
+	"ORA-00001",
+	"ORA-00955",
+	"ORA-01400",
+	"ORA-01407",
+	"ORA-02290",
+	"ORA-02291",
+	"ORA-02292",
+];
+
+/**
+ * A value the column cannot hold: not a number (ORA-01722), too many digits (ORA-01438), a date
+ * part out of range (ORA-01840, ORA-01841, ORA-01847, ORA-01858), invalid JSON (ORA-40441).
+ */
+const INVALID_VALUES = [
+	"ORA-01438",
+	"ORA-01722",
+	"ORA-01840",
+	"ORA-01841",
+	"ORA-01847",
+	"ORA-01858",
+	"ORA-40441",
+];
+
+/** The new index repeats an existing one: same column list, or duplicate keys. */
+const INDEX_CONFLICTS = ["ORA-01408", "ORA-01452"];
 
 /**
  * The column or name cannot be indexed: identifier too long (ORA-00972), key too long
@@ -223,8 +283,8 @@ const CANNOT_INDEX = ["ORA-00972", "ORA-01450", "ORA-02327", "ORA-02329"];
 /** The index enforces a primary key or unique constraint. */
 const INDEX_IN_USE = "ORA-02429";
 
-const startsWithAny = (e: unknown, codes: string[]): e is Error =>
-	e instanceof Error && codes.some((code) => e.message.startsWith(code));
+const startsWithAny = (e: Error, codes: string[]) =>
+	codes.some((code) => e.message.startsWith(code));
 
 /** ON UPDATE actions do not exist in Oracle, and ON DELETE has no SET DEFAULT. */
 const FK_DELETE_ACTIONS: Record<string, string> = {
@@ -242,84 +302,41 @@ const ORACLE_LOG_LEVELS: Record<number, ServerLogLevel> = {
 	16: "info",
 };
 
-export class OracleAdapter extends BaseAdapter {
-	// =========================================================
-	// Abstract method implementations
-	// =========================================================
+export class OracleAdapter extends SqlAdapter<Connection> {
+	protected readonly quoteIdentifier = ident;
+	protected readonly engine = "oracle";
+	protected readonly placeholder = oraclePlaceholder;
 
-	protected async runQuery<T>(_db: string, sql: string, values: unknown[]): Promise<T> {
-		return this.withConnection((conn) => this.query(conn, sql, values)) as Promise<T>;
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		const firstLine = e.message.split("\n")[0];
+		const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));
+
+		if (limitation) return { status: 400, message: `${limitation[1]} (${firstLine})` };
+
+		if (startsWithAny(e, CONFLICTS)) return { status: 409, message: firstLine };
+
+		if (startsWithAny(e, INVALID_VALUES)) return { status: 400, message: firstLine };
+
+		if (UNREACHABLE.test(e.message)) return { status: 503 };
+
+		return undefined;
 	}
 
-	protected quoteIdentifier(name: string): string {
-		return ident(name);
-	}
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		return mapOracleToDataType(nativeType);
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		const map: Record<string, string> = {
-			text: "VARCHAR2(4000)",
-			number: "NUMBER",
-			boolean: "BOOLEAN",
-			json: "JSON",
-			date: "TIMESTAMP",
-			array: "JSON",
-			enum: "VARCHAR2(255)",
-		};
-
-		return map[universalType] ?? "VARCHAR2(4000)";
-	}
-
-	// getTableData is overridden: the ORDER BY needs the table's primary key, which the
-	// synchronous template hooks cannot look up.
-	protected buildTableDataQuery(_params: GetTableDataParams): QueryBundle {
-		throw new Error("OracleAdapter.getTableData builds its own query");
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return (rawRows as Row[]).map((row) => this.normalizeRow(row));
-	}
-
-	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
-		throw new Error("OracleAdapter.getTableData builds its own cursors");
-	}
-
-	protected override wrapError(e: unknown): HTTPException {
-		if (e instanceof Error && !(e instanceof HTTPException)) {
-			const limitation = LIMITATIONS.find(([code]) => e.message.startsWith(code));
-
-			if (limitation)
-				return new HTTPException(400, {
-					message: `${limitation[1]} (${e.message.split("\n")[0]})`,
-					cause: e,
-				});
-
-			if (e.message.startsWith("ORA-00955"))
-				return new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
-		}
-
-		return super.wrapError(e);
+	protected connect<T>(_db: string, work: (conn: Connection) => Promise<T>) {
+		return this.withConnection(work);
 	}
 
 	private async withConnection<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
-		try {
-			const conn = await (await getOraclePool()).getConnection();
+		const conn = await (await connector("oracle").pool()).getConnection();
 
-			try {
-				return await fn(conn);
-			} finally {
-				await conn.close();
-			}
-		} catch (e) {
-			throw this.wrapError(e);
+		try {
+			return await fn(conn);
+		} finally {
+			await conn.close();
 		}
 	}
 
-	/** Run DML on one connection as a single transaction. */
-	private inTransaction<T>(fn: (conn: Connection) => Promise<T>): Promise<T> {
+	protected transaction<T>(_db: string, fn: (conn: Connection) => Promise<T>): Promise<T> {
 		return this.withConnection(async (conn) => {
 			try {
 				const result = await fn(conn);
@@ -333,7 +350,7 @@ export class OracleAdapter extends BaseAdapter {
 		});
 	}
 
-	private async query<T = Row>(conn: Connection, sql: string, values: unknown[] = []) {
+	protected async rows<T = Row>(conn: Connection, sql: string, values: unknown[] = []) {
 		const result = await conn.execute<T>(sql, values, {
 			outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
 			fetchTypeHandler,
@@ -342,13 +359,36 @@ export class OracleAdapter extends BaseAdapter {
 		return result.rows ?? [];
 	}
 
-	private async execute(conn: Connection, sql: string, values: unknown[] = []) {
-		return (await conn.execute(sql, values)).rowsAffected ?? 0;
+	protected isFkViolation(e: unknown) {
+		return e instanceof Error && e.message.startsWith("ORA-02292");
 	}
 
-	// =========================================================
-	// Records — paginated read
-	// =========================================================
+	/** Values bind by their column's type, so a date or timestamp gets an explicit format. */
+	protected override async writeTarget(conn: Connection, _db: string, tableName: string) {
+		const types = await this.columnTypes(conn, tableName);
+
+		return {
+			primaryKey: await this.primaryKey(conn, tableName),
+			bindValue: (column: string, value: unknown, bind: (value: unknown) => string) =>
+				typedBind(types, bind)(value, column),
+		};
+	}
+
+	/** Oracle has no DEFAULT VALUES; the first column's DEFAULT keyword gives every column its own. */
+	protected override async insertDefaultsSql(conn: Connection, tableName: string) {
+		const [first] = await this.requireColumns(conn, tableName);
+
+		return `(${ident(first.COLUMN_NAME)}) VALUES (DEFAULT)`;
+	}
+
+	/** One ALTER TABLE ... ADD, constraints inline, so it applies fully or not at all. */
+	protected override addColumnSql(definition: string) {
+		return `ADD (${definition})`;
+	}
+
+	protected async execute(conn: Connection, sql: string, values: unknown[] = []) {
+		return (await conn.execute(sql, values)).rowsAffected ?? 0;
+	}
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
 		const { tableName, limit = 50, sort = [], order = "asc", cursor, filters = [] } = params;
@@ -361,47 +401,42 @@ export class OracleAdapter extends BaseAdapter {
 			);
 
 			const primaryKey = await this.primaryKey(conn, tableName);
-
-			const terms: OrderTerm[] = this.orderTerms<string | null>(
-				sort,
-				order,
-				primaryKey.length ? primaryKey : [null],
-			);
-
-			const offset = cursor ? Number(this.decodeCursor(cursor)?.values._offset ?? 0) : 0;
-			const { values, bind } = createBinds();
-			const where = whereSql(buildFilterConditions(filters, bind, columnTypes));
-			const filterValues = [...values];
-
-			const [countRow] = await this.query<{ total: number }>(
-				conn,
-				`SELECT COUNT(*) AS "total" FROM ${ident(tableName)} ${where}`,
-				filterValues,
-			);
-
 			const tableAlias = "t";
 
-			const fetched = await this.query(
+			// ROWID breaks ties for a table without a key.
+			const terms = orderTerms(
+				sort,
+				order,
+				primaryKey.length ? primaryKey : [{ raw: `${tableAlias}.ROWID` }],
+			);
+
+			const offset = offsetOf(cursor);
+			const { values, bind } = createBinds(oraclePlaceholder);
+
+			const where = whereSql(
+				buildFilterConditions(filters, bind, oracleFilters(columnTypes, bind)),
+			);
+
+			const { total, estimated } = await this.pageTotal(
 				conn,
-				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${buildOrderBy(terms, tableAlias)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
+				params.db,
+				tableName,
+				undefined,
+				where,
+				[...values],
+			);
+
+			const fetched = await this.rows(
+				conn,
+				`SELECT ${buildOracleSelectList(columns, tableAlias)} FROM ${ident(tableName)} ${tableAlias} ${where} ${offsetOrderBy(terms, (name) => `${tableAlias}.${ident(name)}`)} OFFSET ${bind(offset)} ROWS FETCH NEXT ${bind(limit + 1)} ROWS ONLY`,
 				values,
 			);
 
-			const hasMore = fetched.length > limit;
-
-			const offsetCursor = (at: number) =>
-				this.encodeCursor({ values: { _offset: at }, sortColumns: ["_offset"] });
+			const { rows, ...page } = offsetPage(fetched, offset, limit);
 
 			return {
-				data: fetched.slice(0, limit).map((row) => this.normalizeRow(row)),
-				meta: {
-					limit,
-					total: Number(countRow?.total ?? 0),
-					hasNextPage: hasMore,
-					hasPreviousPage: offset > 0,
-					nextCursor: hasMore ? offsetCursor(offset + limit) : null,
-					prevCursor: offset > 0 ? offsetCursor(Math.max(0, offset - limit)) : null,
-				},
+				data: rows,
+				meta: { limit, total, ...(estimated && { totalEstimated: true }), ...page },
 			};
 		});
 	}
@@ -415,23 +450,14 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => {
 			const columns = await this.requireColumns(conn, tableName);
 
-			const rows = await this.query(
+			const rows = await this.rows(
 				conn,
 				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(tableName)}`,
 			);
 
-			if (!rows.length)
-				throw new HTTPException(404, {
-					message: `Table "${tableName}" does not exist or has no data`,
-				});
-
 			return { cols: columns.map((column) => column.COLUMN_NAME), rows };
 		});
 	}
-
-	// =========================================================
-	// Databases
-	// =========================================================
 
 	/**
 	 * An Oracle service is one database, so the list holds only the connected container
@@ -439,7 +465,7 @@ export class OracleAdapter extends BaseAdapter {
 	 */
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
 		return this.withConnection(async (conn) => {
-			const [row] = await this.query<{
+			const [row] = await this.rows<{
 				NAME: string;
 				OWNER: string;
 				BYTES: number;
@@ -457,7 +483,7 @@ export class OracleAdapter extends BaseAdapter {
 			return [
 				{
 					name: row.NAME,
-					size: this.formatBytes(Number(row.BYTES)),
+					size: formatFileSize(Number(row.BYTES)),
 					owner: row.OWNER,
 					encoding: row.ENCODING,
 				},
@@ -469,18 +495,14 @@ export class OracleAdapter extends BaseAdapter {
 		return this.withConnection(async (conn) => ({ db: await this.containerName(conn) }));
 	}
 
-	async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		const pool = await getOraclePool().catch((e) => {
-			throw this.wrapError(e);
-		});
+	async getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType> {
+		const pool = await connector("oracle").pool();
 
 		return this.withConnection(async (conn) => {
-			const [row] = await this.query<{ U: string }>(conn, "SELECT USER AS u FROM dual");
-			const { host, port } = parseDatabaseUrl(getConnectionUrl());
+			const [row] = await this.rows<{ U: string }>(conn, "SELECT USER AS u FROM dual");
 
 			return {
-				host,
-				port,
+				...server,
 				user: row?.U ?? "",
 				database: await this.containerName(conn),
 				version: `Oracle ${conn.oracleServerVersionString}`,
@@ -490,50 +512,30 @@ export class OracleAdapter extends BaseAdapter {
 		});
 	}
 
-	// =========================================================
-	// Tables
-	// =========================================================
+	/** Every table is counted in one statement, on the one connection a request holds. */
+	protected readonly countStatements = 1;
 
 	/**
-	 * Row counts are exact (COUNT(*)) for tables whose optimizer statistics are missing or
-	 * under 100,000 rows; larger tables report USER_TABLES.NUM_ROWS, which is an estimate as
-	 * of the last statistics gathering.
+	 * USER_TABLES.NUM_ROWS is an estimate as of the last statistics gathering, and NULL for a
+	 * table never analyzed, which is then counted.
 	 */
-	async getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		return this.withConnection(async (conn) => {
-			const tables = await this.query<{ TABLE_NAME: string; NUM_ROWS: number | null }>(
-				conn,
-				`SELECT table_name, num_rows FROM user_tables
-				WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
-				ORDER BY table_name`,
-			);
-
-			const toCount = tables.filter((t) => t.NUM_ROWS === null || t.NUM_ROWS < 100_000);
-			const counts = new Map<string, number>();
-
-			if (toCount.length) {
-				const rows = await this.query<{ N: number; C: number }>(
-					conn,
-					toCount
-						.map((t, i) => `SELECT ${i} AS n, COUNT(*) AS c FROM ${ident(t.TABLE_NAME)}`)
-						.join(" UNION ALL "),
-				);
-
-				for (const row of rows) counts.set(toCount[row.N].TABLE_NAME, Number(row.C));
-			}
-
-			return tables.map((t) => ({
-				tableName: t.TABLE_NAME,
-				rowCount: counts.get(t.TABLE_NAME) ?? Number(t.NUM_ROWS ?? 0),
-			}));
-		});
+	protected tableEstimates(conn: Connection, _db: string, tableName?: string) {
+		return this.rows<TableEstimate>(
+			conn,
+			`SELECT table_name AS "tableName", num_rows AS "estimate" FROM user_tables
+			WHERE dropped = 'NO' AND nested = 'NO' AND secondary = 'N' AND (iot_type IS NULL OR iot_type = 'IOT')
+				${tableName === undefined ? "" : "AND table_name = :1"}
+			ORDER BY table_name`,
+			tableName === undefined ? [] : [tableName],
+		);
 	}
 
 	/** One CREATE TABLE statement: identity, keys and foreign keys succeed or fail together. */
-	async createTable({ tableData }: { tableData: CreateTableSchemaType }): Promise<void> {
-		const { tableName, fields, foreignKeys = [] } = tableData;
-
-		for (const fk of foreignKeys) {
+	override async createTable(params: {
+		tableData: CreateTableSchemaType;
+		db: DatabaseSchemaType["db"];
+	}): Promise<void> {
+		for (const fk of params.tableData.foreignKeys ?? []) {
 			if (fk.onUpdate !== "NO ACTION" && fk.onUpdate !== "RESTRICT")
 				throw new HTTPException(400, {
 					message: `Oracle foreign keys have no ON UPDATE actions (${fk.onUpdate} on "${fk.columnName}"). Use NO ACTION.`,
@@ -545,75 +547,29 @@ export class OracleAdapter extends BaseAdapter {
 				});
 		}
 
-		await this.withConnection(async (conn) => {
-			const native = supportsNativeTypes(conn);
-			const primaryKey = fields.filter((f) => f.isPrimaryKey).map((f) => f.columnName);
-
-			const definitions = fields.map((field) =>
-				this.columnDefinition(field, { withConstraints: false, native }),
-			);
-
-			if (primaryKey.length)
-				definitions.push(`PRIMARY KEY (${primaryKey.map(ident).join(", ")})`);
-
-			for (const field of fields) {
-				if (field.isUnique && !field.isPrimaryKey)
-					definitions.push(`UNIQUE (${ident(field.columnName)})`);
-			}
-
-			for (const fk of foreignKeys) {
-				definitions.push(
-					`FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)})${FK_DELETE_ACTIONS[fk.onDelete]}`,
-				);
-			}
-
-			await conn.execute(`CREATE TABLE ${ident(tableName)} (${definitions.join(", ")})`);
-		});
+		return super.createTable(params);
 	}
 
-	async deleteTable({ tableName, cascade }: DeleteTableParams): Promise<DeleteTableResult> {
-		return this.withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+	protected override readonly keysAsTableConstraints = true;
 
-			const referencing = (await this.foreignKeys(conn, "referenced", tableName)).filter(
-				(fk) => fk.referencingTable !== tableName,
-			);
-
-			if (referencing.length && !cascade)
-				return {
-					deletedCount: 0,
-					fkViolation: true,
-					relatedRecords: await this.sampleReferencingRows(conn, referencing),
-				};
-
-			const [row] = await this.query<{ C: number }>(
-				conn,
-				`SELECT COUNT(*) AS c FROM ${ident(tableName)}`,
-			);
-
-			// CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows.
-			await conn.execute(
-				`DROP TABLE ${ident(tableName)}${cascade ? " CASCADE CONSTRAINTS" : ""}`,
-			);
-
-			return { deletedCount: Number(row?.C ?? 0), fkViolation: false, relatedRecords: [] };
-		});
+	/** Oracle has ON DELETE actions only. */
+	protected override foreignKeyClause(_tableName: string, fk: ForeignKeyDataType) {
+		return `FOREIGN KEY (${ident(fk.columnName)}) REFERENCES ${ident(fk.referencedTable)} (${ident(fk.referencedColumn)})${FK_DELETE_ACTIONS[fk.onDelete]}`;
 	}
 
-	async renameTable({ tableName, newTableName }: RenameTableParamsSchemaType): Promise<void> {
-		this.assertDifferentTableName(tableName, newTableName);
-		await this.withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
-
-			if ((await this.columns(conn, newTableName)).length)
-				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
-			await conn.execute(`ALTER TABLE ${ident(tableName)} RENAME TO ${ident(newTableName)}`);
-		});
+	/** CASCADE CONSTRAINTS drops the foreign keys of referencing tables, not their rows. */
+	protected override async dropTable(
+		conn: Connection,
+		{ tableName, cascade }: DeleteTableParams,
+	) {
+		await conn.execute(
+			`DROP TABLE ${ident(tableName)}${cascade ? " CASCADE CONSTRAINTS" : ""}`,
+		);
 	}
 
 	async getTableSchema({ tableName }: { tableName: string }): Promise<string> {
 		return this.withConnection(async (conn) => {
-			await this.requireColumns(conn, tableName);
+			await this.requireTable(conn, tableName);
 			await conn.execute(
 				`BEGIN
 					DBMS_METADATA.SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM, 'SEGMENT_ATTRIBUTES', FALSE);
@@ -621,7 +577,7 @@ export class OracleAdapter extends BaseAdapter {
 				END;`,
 			);
 
-			const [row] = await this.query<{ DDL: string }>(
+			const [row] = await this.rows<{ DDL: string }>(
 				conn,
 				"SELECT DBMS_METADATA.GET_DDL('TABLE', :1) AS ddl FROM dual",
 				[tableName],
@@ -630,10 +586,6 @@ export class OracleAdapter extends BaseAdapter {
 			return row?.DDL.trim() ?? "";
 		});
 	}
-
-	// =========================================================
-	// Columns
-	// =========================================================
 
 	async getTableColumns({
 		tableName,
@@ -682,38 +634,6 @@ export class OracleAdapter extends BaseAdapter {
 		});
 	}
 
-	/** One ALTER TABLE ... ADD, constraints inline, so it applies fully or not at all. */
-	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		const { tableName, columnName } = params;
-		await this.withConnection(async (conn) => {
-			const columns = await this.requireColumns(conn, tableName);
-
-			if (columns.some((c) => c.COLUMN_NAME === columnName))
-				throw new HTTPException(409, {
-					message: `Column "${columnName}" already exists in table "${tableName}"`,
-				});
-
-			const definition = this.columnDefinition(params, {
-				withConstraints: true,
-				native: supportsNativeTypes(conn),
-			});
-
-			await conn.execute(`ALTER TABLE ${ident(tableName)} ADD (${definition})`);
-		});
-	}
-
-	async deleteColumn({
-		tableName,
-		columnName,
-	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		await this.withConnection(async (conn) => {
-			await this.requireColumn(conn, tableName, columnName);
-			await conn.execute(`ALTER TABLE ${ident(tableName)} DROP COLUMN ${ident(columnName)}`);
-		});
-
-		return { deletedCount: 1 };
-	}
-
 	/**
 	 * One ALTER TABLE ... MODIFY. Oracle rejects restating the current nullability
 	 * (ORA-01451/ORA-01442), so NULL/NOT NULL is only written when it changes, and it has no
@@ -724,7 +644,9 @@ export class OracleAdapter extends BaseAdapter {
 		await this.withConnection(async (conn) => {
 			const native = supportsNativeTypes(conn);
 
-			const column = (await this.requireColumn(conn, tableName, columnName)).find(
+			await this.requireColumn(conn, tableName, columnName);
+
+			const column = (await this.columns(conn, tableName)).find(
 				(c) => c.COLUMN_NAME === columnName,
 			);
 
@@ -741,32 +663,10 @@ export class OracleAdapter extends BaseAdapter {
 		});
 	}
 
-	async renameColumn({
-		tableName,
-		columnName,
-		newColumnName,
-	}: RenameColumnParamsSchemaType): Promise<void> {
-		await this.withConnection(async (conn) => {
-			const columns = await this.requireColumn(conn, tableName, columnName);
-
-			if (columns.some((c) => c.COLUMN_NAME === newColumnName))
-				throw new HTTPException(409, {
-					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
-				});
-			await conn.execute(
-				`ALTER TABLE ${ident(tableName)} RENAME COLUMN ${ident(columnName)} TO ${ident(newColumnName)}`,
-			);
-		});
-	}
-
-	// =========================================================
-	// Server logs
-	// =========================================================
-
 	async getServerLogs(): Promise<ServerLogsResult> {
 		return this.withConnection(async (conn) => {
 			try {
-				const rows = await this.query<{
+				const rows = await this.rows<{
 					TS: string;
 					MESSAGE_LEVEL: number;
 					COMPONENT_ID: string | null;
@@ -809,179 +709,13 @@ export class OracleAdapter extends BaseAdapter {
 		});
 	}
 
-	// =========================================================
-	// Indexes
-	// =========================================================
-
-	async getTableIndexes({ tableName }: { tableName: string }): Promise<IndexInfoSchemaType[]> {
-		return this.withConnection((conn) => this.listIndexes(conn, tableName));
-	}
-
-	async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
-		const { tableName, indexName, columns, isUnique, method } = params;
-		await this.withConnection(async (conn) => {
-			const existing = await this.requireColumns(conn, tableName);
-			const missing = columns.find((c) => !existing.some((e) => e.COLUMN_NAME === c));
-
-			if (missing !== undefined)
-				throw new HTTPException(400, {
-					message: `Column "${missing}" does not exist in table "${tableName}"`,
-				});
-
-			if (method !== undefined)
-				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
-
-			const sql = `CREATE ${isUnique ? "UNIQUE " : ""}INDEX ${ident(indexName)} ON ${ident(tableName)} (${columns.map((c) => ident(c)).join(", ")})`;
-
-			try {
-				await conn.execute(sql);
-			} catch (e) {
-				if (startsWithAny(e, INDEX_CONFLICTS))
-					throw new HTTPException(409, { message: e.message.split("\n")[0], cause: e });
-
-				if (startsWithAny(e, CANNOT_INDEX))
-					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
-				throw e;
-			}
-		});
-	}
-
-	async dropIndex({ tableName, indexName }: DropIndexParamsSchemaType): Promise<void> {
-		await this.withConnection(async (conn) => {
-			const index = (await this.listIndexes(conn, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on table "${tableName}"`,
-				});
-
-			if (index.kind !== "index")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs a constraint; drop the constraint to remove it`,
-				});
-
-			try {
-				await conn.execute(`DROP INDEX ${ident(indexName)}`);
-			} catch (e) {
-				if (startsWithAny(e, [INDEX_IN_USE]))
-					throw new HTTPException(400, { message: e.message.split("\n")[0], cause: e });
-				throw e;
-			}
-		});
-	}
-
-	// =========================================================
-	// Records
-	// =========================================================
-
-	async addRecord({
-		params,
-	}: {
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		const { tableName, data } = params;
-		const columns = Object.keys(data);
-
-		if (!columns.length)
-			throw new HTTPException(400, { message: "No data provided for insert" });
-
-		const insertedCount = await this.inTransaction(async (conn) => {
-			const types = await this.columnTypes(conn, tableName);
-			const { values, bind } = createBinds();
-
-			const expressions = columns.map((column) =>
-				bindOracleValue(
-					toOracleValue(data[column], types.get(column)),
-					types.get(column),
-					bind,
-				),
-			);
-
-			return this.execute(
-				conn,
-				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
-				values,
-			);
-		});
-
-		return { insertedCount };
-	}
-
-	async updateRecords({
-		params,
-	}: {
-		params: UpdateRecordsSchemaType;
-	}): Promise<{ updatedCount: number }> {
-		const { tableName } = params;
-		const keyColumns = this.resolveKeyColumns(params);
-		const groups = this.groupUpdatesByKey(params, keyColumns);
-
-		const updatedCount = await this.inTransaction(async (conn) => {
-			this.assertWholeKey(await this.primaryKey(conn, tableName), keyColumns);
-			const types = await this.columnTypes(conn, tableName);
-			let total = 0;
-
-			for (const { keyValues, rowUpdates } of groups) {
-				const { values, bind } = createBinds();
-
-				const set = rowUpdates
-					.map(
-						(u) =>
-							`${ident(u.columnName)} = ${
-								u.useDefault
-									? "DEFAULT"
-									: bindOracleValue(
-											toOracleValue(u.value, types.get(u.columnName)),
-											types.get(u.columnName),
-											bind,
-										)
-							}`,
-					)
-					.join(", ");
-
-				const where = keyColumns
-					.map(
-						(c, i) =>
-							`${ident(c)} = ${bindOracleValue(
-								toOracleValue(keyValues[i], types.get(c)),
-								types.get(c),
-								bind,
-							)}`,
-					)
-					.join(" AND ");
-
-				const changed = await this.execute(
-					conn,
-					`UPDATE ${ident(tableName)} SET ${set} WHERE ${where}`,
-					values,
-				);
-
-				if (changed === 0)
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in table "${tableName}"`,
-					});
-				total += changed;
-			}
-
-			return total;
-		});
-
-		return { updatedCount };
-	}
-
-	async deleteRecords({
+	/** Overrides the shared delete: key values bind by their column's type. */
+	override async deleteRecords({
 		tableName,
 		primaryKeys,
 	}: DeleteRecordParams): Promise<DeleteRecordResult> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
 		const selection: RowSelection = {
-			columns: [pkColumn],
+			columns: [primaryKeys[0].columnName],
 			keys: primaryKeys.map((key) => [key.value]),
 		};
 
@@ -990,11 +724,9 @@ export class OracleAdapter extends BaseAdapter {
 			const types = await this.columnTypes(conn, tableName);
 
 			try {
-				const { values, bind } = createBinds();
+				const { values, bind } = createBinds(oraclePlaceholder);
 
-				const where = matchesAny(selection, undefined, (value, column) =>
-					bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
-				);
+				const where = matchesAny(selection, undefined, typedBind(types, bind));
 
 				const deletedCount = await this.execute(
 					conn,
@@ -1008,31 +740,18 @@ export class OracleAdapter extends BaseAdapter {
 			} catch (e) {
 				await conn.rollback().catch(() => {});
 
-				if (!(e instanceof Error) || !e.message.startsWith("ORA-02292")) throw e;
-				const relatedRecords: RelatedRecord[] = [];
+				if (!this.isFkViolation(e)) throw e;
+				const { values, bind } = createBinds(oraclePlaceholder);
 
-				for (const fk of await this.foreignKeys(conn, "referenced", tableName)) {
-					const childColumns = await this.requireColumns(conn, fk.referencingTable);
-					const { values, bind } = createBinds();
+				const where = matchesAny(selection, "p", typedBind(types, bind));
 
-					const where = matchesAny(selection, "p", (value, column) =>
-						bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
-					);
-
-					const records = await this.query(
-						conn,
-						`SELECT ${buildOracleSelectList(childColumns, "c")} FROM ${ident(fk.referencingTable)} c JOIN ${ident(tableName)} p ON ${joinOn(fk)} WHERE ${where} FETCH FIRST 100 ROWS ONLY`,
-						values,
-					);
-
-					if (records.length)
-						relatedRecords.push({
-							tableName: fk.referencingTable,
-							columnName: fk.columns.join(", "),
-							constraintName: fk.constraintName,
-							records,
-						});
-				}
+				const relatedRecords = await this.rowsReferencingRows(
+					conn,
+					tableName,
+					undefined,
+					where,
+					values,
+				);
 
 				return { deletedCount: 0, fkViolation: true, relatedRecords };
 			}
@@ -1040,15 +759,11 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	/** Deletes referencing rows children-first, then the rows themselves, in one transaction. */
-	async forceDeleteRecords({
+	override async forceDeleteRecords({
 		tableName,
 		primaryKeys,
+		db,
 	}: DeleteRecordParams): Promise<{ deletedCount: number }> {
-		const pkColumn = primaryKeys[0]?.columnName;
-
-		if (!pkColumn)
-			throw new HTTPException(400, { message: "Primary key column name is required" });
-
 		const purge = async (
 			conn: Connection,
 			table: string,
@@ -1065,38 +780,34 @@ export class OracleAdapter extends BaseAdapter {
 			let deleted = 0;
 
 			for (const fk of await this.foreignKeys(conn, "referenced", table)) {
-				const { values, bind } = createBinds();
+				const { values, bind } = createBinds(oraclePlaceholder);
 
 				const where = matchesAny(selection, "p", (value, column) =>
 					column === "ROWID"
 						? `CHARTOROWID(${bind(value)})`
-						: bindOracleValue(
-								toOracleValue(value, types.get(column)),
-								types.get(column),
-								bind,
-							),
+						: typedBind(types, bind)(value, column),
 				);
 
-				const referenced = await this.query<{ __rowid: string }>(
+				const referenced = await this.rows<{ __rowid: string }>(
 					conn,
-					`SELECT DISTINCT ROWIDTOCHAR(c.ROWID) AS "__rowid" FROM ${ident(fk.referencingTable)} c JOIN ${ident(table)} p ON ${joinOn(fk)} WHERE ${where}`,
+					`SELECT DISTINCT ROWIDTOCHAR(c.ROWID) AS "__rowid" FROM ${ident(fk.table)} c JOIN ${ident(table)} p ON ${joinOn(fk)} WHERE ${where}`,
 					values,
 				);
 
 				deleted += await purge(
 					conn,
-					fk.referencingTable,
+					fk.table,
 					{ columns: ["ROWID"], keys: referenced.map((row) => [row.__rowid]) },
 					[...path, table],
 				);
 			}
 
-			const { values, bind } = createBinds();
+			const { values, bind } = createBinds(oraclePlaceholder);
 
 			const where = matchesAny(selection, undefined, (value, column) =>
 				column === "ROWID"
 					? `CHARTOROWID(${bind(value)})`
-					: bindOracleValue(toOracleValue(value, types.get(column)), types.get(column), bind),
+					: typedBind(types, bind)(value, column),
 			);
 
 			return (
@@ -1105,13 +816,13 @@ export class OracleAdapter extends BaseAdapter {
 			);
 		};
 
-		const deletedCount = await this.inTransaction(async (conn) => {
+		const deletedCount = await this.transaction(db, async (conn) => {
 			this.assertDeletableKey(await this.primaryKey(conn, tableName));
 
 			return purge(
 				conn,
 				tableName,
-				{ columns: [pkColumn], keys: primaryKeys.map((key) => [key.value]) },
+				{ columns: [primaryKeys[0].columnName], keys: primaryKeys.map((key) => [key.value]) },
 				[],
 			);
 		});
@@ -1122,62 +833,54 @@ export class OracleAdapter extends BaseAdapter {
 	async bulkInsertRecords({
 		tableName,
 		records,
+		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		if (!records?.length)
-			throw new HTTPException(400, { message: "At least one record is required" });
-
-		const columns = Object.keys(records[0]);
-
-		const successCount = await this.inTransaction(async (conn) => {
+		const successCount = await this.transaction(db, async (conn) => {
 			const types = await this.columnTypes(conn, tableName);
-			let expressions: string[] = [];
+			let inserted = 0;
 
-			const rows = records.map((record, index) => {
-				const { values, bind } = createBinds();
+			for (const run of columnRuns(records)) {
+				if (!run.columns.length) {
+					const sql = `INSERT INTO ${ident(tableName)} ${await this.insertDefaultsSql(conn, tableName)}`;
+					const result = await conn.executeMany(sql, run.records.length);
+					inserted += result.rowsAffected ?? run.records.length;
+					continue;
+				}
 
-				const rowExpressions = columns.map((column) =>
-					bindOracleValue(
-						toOracleValue(record[column], types.get(column)),
-						types.get(column),
-						bind,
-					),
+				let expressions: string[] = [];
+
+				const rows = run.records.map((record, index) => {
+					const { values, bind } = createBinds(oraclePlaceholder);
+
+					const rowExpressions = run.columns.map((column) =>
+						typedBind(types, bind)(record[column] ?? null, column),
+					);
+
+					if (index === 0) expressions = rowExpressions;
+
+					return values;
+				});
+
+				const result = await conn.executeMany(
+					`INSERT INTO ${ident(tableName)} (${run.columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
+					rows,
 				);
 
-				if (index === 0) expressions = rowExpressions;
+				inserted += result.rowsAffected ?? run.records.length;
+			}
 
-				return values;
-			});
-
-			const result = await conn.executeMany(
-				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
-				rows,
-			);
-
-			return result.rowsAffected ?? records.length;
+			return inserted;
 		});
 
-		return {
-			success: true,
-			message: `Bulk insert completed: ${successCount} records inserted`,
-			successCount,
-			failureCount: 0,
-		};
+		return bulkInserted(successCount);
 	}
 
-	// =========================================================
-	// Query
-	// =========================================================
-
 	/**
-	 * Runs one statement with autocommit. A trailing `;` is stripped from SQL (Oracle rejects
-	 * it) but kept on PL/SQL blocks, where it ends the last statement; a SQL*Plus `/` line is
-	 * dropped. Native DATE and TIMESTAMP result columns are refused because Thin mode converts
-	 * them to millisecond-only Date objects; callers can select them with an explicit TO_CHAR.
+	 * A trailing `;` is stripped from SQL (Oracle rejects it) but kept on PL/SQL blocks, where
+	 * it ends the last statement; a SQL*Plus `/` line is dropped.
 	 */
-	async executeQuery({ query: sql }: { query: string }): Promise<ExecuteQueryResult> {
-		if (!sql?.trim()) throw new HTTPException(400, { message: "Query is required" });
-
-		const trimmed = sql
+	protected override prepareQuery(query: string) {
+		const trimmed = query
 			.trim()
 			.replace(/\n\s*\/$/, "")
 			.trim();
@@ -1187,76 +890,49 @@ export class OracleAdapter extends BaseAdapter {
 				trimmed,
 			);
 
-		const statement = isPlsql ? trimmed : trimmed.replace(/;\s*$/, "");
-
-		return this.withConnection(async (conn) => {
-			const start = performance.now();
-
-			const result = await conn.execute<Row>(statement, [], {
-				outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
-				fetchTypeHandler,
-				autoCommit: true,
-				resultSet: true,
-			});
-
-			const duration = performance.now() - start;
-
-			if (result.resultSet) {
-				if (result.metaData?.some(isTemporalMetadata)) {
-					await result.resultSet.close();
-					throw new HTTPException(400, {
-						message:
-							"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
-					});
-				}
-
-				let rows: Row[];
-
-				try {
-					rows = await result.resultSet.getRows();
-				} finally {
-					await result.resultSet.close();
-				}
-
-				return {
-					columns: result.metaData?.map((meta) => meta.name) ?? [],
-					rows,
-					rowCount: rows.length,
-					duration,
-					message: rows.length === 0 ? "OK" : undefined,
-				};
-			}
-
-			const affected = result.rowsAffected ?? 0;
-
-			return {
-				columns: [],
-				rows: [],
-				rowCount: affected,
-				duration,
-				message: result.rowsAffected === undefined ? "OK" : `OK (${affected} rows affected)`,
-			};
-		});
+		return isPlsql ? trimmed : trimmed.replace(/;\s*$/, "");
 	}
 
-	// =========================================================
-	// Private helpers
-	// =========================================================
+	/**
+	 * Native DATE and TIMESTAMP result columns are refused because Thin mode converts them to
+	 * millisecond-only Date objects; callers can select them with an explicit TO_CHAR.
+	 */
+	protected async runStatement(conn: Connection, statement: string): Promise<StatementResult> {
+		const result = await conn.execute<Row>(statement, [], {
+			outFormat: loadedDriver("oracle").OUT_FORMAT_OBJECT,
+			fetchTypeHandler,
+			autoCommit: true,
+			resultSet: true,
+		});
 
-	private columnDefinition(
-		field: {
-			columnName: string;
-			columnType: string;
-			defaultValue?: string | null;
-			isPrimaryKey?: boolean;
-			isNullable?: boolean;
-			isUnique?: boolean;
-			isIdentity?: boolean;
-			isArray?: boolean;
-		},
-		{ withConstraints, native }: { withConstraints: boolean; native: boolean },
+		if (!result.resultSet) return { affected: result.rowsAffected };
+
+		if (result.metaData?.some(isTemporalMetadata)) {
+			await result.resultSet.close();
+			throw new HTTPException(400, {
+				message:
+					"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
+			});
+		}
+
+		try {
+			return {
+				columns: result.metaData?.map((meta) => meta.name) ?? [],
+				rows: await result.resultSet.getRows(),
+			};
+		} finally {
+			await result.resultSet.close();
+		}
+	}
+
+	protected columnDefinition(
+		conn: Connection,
+		_tableName: string,
+		field: FieldDataType,
+		{ inlineKey, inlineUnique }: InlineConstraints,
 	): string {
-		let def = `${ident(field.columnName)} ${mapColumnTypeToOracle(field.columnType, field.isArray ?? false, native)}`;
+		const native = supportsNativeTypes(conn);
+		let def = `${ident(field.columnName)} ${mapColumnTypeToOracle(field.columnType, field.isArray, native)}`;
 
 		if (field.isIdentity || isSerialType(field.columnType)) def += ` ${IDENTITY_CLAUSE}`;
 		else if (field.defaultValue?.trim())
@@ -1264,24 +940,15 @@ export class OracleAdapter extends BaseAdapter {
 
 		if (!field.isNullable && !field.isPrimaryKey) def += " NOT NULL";
 
-		if (withConstraints) {
-			if (field.isPrimaryKey) def += " PRIMARY KEY";
-			else if (field.isUnique) def += " UNIQUE";
-		}
+		if (inlineKey) def += " PRIMARY KEY";
+
+		if (inlineUnique) def += " UNIQUE";
 
 		return def;
 	}
 
-	private formatBytes(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-	}
-
 	private async containerName(conn: Connection): Promise<string> {
-		const [row] = await this.query<{ DB: string }>(
+		const [row] = await this.rows<{ DB: string }>(
 			conn,
 			"SELECT SYS_CONTEXT('USERENV', 'CON_NAME') AS db FROM dual",
 		);
@@ -1290,7 +957,7 @@ export class OracleAdapter extends BaseAdapter {
 	}
 
 	private columns(conn: Connection, tableName: string): Promise<ColumnRow[]> {
-		return this.query<ColumnRow>(
+		return this.rows<ColumnRow>(
 			conn,
 			`SELECT c.column_name, c.data_type, c.data_length, c.data_precision, c.data_scale, c.char_length,
 				c.nullable, c.data_default, c.default_on_null, i.generation_type
@@ -1310,36 +977,37 @@ export class OracleAdapter extends BaseAdapter {
 	private async requireColumns(conn: Connection, tableName: string): Promise<ColumnRow[]> {
 		const columns = await this.columns(conn, tableName);
 
-		if (!columns.length)
-			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+		if (!columns.length) throw this.tableMissing(tableName);
 
 		return columns;
 	}
 
-	private async requireColumn(
-		conn: Connection,
-		tableName: string,
-		columnName: string,
-	): Promise<ColumnRow[]> {
-		const columns = await this.requireColumns(conn, tableName);
+	protected async columnNames(conn: Connection, tableName: string) {
+		const columns = await this.columns(conn, tableName);
 
-		if (!columns.some((c) => c.COLUMN_NAME === columnName))
-			throw new HTTPException(404, {
-				message: `Column "${columnName}" does not exist in table "${tableName}"`,
-			});
-
-		return columns;
+		return columns.length ? columns.map((c) => c.COLUMN_NAME) : undefined;
 	}
 
-	private async listIndexes(
+	protected override indexError(e: Error) {
+		const firstLine = e.message.split("\n")[0];
+
+		if (startsWithAny(e, INDEX_CONFLICTS)) return { status: 409, message: firstLine };
+
+		if (startsWithAny(e, [...CANNOT_INDEX, INDEX_IN_USE]))
+			return { status: 400, message: firstLine };
+
+		return undefined;
+	}
+
+	protected async listIndexes(
 		conn: Connection,
 		tableName: string,
 	): Promise<IndexInfoSchemaType[]> {
-		await this.requireColumns(conn, tableName);
+		await this.requireTable(conn, tableName);
 
 		// LOB indexes are the storage of a CLOB, BLOB or JSON column: Oracle creates them with
 		// the column and refuses to drop them, so they are not listed.
-		const rows = await this.query<IndexKeyRow>(
+		const rows = await this.rows<IndexKeyRow>(
 			conn,
 			`SELECT i.index_name, i.index_type, i.uniqueness, ic.column_name, ic.descend, ie.column_expression,
 				(SELECT MIN(c.constraint_type) FROM user_constraints c
@@ -1409,8 +1077,8 @@ export class OracleAdapter extends BaseAdapter {
 			.sort((a, b) => Number(b.kind === "primary") - Number(a.kind === "primary"));
 	}
 
-	private async primaryKey(conn: Connection, tableName: string): Promise<string[]> {
-		const rows = await this.query<{ COLUMN_NAME: string }>(
+	protected async primaryKey(conn: Connection, tableName: string): Promise<string[]> {
+		const rows = await this.rows<{ COLUMN_NAME: string }>(
 			conn,
 			`SELECT cc.column_name FROM user_constraints c
 			JOIN user_cons_columns cc ON cc.constraint_name = c.constraint_name
@@ -1427,11 +1095,17 @@ export class OracleAdapter extends BaseAdapter {
 		conn: Connection,
 		side: "referencing" | "referenced",
 		tableName: string,
-	): Promise<OracleForeignKey[]> {
-		const rows = await this.query<OracleForeignKeyRow>(
+	) {
+		const rows = await this.rows<{
+			constraintName: string;
+			table: string;
+			column: string;
+			referencedTable: string;
+			referencedColumn: string;
+		}>(
 			conn,
-			`SELECT c.constraint_name, c.table_name AS referencing_table, cc.column_name AS referencing_column,
-				r.table_name AS referenced_table, rc.column_name AS referenced_column
+			`SELECT c.constraint_name AS "constraintName", c.table_name AS "table", cc.column_name AS "column",
+				r.table_name AS "referencedTable", rc.column_name AS "referencedColumn"
 			FROM user_constraints c
 			JOIN user_cons_columns cc ON cc.constraint_name = c.constraint_name
 			JOIN user_constraints r ON r.constraint_name = c.r_constraint_name AND r.owner = c.r_owner
@@ -1441,32 +1115,25 @@ export class OracleAdapter extends BaseAdapter {
 			[tableName],
 		);
 
-		return groupOracleForeignKeys(rows);
+		return groupKeyColumns(rows);
 	}
 
-	private async sampleReferencingRows(
+	protected referencingKeys(conn: Connection, tableName: string) {
+		return this.foreignKeys(conn, "referenced", tableName);
+	}
+
+	protected override async sampleRows(
 		conn: Connection,
-		references: OracleForeignKey[],
-	): Promise<RelatedRecord[]> {
-		const related: RelatedRecord[] = [];
+		fk: ReferencingKey,
+		rest: string,
+		values: unknown[],
+	) {
+		const columns = await this.requireColumns(conn, fk.table);
 
-		for (const fk of references) {
-			const columns = await this.requireColumns(conn, fk.referencingTable);
-
-			const records = await this.query(
-				conn,
-				`SELECT ${buildOracleSelectList(columns)} FROM ${ident(fk.referencingTable)} WHERE ${fk.columns.map((column) => `${ident(column)} IS NOT NULL`).join(" AND ")} FETCH FIRST 100 ROWS ONLY`,
-			);
-
-			if (records.length)
-				related.push({
-					tableName: fk.referencingTable,
-					columnName: fk.columns.join(", "),
-					constraintName: fk.constraintName,
-					records,
-				});
-		}
-
-		return related;
+		return this.rows(
+			conn,
+			`SELECT ${buildOracleSelectList(columns, "c")} FROM ${ident(fk.table)} c ${rest} FETCH FIRST ${RELATED_SAMPLE} ROWS ONLY`,
+			values,
+		);
 	}
 }

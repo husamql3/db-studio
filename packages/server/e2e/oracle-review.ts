@@ -1,11 +1,15 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { DEFAULTS } from "@db-studio/shared/constants";
+import {
+	assert,
+	assertEqual,
+	checks,
+	inProcessApp,
+	normalize,
+	redactUrl,
+	requireDatabaseUrl,
+	writeArtifact,
+} from "./lib.js";
 
 process.env.TZ = "UTC";
-
-process.env.DB_STUDIO_TELEMETRY = "0";
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
@@ -13,18 +17,11 @@ type Row = Record<string, unknown>;
 
 type Scenario = { name: string; ok: boolean; evidence: unknown; error?: string };
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl?.startsWith("oracle://")) {
-	console.error("usage: DATABASE_URL=oracle://... bunx tsx e2e/oracle-review.ts");
-	process.exit(2);
-}
-
+const { url: databaseUrl } = requireDatabaseUrl("oracle");
 const parsedDatabaseUrl = new URL(databaseUrl);
-const db = decodeURIComponent(parsedDatabaseUrl.pathname.slice(1));
-const { createServer } = await import("../src/utils/create-server.js");
-const { app } = createServer();
+const app = await inProcessApp(databaseUrl);
 const scenarios: Scenario[] = [];
+const { report, finish } = checks();
 
 const recordOf = (value: unknown): Row => {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -44,51 +41,24 @@ const rowsOf = (body: unknown) => {
 	return rows.map(recordOf);
 };
 
-function assert(condition: unknown, message: string): asserts condition {
-	if (!condition) throw new Error(message);
-}
-
-const equal = (actual: unknown, expected: unknown, message: string) => {
-	const a = JSON.stringify(actual);
-	const e = JSON.stringify(expected);
-	assert(a === e, `${message}: expected ${e}, got ${a}`);
-};
-
 const api = async (
 	method: Method,
-	path: string,
+	route: string,
 	body?: unknown,
 	expected: number | number[] = 200,
 ) => {
-	const url = new URL(`${DEFAULTS.API_PREFIX}${path}`, "http://db-studio.local");
-	url.searchParams.set("db", db);
-
-	const response = await app.handle(
-		new Request(new URL(`${url.pathname}${url.search}`, "http://localhost"), {
-			method,
-			headers: body === undefined ? {} : { "Content-Type": "application/json" },
-			body: body === undefined ? undefined : JSON.stringify(body),
-		}),
-	);
-
-	const text = await response.text();
-	let parsed: unknown = text;
-
-	try {
-		parsed = JSON.parse(text);
-	} catch {}
-
+	const response = await app.call(method, route, body);
 	const accepted = Array.isArray(expected) ? expected : [expected];
 	assert(
 		accepted.includes(response.status),
-		`${method} ${path} returned ${response.status}: ${text.slice(0, 300)}`,
+		`${method} ${route} returned ${response.status}: ${JSON.stringify(response.body).slice(0, 300)}`,
 	);
 
-	return parsed;
+	return response.body;
 };
 
 const query = (sql: string, expected: number | number[] = 200) =>
-	api("POST", "/oracle/query", { query: sql }, expected);
+	api("POST", "/query", { query: sql }, expected);
 
 const dropTable = (table: string) =>
 	query(`BEGIN
@@ -103,12 +73,10 @@ const run = async <T>(name: string, probe: () => Promise<T>, check: (evidence: T
 	try {
 		evidence = await probe();
 		check(evidence as T);
-		scenarios.push({ name, ok: true, evidence });
-		console.log(`PASS  ${name}`);
+		scenarios.push({ name, ok: report(name), evidence });
 	} catch (cause) {
 		const error = cause instanceof Error ? cause.message : String(cause);
-		scenarios.push({ name, ok: false, evidence, error });
-		console.log(`FAIL  ${name}  -- ${error}`);
+		scenarios.push({ name, ok: report(name, error), evidence, error });
 	}
 };
 
@@ -144,12 +112,12 @@ await run(
 
 		const blocked = await api(
 			"DELETE",
-			"/oracle/records",
+			"/records",
 			{ tableName: "oracle_review_parent", primaryKeys: [{ columnName: "id", value: 1 }] },
 			409,
 		);
 
-		const forced = await api("DELETE", "/oracle/records/force", {
+		const forced = await api("DELETE", "/records/force", {
 			tableName: "oracle_review_parent",
 			primaryKeys: [{ columnName: "id", value: 1 }],
 		});
@@ -172,20 +140,20 @@ await run(
 	({ blocked, forced, parents, children }) => {
 		const related = recordOf(blocked).relatedRecords;
 		assert(Array.isArray(related), "delete response has no relatedRecords array");
-		equal(related.length, 1, "related constraint count");
-		equal(recordOf(related[0]).columnName, "a, b", "related columns");
-		equal(
+		assertEqual(related.length, 1, "related constraint count");
+		assertEqual(recordOf(related[0]).columnName, "a, b", "related columns");
+		assertEqual(
 			(recordOf(related[0]).records as Row[]).map((row) => row.id),
 			[11],
 			"related child ids",
 		);
-		equal(recordOf(forced).deletedCount, 2, "force deleted count");
-		equal(
+		assertEqual(recordOf(forced).deletedCount, 2, "force deleted count");
+		assertEqual(
 			parents.map((row) => row.id),
 			[2],
 			"remaining parent ids",
 		);
-		equal(
+		assertEqual(
 			children.map((row) => row.id),
 			[12, 13, 14],
 			"remaining child ids",
@@ -226,16 +194,13 @@ await run(
 
 		const tableBefore = recordOf(
 			dataOf(
-				await api(
-					"GET",
-					"/oracle/tables/oracle_review_timestamp/data?limit=10&sort=label&order=asc",
-				),
+				await api("GET", "/tables/oracle_review_timestamp/data?limit=10&sort=label&order=asc"),
 			),
 		).data as Row[];
 
 		const target = tableBefore.find((row) => row.label === "target");
 		assert(target, "target row missing from table data");
-		await api("PATCH", "/oracle/records", {
+		await api("PATCH", "/records", {
 			tableName: "oracle_review_timestamp",
 			primaryKey: "stamp",
 			updates: [{ rowData: target, columnName: "label", value: "target-edited" }],
@@ -252,18 +217,22 @@ await run(
 	},
 	({ nativeQuery, queryBefore, tableBefore, after }) => {
 		const expectedStamps = ["2026-10-07T12:34:56.123000000", "2026-10-07T12:34:56.123456789"];
-		equal(
+		assertEqual(
 			recordOf(nativeQuery).error,
 			"Oracle query results with native DATE or TIMESTAMP columns must use TO_CHAR with an explicit format so fractional seconds are not lost.",
 			"native temporal query limitation",
 		);
-		equal(
+		assertEqual(
 			queryBefore.map((row) => row.stamp).sort(),
 			expectedStamps,
 			"query runner timestamps",
 		);
-		equal(tableBefore.map((row) => row.stamp).sort(), expectedStamps, "table timestamps");
-		equal(
+		assertEqual(
+			tableBefore.map((row) => row.stamp).sort(),
+			expectedStamps,
+			"table timestamps",
+		);
+		assertEqual(
 			after.map((row) => [row.stamp, row.label]),
 			[
 				[expectedStamps[0], "control"],
@@ -285,7 +254,7 @@ await run(
 			"tz_value" TIMESTAMP(9) WITH TIME ZONE,
 			"ltz_value" TIMESTAMP(9) WITH LOCAL TIME ZONE
 		)`);
-		await api("POST", "/oracle/records/bulk", {
+		await api("POST", "/records/bulk", {
 			tableName: "oracle_review_temporal",
 			records: [
 				{
@@ -305,7 +274,7 @@ await run(
 			],
 		});
 		const rowData = { id: 1 };
-		await api("PATCH", "/oracle/records", {
+		await api("PATCH", "/records", {
 			tableName: "oracle_review_temporal",
 			primaryKey: "id",
 			updates: [
@@ -340,18 +309,30 @@ await run(
 	(rows) => {
 		const [row, bulkRow] = rows;
 		assert(row && bulkRow, "temporal rows missing");
-		equal(row.date_value, "2026-10-07T12:34:56", "DATE value");
-		equal(row.timestamp_value, "2026-10-07T12:34:56.123456789", "TIMESTAMP value");
-		equal(row.tz_value, "2026-10-07T12:34:56.123456789+03:00", "TIMESTAMP TZ value");
-		equal(
+		assertEqual(row.date_value, "2026-10-07T12:34:56", "DATE value");
+		assertEqual(row.timestamp_value, "2026-10-07T12:34:56.123456789", "TIMESTAMP value");
+		assertEqual(row.tz_value, "2026-10-07T12:34:56.123456789+03:00", "TIMESTAMP TZ value");
+		assertEqual(
 			row.ltz_value,
 			"2026-10-07T09:34:56.123456789",
 			"TIMESTAMP LOCAL TZ value in UTC session",
 		);
-		equal(bulkRow.date_value, "2025-01-02T03:04:05", "bulk DATE value");
-		equal(bulkRow.timestamp_value, "2025-01-02T03:04:05.987654321", "bulk TIMESTAMP value");
-		equal(bulkRow.tz_value, "2025-01-02T03:04:05.987654321-05:30", "bulk TIMESTAMP TZ value");
-		equal(bulkRow.ltz_value, "2025-01-02T08:34:05.987654321", "bulk TIMESTAMP LOCAL TZ value");
+		assertEqual(bulkRow.date_value, "2025-01-02T03:04:05", "bulk DATE value");
+		assertEqual(
+			bulkRow.timestamp_value,
+			"2025-01-02T03:04:05.987654321",
+			"bulk TIMESTAMP value",
+		);
+		assertEqual(
+			bulkRow.tz_value,
+			"2025-01-02T03:04:05.987654321-05:30",
+			"bulk TIMESTAMP TZ value",
+		);
+		assertEqual(
+			bulkRow.ltz_value,
+			"2025-01-02T08:34:05.987654321",
+			"bulk TIMESTAMP LOCAL TZ value",
+		);
 	},
 );
 
@@ -387,7 +368,7 @@ await run(
 		});
 
 		const sorted = recordOf(
-			dataOf(await api("GET", `/oracle/tables/oracle_review_tz_sort/data?${sortQuery}`)),
+			dataOf(await api("GET", `/tables/oracle_review_tz_sort/data?${sortQuery}`)),
 		).data as Row[];
 
 		const filterQuery = new URLSearchParams({
@@ -402,13 +383,13 @@ await run(
 		});
 
 		const filtered = recordOf(
-			dataOf(await api("GET", `/oracle/tables/oracle_review_tz_sort/data?${filterQuery}`)),
+			dataOf(await api("GET", `/tables/oracle_review_tz_sort/data?${filterQuery}`)),
 		).data as Row[];
 
 		return { sorted, filtered };
 	},
 	({ sorted, filtered }) => {
-		equal(
+		assertEqual(
 			sorted.map((row) => [row.id, row.zoned_at]),
 			[
 				[1, "2026-01-01T01:00:00.000000000+05:00"],
@@ -416,7 +397,7 @@ await run(
 			],
 			"mixed-offset instant order",
 		);
-		equal(
+		assertEqual(
 			filtered.map((row) => row.id),
 			[1],
 			"temporal LIKE row ids",
@@ -444,8 +425,8 @@ await run(
 			primaryKeys: [{ columnName: "a", value: 1 }],
 		};
 
-		const normal = await api("DELETE", "/oracle/records", body, 400);
-		const forced = await api("DELETE", "/oracle/records/force", body, 400);
+		const normal = await api("DELETE", "/records", body, 400);
+		const forced = await api("DELETE", "/records/force", body, 400);
 
 		const rows = rowsOf(
 			await query('SELECT "a", "b", "label" FROM "oracle_review_composite_pk" ORDER BY "b"'),
@@ -454,7 +435,7 @@ await run(
 		return { normal, forced, rows };
 	},
 	({ rows }) =>
-		equal(
+		assertEqual(
 			rows.map((row) => row.label),
 			["first", "second"],
 			"remaining rows",
@@ -477,69 +458,20 @@ const artifact = {
 	scenarios,
 };
 
-const secrets = [
-	databaseUrl,
-	databaseUrl.replace(/^[a-z0-9+]+:\/\//i, ""),
-	`${parsedDatabaseUrl.host}${parsedDatabaseUrl.pathname}`,
-	parsedDatabaseUrl.host,
-	process.cwd(),
-];
-
-// `undefined` stays: JSON.stringify drops it, as it did before.
-type Serializable =
-	| undefined
-	| null
-	| boolean
-	| number
-	| string
-	| Serializable[]
-	| { [key: string]: Serializable };
-
-const normalize = (value: unknown, key?: string): Serializable => {
-	if (key === "duration" || key === "queryTime") return `<${key}>`;
-
-	if (Array.isArray(value)) return value.map((item) => normalize(item));
-
-	if (value && typeof value === "object")
-		return Object.fromEntries(
-			Object.entries(value)
-				.sort(([left], [right]) => left.localeCompare(right))
-				.map(([entryKey, entryValue]) => [entryKey, normalize(entryValue, entryKey)]),
-		);
-
-	if (typeof value === "string") {
-		const redacted = secrets.reduce(
-			(text, secret) => text.replaceAll(secret, "<redacted>"),
-			value,
-		);
-
-		return redacted.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, "<redacted-url>");
-	}
-
-	if (
-		value === undefined ||
-		value === null ||
-		typeof value === "number" ||
-		typeof value === "boolean"
-	)
-		return value;
-
-	return String(value);
-};
-
-const outputDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
-
-await mkdir(outputDir, { recursive: true });
-
-await writeFile(
-	path.join(outputDir, "oracle-review.json"),
-	`${JSON.stringify(normalize(artifact), null, 2)}\n`,
+const artifactPath = await writeArtifact(
+	"oracle-review.json",
+	normalize(artifact, {
+		keys: ["duration", "queryTime", "requestId"],
+		replace: [
+			...redactUrl(databaseUrl),
+			[`${parsedDatabaseUrl.host}${parsedDatabaseUrl.pathname}`, "<redacted>"],
+			[parsedDatabaseUrl.host, "<redacted>"],
+			[process.cwd(), "<redacted>"],
+			[/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, "<redacted-url>"],
+		],
+	}),
 );
 
-const failed = scenarios.filter((scenario) => !scenario.ok).length;
+await app.close();
 
-console.log(
-	`${failed ? "FAIL" : "PASS"}  ${scenarios.length - failed}/${scenarios.length} scenarios`,
-);
-
-process.exit(failed ? 1 : 0);
+finish(artifactPath);

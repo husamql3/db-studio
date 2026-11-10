@@ -1,58 +1,48 @@
-import type { DatabaseTypeSchema } from "@db-studio/shared/types/database.types.js";
+import { DATABASE_ENGINES, type DatabaseTypeSchema } from "@db-studio/shared/types";
+import { ClickhouseAdapter } from "@/adapters/clickhouse/clickhouse.adapter.js";
+import { DuckDbAdapter } from "@/adapters/duckdb/duckdb.adapter.js";
+import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
+import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
+import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
+import { OracleAdapter } from "@/adapters/oracle/oracle.adapter.js";
+import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
+import { RedisAdapter } from "@/adapters/redis/redis.adapter.js";
+import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
 import { HTTPException } from "@/http-exception.js";
 import type { IDbAdapter } from "./adapter.interface.js";
 import type { IKeyValueAdapter } from "./key-value-adapter.interface.js";
 
-class AdapterRegistry {
-	private adapters = new Map<DatabaseTypeSchema, IDbAdapter>();
+/** The engines whose data model is key-value; their adapters also browse keys. */
+type KeyValueEngine = {
+	[T in DatabaseTypeSchema]: (typeof DATABASE_ENGINES)[T]["dataModel"] extends "key-value"
+		? T
+		: never;
+}[DatabaseTypeSchema];
 
-	register(type: DatabaseTypeSchema, adapter: IDbAdapter): void {
-		this.adapters.set(type, adapter);
-	}
+export const ADAPTERS = {
+	pg: new PgAdapter(),
+	mysql: new MySqlAdapter(),
+	mssql: new MsSqlAdapter(),
+	mongodb: new MongoAdapter(),
+	sqlite: new SqliteAdapter(),
+	redis: new RedisAdapter(),
+	duckdb: new DuckDbAdapter(),
+	oracle: new OracleAdapter(),
+	clickhouse: new ClickhouseAdapter(),
+} satisfies Record<DatabaseTypeSchema, IDbAdapter> & Record<KeyValueEngine, IKeyValueAdapter>;
 
-	get(type: DatabaseTypeSchema): IDbAdapter {
-		const adapter = this.adapters.get(type);
+export const isDatabaseType = (type: string): type is DatabaseTypeSchema =>
+	Object.hasOwn(ADAPTERS, type);
 
-		if (!adapter) {
-			throw new HTTPException(400, {
-				message: `Unsupported database type: "${type}". Supported types: ${this.getSupportedTypes().join(", ")}`,
-			});
-		}
+const isKeyValueEngine = (type: DatabaseTypeSchema): type is KeyValueEngine =>
+	DATABASE_ENGINES[type].dataModel === "key-value";
 
-		return adapter;
-	}
-
-	has(type: string): type is DatabaseTypeSchema {
-		return this.adapters.has(type as DatabaseTypeSchema);
-	}
-
-	getSupportedTypes(): DatabaseTypeSchema[] {
-		return [...this.adapters.keys()];
-	}
-}
-
-export const adapterRegistry = new AdapterRegistry();
-
-/**
- * Drop-in replacement for getDaoFactory() — resolves to the registered
- * IDbAdapter for the given database type.
- */
-export function getAdapter(dbType: DatabaseTypeSchema): IDbAdapter {
-	return adapterRegistry.get(dbType);
-}
-
-const isKeyValueAdapter = (adapter: IDbAdapter): adapter is IDbAdapter & IKeyValueAdapter =>
-	"scanKeys" in adapter && typeof adapter.scanKeys === "function";
-
-export function assertKeyValueAdapter(
-	adapter: IDbAdapter,
-	dbType: DatabaseTypeSchema,
-): IKeyValueAdapter {
-	if (!isKeyValueAdapter(adapter)) {
+export function keyValueAdapter(dbType: DatabaseTypeSchema): IKeyValueAdapter {
+	if (!isKeyValueEngine(dbType)) {
 		throw new HTTPException(400, {
 			message: `Key browsing is not supported for database type: "${dbType}"`,
 		});
 	}
 
-	return adapter;
+	return ADAPTERS[dbType];
 }

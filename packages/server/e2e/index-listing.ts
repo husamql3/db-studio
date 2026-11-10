@@ -1,46 +1,21 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
 import { indexInfoSchema } from "@db-studio/shared/types";
 import { z } from "zod";
+import { inProcessApp, requireDatabaseUrl, writeArtifact } from "./lib.js";
 
 // Regressions: columnstore columns must not disappear as INCLUDE columns; SQL comments
 // must not shift SQLite expression keys, while quoted comment markers remain literal.
 // MySQL unique keys and unique indexes must retain uniqueness after refused API drops.
-process.env.DB_STUDIO_TELEMETRY = "0";
+const {
+	call,
+	close,
+	dbType: engine,
+	query,
+} = await inProcessApp(requireDatabaseUrl("mssql", "sqlite", "mysql").url);
 
-const { getDbType } = await import("../src/db-manager.js");
-const engine = getDbType();
-
-assert.ok(
-	engine === "mssql" || engine === "sqlite" || engine === "mysql",
-	"Use a disposable MSSQL, SQLite or MySQL DB",
-);
-
-const databaseUrl = process.env.DATABASE_URL;
-
-assert.ok(databaseUrl, "Set DATABASE_URL");
-
-const db = engine === "sqlite" ? "main" : new URL(databaseUrl).pathname.slice(1);
-const { createServer } = await import("../src/utils/create-server.js");
-const { app } = createServer();
 const table = "dbstudio_e2e_index_listing";
 const evidence: Record<string, unknown> = {};
 const listSchema = z.object({ data: z.array(indexInfoSchema) });
-
-const query = async (sql: string) => {
-	const response = await app.handle(
-		new Request(
-			new URL(`/api/${engine}/query?db=${encodeURIComponent(db)}`, "http://localhost"),
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ query: sql }),
-			},
-		),
-	);
-
-	assert.equal(response.status, 200, await response.text());
-};
 
 try {
 	await query(`DROP TABLE IF EXISTS ${table}`);
@@ -62,17 +37,9 @@ try {
 		await query(`CREATE INDEX e2e_quoted_marker ON ${table} (a, instr('it''s /* , ) --', b))`);
 	}
 
-	const response = await app.handle(
-		new Request(
-			new URL(
-				`/api/${engine}/tables/${table}/indexes?db=${encodeURIComponent(db)}`,
-				"http://localhost",
-			),
-		),
-	);
-
-	assert.equal(response.status, 200);
-	const indexes = listSchema.parse(await response.json()).data;
+	const listed = await call("GET", `/tables/${table}/indexes`);
+	assert.equal(listed.status, 200);
+	const indexes = listSchema.parse(listed.body).data;
 	evidence.indexes = indexes;
 	const columns = (name: string) => indexes.find((index) => index.indexName === name)?.columns;
 
@@ -81,16 +48,7 @@ try {
 		assert.deepEqual(columns("e2e_covering"), ["b"]);
 	} else if (engine === "mysql") {
 		for (const indexName of ["PRIMARY", "e2e_unique_key", "e2e_unique_index"]) {
-			const drop = await app.handle(
-				new Request(
-					new URL(
-						`/api/${engine}/tables/${table}/indexes/${indexName}?db=${encodeURIComponent(db)}`,
-						"http://localhost",
-					),
-					{ method: "DELETE" },
-				),
-			);
-
+			const drop = await call("DELETE", `/tables/${table}/indexes/${indexName}`);
 			evidence[`drop_${indexName}`] = drop.status;
 			assert.equal(drop.status, 400, `${indexName} must be protected`);
 			assert.equal(
@@ -99,29 +57,13 @@ try {
 			);
 		}
 
-		const drop = await app.handle(
-			new Request(
-				new URL(
-					`/api/${engine}/tables/${table}/indexes/e2e_ordinary?db=${encodeURIComponent(db)}`,
-					"http://localhost",
-				),
-				{ method: "DELETE" },
-			),
-		);
-
+		const drop = await call("DELETE", `/tables/${table}/indexes/e2e_ordinary`);
 		assert.equal(drop.status, 200);
 		await query(`INSERT INTO ${table} VALUES (1, 7)`);
 
-		const duplicate = await app.handle(
-			new Request(
-				new URL(`/api/${engine}/query?db=${encodeURIComponent(db)}`, "http://localhost"),
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ query: `INSERT INTO ${table} VALUES (2, 7)` }),
-				},
-			),
-		);
+		const duplicate = await call("POST", "/query", {
+			query: `INSERT INTO ${table} VALUES (2, 7)`,
+		});
 
 		assert.ok(duplicate.status >= 400, "uniqueness must still be enforced");
 		evidence.uniquenessPreserved = true;
@@ -135,11 +77,6 @@ try {
 	console.log(`PASS ${engine} index listings`);
 } finally {
 	await query(`DROP TABLE IF EXISTS ${table}`);
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL(`./artifacts/${engine}-index-listing.json`, import.meta.url),
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
+	await writeArtifact(`${engine}-index-listing.json`, evidence);
+	await close();
 }
-
-process.exit(0);

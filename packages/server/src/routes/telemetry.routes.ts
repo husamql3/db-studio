@@ -19,12 +19,13 @@ export const telemetryRoutes = new Elysia({ prefix: "/telemetry" })
 
 		return { data: getTelemetryConfig() };
 	})
-	.put("/preference", ({ body, status }) => {
-		const parsed = preferenceSchema.safeParse(body);
+	.put(
+		"/preference",
+		({ body }) => {
+			setTelemetryEnabled(body.enabled);
 
-		if (!parsed.success) return status(400, { error: "Invalid telemetry preference" });
-		setTelemetryEnabled(parsed.data.enabled);
-
-		return { data: getTelemetryConfig() };
-	})
+			return { data: getTelemetryConfig() };
+		},
+		{ body: preferenceSchema },
+	)
 	.post("/reset", () => ({ data: { installationId: resetTelemetryId() } }));

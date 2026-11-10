@@ -1,11 +1,10 @@
+import { REQUEST_ID_PATTERN } from "@db-studio/shared/constants";
 import type { Context, MiddlewareHandler } from "hono";
 
 export type ProxyEnv = {
 	Bindings: CloudflareBindings;
 	Variables: { requestId: string };
 };
-
-const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
 /**
  * Reuse the ID the db-studio server sent so one request reads the same in both
@@ -15,7 +14,7 @@ export const requestId: MiddlewareHandler<ProxyEnv> = async (c, next) => {
 	const incoming = c.req.header("x-request-id");
 
 	const id =
-		incoming && REQUEST_ID.test(incoming)
+		incoming && REQUEST_ID_PATTERN.test(incoming)
 			? incoming
 			: (c.req.header("cf-ray") ?? crypto.randomUUID());
 

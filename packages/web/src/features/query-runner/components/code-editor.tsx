@@ -1,5 +1,5 @@
 import * as monaco from "monaco-editor";
-import { useEffect, useRef } from "react";
+import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -16,9 +16,12 @@ import {
 	KEYWORDS,
 	OPERATORS,
 	SUGGESTIONS,
-} from "@/utils/constants/runner-editor";
+} from "../runner-editor";
+
+export type CodeEditorHandle = { format: () => void };
 
 interface CodeEditorProps {
+	ref: Ref<CodeEditorHandle>;
 	initialQuery: string;
 	queryId?: string;
 	savedQuery: string;
@@ -26,11 +29,16 @@ interface CodeEditorProps {
 	onQueryChange: (query: string) => void;
 	onUnsavedChanges: (hasChanges: boolean) => void;
 	onExecuteQuery: (query: string) => void;
-	onFormatQuery: () => void;
 	onSaveQuery: () => void;
 }
 
+const formatDocument = (editor: monaco.editor.IStandaloneCodeEditor) => {
+	editor.trigger("keyboard", "editor.action.formatDocument", {});
+	toast.success("Query formatted");
+};
+
 export const CodeEditor = ({
+	ref,
 	initialQuery,
 	queryId,
 	savedQuery,
@@ -44,6 +52,16 @@ export const CodeEditor = ({
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const { isDark } = useTheme();
 	const { editor: editorPreferences } = usePersonalPreferencesStore();
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			format: () => {
+				if (editorRef.current) formatDocument(editorRef.current);
+			},
+		}),
+		[],
+	);
 
 	// The editor is created once per query; reading callbacks through a ref keeps a new
 	// callback identity from disposing it mid-typing.
@@ -310,23 +328,12 @@ export const CodeEditor = ({
 		editorRef.current = editorInstance;
 
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-			const query = editorInstance.getValue();
-
-			if (!query.trim()) {
-				toast.error("Query is empty!");
-
-				return;
-			}
-
-			callbacksRef.current.onExecuteQuery(query);
+			callbacksRef.current.onExecuteQuery(editorInstance.getValue());
 		});
 
 		editorInstance.addCommand(
 			monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-			() => {
-				editorInstance.trigger("keyboard", "editor.action.formatDocument", {});
-				toast.success("Query formatted");
-			},
+			() => formatDocument(editorInstance),
 		);
 
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {

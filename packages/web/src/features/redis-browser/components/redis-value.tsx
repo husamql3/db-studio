@@ -10,8 +10,9 @@ import {
 } from "@db-studio/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
 import { cn } from "@db-studio/ui/utils";
-import { Check, Copy, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { CopyButton } from "@/components/copy-button";
 
 export type RedisValueMode = "text" | "json" | "hex" | "base64";
 
@@ -84,8 +85,6 @@ export const RedisValue = ({
 		value.utf8 ? (isJson(value.utf8) ? "json" : "text") : "hex",
 	);
 
-	const [copied, setCopied] = useState(false);
-
 	const effectiveMode: RedisValueMode =
 		mode === "json" && !isJson(value.utf8)
 			? value.utf8 === undefined
@@ -101,12 +100,6 @@ export const RedisValue = ({
 				: effectiveMode === "json" && value.utf8
 					? JSON.stringify(JSON.parse(value.utf8), null, 2)
 					: (value.utf8 ?? "Binary value");
-
-	const copy = async () => {
-		await navigator.clipboard.writeText(display);
-		setCopied(true);
-		window.setTimeout(() => setCopied(false), 1200);
-	};
 
 	const download = () => {
 		const blob = new Blob([new Uint8Array(bytes).buffer as ArrayBuffer]);
@@ -160,31 +153,12 @@ export const RedisValue = ({
 					))}
 				</ToggleGroup>
 				<div className="flex">
-					<Button
+					<CopyButton
+						getValue={() => display}
+						label="Copy value"
+						copiedLabel="Value copied"
 						variant="ghost"
-						size="icon-sm"
-						onClick={copy}
-						aria-label={copied ? "Value copied" : "Copy value"}
-					>
-						<span className="relative inline-flex items-center justify-center">
-							<Copy
-								className={cn(
-									"transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-									copied
-										? "scale-25 opacity-0 blur-[4px]"
-										: "scale-100 opacity-100 blur-[0px]",
-								)}
-							/>
-							<Check
-								className={cn(
-									"absolute inset-0 transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-									copied
-										? "scale-100 opacity-100 blur-[0px]"
-										: "scale-25 opacity-0 blur-[4px]",
-								)}
-							/>
-						</span>
-					</Button>
+					/>
 					<Button
 						variant="ghost"
 						size="icon-sm"

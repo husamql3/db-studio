@@ -9,7 +9,8 @@ export default defineConfig({
 	outDir: "dist-electron",
 	outExtension: () => ({ js: ".cjs" }),
 	platform: "node",
-	target: "node22",
+	// Electron 45 ships Node 24.
+	target: "node24",
 	external: ["electron"],
 	sourcemap: true,
 	clean: true,

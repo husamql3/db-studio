@@ -13,7 +13,7 @@ import { Switch } from "@db-studio/ui/switch";
 import { useByok } from "@tanstack/ai-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { aiByok } from "../byok";
+import { aiByok, HOSTED_AI_PROVIDER } from "../byok";
 import { useAiSettingsStore } from "../stores/ai-settings.store";
 
 export const AiSettingsSection = () => {
@@ -23,19 +23,26 @@ export const AiSettingsSection = () => {
 	const providerOption = AI_PROVIDER_OPTIONS.find((option) => option.id === settings.provider);
 	const status = snapshot.status[settings.provider];
 	const maskedKey = status && "masked" in status ? status.masked : null;
-	const hasHostedFallback = settings.provider === "gemini";
+	const hasHostedFallback = settings.provider === HOSTED_AI_PROVIDER;
 
 	const saveApiKey = async () => {
 		const nextKey = apiKey.trim();
 
 		if (!nextKey) return;
 
-		await toast.promise(aiByok.update(settings.provider, nextKey), {
-			loading: `Saving ${providerOption?.label} key...`,
-			success: `${providerOption?.label} key ready for this tab`,
-			error: (error: Error) => error.message || `Could not save ${providerOption?.label} key`,
-		});
-		setApiKey("");
+		try {
+			await toast
+				.promise(aiByok.update(settings.provider, nextKey), {
+					loading: `Saving ${providerOption?.label} key...`,
+					success: `${providerOption?.label} key ready for this tab`,
+					error: (error: Error) =>
+						error.message || `Could not save ${providerOption?.label} key`,
+				})
+				.unwrap();
+			setApiKey("");
+		} catch {
+			// toast.promise already reported the failure.
+		}
 	};
 
 	const removeApiKey = async () => {

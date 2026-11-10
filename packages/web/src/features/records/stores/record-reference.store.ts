@@ -1,25 +1,32 @@
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
+import { useOverlayStore } from "@/stores/overlay.store";
+
+type RecordReference = {
+	/** The referenced table the picker lists. */
+	tableName: string;
+	/** The referenced table's schema; undefined where it is listed without one. */
+	schemaName: string | undefined;
+	/** The add-record field the picked value goes into. */
+	columnName: string;
+	referencedColumn: string;
+};
 
 type RecordReferenceStore = {
-	tableName: string | null;
-	columnName: string | null;
-	referencedColumn: string | null;
-	setRecordReference: (
-		tableName: string,
-		columnName: string,
-		referencedColumn: string,
-	) => void;
+	reference: RecordReference | null;
 	clearRecordReference: () => void;
 };
 
 export const useRecordReferenceStore = create<RecordReferenceStore>()((set) => ({
-	tableName: null,
-	columnName: null,
-	referencedColumn: null,
-
-	setRecordReference: (tableName, columnName, referencedColumn) =>
-		set({ tableName, columnName, referencedColumn }),
-
-	clearRecordReference: () =>
-		set({ tableName: null, columnName: null, referencedColumn: null }),
+	reference: null,
+	clearRecordReference: () => set({ reference: null }),
 }));
+
+export const openRecordReference = (reference: RecordReference) => {
+	useRecordReferenceStore.setState({ reference });
+	useOverlayStore.getState().openOverlay("records.record-reference");
+};
+
+onConnectionReset(() =>
+	useRecordReferenceStore.setState(useRecordReferenceStore.getInitialState(), true),
+);

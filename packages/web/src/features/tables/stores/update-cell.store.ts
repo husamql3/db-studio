@@ -1,16 +1,17 @@
 import { create } from "zustand";
-import type { EditScope } from "@/types/table.type";
-import { stableStringify } from "../utils/table-diff";
+import type { EditScope } from "@/features/tables/table.type";
+import { onConnectionReset } from "@/stores/connection-reset";
+import { getRowIdentity, stableStringify } from "../utils/table-diff";
 
 /** A pending value meaning "set this cell to its column default"; compared by identity. */
 export const CELL_DEFAULT = Object.freeze({ default: true });
 
 export type CellUpdate = {
 	scope: string;
-	rowData: Record<string, unknown>; // The entire row data
-	columnName: string; // The column identifier
-	newValue: unknown; // The new value
-	originalValue: unknown; // The original value for comparison
+	rowData: Record<string, unknown>;
+	columnName: string;
+	newValue: unknown;
+	originalValue: unknown;
 };
 
 type Change = [key: string, update: CellUpdate | undefined];
@@ -59,19 +60,12 @@ type UpdateCellStore = {
 
 const GLOBAL_SCOPE: EditScope = { id: "global", keyColumns: [] };
 
-/** The key values that identify a row's drafts within a scope. */
-export const getRowIdentity = (rowData: Record<string, unknown>, scope = GLOBAL_SCOPE) =>
-	scope.keyColumns.length > 0
-		? scope.keyColumns.map((column) => rowData[column])
-		: (rowData.id ?? rowData._id ?? rowData);
-
 const getCellKey = (
 	rowData: Record<string, unknown>,
 	columnName: string,
 	scope = GLOBAL_SCOPE,
 ): string =>
-	// Keeps each key value's type, so a MongoDB `_id` of 1 and one of "1" stay two rows.
-	stableStringify([scope.id, getRowIdentity(rowData, scope), columnName]);
+	stableStringify([scope.id, getRowIdentity(rowData, scope.keyColumns), columnName]);
 
 const toChange = (
 	{ rowData, columnName, newValue, originalValue }: StagedEdit,
@@ -186,3 +180,5 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 
 	getUpdateCount: (scopeId) => get().getUpdates(scopeId).length,
 }));
+
+onConnectionReset(() => useUpdateCellStore.getState().clearUpdates());

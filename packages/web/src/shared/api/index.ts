@@ -15,3 +15,5 @@ export * from "./records";
 export * from "./redis-keys";
 
 export * from "./tables";
+
+export * from "./telemetry";

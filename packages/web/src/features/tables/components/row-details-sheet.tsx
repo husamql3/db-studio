@@ -11,57 +11,26 @@ import {
 	AlertDialogTitle,
 } from "@db-studio/ui/alert-dialog";
 import { Button } from "@db-studio/ui/button";
-import { Check, ChevronDown, ChevronUp, Copy, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { FormProvider, useFormContext } from "react-hook-form";
+import { useFormContext } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
+import { CopyButton } from "@/components/copy-button";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { AddRecordField, RecordReferenceSheet } from "@/features/records";
-import { useTableCols } from "@/features/schema";
+import { AddRecordField, RecordFormProvider } from "@/features/records";
+import type { TableRecord } from "@/features/tables/table.type";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useDeleteCells } from "../hooks/use-delete-cell";
 import { useRowDetailsForm } from "../hooks/use-row-details-form";
 import { useRowMutation } from "../hooks/use-row-mutation";
 import { useUpdateRecord } from "../hooks/use-update-record";
 import { useRowDetailsStore } from "../stores/row-details.store";
-import {
-	buildRowUpdates,
-	copyTextToClipboard,
-	isGeneratedColumn,
-} from "../utils/row-details-utils";
+import { buildRowUpdates, isGeneratedColumn } from "../utils/row-details-utils";
 
 type PendingAction = null | "close" | "delete" | number;
-
-const CopyValueButton = ({ value }: { value: string }) => {
-	const [copied, setCopied] = useState(false);
-
-	useEffect(() => {
-		if (!copied) return;
-		const timeout = window.setTimeout(() => setCopied(false), 1200);
-
-		return () => window.clearTimeout(timeout);
-	}, [copied]);
-
-	if (!value) return null;
-
-	return (
-		<button
-			type="button"
-			aria-label={copied ? "Copied" : "Copy value"}
-			className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:text-foreground"
-			onClick={() => {
-				void copyTextToClipboard(value)
-					.then(() => setCopied(true))
-					.catch(() => undefined);
-			}}
-		>
-			{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-		</button>
-	);
-};
 
 const RowDetailsField = ({
 	column,
@@ -113,7 +82,11 @@ const RowDetailsField = ({
 						/>
 					)}
 				</div>
-				<CopyValueButton value={readOnly ? displayValue : formatCellValue(liveValue)} />
+				<CopyButton
+					value={readOnly ? displayValue : formatCellValue(liveValue)}
+					label="Copy value"
+					variant="outline"
+				/>
 			</div>
 		</div>
 	);
@@ -222,8 +195,8 @@ export const RowDetailsSheet = ({
 	};
 
 	const doSave = async (data: Record<string, string>) => {
-		if (!row || !canMutateRows) return;
-		const updates = buildRowUpdates(formState.dirtyFields, data);
+		if (!row || !tableCols || !canMutateRows) return;
+		const updates = buildRowUpdates(formState.dirtyFields, data, tableCols);
 
 		if (updates.length === 0) return;
 
@@ -337,7 +310,7 @@ export const RowDetailsSheet = ({
 				}}
 			>
 				{tableCols && tableCols.length > 0 && row ? (
-					<FormProvider {...methods}>
+					<RecordFormProvider methods={methods}>
 						<form
 							onSubmit={handleSubmit(onSubmit)}
 							className="flex flex-col h-full"
@@ -406,9 +379,7 @@ export const RowDetailsSheet = ({
 								</div>
 							</div>
 						</form>
-
-						<RecordReferenceSheet />
-					</FormProvider>
+					</RecordFormProvider>
 				) : (
 					<div className="flex flex-col h-full">
 						<div className="space-y-6">

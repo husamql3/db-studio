@@ -10,7 +10,6 @@ import type {
 	CreateTableSchemaType,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -29,6 +28,8 @@ import type {
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
+import type { ServerAddress } from "@/connection-url.js";
+import type { HTTPException } from "@/http-exception.js";
 
 export interface GetTableDataParams {
 	tableName: string;
@@ -37,18 +38,18 @@ export interface GetTableDataParams {
 	cursor?: string;
 	limit?: number;
 	direction?: SortDirection;
-	sort?: string | SortType[];
+	sort?: SortType[];
+	/** The key's direction when nothing is sorted. */
 	order?: SortDirection;
 	filters?: FilterType[];
 }
 
 export interface IDbAdapter {
-	// --- Databases ---
 	getDatabasesList(): Promise<DatabaseInfoSchemaType[]>;
 	getCurrentDatabase(): Promise<DatabaseSchemaType>;
-	getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType>;
+	/** `server` is where the URL points, for engines whose server does not report it. */
+	getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType>;
 
-	// --- Tables ---
 	getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]>;
 	createTable(params: {
 		tableData: CreateTableSchemaType;
@@ -62,18 +63,16 @@ export interface IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<string>;
 
-	// --- Columns ---
 	getTableColumns(params: {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 		schemaName?: string;
 	}): Promise<ColumnInfoSchemaType[]>;
 	addColumn(params: AddColumnParamsSchemaType): Promise<void>;
-	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }>;
+	deleteColumn(params: DeleteColumnParamsSchemaType): Promise<void>;
 	alterColumn(params: AlterColumnParamsSchemaType): Promise<void>;
 	renameColumn(params: RenameColumnParamsSchemaType): Promise<void>;
 
-	// --- Indexes ---
 	getTableIndexes(params: {
 		tableName: string;
 		schemaName?: string;
@@ -82,7 +81,6 @@ export interface IDbAdapter {
 	createIndex(params: CreateIndexParamsSchemaType): Promise<void>;
 	dropIndex(params: DropIndexParamsSchemaType): Promise<void>;
 
-	// --- Records ---
 	getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;
 	addRecord(params: {
 		db: DatabaseSchemaType["db"];
@@ -103,25 +101,14 @@ export interface IDbAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
-	// --- Query ---
 	executeQuery(params: {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult>;
 
-	// --- Server logs ---
 	/** The newest entries of the server's own log, or why the server keeps it out of reach. */
 	getServerLogs(params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult>;
 
-	// --- Type system ---
-	/**
-	 * Maps a DB-native column type string to the universal DataTypes variant
-	 * used for frontend cell rendering (e.g. "int4" → "number").
-	 */
-	mapToUniversalType(nativeType: string): DataTypes;
-	/**
-	 * Maps a universal column type string back to the DB-native type string
-	 * used when creating or altering columns (e.g. "number" → "INTEGER").
-	 */
-	mapFromUniversalType(universalType: string): string;
+	/** The status and message the API answers a failure of this engine's request with. */
+	classifyError(e: unknown): HTTPException;
 }

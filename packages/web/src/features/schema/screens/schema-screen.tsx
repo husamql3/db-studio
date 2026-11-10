@@ -1,19 +1,21 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { Badge } from "@db-studio/ui/badge";
 import { DataGrid } from "@db-studio/ui/data-grid";
-import { Spinner } from "@db-studio/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Link as LinkIcon } from "lucide-react";
 import { useMemo } from "react";
-import { CellCopyButton } from "@/features/tables/components/cell-copy-button";
+import { CopyButton } from "@/components/copy-button";
+import { TableSubScreen } from "@/components/table-sub-screen";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { useOverlayStore } from "@/stores/overlay.store";
+import { formatCellValue } from "@/utils/format-cell-value";
 import { AddColumnForm } from "../components/add-column-form";
 import { EditColumnForm } from "../components/edit-column-form";
 import { SchemaRowActions } from "../components/schema-row-actions";
-import { SchemaToolbar } from "../components/schema-toolbar";
 import { TypeBadge } from "../components/type-badge";
-import { useTableCols } from "../hooks/use-table-cols";
 
 export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 	const {
@@ -23,6 +25,9 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 		errorTableCols,
 		refetchTableCols,
 	} = useTableCols({ tableName, schemaName: useTableSchemaName() });
+
+	const { openOverlay } = useOverlayStore();
+	const canMutateSchema = useDatabaseEngine()?.schemaMutation !== false;
 
 	const columns = useMemo<ColumnDef<ColumnInfoSchemaType>[]>(
 		() => [
@@ -165,37 +170,27 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 		[tableName],
 	);
 
-	if (isLoadingTableCols) {
-		return (
-			<div className="size-full flex items-center justify-center">
-				<Spinner size="size-7" />
-			</div>
-		);
-	}
-
-	if (errorTableCols) {
-		return (
-			<div className="size-full flex flex-col items-center justify-center gap-2">
-				<div className="text-sm font-medium">Failed to load schema</div>
-				<div className="text-sm text-muted-foreground">{errorTableCols.message}</div>
-			</div>
-		);
-	}
-
 	return (
-		<div className="flex-1 flex flex-col overflow-hidden">
-			<SchemaToolbar
-				tableName={tableName}
-				refetch={refetchTableCols}
-				isRefetching={isRefetchingTableCols}
-			/>
+		<TableSubScreen
+			tableName={tableName}
+			subject="schema"
+			isLoading={isLoadingTableCols}
+			error={errorTableCols}
+			refetch={refetchTableCols}
+			isRefetching={isRefetchingTableCols}
+			action={
+				canMutateSchema
+					? { label: "Add Column", onClick: () => openOverlay("schema.add-column") }
+					: undefined
+			}
+		>
 			<DataGrid
 				columns={columns}
 				data={tableCols ?? []}
-				renderCellAccessory={(value) => <CellCopyButton value={value} />}
+				renderCellAccessory={(value) => <CopyButton value={formatCellValue(value)} />}
 			/>
 			<AddColumnForm tableName={tableName} />
 			<EditColumnForm tableName={tableName} />
-		</div>
+		</TableSubScreen>
 	);
 };

@@ -1,14 +1,13 @@
-import { Elysia } from "elysia";
 import sql from "mssql";
 import { DatabaseError } from "pg";
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { z } from "zod";
+import { createServer } from "@/app.js";
 import { loadDriver } from "@/drivers.js";
 import { HTTPException } from "@/http-exception.js";
-import { handleError } from "@/middlewares/error-handler.js";
 
-const createApp = () =>
-	new Elysia().onError(({ error, request }) => handleError(error, request));
+// The real app, so errors reach the handler inside the request context it reads.
+const createApp = () => createServer().app;
 
 describe("Error Handler Middleware", () => {
 	let app: ReturnType<typeof createApp>;
@@ -37,7 +36,7 @@ describe("Error Handler Middleware", () => {
 		});
 	});
 
-	describe("Database connection error handling", () => {
+	describe("Database errors under /:dbType are classified by that engine's adapter", () => {
 		it.each([
 			[new sql.ConnectionError("Failed to connect to db:1433 in 15000ms", "ETIMEOUT"), 503],
 			[
@@ -45,50 +44,49 @@ describe("Error Handler Middleware", () => {
 				500,
 			],
 		])("returns the correct status for an unwrapped MSSQL %s", async (error, status) => {
-			app.get("/test", () => {
+			app.get("/api/mssql/test", () => {
 				throw error;
 			});
 
-			const res = await app.handle(new Request("http://localhost/test"));
+			const res = await app.handle(new Request("http://localhost/api/mssql/test"));
 
 			expect(res.status).toBe(status);
 		});
 
 		it("should return 503 for ECONNREFUSED error", async () => {
-			app.get("/test", () => {
+			app.get("/api/pg/test", () => {
 				throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
 			});
 
-			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
+			const res = await app.handle(new Request(new URL("/api/pg/test", "http://localhost")));
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
-			expect(json.error).toBe("Database connection failed");
-			expect(json.details).toContain("ECONNREFUSED");
+			expect(json.error).toContain("ECONNREFUSED");
 		});
 
 		it("should return 503 for DatabaseError with connection exception code", async () => {
-			app.get("/test", () => {
+			app.get("/api/pg/test", () => {
 				const dbError = new DatabaseError("Connection error", 0, "error");
 				dbError.code = "08000"; // Connection exception class
 				throw dbError;
 			});
 
-			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
+			const res = await app.handle(new Request(new URL("/api/pg/test", "http://localhost")));
 
 			expect(res.status).toBe(503);
 			const json = await res.json();
-			expect(json.error).toBe("Database connection failed");
+			expect(json.error).toBe("Connection error");
 		});
 
 		it("should return 500, not 503, for a non-connection DatabaseError", async () => {
-			app.get("/test", () => {
+			app.get("/api/pg/test", () => {
 				const dbError = new DatabaseError("syntax error at or near", 0, "error");
 				dbError.code = "42601";
 				throw dbError;
 			});
 
-			const res = await app.handle(new Request(new URL("/test", "http://localhost")));
+			const res = await app.handle(new Request(new URL("/api/pg/test", "http://localhost")));
 
 			expect(res.status).toBe(500);
 			const json = await res.json();

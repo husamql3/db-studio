@@ -1,7 +1,12 @@
 import type { DeleteTableResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { deleteTable as deleteTableRequest } from "@/shared/api";
+import {
+	deleteTable as deleteTableRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
+import { forgetTable } from "@/shared/query/invalidate-table";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -32,10 +37,10 @@ export const useDeleteTable = () => {
 
 			return response.data.data;
 		},
-		onSuccess: async () => {
-			await queryClient.invalidateQueries({
-				queryKey: tableKeys.lists(),
-			});
+		onSuccess: async (result, { tableName }) => {
+			await queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
+
+			if (!result.fkViolation) forgetTable(queryClient, tableName);
 		},
 	});
 
@@ -50,7 +55,7 @@ export const useDeleteTable = () => {
 				result.fkViolation
 					? `Table "${tableName}" has related records`
 					: `Deleted table "${tableName}" with ${result.deletedCount} rows`,
-			error: (error: Error) => error.message || "Failed to delete table",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to delete table"),
 		});
 
 		return promise;
@@ -65,7 +70,7 @@ export const useDeleteTable = () => {
 			loading: "Deleting table...",
 			success: (result) =>
 				`Force deleted table "${tableName}" with ${result.deletedCount} rows`,
-			error: (error: Error) => error.message || "Failed to delete table",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to delete table"),
 		});
 
 		return promise;

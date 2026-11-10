@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
 	bindOracleValue,
-	buildFilterConditions,
-	buildOrderBy,
 	buildOracleSelectList,
-	createBinds,
-	groupOracleForeignKeys,
+	oracleFilters,
+	oraclePlaceholder,
+	quoteOracleIdent,
 } from "@/adapters/oracle/oracle.query-builder.js";
+import { buildFilterConditions, createBinds } from "@/adapters/sql-filters.js";
+import { offsetOrderBy } from "@/adapters/sql-pagination.js";
+import { groupKeyColumns } from "@/adapters/sql.adapter.js";
 /**
  * Oracle temporal and foreign-key failure modes covered here:
  *
@@ -56,19 +58,19 @@ describe("Oracle temporal SQL", () => {
 	])(
 		"binds $type through an explicit format",
 		({ type, input, expectedValue, expectedSql }) => {
-			const { values, bind } = createBinds();
+			const { values, bind } = createBinds(oraclePlaceholder);
 			expect(bindOracleValue(input, type, bind)).toBe(expectedSql);
 			expect(values).toEqual([expectedValue]);
 		},
 	);
 
 	it("rejects an invalid temporal value before Oracle can guess its format", () => {
-		const { bind } = createBinds();
+		const { bind } = createBinds(oraclePlaceholder);
 		expect(() => bindOracleValue("07/10/2026", "TIMESTAMP", bind)).toThrow(HTTPException);
 	});
 
 	it("keeps the temporal SQL shape when a nullable value is null", () => {
-		const { values, bind } = createBinds();
+		const { values, bind } = createBinds(oraclePlaceholder);
 		expect(bindOracleValue(null, "TIMESTAMP(9)", bind)).toBe(
 			`TO_TIMESTAMP(:1, 'YYYY-MM-DD"T"HH24:MI:SS.FF9')`,
 		);
@@ -91,18 +93,18 @@ describe("Oracle temporal SQL", () => {
 
 	it("qualifies native ordering when a temporal projection keeps the column name", () => {
 		expect(
-			buildOrderBy(
+			offsetOrderBy(
 				[
 					{ column: "zoned_at", direction: "asc" },
-					{ column: null, direction: "asc" },
+					{ column: "source.ROWID", direction: "asc", raw: true },
 				],
-				"source",
+				(name) => `source.${quoteOracleIdent(name)}`,
 			),
 		).toBe('ORDER BY source."zoned_at" ASC, source.ROWID ASC');
 	});
 
 	it("formats temporal LIKE operands but keeps range comparisons native", () => {
-		const { values, bind } = createBinds();
+		const { values, bind } = createBinds(oraclePlaceholder);
 		expect(
 			buildFilterConditions(
 				[
@@ -115,7 +117,7 @@ describe("Oracle temporal SQL", () => {
 					},
 				],
 				bind,
-				new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]),
+				oracleFilters(new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]), bind),
 			),
 		).toEqual([
 			`TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM') LIKE :1`,
@@ -126,43 +128,43 @@ describe("Oracle temporal SQL", () => {
 	});
 });
 
-describe("Oracle foreign-key metadata", () => {
+describe("foreign-key metadata", () => {
 	it("groups ordered composite columns by constraint", () => {
 		expect(
-			groupOracleForeignKeys([
+			groupKeyColumns([
 				{
-					CONSTRAINT_NAME: "child_parent_pair",
-					REFERENCING_TABLE: "child",
-					REFERENCING_COLUMN: "tenant_id",
-					REFERENCED_TABLE: "parent",
-					REFERENCED_COLUMN: "tenant_id",
+					constraintName: "child_parent_pair",
+					table: "child",
+					column: "tenant_id",
+					referencedTable: "parent",
+					referencedColumn: "tenant_id",
 				},
 				{
-					CONSTRAINT_NAME: "child_parent_pair",
-					REFERENCING_TABLE: "child",
-					REFERENCING_COLUMN: "item_id",
-					REFERENCED_TABLE: "parent",
-					REFERENCED_COLUMN: "item_id",
+					constraintName: "child_parent_pair",
+					table: "child",
+					column: "item_id",
+					referencedTable: "parent",
+					referencedColumn: "item_id",
 				},
 				{
-					CONSTRAINT_NAME: "audit_parent",
-					REFERENCING_TABLE: "audit",
-					REFERENCING_COLUMN: "parent_id",
-					REFERENCED_TABLE: "parent",
-					REFERENCED_COLUMN: "id",
+					constraintName: "audit_parent",
+					table: "audit",
+					column: "parent_id",
+					referencedTable: "parent",
+					referencedColumn: "id",
 				},
 			]),
 		).toEqual([
 			{
 				constraintName: "child_parent_pair",
-				referencingTable: "child",
+				table: "child",
 				columns: ["tenant_id", "item_id"],
 				referencedTable: "parent",
 				referencedColumns: ["tenant_id", "item_id"],
 			},
 			{
 				constraintName: "audit_parent",
-				referencingTable: "audit",
+				table: "audit",
 				columns: ["parent_id"],
 				referencedTable: "parent",
 				referencedColumns: ["id"],

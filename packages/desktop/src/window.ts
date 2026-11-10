@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, shell } from "electron";
 
 export const createWindow = (url: string): BrowserWindow => {
 	const isApp = (target: string) => target.startsWith(`${new URL(url).origin}/`);
@@ -8,7 +8,7 @@ export const createWindow = (url: string): BrowserWindow => {
 	};
 
 	const window = new BrowserWindow({
-		title: "db-studio",
+		title: app.name,
 		width: 1280,
 		height: 820,
 		minWidth: 900,

@@ -11,6 +11,4 @@ export const exportTableSchema = tableQuerySchema.extend({
 	}),
 });
 
-export type ExportTableSchemaType = z.infer<typeof exportTableSchema>;
-
 export type CellValue = string | number | boolean | Date | null | undefined;

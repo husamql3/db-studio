@@ -16,8 +16,9 @@ import {
 	tableQuerySchema,
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
-import { adapterPlugin } from "@/routes/adapter.plugin.js";
-import { getExportFile } from "@/utils/get-export-file.js";
+import { adapterPlugin, requireCapability } from "@/routes/adapter.plugin.js";
+import { getExportFile } from "@/routes/get-export-file.js";
+import { tablesWithColumns } from "@/routes/tables-with-columns.js";
 
 const EXPORT_CONTENT_TYPES = {
 	csv: "text/csv",
@@ -25,49 +26,41 @@ const EXPORT_CONTENT_TYPES = {
 	json: "application/json",
 } as const;
 
+/**
+ * A header value must be Latin-1, and a raw `"` ends the quoted name, so the name goes in twice
+ * (RFC 6266): an ASCII stand-in for old clients, then the exact name percent-encoded as UTF-8.
+ */
+const attachment = (filename: string) => {
+	const ascii = filename.replace(/[^\x20-\x7e]|["\\]/g, "_");
+
+	const utf8 = encodeURIComponent(filename).replace(
+		/['()*]/g,
+		(char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
+
+	return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+};
+
 export const tablesRoutes = new Elysia({ prefix: "/tables" })
 	.use(adapterPlugin)
 
-	/**
-	 * GET /tables
-	 * Returns list of all tables in the currently connected database
-	 */
 	.get("/", async ({ adapter, query }) => ({ data: await adapter.getTablesList(query.db) }), {
 		query: databaseSchema,
 	})
 
-	/**
-	 * GET /tables/graph
-	 * Returns every table with its columns, so the visualizer draws the schema in one request
-	 */
+	// Every table with its columns, so the visualizer draws the schema in one request.
 	.get(
 		"/graph",
-		async ({ adapter, query: { db } }) => {
-			const tables = await adapter.getTablesList(db);
-
-			return {
-				data: await Promise.all(
-					tables.map(async (table) => ({
-						...table,
-						columns: await adapter.getTableColumns({
-							tableName: table.tableName,
-							schemaName: table.schemaName,
-							db,
-						}),
-					})),
-				),
-			};
+		async ({ adapter, query: { db } }) => ({ data: await tablesWithColumns(adapter, db) }),
+		{
+			query: databaseSchema,
 		},
-		{ query: databaseSchema },
 	)
 
-	/**
-	 * POST /tables
-	 * Creates a new table in the currently connected database
-	 */
 	.post(
 		"/",
-		async ({ adapter, query, body }) => {
+		async ({ adapter, dbType, query, body }) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.createTable({ tableData: body, db: query.db });
 
 			return { data: `Table ${body.tableName} created successfully` };
@@ -75,44 +68,38 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: databaseSchema, body: createTableSchema },
 	)
 
-	/**
-	 * DELETE /tables/:tableName
-	 * Deletes a table from the database
-	 */
 	.delete(
 		"/:tableName",
-		async ({ adapter, query: { db, schemaName, cascade }, params: { tableName } }) => ({
-			data: await adapter.deleteTable({ tableName, schemaName, db, cascade }),
-		}),
+		async ({ adapter, dbType, query: { db, schemaName, cascade }, params: { tableName } }) => {
+			requireCapability(dbType, "schemaMutation");
+
+			return { data: await adapter.deleteTable({ tableName, schemaName, db, cascade }) };
+		},
 		{ query: deleteTableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * PATCH /tables/:tableName/rename
-	 * Renames a table
-	 */
 	.patch(
 		"/:tableName/rename",
-		async ({ adapter, query: { db }, params: { tableName }, body }) => {
-			await adapter.renameTable({ tableName, db, ...body });
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
+			requireCapability(dbType, "schemaMutation");
+			await adapter.renameTable({ tableName, schemaName, db, ...body });
 
 			return { data: `Table "${tableName}" renamed to "${body.newTableName}"` };
 		},
-		{ query: databaseSchema, params: tableNameSchema, body: renameTableSchema },
+		{ query: tableQuerySchema, params: tableNameSchema, body: renameTableSchema },
 	)
 
-	/**
-	 * DELETE /tables/:tableName/columns/:columnName
-	 * Deletes a column from a table
-	 */
 	.delete(
 		"/:tableName/columns/:columnName",
 		async ({
 			adapter,
+			dbType,
 			query: { db, schemaName, cascade },
 			params: { tableName, columnName },
 		}) => {
-			const { deletedCount } = await adapter.deleteColumn({
+			requireCapability(dbType, "schemaMutation");
+
+			await adapter.deleteColumn({
 				schemaName,
 				tableName,
 				columnName,
@@ -121,19 +108,16 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			});
 
 			return {
-				data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
+				data: `Column "${columnName}" deleted successfully from table "${tableName}"`,
 			};
 		},
 		{ query: deleteColumnQuerySchema, params: deleteColumnParamSchema },
 	)
 
-	/**
-	 * POST /tables/:tableName/columns
-	 * Adds a column to a table
-	 */
 	.post(
 		"/:tableName/columns",
-		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.addColumn({ tableName, schemaName, db, ...body });
 
 			return {
@@ -143,10 +127,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema, body: addColumnSchema },
 	)
 
-	/**
-	 * PATCH /tables/:tableName/columns/:columnName/rename
-	 * Renames a column in a table
-	 */
 	.patch(
 		"/:tableName/columns/:columnName/rename",
 		async ({
@@ -154,7 +134,9 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			query: { db, schemaName },
 			params: { tableName, columnName },
 			body,
+			dbType,
 		}) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.renameColumn({ tableName, schemaName, columnName, db, ...body });
 
 			return {
@@ -164,10 +146,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: deleteColumnParamSchema, body: renameColumnSchema },
 	)
 
-	/**
-	 * PATCH /tables/:tableName/columns/:columnName
-	 * Alters a column in a table
-	 */
 	.patch(
 		"/:tableName/columns/:columnName",
 		async ({
@@ -175,7 +153,9 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			query: { db, schemaName },
 			params: { tableName, columnName },
 			body,
+			dbType,
 		}) => {
+			requireCapability(dbType, "schemaMutation");
 			await adapter.alterColumn({ tableName, schemaName, columnName, db, ...body });
 
 			return {
@@ -185,10 +165,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: deleteColumnParamSchema, body: alterColumnSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/columns
-	 * Returns list of all columns in a table
-	 */
 	.get(
 		"/:tableName/columns",
 		async ({ adapter, query: { db, schemaName }, params: { tableName } }) => ({
@@ -197,25 +173,20 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/indexes
-	 * Returns list of all indexes on a table
-	 */
 	.get(
 		"/:tableName/indexes",
-		async ({ adapter, query: { db, schemaName }, params: { tableName } }) => ({
-			data: await adapter.getTableIndexes({ tableName, schemaName, db }),
-		}),
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName } }) => {
+			requireCapability(dbType, "indexes");
+
+			return { data: await adapter.getTableIndexes({ tableName, schemaName, db }) };
+		},
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * POST /tables/:tableName/indexes
-	 * Creates an index on a table
-	 */
 	.post(
 		"/:tableName/indexes",
-		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
+		async ({ adapter, dbType, query: { db, schemaName }, params: { tableName }, body }) => {
+			requireCapability(dbType, "indexes");
 			await adapter.createIndex({ tableName, schemaName, db, ...body });
 
 			return {
@@ -225,13 +196,15 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema, body: createIndexSchema },
 	)
 
-	/**
-	 * DELETE /tables/:tableName/indexes/:indexName
-	 * Drops an index from a table
-	 */
 	.delete(
 		"/:tableName/indexes/:indexName",
-		async ({ adapter, query: { db, schemaName }, params: { tableName, indexName } }) => {
+		async ({
+			adapter,
+			dbType,
+			query: { db, schemaName },
+			params: { tableName, indexName },
+		}) => {
+			requireCapability(dbType, "indexes");
 			await adapter.dropIndex({ tableName, schemaName, indexName, db });
 
 			return {
@@ -241,10 +214,6 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: dropIndexParamSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/schema
-	 * Returns the CREATE TABLE schema for a table
-	 */
 	.get(
 		"/:tableName/schema",
 		async ({ adapter, query: { db, schemaName }, params: { tableName } }) => ({
@@ -253,22 +222,18 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		{ query: tableQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/data
-	 * Get cursor-paginated data for a table
-	 */
 	.get(
 		"/:tableName/data",
-		async ({ adapter, query, params: { tableName } }) => ({
-			data: await adapter.getTableData({ tableName, ...query }),
-		}),
+		async ({ adapter, dbType, query, params: { tableName } }) => {
+			if (query.sort?.length) requireCapability(dbType, "sort");
+
+			if (query.filters?.length) requireCapability(dbType, "filter");
+
+			return { data: await adapter.getTableData({ tableName, ...query }) };
+		},
 		{ query: tableDataQuerySchema, params: tableNameSchema },
 	)
 
-	/**
-	 * GET /tables/:tableName/export
-	 * Export table data to CSV or XLSX format
-	 */
 	.get(
 		"/:tableName/export",
 		async ({ adapter, query: { db, schemaName, format }, params: { tableName } }) => {
@@ -277,7 +242,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			return new Response(await getExportFile({ cols, rows, format, tableName }), {
 				headers: {
 					"Content-Type": EXPORT_CONTENT_TYPES[format],
-					"Content-Disposition": `attachment; filename="${tableName}_export.${format}"`,
+					"Content-Disposition": attachment(`${tableName}_export.${format}`),
 				},
 			});
 		},
