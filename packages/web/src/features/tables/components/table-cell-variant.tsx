@@ -375,7 +375,10 @@ const numberCellValue = (text: string) => {
 	const digits = text.replace(/^[-+]|e.*$|\./gi, "").replace(/^0+|0+$/g, "");
 	const value = Number(text);
 
-	return digits.length <= 15 && Number.isFinite(value) ? value : text;
+	// Outside the normal double range (1e-400 → 0, subnormals) digits are lost, so keep the text.
+	const exact = value === 0 ? digits === "" : Math.abs(value) >= 2.2250738585072014e-308;
+
+	return digits.length <= 15 && Number.isFinite(value) && exact ? value : text;
 };
 
 export const TableNumberCell = memo(
