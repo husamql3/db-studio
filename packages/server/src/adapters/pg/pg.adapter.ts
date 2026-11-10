@@ -24,6 +24,7 @@ import { logsUnavailable, newestEntries, SERVER_LOGS_MARKER } from "@/adapters/s
 import {
 	type InlineConstraints,
 	fullForeignKeyName,
+	PAGE_ROW_ID,
 	type ReferencingKey,
 	SqlAdapter,
 	type TableEstimate,
@@ -204,7 +205,11 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	 * column.
 	 */
 	protected override pageColumns(keys: string[], rowId: string | undefined) {
-		return ["*", ...keys.map(quotePgIdent), ...(rowId ? [rowId] : [])].join(", ");
+		return [
+			"*",
+			...keys.map(quotePgIdent),
+			...(rowId ? [`${rowId} AS ${quotePgIdent(PAGE_ROW_ID)}`] : []),
+		].join(", ");
 	}
 
 	/** Unfiltered, the planner's estimate and the count are one query. */

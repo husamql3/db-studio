@@ -4,12 +4,15 @@ import { decodeCursor, encodeCursor } from "@/adapters/cursor.js";
 
 /**
  * One ORDER BY term. `raw` marks an SQL expression, such as Oracle's ROWID or a ClickHouse
- * sorting key, instead of a column name. `notNull` marks a key column, which holds no NULLs.
+ * sorting key, instead of a column name. `sql` is the expression of a column a page selects
+ * under the name `column`, such as a hidden row id. `notNull` marks a key column, which holds
+ * no NULLs.
  */
 export interface OrderTerm {
 	column: string;
 	direction: SortDirection;
 	raw?: true;
+	sql?: string;
 	notNull?: true;
 }
 
@@ -20,14 +23,17 @@ export interface OrderTerm {
 export function orderTerms(
 	sorts: SortType[],
 	order: SortDirection,
-	keys: Array<string | { raw: string }>,
+	keys: Array<string | { raw: string } | { column: string; sql: string }>,
 ): OrderTerm[] {
 	const direction = sorts[0]?.direction ?? order;
 
 	return [
 		...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
 		...keys.flatMap((key): OrderTerm[] => {
-			if (typeof key !== "string") return [{ column: key.raw, direction, raw: true }];
+			if (typeof key !== "string")
+				return "raw" in key
+					? [{ column: key.raw, direction, raw: true }]
+					: [{ ...key, direction, notNull: true }];
 
 			return sorts.some((s) => s.columnName === key)
 				? []
@@ -37,7 +43,7 @@ export function orderTerms(
 }
 
 const sqlOf = (term: OrderTerm, quote: (name: string) => string) =>
-	term.raw ? term.column : quote(term.column);
+	term.raw ? term.column : (term.sql ?? quote(term.column));
 
 /** A SQL page cursor: the boundary row's values on the order columns. */
 export const sqlCursorSchema = z.object({

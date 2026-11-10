@@ -108,6 +108,9 @@ export const safeNumber = <T>(value: T): T | number => {
 	return Number.isSafeInteger(number) ? number : value;
 };
 
+/** The name a page selects its row id under, apart from any column of the table. */
+export const PAGE_ROW_ID = "__db_studio_row_id";
+
 /** The answer to a bulk insert that wrote every record. */
 export const bulkInserted = (count: number): BulkInsertResult => ({
 	success: true,
@@ -547,8 +550,9 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 	}
 
 	/**
-	 * What gives every row one place after the requested sorts: the primary key, or `rowId`, a
-	 * row id SELECT * leaves out. With neither, pages go by OFFSET.
+	 * What gives every row one place after the requested sorts: the primary key, or `rowId`, the
+	 * SQL of a row id SELECT * leaves out, which no column of the table may shadow. With neither,
+	 * pages go by OFFSET.
 	 */
 	protected async pageKey(
 		conn: Conn,
@@ -558,9 +562,9 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 		return { keys: await this.primaryKey(conn, tableName, schemaName) };
 	}
 
-	/** What a page selects: every column, and the row id it is ordered by. */
+	/** What a page selects: every column, and the row id it is ordered by under PAGE_ROW_ID. */
 	protected pageColumns(_keys: string[], rowId: string | undefined): string {
-		return rowId ? `*, ${rowId}` : "*";
+		return rowId ? `*, ${rowId} AS ${this.quoteIdentifier(PAGE_ROW_ID)}` : "*";
 	}
 
 	/**
@@ -602,7 +606,8 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 			counting.catch(() => {});
 			const { keys, rowId } = await this.pageKey(conn, tableName, schemaName);
 			const { total, estimated } = await counting;
-			const terms = orderTerms(sort, order, rowId ? [rowId] : keys);
+			const tieBreakers = rowId ? [{ column: PAGE_ROW_ID, sql: rowId }] : keys;
+			const terms = orderTerms(sort, order, tieBreakers);
 			const select = `SELECT ${this.pageColumns(keys, rowId)} FROM ${this.tableRef(tableName, schemaName)}`;
 			// Inlined: MySQL refuses a bound LIMIT in a prepared statement.
 			const take = `LIMIT ${Math.floor(limit) + 1}`;
@@ -647,7 +652,7 @@ export abstract class SqlAdapter<Conn> extends BaseAdapter {
 				data: rows
 					.map((row) => {
 						if (!rowId) return row;
-						const { [rowId]: _rowId, ...rest } = row;
+						const { [PAGE_ROW_ID]: _rowId, ...rest } = row;
 
 						return rest;
 					})

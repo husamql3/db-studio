@@ -218,7 +218,13 @@ export class DuckDbAdapter extends SqlAdapter<DuckDBConnection> {
 		await this.requireTable(conn, tableName);
 		const keys = await this.primaryKey(conn, tableName);
 
-		return keys.length ? { keys } : { keys, rowId: "rowid" };
+		if (keys.length) return { keys };
+
+		// A column named rowid hides the row id, so such a table pages by OFFSET.
+		const columns = await this.columnNames(conn, tableName);
+		const shadowed = columns?.some((column) => column.toLowerCase() === "rowid");
+
+		return shadowed ? { keys } : { keys, rowId: "rowid" };
 	}
 
 	async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
