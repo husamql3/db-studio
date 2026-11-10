@@ -745,7 +745,13 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 	}
 
 	protected async runStatement(conn: PgQueryable, statement: string) {
-		const result = await conn.query(statement);
+		const result = await conn.query(statement).catch((e: unknown) => {
+			// Class 42 (syntax error, missing table or column) is a mistake in the user's SQL.
+			// 42501 is a permission refusal, which classifyDriverError answers with 403.
+			if (isPgError(e) && e.code?.startsWith("42") && e.code !== "42501")
+				throw new HTTPException(400, { message: e.message, cause: e });
+			throw e;
+		});
 
 		// A statement that returns rows reports its columns even when no row matches.
 		return result.fields.length
