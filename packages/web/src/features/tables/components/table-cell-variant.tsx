@@ -369,6 +369,15 @@ export const TableTextCell = memo(
 
 TableTextCell.displayName = "TableTextCell";
 
+// Up to 15 significant digits survive a double, so the edit stays a number (MongoDB keeps the
+// field numeric); a longer value, a bigint or numeric past 2^53, stays text so it is not rounded.
+const numberCellValue = (text: string) => {
+	const digits = text.replace(/^[-+]|e.*$|\./gi, "").replace(/^0+|0+$/g, "");
+	const value = Number(text);
+
+	return digits.length <= 15 && Number.isFinite(value) ? value : text;
+};
+
 export const TableNumberCell = memo(
 	({
 		cell,
@@ -428,7 +437,7 @@ export const TableNumberCell = memo(
 					setUpdate(
 						rowData,
 						columnId,
-						editorValue === "" ? null : editorValue,
+						editorValue === "" ? null : numberCellValue(editorValue),
 						initialValue,
 						meta?.editScope,
 					);
