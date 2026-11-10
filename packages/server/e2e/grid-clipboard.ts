@@ -26,16 +26,20 @@ import pg from "pg";
 import { chromium, type Page } from "playwright-core";
 
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a PostgreSQL database");
 }
+
 const TABLE = "dbstudio_e2e_clipboard";
 const PORT = 4531;
 const BASE = `http://127.0.0.1:${PORT}`;
 const outDir = new URL("./artifacts/grid-clipboard/", import.meta.url);
 
 const db = new pg.Client({ connectionString: databaseUrl });
+
 await db.connect();
+
 await db.query(`
 	DROP TABLE IF EXISTS ${TABLE};
 	DROP TYPE IF EXISTS ${TABLE}_status;
@@ -57,16 +61,20 @@ await db.query(`
 `);
 
 const cli = fileURLToPath(new URL("../dist/index.js", import.meta.url));
+
 const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
 	cwd: tmpdir(),
 	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
 	stdio: "ignore",
 });
+
 for (;;) {
 	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
+
 	const ready = await fetch(`${BASE}/api/databases`)
 		.then((response) => response.ok)
 		.catch(() => false);
+
 	if (ready) break;
 	await new Promise((resolve) => setTimeout(resolve, 50));
 }
@@ -79,7 +87,9 @@ const cell = async (page: Page, row: number, column: string) => {
 			) + 1,
 		column,
 	);
+
 	if (position === 0) throw new Error(`column ${column} not found`);
+
 	return page.locator(
 		`tbody tr[data-index="${row}"] td:nth-child(${position}) > [role="button"]`,
 	);
@@ -90,10 +100,12 @@ const clipboard = (page: Page, type: "copy" | "paste", text = "") =>
 	page.evaluate(
 		([type, text]) => {
 			const data = new DataTransfer();
+
 			if (text) data.setData("text/plain", text);
 			document.activeElement?.dispatchEvent(
 				new ClipboardEvent(type, { clipboardData: data, bubbles: true, cancelable: true }),
 			);
+
 			return data.getData("text/plain");
 		},
 		[type, text] as const,
@@ -105,14 +117,19 @@ const pending = (page: Page) =>
 	);
 
 const summary: Record<string, unknown> = {};
+
 await mkdir(outDir, { recursive: true });
+
 const shot = (page: Page, name: string) =>
 	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
+
 const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 const page = await browser.newPage({ viewport: { width: 1280, height: 640 } });
+
 try {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -122,6 +139,7 @@ try {
 	// Drag from Ada's name to Cyd's qty: a 3 x 2 rectangle.
 	const from = await (await cell(page, 0, "name")).boundingBox();
 	const to = await (await cell(page, 2, "qty")).boundingBox();
+
 	if (!from || !to) throw new Error("cells not laid out");
 	await page.mouse.move(from.x + 10, from.y + 10);
 	await page.mouse.down();

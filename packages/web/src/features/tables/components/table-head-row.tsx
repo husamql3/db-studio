@@ -94,6 +94,7 @@ export const TableHeadRow = ({
 				setSort(columnId);
 				setOrder(direction === "desc" ? "desc" : "asc");
 			}
+
 			// Reset cursor when sort changes
 			setCursor(null);
 			setDirection(null);
@@ -109,6 +110,7 @@ export const TableHeadRow = ({
 
 	const handleDialogOpenChange = useCallback((open: boolean) => {
 		setDeleteDialogOpen(open);
+
 		if (!open) {
 			setColumnToDelete(null);
 			setCascadeDelete(false);

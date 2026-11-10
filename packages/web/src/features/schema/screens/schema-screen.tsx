@@ -61,6 +61,7 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				accessorKey: "columnDefault",
 				cell: ({ getValue }) => {
 					const val = getValue<string | null>();
+
 					return val ? (
 						<span className="font-mono text-xs text-muted-foreground truncate">{val}</span>
 					) : (
@@ -87,6 +88,7 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				header: "Key",
 				cell: ({ row }) => {
 					const { isPrimaryKey, isForeignKey } = row.original;
+
 					return (
 						<div className="flex items-center gap-1">
 							{isPrimaryKey && (
@@ -116,9 +118,11 @@ export const SchemaScreen = ({ tableName }: { tableName: string }) => {
 				header: "References",
 				cell: ({ row }) => {
 					const { isForeignKey, referencedTable, referencedColumn } = row.original;
+
 					if (!isForeignKey || !referencedTable || !referencedColumn) {
 						return <span className="text-muted-foreground/50">—</span>;
 					}
+
 					return (
 						<Tooltip>
 							<TooltipTrigger asChild>

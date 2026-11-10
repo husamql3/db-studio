@@ -22,10 +22,13 @@ export const parseClipboardText = (text: string): string[][] => {
 	let row: string[] = [];
 	let i = 0;
 	const input = text.replace(/\r?\n$/, "");
+
 	while (i <= input.length) {
 		let cell = "";
+
 		if (input[i] === '"') {
 			const end = input.indexOf('"', i + 1);
+
 			// An opening quote without a closing one is a literal character.
 			if (end === -1) {
 				cell = input.slice(i);
@@ -42,24 +45,31 @@ export const parseClipboardText = (text: string): string[][] => {
 				}
 			}
 		}
+
 		while (i < input.length && input[i] !== "\t" && input[i] !== "\n" && input[i] !== "\r") {
 			cell += input[i++];
 		}
+
 		row.push(cell);
+
 		if (input[i] === "\t") {
 			i++;
 			continue;
 		}
+
 		rows.push(row);
 		row = [];
 		i += input[i] === "\r" && input[i + 1] === "\n" ? 2 : 1;
 	}
+
 	return rows;
 };
 
 const INTEGER_TYPES = new Set(["int", "bigint", "smallint", "tinyint", "mediumint"]);
+
 // The date variant also covers time and array columns, whose text Date cannot parse.
 const DATE_TYPES = new Set(["date", "timestamp", "timestamptz", "datetime"]);
+
 const BOOLEANS: Record<string, boolean> = {
 	true: true,
 	t: true,
@@ -78,25 +88,33 @@ export const coercePastedValue = (
 ): { value: unknown } | { error: string } => {
 	if (text === "") {
 		if (column.isNullable) return { value: null };
+
 		return column.variant === "text" || !column.variant
 			? { value: "" }
 			: { error: "Required" };
 	}
+
 	switch (column.variant) {
 		case "number": {
 			const value = Number(text.trim());
+
 			if (text.trim() === "" || !Number.isFinite(value)) return { error: "Not a number" };
+
 			if (INTEGER_TYPES.has(column.dataTypeLabel ?? "") && !Number.isSafeInteger(value)) {
 				return {
 					error: Number.isInteger(value) ? "Too large to paste exactly" : "Not a whole number",
 				};
 			}
+
 			return { value };
 		}
+
 		case "boolean": {
 			const value = BOOLEANS[text.trim().toLowerCase()];
+
 			return value === undefined ? { error: "Not true or false" } : { value };
 		}
+
 		case "enum":
 			return column.enumValues?.includes(text)
 				? { value: text }
@@ -107,6 +125,7 @@ export const coercePastedValue = (
 			} catch {
 				return { error: "Invalid JSON" };
 			}
+
 		case "date":
 			return DATE_TYPES.has(column.dataTypeLabel ?? "") && Number.isNaN(Date.parse(text))
 				? { error: "Not a date" }

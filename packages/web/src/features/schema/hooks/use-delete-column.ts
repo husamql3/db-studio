@@ -27,6 +27,7 @@ export const useDeleteColumn = () => {
 				cascade,
 				db: selectedDatabase ?? "",
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async (_, variables) => {

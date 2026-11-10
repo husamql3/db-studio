@@ -18,6 +18,7 @@ import { currentRequestId, errorFields, writeOperationalLog } from "@/operationa
 
 const isConnectionError = (e: Error): boolean => {
 	const mysqlError = e as Error & { code?: string; errno?: number };
+
 	const isMysqlConnectionError =
 		mysqlError.code === "ECONNREFUSED" ||
 		mysqlError.code === "ENOTFOUND" ||
@@ -44,19 +45,24 @@ const isConnectionError = (e: Error): boolean => {
 
 const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "requestId"> } => {
 	if (e instanceof HTTPException) return { status: e.status, body: { error: e.message } };
+
 	if (e instanceof ValidationError) {
 		return {
 			status: 400,
 			body: { error: "Validation error", details: e.all[0]?.message ?? "Invalid request" },
 		};
 	}
+
 	if (e instanceof ZodError) {
 		return { status: 400, body: { error: "Validation error", details: e.issues[0].message } };
 	}
+
 	if (e instanceof ParseError) {
 		return { status: 400, body: { error: "Malformed JSON in request body" } };
 	}
+
 	if (e instanceof NotFoundError) return { status: 404, body: { error: "Not found" } };
+
 	// V8 caps one string near 2^29 characters; a response body past it cannot be written.
 	if (e instanceof RangeError && e.message === "Invalid string length") {
 		return {
@@ -66,20 +72,26 @@ const toApiError = (e: unknown): { status: number; body: Omit<ApiError, "request
 			},
 		};
 	}
+
 	// Before the connection check: its message heuristics could match a constraint's name.
 	if (isPgConstraintViolation(e)) return { status: 409, body: { error: e.message } };
+
 	if (isPgDataException(e)) return { status: 400, body: { error: e.message } };
+
 	if (isReadOnlyRefusal(e))
 		return {
 			status: 403,
 			body: { error: READ_ONLY_MESSAGE },
 		};
+
 	// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
 	if (isPgDatabaseError(e) && e.code === "42501")
 		return { status: 403, body: { error: e.message } };
+
 	if (e instanceof Error && isConnectionError(e)) {
 		return { status: 503, body: { error: "Database connection failed", details: e.message } };
 	}
+
 	return {
 		status: 500,
 		body: { error: e instanceof Error ? e.message : "Internal server error" },
@@ -102,6 +114,7 @@ export function handleError(e: unknown, request: Request): Response {
 		...errorFields(e),
 	});
 	captureServerError(e, { operation, status, dbType });
+
 	return Response.json({ ...body, requestId: currentRequestId() } satisfies ApiError, {
 		status,
 	});

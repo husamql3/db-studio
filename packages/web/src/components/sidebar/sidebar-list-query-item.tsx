@@ -41,6 +41,7 @@ export const SidebarListQueryItem = ({
 	showContextMenu?: boolean;
 }) => {
 	const navigate = useNavigate();
+
 	const {
 		deleteQuery,
 		addQuery,
@@ -51,6 +52,7 @@ export const SidebarListQueryItem = ({
 		folders,
 		addFolder,
 	} = useQueriesStore();
+
 	const { queryId } = useParams({ strict: false });
 	const isSelected = queryId === id;
 	const query = getQuery(id);
@@ -69,9 +71,11 @@ export const SidebarListQueryItem = ({
 
 	const handleDelete = useCallback(() => {
 		deleteQuery(id);
+
 		if (queryId === id) {
 			navigate({ to: "/runner" });
 		}
+
 		toast.success("Query deleted successfully");
 	}, [deleteQuery, id, navigate, queryId]);
 
@@ -135,6 +139,7 @@ export const SidebarListQueryItem = ({
 			moveQuery(id, selectedFolderId);
 			toast.success("Query moved to selected folder successfully");
 		}
+
 		setIsMoveDialogOpen(false);
 		setIsCreatingFolder(false);
 		setNewFolderName("");
@@ -249,6 +254,7 @@ export const SidebarListQueryItem = ({
 				open={isMoveDialogOpen}
 				onOpenChange={(open) => {
 					setIsMoveDialogOpen(open);
+
 					if (!open) {
 						setIsCreatingFolder(false);
 						setNewFolderName("");
@@ -297,6 +303,7 @@ export const SidebarListQueryItem = ({
 									if (e.key === "Enter" && newFolderName.trim()) {
 										handleMoveSubmit();
 									}
+
 									if (e.key === "Escape") {
 										setIsCreatingFolder(false);
 										setNewFolderName("");

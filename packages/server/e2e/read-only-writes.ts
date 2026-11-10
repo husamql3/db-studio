@@ -11,24 +11,33 @@ import path from "node:path";
 // Runs against PostgreSQL, MySQL or DuckDB:
 //   DATABASE_URL=<url> bunx tsx e2e/read-only-writes.ts
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL ?? "";
+
 const dbTypes: Record<string, "pg" | "mysql" | "duckdb" | undefined> = {
 	postgresql: "pg",
 	mysql: "mysql",
 	duckdb: "duckdb",
 };
+
 const dbType = dbTypes[databaseUrl.split("://")[0]];
+
 if (!dbType)
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL, MySQL or DuckDB database");
+
 const db =
 	dbType === "duckdb"
 		? path.parse(new URL(databaseUrl).pathname).name
 		: decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+
 // Saving connections must not touch the user's ~/.dbstudio.
 const configDir = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+
 // Also remove saved credentials when imports or the initial connection fail.
 process.once("exit", () => rmSync(configDir, { recursive: true, force: true }));
+
 process.env.DB_STUDIO_CONFIG_DIR = configDir;
+
 const { createServer } = await import("../src/utils/create-server.js");
 const { connect, updateConnection } = await import("../src/connection.js");
 const { listSavedConnections } = await import("../src/connections-store.js");
@@ -38,32 +47,38 @@ let tableCreated = false;
 const evidence: Record<string, unknown> = {};
 
 const call = async (connectionId: string, method: string, route: string, body?: unknown) => {
+	const headers: Record<string, string> = { "X-Connection-Id": connectionId };
+
+	if (body) headers["Content-Type"] = "application/json";
+
 	const response = await app.handle(
 		new Request(new URL(`/api/${dbType}${route}`, "http://localhost"), {
 			method,
-			headers: {
-				"X-Connection-Id": connectionId,
-				...(body ? { "Content-Type": "application/json" } : {}),
-			},
+			headers,
 			body: body ? JSON.stringify(body) : undefined,
 		}),
 	);
+
 	const { requestId: _requestId, ...json } = (await response.json()) as Record<
 		string,
 		unknown
 	>;
+
 	return { status: response.status, body: json };
 };
+
 const query = (connectionId: string, sql: string) =>
 	call(connectionId, "POST", `/query?${new URLSearchParams({ db })}`, { query: sql });
 
 const writable = await connect(databaseUrl);
 const [saved] = await listSavedConnections();
+
 try {
 	const created = await query(
 		writable,
 		`CREATE TABLE ${TABLE} (id INT PRIMARY KEY, label VARCHAR(50))`,
 	);
+
 	assert.equal(created.status, 200, JSON.stringify(created.body));
 	tableCreated = true;
 	const seeded = await query(writable, `INSERT INTO ${TABLE} VALUES (1, 'original')`);
@@ -88,6 +103,7 @@ try {
 			updates: [{ rowData: { id: 1 }, columnName: "label", value: "changed" }],
 		},
 	);
+
 	for (const [label, route] of [
 		["gridDeleteRecord", "/records"],
 		["gridForceDeleteRecord", "/records/force"],
@@ -99,6 +115,7 @@ try {
 			{ tableName: TABLE, primaryKeys: [{ columnName: "id", value: 1 }] },
 		);
 	}
+
 	evidence.gridBulkInsert = await call(
 		readOnly,
 		"POST",
@@ -128,6 +145,7 @@ try {
 		assert.equal(status, 403, `${label}: ${JSON.stringify(body)}`);
 		assert.match(body.error ?? "", /read-only/i, `${label}: ${JSON.stringify(body)}`);
 	}
+
 	assert.equal(read.status, 200, JSON.stringify(read.body));
 	assert.deepEqual(rows, [{ id: 1, label: "original" }]);
 	console.log(`PASS ${dbType} read-only writes answer 403`);
@@ -138,6 +156,8 @@ try {
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
 	await updateConnection(saved.id, { readOnly: false });
+
 	if (tableCreated) await query(await connect(databaseUrl), `DROP TABLE IF EXISTS ${TABLE}`);
 }
+
 process.exit(0);

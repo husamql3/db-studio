@@ -26,17 +26,20 @@ export const CellCopyButton = ({
 	const handleCopy = useCallback(
 		async (event: MouseEvent<HTMLButtonElement>) => {
 			event.stopPropagation();
+
 			try {
 				await navigator.clipboard.writeText(formattedValue);
 				setCopied(true);
 			} catch (error) {
 				console.error("Failed to copy cell value:", error);
+
 				return;
 			}
 
 			if (resetCopyTimeoutRef.current) {
 				window.clearTimeout(resetCopyTimeoutRef.current);
 			}
+
 			resetCopyTimeoutRef.current = window.setTimeout(() => {
 				setCopied(false);
 			}, 1200);

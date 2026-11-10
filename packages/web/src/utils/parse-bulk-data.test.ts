@@ -21,6 +21,7 @@ describe("parseBulkData", () => {
 		it("should handle nested JSON objects", () => {
 			const input =
 				'[{"name": "John", "metadata": {"role": "admin"}}, {"name": "Jane", "metadata": {"role": "user"}}]';
+
 			const result = parseBulkData(input);
 			expect(result).toEqual([
 				{ name: "John", metadata: { role: "admin" } },
@@ -72,6 +73,7 @@ describe("parseBulkData", () => {
 		it("should handle quoted fields with delimiters", () => {
 			const input =
 				'name,description\nJohn,"lives in New York, USA"\nJane,"engineer, manager"';
+
 			const result = parseBulkData(input);
 			expect(result[0].description).toBe("lives in New York, USA");
 		});

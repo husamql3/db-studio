@@ -36,6 +36,7 @@ export const FormContent = () => {
 	const primaryFields = fields.reduce<{ field: (typeof fields)[number]; index: number }[]>(
 		(acc, field, index) => {
 			if (watchedFields?.[index]?.isPrimaryKey) acc.push({ field, index });
+
 			return acc;
 		},
 		[],
@@ -44,6 +45,7 @@ export const FormContent = () => {
 	const nonPrimaryFields = fields.reduce<{ field: (typeof fields)[number]; index: number }[]>(
 		(acc, field, index) => {
 			if (!watchedFields?.[index]?.isPrimaryKey) acc.push({ field, index });
+
 			return acc;
 		},
 		[],

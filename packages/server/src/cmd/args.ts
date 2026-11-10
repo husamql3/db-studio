@@ -24,9 +24,11 @@ export const args = () => {
 	const options = program.opts<Args>();
 	const hasOpen = process.argv.includes("--open");
 	const hasNoOpen = process.argv.includes("--no-open");
+
 	if (hasOpen && hasNoOpen) {
 		program.error("Do not combine --open and --no-open");
 	}
+
 	const open = hasOpen ? true : hasNoOpen ? false : undefined;
 
 	return { ...options, open };

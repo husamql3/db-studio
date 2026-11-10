@@ -148,14 +148,17 @@ export abstract class BaseAdapter implements IDbAdapter {
 			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
 			// SQL Server 229/230: the login lacks a permission on a table or column.
 			const mssqlNumber = (e as { number?: number }).number;
+
 			if (
 				(isPgDatabaseError(e) && e.code === "42501") ||
 				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
 			) {
 				return new HTTPException(403, { message: e.message, cause: e });
 			}
+
 			if (isPgDataException(e))
 				return new HTTPException(400, { message: e.message, cause: e });
+
 			if (isReadOnlyRefusal(e)) {
 				return new HTTPException(403, {
 					message: READ_ONLY_MESSAGE,
@@ -223,6 +226,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 */
 	protected assertWholeKey(pkColumns: string[], keyColumns: string[]): void {
 		const missing = pkColumns.filter((column) => !keyColumns.includes(column));
+
 		if (missing.length > 0)
 			throw new HTTPException(400, {
 				message: `Updates must match on every primary key column; missing: ${missing.join(", ")}`,
@@ -242,11 +246,13 @@ export abstract class BaseAdapter implements IDbAdapter {
 		for (const update of params.updates) {
 			const keyValues = keyColumns.map((column) => {
 				const value = update.rowData[column];
+
 				if (value === undefined || value === null) {
 					throw new HTTPException(400, {
 						message: `Primary key "${column}" not found in row data.`,
 					});
 				}
+
 				return value;
 			});
 
@@ -274,12 +280,16 @@ export abstract class BaseAdapter implements IDbAdapter {
 	): Array<{ column: string | K; direction: SortDirection }> {
 		const sorts =
 			typeof sort === "string" ? (sort ? [{ columnName: sort, direction: order }] : []) : sort;
+
 		const tieBreakerDirection = sorts[0]?.direction ?? order;
+
 		return [
 			...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
-			...keyColumns
-				.filter((key) => !sorts.some((s) => s.columnName === key))
-				.map((column) => ({ column, direction: tieBreakerDirection })),
+			...keyColumns.flatMap((column) =>
+				sorts.some((s) => s.columnName === column)
+					? []
+					: [{ column, direction: tieBreakerDirection }],
+			),
 		];
 	}
 
@@ -316,9 +326,11 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 */
 	protected normalizeRow(row: Record<string, unknown>): NormalizedRow {
 		const out: NormalizedRow = {};
+
 		for (const [k, v] of Object.entries(row)) {
 			out[k] = v as CellValue;
 		}
+
 		return out;
 	}
 
@@ -337,12 +349,14 @@ export abstract class BaseAdapter implements IDbAdapter {
 				this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
 				this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
 			]);
+
 			const total = Number(countRes[0]?.total ?? 0);
 
 			const hasMore = pageRows.length > limit;
 			const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
 
 			let rows = this.normalizeRows(rawRows);
+
 			if (direction === "desc") rows = rows.reverse();
 
 			const { nextCursor, prevCursor } = this.buildCursors(params, rows, hasMore);
@@ -382,6 +396,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 			}
 
 			const cols = Object.keys(rows[0]);
+
 			return { cols, rows };
 		} catch (e) {
 			throw this.wrapError(e);

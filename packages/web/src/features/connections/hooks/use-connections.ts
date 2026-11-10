@@ -34,17 +34,20 @@ export const useConnections = () => {
 		queryKey: connectionKeys.state(),
 		queryFn: async () => {
 			const state = (await getConnections()).data.data;
+
 			// The first answer names this tab's connection, or the latest for a new tab. Adopted
 			// here, before the app renders and sends database requests.
 			if (ownConnectionId === undefined) {
 				ownConnectionId = state.active?.connectionId ?? null;
 				setConnectionId(ownConnectionId);
 			}
+
 			return state;
 		},
 		refetchOnWindowFocus: true,
 		staleTime: 0,
 	});
+
 	return {
 		connections: data?.connections ?? [],
 		active: data?.active ?? null,
@@ -60,6 +63,7 @@ export const useConnections = () => {
 const useResetToConnection = () => {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
+
 	return async (state: ConnectionsStateSchemaType) => {
 		ownConnectionId = state.active?.connectionId ?? null;
 		setConnectionId(ownConnectionId);
@@ -142,6 +146,7 @@ export const useConnectionChangeWatcher = () => {
 		if (isLoading) return;
 		const previous = seen.current;
 		seen.current = connectionId;
+
 		if (
 			previous === undefined ||
 			previous === connectionId ||
@@ -149,6 +154,7 @@ export const useConnectionChangeWatcher = () => {
 		) {
 			return;
 		}
+
 		void resetTo({ connections, active });
 		const name = connections.find((c) => c.id === active?.id)?.name;
 		toast.info(

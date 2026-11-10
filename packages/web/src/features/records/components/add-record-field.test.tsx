@@ -29,6 +29,7 @@ const Harness = ({
 	defaultValues: Record<string, string>;
 }) => {
 	const methods = useForm({ defaultValues });
+
 	return (
 		<FormProvider {...methods}>
 			<AddRecordField
@@ -53,6 +54,7 @@ describe("AddRecordField — binary columns", () => {
 		const picker = within(screen.getByRole("group", { name: "avatar" })).getByLabelText(
 			"avatar",
 		) as HTMLInputElement;
+
 		expect(picker.type).toBe("file");
 		expect(picker.getAttribute("value")).toBeNull();
 		expect(picker.value).toBe("");

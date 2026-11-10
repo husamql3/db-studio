@@ -18,10 +18,13 @@ import {
 import { z } from "zod";
 
 process.env.TZ = "UTC";
+
 process.env.DB_STUDIO_TELEMETRY = "0";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
+
 type Ctx = { db: string; bodies: Map<string, unknown> };
 
 type Step = {
@@ -31,13 +34,13 @@ type Step = {
 	/** Overrides `path` when it depends on an earlier response. */
 	resolvePath?: (ctx: Ctx) => string;
 	query?: (ctx: Ctx) => Record<string, string>;
-	body?: (ctx: Ctx) => unknown;
+	body?: (ctx: Ctx) => object;
 	/** Accepted statuses; any 2xx when omitted. */
 	expect?: number | number[];
 	/** Throws with a human-readable message when the response breaks the contract. */
 	check?: (body: unknown, ctx: Ctx) => void;
 	/** Projection written to the artifact instead of the full body. */
-	record?: (body: unknown) => unknown;
+	record?: (body: unknown) => object;
 };
 
 type EngineOverrides = {
@@ -81,15 +84,18 @@ const OVERRIDES: Partial<Record<DatabaseTypeSchema, EngineOverrides>> = {
 const TABLE = "dbstudio_e2e";
 const RENAMED = "dbstudio_e2e_renamed";
 const PAIRS = "dbstudio_e2e_pairs";
+
 const PAIR_ROWS = [
 	{ tenant: 1, item: 1, name: "x1" },
 	{ tenant: 1, item: 2, name: "x2" },
 	{ tenant: 2, item: 1, name: "x3" },
 ];
+
 const ROW_COUNT = 25;
 const PAGE = 10;
 const COLUMNS = ["id", "name", "active", "amount", "born", "meta"];
 const INDEX = "dbstudio_e2e_born_name_idx";
+
 // Deliberately neither alphabetical nor table order, so a listing that loses key order fails.
 const INDEX_COLUMNS = ["born", "name"];
 
@@ -98,6 +104,7 @@ const rowName = (n: number) => `row-${pad(n)}`;
 
 const seedRows = Array.from({ length: ROW_COUNT }, (_, i) => {
 	const n = i + 1;
+
 	return {
 		name: rowName(n),
 		active: n % 2 === 0,
@@ -112,12 +119,15 @@ const dataOf = <T extends z.ZodType>(schema: T, body: unknown): z.infer<T> =>
 
 const pageOf = (body: unknown): TableDataResultSchemaType =>
 	dataOf(tableDataResultSchema, body);
+
 const columnsOf = (body: unknown): ColumnInfoSchemaType[] =>
 	dataOf(z.array(columnInfoSchema), body);
+
 const tablesOf = (body: unknown) => dataOf(z.array(tableInfoSchema), body);
 const indexesOf = (body: unknown) => dataOf(z.array(indexInfoSchema), body);
 
 const namesOf = (page: TableDataResultSchemaType) => page.data.map((row) => String(row.name));
+
 const range = (from: number, to: number) =>
 	Array.from({ length: to - from + 1 }, (_, i) => rowName(from + i));
 
@@ -136,18 +146,21 @@ const assertEqual = (actual: unknown, expected: unknown, label: string) => {
 
 const prior = (ctx: Ctx, step: string) => {
 	assert(ctx.bodies.has(step), `depends on step "${step}", which produced no body`);
+
 	return ctx.bodies.get(step);
 };
 
 const cursorFrom = (ctx: Ctx, step: string, key: "nextCursor" | "prevCursor") => {
 	const cursor = pageOf(prior(ctx, step)).meta[key];
 	assert(cursor, `step "${step}" returned no ${key}`);
+
 	return cursor;
 };
 
 const row07 = (ctx: Ctx) => {
 	const [row] = pageOf(prior(ctx, "filter name = row-07")).data;
 	assert(row, 'step "filter name = row-07" returned no row');
+
 	return row;
 };
 
@@ -166,10 +179,12 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 	const indexesPath = `${t}/${TABLE}/indexes`;
 	const hasPrimaryIndex = overrides.primaryIndex !== false;
 	const indexColumns = overrides.indexColumns ?? INDEX_COLUMNS;
-	const maskGenerated = (body: unknown): unknown =>
+
+	const maskGenerated = <T>(body: T): T =>
 		overrides.generatedIndexName
 			? JSON.parse(JSON.stringify(body).replace(overrides.generatedIndexName, "<generated>"))
 			: body;
+
 	const recordIndexes = (body: unknown) => maskGenerated(indexesOf(body));
 
 	const indexSteps: Step[] = indexes
@@ -239,11 +254,13 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 									const primary = indexesOf(
 										prior(ctx, "indexes: list has the new index and the primary key"),
 									).find((i) => i.kind === "primary");
+
 									assert(primary, "no primary key index to try dropping");
+
 									return `${indexesPath}/${encodeURIComponent(primary.indexName)}`;
 								},
 								expect: 400,
-								record: maskGenerated,
+								record: (body) => maskGenerated(z.record(z.string(), z.unknown()).parse(body)),
 							} satisfies Step,
 						]
 					: []),
@@ -392,6 +409,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 					z.object({ successCount: z.number(), failureCount: z.number() }),
 					body,
 				);
+
 				assertEqual(result, { successCount: ROW_COUNT, failureCount: 0 }, "bulk result");
 			},
 		},
@@ -489,7 +507,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				primaryKey: "id",
 				updates: [{ rowData: row07(ctx), columnName: "amount", value: 999 }],
 			}),
-			...(canMutateRows ? {} : { expect: 400 }),
+			expect: canMutateRows ? undefined : 400,
 		},
 		{
 			name: canMutateRows ? "read back updated row-07" : "refused update kept row-07",
@@ -610,6 +628,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 					}),
 					body,
 				);
+
 				assertEqual(
 					result.columns.map((c) => c.toLowerCase()),
 					["one"],
@@ -654,6 +673,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 			},
 			record: (body) => {
 				const [header, ...rows] = String(body).trim().split("\n");
+
 				return { header, dataLines: rows.length };
 			},
 		},
@@ -727,7 +747,7 @@ const buildScenario = (dbType: DatabaseTypeSchema, overrides: EngineOverrides): 
 				primaryKeys: ["tenant", "item"],
 				updates: [{ rowData: PAIR_ROWS[1], columnName: "name", value: "x2-edited" }],
 			}),
-			...(canMutateRows ? {} : { expect: 400 }),
+			expect: canMutateRows ? undefined : 400,
 		},
 		{
 			name: "composite key: only the addressed row changed",
@@ -804,9 +824,13 @@ const REDACTED_KEYS = new Set([
 
 const normalize = (value: unknown, secrets: string[], key?: string): Json => {
 	if (value === null || value === undefined) return null;
+
 	if (key && REDACTED_KEYS.has(key)) return `<${key}>`;
+
 	if (Array.isArray(value)) return value.map((v) => normalize(v, secrets));
+
 	if (value instanceof Date) return value.toISOString();
+
 	if (typeof value === "object") {
 		return Object.fromEntries(
 			Object.keys(value)
@@ -814,16 +838,20 @@ const normalize = (value: unknown, secrets: string[], key?: string): Json => {
 				.map((k) => [k, normalize((value as Record<string, unknown>)[k], secrets, k)]),
 		);
 	}
+
 	if (typeof value === "string") {
 		return secrets.reduce((s, secret) => s.replaceAll(secret, "<redacted>"), value);
 	}
+
 	if (typeof value === "number" || typeof value === "boolean") return value;
+
 	return String(value);
 };
 
 const main = async () => {
 	const label = process.argv[2];
 	const databaseUrl = process.env.DATABASE_URL;
+
 	if (!label || !databaseUrl) {
 		console.error("usage: DATABASE_URL=<url> bun run e2e -- <label>");
 		process.exit(2);
@@ -832,6 +860,7 @@ const main = async () => {
 	const { DatabaseManager, getDbType, openConnection } = await import("../src/db-manager.js");
 	openConnection("e2e", new DatabaseManager(databaseUrl));
 	const dbType = getDbType();
+
 	if (dbType === "mongodb" || dbType === "redis") {
 		console.error(`${dbType} is out of scope: this contract covers SQL engines only.`);
 		process.exit(2);
@@ -839,10 +868,12 @@ const main = async () => {
 
 	const overrides = OVERRIDES[dbType] ?? {};
 	const url = new URL(databaseUrl);
+
 	const ctx: Ctx = {
 		db: overrides.dbName?.(url) ?? decodeURIComponent(url.pathname.slice(1)),
 		bodies: new Map(),
 	};
+
 	const secrets = [
 		databaseUrl,
 		databaseUrl.replace(/^[a-z0-9+]+:\/\//i, ""),
@@ -859,9 +890,11 @@ const main = async () => {
 		let status = 0;
 		let body: unknown = null;
 		let error: string | undefined;
+
 		try {
 			const query = new URLSearchParams({ db: ctx.db, ...step.query?.(ctx) });
 			const payload = step.body?.(ctx);
+
 			const res = await app.handle(
 				new Request(
 					new URL(
@@ -875,16 +908,20 @@ const main = async () => {
 					},
 				),
 			);
+
 			status = res.status;
 			const text = await res.text();
+
 			try {
 				body = JSON.parse(text);
 			} catch {
 				body = text;
 			}
+
 			const accepted = [step.expect ?? []].flat();
 			const statusOk = accepted.length ? accepted.includes(status) : status < 300;
 			assert(statusOk, `unexpected status ${status}: ${text.slice(0, 300)}`);
+
 			if (status < 300) ctx.bodies.set(step.name, body);
 			step.check?.(body, ctx);
 		} catch (e) {
@@ -892,18 +929,23 @@ const main = async () => {
 		}
 
 		const ok = error === undefined;
+
 		if (!ok) failures++;
 		console.log(`${ok ? "PASS" : "FAIL"}  ${step.name}${ok ? "" : `  -- ${error}`}`);
 
 		let recorded: unknown = body;
+
 		if (step.record && ok) recorded = step.record(body);
-		results.push({
+
+		const result: Record<string, Json> = {
 			name: step.name,
 			status,
 			ok,
 			body: normalize(recorded, secrets),
-			...(ok ? {} : { error: normalize(error, secrets) }),
-		});
+		};
+
+		if (!ok) result.error = normalize(error, secrets);
+		results.push(result);
 	}
 
 	const artifactDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");

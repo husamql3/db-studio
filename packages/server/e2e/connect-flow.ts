@@ -50,36 +50,45 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 const dir = await mkdtemp(join(tmpdir(), "db-studio-connect-"));
 const configDir = join(dir, "config");
+
 const seed = async (file: string, statements: string[]) => {
 	const client = createClient({ url: `file:${join(dir, file)}` });
 	await client.batch(statements, "write");
 	client.close();
 };
+
 // Both files have a `notes` row 1, so an edit saved into the wrong file looks right in the grid.
 const notes = [
 	"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
 	"INSERT INTO notes (id, body) VALUES (1, 'seed')",
 ];
+
 await seed("shop.sqlite", [
 	"CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT)",
 	"INSERT INTO customers (name) VALUES ('Ada')",
 	...notes,
 ]);
+
 await seed("blog.sqlite", [
 	"CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)",
 	...notes,
 ]);
+
 /** `notes` as stored in `file`, read past the server. */
 const notesIn = async (file: string) => {
 	const client = createClient({ url: `file:${join(dir, file)}` });
 	const { rows } = await client.execute("SELECT id, body FROM notes ORDER BY id");
 	client.close();
+
 	return rows.map(({ id, body }) => ({ id: Number(id), body }));
 };
+
 await writeFile(join(dir, "empty.env"), "");
 
 const env = { ...process.env };
+
 delete env.DATABASE_URL;
+
 const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-e", "empty.env"], {
 	cwd: dir,
 	env: {
@@ -90,11 +99,14 @@ const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-e", "empty
 	},
 	stdio: "ignore",
 });
+
 for (;;) {
 	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
+
 	const ready = await fetch(`${BASE}/api/connections`)
 		.then((response) => response.ok)
 		.catch(() => false);
+
 	if (ready) break;
 	await new Promise((resolve) => setTimeout(resolve, 50));
 }
@@ -112,17 +124,22 @@ const statusWithHost = (host: string) =>
 const realDir = await realpath(dir);
 const normalize = (text: string) => text.replaceAll(realDir, "<tmp>").replaceAll(dir, "<tmp>");
 const summary: Record<string, unknown> = {};
+
 await mkdir(outDir, { recursive: true });
+
 /** Screenshots show file paths; `<tmp>` replaces the scratch directory while the shot is taken. */
 const shot = async (page: Page, name: string) => {
 	await page.evaluate(
 		(paths) => {
 			const swap = (text: string) =>
 				paths.reduce((t, path) => t.replaceAll(path, "<tmp>"), text);
+
 			const undo: (() => void)[] = [];
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+
 			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
 				const text = node.nodeValue ?? "";
+
 				if (swap(text) === text) continue;
 				const textNode = node;
 				textNode.nodeValue = swap(text);
@@ -130,14 +147,17 @@ const shot = async (page: Page, name: string) => {
 					textNode.nodeValue = text;
 				});
 			}
+
 			for (const input of document.querySelectorAll("input")) {
 				const value = input.value;
+
 				if (swap(value) === value) continue;
 				input.value = swap(value);
 				undo.push(() => {
 					input.value = value;
 				});
 			}
+
 			Object.assign(window, {
 				undoShot: () => {
 					for (const restore of undo) restore();
@@ -147,7 +167,7 @@ const shot = async (page: Page, name: string) => {
 		[realDir, dir],
 	);
 	await page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
-	await page.evaluate(() => (window as unknown as { undoShot: () => void }).undoShot());
+	await page.evaluate(() => (window as typeof window & { undoShot: () => void }).undoShot());
 };
 
 /** Status of a database request from a tab that works with connection `id`. */
@@ -159,16 +179,22 @@ const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 // One context: its pages are tabs of one browser window, sharing localStorage.
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+
 // tsx wraps named functions in `__name(...)`, which the page does not define.
 await context.addInitScript("globalThis.__name = (fn) => fn;");
+
 const page = await context.newPage();
 const urlField = page.getByRole("textbox", { name: "Connection URL" });
+
 const footerConnection = (name: string) =>
 	page.getByRole("button", { name, exact: true }).last();
+
 const saveButton = (tab = page) =>
 	tab.getByRole("button", { name: "Save changes to the table" });
+
 /** Changes `notes` row 1 to `body` through the grid and saves it. */
 const editNote = async (tab: Page, body: string) => {
 	await tab.getByRole("link", { name: "notes" }).click();
@@ -245,8 +271,10 @@ try {
 	await page.bringToFront();
 	await page.reload();
 	await page.getByRole("link", { name: "posts" }).waitFor();
+
 	const tables = (tab: Page) =>
 		tab.getByRole("link", { name: /^(posts|customers)$/ }).allTextContents();
+
 	const tabTables = { firstTab: await tables(page), secondTab: await tables(secondTab) };
 	// Each tab saves its own edit to the same table and row id.
 	await editNote(page, "edited in the blog tab");
@@ -289,12 +317,15 @@ try {
 
 	// What was saved, and what the browser was told.
 	const file = join(configDir, "connections.json");
+
 	const saved = JSON.parse(await readFile(file, "utf8")) as {
 		connections: { name: string; url: string }[];
 	};
+
 	const state = (await (await fetch(`${BASE}/api/connections`)).json()) as {
 		data: { connections: { name: string; maskedUrl: string }[] };
 	};
+
 	summary.saved = {
 		fileMode: ((await stat(file)).mode & 0o777).toString(8),
 		dirMode: ((await stat(configDir)).mode & 0o777).toString(8),
@@ -322,9 +353,11 @@ try {
 	await page.keyboard.type("Shop");
 	await page.keyboard.press("Enter");
 	await page.getByText("Shop", { exact: true }).waitFor();
+
 	const renamed = (await (await fetch(`${BASE}/api/connections`)).json()) as {
 		data: { connections: { name: string }[] };
 	};
+
 	summary.rename = {
 		focused,
 		names: renamed.data.connections.map(({ name }) => name).sort(),

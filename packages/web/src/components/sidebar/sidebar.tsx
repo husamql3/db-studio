@@ -14,6 +14,7 @@ export const Sidebar = () => {
 
 	const renderContent = useMemo(() => {
 		if (isKeyValue && path !== "runner") return <RedisKeySidebar />;
+
 		switch (path) {
 			case "":
 			case "table":

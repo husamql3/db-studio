@@ -12,6 +12,7 @@ export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
 	}, [isLive, tableName, setLive]);
 
 	let tooltipText = "Live mode: Automatic updates (Off)";
+
 	if (status === "paused") {
 		tooltipText = "Live mode paused while editing. Click to resume.";
 	} else if (isLive && status === "healthy") {

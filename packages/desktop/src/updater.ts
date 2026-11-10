@@ -27,6 +27,7 @@ export const setupAutoUpdater = (log: Logger): void => {
 			message: `db-studio ${info.version} is ready to install`,
 			detail: "Restart to apply the update. It will otherwise install when you quit.",
 		});
+
 		if (response === 0) autoUpdater.quitAndInstall();
 	});
 

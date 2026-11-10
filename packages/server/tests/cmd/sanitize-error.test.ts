@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 
 // Failure modes for the scheme alternation built from the engine registry:
@@ -13,7 +12,9 @@ import { sanitizeErrorMessage } from "@/cmd/sanitize-error.js";
 describe("sanitizeErrorMessage", () => {
 	it("redacts a bare connection URL", () => {
 		expect(
-			sanitizeErrorMessage("connect ECONNREFUSED postgresql://admin:secret@localhost:5432/app"),
+			sanitizeErrorMessage(
+				"connect ECONNREFUSED postgresql://admin:secret@localhost:5432/app",
+			),
 		).toBe("connect ECONNREFUSED the configured database");
 	});
 
@@ -46,9 +47,9 @@ describe("sanitizeErrorMessage", () => {
 	});
 
 	it("redacts credentials containing parens or commas", () => {
-		expect(sanitizeErrorMessage("auth failed for postgresql://u:p)x,y@localhost:5432/db")).toBe(
-			"auth failed for the configured database",
-		);
+		expect(
+			sanitizeErrorMessage("auth failed for postgresql://u:p)x,y@localhost:5432/db"),
+		).toBe("auth failed for the configured database");
 	});
 
 	it.each([
@@ -69,7 +70,9 @@ describe("sanitizeErrorMessage", () => {
 			sanitizeErrorMessage(
 				"fetch https://my-db-org.turso.io/v2/pipeline?tls=1&authToken=eyJhbGci.secret&x=1 failed",
 			),
-		).toBe("fetch https://my-db-org.turso.io/v2/pipeline?tls=1&authToken=[redacted]&x=1 failed");
+		).toBe(
+			"fetch https://my-db-org.turso.io/v2/pipeline?tls=1&authToken=[redacted]&x=1 failed",
+		);
 	});
 
 	it("keeps non-database URLs", () => {

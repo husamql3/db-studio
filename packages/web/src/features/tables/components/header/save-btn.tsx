@@ -17,7 +17,9 @@ export const SaveBtn = ({
 	const handleSave = useCallback(async () => {
 		if (disabledReason) return;
 		const updates = getUpdates(editScope.id);
+
 		if (updates.length === 0) return;
+
 		try {
 			await updateCell(updates);
 			// Reset row selection after successful save
@@ -28,6 +30,7 @@ export const SaveBtn = ({
 	}, [disabledReason, getUpdates, editScope.id, updateCell, setRowSelection]);
 
 	const updateCount = getUpdateCount(editScope.id);
+
 	if (updateCount === 0) {
 		return null;
 	}

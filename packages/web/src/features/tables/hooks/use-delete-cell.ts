@@ -55,6 +55,7 @@ export const useDeleteCells = ({
 				force,
 				selectedDatabase || undefined,
 			);
+
 			return result;
 		},
 		onSuccess: async (result: DeleteRecordResult | { deletedCount: number }) => {
@@ -67,7 +68,9 @@ export const useDeleteCells = ({
 					queryKey: tableKeys.lists(),
 				}),
 			]);
+
 			if (dbType) posthogAnalytics.capture("record_deleted", { db_type: dbType });
+
 			return result;
 		},
 	});
@@ -81,6 +84,7 @@ export const useDeleteCells = ({
 			success: (result) => `Deleted ${result.deletedCount} records from "${tableName}"`,
 			error: (error: Error) => error.message || "Failed to delete records",
 		});
+
 		return promise;
 	};
 
@@ -93,6 +97,7 @@ export const useDeleteCells = ({
 			success: (result) => `Deleted ${result.deletedCount} records from "${tableName}"`,
 			error: (error: Error) => error.message || "Failed to delete records",
 		});
+
 		return promise;
 	};
 
@@ -115,6 +120,7 @@ const deleteCellsService = async (
 ): Promise<DeleteRecordResult | { deletedCount: number }> => {
 	// Find primary key column
 	const primaryKeyCol = tableCols.find((col) => col.isPrimaryKey);
+
 	if (!primaryKeyCol) {
 		throw new Error("No primary key found for this table");
 	}
@@ -137,6 +143,7 @@ const deleteCellsService = async (
 			force,
 			db: database,
 		});
+
 		return {
 			deletedCount: res.data.data.deletedCount,
 			fkViolation: res.data.data.fkViolation,
@@ -145,11 +152,13 @@ const deleteCellsService = async (
 	} catch (error) {
 		// For FK violations (409), we return the result with relatedRecords instead of throwing
 		const axiosError = error as AxiosError<{ deletedCount: number }>;
+
 		if (axiosError.response?.status === 409) {
 			return {
 				deletedCount: axiosError.response.data.deletedCount,
 			};
 		}
+
 		throw error;
 	}
 };

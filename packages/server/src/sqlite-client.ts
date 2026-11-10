@@ -37,12 +37,15 @@ export interface SqliteClient {
 
 export const formatFileSize = (bytes: number): string => {
 	if (bytes < 1024) return `${bytes} B`;
+
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 const getFileSize = (filePath: string): string => {
 	if (!filePath) return "in-memory";
+
 	try {
 		return formatFileSize(statSync(filePath).size);
 	} catch {
@@ -65,7 +68,9 @@ export const fromLibsql = (client: Client): SqliteClient => ({
 			client.execute("PRAGMA database_list"),
 			client.execute("SELECT sqlite_version()"),
 		]);
+
 		const file = databases.rows.find((row) => row.name === "main")?.file;
+
 		return {
 			name: "main",
 			// A remote server reports its own filesystem path; there is nothing local to stat.

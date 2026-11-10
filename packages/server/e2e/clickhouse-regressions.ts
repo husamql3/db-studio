@@ -4,15 +4,20 @@ import { fileURLToPath } from "node:url";
 import { DEFAULTS } from "@db-studio/shared/constants";
 
 process.env.TZ = "UTC";
+
 process.env.DB_STUDIO_TELEMETRY = "0";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
+
 type ApiResponse = { status: number; body: unknown };
+
 type ProbeResult = ApiResponse & { name: string; ok: boolean; error?: string };
 
 const PRECISION_TABLE = "dbstudio_clickhouse_precision_probe";
 const MUTATION_TABLE = "dbstudio_clickhouse_mutation_probe";
+
 const ROW_MUTATION_ERROR =
 	"Use a SQL query to update or delete ClickHouse rows; sorting keys are not unique.";
 
@@ -42,6 +47,7 @@ const request = async (
 ): Promise<ApiResponse> => {
 	const url = new URL(`${DEFAULTS.API_PREFIX}/clickhouse${route}`, "http://db-studio.local");
 	url.searchParams.set("db", db);
+
 	const response = await app.handle(
 		new Request(
 			new URL(`${url.pathname}?${url.searchParams.toString()}`, "http://localhost"),
@@ -52,11 +58,14 @@ const request = async (
 			},
 		),
 	);
+
 	const text = await response.text();
 	let parsed: unknown = text;
+
 	try {
 		parsed = JSON.parse(text);
 	} catch {}
+
 	return { status: response.status, body: parsed };
 };
 
@@ -66,6 +75,7 @@ const asRecord = (value: unknown, label: string): Record<string, unknown> => {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new Error(`${label} is not an object`);
 	}
+
 	return value as Record<string, unknown>;
 };
 
@@ -92,23 +102,27 @@ const assertStatus = (response: ApiResponse, expected: number) => {
 const errorOf = (response: ApiResponse): string => {
 	const body = asRecord(response.body, "error response");
 	assert(typeof body.error === "string", "error response has no error message");
+
 	return body.error;
 };
 
 const dataOf = (response: ApiResponse): Record<string, unknown> => {
 	const body = asRecord(response.body, "response");
+
 	return asRecord(body.data, "response data");
 };
 
 const queryRowsOf = (response: ApiResponse): Array<Record<string, unknown>> => {
 	const rows = dataOf(response).rows;
 	assert(Array.isArray(rows), "query response has no rows");
+
 	return rows.map((row) => asRecord(row, "query row"));
 };
 
 const tableRowsOf = (response: ApiResponse): Array<Record<string, unknown>> => {
 	const rows = dataOf(response).data;
 	assert(Array.isArray(rows), "table response has no rows");
+
 	return rows.map((row) => asRecord(row, "table row"));
 };
 
@@ -129,21 +143,29 @@ const probe = async (
 ) => {
 	let observed: ApiResponse = { status: 0, body: null };
 	let error: string | undefined;
+
 	try {
 		observed = await action();
 		verify(observed);
 	} catch (cause) {
 		error = cause instanceof Error ? cause.message : String(cause);
 	}
+
 	const ok = error === undefined;
-	results.push({ name, ...observed, ok, ...(error ? { error } : {}) });
+	const result: ProbeResult = { name, ...observed, ok };
+
+	if (error) result.error = error;
+	results.push(result);
 	console.log(`${ok ? "PASS" : "FAIL"}  ${name}${error ? `  -- ${error}` : ""}`);
 };
 
 const normalize = (value: unknown, secrets: string[], key?: string): Json => {
 	if (value === null || value === undefined) return null;
+
 	if (key === "duration") return "<duration>";
+
 	if (Array.isArray(value)) return value.map((item) => normalize(item, secrets));
+
 	if (typeof value === "object") {
 		return Object.fromEntries(
 			Object.entries(value)
@@ -151,10 +173,13 @@ const normalize = (value: unknown, secrets: string[], key?: string): Json => {
 				.map(([entryKey, item]) => [entryKey, normalize(item, secrets, entryKey)]),
 		);
 	}
+
 	if (typeof value === "string") {
 		return secrets.reduce((text, secret) => text.replaceAll(secret, "<redacted>"), value);
 	}
+
 	if (typeof value === "number" || typeof value === "boolean") return value;
+
 	return String(value);
 };
 
@@ -174,6 +199,7 @@ await requireOk(
 		decimal_value Decimal(38, 9)
 	) ENGINE = MergeTree ORDER BY id`),
 );
+
 await requireOk(
 	"seed precision table",
 	query(`INSERT INTO ${PRECISION_TABLE} VALUES
@@ -182,6 +208,7 @@ await requireOk(
 );
 
 const expectedPrecisionRows = ["9007199254740992", "9007199254740993"];
+
 const verifyPrecision = (rows: Array<Record<string, unknown>>) => {
 	assertEqual(
 		rows.map((row) => row.id),
@@ -222,6 +249,7 @@ await requireOk(
 		`CREATE TABLE ${MUTATION_TABLE} (key UInt64, value String) ENGINE = MergeTree ORDER BY key`,
 	),
 );
+
 await requireOk(
 	"seed duplicate keys",
 	query(`INSERT INTO ${MUTATION_TABLE} VALUES (1, 'duplicate-a'), (1, 'duplicate-b')`),
@@ -350,18 +378,23 @@ for (const table of [PRECISION_TABLE, MUTATION_TABLE]) {
 
 const secrets = [databaseUrl, databaseUrl.replace(/^[a-z0-9+]+:\/\//i, "")];
 const artifactDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
+
 const artifactPath = path.join(
 	artifactDir,
 	`clickhouse-regressions-${label.replace(/[^a-z0-9_-]/gi, "-")}.json`,
 );
+
 await mkdir(artifactDir, { recursive: true });
+
 await writeFile(
 	artifactPath,
 	`${JSON.stringify(normalize({ engine: "clickhouse", steps: results }, secrets), null, 2)}\n`,
 );
 
 const failures = results.filter((result) => !result.ok).length;
+
 console.log(
 	`${failures ? "FAIL" : "PASS"}  ${results.length - failures}/${results.length} probes -> ${path.relative(process.cwd(), artifactPath)}`,
 );
+
 process.exit(failures ? 1 : 0);

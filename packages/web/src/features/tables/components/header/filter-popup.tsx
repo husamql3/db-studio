@@ -24,6 +24,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
+
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.DIRECTION);
 	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
@@ -89,6 +90,7 @@ export const FilterPopup = ({ tableName }: { tableName: string }) => {
 		if (open) {
 			setLocalFilters(filters);
 		}
+
 		setIsOpen(open);
 	};
 

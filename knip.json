@@ -8,7 +8,7 @@
 	},
 	"workspaces": {
 		".": {
-			"ignoreDependencies": ["@biomejs/biome"]
+			"ignore": ["tools/oxlint/anti-slop/**"]
 		},
 		"packages/web": {
 			"project": ["src/**/*.{ts,tsx}"],

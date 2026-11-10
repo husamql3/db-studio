@@ -50,11 +50,13 @@ const getDefaultValues = (column: ColumnInfoSchemaType | null): EditColumnFormVa
 export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { editingColumn, setEditingColumn } = useSchemaEditStore();
+
 	const methods = useForm<EditColumnFormValues>({
 		mode: "onSubmit",
 		defaultValues: getDefaultValues(null),
 		resolver: zodResolver(editColumnFormSchema),
 	});
+
 	const { alterColumn, isAlteringColumn } = useAlterColumn({
 		tableName,
 		schemaName: useTableSchemaName(),

@@ -10,6 +10,7 @@ export const SidebarListQueries = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
+
 	const { folders, queries, getFavoriteQueries, getQueriesByFolder, toggleFolder } =
 		useQueriesStore();
 

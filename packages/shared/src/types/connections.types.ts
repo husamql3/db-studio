@@ -11,7 +11,9 @@ export const CONNECTION_COLORS = [
 	"violet",
 	"pink",
 ] as const;
+
 export const connectionColorSchema = z.enum(CONNECTION_COLORS);
+
 export type ConnectionColorSchemaType = z.infer<typeof connectionColorSchema>;
 
 /** A saved connection as the browser sees it: never the URL itself, which holds the password. */
@@ -26,6 +28,7 @@ export const connectionSummarySchema = z.object({
 	/** The URL with its password and auth token replaced by `••••`. */
 	maskedUrl: z.string(),
 });
+
 export type ConnectionSummarySchemaType = z.infer<typeof connectionSummarySchema>;
 
 export const connectionsStateSchema = z.object({
@@ -44,11 +47,13 @@ export const connectionsStateSchema = z.object({
 		})
 		.nullable(),
 });
+
 export type ConnectionsStateSchemaType = z.infer<typeof connectionsStateSchema>;
 
 export const connectUrlSchema = z.object({
 	url: z.string().trim().min(1, "Paste a connection URL"),
 });
+
 export type ConnectUrlSchemaType = z.infer<typeof connectUrlSchema>;
 
 export const updateConnectionSchema = z.object({
@@ -56,4 +61,5 @@ export const updateConnectionSchema = z.object({
 	color: connectionColorSchema.nullable().optional(),
 	readOnly: z.boolean().optional(),
 });
+
 export type UpdateConnectionSchemaType = z.infer<typeof updateConnectionSchema>;

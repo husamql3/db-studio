@@ -23,6 +23,7 @@ const savedConnectionSchema = z.object({
 	readOnly: z.boolean().default(false),
 	lastUsedAt: z.number(),
 });
+
 export type SavedConnection = z.infer<typeof savedConnectionSchema>;
 
 const fileSchema = z.object({
@@ -60,19 +61,25 @@ export const maskConnectionUrl = (url: string): string =>
 export const normalizeConnectionUrl = (url: string, cwd = process.cwd()): string => {
 	const trimmed = url.trim();
 	const file = trimmed.match(FILE_URL);
+
 	if (!file) return trimmed;
 	const [, scheme, path = ""] = file;
+
 	if (path === ":memory:" || path.startsWith("/")) return trimmed;
+
 	return `${scheme}://${resolve(cwd, path)}`;
 };
 
 /** `host/database` for a server, the file name for a file. */
 export const defaultConnectionName = (url: string): string => {
 	const file = url.match(FILE_URL);
+
 	if (file) return basename(file[2] ?? "") || url;
+
 	try {
 		const parsed = new URL(url);
 		const database = decodeURIComponent(parsed.pathname.replace(/^\/+|\/+$/g, ""));
+
 		return database ? `${parsed.hostname}/${database}` : parsed.hostname;
 	} catch {
 		return maskConnectionUrl(url);
@@ -84,14 +91,18 @@ const identity = (url: string) => maskConnectionUrl(url);
 
 const readAll = async (): Promise<SavedConnection[]> => {
 	let raw: string;
+
 	try {
 		raw = await readFile(connectionsFile(), "utf8");
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
 		throw error;
 	}
+
 	const parsed = fileSchema.safeParse(JSON.parse(raw));
+
 	if (!parsed.success) throw new Error(`${connectionsFile()} is not a valid connections file`);
+
 	return parsed.data.connections;
 };
 
@@ -114,9 +125,12 @@ const mutate = <T>(change: (connections: SavedConnection[]) => [SavedConnection[
 	const run = queue.then(async () => {
 		const [next, result] = change(await readAll());
 		await writeAll(next);
+
 		return result;
 	});
+
 	queue = run.catch(() => {});
+
 	return run;
 };
 
@@ -127,7 +141,9 @@ export const listSavedConnections = (): Promise<SavedConnection[]> =>
 
 export const findSavedConnection = async (id: string): Promise<SavedConnection> => {
 	const found = (await listSavedConnections()).find((c) => c.id === id);
+
 	if (!found) throw notFound();
+
 	return found;
 };
 
@@ -135,6 +151,7 @@ export const findSavedConnection = async (id: string): Promise<SavedConnection> 
 export const recordConnection = (url: string): Promise<SavedConnection> =>
 	mutate((connections) => {
 		const existing = connections.find((c) => identity(c.url) === identity(url));
+
 		const saved: SavedConnection = existing
 			? { ...existing, url, lastUsedAt: Date.now() }
 			: {
@@ -145,6 +162,7 @@ export const recordConnection = (url: string): Promise<SavedConnection> =>
 					readOnly: false,
 					lastUsedAt: Date.now(),
 				};
+
 		return [
 			existing
 				? connections.map((c) => (c.id === saved.id ? saved : c))
@@ -159,18 +177,22 @@ export const updateSavedConnection = (
 ): Promise<SavedConnection> =>
 	mutate((connections) => {
 		const existing = connections.find((c) => c.id === id);
+
 		if (!existing) throw notFound();
+
 		const updated: SavedConnection = {
 			...existing,
 			name: name ?? existing.name,
 			color: color === undefined ? existing.color : color,
 			readOnly: readOnly ?? existing.readOnly,
 		};
+
 		return [connections.map((c) => (c.id === id ? updated : c)), updated];
 	});
 
 export const deleteSavedConnection = (id: string): Promise<void> =>
 	mutate((connections) => {
 		if (!connections.some((c) => c.id === id)) throw notFound();
+
 		return [connections.filter((c) => c.id !== id), undefined];
 	});

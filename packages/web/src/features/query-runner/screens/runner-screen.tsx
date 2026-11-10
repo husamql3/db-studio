@@ -43,7 +43,9 @@ export const RunnerScreen = ({
 	const getInitialQuery = useCallback(() => {
 		if (initialQuery) return initialQuery;
 		const placeholder = PLACEHOLDER_QUERIES[editorLanguage];
+
 		if (!query) return placeholder;
+
 		return query?.query ?? placeholder;
 	}, [query, editorLanguage, initialQuery]);
 
@@ -51,18 +53,24 @@ export const RunnerScreen = ({
 		async (query: string) => {
 			if (!query.trim()) {
 				toast.error("Query is empty!");
+
 				return;
 			}
+
 			const command = query.trim().match(/^\S+/)?.[0]?.toUpperCase();
+
 			if (isKeyValue && (command === "FLUSHDB" || command === "FLUSHALL")) {
 				const confirmation = window.prompt(
 					`This permanently deletes Redis data. Type ${command} to continue.`,
 				);
+
 				if (confirmation !== command) return;
 			}
+
 			setLastExecutedQuery(query);
 
 			const result = await executeQuery({ query });
+
 			if (result) {
 				setQueryResult({ data: result, queryId: queryId ?? "" });
 			}
@@ -73,6 +81,7 @@ export const RunnerScreen = ({
 	const handleButtonClick = useCallback(() => {
 		if (!currentQuery.trim()) {
 			toast.error("Query is empty!");
+
 			return;
 		}
 
@@ -102,6 +111,7 @@ export const RunnerScreen = ({
 		} else {
 			updateQuery(queryId, { query: currentQuery });
 		}
+
 		setHasUnsavedChanges(false);
 		toast.success("Query saved");
 	}, [currentQuery, queryId, updateQuery, addQuery, navigate]);

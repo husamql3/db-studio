@@ -111,11 +111,14 @@ export function TableCellWrapper<TData>({
 			if (!isFocused || isEditing) return;
 
 			const direction = NAVIGATION_KEYS[event.key];
+
 			if (direction) {
 				const resolved = event.key === "Tab" && event.shiftKey ? "left" : direction;
 				const moved = meta?.onCellNavigate?.(rowIndex, columnId, resolved) ?? false;
+
 				// Tab at the grid's edge falls through so focus can leave the grid.
 				if (moved || event.key !== "Tab") event.preventDefault();
+
 				return;
 			}
 
@@ -123,6 +126,7 @@ export function TableCellWrapper<TData>({
 				event.preventDefault();
 				event.stopPropagation();
 				meta?.onCellEditingStart?.(rowIndex, columnId);
+
 				return;
 			}
 
@@ -130,6 +134,7 @@ export function TableCellWrapper<TData>({
 				event.preventDefault();
 				event.stopPropagation();
 				meta?.onRowDetailsOpen?.(rowIndex);
+
 				return;
 			}
 
@@ -141,6 +146,7 @@ export function TableCellWrapper<TData>({
 		},
 		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
 	);
+
 	const { highlightedCellKeys } = useLiveModeStore();
 	const isCellHighlighted = highlightedCellKeys.has(`${cell.row.id}:${columnId}`);
 

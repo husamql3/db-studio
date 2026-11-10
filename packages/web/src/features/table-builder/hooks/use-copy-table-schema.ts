@@ -17,6 +17,7 @@ export const useCopyTableSchema = () => {
 			const res = await getTableSchema(tableName, selectedDatabase, schemaName);
 			const schema = res.data.data.schema;
 			await navigator.clipboard.writeText(schema);
+
 			return schema;
 		},
 	});

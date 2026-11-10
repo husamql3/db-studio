@@ -53,6 +53,7 @@ export const FkDrawerContent = ({
 					},
 				},
 			);
+
 			return res.data.data;
 		},
 		enabled: !!referencedTable && !!selectedDatabase && fkValue !== "",

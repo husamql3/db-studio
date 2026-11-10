@@ -41,6 +41,7 @@ const CopyValueButton = ({ value }: { value: string }) => {
 	useEffect(() => {
 		if (!copied) return;
 		const timeout = window.setTimeout(() => setCopied(false), 1200);
+
 		return () => window.clearTimeout(timeout);
 	}, [copied]);
 
@@ -142,6 +143,7 @@ export const RowDetailsSheet = ({
 		setPendingAction(action);
 		openOverlay("tables.row-discard-changes");
 	};
+
 	const closeDiscardConfirm = () => {
 		setPendingAction(null);
 		closeOverlay("tables.row-discard-changes");
@@ -153,6 +155,7 @@ export const RowDetailsSheet = ({
 
 	const { methods, isDirty, pkDirty, primaryKeyColumn, identityColumnNames } =
 		useRowDetailsForm({ tableName, tableCols, row, rowIndex });
+
 	const { formState, reset, handleSubmit } = methods;
 
 	// The selected index can fall off the page after the data changes.
@@ -177,6 +180,7 @@ export const RowDetailsSheet = ({
 
 	const requestClose = () => {
 		if (isBusy) return;
+
 		if (isDirty) {
 			openDiscardConfirm("close");
 		} else {
@@ -186,6 +190,7 @@ export const RowDetailsSheet = ({
 
 	const requestNavigate = (index: number) => {
 		if (isBusy || index === rowIndex || index < 0 || index >= rows.length) return;
+
 		if (isDirty) {
 			openDiscardConfirm(index);
 		} else {
@@ -195,6 +200,7 @@ export const RowDetailsSheet = ({
 
 	const requestDelete = () => {
 		if (isBusy || !canMutateRows) return;
+
 		if (isDirty) {
 			openDiscardConfirm("delete");
 		} else {
@@ -205,6 +211,7 @@ export const RowDetailsSheet = ({
 	const confirmDiscard = () => {
 		const action = pendingAction;
 		closeDiscardConfirm();
+
 		if (action === "close") {
 			closeSheet();
 		} else if (action === "delete") {
@@ -217,7 +224,9 @@ export const RowDetailsSheet = ({
 	const doSave = async (data: Record<string, string>) => {
 		if (!row || !canMutateRows) return;
 		const updates = buildRowUpdates(formState.dirtyFields, data);
+
 		if (updates.length === 0) return;
+
 		try {
 			await updateRecord({
 				rowData: row,
@@ -234,19 +243,24 @@ export const RowDetailsSheet = ({
 
 	const onSubmit = (data: Record<string, string>) => {
 		if (!canMutateRows) return;
+
 		if (pkDirty) {
 			setPendingSave(data);
 			openOverlay("tables.row-change-primary-key");
+
 			return;
 		}
+
 		void doSave(data);
 	};
 
 	const confirmDelete = async () => {
 		if (!row || !canMutateRows) return;
 		closeOverlay("tables.row-delete-record");
+
 		try {
 			const result = await deleteCells([row]);
+
 			if (result.deletedCount > 0) {
 				closeSheet();
 			}
@@ -454,6 +468,7 @@ export const RowDetailsSheet = ({
 						<AlertDialogAction
 							onClick={() => {
 								closeOverlay("tables.row-change-primary-key");
+
 								if (pendingSave) {
 									void doSave(pendingSave);
 									setPendingSave(null);

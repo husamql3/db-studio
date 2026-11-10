@@ -71,14 +71,18 @@ const MUTATION_SETTINGS = { mutations_sync: "2" } as const;
 const isNullableType = (type: string) => /^(LowCardinality\()?Nullable\(/.test(type);
 
 /** Shapes a client value for a JSONEachRow insert into a column of `type`. */
-const toClickhouseValue = (value: unknown, type: string): unknown => {
+const toClickhouseValue = <T>(value: T, type: string): T | string | boolean | null => {
 	if (value === undefined || value === null) return null;
 	const base = unwrapClickhouseType(type);
+
 	if (value === "" && base !== "String" && !base.startsWith("FixedString")) return null;
+
 	if (value instanceof Date) return value.toISOString();
+
 	if (base === "Bool" && typeof value === "string") {
 		return ["true", "t", "1", "yes", "on"].includes(value.trim().toLowerCase());
 	}
+
 	if (
 		typeof value === "string" &&
 		(base.startsWith("JSON") || base.startsWith("Array(") || base.startsWith("Map("))
@@ -89,7 +93,9 @@ const toClickhouseValue = (value: unknown, type: string): unknown => {
 			throw new HTTPException(400, { message: `Invalid ${base} value: ${value}` });
 		}
 	}
+
 	if (typeof value === "object" && base === "String") return JSON.stringify(value);
+
 	return value;
 };
 
@@ -131,6 +137,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 	protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
 		const params = Object.fromEntries(values.map((value, i) => [`p${i}`, value]));
+
 		return (await this.select(db, sql, params)) as T;
 	}
 
@@ -152,6 +159,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 			array: "Array(String)",
 			enum: "String",
 		};
+
 		return map[universalType] ?? "String";
 	}
 
@@ -170,6 +178,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 	): { nextCursor: string | null; prevCursor: string | null } {
 		const { cursor, limit = 50 } = params;
 		const offset = cursor ? this.decodeOffsetCursor(cursor) : 0;
+
 		return {
 			nextCursor: hasMore ? this.makeCursor(offset + limit) : null,
 			prevCursor: offset > 0 ? this.makeCursor(Math.max(0, offset - limit)) : null,
@@ -185,9 +194,11 @@ export class ClickhouseAdapter extends BaseAdapter {
 			const { db, tableName, limit = 50, cursor } = params;
 			const table = await this.getTable(db, tableName);
 			const tieBreakers = table.sorting_key ? [`(${table.sorting_key})`] : [];
+
 			if (table.engine.endsWith("MergeTree")) tieBreakers.push("_part", "_part_offset");
 
 			const bundle = this.buildPageQuery(params, tieBreakers);
+
 			const [countRows, rawRows] = await Promise.all([
 				this.runQuery<{ total: string | number }[]>(db, bundle.countSql, bundle.countValues),
 				this.runQuery<Record<string, unknown>[]>(db, bundle.sql, bundle.values),
@@ -228,6 +239,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				WHERE d.name NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema')
 				ORDER BY d.name`,
 			);
+
 			return rows.map((row) => ({ ...row, owner: "", encoding: "UTF-8" }));
 		} catch (e) {
 			throw this.wrapError(e);
@@ -240,6 +252,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				undefined,
 				"SELECT currentDatabase() AS db",
 			);
+
 			return { db: row?.db ?? "default" };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -263,10 +276,13 @@ export class ClickhouseAdapter extends BaseAdapter {
 					(SELECT sum(value) FROM system.metrics WHERE metric IN ('TCPConnection', 'HTTPConnection', 'MySQLConnection', 'PostgreSQLConnection')) AS active_connections,
 					(SELECT value FROM system.server_settings WHERE name = 'max_connections') AS max_connections`,
 			);
+
 			if (!info) {
 				throw new HTTPException(500, { message: "No connection information returned" });
 			}
+
 			const { host, port } = parseDatabaseUrl(getConnectionUrl());
+
 			return {
 				host,
 				port,
@@ -294,6 +310,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				WHERE database = currentDatabase() AND NOT is_temporary AND NOT startsWith(name, '.inner')
 				ORDER BY name`,
 			);
+
 			return rows.map((row) => ({
 				tableName: row.tableName,
 				rowCount: Number(row.rowCount ?? 0),
@@ -311,10 +328,13 @@ export class ClickhouseAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
 		const { tableName, fields, foreignKeys } = tableData;
+
 		if (foreignKeys?.length) {
 			throw new HTTPException(400, { message: "ClickHouse does not support foreign keys" });
 		}
+
 		const unique = fields.find((f) => f.isUnique && !f.isPrimaryKey);
+
 		if (unique) {
 			throw new HTTPException(400, {
 				message: `ClickHouse does not enforce UNIQUE constraints; clear "Unique" on "${unique.columnName}"`,
@@ -323,6 +343,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 		try {
 			const supportsJson = await this.isAtLeast(db, 25, 3);
+
 			if (fields.some((f) => f.isIdentity || /serial/i.test(f.columnType))) {
 				if (!(await this.isAtLeast(db, 24, 6))) {
 					throw new HTTPException(400, {
@@ -330,6 +351,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 					});
 				}
 			}
+
 			const columns = fields.map((f) => buildClickhouseColumnDefinition(f, supportsJson));
 			const keys = fields.filter((f) => f.isPrimaryKey).map((f) => q(f.columnName));
 			await this.command(
@@ -344,11 +366,14 @@ export class ClickhouseAdapter extends BaseAdapter {
 	async deleteTable({ tableName, db }: DeleteTableParams): Promise<DeleteTableResult> {
 		try {
 			await this.getTable(db, tableName);
+
 			const [row] = await this.select<{ total: string | number }>(
 				db,
 				`SELECT count() AS total FROM ${q(tableName)}`,
 			);
+
 			await this.command(db, `DROP TABLE ${q(tableName)}`);
+
 			return { deletedCount: Number(row?.total ?? 0), fkViolation: false, relatedRecords: [] };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -361,11 +386,14 @@ export class ClickhouseAdapter extends BaseAdapter {
 		db,
 	}: RenameTableParamsSchemaType): Promise<void> {
 		this.assertDifferentTableName(tableName, newTableName);
+
 		try {
 			await this.getTable(db, tableName);
+
 			if (await this.findTable(db, newTableName)) {
 				throw new HTTPException(409, { message: `Table "${newTableName}" already exists` });
 			}
+
 			await this.command(db, `RENAME TABLE ${q(tableName)} TO ${q(newTableName)}`);
 		} catch (e) {
 			throw this.wrapError(e);
@@ -381,10 +409,12 @@ export class ClickhouseAdapter extends BaseAdapter {
 	}): Promise<string> {
 		try {
 			await this.getTable(db, tableName);
+
 			const [row] = await this.select<{ statement: string }>(
 				db,
 				`SHOW CREATE TABLE ${q(tableName)}`,
 			);
+
 			return row?.statement ?? "";
 		} catch (e) {
 			throw this.wrapError(e);
@@ -405,6 +435,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 		try {
 			await this.getTable(db, tableName);
 			const columns = await this.getColumns(db, tableName);
+
 			return columns.map((col) => ({
 				columnName: col.name,
 				dataType: mapClickhouseToDataType(col.type),
@@ -426,23 +457,28 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 	async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, db } = params;
+
 		if (params.isUnique) {
 			throw new HTTPException(400, {
 				message: "ClickHouse does not enforce UNIQUE constraints",
 			});
 		}
+
 		try {
 			await this.getTable(db, tableName);
 			const columns = await this.getColumns(db, tableName);
+
 			if (columns.some((c) => c.name === columnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${columnName}" already exists in table "${tableName}"`,
 				});
 			}
+
 			const def = buildClickhouseColumnDefinition(
 				{ ...params, isPrimaryKey: false },
 				await this.isAtLeast(db, 25, 3),
 			);
+
 			await this.command(db, `ALTER TABLE ${q(tableName)} ADD COLUMN ${def}`);
 		} catch (e) {
 			throw this.wrapError(e);
@@ -456,12 +492,15 @@ export class ClickhouseAdapter extends BaseAdapter {
 	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
 		try {
 			const column = await this.getColumn(db, tableName, columnName);
+
 			if (column.is_in_sorting_key) {
 				throw new HTTPException(400, {
 					message: `"${columnName}" is part of the sorting key and cannot be dropped`,
 				});
 			}
+
 			await this.command(db, `ALTER TABLE ${q(tableName)} DROP COLUMN ${q(columnName)}`);
+
 			return { deletedCount: 1 };
 		} catch (e) {
 			throw this.wrapError(e);
@@ -470,12 +509,15 @@ export class ClickhouseAdapter extends BaseAdapter {
 
 	async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
 		const { tableName, columnName, db } = params;
+
 		try {
 			const column = await this.getColumn(db, tableName, columnName);
+
 			const def = buildClickhouseColumnDefinition(
 				{ ...params, columnName, isPrimaryKey: column.is_in_sorting_key === 1 },
 				await this.isAtLeast(db, 25, 3),
 			);
+
 			await this.command(db, `ALTER TABLE ${q(tableName)} MODIFY COLUMN ${def}`);
 		} catch (e) {
 			throw this.wrapError(e);
@@ -491,11 +533,13 @@ export class ClickhouseAdapter extends BaseAdapter {
 		try {
 			await this.getColumn(db, tableName, columnName);
 			const columns = await this.getColumns(db, tableName);
+
 			if (columns.some((c) => c.name === newColumnName)) {
 				throw new HTTPException(409, {
 					message: `Column "${newColumnName}" already exists in table "${tableName}"`,
 				});
 			}
+
 			await this.command(
 				db,
 				`ALTER TABLE ${q(tableName)} RENAME COLUMN ${q(columnName)} TO ${q(newColumnName)}`,
@@ -519,7 +563,9 @@ export class ClickhouseAdapter extends BaseAdapter {
 		if (!Object.keys(params.data).length) {
 			throw new HTTPException(400, { message: "No data provided for insert" });
 		}
+
 		await this.insertRows(db, params.tableName, [params.data]);
+
 		return { insertedCount: 1 };
 	}
 
@@ -531,7 +577,9 @@ export class ClickhouseAdapter extends BaseAdapter {
 		if (!records?.length) {
 			throw new HTTPException(400, { message: "At least one record is required" });
 		}
+
 		await this.insertRows(db, tableName, records);
+
 		return {
 			success: true,
 			message: `Bulk insert completed: ${records.length} records inserted`,
@@ -567,11 +615,14 @@ export class ClickhouseAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
 		const cleaned = query.trim().replace(/;+\s*$/, "");
+
 		if (!cleaned) throw new HTTPException(400, { message: "Query is required" });
 
 		const start = performance.now();
+
 		try {
 			const client = await getClickhouseClient(db);
+
 			const firstKeyword = cleaned
 				.replace(/^(\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/))*/, "")
 				.match(/^\s*(\w+)/)?.[1]
@@ -585,6 +636,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 			) {
 				const result = await client.query({ query: cleaned, format: "JSON" });
 				const { meta = [], data } = await result.json<Record<string, unknown>>();
+
 				return {
 					columns: meta.map((m) => m.name),
 					rows: data,
@@ -598,7 +650,9 @@ export class ClickhouseAdapter extends BaseAdapter {
 				query: cleaned,
 				clickhouse_settings: MUTATION_SETTINGS,
 			});
+
 			const rowCount = Number(summary?.written_rows ?? 0);
+
 			return {
 				columns: [],
 				rows: [],
@@ -620,6 +674,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 	 */
 	async getServerLogs({ db }: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		const client = await getClickhouseClient(db);
+
 		// log_queries = 0 keeps these reads out of the query_log they read.
 		const read = async <T>(query: string): Promise<T[] | null> => {
 			try {
@@ -628,6 +683,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 					format: "JSONEachRow",
 					clickhouse_settings: { log_queries: 0 },
 				});
+
 				return await result.json<T>();
 			} catch (e) {
 				if (e instanceof ClickHouseError && e.type === "UNKNOWN_TABLE") return null;
@@ -644,6 +700,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 				WHERE event_date >= yesterday() AND type != 'QueryStart' AND is_initial_query
 				ORDER BY event_time_microseconds DESC LIMIT ${SERVER_LOGS_LIMIT}`,
 			);
+
 			const events = await read<TextLogRow>(
 				`SELECT toUnixTimestamp64Milli(event_time_microseconds) AS ms, level, logger_name,
 					message, query_id
@@ -653,6 +710,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 					AND logger_name NOT IN ('executeQuery', 'TCPHandler', 'HTTPHandler')
 				ORDER BY event_time_microseconds DESC LIMIT ${SERVER_LOGS_LIMIT}`,
 			);
+
 			if (!queries && !events) {
 				return logsUnavailable("query_log and text_log are both off in the server config.");
 			}
@@ -660,6 +718,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 			const entries: ServerLogEntrySchemaType[] = [
 				...(queries ?? []).reverse().map((row): ServerLogEntrySchemaType => {
 					const failed = row.type !== "QueryFinish";
+
 					return {
 						ts: new Date(Number(row.ms)).toISOString(),
 						level: failed ? "error" : "info",
@@ -676,17 +735,16 @@ export class ClickhouseAdapter extends BaseAdapter {
 						}),
 					};
 				}),
-				...(events ?? []).reverse().map(
-					(row): ServerLogEntrySchemaType => ({
-						ts: new Date(Number(row.ms)).toISOString(),
-						level: TEXT_LOG_LEVELS[row.level] ?? "info",
-						rawLevel: row.level,
-						source: row.logger_name,
-						message: row.message,
-						detail: logDetail({ query_id: row.query_id }),
-					}),
-				),
+				...(events ?? []).reverse().map((row): ServerLogEntrySchemaType => ({
+					ts: new Date(Number(row.ms)).toISOString(),
+					level: TEXT_LOG_LEVELS[row.level] ?? "info",
+					rawLevel: row.level,
+					source: row.logger_name,
+					message: row.message,
+					detail: logDetail({ query_id: row.query_id }),
+				})),
 			];
+
 			return {
 				available: true,
 				source: events ? "system.query_log + system.text_log" : "system.query_log",
@@ -698,6 +756,7 @@ export class ClickhouseAdapter extends BaseAdapter {
 					"Reading the server log needs: GRANT SELECT ON system.query_log TO <user>; and the same on system.text_log.",
 				);
 			}
+
 			throw this.wrapError(e);
 		}
 	}
@@ -711,11 +770,14 @@ export class ClickhouseAdapter extends BaseAdapter {
 		query: string,
 		queryParams: Params = {},
 	): Promise<T[]> {
-		const result = await (await getClickhouseClient(db)).query({
+		const result = await (
+			await getClickhouseClient(db)
+		).query({
 			query,
 			query_params: queryParams,
 			format: "JSONEachRow",
 		});
+
 		return result.json<T>();
 	}
 
@@ -725,7 +787,9 @@ export class ClickhouseAdapter extends BaseAdapter {
 		queryParams: Params = {},
 		settings: Record<string, string> = {},
 	): Promise<void> {
-		await (await getClickhouseClient(db)).command({
+		await (
+			await getClickhouseClient(db)
+		).command({
 			query,
 			query_params: queryParams,
 			clickhouse_settings: settings,
@@ -753,13 +817,16 @@ export class ClickhouseAdapter extends BaseAdapter {
 			"SELECT engine, sorting_key FROM system.tables WHERE database = currentDatabase() AND name = {table:String}",
 			{ table: tableName },
 		);
+
 		return row;
 	}
 
 	private async getTable(db: string, tableName: string): Promise<TableRow> {
 		const table = await this.findTable(db, tableName);
+
 		if (!table)
 			throw new HTTPException(404, { message: `Table "${tableName}" does not exist` });
+
 		return table;
 	}
 
@@ -777,11 +844,13 @@ export class ClickhouseAdapter extends BaseAdapter {
 	private async getColumn(db: string, tableName: string, columnName: string) {
 		await this.getTable(db, tableName);
 		const column = (await this.getColumns(db, tableName)).find((c) => c.name === columnName);
+
 		if (!column) {
 			throw new HTTPException(404, {
 				message: `Column "${columnName}" does not exist in table "${tableName}"`,
 			});
 		}
+
 		return column;
 	}
 
@@ -792,25 +861,33 @@ export class ClickhouseAdapter extends BaseAdapter {
 	): Promise<void> {
 		try {
 			await this.getTable(db, tableName);
+
 			const types = new Map(
 				(await this.getColumns(db, tableName)).map((c) => [c.name, c.type]),
 			);
+
 			const values = records.map((record) =>
 				Object.fromEntries(
 					Object.entries(record).flatMap(([column, value]) => {
 						const type = types.get(column);
+
 						if (!type) {
 							throw new HTTPException(400, {
 								message: `Column "${column}" does not exist in table "${tableName}"`,
 							});
 						}
+
 						const shaped = toClickhouseValue(value, type);
+
 						// Omit nulls for non-nullable columns so ClickHouse applies the column default.
 						return shaped === null && !isNullableType(type) ? [] : [[column, shaped]];
 					}),
 				),
 			);
-			await (await getClickhouseClient(db)).insert({
+
+			await (
+				await getClickhouseClient(db)
+			).insert({
 				table: q(tableName),
 				values,
 				format: "JSONEachRow",
@@ -824,12 +901,15 @@ export class ClickhouseAdapter extends BaseAdapter {
 	private async isAtLeast(db: string, major: number, minor: number): Promise<boolean> {
 		const client = await getClickhouseClient(db);
 		let version = this.serverVersion.get(client);
+
 		if (!version) {
 			const [row] = await this.select<{ version: string }>(db, "SELECT version() AS version");
 			version = (row?.version ?? "0.0").split(".").map(Number);
 			this.serverVersion.set(client, version);
 		}
+
 		const [actualMajor = 0, actualMinor = 0] = version;
+
 		return actualMajor > major || (actualMajor === major && actualMinor >= minor);
 	}
 

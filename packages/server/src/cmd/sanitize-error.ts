@@ -4,6 +4,7 @@ const SCHEMES = Object.values(DATABASE_ENGINES)
 	.flatMap(({ protocols }) => protocols)
 	.map((protocol) => protocol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
 	.join("|");
+
 const CONNECTION_URL = new RegExp(`\\b(?:${SCHEMES}):\\/\\/\\S+`, "gi");
 const AUTH_TOKEN = /\b(authToken=)[^&\s]+/gi;
 

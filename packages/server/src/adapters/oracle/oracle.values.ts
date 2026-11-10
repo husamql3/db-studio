@@ -2,5 +2,6 @@
 export const toJsonNumber = (value: unknown) => {
 	if (typeof value !== "string" || !/^[+-]?\d+$/.test(value)) return value;
 	const number = Number(value);
+
 	return Number.isSafeInteger(number) ? number : value;
 };

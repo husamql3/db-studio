@@ -24,6 +24,7 @@ export const QueryResultContainer = ({
 	const [showAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
 	const { requestAssistant } = useAssistantRequestStore();
 	const { openOverlay } = useOverlayStore();
+
 	const askAssistant = (prompt: string) => {
 		requestAssistant(prompt);
 		openOverlay("chat.assistant");

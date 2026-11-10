@@ -10,7 +10,7 @@ export const SchemaToolbar = ({
 	isRefetching = false,
 }: {
 	tableName: string;
-	refetch: () => Promise<unknown>;
+	refetch: () => void;
 	isRefetching?: boolean;
 }) => {
 	const { openOverlay } = useOverlayStore();

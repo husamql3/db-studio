@@ -4,13 +4,17 @@ import { fileURLToPath } from "node:url";
 import { DEFAULTS } from "@db-studio/shared/constants";
 
 process.env.TZ = "UTC";
+
 process.env.DB_STUDIO_TELEMETRY = "0";
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
+
 type Row = Record<string, unknown>;
+
 type Scenario = { name: string; ok: boolean; evidence: unknown; error?: string };
 
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("oracle://")) {
 	console.error("usage: DATABASE_URL=oracle://... bunx tsx e2e/oracle-review.ts");
 	process.exit(2);
@@ -26,13 +30,17 @@ const recordOf = (value: unknown): Row => {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
 		throw new Error(`expected object, got ${JSON.stringify(value)}`);
 	}
+
 	return value as Row;
 };
 
 const dataOf = (body: unknown) => recordOf(body).data;
+
 const rowsOf = (body: unknown) => {
 	const rows = recordOf(dataOf(body)).rows;
+
 	if (!Array.isArray(rows)) throw new Error("query response has no rows array");
+
 	return rows.map(recordOf);
 };
 
@@ -54,6 +62,7 @@ const api = async (
 ) => {
 	const url = new URL(`${DEFAULTS.API_PREFIX}${path}`, "http://db-studio.local");
 	url.searchParams.set("db", db);
+
 	const response = await app.handle(
 		new Request(new URL(`${url.pathname}${url.search}`, "http://localhost"), {
 			method,
@@ -61,16 +70,20 @@ const api = async (
 			body: body === undefined ? undefined : JSON.stringify(body),
 		}),
 	);
+
 	const text = await response.text();
 	let parsed: unknown = text;
+
 	try {
 		parsed = JSON.parse(text);
 	} catch {}
+
 	const accepted = Array.isArray(expected) ? expected : [expected];
 	assert(
 		accepted.includes(response.status),
 		`${method} ${path} returned ${response.status}: ${text.slice(0, 300)}`,
 	);
+
 	return parsed;
 };
 
@@ -86,6 +99,7 @@ const dropTable = (table: string) =>
 
 const run = async <T>(name: string, probe: () => Promise<T>, check: (evidence: T) => void) => {
 	let evidence: unknown = null;
+
 	try {
 		evidence = await probe();
 		check(evidence as T);
@@ -134,16 +148,20 @@ await run(
 			{ tableName: "oracle_review_parent", primaryKeys: [{ columnName: "id", value: 1 }] },
 			409,
 		);
+
 		const forced = await api("DELETE", "/oracle/records/force", {
 			tableName: "oracle_review_parent",
 			primaryKeys: [{ columnName: "id", value: 1 }],
 		});
+
 		const parents = rowsOf(
 			await query('SELECT "id", "a", "b" FROM "oracle_review_parent" ORDER BY "id"'),
 		);
+
 		const children = rowsOf(
 			await query('SELECT "id", "a", "b", "label" FROM "oracle_review_child" ORDER BY "id"'),
 		);
+
 		return {
 			blocked: dataOf(blocked),
 			forced: dataOf(forced),
@@ -193,16 +211,19 @@ await run(
 				'target'
 			)
 		SELECT 1 FROM dual`);
+
 		const nativeQuery = await query(
 			'SELECT "stamp", "label" FROM "oracle_review_timestamp" ORDER BY "label"',
 			400,
 		);
+
 		const queryBefore = rowsOf(
 			await query(`SELECT
 				TO_CHAR("stamp", 'YYYY-MM-DD"T"HH24:MI:SS.FF9') AS "stamp",
 				"label"
 			FROM "oracle_review_timestamp" ORDER BY "label"`),
 		);
+
 		const tableBefore = recordOf(
 			dataOf(
 				await api(
@@ -211,6 +232,7 @@ await run(
 				),
 			),
 		).data as Row[];
+
 		const target = tableBefore.find((row) => row.label === "target");
 		assert(target, "target row missing from table data");
 		await api("PATCH", "/oracle/records", {
@@ -218,12 +240,14 @@ await run(
 			primaryKey: "stamp",
 			updates: [{ rowData: target, columnName: "label", value: "target-edited" }],
 		});
+
 		const after = rowsOf(
 			await query(`SELECT
 				TO_CHAR("stamp", 'YYYY-MM-DD"T"HH24:MI:SS.FF9') AS "stamp",
 				"label"
 			FROM "oracle_review_timestamp" ORDER BY "stamp"`),
 		);
+
 		return { nativeQuery, queryBefore, tableBefore, after };
 	},
 	({ nativeQuery, queryBefore, tableBefore, after }) => {
@@ -303,6 +327,7 @@ await run(
 				},
 			],
 		});
+
 		return rowsOf(
 			await query(`SELECT "id",
 				TO_CHAR("date_value", 'YYYY-MM-DD"T"HH24:MI:SS') AS "date_value",
@@ -360,6 +385,7 @@ await run(
 			sort: "zoned_at",
 			order: "asc",
 		});
+
 		const sorted = recordOf(
 			dataOf(await api("GET", `/oracle/tables/oracle_review_tz_sort/data?${sortQuery}`)),
 		).data as Row[];
@@ -374,9 +400,11 @@ await run(
 				},
 			]),
 		});
+
 		const filtered = recordOf(
 			dataOf(await api("GET", `/oracle/tables/oracle_review_tz_sort/data?${filterQuery}`)),
 		).data as Row[];
+
 		return { sorted, filtered };
 	},
 	({ sorted, filtered }) => {
@@ -410,15 +438,19 @@ await run(
 			INTO "oracle_review_composite_pk" VALUES (1, 1, 'first')
 			INTO "oracle_review_composite_pk" VALUES (1, 2, 'second')
 		SELECT 1 FROM dual`);
+
 		const body = {
 			tableName: "oracle_review_composite_pk",
 			primaryKeys: [{ columnName: "a", value: 1 }],
 		};
+
 		const normal = await api("DELETE", "/oracle/records", body, 400);
 		const forced = await api("DELETE", "/oracle/records/force", body, 400);
+
 		const rows = rowsOf(
 			await query('SELECT "a", "b", "label" FROM "oracle_review_composite_pk" ORDER BY "b"'),
 		);
+
 		return { normal, forced, rows };
 	},
 	({ rows }) =>
@@ -444,6 +476,7 @@ const artifact = {
 	engine: "oracle",
 	scenarios,
 };
+
 const secrets = [
 	databaseUrl,
 	databaseUrl.replace(/^[a-z0-9+]+:\/\//i, ""),
@@ -451,33 +484,62 @@ const secrets = [
 	parsedDatabaseUrl.host,
 	process.cwd(),
 ];
-const normalize = (value: unknown, key?: string): unknown => {
+
+// `undefined` stays: JSON.stringify drops it, as it did before.
+type Serializable =
+	| undefined
+	| null
+	| boolean
+	| number
+	| string
+	| Serializable[]
+	| { [key: string]: Serializable };
+
+const normalize = (value: unknown, key?: string): Serializable => {
 	if (key === "duration" || key === "queryTime") return `<${key}>`;
+
 	if (Array.isArray(value)) return value.map((item) => normalize(item));
+
 	if (value && typeof value === "object")
 		return Object.fromEntries(
 			Object.entries(value)
 				.sort(([left], [right]) => left.localeCompare(right))
 				.map(([entryKey, entryValue]) => [entryKey, normalize(entryValue, entryKey)]),
 		);
+
 	if (typeof value === "string") {
 		const redacted = secrets.reduce(
 			(text, secret) => text.replaceAll(secret, "<redacted>"),
 			value,
 		);
+
 		return redacted.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, "<redacted-url>");
 	}
-	return value;
+
+	if (
+		value === undefined ||
+		value === null ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	)
+		return value;
+
+	return String(value);
 };
+
 const outputDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
+
 await mkdir(outputDir, { recursive: true });
+
 await writeFile(
 	path.join(outputDir, "oracle-review.json"),
 	`${JSON.stringify(normalize(artifact), null, 2)}\n`,
 );
 
 const failed = scenarios.filter((scenario) => !scenario.ok).length;
+
 console.log(
 	`${failed ? "FAIL" : "PASS"}  ${scenarios.length - failed}/${scenarios.length} scenarios`,
 );
+
 process.exit(failed ? 1 : 0);

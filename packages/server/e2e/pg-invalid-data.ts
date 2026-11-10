@@ -9,12 +9,16 @@ import pg from "pg";
 // "data exception". It answered 500 and went to Sentry, though the user's input caused it, on both
 // inserts and grid filters. It must answer 400 with the driver's message, which names the value.
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL database");
 }
+
 // Saving the connection must not touch the user's ~/.dbstudio.
 process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const admin = new pg.Pool({ connectionString: databaseUrl });
 const evidence: Record<string, unknown> = {};
@@ -38,12 +42,15 @@ try {
 				body: body ? JSON.stringify(body) : undefined,
 			}),
 		);
+
 		const { requestId: _requestId, ...json } = (await response.json()) as Record<
 			string,
 			unknown
 		>;
+
 		return { status: response.status, body: json };
 	};
+
 	const insert = (data: Record<string, unknown>) =>
 		call("POST", `/records?${new URLSearchParams({ db })}`, { tableName: TABLE, data });
 
@@ -79,6 +86,7 @@ try {
 		const { status, body } = evidence[label] as { status: number; body: unknown };
 		assert.equal(status, 400, `${label}: ${JSON.stringify(body)}`);
 	}
+
 	assert.equal((evidence.valid as { status: number }).status, 200);
 	console.log("PASS PostgreSQL data exceptions answer 400");
 } finally {

@@ -18,6 +18,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "status", operator: "=", value: "active" },
 		]);
+
 		expect(clause).toBe(`WHERE "status" = ?`);
 		expect(values).toEqual(["active"]);
 	});
@@ -27,6 +28,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 			{ columnName: "age", operator: ">", value: "18" },
 			{ columnName: "name", operator: "!=", value: "bot" },
 		]);
+
 		expect(clause).toContain(`"age" > ?`);
 		expect(clause).toContain(`"name" != ?`);
 		expect(clause).toContain("AND");
@@ -37,6 +39,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "deleted_at", operator: "is", value: "null" },
 		]);
+
 		expect(clause).toBe(`WHERE "deleted_at" IS NULL`);
 		expect(values).toEqual([]);
 	});
@@ -45,6 +48,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "email", operator: "is not", value: "null" },
 		]);
+
 		expect(clause).toBe(`WHERE "email" IS NOT NULL`);
 		expect(values).toEqual([]);
 	});
@@ -53,6 +57,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "name", operator: "like", value: "%ada%" },
 		]);
+
 		expect(clause).toContain("LIKE ?");
 		expect(values).toEqual(["%ada%"]);
 	});
@@ -61,6 +66,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "name", operator: "not like", value: "%bot%" },
 		]);
+
 		expect(clause).toContain("NOT LIKE ?");
 		expect(values).toEqual(["%bot%"]);
 	});
@@ -69,6 +75,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "name", operator: "ilike", value: "%Ada%" },
 		]);
+
 		expect(clause).toContain("LIKE ?");
 		expect(clause).toContain("COLLATE NOCASE");
 		expect(values).toEqual(["%Ada%"]);
@@ -78,6 +85,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "name", operator: "not ilike", value: "%bot%" },
 		]);
+
 		expect(clause).toContain("NOT LIKE ?");
 		expect(clause).toContain("COLLATE NOCASE");
 		expect(values).toEqual(["%bot%"]);
@@ -88,14 +96,17 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 			const { clause, values } = buildWhereClause([
 				{ columnName: "count", operator: op, value: "5" },
 			]);
+
 			expect(clause).toContain(op);
 			expect(values).toEqual(["5"]);
 		}
 	});
 
 	it("ignores unknown operators and returns empty", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: testing unknown operator path
-		const { clause, values } = buildWhereClause([{ columnName: "x", operator: "unknown" as any, value: "v" }]);
+		const { clause, values } = buildWhereClause([
+			{ columnName: "x", operator: "unknown" as any, value: "v" },
+		]);
+
 		expect(clause).toBe("");
 		expect(values).toEqual([]);
 	});
@@ -104,6 +115,7 @@ describe("sqlite.query-builder — buildWhereClause", () => {
 		const { clause, values } = buildWhereClause([
 			{ columnName: "status", operator: "is", value: "active" },
 		]);
+
 		expect(clause).toContain(`"status" = ?`);
 		expect(values).toEqual(["active"]);
 	});
@@ -126,6 +138,7 @@ describe("sqlite.query-builder — buildSortClause", () => {
 			],
 			"asc",
 		);
+
 		expect(clause).toBe(`ORDER BY "name" ASC, "age" DESC`);
 	});
 
@@ -147,6 +160,7 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 			"asc",
 			"asc",
 		);
+
 		expect(clause).toBe("");
 		expect(values).toEqual([]);
 	});
@@ -157,6 +171,7 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 			"asc",
 			"asc",
 		);
+
 		expect(clause).toBe(`("id") > (?)`);
 		expect(values).toEqual([5]);
 	});
@@ -167,6 +182,7 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 			"desc",
 			"asc",
 		);
+
 		expect(clause).toBe(`("id") < (?)`);
 		expect(values).toEqual([5]);
 	});
@@ -177,6 +193,7 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 			"asc",
 			"desc",
 		);
+
 		expect(clause).toBe(`("id") < (?)`);
 		expect(values).toEqual([5]);
 	});
@@ -187,6 +204,7 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 			"desc",
 			"desc",
 		);
+
 		expect(clause).toBe(`("id") > (?)`);
 		expect(values).toEqual([5]);
 	});
@@ -197,6 +215,7 @@ describe("sqlite.query-builder — buildCursorWhereClause", () => {
 			"asc",
 			"asc",
 		);
+
 		expect(clause).toBe(`("name", "id") > (?, ?)`);
 		expect(values).toEqual(["Ada", 1]);
 	});

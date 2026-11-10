@@ -25,6 +25,7 @@ describe("getDetailedSchema", () => {
 		]);
 		mocks.getTableColumns.mockImplementation(({ tableName }: { tableName: string }) => {
 			if (tableName === "events") throw new Error('relation "events" does not exist');
+
 			return Promise.resolve([
 				{
 					columnName: "id",

@@ -39,6 +39,7 @@ export function tokenizeCommand(input: string): string[] {
 				i += 2;
 				continue;
 			}
+
 			if (ch === '"') inDouble = false;
 			else cur += ch;
 			i++;
@@ -50,16 +51,19 @@ export function tokenizeCommand(input: string): string[] {
 			i++;
 			continue;
 		}
+
 		if (ch === '"') {
 			inDouble = true;
 			i++;
 			continue;
 		}
+
 		if (ch === " " || ch === "\t" || ch === "\n") {
 			if (cur.length > 0) {
 				out.push(cur);
 				cur = "";
 			}
+
 			i++;
 			continue;
 		}
@@ -71,7 +75,9 @@ export function tokenizeCommand(input: string): string[] {
 	if (inSingle || inDouble) {
 		throw new Error("Unterminated quoted string in command");
 	}
+
 	if (cur.length > 0) out.push(cur);
+
 	return out;
 }
 
@@ -89,6 +95,7 @@ const scalarShape: ShapeFn = (reply) => {
 			rowCount: 0,
 		};
 	}
+
 	return {
 		columns: ["value"],
 		rows: [{ value: reply as string | number }],
@@ -104,6 +111,7 @@ const statusShape: ShapeFn = (reply) => ({
 
 const flatArrayShape: ShapeFn = (reply) => {
 	if (!Array.isArray(reply)) return singleCellFallback(reply);
+
 	return {
 		columns: ["#", "value"],
 		rows: reply.map((v, idx) => ({ "#": idx, value: v as unknown })),
@@ -114,18 +122,22 @@ const flatArrayShape: ShapeFn = (reply) => {
 const pairArrayShape: ShapeFn = (reply) => {
 	if (!isFlatPairArray(reply)) return singleCellFallback(reply);
 	const rows: Record<string, unknown>[] = [];
+
 	for (let i = 0; i < reply.length; i += 2) {
 		rows.push({ field: reply[i], value: reply[i + 1] });
 	}
+
 	return { columns: ["field", "value"], rows, rowCount: rows.length };
 };
 
 const zrangeWithScoresShape: ShapeFn = (reply) => {
 	if (!isFlatPairArray(reply)) return flatArrayShape(reply);
 	const rows: Record<string, unknown>[] = [];
+
 	for (let i = 0; i < reply.length; i += 2) {
 		rows.push({ member: reply[i], score: reply[i + 1] });
 	}
+
 	return { columns: ["member", "score"], rows, rowCount: rows.length };
 };
 
@@ -133,32 +145,41 @@ const infoShape: ShapeFn = (reply) => {
 	if (typeof reply !== "string") return singleCellFallback(reply);
 	const rows: Record<string, unknown>[] = [];
 	let section = "";
+
 	for (const line of reply.split(/\r?\n/)) {
 		if (!line.trim()) continue;
+
 		if (line.startsWith("#")) {
 			section = line.replace(/^#\s*/, "").trim();
 			continue;
 		}
+
 		const idx = line.indexOf(":");
+
 		if (idx < 0) continue;
 		rows.push({ section, key: line.slice(0, idx), value: line.slice(idx + 1) });
 	}
+
 	return { columns: ["section", "key", "value"], rows, rowCount: rows.length };
 };
 
 const xrangeShape: ShapeFn = (reply) => {
 	if (!Array.isArray(reply)) return singleCellFallback(reply);
+
 	const rows = reply.map((entry) => {
 		if (!Array.isArray(entry) || entry.length < 2) return { id: null, fields: null };
 		const [id, fields] = entry;
 		const fieldsObj: Record<string, unknown> = {};
+
 		if (Array.isArray(fields)) {
 			for (let i = 0; i < fields.length; i += 2) {
 				fieldsObj[String(fields[i])] = fields[i + 1];
 			}
 		}
+
 		return { id, fields: fieldsObj };
 	});
+
 	return { columns: ["id", "fields"], rows, rowCount: rows.length };
 };
 
@@ -226,16 +247,19 @@ export function shapeReply(
 	if (subcmd) {
 		const compound = `${cmd} ${subcmd}`;
 		const shaper = COMMAND_SHAPES[compound];
+
 		if (shaper) return shaper(reply);
 	}
 
 	const shaper = COMMAND_SHAPES[cmd];
+
 	if (shaper) return shaper(reply);
 
 	// Heuristic for unknown commands
 	if (typeof reply === "string" || typeof reply === "number" || reply === null) {
 		return scalarShape(reply);
 	}
+
 	if (isStringArray(reply)) return flatArrayShape(reply);
 
 	return singleCellFallback(reply);

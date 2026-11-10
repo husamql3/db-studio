@@ -11,6 +11,7 @@ import { TableTab } from "../components/table-tab";
 export const TableScreen = ({ tableName }: { tableName: string }) => {
 	// Remount per table, so pending edits and selection never carry over to a same-named table.
 	const schemaName = useTableSchemaName();
+
 	return (
 		<main
 			key={`${schemaName}.${tableName}`}

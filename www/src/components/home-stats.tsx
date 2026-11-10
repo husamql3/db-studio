@@ -28,12 +28,14 @@ function DownloadsChart({ weeks }: { weeks: Week[] }) {
 	const x = (i: number) => i * step;
 	const y = (v: number) => H - (v / peak) * (H - 8);
 	const line = weeks.map((w, i) => `${i ? "L" : "M"}${x(i)},${y(w.count)}`).join(" ");
+
 	// A label at each month change, except at the edges where it would be clipped.
 	const months = weeks.flatMap((w, i) =>
 		i >= 2 && i <= weeks.length - 2 && w.start.slice(5, 7) !== weeks[i - 1].start.slice(5, 7)
 			? [{ i, label: fmtDay(w.start, { month: "short" }) }]
 			: [],
 	);
+
 	const h = hover === null ? null : weeks[hover];
 
 	return (

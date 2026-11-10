@@ -24,7 +24,9 @@ function createMysqlPool() {
 		release: vi.fn(),
 		execute: vi.fn(async (sqlInput: string) => {
 			const sql = String(sqlInput);
+
 			if (sql.startsWith("SELECT")) return rows([]);
+
 			return ok(1);
 		}),
 	};
@@ -37,7 +39,9 @@ function createMysqlPool() {
 			if (sql.includes("information_schema.SCHEMATA")) {
 				return rows([{ name: "appdb", size: "1 MB", owner: "root", encoding: "utf8mb4" }]);
 			}
+
 			if (sql.includes("SELECT DATABASE() AS db")) return rows([{ db: "appdb" }]);
+
 			if (sql.includes("VERSION()")) {
 				return rows([
 					{
@@ -50,20 +54,32 @@ function createMysqlPool() {
 					},
 				]);
 			}
+
 			if (sql.includes("PROCESSLIST")) return rows([{ cnt: 2 }]);
-			if (sql.includes("FROM information_schema.tables") && sql.includes("table_name as tableName")) {
+
+			if (
+				sql.includes("FROM information_schema.tables") &&
+				sql.includes("table_name as tableName")
+			) {
 				return rows([{ tableName: "users" }]);
 			}
+
 			if (sql === "SELECT COUNT(*) as count FROM `users`") return rows([{ count: 2 }]);
+
 			if (sql.includes("COLUMN_KEY = 'PRI'")) return rows([{ column_name: "id" }]);
+
 			if (sql.includes("SELECT COUNT(*) as total")) return rows([{ total: 2 }]);
+
 			if (sql.includes("SELECT * FROM `users`")) return rows(tableDataRows);
+
 			if (sql.includes("information_schema.TABLES") && sql.includes("COUNT(*) as cnt")) {
 				return rows([{ cnt: 1 }]);
 			}
+
 			if (sql.includes("SHOW CREATE TABLE")) {
 				return rows([{ "Create Table": "CREATE TABLE `users` (`id` int primary key)" }]);
 			}
+
 			if (sql.includes("ORDER BY c.ORDINAL_POSITION")) {
 				return rows([
 					{
@@ -101,15 +117,19 @@ function createMysqlPool() {
 					},
 				]);
 			}
+
 			if (sql.includes("information_schema.COLUMNS") && sql.includes("COLUMN_NAME = ?")) {
 				return rows([{ cnt: values?.[1] === "age" || values?.[1] === "fullName" ? 0 : 1 }]);
 			}
+
 			if (sql.includes("SELECT EXTRA FROM information_schema.COLUMNS")) {
 				return rows([{ EXTRA: "" }]);
 			}
+
 			if (sql.includes("KEY_COLUMN_USAGE") && sql.includes("REFERENCED_TABLE_NAME = ?")) {
 				return rows([]);
 			}
+
 			if (sql.includes("COLUMNS")) {
 				return rows([
 					{
@@ -136,11 +156,17 @@ function createMysqlPool() {
 					},
 				]);
 			}
+
 			if (sql.startsWith("INSERT INTO")) return ok(1);
+
 			if (sql.startsWith("UPDATE")) return ok(1);
+
 			if (sql.startsWith("DELETE")) return ok(1);
+
 			if (sql.startsWith("DROP TABLE") || sql.startsWith("CREATE TABLE")) return ok(0);
+
 			if (sql.startsWith("ALTER TABLE")) return ok(1);
+
 			if (sql === "SELECT 1") return rows([{ id: 1 }], [{ name: "id" }]);
 
 			return ok(1);
@@ -161,21 +187,11 @@ describe("MySqlAdapter integration scaffold", () => {
 		mockGetMysqlPool.mockReturnValue(pool);
 	});
 	it("builds the paginated data query and maps column types", async () => {
-		const cursor = (
-			adapter as unknown as {
-				encodeCursor: (data: { values: Record<string, unknown>; sortColumns: string[] }) => string;
-			}
-		).encodeCursor({ values: { id: 1 }, sortColumns: ["id"] });
-
-		const helper = adapter as unknown as {
-			buildTableDataQuery: (params: Record<string, unknown>) => {
-				sql: string;
-				values: unknown[];
-			};
-		};
+		// Bracket access reaches the protected helpers with their real signatures.
+		const cursor = adapter["encodeCursor"]({ values: { id: 1 }, sortColumns: ["id"] });
 
 		expect(
-			helper.buildTableDataQuery({
+			adapter["buildTableDataQuery"]({
 				db: "appdb",
 				tableName: "users",
 				limit: 1,
@@ -186,7 +202,7 @@ describe("MySqlAdapter integration scaffold", () => {
 			}).sql,
 		).toContain("ORDER BY `name` DESC");
 		expect(
-			helper.buildTableDataQuery({
+			adapter["buildTableDataQuery"]({
 				db: "appdb",
 				tableName: "users",
 				sort: "id",
@@ -211,10 +227,14 @@ describe("MySqlAdapter integration scaffold", () => {
 	describe("getDatabasesList system filtering", () => {
 		it("sends a query that excludes system schemas but keeps DATABASE()", async () => {
 			await adapter.getDatabasesList();
+
 			const dbQuery = pool.execute.mock.calls
 				.map((call) => String(call[0]))
 				.find((sql) => sql.includes("information_schema.SCHEMATA"));
-			expect(dbQuery).toContain("NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')");
+
+			expect(dbQuery).toContain(
+				"NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')",
+			);
 			expect(dbQuery).toContain("DATABASE()");
 		});
 	});
@@ -229,17 +249,21 @@ describe("MySqlAdapter.renameTable", () => {
 		vi.clearAllMocks();
 		adapter = new MySqlAdapter();
 		statements = [];
+
 		const pool = {
 			getConnection: vi.fn(),
 			execute: vi.fn(async (sql: string, values?: unknown[]) => {
 				const text = String(sql);
 				statements.push(text);
+
 				if (text.includes("information_schema.TABLES") && text.includes("COUNT(*) as cnt")) {
 					return rows([{ cnt: existing.includes(values?.[0] as string) ? 1 : 0 }]);
 				}
+
 				return ok(1);
 			}),
 		};
+
 		mockGetMysqlPool.mockReturnValue(pool);
 	});
 

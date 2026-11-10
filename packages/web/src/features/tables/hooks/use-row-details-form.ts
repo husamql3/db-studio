@@ -35,6 +35,7 @@ export const useRowDetailsForm = ({
 	// saving works for keyless tables that still carry an "id" column. Composite
 	// keys are sent in full so the update can only ever match one record.
 	const identityColumnNames = useMemo(() => getIdentityColumnNames(tableCols), [tableCols]);
+
 	const columnsSignature = useMemo(
 		() => JSON.stringify((tableCols ?? []).map((col) => col.columnName)),
 		[tableCols],
@@ -43,6 +44,7 @@ export const useRowDetailsForm = ({
 	const methods = useForm<Record<string, string>>({
 		defaultValues: useMemo(() => toFormValues(row, tableCols), [row, tableCols]),
 	});
+
 	const { formState } = methods;
 	const isDirty = formState.isDirty;
 
@@ -66,6 +68,7 @@ export const useRowDetailsForm = ({
 	// only when the refreshed row has the same stable record identity.
 	useEffect(() => {
 		const currentIdentity = getRecordIdentity(row, tableCols);
+
 		const isSameSelection =
 			tableName === lastTableNameRef.current &&
 			rowIndex === lastRowIndexRef.current &&
@@ -78,12 +81,14 @@ export const useRowDetailsForm = ({
 			lastRowRef.current = row;
 			lastRecordIdentityRef.current = currentIdentity;
 			methods.reset(toFormValues(row, tableCols));
+
 			return;
 		}
 
 		if (row === lastRowRef.current) {
 			return;
 		}
+
 		lastRowRef.current = row;
 
 		const freshValues = toFormValues(row, tableCols);
@@ -91,6 +96,7 @@ export const useRowDetailsForm = ({
 		if (!isDirty) {
 			lastRecordIdentityRef.current = currentIdentity;
 			methods.reset(freshValues);
+
 			return;
 		}
 

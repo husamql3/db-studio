@@ -1,15 +1,15 @@
+import type { DataTypes } from "@db-studio/shared/types";
 import sql from "mssql";
 import { describe, expect, it } from "vitest";
-import { HTTPException } from "@/http-exception.js";
-import type { DataTypes } from "@db-studio/shared/types";
 import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 import { MsSqlAdapter } from "@/adapters/mssql/mssql.adapter.js";
 import { MySqlAdapter } from "@/adapters/mysql/mysql.adapter.js";
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";
+import { HTTPException } from "@/http-exception.js";
 
-const wrap = (adapter: object, error: unknown) =>
-	(adapter as { wrapError: (e: unknown) => HTTPException }).wrapError(error);
+// Bracket access reaches the protected method with its real signature.
+const wrap = (adapter: BaseAdapter, error: unknown) => adapter["wrapError"](error);
 
 class HarnessAdapter extends BaseAdapter {
 	queryRows: unknown[] = [];
@@ -23,6 +23,7 @@ class HarnessAdapter extends BaseAdapter {
 
 	protected async runQuery<T>(_db: string, sql: string): Promise<T> {
 		if (sql.includes("COUNT")) return this.countRows as T;
+
 		return this.queryRows as T;
 	}
 
@@ -40,14 +41,17 @@ class HarnessAdapter extends BaseAdapter {
 		hasMore: boolean,
 	): { nextCursor: string | null; prevCursor: string | null } {
 		if (rows.length === 0) return { nextCursor: null, prevCursor: null };
+
 		const encode = (row: NormalizedRow) =>
 			this.encodeCursor({ values: { id: row.id }, sortColumns: ["id"] });
+
 		if (params.direction === "desc") {
 			return {
 				nextCursor: params.cursor ? encode(rows[rows.length - 1]) : null,
 				prevCursor: hasMore ? encode(rows[0]) : null,
 			};
 		}
+
 		return {
 			nextCursor: hasMore ? encode(rows[rows.length - 1]) : null,
 			prevCursor: params.cursor ? encode(rows[0]) : null,
@@ -84,8 +88,16 @@ describe("BaseAdapter.wrapError()", () => {
 	});
 
 	it("maps an MSSQL connect timeout to 503, but not a query timeout", () => {
-		const connect = new sql.ConnectionError("Failed to connect to db:1433 in 15000ms", "ETIMEOUT");
-		const query = new sql.RequestError("Timeout: Request failed to complete in 15000ms", "ETIMEOUT");
+		const connect = new sql.ConnectionError(
+			"Failed to connect to db:1433 in 15000ms",
+			"ETIMEOUT",
+		);
+
+		const query = new sql.RequestError(
+			"Timeout: Request failed to complete in 15000ms",
+			"ETIMEOUT",
+		);
+
 		expect(wrap(new MsSqlAdapter(), connect)).toMatchObject({ status: 503, cause: connect });
 		expect(wrap(new MsSqlAdapter(), query).status).toBe(500);
 	});
@@ -94,6 +106,7 @@ describe("BaseAdapter.wrapError()", () => {
 		const error = Object.assign(new Error("server selection failed"), {
 			name: "MongoServerSelectionError",
 		});
+
 		expect(wrap(new MongoAdapter(), error)).toMatchObject({ status: 503, cause: error });
 	});
 
@@ -137,7 +150,9 @@ describe("BaseAdapter template methods", () => {
 		const adapter = new HarnessAdapter();
 		adapter.queryRows = [{ id: 1, name: "Ada" }];
 
-		await expect(adapter.exportTableData({ db: "appdb", tableName: "users" })).resolves.toEqual({
+		await expect(
+			adapter.exportTableData({ db: "appdb", tableName: "users" }),
+		).resolves.toEqual({
 			cols: ["id", "name"],
 			rows: [{ id: 1, name: "Ada" }],
 		});
@@ -146,8 +161,8 @@ describe("BaseAdapter template methods", () => {
 	it("throws 404 when the shared export template returns no rows", async () => {
 		const adapter = new HarnessAdapter();
 
-		await expect(adapter.exportTableData({ db: "appdb", tableName: "users" })).rejects.toMatchObject(
-			{ status: 404 },
-		);
+		await expect(
+			adapter.exportTableData({ db: "appdb", tableName: "users" }),
+		).rejects.toMatchObject({ status: 404 });
 	});
 });

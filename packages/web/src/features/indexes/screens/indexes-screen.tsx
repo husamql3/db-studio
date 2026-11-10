@@ -29,6 +29,7 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 		errorTableIndexes,
 		refetchTableIndexes,
 	} = useTableIndexes({ tableName, schemaName: useTableSchemaName() });
+
 	const { openOverlay } = useOverlayStore();
 	const hasMethods = Boolean(tableIndexes?.some((index) => index.method !== null));
 
@@ -40,6 +41,7 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 				accessorKey: "indexName",
 				cell: ({ row }) => {
 					const kindLabel = KIND_LABEL[row.original.kind];
+
 					return (
 						<div className="flex items-center gap-2 min-w-0">
 							<span className="font-mono text-foreground font-medium truncate">
@@ -125,6 +127,7 @@ export const IndexesScreen = ({ tableName }: { tableName: string }) => {
 				accessorKey: "definition",
 				cell: ({ getValue }) => {
 					const definition = getValue<string | null>();
+
 					return definition ? (
 						<span className="font-mono text-xs text-muted-foreground truncate">
 							{definition}

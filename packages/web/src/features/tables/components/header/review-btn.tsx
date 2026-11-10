@@ -21,6 +21,7 @@ const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {
 	const text = formatCellValue(value);
 	const marker = value === null || value === undefined ? "NULL" : text === "" ? "EMPTY" : null;
 	const Line = added ? "ins" : "del";
+
 	return (
 		<Line
 			className={cn(
@@ -60,6 +61,7 @@ export const ReviewBtn = () => {
 			) {
 				return;
 			}
+
 			// Text fields and editors keep their own undo.
 			if (
 				event.target instanceof Element &&
@@ -67,18 +69,23 @@ export const ReviewBtn = () => {
 			) {
 				return;
 			}
+
 			const count = undo(editScope.id);
+
 			if (count === 0) return;
 			event.preventDefault();
 			toast(`Undid ${count} ${count === 1 ? "change" : "changes"}`);
 		};
+
 		window.addEventListener("keydown", onKeyDown);
+
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, [undo, editScope.id, isUpdatingCell]);
 
 	if (updates.length === 0) return null;
 
 	const rows = new Map<string, CellUpdate[]>();
+
 	for (const update of updates) {
 		const key = stableStringify(getRowIdentity(update.rowData, editScope));
 		rows.set(key, [...(rows.get(key) ?? []), update]);
@@ -89,6 +96,7 @@ export const ReviewBtn = () => {
 			editScope.keyColumns.length > 0
 				? editScope.keyColumns
 				: ["id", "_id"].filter((column) => column in rowData).slice(0, 1);
+
 		return keys.length > 0
 			? keys.map((column) => `${column} = ${formatCellValue(rowData[column])}`).join(", ")
 			: `Row ${index + 1}`;

@@ -15,6 +15,7 @@ export const useCreateTable = () => {
 	const { mutateAsync: createTableMutation, isPending: isCreatingTable } = useMutation({
 		mutationFn: async (data: CreateTableSchemaType) => {
 			const res = await createTableRequest(data, selectedDatabase);
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
@@ -23,6 +24,7 @@ export const useCreateTable = () => {
 				queryClient.invalidateQueries({ queryKey: tableKeys.columns() }),
 			]);
 			closeOverlay("table-builder.create-table");
+
 			if (dbType) posthogAnalytics.capture("table_created", { db_type: dbType });
 		},
 	});

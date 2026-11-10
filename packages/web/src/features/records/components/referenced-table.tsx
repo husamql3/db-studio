@@ -37,16 +37,20 @@ export const ReferencedTable = ({
 	// An FK references a table in its own schema, the open table's.
 	const schemaName = useTableSchemaName();
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
+
 	const [referencedActiveTable, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
+
 	const { tableData, isLoadingTableData } = useTableData({
 		tableName,
 		schemaName,
 		isReferencedTable: true,
 	});
+
 	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
+
 	const [limit, setLimit] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.LIMIT.toString(),
 	);
@@ -55,6 +59,7 @@ export const ReferencedTable = ({
 		if (tableName && referencedActiveTable !== tableName) {
 			setReferencedActiveTable(tableName);
 		}
+
 		if (tableName && !limit) {
 			setLimit(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DEFAULT_LIMIT.toString());
 		}

@@ -79,17 +79,21 @@ export const SidebarListTablesMenu = ({
 
 	const handleRename = async () => {
 		const trimmed = newTableName.trim();
+
 		if (!trimmed || trimmed === tableName) return;
+
 		try {
 			await renameTable({ newTableName: trimmed, schemaName });
 			handleRenameDialogChange(false);
 			const activeTable = (params as { table?: string }).table;
+
 			if (activeTable === tableName && openSchema === schemaName) {
 				const basePath = pathname.startsWith("/schema")
 					? "/schema/$table"
 					: pathname.startsWith("/indexes")
 						? "/indexes/$table"
 						: "/table/$table";
+
 				navigate({
 					to: basePath,
 					params: { table: trimmed },

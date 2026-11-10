@@ -20,6 +20,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
+
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const engine = useDatabaseEngine();
 	const navigate = useNavigate();

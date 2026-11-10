@@ -131,6 +131,7 @@ function PromptInputProviderImpl({
 
 	const add = useCallback((files: File[] | FileList) => {
 		const incoming = Array.from(files);
+
 		if (incoming.length === 0) {
 			return;
 		}
@@ -151,9 +152,11 @@ function PromptInputProviderImpl({
 	const remove = useCallback((id: string) => {
 		setAttachmentFiles((prev) => {
 			const found = prev.find((f) => f.id === id);
+
 			if (found?.url) {
 				URL.revokeObjectURL(found.url);
 			}
+
 			return prev.filter((f) => f.id !== id);
 		});
 	}, []);
@@ -165,6 +168,7 @@ function PromptInputProviderImpl({
 					URL.revokeObjectURL(f.url);
 				}
 			}
+
 			return [];
 		});
 	}, []);
@@ -241,11 +245,13 @@ const usePromptInputAttachments = () => {
 	const provider = useOptionalProviderAttachments();
 	const local = use(LocalAttachmentsContext);
 	const context = provider ?? local;
+
 	if (!context) {
 		throw new Error(
 			"usePromptInputAttachments must be used within a PromptInput or PromptInputProvider",
 		);
 	}
+
 	return context;
 };
 
@@ -463,8 +469,10 @@ export const PromptInput = ({
 			return patterns.some((pattern) => {
 				if (pattern.endsWith("/*")) {
 					const prefix = pattern.slice(0, -1); // e.g: image/* -> image/
+
 					return f.type.startsWith(prefix);
 				}
+
 				return f.type === pattern;
 			});
 		},
@@ -475,34 +483,43 @@ export const PromptInput = ({
 		(fileList: File[] | FileList) => {
 			const incoming = Array.from(fileList);
 			const accepted = incoming.filter((f) => matchesAccept(f));
+
 			if (incoming.length && accepted.length === 0) {
 				onError?.({
 					code: "accept",
 					message: "No files match the accepted types.",
 				});
+
 				return;
 			}
+
 			const withinSize = (f: File) => (maxFileSize ? f.size <= maxFileSize : true);
 			const sized = accepted.filter(withinSize);
+
 			if (accepted.length > 0 && sized.length === 0) {
 				onError?.({
 					code: "max_file_size",
 					message: "All files exceed the maximum size.",
 				});
+
 				return;
 			}
 
 			setItems((prev) => {
 				const capacity =
 					typeof maxFiles === "number" ? Math.max(0, maxFiles - prev.length) : undefined;
+
 				const capped = typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+
 				if (typeof capacity === "number" && sized.length > capacity) {
 					onError?.({
 						code: "max_files",
 						message: "Too many files. Some were not added.",
 					});
 				}
+
 				const next: (FileUIPart & { id: string })[] = [];
+
 				for (const file of capped) {
 					next.push({
 						id: nanoid(),
@@ -512,6 +529,7 @@ export const PromptInput = ({
 						filename: file.name,
 					});
 				}
+
 				return prev.concat(next);
 			});
 		},
@@ -522,9 +540,11 @@ export const PromptInput = ({
 		(id: string) =>
 			setItems((prev) => {
 				const found = prev.find((file) => file.id === id);
+
 				if (found?.url) {
 					URL.revokeObjectURL(found.url);
 				}
+
 				return prev.filter((file) => file.id !== id);
 			}),
 		[],
@@ -538,6 +558,7 @@ export const PromptInput = ({
 						URL.revokeObjectURL(file.url);
 					}
 				}
+
 				return [];
 			}),
 		[],
@@ -546,6 +567,7 @@ export const PromptInput = ({
 	const add = usingProvider ? controller.attachments.add : addLocal;
 	const remove = usingProvider ? controller.attachments.remove : removeLocal;
 	const clear = usingProvider ? controller.attachments.clear : clearLocal;
+
 	const openFileDialog = usingProvider
 		? controller.attachments.openFileDialog
 		: openFileDialogLocal;
@@ -567,7 +589,9 @@ export const PromptInput = ({
 	// Attach drop handlers on nearest form and document (opt-in)
 	useEffect(() => {
 		const form = formRef.current;
+
 		if (!form) return;
+
 		if (globalDrop) return; // when global drop is on, let the document-level handler own drops
 
 		const onDragOver = (e: DragEvent) => {
@@ -575,16 +599,20 @@ export const PromptInput = ({
 				e.preventDefault();
 			}
 		};
+
 		const onDrop = (e: DragEvent) => {
 			if (e.dataTransfer?.types?.includes("Files")) {
 				e.preventDefault();
 			}
+
 			if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
 				add(e.dataTransfer.files);
 			}
 		};
+
 		form.addEventListener("dragover", onDragOver);
 		form.addEventListener("drop", onDrop);
+
 		return () => {
 			form.removeEventListener("dragover", onDragOver);
 			form.removeEventListener("drop", onDrop);
@@ -599,16 +627,20 @@ export const PromptInput = ({
 				e.preventDefault();
 			}
 		};
+
 		const onDrop = (e: DragEvent) => {
 			if (e.dataTransfer?.types?.includes("Files")) {
 				e.preventDefault();
 			}
+
 			if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
 				add(e.dataTransfer.files);
 			}
 		};
+
 		document.addEventListener("dragover", onDragOver);
 		document.addEventListener("drop", onDrop);
+
 		return () => {
 			document.removeEventListener("dragover", onDragOver);
 			document.removeEventListener("drop", onDrop);
@@ -631,6 +663,7 @@ export const PromptInput = ({
 		if (event.currentTarget.files) {
 			add(event.currentTarget.files);
 		}
+
 		// Reset input value to allow selecting files that were previously removed
 		event.currentTarget.value = "";
 	};
@@ -639,6 +672,7 @@ export const PromptInput = ({
 		try {
 			const response = await fetch(url);
 			const blob = await response.blob();
+
 			return new Promise((resolve) => {
 				const reader = new FileReader();
 				reader.onloadend = () => resolve(reader.result as string);
@@ -666,10 +700,12 @@ export const PromptInput = ({
 		event.preventDefault();
 
 		const form = event.currentTarget;
+
 		const text = usingProvider
 			? controller.textInput.value
 			: (() => {
 					const formData = new FormData(form);
+
 					return (formData.get("message") as string) || "";
 				})();
 
@@ -681,15 +717,17 @@ export const PromptInput = ({
 
 		// Convert blob URLs to data URLs asynchronously
 		Promise.all(
-			files.map(async ({ id, ...item }) => {
+			files.map(async ({ id: _id, ...item }) => {
 				if (item.url?.startsWith("blob:")) {
 					const dataUrl = await convertBlobUrlToDataUrl(item.url);
+
 					// If conversion failed, keep the original blob URL
 					return {
 						...item,
 						url: dataUrl ?? item.url,
 					};
 				}
+
 				return item;
 			}),
 		)
@@ -702,6 +740,7 @@ export const PromptInput = ({
 						result
 							.then(() => {
 								clear();
+
 								if (usingProvider) {
 									controller.textInput.clear();
 								}
@@ -712,6 +751,7 @@ export const PromptInput = ({
 					} else {
 						// Sync function completed without throwing, clear attachments
 						clear();
+
 						if (usingProvider) {
 							controller.textInput.clear();
 						}
@@ -782,16 +822,20 @@ export const PromptInputTextarea = ({
 			if (isComposing || e.nativeEvent.isComposing) {
 				return;
 			}
+
 			if (e.shiftKey) {
 				return;
 			}
+
 			e.preventDefault();
 
 			// Check if the submit button is disabled before submitting
 			const form = e.currentTarget.form;
+
 			const submitButton = form?.querySelector(
 				'button[type="submit"]',
 			) as HTMLButtonElement | null;
+
 			if (submitButton?.disabled) {
 				return;
 			}
@@ -807,6 +851,7 @@ export const PromptInputTextarea = ({
 		) {
 			e.preventDefault();
 			const lastAttachment = attachments.files.at(-1);
+
 			if (lastAttachment) {
 				attachments.remove(lastAttachment.id);
 			}
@@ -825,6 +870,7 @@ export const PromptInputTextarea = ({
 		for (const item of items) {
 			if (item.kind === "file") {
 				const file = item.getAsFile();
+
 				if (file) {
 					files.push(file);
 				}
@@ -915,6 +961,7 @@ const PromptInputButton = ({
 };
 
 type PromptInputActionMenuProps = ComponentProps<typeof DropdownMenu>;
+
 const PromptInputInternalActionMenu = (props: PromptInputActionMenuProps) => (
 	<DropdownMenu {...props} />
 );
@@ -937,6 +984,7 @@ const PromptInputInternalActionMenuTrigger = ({
 );
 
 type PromptInputActionMenuContentProps = ComponentProps<typeof DropdownMenuContent>;
+
 const PromptInputInternalActionMenuContent = ({
 	className,
 	...props
@@ -949,6 +997,7 @@ const PromptInputInternalActionMenuContent = ({
 );
 
 type PromptInputActionMenuItemProps = ComponentProps<typeof DropdownMenuItem>;
+
 const PromptInputInternalActionMenuItem = ({
 	className,
 	...props
@@ -1088,6 +1137,7 @@ const PromptInputInternalSpeechButton = ({
 
 				for (let i = event.resultIndex; i < event.results.length; i++) {
 					const result = event.results[i];
+
 					if (result.isFinal) {
 						finalTranscript += result[0]?.transcript ?? "";
 					}
@@ -1256,11 +1306,17 @@ const PromptInputInternalTab = ({ className, ...props }: PromptInputTabProps) =>
 
 type PromptInputTabLabelProps = HTMLAttributes<HTMLHeadingElement>;
 
-const PromptInputInternalTabLabel = ({ className, ...props }: PromptInputTabLabelProps) => (
+const PromptInputInternalTabLabel = ({
+	className,
+	children,
+	...props
+}: PromptInputTabLabelProps) => (
 	<h3
 		className={cn("mb-2 px-3 font-medium text-muted-foreground text-xs", className)}
 		{...props}
-	/>
+	>
+		{children}
+	</h3>
 );
 
 type PromptInputTabBodyProps = HTMLAttributes<HTMLDivElement>;

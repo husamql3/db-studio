@@ -18,6 +18,7 @@ export const SidebarListTablesItem = ({
 	const table = params.table as string | undefined;
 	// A link without a schema predates it and matches every same-named table.
 	const openSchema = useTableSchemaName();
+
 	const isActive =
 		table === tableName && (openSchema === undefined || openSchema === schemaName);
 

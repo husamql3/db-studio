@@ -53,6 +53,7 @@ describe("diffTableRows", () => {
 			{ id: 1, name: "Alice", age: 30 },
 			{ id: 2, name: "Bob", age: 25 },
 		];
+
 		const result = diffTableRows(rows, rows);
 		expect(result.hasVisibleChanges).toBe(false);
 		expect(result.insertedRowIds).toHaveLength(0);
@@ -61,10 +62,12 @@ describe("diffTableRows", () => {
 
 	it("detects newly inserted rows", () => {
 		const prev = [{ id: 1, name: "Alice" }];
+
 		const next = [
 			{ id: 1, name: "Alice" },
 			{ id: 2, name: "Bob" },
 		];
+
 		const result = diffTableRows(prev, next);
 		expect(result.hasVisibleChanges).toBe(true);
 		expect(result.insertedRowIds).toEqual(["2"]);
@@ -76,10 +79,12 @@ describe("diffTableRows", () => {
 			{ id: 1, name: "Alice", status: "offline" },
 			{ id: 2, name: "Bob", status: "online" },
 		];
+
 		const next = [
 			{ id: 1, name: "Alice", status: "online" },
 			{ id: 2, name: "Bob", status: "online" },
 		];
+
 		const result = diffTableRows(prev, next);
 		expect(result.hasVisibleChanges).toBe(true);
 		expect(result.insertedRowIds).toHaveLength(0);
@@ -91,6 +96,7 @@ describe("diffTableRows", () => {
 			{ id: 1, name: "Alice" },
 			{ id: 2, name: "Bob" },
 		];
+
 		const next = [{ id: 1, name: "Alice" }];
 		const result = diffTableRows(prev, next);
 		expect(result.hasVisibleChanges).toBe(true);
@@ -102,10 +108,12 @@ describe("diffTableRows", () => {
 			{ id: 1, name: "Alice" },
 			{ id: 2, name: "Bob" },
 		];
+
 		const next = [
 			{ id: 2, name: "Bob" },
 			{ id: 1, name: "Alice" },
 		];
+
 		const result = diffTableRows(prev, next);
 		expect(result.hasVisibleChanges).toBe(true);
 	});
@@ -113,10 +121,12 @@ describe("diffTableRows", () => {
 	it("handles composite primary keys accurately", () => {
 		const pk = ["dept", "empId"];
 		const prev = [{ dept: "eng", empId: 10, title: "Junior" }];
+
 		const next = [
 			{ dept: "eng", empId: 10, title: "Senior" },
 			{ dept: "sales", empId: 20, title: "Lead" },
 		];
+
 		const result = diffTableRows(prev, next, pk);
 		expect(result.hasVisibleChanges).toBe(true);
 		expect(result.insertedRowIds).toEqual(['["sales",20]']);

@@ -15,7 +15,7 @@ interface UseLiveTableProps {
 	tableName: string;
 	tableCols?: ColumnInfoSchemaType[];
 	tableDataRows: TableRecord[];
-	refetchTableData: () => Promise<unknown>;
+	refetchTableData: () => Promise<{ isError: boolean }>;
 	isEditingCell?: boolean;
 }
 
@@ -41,6 +41,7 @@ export const useLiveTable = ({
 		isCellHighlighted,
 		reset,
 	} = useLiveModeStore();
+
 	const { selectedDatabase } = useDatabaseStore();
 	const { updates } = useUpdateCellStore();
 	const { openOverlays } = useOverlayStore();
@@ -78,11 +79,13 @@ export const useLiveTable = ({
 	useEffect(() => {
 		if (isLive && prevRowsRef.current !== null) {
 			const diff = diffTableRows(prevRowsRef.current, tableDataRows, pkCols);
+
 			if (diff.hasVisibleChanges) {
 				triggerPulse();
 				setHighlights(diff.insertedRowIds, diff.changedCellKeys);
 			}
 		}
+
 		prevRowsRef.current = tableDataRows;
 	}, [tableDataRows, isLive, pkCols, triggerPulse, setHighlights]);
 
@@ -91,10 +94,13 @@ export const useLiveTable = ({
 		if (typeof document !== "undefined" && document.hidden) {
 			return;
 		}
+
 		if (isEditing) {
 			pauseLive();
+
 			return;
 		}
+
 		if (pollInFlightRef.current) return;
 
 		const currentGeneration = useLiveModeStore.getState().generation;
@@ -105,6 +111,7 @@ export const useLiveTable = ({
 		try {
 			const res = await refetchRef.current();
 			const liveState = useLiveModeStore.getState();
+
 			if (
 				liveState.generation !== currentGeneration ||
 				!liveState.isLive ||
@@ -114,13 +121,14 @@ export const useLiveTable = ({
 				return;
 			}
 
-			if (res && typeof res === "object" && "isError" in res && res.isError) {
+			if (res.isError) {
 				setStatus("disconnected");
 			} else {
 				setStatus("healthy");
 			}
 		} catch {
 			const liveState = useLiveModeStore.getState();
+
 			if (
 				liveState.generation !== currentGeneration ||
 				!liveState.isLive ||
@@ -165,6 +173,7 @@ export const useLiveTable = ({
 		};
 
 		document.addEventListener("visibilitychange", handleVisibilityChange);
+
 		return () => {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
 		};
@@ -179,6 +188,7 @@ export const useLiveTable = ({
 
 	const toggleLive = useCallback(() => {
 		if (!canLiveMode) return;
+
 		if (isLive) {
 			setLive(false);
 		} else {

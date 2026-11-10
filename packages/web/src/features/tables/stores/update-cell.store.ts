@@ -14,8 +14,10 @@ export type CellUpdate = {
 };
 
 type Change = [key: string, update: CellUpdate | undefined];
+
 /** One undoable edit: what its cells held before it. */
 type HistoryStep = { scope: string; previous: Change[] };
+
 type StagedEdit = {
 	rowData: Record<string, unknown>;
 	columnName: string;
@@ -90,12 +92,16 @@ const commit = (
 ) => {
 	const updates = new Map(state.updates);
 	const previous: Change[] = [];
+
 	for (const [key, update] of changes) {
 		previous.push([key, updates.get(key)]);
+
 		if (update) updates.set(key, update);
 		else updates.delete(key);
 	}
+
 	if (previous.every(([, before], i) => before === changes[i][1])) return state;
+
 	return { updates, history: [...state.history, { scope, previous }] };
 };
 
@@ -126,9 +132,9 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 				: commit(
 						state,
 						scopeId,
-						[...state.updates]
-							.filter(([, update]) => update.scope === scopeId)
-							.map(([key]) => [key, undefined]),
+						[...state.updates].flatMap(([key, update]): Change[] =>
+							update.scope === scopeId ? [[key, undefined]] : [],
+						),
 					),
 		),
 
@@ -150,15 +156,19 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 	undo: (scopeId) => {
 		const { updates, history } = get();
 		const index = history.map((step) => step.scope).lastIndexOf(scopeId);
+
 		if (index < 0) return 0;
 		const next = new Map(updates);
 		const { previous } = history[index];
+
 		// Backwards, so a cell changed twice in one step ends at its first value.
 		for (const [key, update] of [...previous].reverse()) {
 			if (update) next.set(key, update);
 			else next.delete(key);
 		}
+
 		set({ updates: next, history: history.filter((_, i) => i !== index) });
+
 		return new Set(previous.map(([key]) => key)).size;
 	},
 
@@ -168,7 +178,9 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 	// Every visible cell asks on every render; skip building its key while nothing is pending.
 	getUpdate: (rowData, columnName, scope) => {
 		const { updates } = get();
+
 		if (updates.size === 0) return null;
+
 		return updates.get(getCellKey(rowData, columnName, scope)) ?? null;
 	},
 

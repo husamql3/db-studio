@@ -27,6 +27,7 @@ const focusOnMount = (el: HTMLElement | null) => el?.focus();
 function OpenSpot({ tier }: { tier: SponsorTierId }) {
 	const [open, setOpen] = useState(false);
 	const [copied, copy] = useCopyButton(() => navigator.clipboard.writeText(SPONSOR_EMAIL));
+
 	const cell = cn(
 		"flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground",
 		CELL_HEIGHTS[tier],
@@ -82,6 +83,7 @@ export function SponsorsSection({ sponsors }: { sponsors: Sponsor[] }) {
 		<>
 			{sponsorTiers.map((tier) => {
 				const inTier = sponsors.filter((s) => s.tier === tier.id);
+
 				return (
 					<div
 						key={tier.id}

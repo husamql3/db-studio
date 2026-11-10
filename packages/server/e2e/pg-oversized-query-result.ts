@@ -8,17 +8,23 @@ import path from "node:path";
 // response was written, so the user got a bare 500 and the error went to Sentry. The user
 // must get a 4xx that says the result is too large and how to narrow it.
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to a disposable PostgreSQL database");
 }
+
 // Saving the connection must not touch the user's ~/.dbstudio.
 process.env.DB_STUDIO_CONFIG_DIR = await mkdtemp(path.join(tmpdir(), "dbstudio-e2e-"));
+
 const db = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 const { createServer } = await import("../src/utils/create-server.js");
 const { connect } = await import("../src/connection.js");
 const { app } = createServer();
+
 await connect(databaseUrl);
+
 const evidence: Record<string, unknown> = {};
 
 const runQuery = async (query: string) => {
@@ -29,8 +35,10 @@ const runQuery = async (query: string) => {
 			body: JSON.stringify({ query }),
 		}),
 	);
+
 	const text = await response.text();
 	const { requestId: _requestId, ...body } = JSON.parse(text) as Record<string, unknown>;
+
 	return { status: response.status, body };
 };
 
@@ -58,4 +66,5 @@ try {
 		`${JSON.stringify(evidence, null, 2)}\n`,
 	);
 }
+
 process.exit(0);

@@ -75,7 +75,9 @@ describe("RedisAdapter key browser", () => {
 		mockClient.pipeline.mockReturnValue(mockPipeline);
 		mockPipeline.call.mockReturnThis();
 		mockPipeline.pttl.mockReturnThis();
-		for (const method of Object.values(mockTransaction)) method.mockReturnValue(mockTransaction);
+
+		for (const method of Object.values(mockTransaction))
+			method.mockReturnValue(mockTransaction);
 		mockTransaction.exec.mockResolvedValue([]);
 		mockClient.multi.mockReturnValue(mockTransaction);
 		mockClient.watch.mockResolvedValue("OK");
@@ -112,7 +114,9 @@ describe("RedisAdapter key browser", () => {
 	it("rejects a stale mutation with a 409 conflict", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "DUMP") return Promise.resolve(Buffer.from("new-server-value"));
+
 			if (command === "TYPE") return Promise.resolve(Buffer.from("string"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.pttl.mockResolvedValue(-1);
@@ -173,9 +177,15 @@ describe("RedisAdapter key browser", () => {
 			[Buffer.from("one"), Buffer.from("two"), Buffer.from("three")],
 		]);
 		mockPipeline.exec.mockResolvedValue([
-			[null, "string"], [null, -1], [null, 10],
-			[null, "string"], [null, -1], [null, 10],
-			[null, "string"], [null, -1], [null, 10],
+			[null, "string"],
+			[null, -1],
+			[null, 10],
+			[null, "string"],
+			[null, -1],
+			[null, 10],
+			[null, "string"],
+			[null, -1],
+			[null, 10],
 		]);
 
 		const first = await adapter.scanKeys({ db: "0", limit: 2, exactPattern: false });
@@ -187,19 +197,15 @@ describe("RedisAdapter key browser", () => {
 			exactPattern: false,
 		});
 		expect(mockClient.scanBuffer).toHaveBeenCalledTimes(1);
-		expect(mockClient.scanBuffer).toHaveBeenCalledWith(
-			"0",
-			"MATCH",
-			"*",
-			"COUNT",
-			2,
-		);
+		expect(mockClient.scanBuffer).toHaveBeenCalledWith("0", "MATCH", "*", "COUNT", 2);
 	});
 
 	it("represents infinite sorted-set scores without producing invalid JSON numbers", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("zset"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-zset"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(64);
@@ -207,7 +213,12 @@ describe("RedisAdapter key browser", () => {
 		mockClient.zcard.mockResolvedValue(2);
 		mockClient.zscanBuffer.mockResolvedValue([
 			Buffer.from("0"),
-			[Buffer.from("minimum"), Buffer.from("-inf"), Buffer.from("maximum"), Buffer.from("inf")],
+			[
+				Buffer.from("minimum"),
+				Buffer.from("-inf"),
+				Buffer.from("maximum"),
+				Buffer.from("inf"),
+			],
 		]);
 
 		const result = await adapter.getKeyDetails({
@@ -228,7 +239,9 @@ describe("RedisAdapter key browser", () => {
 	it("loads a bounded string value with a revision", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("string"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-value"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(96);
@@ -289,7 +302,9 @@ describe("RedisAdapter key browser", () => {
 	it("paginates binary hash fields", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("hash"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-hash"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(144);
@@ -326,7 +341,9 @@ describe("RedisAdapter key browser", () => {
 	it("paginates list entries by stable indexes", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("list"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-list"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(null);
@@ -355,7 +372,9 @@ describe("RedisAdapter key browser", () => {
 	it("paginates set members", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("set"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-set"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(88);
@@ -387,7 +406,9 @@ describe("RedisAdapter key browser", () => {
 	it("paginates sorted-set members with numeric scores", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("zset"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-zset"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(112);
@@ -418,7 +439,9 @@ describe("RedisAdapter key browser", () => {
 	it("paginates stream entries and fields", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("stream"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-stream"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(180);
@@ -455,7 +478,9 @@ describe("RedisAdapter key browser", () => {
 	it("reads streams newest-first with reverse pagination", async () => {
 		mockClient.callBuffer.mockImplementation((command: string) => {
 			if (command === "TYPE") return Promise.resolve(Buffer.from("stream"));
+
 			if (command === "DUMP") return Promise.resolve(Buffer.from("serialized-stream"));
+
 			return Promise.resolve(null);
 		});
 		mockClient.call.mockResolvedValue(180);

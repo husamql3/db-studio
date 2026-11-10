@@ -33,6 +33,7 @@ export const DeleteBtn = ({
 			schemaName: useTableSchemaName(),
 		},
 	);
+
 	const [pendingRowData, setPendingRowData] = useState<Record<string, unknown>[]>([]);
 	const [isOpenFkDialog, setIsOpenFkDialog] = useState(false);
 	const [isOpenConfirmDialog, setIsOpenConfirmDialog] = useState(false);
@@ -46,8 +47,6 @@ export const DeleteBtn = ({
 	const handleConfirmDelete = useCallback(async () => {
 		if (disabledReason) return;
 		const rowData = selectedRows.map((row) => row.original);
-		let relatedRecords: RelatedRecord[] | undefined;
-
 		setIsOpenConfirmDialog(false);
 
 		try {
@@ -55,7 +54,7 @@ export const DeleteBtn = ({
 			setRowSelection({});
 		} catch {
 			setPendingRowData(rowData);
-			setRelatedRecords(relatedRecords || []);
+			setRelatedRecords([]);
 			setIsOpenFkDialog(true);
 		}
 	}, [disabledReason, deleteCells, selectedRows, setRowSelection]);

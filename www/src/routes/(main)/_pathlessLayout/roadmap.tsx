@@ -92,6 +92,7 @@ function RouteComponent() {
 						<ul className="flex max-w-2xl flex-col gap-2.5">
 							{item.items.map((task: RoadmapItemTask) => {
 								const Icon = TASK_ICONS[task.status];
+
 								return (
 									<li
 										key={task.title}

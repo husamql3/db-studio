@@ -13,12 +13,15 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/use-table-schema-name", () => ({ useTableSchemaName: () => undefined }));
+
 vi.mock("@/shared/api", () => ({
 	updateRecords: (...args: unknown[]) => fixtures.updateRecords(...args),
 }));
+
 vi.mock("@/routes/_pathlessLayout/table/$table", () => ({
 	Route: { useParams: () => ({ table: "members" }) },
 }));
+
 vi.mock("@/features/schema", () => ({
 	useTableCols: () => ({ tableCols: fixtures.tableCols }),
 }));

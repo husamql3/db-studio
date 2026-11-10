@@ -27,6 +27,7 @@ export const AiSettingsSection = () => {
 
 	const saveApiKey = async () => {
 		const nextKey = apiKey.trim();
+
 		if (!nextKey) return;
 
 		await toast.promise(aiByok.update(settings.provider, nextKey), {

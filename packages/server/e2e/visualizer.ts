@@ -25,16 +25,20 @@ import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 
 const databaseUrl = process.env.DATABASE_URL;
+
 if (!databaseUrl?.startsWith("postgresql://")) {
 	throw new Error("Set DATABASE_URL to the PostgreSQL database seeded by init-db:pgsql");
 }
+
 const build = process.argv[2];
+
 const cli = fileURLToPath(
 	new URL(
 		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
 		import.meta.url,
 	),
 );
+
 const outDir = new URL(`./artifacts/visualizer-${build ?? "dist"}/`, import.meta.url);
 const PORT = 4525;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -44,15 +48,21 @@ const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databa
 	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
 	stdio: "ignore",
 });
+
 // Also covers a setup step failing before the `try` below.
 process.on("exit", () => server.kill("SIGKILL"));
+
 const deadline = Date.now() + 30_000;
+
 for (;;) {
 	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
+
 	if (Date.now() > deadline) throw new Error("server not ready after 30s");
+
 	const ready = await fetch(`${BASE}/api/databases`)
 		.then((response) => response.ok)
 		.catch(() => false);
+
 	if (ready) break;
 	await new Promise((resolve) => setTimeout(resolve, 50));
 }
@@ -63,20 +73,18 @@ const canvasState = (page: Page) =>
 	page.evaluate(() => {
 		const nodes = [...document.querySelectorAll<HTMLElement>(".react-flow__node")];
 		const edges = [...document.querySelectorAll<SVGElement>(".react-flow__edge")];
+
 		return {
 			tables: nodes.map((node) => node.dataset.id).sort(),
 			edges: edges.map((edge) => edge.dataset.id).sort(),
 			highlightedEdges: edges
-				.filter((edge) => edge.classList.contains("animated"))
-				.map((edge) => edge.dataset.id)
+				.flatMap((edge) => (edge.classList.contains("animated") ? [edge.dataset.id] : []))
 				.sort(),
 			active: nodes
-				.filter((node) => node.querySelector("[data-active]"))
-				.map((node) => node.dataset.id)
+				.flatMap((node) => (node.querySelector("[data-active]") ? [node.dataset.id] : []))
 				.sort(),
 			dimmed: nodes
-				.filter((node) => node.querySelector("[data-dimmed]"))
-				.map((node) => node.dataset.id)
+				.flatMap((node) => (node.querySelector("[data-dimmed]") ? [node.dataset.id] : []))
 				.sort(),
 		};
 	});
@@ -90,8 +98,11 @@ const offCentre = (page: Page, id: string) =>
 		const node = document
 			.querySelector(`.react-flow__node[data-id="${id}"]`)
 			?.getBoundingClientRect();
+
 		const pane = document.querySelector(".react-flow")?.getBoundingClientRect();
+
 		if (!node || !pane) return Number.POSITIVE_INFINITY;
+
 		return Math.round(
 			Math.hypot(
 				node.x + node.width / 2 - (pane.x + pane.width / 2),
@@ -108,14 +119,19 @@ const ALL_EDGES = [
 ];
 
 const summary: Record<string, unknown> = {};
+
 await mkdir(outDir, { recursive: true });
+
 const shot = (page: Page, name: string) =>
 	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
+
 const browser = await chromium.launch({
 	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
 	headless: true,
 });
+
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
 try {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));

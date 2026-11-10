@@ -34,10 +34,12 @@ describe("RedisAdapter — record mutations", () => {
 	describe("addRecord", () => {
 		it("inserts a string with SET NX", async () => {
 			mockClient.set.mockResolvedValue("OK");
+
 			const result = await adapter.addRecord({
 				db: "0",
 				params: { tableName: "strings", data: { key: "foo", value: "bar" } },
 			});
+
 			expect(mockClient.set).toHaveBeenCalledWith("foo", "bar", "NX");
 			expect(result).toEqual({ insertedCount: 1 });
 		});
@@ -181,9 +183,7 @@ describe("RedisAdapter — record mutations", () => {
 				params: {
 					tableName: "strings",
 					primaryKey: "key",
-					updates: [
-						{ rowData: { key: "same", value: "v" }, columnName: "value", value: "w" },
-					],
+					updates: [{ rowData: { key: "same", value: "v" }, columnName: "value", value: "w" }],
 				},
 			});
 

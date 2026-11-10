@@ -11,24 +11,29 @@ export const SidebarListTables = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
+
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
 		defaultValue: "all",
 	});
+
 	const engine = useDatabaseEngine();
 
 	const { tablesList = [], isLoadingTablesList, errorTablesList } = useTablesList();
+
 	const schemas = useMemo(
 		() =>
 			Array.from(
 				new Set(
 					tablesList.reduce<string[]>((acc, table) => {
 						if (table.schemaName) acc.push(table.schemaName);
+
 						return acc;
 					}, []),
 				),
 			).sort(),
 		[tablesList],
 	);
+
 	const showSchemaDropdown = (engine?.schemaSelector ?? false) && schemas.length > 1;
 
 	// One schema in view: the dropdown already names it, so the prefix only widens rows.
@@ -37,6 +42,7 @@ export const SidebarListTables = () => {
 	const filteredTables = tablesList?.filter((table) => {
 		const matchesSchema = selectedSchema === "all" || table.schemaName === selectedSchema;
 		const matchesSearch = table.tableName.toLowerCase().includes(searchTerm.toLowerCase());
+
 		return matchesSchema && matchesSearch;
 	});
 

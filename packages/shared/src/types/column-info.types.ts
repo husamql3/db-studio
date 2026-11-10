@@ -3,6 +3,7 @@ import { z } from "zod";
 const dataTypes = ["text", "boolean", "number", "enum", "json", "date", "array"] as const;
 
 export const dataTypesSchema = z.enum(dataTypes);
+
 export type DataTypes = z.infer<typeof dataTypesSchema>;
 
 export const DataTypes = {

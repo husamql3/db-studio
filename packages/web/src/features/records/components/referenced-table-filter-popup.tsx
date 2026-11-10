@@ -24,6 +24,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 			.withDefault([])
 			.withOptions({ history: "push" }),
 	);
+
 	const [, setCursor] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.CURSOR);
 	const [, setDirection] = useQueryState(CONSTANTS.REFERENCED_TABLE_STATE_KEYS.DIRECTION);
 	const { tableCols } = useTableCols({ tableName, schemaName: useTableSchemaName() });
@@ -73,6 +74,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 		const validFilters = localFilters.filter(
 			(f) => f.columnName && f.operator && f.value !== "",
 		);
+
 		setFilters(validFilters);
 		setCursor(null);
 		setDirection(null);
@@ -85,6 +87,7 @@ export const ReferencedTableFilterPopup = ({ tableName }: { tableName: string })
 		if (open) {
 			setLocalFilters(filters);
 		}
+
 		setIsOpen(open);
 	};
 

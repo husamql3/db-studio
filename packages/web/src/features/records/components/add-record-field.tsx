@@ -27,6 +27,7 @@ const formatLocalTimestamp = (date: Date): string => {
 	const dd = pad(date.getDate());
 	const hh = pad(date.getHours());
 	const min = pad(date.getMinutes());
+
 	return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 };
 
@@ -43,6 +44,7 @@ export const AddRecordField = ({
 	const [, setReferencedActiveTable] = useQueryState(
 		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
 	);
+
 	const { control } = useFormContext<AddRecordFormData>();
 	const { openOverlay } = useOverlayStore();
 	const { setRecordReference } = useRecordReferenceStore();
@@ -52,6 +54,7 @@ export const AddRecordField = ({
 			...field,
 			value: field.value ?? "",
 		};
+
 		// Without a visible <Label>, name each primary control directly. The
 		// visible-label path stays associated through htmlFor and is untouched.
 		const controlName = hideLabel ? columnName : undefined;
@@ -78,6 +81,7 @@ export const AddRecordField = ({
 										if (referencedTable && columnName && referencedColumn) {
 											setRecordReference(referencedTable, columnName, referencedColumn);
 										}
+
 										openOverlay("records.record-reference");
 										setReferencedActiveTable(referencedTable);
 									}}
@@ -102,6 +106,7 @@ export const AddRecordField = ({
 								if (referencedTable && columnName && referencedColumn) {
 									setRecordReference(referencedTable, columnName, referencedColumn);
 								}
+
 								openOverlay("records.record-reference");
 								setReferencedActiveTable(referencedTable);
 							}}
@@ -409,6 +414,7 @@ export const AddRecordField = ({
 					</Select>
 				);
 			}
+
 			return (
 				<Input
 					id={columnName}

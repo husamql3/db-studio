@@ -12,6 +12,7 @@ The user chose not to share their database schema. Do not claim to know their ta
 
 	const dbTypeLower = schema.dbType.toLowerCase();
 	const dbTypeLabel = DATABASE_ENGINES[schema.dbType].label;
+
 	if (dbTypeLower.includes("mongo")) {
 		return `You are a database assistant for db-studio. Your responses must be CONCISE and FOCUSED.
 
@@ -141,11 +142,14 @@ function formatSchemaForPrompt(schema: DatabaseSchema): string {
 	let output = `Database Type: ${dbTypeLabel}\n\n`;
 
 	output += "**Tables and Columns:**\n";
+
 	for (const table of schema.tables) {
 		output += `\n### ${table.name}\n`;
+
 		if (table.description) {
 			output += `Description: ${table.description}\n`;
 		}
+
 		output += "Columns:\n";
 
 		for (const col of table.columns) {
@@ -154,6 +158,7 @@ function formatSchemaForPrompt(schema: DatabaseSchema): string {
 			const nullable = col.nullable ? "NULL" : "NOT NULL";
 
 			output += `  - ${col.name}: ${col.type} ${nullable}${pkIndicator}${fkIndicator}\n`;
+
 			if (col.description) {
 				output += `    ${col.description}\n`;
 			}
@@ -163,6 +168,7 @@ function formatSchemaForPrompt(schema: DatabaseSchema): string {
 	// Add relationships
 	if (schema.relationships && schema.relationships.length > 0) {
 		output += "\n**Relationships:**\n";
+
 		for (const rel of schema.relationships) {
 			output += `  - ${rel.fromTable}.${rel.fromColumn} -> ${rel.toTable}.${rel.toColumn}\n`;
 		}

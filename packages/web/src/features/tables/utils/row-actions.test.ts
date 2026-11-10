@@ -108,6 +108,7 @@ describe("toDuplicateValues", () => {
 			col("serial_no", { columnDefault: "nextval('s'::regclass)" }),
 			col("name", {}),
 		];
+
 		expect(toDuplicateValues({ code: "A1", serial_no: 7, name: "x" }, cols)).toEqual({
 			name: "x",
 		});

@@ -44,6 +44,7 @@ export const CodeEditor = ({
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const { isDark } = useTheme();
 	const { editor: editorPreferences } = usePersonalPreferencesStore();
+
 	// The editor is created once per query; reading callbacks through a ref keeps a new
 	// callback identity from disposing it mid-typing.
 	const callbacksRef = useRef({
@@ -83,6 +84,7 @@ export const CodeEditor = ({
 				monaco.languages.registerDocumentFormattingEditProvider("pgsql", {
 					provideDocumentFormattingEdits: (model) => {
 						const text = model.getValue();
+
 						const formatted = text
 							.replace(/\s+/g, " ")
 							.replace(/\s*,\s*/g, ",\n\t")
@@ -95,6 +97,7 @@ export const CodeEditor = ({
 							.split("\n")
 							.map((line) => {
 								const trimmed = line.trim();
+
 								if (
 									trimmed.startsWith("AND") ||
 									trimmed.startsWith("OR") ||
@@ -102,6 +105,7 @@ export const CodeEditor = ({
 								) {
 									return `\t${trimmed}`;
 								}
+
 								return trimmed;
 							})
 							.join("\n");
@@ -193,6 +197,7 @@ export const CodeEditor = ({
 				monaco.languages.registerCompletionItemProvider("pgsql", {
 					provideCompletionItems: (model, position) => {
 						const word = model.getWordUntilPosition(position);
+
 						const range = {
 							startLineNumber: position.lineNumber,
 							endLineNumber: position.lineNumber,
@@ -306,10 +311,13 @@ export const CodeEditor = ({
 
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
 			const query = editorInstance.getValue();
+
 			if (!query.trim()) {
 				toast.error("Query is empty!");
+
 				return;
 			}
+
 			callbacksRef.current.onExecuteQuery(query);
 		});
 
@@ -340,8 +348,10 @@ export const CodeEditor = ({
 
 			if (!queryId) {
 				callbacksRef.current.onUnsavedChanges(false);
+
 				return;
 			}
+
 			callbacksRef.current.onUnsavedChanges(currentValue !== savedQuery);
 		});
 

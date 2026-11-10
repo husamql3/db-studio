@@ -78,6 +78,7 @@ export const KEYWORDS = [
 	"TO",
 	"RETURNING",
 ];
+
 export const OPERATORS = [
 	"=",
 	">",

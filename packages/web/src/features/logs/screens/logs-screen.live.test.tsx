@@ -36,6 +36,7 @@ vi.mock("../hooks/use-server-logs", () => ({
 /** Scrolls the log to `scrollTop` in a 1000px-tall log shown 200px at a time. */
 const scrollLogTo = (scrollTop: number) => {
 	const scroller = screen.getByRole("button", { name: /first/ }).closest(".overflow-auto");
+
 	if (!scroller) throw new Error("log scroller not found");
 	Object.defineProperties(scroller, {
 		scrollHeight: { configurable: true, value: 1000 },

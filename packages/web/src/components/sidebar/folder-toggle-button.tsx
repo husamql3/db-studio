@@ -56,8 +56,10 @@ export const FolderToggleButton = ({
 	const handleDelete = useCallback(() => {
 		if (folderId) {
 			const queries = getQueriesByFolder(folderId);
+
 			if (queries.length > 0) {
 				setIsDeleteDialogOpen(true);
+
 				return;
 			}
 

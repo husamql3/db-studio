@@ -28,19 +28,25 @@ export const addTableSchema = z.object({
 	fields: z.array(fieldSchema).min(1, "At least one column is required"),
 	foreignKeys: z.preprocess((val) => {
 		if (!Array.isArray(val)) return undefined;
+
 		return val.filter((fk) => {
 			if (fk === null || fk === undefined) return false;
+
 			if (typeof fk === "object") {
 				const hasRequiredFields = fk.columnName && fk.referencedTable && fk.referencedColumn;
+
 				return hasRequiredFields;
 			}
+
 			return false;
 		});
 	}, z.array(foreignKeySchema).optional()),
 });
 
 type FieldData = z.infer<typeof fieldSchema>;
+
 export type AddTableFormData = z.infer<typeof addTableSchema>;
+
 export type ForeignKeyData = z.infer<typeof foreignKeySchema>;
 
 export type AddTableOption = {

@@ -1,16 +1,23 @@
 import type { FilterType, SortDirection, SortType } from "@db-studio/shared/types";
+import type { ObjectId } from "mongodb";
 import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const parseFilterValue = (raw: string): unknown => {
+const parseFilterValue = (raw: string): string | number | boolean | ObjectId | null => {
 	const trimmed = raw.trim();
+
 	if (trimmed === "null") return null;
+
 	if (trimmed === "true") return true;
+
 	if (trimmed === "false") return false;
 	const asNumber = Number(trimmed);
+
 	if (!Number.isNaN(asNumber) && trimmed !== "") return asNumber;
+
 	if (isValidObjectId(trimmed)) return coerceObjectId(trimmed);
+
 	return trimmed;
 };
 
@@ -22,6 +29,7 @@ export function buildMatchStage(filters: FilterType[]): Record<string, unknown> 
 		const field = filter.columnName;
 		const value = parseFilterValue(filter.value);
 		const op = filter.operator.toLowerCase();
+
 		if (!field) continue;
 
 		switch (op) {
@@ -79,15 +87,19 @@ export function buildSortStage(
 	order?: SortDirection,
 ): Record<string, 1 | -1> {
 	if (!sort) return { _id: 1 };
+
 	if (Array.isArray(sort)) {
 		if (sort.length === 0) return { _id: 1 };
+
 		return Object.fromEntries(
 			sort.map((s) => [s.columnName, s.direction === "desc" ? -1 : 1]),
 		);
 	}
+
 	if (typeof sort === "string" && sort.length > 0) {
 		return { [sort]: order === "desc" ? -1 : 1 };
 	}
+
 	return { _id: 1 };
 }
 
@@ -97,10 +109,12 @@ export function encodeMongoCursor(offset: number): string {
 
 export function decodeMongoCursor(cursor?: string): number {
 	if (!cursor) return 0;
+
 	try {
 		const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")) as {
 			offset?: number;
 		};
+
 		return typeof parsed.offset === "number" ? parsed.offset : 0;
 	} catch {
 		return 0;

@@ -2,6 +2,7 @@ import { Button } from "@db-studio/ui/button";
 import { useCallback } from "react";
 import { useUpdateCell } from "../../hooks/use-update-cell";
 import { useUpdateCellStore } from "../../stores/update-cell.store";
+
 export const ClearBtn = () => {
 	const { getUpdateCount, clearUpdates } = useUpdateCellStore();
 	const { isUpdatingCell, editScope } = useUpdateCell();

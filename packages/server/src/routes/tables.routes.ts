@@ -44,6 +44,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/graph",
 		async ({ adapter, query: { db } }) => {
 			const tables = await adapter.getTablesList(db);
+
 			return {
 				data: await Promise.all(
 					tables.map(async (table) => ({
@@ -68,6 +69,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/",
 		async ({ adapter, query, body }) => {
 			await adapter.createTable({ tableData: body, db: query.db });
+
 			return { data: `Table ${body.tableName} created successfully` };
 		},
 		{ query: databaseSchema, body: createTableSchema },
@@ -93,6 +95,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/rename",
 		async ({ adapter, query: { db }, params: { tableName }, body }) => {
 			await adapter.renameTable({ tableName, db, ...body });
+
 			return { data: `Table "${tableName}" renamed to "${body.newTableName}"` };
 		},
 		{ query: databaseSchema, params: tableNameSchema, body: renameTableSchema },
@@ -116,6 +119,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 				cascade,
 				db,
 			});
+
 			return {
 				data: `Column "${columnName}" deleted successfully from table "${tableName}" with ${deletedCount} rows deleted`,
 			};
@@ -131,6 +135,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/columns",
 		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
 			await adapter.addColumn({ tableName, schemaName, db, ...body });
+
 			return {
 				data: `Column "${body.columnName}" added successfully to table "${tableName}"`,
 			};
@@ -151,6 +156,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			body,
 		}) => {
 			await adapter.renameColumn({ tableName, schemaName, columnName, db, ...body });
+
 			return {
 				data: `Column "${columnName}" renamed to "${body.newColumnName}" in table "${tableName}"`,
 			};
@@ -171,6 +177,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 			body,
 		}) => {
 			await adapter.alterColumn({ tableName, schemaName, columnName, db, ...body });
+
 			return {
 				data: `Column "${columnName}" updated successfully in table "${tableName}"`,
 			};
@@ -210,6 +217,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/indexes",
 		async ({ adapter, query: { db, schemaName }, params: { tableName }, body }) => {
 			await adapter.createIndex({ tableName, schemaName, db, ...body });
+
 			return {
 				data: `Index "${body.indexName}" created successfully on table "${tableName}"`,
 			};
@@ -225,6 +233,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/indexes/:indexName",
 		async ({ adapter, query: { db, schemaName }, params: { tableName, indexName } }) => {
 			await adapter.dropIndex({ tableName, schemaName, indexName, db });
+
 			return {
 				data: `Index "${indexName}" dropped successfully from table "${tableName}"`,
 			};
@@ -264,6 +273,7 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 		"/:tableName/export",
 		async ({ adapter, query: { db, schemaName, format }, params: { tableName } }) => {
 			const { cols, rows } = await adapter.exportTableData({ tableName, schemaName, db });
+
 			return new Response(await getExportFile({ cols, rows, format, tableName }), {
 				headers: {
 					"Content-Type": EXPORT_CONTENT_TYPES[format],

@@ -13,10 +13,12 @@ import { useBulkInsertRecords } from "../hooks/use-bulk-insert-records";
 
 export const BulkInsertExcelSheet = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
+
 	const { bulkInsertRecords, isInserting } = useBulkInsertRecords({
 		tableName,
 		schemaName: useTableSchemaName(),
 	});
+
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [textValue, setTextValue] = useState("");
@@ -27,6 +29,7 @@ export const BulkInsertExcelSheet = ({ tableName }: { tableName: string }) => {
 
 	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
+
 		if (file) {
 			setSelectedFile(file);
 			setParsedRecords([]);
@@ -50,6 +53,7 @@ export const BulkInsertExcelSheet = ({ tableName }: { tableName: string }) => {
 						setParseError(error instanceof Error ? error.message : "Failed to parse file");
 					}
 				};
+
 				reader.readAsText(selectedFile);
 			} else if (textValue.trim()) {
 				const records = parseBulkData(textValue);
@@ -65,6 +69,7 @@ export const BulkInsertExcelSheet = ({ tableName }: { tableName: string }) => {
 	const handleInsert = async () => {
 		if (parsedRecords.length === 0) {
 			setParseError("No records to insert");
+
 			return;
 		}
 

@@ -20,6 +20,7 @@ export const showStatus = async (env?: string, databaseUrl?: string, varName?: s
 	} else {
 		// Try .env file, then process.env
 		const ENV = env ? await loadEnv(env) : await loadEnv();
+
 		if (ENV?.[envVarName]) {
 			foundUrl = ENV[envVarName];
 		} else if (process.env[envVarName]) {

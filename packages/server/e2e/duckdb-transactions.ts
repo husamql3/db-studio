@@ -3,13 +3,17 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { z } from "zod";
 
 process.env.DATABASE_URL = "duckdb://:memory:";
+
 process.env.DB_STUDIO_TELEMETRY = "0";
+
 const { createServer } = await import("../src/utils/create-server.js");
 const { withDuckdbConnection } = await import("../src/db-manager.js");
 const { app } = createServer();
+
 const rowsSchema = z.object({
 	data: z.object({ rows: z.array(z.record(z.string(), z.unknown())) }),
 });
+
 const evidence: Record<string, unknown> = {};
 
 const request = async (resource: string, body: unknown) => {
@@ -20,10 +24,14 @@ const request = async (resource: string, body: unknown) => {
 			body: JSON.stringify(body),
 		}),
 	);
+
 	const result: unknown = await response.json();
+
 	return { status: response.status, body: result };
 };
+
 const query = (sql: string) => request("query", { query: sql });
+
 const rows = async () =>
 	rowsSchema.parse((await query("SELECT * FROM tx_guard ORDER BY id")).body).data.rows;
 
@@ -33,10 +41,12 @@ try {
 		200,
 	);
 	const begin = await query("BEGIN");
+
 	const inserted = await request("records", {
 		tableName: "tx_guard",
 		data: { id: 1, label: "saved" },
 	});
+
 	const beforeRollback = await rows();
 	const rollback = await query("ROLLBACK");
 	const afterRollback = await rows();
@@ -49,6 +59,7 @@ try {
 	};
 
 	const rejected: Array<{ sql: string; status: number }> = [];
+
 	for (const sql of [
 		"/* outer /* nested */ comment */ START TRANSACTION; -- trailing",
 		"COMMIT",
@@ -63,6 +74,7 @@ try {
 		// Reset leaked transactions on the broken version so every regression can be observed.
 		await withDuckdbConnection((conn) => conn.run("ROLLBACK").catch(() => {}));
 	}
+
 	evidence.rejected = rejected;
 	const allowed = await query("SELECT $$BEGIN; COMMIT$$ AS text; /* ignored ; */");
 	evidence.quotedText = {

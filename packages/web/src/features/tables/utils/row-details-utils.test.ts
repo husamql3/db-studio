@@ -67,6 +67,7 @@ describe("row-details-utils", () => {
 				{ ...cols[0], columnName: "tenant_id", isPrimaryKey: true },
 				{ ...cols[1], columnName: "user_id", isPrimaryKey: true },
 			];
+
 			const id1 = getRecordIdentity({ tenant_id: "org:1|part", user_id: "42" }, compositeCols);
 			const id2 = getRecordIdentity({ tenant_id: "org", user_id: "1|part:42" }, compositeCols);
 			expect(id1).toBe(

@@ -9,6 +9,7 @@ export const readSponsors = (): Promise<Sponsor[]> =>
 		(sponsors) => sponsors ?? [],
 		(error) => {
 			console.error("Sponsors could not be read from KV", error);
+
 			return [];
 		},
 	);

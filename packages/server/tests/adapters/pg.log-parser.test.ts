@@ -20,7 +20,7 @@ const OPTS = { logUtcOffsetMinutes: 0, truncatedStart: false };
 describe("parsePgLog stderr", () => {
 	it("attaches DETAIL and STATEMENT lines to the error above them", () => {
 		const text = [
-			"2026-10-19 13:15:17.710 UTC [2554] ERROR:  duplicate key value violates unique constraint \"customers_email_key\"",
+			'2026-10-19 13:15:17.710 UTC [2554] ERROR:  duplicate key value violates unique constraint "customers_email_key"',
 			"2026-10-19 13:15:17.710 UTC [2554] DETAIL:  Key (email)=(a@example.com) already exists.",
 			"2026-10-19 13:15:17.710 UTC [2554] STATEMENT:  INSERT INTO customers (email) VALUES ($1)",
 			"2026-10-19 13:15:18.000 UTC [2555] LOG:  checkpoint starting: time",
@@ -66,7 +66,7 @@ describe("parsePgLog stderr", () => {
 
 	it("maps FATAL, PANIC, WARNING and DEBUG levels and keeps the engine's label", () => {
 		const text = [
-			"2026-10-19 13:00:00.000 UTC [1] FATAL:  password authentication failed for user \"app\"",
+			'2026-10-19 13:00:00.000 UTC [1] FATAL:  password authentication failed for user "app"',
 			"2026-10-19 13:00:01.000 UTC [1] PANIC:  could not write to file",
 			"2026-10-19 13:00:02.000 UTC [1] WARNING:  there is no transaction in progress",
 			"2026-10-19 13:00:03.000 UTC [1] DEBUG2:  autovacuum: processing database",
@@ -165,7 +165,10 @@ describe("parsePgLog csvlog", () => {
 				detail: "Key (email, name)=(a@example.com, A) already exists.",
 			},
 		});
-		expect(entries[1]).toMatchObject({ source: "checkpointer", message: "checkpoint starting: time" });
+		expect(entries[1]).toMatchObject({
+			source: "checkpointer",
+			message: "checkpoint starting: time",
+		});
 		// 00000 is the "successful completion" SQLSTATE csvlog writes on every ordinary line.
 		expect(entries[1].code).toBeUndefined();
 	});

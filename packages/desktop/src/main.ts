@@ -26,6 +26,7 @@ if (!app.requestSingleInstanceLock()) {
 	app.whenReady().then(async () => {
 		const log = createLogger();
 		log.info("app", `db-studio ${app.getVersion()} starting`);
+
 		const fail = (message: string) => {
 			if (quitting) return;
 			log.error("app", message);
@@ -52,6 +53,7 @@ if (!app.requestSingleInstanceLock()) {
 	});
 	app.on("second-instance", () => {
 		if (!window) return openWindow();
+
 		if (window.isMinimized()) window.restore();
 		window.focus();
 	});
