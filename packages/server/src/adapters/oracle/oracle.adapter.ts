@@ -78,12 +78,25 @@ type ColumnRow = {
 const supportsNativeTypes = (conn: Connection) => conn.oracleServerVersion >= 2300000000;
 
 /**
- * Every column any record names, for an INSERT whose one statement writes every record: imported
- * records can each name a different subset.
+ * Consecutive records that name the same columns, in order: one executeMany statement writes
+ * each run, so a column a record leaves out takes its DEFAULT instead of NULL.
  */
-const recordColumns = (records: Record<string, unknown>[]) => [
-	...new Set(records.flatMap((record) => Object.keys(record))),
-];
+const columnRuns = (records: Record<string, unknown>[]) => {
+	const runs: { columns: string[]; records: Record<string, unknown>[] }[] = [];
+	let runKey: string | undefined;
+
+	for (const record of records) {
+		const columns = Object.keys(record);
+		const key = JSON.stringify([...columns].sort());
+
+		if (key === runKey) runs[runs.length - 1].records.push(record);
+		else runs.push({ columns, records: [record] });
+
+		runKey = key;
+	}
+
+	return runs;
+};
 
 const toHex = (value: unknown) => (Buffer.isBuffer(value) ? value.toString("hex") : value);
 
@@ -822,38 +835,41 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 		records,
 		db,
 	}: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		// executeMany runs one statement, so it names every column any record has, and a record
-		// without one writes NULL there rather than the column's DEFAULT.
-		const columns = recordColumns(records);
-
 		const successCount = await this.transaction(db, async (conn) => {
-			if (!columns.length) {
-				const sql = `INSERT INTO ${ident(tableName)} ${await this.insertDefaultsSql(conn, tableName)}`;
-
-				return (await conn.executeMany(sql, records.length)).rowsAffected ?? records.length;
-			}
-
 			const types = await this.columnTypes(conn, tableName);
-			let expressions: string[] = [];
+			let inserted = 0;
 
-			const rows = records.map((record, index) => {
-				const { values, bind } = createBinds(oraclePlaceholder);
+			for (const run of columnRuns(records)) {
+				if (!run.columns.length) {
+					const sql = `INSERT INTO ${ident(tableName)} ${await this.insertDefaultsSql(conn, tableName)}`;
+					const result = await conn.executeMany(sql, run.records.length);
+					inserted += result.rowsAffected ?? run.records.length;
+					continue;
+				}
 
-				const rowExpressions = columns.map((column) =>
-					typedBind(types, bind)(record[column] ?? null, column),
+				let expressions: string[] = [];
+
+				const rows = run.records.map((record, index) => {
+					const { values, bind } = createBinds(oraclePlaceholder);
+
+					const rowExpressions = run.columns.map((column) =>
+						typedBind(types, bind)(record[column] ?? null, column),
+					);
+
+					if (index === 0) expressions = rowExpressions;
+
+					return values;
+				});
+
+				const result = await conn.executeMany(
+					`INSERT INTO ${ident(tableName)} (${run.columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
+					rows,
 				);
 
-				if (index === 0) expressions = rowExpressions;
+				inserted += result.rowsAffected ?? run.records.length;
+			}
 
-				return values;
-			});
-
-			const result = await conn.executeMany(
-				`INSERT INTO ${ident(tableName)} (${columns.map(ident).join(", ")}) VALUES (${expressions.join(", ")})`,
-				rows,
-			);
-
-			return result.rowsAffected ?? records.length;
+			return inserted;
 		});
 
 		return bulkInserted(successCount);
