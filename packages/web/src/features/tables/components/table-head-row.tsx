@@ -1,15 +1,4 @@
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@db-studio/ui/alert-dialog";
 import { Button } from "@db-studio/ui/button";
-import { Checkbox } from "@db-studio/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,7 +7,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
-import { Label } from "@db-studio/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import {
@@ -40,11 +28,10 @@ import {
 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useCallback, useState } from "react";
-import { useDeleteColumn } from "@/features/schema";
-import { useIsSchemaless } from "@/hooks/use-is-schemaless";
+import { DropColumnDialog } from "@/features/schema";
+import type { TableRecord } from "@/features/tables/table.type";
+import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { Route } from "@/routes/_pathlessLayout/table/$table";
-import type { TableRecord } from "@/types/table.type";
 import { CONSTANTS } from "@/utils/constants";
 import { TableColumnResizer } from "./table-col-resizer";
 
@@ -54,6 +41,7 @@ interface TableHeadRowProps {
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
 	table: Table<TableRecord>;
+	tableName: string;
 }
 
 export const TableHeadRow = ({
@@ -62,17 +50,13 @@ export const TableHeadRow = ({
 	virtualPaddingLeft,
 	virtualPaddingRight,
 	table,
+	tableName,
 }: TableHeadRowProps) => {
-	const { table: activeTableName } = Route.useParams();
-	const isSchemaless = useIsSchemaless();
+	const engine = useDatabaseEngine();
 
-	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
-	const [cascadeDelete, setCascadeDelete] = useState(false);
-	const { deleteColumn } = useDeleteColumn();
 	const schemaName = useTableSchemaName();
 
-	const [, setColumnName] = useQueryState(CONSTANTS.COLUMN_NAME);
 	const [, setSort] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.SORT);
 	const [, setOrder] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.ORDER);
 	const [, setCursor] = useQueryState(CONSTANTS.TABLE_STATE_KEYS.CURSOR);
@@ -84,58 +68,19 @@ export const TableHeadRow = ({
 	const createSortHandler = useCallback(
 		(columnId: string) => (direction: SortDirection | null) => {
 			if (direction === null) {
-				// Clear sorting
-				setColumnName(null);
 				setSort(null);
 				setOrder(null);
 			} else {
-				// Update query state (table state will be derived from this)
-				setColumnName(columnId);
+				// The table's sort state is derived from these query params.
 				setSort(columnId);
 				setOrder(direction === "desc" ? "desc" : "asc");
 			}
-			// Reset cursor when sort changes
+
 			setCursor(null);
 			setDirection(null);
 		},
-		[setColumnName, setSort, setOrder, setCursor, setDirection],
+		[setSort, setOrder, setCursor, setDirection],
 	);
-
-	const handleDeleteClick = useCallback((columnId: string) => {
-		setColumnToDelete(columnId);
-		setCascadeDelete(false);
-		setDeleteDialogOpen(true);
-	}, []);
-
-	const handleDialogOpenChange = useCallback((open: boolean) => {
-		setDeleteDialogOpen(open);
-		if (!open) {
-			setColumnToDelete(null);
-			setCascadeDelete(false);
-		}
-	}, []);
-
-	const handleConfirmDelete = useCallback(async () => {
-		if (!columnToDelete || !activeTableName) return;
-
-		await deleteColumn({
-			db: activeTableName,
-			tableName: activeTableName,
-			schemaName,
-			columnName: columnToDelete,
-			cascade: cascadeDelete,
-		});
-
-		setDeleteDialogOpen(false);
-		setColumnToDelete(null);
-		setCascadeDelete(false);
-	}, [columnToDelete, activeTableName, deleteColumn, cascadeDelete]);
-
-	const handleCancelDelete = useCallback(() => {
-		setDeleteDialogOpen(false);
-		setColumnToDelete(null);
-		setCascadeDelete(false);
-	}, []);
 
 	return (
 		<>
@@ -172,7 +117,6 @@ export const TableHeadRow = ({
 										"border-r border-border",
 										header.column.getCanSort() ? "cursor-pointer select-none" : "",
 									),
-									// onClick: header.column.getToggleSortingHandler(),
 								}}
 							>
 								{virtualColumn.index === 0 ? (
@@ -239,10 +183,9 @@ export const TableHeadRow = ({
 												className="w-44"
 												align="start"
 											>
-												{!isSchemaless && (
+												{engine?.filterSort !== false && (
 													<>
 														<DropdownMenuGroup>
-															{/* Sort ascending button */}
 															<DropdownMenuItem
 																onClick={() => createSortHandler(header.column.id)("asc")}
 															>
@@ -250,7 +193,6 @@ export const TableHeadRow = ({
 																Sort ascending
 															</DropdownMenuItem>
 
-															{/* Sort descending button */}
 															<DropdownMenuItem
 																onClick={() => createSortHandler(header.column.id)("desc")}
 															>
@@ -258,7 +200,6 @@ export const TableHeadRow = ({
 																Sort descending
 															</DropdownMenuItem>
 
-															{/* Remove sort button */}
 															{header.column.getIsSorted() && (
 																<DropdownMenuItem
 																	onClick={() => createSortHandler(header.column.id)(null)}
@@ -271,22 +212,10 @@ export const TableHeadRow = ({
 														<DropdownMenuSeparator />
 													</>
 												)}
-												{/* TODO: #84 Add edit column button */}
-												{/* <DropdownMenuItem
-													onClick={() =>
-														handleEditColumn(header.column.id)
-													}
-												>
-													<IconPencil />
-													Edit column
-												</DropdownMenuItem>
-												<DropdownMenuSeparator /> */}
-
-												{/* Delete column button */}
 												<DropdownMenuItem
 													variant="destructive"
-													disabled={isSchemaless}
-													onClick={() => handleDeleteClick(header.column.id)}
+													disabled={engine?.schemaMutation === false}
+													onClick={() => setColumnToDelete(header.column.id)}
 												>
 													<Trash2 />
 													Delete column
@@ -313,46 +242,15 @@ export const TableHeadRow = ({
 				) : null}
 			</tr>
 
-			<AlertDialog
-				open={deleteDialogOpen}
-				onOpenChange={handleDialogOpenChange}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Column</AlertDialogTitle>
-						<AlertDialogDescription>
-							Are you sure you want to delete the column "{columnToDelete}
-							"? This action cannot be undone and will permanently remove all data in this
-							column.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-
-					<div className="flex gap-2 py-2">
-						<Checkbox
-							id="cascade-delete"
-							checked={cascadeDelete}
-							onCheckedChange={(checked) => setCascadeDelete(checked === true)}
-						/>
-						<Label
-							htmlFor="cascade-delete"
-							className="text-xs text-muted-foreground cursor-pointer"
-						>
-							Drop with CASCADE (also remove dependent indexes, constraints, and foreign key
-							references)
-						</Label>
-					</div>
-
-					<AlertDialogFooter>
-						<AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							variant="destructive"
-							onClick={handleConfirmDelete}
-						>
-							Delete
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<DropColumnDialog
+				tableName={tableName}
+				schemaName={schemaName}
+				columnName={columnToDelete ?? ""}
+				open={columnToDelete !== null}
+				onOpenChange={(open) => {
+					if (!open) setColumnToDelete(null);
+				}}
+			/>
 		</>
 	);
 };

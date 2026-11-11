@@ -5,22 +5,18 @@ import { cn } from "@db-studio/ui/utils";
 import { Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { isMac } from "@/lib/platform";
 import { formatCellValue } from "@/utils/format-cell-value";
 import { useUpdateCell } from "../../hooks/use-update-cell";
-import {
-	type CellUpdate,
-	getRowIdentity,
-	useUpdateCellStore,
-} from "../../stores/update-cell.store";
-import { stableStringify } from "../../utils/table-diff";
-
-const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+import { type CellUpdate, useUpdateCellStore } from "../../stores/update-cell.store";
+import { getRecordKey } from "../../utils/table-diff";
 
 /** One side of a change, like a diff line; NULL and empty text get the grid's markers. */
 const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {
 	const text = formatCellValue(value);
 	const marker = value === null || value === undefined ? "NULL" : text === "" ? "EMPTY" : null;
 	const Line = added ? "ins" : "del";
+
 	return (
 		<Line
 			className={cn(
@@ -43,9 +39,9 @@ const DiffLine = ({ value, added }: { value: unknown; added: boolean }) => {
 };
 
 /** The pending edits of the open table, by row, each cell revertible; ⌘Z/Ctrl+Z undoes. */
-export const ReviewBtn = () => {
+export const ReviewBtn = ({ tableName }: { tableName: string }) => {
 	const { getUpdates, clearUpdate, undo } = useUpdateCellStore();
-	const { isUpdatingCell, editScope } = useUpdateCell();
+	const { isUpdatingCell, editScope } = useUpdateCell(tableName);
 	const [isOpen, setIsOpen] = useState(false);
 	const updates = getUpdates(editScope.id);
 
@@ -60,6 +56,7 @@ export const ReviewBtn = () => {
 			) {
 				return;
 			}
+
 			// Text fields and editors keep their own undo.
 			if (
 				event.target instanceof Element &&
@@ -67,20 +64,25 @@ export const ReviewBtn = () => {
 			) {
 				return;
 			}
+
 			const count = undo(editScope.id);
+
 			if (count === 0) return;
 			event.preventDefault();
 			toast(`Undid ${count} ${count === 1 ? "change" : "changes"}`);
 		};
+
 		window.addEventListener("keydown", onKeyDown);
+
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, [undo, editScope.id, isUpdatingCell]);
 
 	if (updates.length === 0) return null;
 
 	const rows = new Map<string, CellUpdate[]>();
+
 	for (const update of updates) {
-		const key = stableStringify(getRowIdentity(update.rowData, editScope));
+		const key = getRecordKey(update.rowData, editScope.keyColumns);
 		rows.set(key, [...(rows.get(key) ?? []), update]);
 	}
 
@@ -89,6 +91,7 @@ export const ReviewBtn = () => {
 			editScope.keyColumns.length > 0
 				? editScope.keyColumns
 				: ["id", "_id"].filter((column) => column in rowData).slice(0, 1);
+
 		return keys.length > 0
 			? keys.map((column) => `${column} = ${formatCellValue(rowData[column])}`).join(", ")
 			: `Row ${index + 1}`;
@@ -127,7 +130,7 @@ export const ReviewBtn = () => {
 				</div>
 				<div className="max-h-96 overflow-auto font-mono">
 					{[...rows.values()].map((cells, index) => (
-						<section key={stableStringify(getRowIdentity(cells[0].rowData, editScope))}>
+						<section key={getRecordKey(cells[0].rowData, editScope.keyColumns)}>
 							<h3 className="sticky top-0 z-10 flex min-h-6 items-center py-1 border-b bg-popover px-3 text-[0.625rem] text-muted-foreground">
 								{rowLabel(cells[0].rowData, index)}
 							</h3>

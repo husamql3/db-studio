@@ -14,13 +14,18 @@ export const telemetryRoutes = new Elysia({ prefix: "/telemetry" })
 		if (headers["x-db-studio-gpc"] === "1" || headers["sec-gpc"] === "1") {
 			setTelemetryEnabled(false);
 		}
+
 		captureInstallationActive();
+
 		return { data: getTelemetryConfig() };
 	})
-	.put("/preference", ({ body, status }) => {
-		const parsed = preferenceSchema.safeParse(body);
-		if (!parsed.success) return status(400, { error: "Invalid telemetry preference" });
-		setTelemetryEnabled(parsed.data.enabled);
-		return { data: getTelemetryConfig() };
-	})
+	.put(
+		"/preference",
+		({ body }) => {
+			setTelemetryEnabled(body.enabled);
+
+			return { data: getTelemetryConfig() };
+		},
+		{ body: preferenceSchema },
+	)
 	.post("/reset", () => ({ data: { installationId: resetTelemetryId() } }));

@@ -14,10 +14,12 @@ import { useServerLogs } from "../hooks/use-server-logs";
  */
 const keyEntries = (entries: ServerLogEntrySchemaType[]) => {
 	const seen = new Map<string, number>();
+
 	return entries.map((entry) => {
 		const content = JSON.stringify(entry);
 		const n = seen.get(content) ?? 0;
 		seen.set(content, n + 1);
+
 		return { entry, key: `${content}#${n}` };
 	});
 };
@@ -43,6 +45,7 @@ export const LogsScreen = () => {
 	const [wrap, setWrap] = useState(false);
 	const [expanded, setExpanded] = useState<string | null>(null);
 	const scroller = useRef<HTMLDivElement>(null);
+
 	const {
 		serverLogs,
 		isLoadingServerLogs,
@@ -52,10 +55,13 @@ export const LogsScreen = () => {
 	} = useServerLogs({ live });
 
 	const entries = serverLogs?.available ? serverLogs.entries : [];
+
 	const visible = keyEntries(entries).filter(
 		({ entry }) => !hiddenLevels.has(entry.level) && matchesSearch(entry, search),
 	);
+
 	const levelCounts = new Map<ServerLogLevel, number>();
+
 	for (const entry of entries) {
 		levelCounts.set(entry.level, (levelCounts.get(entry.level) ?? 0) + 1);
 	}
@@ -69,8 +75,10 @@ export const LogsScreen = () => {
 	const toggleLevel = (level: ServerLogLevel) =>
 		setHiddenLevels((prev) => {
 			const next = new Set(prev);
+
 			if (next.has(level)) next.delete(level);
 			else next.add(level);
+
 			return next;
 		});
 
@@ -82,6 +90,7 @@ export const LogsScreen = () => {
 				</div>
 			);
 		}
+
 		if (errorServerLogs) {
 			return (
 				<Notice
@@ -90,6 +99,7 @@ export const LogsScreen = () => {
 				/>
 			);
 		}
+
 		if (serverLogs && !serverLogs.available) {
 			return (
 				<Notice
@@ -98,6 +108,7 @@ export const LogsScreen = () => {
 				/>
 			);
 		}
+
 		if (entries.length === 0) {
 			return (
 				<Notice
@@ -106,6 +117,7 @@ export const LogsScreen = () => {
 				/>
 			);
 		}
+
 		if (visible.length === 0) {
 			return (
 				<Notice
@@ -114,6 +126,7 @@ export const LogsScreen = () => {
 				/>
 			);
 		}
+
 		return (
 			<div
 				ref={scroller}
@@ -121,6 +134,7 @@ export const LogsScreen = () => {
 				// don't pull the view away. Live's own follow ends on the newest line and keeps it on.
 				onScroll={(e) => {
 					const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
+
 					if (live && scrollHeight - scrollTop - clientHeight > 1) setLive(false);
 				}}
 				className="size-full overflow-auto py-3 text-sm leading-7"

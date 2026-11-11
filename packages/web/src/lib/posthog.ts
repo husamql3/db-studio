@@ -1,5 +1,7 @@
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import type { PostHog } from "posthog-js";
+import type { SectionId } from "@/lib/sections";
+import { fetchTelemetryConfig, type TelemetryConfig } from "@/shared/api";
 
 const OFFICIAL_POSTHOG_KEY = "phc_nxaQk54MWAehmL72J4gjVbrQCpbSTedMyHn3PvFxAhkd";
 
@@ -25,31 +27,14 @@ type AnalyticsEvent =
 	  }
 	| {
 			event: "page_viewed";
-			properties: {
-				page:
-					| "home"
-					| "connect"
-					| "browser"
-					| "table"
-					| "schema"
-					| "runner"
-					| "visualizer"
-					| "logs"
-					| "indexes";
-			};
+			properties: { page: SectionId | "home" | "connect" };
 	  };
 
-export type TelemetryConfig = {
-	enabled: boolean;
-	installationId: string;
-	appVersion: string;
-};
-
 let config: TelemetryConfig | undefined;
+
 /** The PostHog client, loaded the first time telemetry turns out to be enabled. */
 let posthog: PostHog | undefined;
 let initialized = false;
-let everInitialized = false;
 
 const globalPrivacyControlEnabled = () =>
 	(navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
@@ -58,25 +43,19 @@ export const getTelemetryConfig = (): TelemetryConfig | undefined => config;
 
 export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 	try {
-		const response = await fetch("/api/telemetry/config", {
-			headers: globalPrivacyControlEnabled() ? { "x-db-studio-gpc": "1" } : undefined,
-		});
-		const body = (await response.json()) as { data?: TelemetryConfig };
-		config = body.data;
+		config = (await fetchTelemetryConfig(globalPrivacyControlEnabled())).data.data;
 	} catch {
 		return undefined;
 	}
 
 	const key = import.meta.env.VITE_POSTHOG_KEY ?? OFFICIAL_POSTHOG_KEY;
+
 	if (!config?.enabled || !key) return config;
-	if (initialized) return config;
+
 	posthog ??= (await import("posthog-js")).default;
-	if (everInitialized) {
-		posthog.opt_in_capturing();
-		posthog.identify(config.installationId);
-		initialized = true;
-		return config;
-	}
+
+	// A second call (React's development double effect) finishes after the first one's import.
+	if (initialized) return config;
 
 	posthog.init(key, {
 		api_host: import.meta.env.VITE_POSTHOG_HOST ?? "https://eu.i.posthog.com",
@@ -91,7 +70,7 @@ export const initPosthog = async (): Promise<TelemetryConfig | undefined> => {
 		},
 	});
 	initialized = true;
-	everInitialized = true;
+
 	return config;
 };
 

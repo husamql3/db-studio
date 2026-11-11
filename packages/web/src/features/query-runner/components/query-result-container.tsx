@@ -5,9 +5,8 @@ import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { useQueryState } from "nuqs";
 import { useMemo } from "react";
-import { useAssistantRequestStore } from "@/features/ai-assistant";
-import { useOverlayStore } from "@/stores/overlay.store";
-import { CONSTANTS } from "@/utils/constants";
+import { askAssistant } from "@/features/ai-assistant";
+import { RUNNER_STATE_KEYS } from "../constants";
 import { TableView } from "./table-view";
 
 export const QueryResultContainer = ({
@@ -21,13 +20,7 @@ export const QueryResultContainer = ({
 	error: Error | null;
 	lastExecutedQuery: string;
 }) => {
-	const [showAs] = useQueryState(CONSTANTS.RUNNER_STATE_KEYS.SHOW_AS);
-	const { requestAssistant } = useAssistantRequestStore();
-	const { openOverlay } = useOverlayStore();
-	const askAssistant = (prompt: string) => {
-		requestAssistant(prompt);
-		openOverlay("chat.assistant");
-	};
+	const [showAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS);
 
 	const renderResults = useMemo(() => {
 		if (error) {

@@ -21,12 +21,12 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { normalizeConnectionUrl } from "@/connection-url.js";
 import {
 	defaultConnectionName,
 	deleteSavedConnection,
 	listSavedConnections,
 	maskConnectionUrl,
-	normalizeConnectionUrl,
 	recordConnection,
 	updateSavedConnection,
 } from "@/connections-store.js";
@@ -57,9 +57,9 @@ describe("maskConnectionUrl", () => {
 	});
 
 	it("hides auth tokens and password query parameters", () => {
-		expect(
-			maskConnectionUrl("libsql://db-org.turso.io?authToken=eyJabc.def&tls=1"),
-		).toBe("libsql://db-org.turso.io?authToken=••••&tls=1");
+		expect(maskConnectionUrl("libsql://db-org.turso.io?authToken=eyJabc.def&tls=1")).toBe(
+			"libsql://db-org.turso.io?authToken=••••&tls=1",
+		);
 		expect(maskConnectionUrl("d1://acc/db-id?authToken=cf_token")).toBe(
 			"d1://acc/db-id?authToken=••••",
 		);
@@ -101,7 +101,9 @@ describe("normalizeConnectionUrl", () => {
 	it("keeps absolute paths, in-memory SQLite and server URLs as they are", () => {
 		expect(normalizeConnectionUrl("sqlite:///abs/app.db", "/x")).toBe("sqlite:///abs/app.db");
 		expect(normalizeConnectionUrl("sqlite://:memory:", "/x")).toBe("sqlite://:memory:");
-		expect(normalizeConnectionUrl("  postgres://u:p@h/db  ", "/x")).toBe("postgres://u:p@h/db");
+		expect(normalizeConnectionUrl("  postgres://u:p@h/db  ", "/x")).toBe(
+			"postgres://u:p@h/db",
+		);
 	});
 });
 
@@ -170,9 +172,9 @@ describe("saved connections file", () => {
 		const configDir = process.env.DB_STUDIO_CONFIG_DIR as string;
 		expect((await stat(join(configDir, "connections.json"))).mode & 0o777).toBe(0o600);
 		expect((await stat(configDir)).mode & 0o777).toBe(0o700);
-		expect(JSON.parse(await readFile(join(configDir, "connections.json"), "utf8"))).toMatchObject(
-			{ version: 1 },
-		);
+		expect(
+			JSON.parse(await readFile(join(configDir, "connections.json"), "utf8")),
+		).toMatchObject({ version: 1 });
 	});
 
 	it("rejects renaming or deleting an id that does not exist", async () => {

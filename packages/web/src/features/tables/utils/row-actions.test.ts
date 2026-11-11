@@ -14,26 +14,11 @@
  */
 import { DATABASE_ENGINES, type SqlInsertDialect } from "@db-studio/shared/types";
 import { describe, expect, it } from "vitest";
+import { column } from "../../../../tests/column";
 import { toDuplicateValues, toInsertStatement } from "./row-actions";
 
 const dialect = (engine: "pg" | "mysql" | "mssql" | "oracle") =>
 	DATABASE_ENGINES[engine].sqlInsert as SqlInsertDialect;
-
-const col = (
-	columnName: string,
-	extra: { isPrimaryKey?: boolean; columnDefault?: string },
-) => ({
-	columnName,
-	dataType: "text" as const,
-	dataTypeLabel: "text" as const,
-	isNullable: true,
-	columnDefault: extra.columnDefault ?? null,
-	isPrimaryKey: extra.isPrimaryKey ?? false,
-	isForeignKey: false,
-	referencedTable: null,
-	referencedColumn: null,
-	enumValues: null,
-});
 
 describe("toInsertStatement", () => {
 	it("quotes identifiers per dialect and doubles quotes inside them", () => {
@@ -104,22 +89,23 @@ describe("toInsertStatement", () => {
 describe("toDuplicateValues", () => {
 	it("omits a lone primary key and generated defaults", () => {
 		const cols = [
-			col("code", { isPrimaryKey: true }),
-			col("serial_no", { columnDefault: "nextval('s'::regclass)" }),
-			col("name", {}),
+			column("code", { isPrimaryKey: true }),
+			column("serial_no", { columnDefault: "nextval('s'::regclass)" }),
+			column("name"),
 		];
+
 		expect(toDuplicateValues({ code: "A1", serial_no: 7, name: "x" }, cols)).toEqual({
 			name: "x",
 		});
 	});
 
 	it("keeps every part of a composite key", () => {
-		const cols = [col("a", { isPrimaryKey: true }), col("b", { isPrimaryKey: true })];
+		const cols = [column("a", { isPrimaryKey: true }), column("b", { isPrimaryKey: true })];
 		expect(toDuplicateValues({ a: 1, b: 2 }, cols)).toEqual({ a: "1", b: "2" });
 	});
 
 	it("leaves NULLs out so the column default applies, but keeps false and empty text", () => {
-		const cols = [col("n", {}), col("f", {}), col("e", {})];
+		const cols = [column("n"), column("f"), column("e")];
 		expect(toDuplicateValues({ n: null, f: false, e: "" }, cols)).toEqual({
 			f: "false",
 			e: "",

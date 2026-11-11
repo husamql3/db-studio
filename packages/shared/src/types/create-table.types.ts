@@ -7,6 +7,7 @@ export const FOREIGN_KEY_ACTIONS = [
 	"RESTRICT",
 	"NO ACTION",
 ] as const;
+
 export const foreignKeyActionSchema = z.enum(FOREIGN_KEY_ACTIONS);
 
 export const fieldDataSchema = z.object({
@@ -19,6 +20,7 @@ export const fieldDataSchema = z.object({
 	isIdentity: z.boolean().default(false),
 	isArray: z.boolean().default(false),
 });
+
 export type FieldDataType = z.infer<typeof fieldDataSchema>;
 
 export const foreignKeyDataSchema = z.object({
@@ -28,6 +30,7 @@ export const foreignKeyDataSchema = z.object({
 	onUpdate: foreignKeyActionSchema.default("NO ACTION"),
 	onDelete: foreignKeyActionSchema.default("NO ACTION"),
 });
+
 export type ForeignKeyDataType = z.infer<typeof foreignKeyDataSchema>;
 
 export const createTableSchema = z.object({

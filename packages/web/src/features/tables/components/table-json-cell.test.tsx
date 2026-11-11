@@ -1,7 +1,7 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 import { TableJsonCell } from "./table-cell-variant";
 
@@ -17,14 +17,15 @@ vi.mock("./json-editor", () => ({
 
 const rowData = { id: 1, metadata: { status: 200 } };
 
-const renderJsonCell = () => {
+const renderJsonCell = (value: unknown = rowData.metadata) => {
 	const cell = {
 		id: "1_metadata",
-		getValue: () => rowData.metadata,
+		getValue: () => value,
 		row: { id: "1", original: rowData },
 		column: { id: "metadata" },
-	} as unknown as Cell<TableRecord, unknown>;
-	const table = { options: { meta: {} } } as unknown as Table<TableRecord>;
+	} as Cell<TableRecord, unknown>;
+
+	const table = { options: { meta: {} } } as Table<TableRecord>;
 
 	return render(
 		<TableJsonCell
@@ -77,6 +78,15 @@ describe("TableJsonCell", () => {
 		expect(screen.getByText(/JSON/i)).toBeInTheDocument();
 
 		fireEvent.click(saveButton);
+		expect(getUpdate()).toBeNull();
+	});
+
+	it("keeps a stored text that is not JSON as that text instead of replacing it", async () => {
+		renderJsonCell("not json");
+
+		expect(await screen.findByLabelText("json editor")).toHaveValue('"not json"');
+
+		fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 		expect(getUpdate()).toBeNull();
 	});
 });

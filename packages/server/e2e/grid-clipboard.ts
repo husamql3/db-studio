@@ -18,24 +18,24 @@
  * e2e/artifacts/grid-clipboard/.
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
 import pg from "pg";
-import { chromium, type Page } from "playwright-core";
+import type { Page } from "playwright-core";
+import {
+	ARTIFACTS_DIR,
+	launchBrowser,
+	requireDatabaseUrl,
+	startCli,
+	writeArtifact,
+} from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to a PostgreSQL database");
-}
+const { url: databaseUrl } = requireDatabaseUrl("pg");
 const TABLE = "dbstudio_e2e_clipboard";
-const PORT = 4531;
-const BASE = `http://127.0.0.1:${PORT}`;
-const outDir = new URL("./artifacts/grid-clipboard/", import.meta.url);
 
 const db = new pg.Client({ connectionString: databaseUrl });
+
 await db.connect();
+
 await db.query(`
 	DROP TABLE IF EXISTS ${TABLE};
 	DROP TYPE IF EXISTS ${TABLE}_status;
@@ -56,20 +56,7 @@ await db.query(`
 		(5, 'Eve', 5, true, 'open', NULL);
 `);
 
-const cli = fileURLToPath(new URL("../dist/index.js", import.meta.url));
-const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-	cwd: tmpdir(),
-	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
-	stdio: "ignore",
-});
-for (;;) {
-	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
-	const ready = await fetch(`${BASE}/api/databases`)
-		.then((response) => response.ok)
-		.catch(() => false);
-	if (ready) break;
-	await new Promise((resolve) => setTimeout(resolve, 50));
-}
+const { child: server, base: BASE } = await startCli({ args: ["-d", databaseUrl] });
 
 const cell = async (page: Page, row: number, column: string) => {
 	const position = await page.evaluate(
@@ -79,7 +66,9 @@ const cell = async (page: Page, row: number, column: string) => {
 			) + 1,
 		column,
 	);
+
 	if (position === 0) throw new Error(`column ${column} not found`);
+
 	return page.locator(
 		`tbody tr[data-index="${row}"] td:nth-child(${position}) > [role="button"]`,
 	);
@@ -90,10 +79,12 @@ const clipboard = (page: Page, type: "copy" | "paste", text = "") =>
 	page.evaluate(
 		([type, text]) => {
 			const data = new DataTransfer();
+
 			if (text) data.setData("text/plain", text);
 			document.activeElement?.dispatchEvent(
 				new ClipboardEvent(type, { clipboardData: data, bubbles: true, cancelable: true }),
 			);
+
 			return data.getData("text/plain");
 		},
 		[type, text] as const,
@@ -105,14 +96,14 @@ const pending = (page: Page) =>
 	);
 
 const summary: Record<string, unknown> = {};
-await mkdir(outDir, { recursive: true });
+
 const shot = (page: Page, name: string) =>
-	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
-const browser = await chromium.launch({
-	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
-	headless: true,
-});
+	page.screenshot({ path: path.join(ARTIFACTS_DIR, "grid-clipboard", `${name}.png`) });
+
+const browser = await launchBrowser();
+
 const page = await browser.newPage({ viewport: { width: 1280, height: 640 } });
+
 try {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -122,6 +113,7 @@ try {
 	// Drag from Ada's name to Cyd's qty: a 3 x 2 rectangle.
 	const from = await (await cell(page, 0, "name")).boundingBox();
 	const to = await (await cell(page, 2, "qty")).boundingBox();
+
 	if (!from || !to) throw new Error("cells not laid out");
 	await page.mouse.move(from.x + 10, from.y + 10);
 	await page.mouse.down();
@@ -136,7 +128,7 @@ try {
 	const copied = await clipboard(page, "copy");
 	summary.copied = copied;
 	assert.equal(copied, "name\tqty\nAda\t1\nBob\t2\nCyd\t3");
-	await writeFile(new URL("copied.tsv", outDir), copied);
+	await writeArtifact("grid-clipboard/copied.tsv", copied);
 
 	// Paste the copied range at Dee's name: the header row is dropped, Cyd's row has no row
 	// below Eve to land in.
@@ -189,7 +181,7 @@ try {
 	assert.deepEqual(pageErrors, []);
 	console.log("PASS grid clipboard");
 } finally {
-	await writeFile(new URL("summary.json", outDir), `${JSON.stringify(summary, null, "\t")}\n`);
+	await writeArtifact("grid-clipboard/summary.json", summary);
 	await browser.close();
 	server.kill();
 	await db.query(`DROP TABLE IF EXISTS ${TABLE}; DROP TYPE IF EXISTS ${TABLE}_status;`);

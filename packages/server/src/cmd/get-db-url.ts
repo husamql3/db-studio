@@ -5,6 +5,6 @@ import type { DotenvParseOutput } from "dotenv";
  * unconnected and the browser opens on the Connect page.
  */
 export const getDatabaseUrl = (
-	env?: DotenvParseOutput | null,
-	varName = "DATABASE_URL",
+	env: DotenvParseOutput | null,
+	varName: string,
 ): string | undefined => env?.[varName] || process.env[varName] || undefined;

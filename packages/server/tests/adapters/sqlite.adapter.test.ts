@@ -1,8 +1,10 @@
 /**
- * Runs SqliteAdapter against a real libSQL file database opened through db-manager.
+ * Runs SqliteAdapter against a real libSQL file database opened through its connector.
  * Failure modes:
  * - a `sqlite://` path containing a space is not turned into a valid file: URL, so nothing opens
  * - type affinity mapping sends BLOB/DATETIME columns to the wrong cell variant
+ * - an export drops the column names; an empty table fails instead of exporting its header,
+ *   or a missing table answers 500 instead of 404
  * - deleteTable drops a table that other tables reference instead of reporting fkViolation
  * - deleteRecords on a referenced row surfaces a 500 instead of fkViolation with the child rows
  * - getTableColumns loses the FK target or the PK flag (live mode and the FK picker need both)
@@ -12,35 +14,19 @@
  * - alterColumn keeps the edited column's old NOT NULL or DEFAULT
  * - a `)` inside a comment in the CREATE TABLE ends a column early, so the edit is refused
  */
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SqliteAdapter } from "@/adapters/sqlite/sqlite.adapter.js";
+import { openEngine } from "../engine.js";
 
-vi.unmock("@/db-manager.js");
+type Engine = Awaited<ReturnType<typeof openEngine>>;
 
-const dir = mkdtempSync(path.join(tmpdir(), "db-studio-sqlite-"));
-let adapter: SqliteAdapter;
-let exec: (...statements: string[]) => Promise<void>;
-let select: (sql: string) => Promise<Record<string, unknown>[]>;
+const adapter = new SqliteAdapter();
+let exec: Engine["exec"];
+let select: Engine["rows"];
+let close: Engine["close"];
 
 beforeAll(async () => {
-	vi.resetModules();
-	const { SqliteAdapter } = await import("@/adapters/sqlite/sqlite.adapter.js");
-	const { DatabaseManager, getSqliteClient, openConnection } = await import(
-		"@/db-manager.js"
-	);
-	openConnection(
-		"test",
-		new DatabaseManager(`sqlite://${path.join(dir, "my db.sqlite")}`),
-	);
-	const client = await getSqliteClient();
-	exec = async (...statements) => {
-		await client.batch(statements, "write");
-	};
-	select = async (sql) => (await client.execute(sql)).rows.map((row) => ({ ...row }));
-	adapter = new SqliteAdapter();
+	({ exec, rows: select, close } = await openEngine("sqlite", "my db.sqlite"));
 
 	await exec(
 		"CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)",
@@ -50,25 +36,59 @@ beforeAll(async () => {
 	);
 });
 
-afterAll(async () => {
-	const { getSqliteClient } = await import("@/db-manager.js");
-	(await getSqliteClient()).close();
-	rmSync(dir, { recursive: true, force: true });
-});
+afterAll(() => close());
 
 describe("SqliteAdapter", () => {
-	it("maps sqlite type affinities to cell variants", () => {
-		expect(adapter.mapToUniversalType("INTEGER")).toBe("number");
-		expect(adapter.mapToUniversalType("varchar(255)")).toBe("text");
-		expect(adapter.mapToUniversalType("blob")).toBe("text");
-		expect(adapter.mapToUniversalType("boolean")).toBe("boolean");
-		expect(adapter.mapToUniversalType("json")).toBe("json");
-		expect(adapter.mapToUniversalType("datetime")).toBe("date");
-		expect(adapter.mapToUniversalType("unknown_type")).toBe("text");
+	it("maps declared column types to cell variants by their affinity", async () => {
+		await exec(
+			"CREATE TABLE kinds (a INTEGER, b varchar(255), c blob, d boolean, e json, f datetime, g unknown_type)",
+		);
+
+		const cols = await adapter.getTableColumns({ db: "main", tableName: "kinds" });
+
+		expect(Object.fromEntries(cols.map((c) => [c.columnName, c.dataType]))).toEqual({
+			a: "number",
+			b: "text",
+			c: "text",
+			d: "boolean",
+			e: "json",
+			f: "date",
+			g: "text",
+		});
+	});
+
+	it("exports every row with its column names", async () => {
+		await expect(adapter.exportTableData({ db: "main", tableName: "users" })).resolves.toEqual(
+			{
+				cols: ["id", "name"],
+				rows: [
+					{ id: 1, name: "Ada" },
+					{ id: 2, name: "Linus" },
+				],
+			},
+		);
+	});
+
+	it("exports a table with no rows as its column names", async () => {
+		await exec("CREATE TABLE empty_export (id INTEGER PRIMARY KEY, label TEXT)");
+
+		await expect(
+			adapter.exportTableData({ db: "main", tableName: "empty_export" }),
+		).resolves.toEqual({ cols: ["id", "label"], rows: [] });
+	});
+
+	it("answers 404 when exporting a table that does not exist", async () => {
+		await expect(
+			adapter.exportTableData({ db: "main", tableName: "no_such_export" }),
+		).rejects.toMatchObject({ status: 404 });
 	});
 
 	it("reports a referenced table instead of dropping it", async () => {
-		const result = await adapter.deleteTable({ db: "main", tableName: "users", cascade: false });
+		const result = await adapter.deleteTable({
+			db: "main",
+			tableName: "users",
+			cascade: false,
+		});
 
 		expect(result).toMatchObject({ deletedCount: 0, fkViolation: true });
 		expect(result.relatedRecords).toEqual([
@@ -135,8 +155,13 @@ describe("SqliteAdapter", () => {
 			exec("INSERT INTO records (email, quantity, label) VALUES ('c@x.io', -1, 'neg')"),
 		).rejects.toThrow(/CHECK/);
 		// AUTOINCREMENT never reuses an id, including 3, deleted before the edit.
-		await exec("DELETE FROM records WHERE id = 2", "INSERT INTO records (email, quantity) VALUES ('d@x.io', 5)");
-		expect(await select("SELECT id, quantity, doubled, label FROM records ORDER BY id")).toEqual([
+		await exec(
+			"DELETE FROM records WHERE id = 2",
+			"INSERT INTO records (email, quantity) VALUES ('d@x.io', 5)",
+		);
+		expect(
+			await select("SELECT id, quantity, doubled, label FROM records ORDER BY id"),
+		).toEqual([
 			{ id: 1n, quantity: 2n, doubled: 4n, label: "one" },
 			{ id: 4n, quantity: 5n, doubled: 10n, label: null },
 		]);
@@ -157,8 +182,13 @@ describe("SqliteAdapter", () => {
 			defaultValue: "'none'",
 		});
 
-		await expect(exec("INSERT INTO stock (id, sku) VALUES (2, 'abc')")).rejects.toThrow(/UNIQUE/);
-		await exec("INSERT INTO stock (id, sku) VALUES (3, NULL)", "INSERT INTO stock (id, qty) VALUES (4, 1)");
+		await expect(exec("INSERT INTO stock (id, sku) VALUES (2, 'abc')")).rejects.toThrow(
+			/UNIQUE/,
+		);
+		await exec(
+			"INSERT INTO stock (id, sku) VALUES (3, NULL)",
+			"INSERT INTO stock (id, qty) VALUES (4, 1)",
+		);
 		expect(await select("SELECT id, sku FROM stock ORDER BY id")).toEqual([
 			{ id: 1n, sku: "ABC" },
 			{ id: 3n, sku: null },
@@ -182,6 +212,8 @@ describe("SqliteAdapter", () => {
 
 		await expect(exec("INSERT INTO notes (id, x) VALUES (1, '')")).rejects.toThrow(/CHECK/);
 		await exec("INSERT INTO notes (id, x) VALUES (2, 'ok')");
-		expect(await select("SELECT id, x, y FROM notes")).toEqual([{ id: 2n, x: "ok", y: "none" }]);
+		expect(await select("SELECT id, x, y FROM notes")).toEqual([
+			{ id: 2n, x: "ok", y: "none" },
+		]);
 	});
 });

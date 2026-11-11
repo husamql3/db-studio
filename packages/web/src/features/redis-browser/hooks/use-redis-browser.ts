@@ -11,6 +11,8 @@ import {
 	deleteRedisKey,
 	getRedisKey,
 	scanRedisKeys,
+	type ApiError,
+	apiErrorMessage,
 } from "@/shared/api";
 import { redisKeyBrowserKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
@@ -25,6 +27,7 @@ export const useRedisKeys = ({
 	type: string;
 }) => {
 	const { selectedDatabase } = useDatabaseStore();
+
 	return useInfiniteQuery({
 		queryKey: redisKeyBrowserKeys.list(selectedDatabase, search, exactPattern, type),
 		queryFn: async ({ pageParam }) => {
@@ -36,6 +39,7 @@ export const useRedisKeys = ({
 				exactPattern,
 				type: (type || undefined) as Exclude<RedisKeyTypeSchemaType, "unknown"> | undefined,
 			});
+
 			return response.data.data;
 		},
 		initialPageParam: "",
@@ -51,6 +55,7 @@ export const useRedisKey = (
 	direction: "forward" | "backward" = "forward",
 ) => {
 	const { selectedDatabase } = useDatabaseStore();
+
 	return useInfiniteQuery({
 		queryKey: redisKeyBrowserKeys.detail(selectedDatabase, key, full, direction),
 		queryFn: async ({ pageParam }) => {
@@ -61,6 +66,7 @@ export const useRedisKey = (
 				full,
 				direction,
 			});
+
 			return response.data.data;
 		},
 		initialPageParam: "",
@@ -71,14 +77,10 @@ export const useRedisKey = (
 	});
 };
 
-const mutationError = (error: Error & { details?: unknown }): string =>
-	(typeof error.details === "string" && error.details) ||
-	error.message ||
-	"Redis operation failed";
-
 export const useRedisKeyMutations = () => {
 	const { selectedDatabase } = useDatabaseStore();
 	const queryClient = useQueryClient();
+
 	const refresh = async () =>
 		queryClient.invalidateQueries({ queryKey: redisKeyBrowserKeys.all });
 
@@ -89,6 +91,7 @@ export const useRedisKeyMutations = () => {
 			),
 		onSuccess: refresh,
 	});
+
 	const actionMutation = useMutation({
 		mutationFn: ({ key, data }: { key: string; data: KeyActionSchemaType }) =>
 			applyRedisKeyAction({ db: selectedDatabase ?? "", key, data }).then(
@@ -96,6 +99,7 @@ export const useRedisKeyMutations = () => {
 			),
 		onSuccess: refresh,
 	});
+
 	const deleteMutation = useMutation({
 		mutationFn: ({
 			key,
@@ -118,7 +122,7 @@ export const useRedisKeyMutations = () => {
 				.promise(createMutation.mutateAsync(data), {
 					loading: "Creating Redis key…",
 					success: "Redis key created",
-					error: mutationError,
+					error: (error: ApiError) => apiErrorMessage(error, "Redis operation failed"),
 				})
 				.unwrap(),
 		applyAction: (key: string, data: KeyActionSchemaType) =>
@@ -126,7 +130,7 @@ export const useRedisKeyMutations = () => {
 				.promise(actionMutation.mutateAsync({ key, data }), {
 					loading: "Applying Redis change…",
 					success: "Redis change applied",
-					error: mutationError,
+					error: (error: ApiError) => apiErrorMessage(error, "Redis operation failed"),
 				})
 				.unwrap(),
 		deleteKey: (key: string, expectedRevision: string, force?: boolean) =>
@@ -134,7 +138,7 @@ export const useRedisKeyMutations = () => {
 				.promise(deleteMutation.mutateAsync({ key, expectedRevision, force }), {
 					loading: "Deleting Redis key…",
 					success: "Redis key deleted",
-					error: mutationError,
+					error: (error: ApiError) => apiErrorMessage(error, "Redis operation failed"),
 				})
 				.unwrap(),
 		isPending:

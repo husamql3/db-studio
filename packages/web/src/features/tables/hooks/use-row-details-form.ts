@@ -1,15 +1,15 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import {
 	getIdentityColumnNames,
 	getPrimaryKeyColumn,
 	getPrimaryKeyColumns,
-	getRecordIdentity,
 	toFormValues,
 } from "../utils/row-details-utils";
+import { getRecordKey } from "../utils/table-diff";
 
 /**
  * The row-details draft: the form itself, how it re-syncs against refreshed
@@ -35,6 +35,7 @@ export const useRowDetailsForm = ({
 	// saving works for keyless tables that still carry an "id" column. Composite
 	// keys are sent in full so the update can only ever match one record.
 	const identityColumnNames = useMemo(() => getIdentityColumnNames(tableCols), [tableCols]);
+
 	const columnsSignature = useMemo(
 		() => JSON.stringify((tableCols ?? []).map((col) => col.columnName)),
 		[tableCols],
@@ -43,6 +44,7 @@ export const useRowDetailsForm = ({
 	const methods = useForm<Record<string, string>>({
 		defaultValues: useMemo(() => toFormValues(row, tableCols), [row, tableCols]),
 	});
+
 	const { formState } = methods;
 	const isDirty = formState.isDirty;
 
@@ -65,7 +67,9 @@ export const useRowDetailsForm = ({
 	// the refreshed row so displayed values stay consistent. Dirty edits are preserved
 	// only when the refreshed row has the same stable record identity.
 	useEffect(() => {
-		const currentIdentity = getRecordIdentity(row, tableCols);
+		const currentIdentity =
+			row && tableCols ? getRecordKey(row, identityColumnNames) : undefined;
+
 		const isSameSelection =
 			tableName === lastTableNameRef.current &&
 			rowIndex === lastRowIndexRef.current &&
@@ -78,12 +82,14 @@ export const useRowDetailsForm = ({
 			lastRowRef.current = row;
 			lastRecordIdentityRef.current = currentIdentity;
 			methods.reset(toFormValues(row, tableCols));
+
 			return;
 		}
 
 		if (row === lastRowRef.current) {
 			return;
 		}
+
 		lastRowRef.current = row;
 
 		const freshValues = toFormValues(row, tableCols);
@@ -91,6 +97,7 @@ export const useRowDetailsForm = ({
 		if (!isDirty) {
 			lastRecordIdentityRef.current = currentIdentity;
 			methods.reset(freshValues);
+
 			return;
 		}
 
@@ -105,7 +112,16 @@ export const useRowDetailsForm = ({
 			lastRecordIdentityRef.current = currentIdentity;
 			methods.reset(freshValues);
 		}
-	}, [row, tableCols, tableName, rowIndex, columnsSignature, methods, isDirty]);
+	}, [
+		row,
+		tableCols,
+		identityColumnNames,
+		tableName,
+		rowIndex,
+		columnsSignature,
+		methods,
+		isDirty,
+	]);
 
 	return {
 		methods,

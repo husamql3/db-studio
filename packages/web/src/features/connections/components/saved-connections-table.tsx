@@ -21,6 +21,7 @@ const SavedConnectionRow = ({
 }) => {
 	const { connectSaved } = useConnect();
 	const [renaming, setRenaming] = useState(false);
+
 	const open = () => {
 		if (!renaming) void connectSaved(connection);
 	};
@@ -88,6 +89,7 @@ export const SavedConnectionsTable = () => {
 	useHotkeys("/", () => filterRef.current?.focus(), { preventDefault: true });
 
 	const needle = query.trim().toLowerCase();
+
 	const visible = needle
 		? connections.filter((c) => `${c.name} ${c.maskedUrl}`.toLowerCase().includes(needle))
 		: connections;

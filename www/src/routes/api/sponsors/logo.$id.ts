@@ -6,7 +6,9 @@ export const Route = createFileRoute("/api/sponsors/logo/$id")({
 		handlers: {
 			GET: async ({ params }) => {
 				const { value, metadata } = await readLogo(params.id);
+
 				if (!value || !metadata) return new Response("Not found", { status: 404 });
+
 				return new Response(value, {
 					headers: {
 						"content-type": metadata.type,

@@ -1,27 +1,24 @@
-import { CONSTANTS } from "@/utils/constants";
-
 export const connectionKeys = {
 	state: () => ["connections"] as const,
 };
 
 export const databaseKeys = {
-	all: [CONSTANTS.CACHE_KEYS.DATABASES_LIST] as const,
-	list: () => [CONSTANTS.CACHE_KEYS.DATABASES_LIST] as const,
-	current: () => [CONSTANTS.CACHE_KEYS.CURRENT_DATABASE] as const,
-	connectionInfo: () => [CONSTANTS.CACHE_KEYS.DATABASE_CONNECTION_INFO] as const,
+	list: () => ["databasesList"] as const,
+	current: () => ["currentDatabase"] as const,
+	connectionInfo: () => ["databaseConnectionInfo"] as const,
 };
 
 export const tableKeys = {
-	all: ["tables"] as const,
-	lists: () => [CONSTANTS.CACHE_KEYS.TABLES_LIST] as const,
-	list: (db?: string | null) => [CONSTANTS.CACHE_KEYS.TABLES_LIST, db] as const,
+	lists: () => ["tablesList"] as const,
+	list: (db?: string | null) => ["tablesList", db] as const,
 	// Under the list key, so invalidating the tables list refreshes the visualizer too.
-	graph: (db?: string | null) => [CONSTANTS.CACHE_KEYS.TABLES_LIST, db, "graph"] as const,
-	columnsByTable: (tableName: string) =>
-		[CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName] as const,
+	graph: (db?: string | null) => ["tablesList", db, "graph"] as const,
+	allColumns: () => ["tableColumns"] as const,
+	columnsByTable: (tableName: string) => ["tableColumns", tableName] as const,
 	columns: (tableName?: string, db?: string | null, schemaName?: string) =>
-		[CONSTANTS.CACHE_KEYS.TABLE_COLUMNS, tableName, db, schemaName] as const,
-	dataByTable: (tableName: string) => [CONSTANTS.CACHE_KEYS.TABLE_DATA, tableName] as const,
+		["tableColumns", tableName, db, schemaName] as const,
+	allData: () => ["tableData"] as const,
+	dataByTable: (tableName: string) => ["tableData", tableName] as const,
 	data: ({
 		tableName,
 		cursor,
@@ -44,7 +41,7 @@ export const tableKeys = {
 		db?: string | null;
 	}) =>
 		[
-			CONSTANTS.CACHE_KEYS.TABLE_DATA,
+			"tableData",
 			tableName,
 			cursor,
 			limit,
@@ -55,18 +52,16 @@ export const tableKeys = {
 			db,
 			schemaName,
 		] as const,
-	schema: (tableName: string, db?: string | null, schemaName?: string) =>
-		["table-schema", tableName, db, schemaName] as const,
 };
 
 export const indexKeys = {
+	all: () => ["table-indexes"] as const,
 	byTable: (tableName: string) => ["table-indexes", tableName] as const,
 	table: (tableName: string, db?: string | null, schemaName?: string) =>
 		["table-indexes", tableName, db, schemaName] as const,
 };
 
 export const serverLogKeys = {
-	all: ["server-logs"] as const,
 	database: (db?: string | null) => ["server-logs", db] as const,
 };
 

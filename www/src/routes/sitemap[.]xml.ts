@@ -1,8 +1,7 @@
+import { META } from "@db-studio/shared/constants";
 import { createFileRoute } from "@tanstack/react-router";
 import { changelog } from "@/lib/content/changelog";
 import { enginePages } from "@/lib/content/engine-pages";
-
-const ORIGIN = "https://dbstudio.sh";
 
 /** `lastmod` is the date the page's content last changed; bump it with substantive edits. */
 const PAGES: { path: string; lastmod: string }[] = [
@@ -20,7 +19,7 @@ const PAGES: { path: string; lastmod: string }[] = [
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${PAGES.map(({ path, lastmod }) => `  <url>\n    <loc>${ORIGIN}${path}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`).join("\n")}
+${PAGES.map(({ path, lastmod }) => `  <url>\n    <loc>${META.SITE_URL}${path}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`).join("\n")}
 </urlset>
 `;
 
