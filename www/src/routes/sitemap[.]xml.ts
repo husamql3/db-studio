@@ -1,6 +1,7 @@
 import { META } from "@db-studio/shared/constants";
 import { createFileRoute } from "@tanstack/react-router";
 import { changelog } from "@/lib/content/changelog";
+import { enginePages } from "@/lib/content/engine-pages";
 
 /** `lastmod` is the date the page's content last changed; bump it with substantive edits. */
 const PAGES: { path: string; lastmod: string }[] = [
@@ -13,6 +14,7 @@ const PAGES: { path: string; lastmod: string }[] = [
 	{ path: "/docs/faq", lastmod: "2026-10-18" },
 	{ path: "/docs/databases", lastmod: "2026-10-18" },
 	{ path: "/docs/indexes", lastmod: "2026-10-11" },
+	...enginePages.map(({ slug }) => ({ path: `/${slug}-gui`, lastmod: "2026-11-06" })),
 ];
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
