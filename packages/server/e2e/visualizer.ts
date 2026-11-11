@@ -18,44 +18,25 @@
  * the database. Screenshots and a JSON summary go to e2e/artifacts/visualizer-<build>/.
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
-import { chromium, type Page } from "playwright-core";
+import path from "node:path";
+import type { Page } from "playwright-core";
+import {
+	ARTIFACTS_DIR,
+	cliPath,
+	launchBrowser,
+	requireDatabaseUrl,
+	startCli,
+	writeArtifact,
+} from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to the PostgreSQL database seeded by init-db:pgsql");
-}
+const { url: databaseUrl } = requireDatabaseUrl("pg");
 const build = process.argv[2];
-const cli = fileURLToPath(
-	new URL(
-		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
-		import.meta.url,
-	),
-);
-const outDir = new URL(`./artifacts/visualizer-${build ?? "dist"}/`, import.meta.url);
-const PORT = 4525;
-const BASE = `http://127.0.0.1:${PORT}`;
+const outDir = `visualizer-${build ?? "dist"}`;
 
-const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-	cwd: tmpdir(),
-	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
-	stdio: "ignore",
+const { child: server, base: BASE } = await startCli({
+	cli: cliPath(build),
+	args: ["-d", databaseUrl],
 });
-// Also covers a setup step failing before the `try` below.
-process.on("exit", () => server.kill("SIGKILL"));
-const deadline = Date.now() + 30_000;
-for (;;) {
-	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
-	if (Date.now() > deadline) throw new Error("server not ready after 30s");
-	const ready = await fetch(`${BASE}/api/databases`)
-		.then((response) => response.ok)
-		.catch(() => false);
-	if (ready) break;
-	await new Promise((resolve) => setTimeout(resolve, 50));
-}
 
 /** What the canvas shows: table ids, edges, and the selected and dimmed tables. */
 const canvasState = (page: Page) =>
@@ -63,23 +44,50 @@ const canvasState = (page: Page) =>
 	page.evaluate(() => {
 		const nodes = [...document.querySelectorAll<HTMLElement>(".react-flow__node")];
 		const edges = [...document.querySelectorAll<SVGElement>(".react-flow__edge")];
+
 		return {
 			tables: nodes.map((node) => node.dataset.id).sort(),
 			edges: edges.map((edge) => edge.dataset.id).sort(),
 			highlightedEdges: edges
-				.filter((edge) => edge.classList.contains("animated"))
-				.map((edge) => edge.dataset.id)
+				.flatMap((edge) => (edge.classList.contains("animated") ? [edge.dataset.id] : []))
 				.sort(),
 			active: nodes
-				.filter((node) => node.querySelector("[data-active]"))
-				.map((node) => node.dataset.id)
+				.flatMap((node) => (node.querySelector("[data-active]") ? [node.dataset.id] : []))
 				.sort(),
 			dimmed: nodes
-				.filter((node) => node.querySelector("[data-dimmed]"))
-				.map((node) => node.dataset.id)
+				.flatMap((node) => (node.querySelector("[data-dimmed]") ? [node.dataset.id] : []))
 				.sort(),
 		};
 	});
+
+/** Resolves once the canvas has not moved for 10 animation frames, so a pan has finished. */
+let settleRuns = 0;
+
+const viewportSettled = (page: Page) =>
+	page.waitForFunction(
+		(run) => {
+			// SAFETY: page-global scratch state for this wait; `run` starts it afresh on each call.
+			const state = globalThis as {
+				run?: number;
+				lastTransform?: string;
+				stillFrames?: number;
+			};
+
+			const transform =
+				document.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform;
+
+			const still = state.run === run && transform === state.lastTransform;
+			Object.assign(state, {
+				run,
+				lastTransform: transform,
+				stillFrames: still ? (state.stillFrames ?? 0) + 1 : 0,
+			});
+
+			return still && (state.stillFrames ?? 0) >= 10;
+		},
+		++settleRuns,
+		{ polling: "raf" },
+	);
 
 const viewport = (page: Page) =>
 	page.locator(".react-flow__viewport").evaluate((el) => (el as HTMLElement).style.transform);
@@ -90,8 +98,11 @@ const offCentre = (page: Page, id: string) =>
 		const node = document
 			.querySelector(`.react-flow__node[data-id="${id}"]`)
 			?.getBoundingClientRect();
+
 		const pane = document.querySelector(".react-flow")?.getBoundingClientRect();
+
 		if (!node || !pane) return Number.POSITIVE_INFINITY;
+
 		return Math.round(
 			Math.hypot(
 				node.x + node.width / 2 - (pane.x + pane.width / 2),
@@ -108,14 +119,14 @@ const ALL_EDGES = [
 ];
 
 const summary: Record<string, unknown> = {};
-await mkdir(outDir, { recursive: true });
+
 const shot = (page: Page, name: string) =>
-	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
-const browser = await chromium.launch({
-	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
-	headless: true,
-});
+	page.screenshot({ path: path.join(ARTIFACTS_DIR, outDir, `${name}.png`) });
+
+const browser = await launchBrowser();
+
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
 try {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -149,7 +160,7 @@ try {
 	await page.waitForFunction(() =>
 		document.querySelector('.react-flow__node[data-id="hr.employees"] [data-active]'),
 	);
-	await page.waitForTimeout(600); // the pan animates for 400 ms
+	await viewportSettled(page);
 	summary.sidebarPick = {
 		url: new URL(page.url()).search,
 		...(await canvasState(page)),
@@ -178,7 +189,7 @@ try {
 	await page.waitForFunction(() =>
 		document.querySelector('.react-flow__node[data-id="hr.departments"] [data-active]'),
 	);
-	await page.waitForTimeout(600);
+	await viewportSettled(page);
 	summary.canvasClick = {
 		url: new URL(page.url()).search,
 		moved: (await viewport(page)) !== before,
@@ -218,7 +229,7 @@ try {
 	await shot(page, "failure");
 	throw error;
 } finally {
-	await writeFile(new URL("summary.json", outDir), `${JSON.stringify(summary, null, 2)}\n`);
+	await writeArtifact(`${outDir}/summary.json`, summary);
 	await browser.close();
 	server.kill("SIGKILL");
 }

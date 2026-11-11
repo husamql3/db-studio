@@ -13,7 +13,7 @@ import {
 	Settings2,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useColumnPreferences } from "../../hooks/use-column-preferences";
 import { reorderColumns } from "../../stores/column-preferences.store";
@@ -39,7 +39,9 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 	// menu rows follow the currently saved order, so drag-and-drop reads naturally
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
+
 		if (!q) return orderedColumns;
+
 		return orderedColumns.filter((name) => name.toLowerCase().includes(q));
 	}, [orderedColumns, search]);
 
@@ -48,6 +50,7 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 	const commitDrag = () => {
 		if (!drag) return;
 		const index = drag.order.indexOf(drag.name);
+
 		if (index > 0) reorderColumn(drag.name, drag.order[index - 1], "after");
 		else if (drag.order.length > 1) reorderColumn(drag.name, drag.order[1], "before");
 	};
@@ -55,6 +58,7 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 	const visibleSet = useMemo(() => new Set(visibleColumns), [visibleColumns]);
 	const totalCount = tableCols?.length ?? 0;
 	const hiddenCount = totalCount - visibleColumns.length;
+
 	const isCustomized =
 		hiddenCount > 0 ||
 		orderedColumns.some((name, i) => (tableCols ?? [])[i]?.columnName !== name);
@@ -120,6 +124,7 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 				>
 					{rows.map((name, i) => {
 						const isVisible = visibleSet.has(name);
+
 						return (
 							<div
 								key={name}

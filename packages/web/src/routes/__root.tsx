@@ -14,7 +14,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { NuqsAdapter } from "nuqs/adapters/react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { toast } from "sonner";
 import { CommandPalette } from "@/components/components/command-palette";
 import { useConnectionChangeWatcher, useConnections } from "@/features/connections";
@@ -23,33 +23,10 @@ import { TableBuilderOverlay } from "@/features/table-builder";
 import { useInitializeDatabase } from "@/hooks/use-databases-list";
 import { useTheme } from "@/hooks/use-theme";
 import { initPosthog, posthogAnalytics } from "@/lib/posthog";
+import { sectionOf } from "@/lib/sections";
 import { initSentry } from "@/lib/sentry";
+import type { ApiError } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
-
-const darkModeScript = `
-  try {
-    const stored = localStorage.getItem('db-studio-personal-preferences');
-    const theme = stored ? JSON.parse(stored)?.state?.theme : 'dark';
-    const isDark = theme === 'dark' || (theme === 'system' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#09090b');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#ffffff');
-    }
-  } catch (_) {
-    document.documentElement.classList.add('dark');
-  }
-
-  try {
-    if (/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
-      document.documentElement.classList.add('os-macos');
-    }
-  } catch (_) {}
-`;
 
 const connectDevtoolsServerBus =
 	import.meta.env.DEV && import.meta.env.VITE_TANSTACK_SERVER_BUS === "true";
@@ -67,11 +44,12 @@ const FullPageSpinner = () => (
 const ConnectedApp = () => {
 	const { dbType } = useDatabaseStore();
 	// Fetches the databases list and the current database, then selects one.
-	const { isLoading, isInitialized, error } = useInitializeDatabase();
+	const { isInitialized, error } = useInitializeDatabase();
 
 	useEffect(() => {
 		if (error && dbType) {
-			const status = (error as { status?: number })?.status;
+			// SAFETY: both queries are API requests, and every failed request rejects with ApiError.
+			const { status } = error as ApiError;
 			posthogAnalytics.capture("connection_error", {
 				db_type: dbType,
 				status_bucket: status ? (status >= 500 ? "5xx" : "4xx") : "network",
@@ -79,13 +57,14 @@ const ConnectedApp = () => {
 		}
 	}, [error, dbType]);
 
-	if ((isLoading || !isInitialized) && !error) return <FullPageSpinner />;
+	if (!isInitialized && !error) return <FullPageSpinner />;
+
 	if (error) {
 		return (
 			<div className="flex flex-col items-center justify-center h-screen gap-3 text-center">
 				<p className="text-destructive font-medium">Failed to connect to the database</p>
 				<p className="text-muted-foreground text-sm max-w-sm">
-					{(error as { message?: string })?.message ?? "An unexpected error occurred"}
+					{error.message || "An unexpected error occurred"}
 				</p>
 				<Link
 					to="/connect"
@@ -96,15 +75,24 @@ const ConnectedApp = () => {
 			</div>
 		);
 	}
+
 	return <Outlet />;
 };
 
 export const Route = createRootRoute({
 	component: function RootRouteComponent() {
-		useTheme();
+		const { resolvedTheme } = useTheme();
+
+		// A layout effect, so the first frame already has the stored theme.
+		useLayoutEffect(() => {
+			const root = document.documentElement;
+			root.classList.toggle("dark", resolvedTheme === "dark");
+			root.classList.toggle("light", resolvedTheme === "light");
+		}, [resolvedTheme]);
 		const pathname = useLocation({ select: (location) => location.pathname });
 		const { active, isLoading, error } = useConnections();
 		useConnectionChangeWatcher();
+
 		// From the rendered matches, not the URL: while the Connect page's code loads, the URL is
 		// already /connect but the outlet still renders the previous page, which needs a database.
 		const isConnectPage = useRouterState({
@@ -116,6 +104,7 @@ export const Route = createRootRoute({
 			void initPosthog().then((telemetry) => {
 				if (!telemetry?.enabled) return;
 				void initSentry();
+
 				if (!localStorage.getItem(noticeKey)) {
 					localStorage.setItem(noticeKey, "1");
 					toast.info("Anonymous usage and reliability data helps improve DB Studio.", {
@@ -127,23 +116,19 @@ export const Route = createRootRoute({
 		}, []);
 
 		useEffect(() => {
-			const firstSegment = pathname.split("/").filter(Boolean)[0];
-			const pages = [
-				"connect",
-				"browser",
-				"table",
-				"schema",
-				"runner",
-				"visualizer",
-				"logs",
-				"indexes",
-			] as const;
-			const page = pages.find((candidate) => candidate === firstSegment) ?? "home";
+			const page =
+				pathname === "/connect"
+					? "connect"
+					: pathname === "/"
+						? "home"
+						: (sectionOf(pathname)?.id ?? "home");
+
 			posthogAnalytics.capture("page_viewed", { page });
 		}, [pathname]);
 
 		// Pieces that query the open database stay out of the Connect page.
 		const isInApp = Boolean(active) && !isConnectPage;
+
 		const content = isConnectPage ? (
 			<Outlet />
 		) : isLoading ? (
@@ -161,11 +146,6 @@ export const Route = createRootRoute({
 
 		return (
 			<TooltipProvider>
-				<script
-					defer
-					src={`data:text/javascript;base64,${btoa(darkModeScript)}`}
-				/>
-
 				<NuqsAdapter
 					fullPageNavigationOnShallowFalseUpdates
 					defaultOptions={{ shallow: true, clearOnDefault: true }}
@@ -174,11 +154,12 @@ export const Route = createRootRoute({
 					{/* Inside the adapter: it reads the open table's schema from the URL. */}
 					{isInApp && <CommandPalette />}
 				</NuqsAdapter>
-				<Toaster position="top-right" />
-				{/* Global overlays */}
+				<Toaster
+					position="top-right"
+					theme={resolvedTheme}
+				/>
 				{isInApp && <TableBuilderOverlay />}
 				<SettingsOverlay />
-				{/* Devtools */}
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",

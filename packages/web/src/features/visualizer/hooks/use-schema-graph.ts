@@ -9,7 +9,10 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const useSchemaGraph = () => {
 	const { selectedDatabase } = useDatabaseStore();
-	const [schema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, { defaultValue: "all" });
+
+	const [schema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
+		defaultValue: CONSTANTS.ALL_SCHEMAS,
+	});
 
 	const { data, isLoading, error } = useQuery({
 		queryKey: tableKeys.graph(selectedDatabase),

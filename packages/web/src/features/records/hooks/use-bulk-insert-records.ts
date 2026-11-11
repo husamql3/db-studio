@@ -2,7 +2,12 @@ import type { BulkInsertResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { bulkInsertRecords as bulkInsertRecordsRequest } from "@/shared/api";
+import {
+	bulkInsertRecords as bulkInsertRecordsRequest,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
@@ -24,22 +29,13 @@ export const useBulkInsertRecords = ({
 				records,
 				db: selectedDatabase,
 			});
+
 			return res.data.data;
 		},
 		onSuccess: async () => {
 			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
+				invalidateTableRows(queryClient, tableName),
+				queryClient.invalidateQueries({ queryKey: tableKeys.columnsByTable(tableName) }),
 			]);
 		},
 	});
@@ -48,7 +44,7 @@ export const useBulkInsertRecords = ({
 		records: Record<string, unknown>[],
 		options?: {
 			onSuccess?: (result: BulkInsertResult) => void;
-			onError?: (error: Error & { detail?: string }) => void;
+			onError?: (error: ApiError) => void;
 			format?: "csv" | "json" | "excel";
 		},
 	) => {
@@ -60,17 +56,21 @@ export const useBulkInsertRecords = ({
 			loading: `Inserting ${records.length} record${records.length !== 1 ? "s" : ""}...`,
 			success: (result) => {
 				options?.onSuccess?.(result);
+
 				if (dbType && options?.format) {
 					posthogAnalytics.capture("bulk_insert", { db_type: dbType, format: options.format });
 				}
+
 				if (result.failureCount > 0) {
 					return `${result.successCount} records inserted, ${result.failureCount} failed`;
 				}
+
 				return result.message;
 			},
-			error: (error: Error & { detail?: string }) => {
+			error: (error: ApiError) => {
 				options?.onError?.(error);
-				return error.detail || error.message || "Failed to insert records";
+
+				return apiErrorMessage(error, "Failed to insert records");
 			},
 		});
 	};

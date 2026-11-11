@@ -17,7 +17,7 @@ import { DatabaseZap, Plus } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { getRedisStringChunk } from "@/shared/api";
+import { type ApiError, getRedisStringChunk } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useQueriesStore } from "@/stores/queries.store";
@@ -34,6 +34,7 @@ import { useRedisKey, useRedisKeyMutations } from "../hooks/use-redis-browser";
 const runnerCommand = (detail: KeyDetailsResultSchemaType): string | null => {
 	if (detail.key.utf8 === undefined) return null;
 	const key = JSON.stringify(detail.key.utf8);
+
 	switch (detail.type) {
 		case "string":
 			return `GET ${key}`;
@@ -71,67 +72,82 @@ export const RedisBrowserScreen = () => {
 	const navigate = useNavigate();
 	const { selectedDatabase } = useDatabaseStore();
 	const { openOverlay } = useOverlayStore();
-	const { addQuery, updateQuery } = useQueriesStore();
+	const { addQuery } = useQueriesStore();
 	const [selectedKey, setSelectedKey] = useQueryState("key");
 	const [fullKey, setFullKey] = useState<string | null>(null);
 	const [reverseStreamKey, setReverseStreamKey] = useState<string | null>(null);
+
 	const streamDirection: StreamDirection =
 		reverseStreamKey === selectedKey ? "backward" : "forward";
+
 	const query = useRedisKey(selectedKey, fullKey === selectedKey, streamDirection);
 	const { applyAction, deleteKey, isPending } = useRedisKeyMutations();
 	const pages = query.data?.pages;
 	const detail = pages?.[0];
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+
 	const [conflictOperation, setConflictOperation] = useState<
 		KeyActionSchemaType["operation"] | null
 	>(null);
+
 	const label = detail?.key.utf8 ?? (detail ? `binary:${detail.key.base64}` : "");
 	const command = detail ? runnerCommand(detail) : null;
 
 	const mergedDetail = useMemo(() => {
 		if (!detail || !pages || pages.length === 1) return detail;
 		const next = structuredClone(detail);
+
 		for (const page of pages.slice(1)) {
 			if (next.value.kind === "hash" && page.value.kind === "hash")
 				next.value.entries.push(...page.value.entries);
+
 			if (next.value.kind === "list" && page.value.kind === "list")
 				next.value.entries.push(...page.value.entries);
+
 			if (next.value.kind === "set" && page.value.kind === "set")
 				next.value.members.push(...page.value.members);
+
 			if (next.value.kind === "zset" && page.value.kind === "zset")
 				next.value.entries.push(...page.value.entries);
+
 			if (next.value.kind === "stream" && page.value.kind === "stream")
 				next.value.entries.push(...page.value.entries);
 		}
+
 		return next;
 	}, [detail, pages]);
+
 	const loadedCount = mergedDetail ? countLoaded(mergedDetail) : null;
 
 	const act: RedisAct = async (operation, force = false) => {
 		if (!selectedKey || !detail) return false;
+
 		try {
 			const result = await applyAction(selectedKey, {
 				expectedRevision: detail.revision,
 				force,
 				operation,
 			});
+
 			setConflictOperation(null);
+
 			if (result.deleted) setSelectedKey(null);
 			else if ((result.key.base64 || "-") !== selectedKey)
 				setSelectedKey(result.key.base64 || "-");
+
 			return true;
 		} catch (error) {
 			// toast.promise in the mutation hook already surfaced the failure.
-			if ((error as Error & { status?: number }).status === 409)
-				setConflictOperation(operation);
+			// SAFETY: `applyAction` is an API request, and every failed request rejects with ApiError.
+			if ((error as ApiError).status === 409) setConflictOperation(operation);
+
 			return false;
 		}
 	};
 
 	const openInRunner = () => {
 		if (!command) return;
-		const queryId = addQuery(`redis: ${label.slice(0, 40)}`);
-		updateQuery(queryId, { query: command });
+		const queryId = addQuery(command, { name: `redis: ${label.slice(0, 40)}` });
 		navigate({ to: "/runner/$queryId", params: { queryId } });
 	};
 
@@ -140,6 +156,7 @@ export const RedisBrowserScreen = () => {
 		const chunks: Uint8Array[] = [];
 		let offset = 0;
 		let hasMore = true;
+
 		while (hasMore) {
 			const response = await getRedisStringChunk({
 				db: selectedDatabase ?? "",
@@ -147,21 +164,27 @@ export const RedisBrowserScreen = () => {
 				offset,
 				expectedRevision: detail.revision,
 			});
+
 			const page = response.data.data;
 			chunks.push(bytesFromBase64Url(page.chunk.base64));
 			hasMore = page.hasMore;
+
 			if (page.hasMore && (page.nextOffset === null || page.nextOffset <= offset)) {
 				throw new Error("Redis download made no forward progress");
 			}
+
 			offset = page.nextOffset ?? offset;
 		}
+
 		const size = chunks.reduce((total, chunk) => total + chunk.length, 0);
 		const bytes = new Uint8Array(size);
 		let position = 0;
+
 		for (const chunk of chunks) {
 			bytes.set(chunk, position);
 			position += chunk.length;
 		}
+
 		const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer]));
 		const anchor = document.createElement("a");
 		anchor.href = url;
@@ -189,12 +212,14 @@ export const RedisBrowserScreen = () => {
 				</div>
 			</main>
 		);
+
 	if (query.isLoading)
 		return (
 			<main className="flex flex-1 items-center justify-center">
 				<Spinner />
 			</main>
 		);
+
 	if (query.error || !detail || !mergedDetail)
 		return (
 			<main className="flex flex-1 items-center justify-center bg-background p-4">
@@ -256,6 +281,7 @@ export const RedisBrowserScreen = () => {
 							variant="destructive"
 							onClick={async () => {
 								setConfirmingDelete(false);
+
 								try {
 									await deleteKey(selectedKey, detail.revision);
 									setSelectedKey(null);

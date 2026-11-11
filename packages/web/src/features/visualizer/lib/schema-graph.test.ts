@@ -63,6 +63,7 @@ describe("buildSchemaGraph", () => {
 			]),
 			table("accounts", undefined, [column("id")]),
 		];
+
 		expect(targets(tables)).toEqual([]);
 	});
 
@@ -74,6 +75,7 @@ describe("buildSchemaGraph", () => {
 			]),
 			table("accounts", undefined, [column("id")]),
 		];
+
 		expect(targets(tables)).toEqual(["orders -> accounts"]);
 	});
 });

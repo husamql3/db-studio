@@ -1,3 +1,4 @@
+import type { RelatedRecord } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import {
 	Dialog,
@@ -7,7 +8,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@db-studio/ui/dialog";
-import type { RelatedRecord } from "../../hooks/use-delete-cell";
 
 export const ForceDeleteDialog = ({
 	isOpenFkDialog,

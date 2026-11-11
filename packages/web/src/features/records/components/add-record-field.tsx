@@ -12,46 +12,44 @@ import {
 import { Textarea } from "@db-studio/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { Clock, Link, RefreshCw } from "lucide-react";
-import { useQueryState } from "nuqs";
 import { Controller, type ControllerRenderProps, useFormContext } from "react-hook-form";
-import { useOverlayStore } from "@/stores/overlay.store";
-import { CONSTANTS } from "@/utils/constants";
-import type { AddRecordFormData } from "../hooks/use-create-record";
-import { useRecordReferenceStore } from "../stores/record-reference.store";
-
-const pad = (n: number): string => String(n).padStart(2, "0");
-
-const formatLocalTimestamp = (date: Date): string => {
-	const yyyy = date.getFullYear();
-	const mm = pad(date.getMonth() + 1);
-	const dd = pad(date.getDate());
-	const hh = pad(date.getHours());
-	const min = pad(date.getMinutes());
-	return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-};
+import type { AddRecordFormData } from "@/shared/api";
+import { cellVariant } from "@/utils/cell-variant";
+import { hasTimeOfDay, parseDateValue, toDateValue } from "@/utils/date-values";
+import { openRecordReference } from "../stores/record-reference.store";
 
 export const AddRecordField = ({
 	columnName,
+	dataType,
 	dataTypeLabel,
+	isNullable,
 	columnDefault,
 	enumValues,
 	isForeignKey,
 	referencedTable,
+	referencedSchema,
 	referencedColumn,
 	hideLabel = false,
 }: ColumnInfoSchemaType & { hideLabel?: boolean }) => {
-	const [, setReferencedActiveTable] = useQueryState(
-		CONSTANTS.REFERENCED_TABLE_STATE_KEYS.ACTIVE_TABLE,
-	);
 	const { control } = useFormContext<AddRecordFormData>();
-	const { openOverlay } = useOverlayStore();
-	const { setRecordReference } = useRecordReferenceStore();
+
+	const openReference = () => {
+		if (referencedTable && referencedColumn) {
+			openRecordReference({
+				tableName: referencedTable,
+				schemaName: referencedSchema,
+				columnName,
+				referencedColumn,
+			});
+		}
+	};
 
 	const renderInputField = (field: ControllerRenderProps<AddRecordFormData, string>) => {
 		const safeField = {
 			...field,
 			value: field.value ?? "",
 		};
+
 		// Without a visible <Label>, name each primary control directly. The
 		// visible-label path stays associated through htmlFor and is untouched.
 		const controlName = hideLabel ? columnName : undefined;
@@ -74,13 +72,7 @@ export const AddRecordField = ({
 									aria-label="Go to table"
 									className="inline-flex w-9 items-center justify-center rounded-e-sm border  border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
 									type="button"
-									onClick={() => {
-										if (referencedTable && columnName && referencedColumn) {
-											setRecordReference(referencedTable, columnName, referencedColumn);
-										}
-										openOverlay("records.record-reference");
-										setReferencedActiveTable(referencedTable);
-									}}
+									onClick={openReference}
 								>
 									<Link
 										aria-hidden="true"
@@ -98,13 +90,7 @@ export const AddRecordField = ({
 						<button
 							type="button"
 							className="font-mono text-primary"
-							onClick={() => {
-								if (referencedTable && columnName && referencedColumn) {
-									setRecordReference(referencedTable, columnName, referencedColumn);
-								}
-								openOverlay("records.record-reference");
-								setReferencedActiveTable(referencedTable);
-							}}
+							onClick={openReference}
 						>
 							{referencedTable}
 						</button>{" "}
@@ -114,15 +100,37 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (
-			dataTypeLabel === "int" ||
-			dataTypeLabel === "bigint" ||
-			dataTypeLabel === "smallint" ||
-			dataTypeLabel === "numeric" ||
-			dataTypeLabel === "float" ||
-			dataTypeLabel === "double" ||
-			dataTypeLabel === "money"
-		) {
+		// Editors follow the grid's cell variant; the label only picks the inputs specific to one
+		// type.
+		const variant = cellVariant({ enumValues, dataType });
+
+		if (enumValues && variant === "enum") {
+			return (
+				<Select
+					value={field.value}
+					onValueChange={(value) => field.onChange(value)}
+				>
+					<SelectTrigger
+						aria-label={controlName}
+						className="w-full"
+					>
+						<SelectValue placeholder={columnDefault ?? "Select a value"} />
+					</SelectTrigger>
+					<SelectContent>
+						{enumValues.map((enumValue: string) => (
+							<SelectItem
+								key={enumValue}
+								value={enumValue}
+							>
+								{enumValue}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			);
+		}
+
+		if (variant === "number") {
 			return (
 				<Input
 					id={columnName}
@@ -134,7 +142,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataTypeLabel === "boolean") {
+		if (variant === "boolean") {
 			return (
 				<Select
 					value={field.value}
@@ -166,7 +174,7 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataTypeLabel === "json" || dataTypeLabel === "jsonb") {
+		if (variant === "json") {
 			return (
 				<Textarea
 					id={columnName}
@@ -178,160 +186,60 @@ export const AddRecordField = ({
 			);
 		}
 
-		if (dataTypeLabel === "date") {
-			const hasDateDefault =
-				columnDefault?.toLowerCase().includes("current_date") ||
-				columnDefault?.toLowerCase().includes("now()") ||
-				columnDefault?.toLowerCase().includes("curdate()");
+		if (variant === "date") {
+			const showTime = hasTimeOfDay(dataTypeLabel);
 
-			if (hasDateDefault) {
-				return (
-					<div className="flex">
-						<DatePicker
-							value={
-								field.value ? new Date(field.value) : field.value === "" ? null : undefined
-							}
-							onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
-							placeholder={columnDefault ?? "Select a date"}
-							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const today = new Date().toISOString().split("T")[0];
-										field.onChange(today);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			}
+			const nowDefaults = showTime
+				? ["current_timestamp", "now()", "localtimestamp"]
+				: ["current_date", "now()", "curdate()"];
 
-			return (
+			const hasNowDefault = nowDefaults.some((name) =>
+				columnDefault?.toLowerCase().includes(name),
+			);
+
+			const picker = (
 				<DatePicker
-					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-					onChange={(date) => field.onChange(date ? date.toISOString().split("T")[0] : "")}
-					placeholder={columnDefault ?? "Select a date"}
+					value={
+						field.value ? parseDateValue(field.value) : field.value === "" ? null : undefined
+					}
+					onChange={(date) => field.onChange(date ? toDateValue(date, dataTypeLabel) : "")}
+					showTime={showTime}
+					isFormatted={!showTime}
+					nullable={isNullable}
+					placeholder={
+						columnDefault ?? (showTime ? "Select a date and time" : "Select a date")
+					}
+					className={
+						hasNowDefault
+							? "-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
+							: undefined
+					}
 				/>
 			);
-		}
 
-		if (dataTypeLabel === "timestamptz") {
-			const hasTimestampDefault =
-				columnDefault?.toLowerCase().includes("current_timestamp") ||
-				columnDefault?.toLowerCase().includes("now()") ||
-				columnDefault?.toLowerCase().includes("localtimestamp");
-
-			if (hasTimestampDefault) {
-				return (
-					<div className="flex">
-						<DatePicker
-							value={
-								field.value ? new Date(field.value) : field.value === "" ? null : undefined
-							}
-							onChange={(date) => field.onChange(date ? date.toISOString() : "")}
-							showTime={true}
-							isFormatted={false}
-							placeholder={columnDefault ?? "Select a date and time"}
-							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										const today = new Date().toISOString();
-										field.onChange(today);
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			}
+			if (!hasNowDefault) return picker;
 
 			return (
-				<DatePicker
-					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-					onChange={(date) => field.onChange(date ? date.toISOString() : "")}
-					showTime={true}
-					isFormatted={false}
-					placeholder={columnDefault ?? "Select a date and time"}
-				/>
-			);
-		}
-
-		if (dataTypeLabel === "timestamp") {
-			const hasTimestampDefault =
-				columnDefault?.toLowerCase().includes("current_timestamp") ||
-				columnDefault?.toLowerCase().includes("now()") ||
-				columnDefault?.toLowerCase().includes("localtimestamp");
-
-			if (hasTimestampDefault) {
-				return (
-					<div className="flex">
-						<DatePicker
-							value={
-								field.value ? new Date(field.value) : field.value === "" ? null : undefined
-							}
-							onChange={(date) => field.onChange(date ? formatLocalTimestamp(date) : "")}
-							showTime={true}
-							isFormatted={false}
-							placeholder={columnDefault ?? "Select a date and time"}
-							className="-me-px flex-1 rounded-e-none shadow-none focus-visible:z-10"
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									aria-label="Set to now"
-									className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-									type="button"
-									onClick={() => {
-										field.onChange(formatLocalTimestamp(new Date()));
-									}}
-								>
-									<Clock
-										aria-hidden="true"
-										className="size-4"
-										size={16}
-									/>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			}
-
-			return (
-				<DatePicker
-					value={field.value ? new Date(field.value) : field.value === "" ? null : undefined}
-					onChange={(date) => field.onChange(date ? formatLocalTimestamp(date) : "")}
-					showTime={true}
-					isFormatted={false}
-					placeholder={columnDefault ?? "Select a date and time"}
-				/>
+				<div className="flex">
+					{picker}
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								aria-label="Set to now"
+								className="inline-flex w-7 items-center justify-center rounded-e-sm border border-input bg-background text-muted-foreground/80 text-sm outline-none transition-[color,box-shadow] hover:text-accent-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+								type="button"
+								onClick={() => field.onChange(toDateValue(new Date(), dataTypeLabel))}
+							>
+								<Clock
+									aria-hidden="true"
+									className="size-4"
+									size={16}
+								/>
+							</button>
+						</TooltipTrigger>
+						<TooltipContent className="px-2 py-1 text-xs">Set to now</TooltipContent>
+					</Tooltip>
+				</div>
 			);
 		}
 
@@ -378,42 +286,6 @@ export const AddRecordField = ({
 					aria-label={controlName}
 					placeholder={columnDefault ?? '["item1", "item2"]'}
 					rows={3}
-					{...safeField}
-				/>
-			);
-		}
-
-		if (dataTypeLabel === "enum") {
-			if (enumValues && enumValues.length > 0) {
-				return (
-					<Select
-						value={field.value}
-						onValueChange={(value) => field.onChange(value)}
-					>
-						<SelectTrigger
-							aria-label={controlName}
-							className="w-full"
-						>
-							<SelectValue placeholder={columnDefault ?? "Select a value"} />
-						</SelectTrigger>
-						<SelectContent>
-							{enumValues.map((enumValue: string) => (
-								<SelectItem
-									key={enumValue}
-									value={enumValue}
-								>
-									{enumValue}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				);
-			}
-			return (
-				<Input
-					id={columnName}
-					aria-label={controlName}
-					placeholder={columnDefault ?? ""}
 					{...safeField}
 				/>
 			);

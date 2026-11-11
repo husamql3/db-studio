@@ -1,10 +1,14 @@
+import { META } from "@db-studio/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 
 export type Week = { start: string; count: number };
+
 type NpmRange = { downloads: { downloads: number; day: string }[] };
+
 type Analytics = { pageViews: number; referrers: { name: string; views: number }[] };
 
-const SITE_HOST = "dbstudio.sh";
+const SITE_HOST = new URL(META.SITE_URL).hostname;
+
 // The homepage waits for these calls, so a slow API must not hold it up.
 const timeout = () => AbortSignal.timeout(3000);
 
@@ -24,6 +28,7 @@ const getGithub = () =>
 		.then((json) => {
 			const repo = json as { stargazers_count: number; forks_count: number };
 			lastGithub = { stars: repo.stargazers_count, forks: repo.forks_count };
+
 			return lastGithub;
 		})
 		.catch(() => lastGithub);
@@ -36,6 +41,7 @@ const getNpm = () =>
 		.then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
 		.then((json) => {
 			lastNpm = json as NpmRange;
+
 			return lastNpm;
 		})
 		.catch(() => lastNpm);
@@ -43,6 +49,7 @@ const getNpm = () =>
 async function getNpmTotal(): Promise<number | null> {
 	const end = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 	const periods: string[] = [];
+
 	// First publication was 2025-10-28. Split by year to stay below npm's 18-month limit.
 	for (let year = 2025; year <= Number(end.slice(0, 4)); year++) {
 		const start = year === 2025 ? "2025-10-28" : `${year}-01-01`;
@@ -59,8 +66,10 @@ async function getNpmTotal(): Promise<number | null> {
 						cf: { cacheTtlByStatus: { "200-299": 3600, "400-599": 0 } },
 					},
 				);
+
 				if (!response.ok) throw new Error(`npm downloads request failed: ${response.status}`);
 				const data: unknown = await response.json();
+
 				if (
 					typeof data !== "object" ||
 					data === null ||
@@ -71,13 +80,16 @@ async function getNpmTotal(): Promise<number | null> {
 				) {
 					throw new Error("Invalid npm download count");
 				}
+
 				return data.downloads;
 			}),
 		);
+
 		lastNpmTotal = counts.reduce((sum, count) => sum + count, 0);
 	} catch {
 		// Keep the last complete total rather than showing a partial count.
 	}
+
 	return lastNpmTotal;
 }
 
@@ -105,12 +117,14 @@ type AnalyticsResponse = {
 /** Page views and referrers of the last 30 days from Cloudflare Web Analytics, cached for an hour. */
 async function getAnalytics(): Promise<Analytics | null> {
 	const { CF_ANALYTICS_TOKEN, CF_ACCOUNT_ID, CF_WEB_ANALYTICS_SITE_TAG } = process.env;
+
 	if (!CF_ANALYTICS_TOKEN || !CF_ACCOUNT_ID || !CF_WEB_ANALYTICS_SITE_TAG) return null;
 
 	// The GraphQL API is POST-only, so its answer goes through the Cache API under a made-up URL.
 	const cache = await caches.open("home-stats");
 	const cacheKey = new Request(`https://${SITE_HOST}/__cache/home-analytics`);
 	const cached = await cache.match(cacheKey);
+
 	if (cached) return cached.json();
 
 	try {
@@ -130,31 +144,41 @@ async function getAnalytics(): Promise<Analytics | null> {
 			}),
 			signal: timeout(),
 		});
+
+		if (!response.ok) return null;
+
 		const account = ((await response.json()) as AnalyticsResponse).data?.viewer.accounts[0];
+
 		if (!account) return null;
 
 		const referrers = new Map<string, number>();
+
 		for (const { count, dimensions } of account.referrers) {
 			const host = dimensions.refererHost.replace(/^www\./, "");
+
 			// Clicks between our own pages are not referrals.
 			if (host === SITE_HOST) continue;
 			const name = host || "Direct";
 			referrers.set(name, (referrers.get(name) ?? 0) + count);
 		}
+
 		const analytics: Analytics = {
 			pageViews: account.total[0]?.count ?? 0,
 			referrers: [...referrers]
 				.map(([name, views]) => ({ name, views }))
 				.sort((a, b) => b.views - a.views),
 		};
+
 		await cache.put(
 			cacheKey,
 			new Response(JSON.stringify(analytics), {
 				headers: { "Cache-Control": "max-age=3600" },
 			}),
 		);
+
 		return analytics;
 	} catch {
+		// Analytics are optional; the homepage renders without them.
 		return null;
 	}
 }
@@ -170,6 +194,7 @@ export const getHomeStats = createServerFn().handler(async () => {
 	// Whole weeks, aligned to end on the latest day, starting at the first week with downloads.
 	const days = npm.downloads.slice(npm.downloads.length % 7);
 	const weeks: Week[] = [];
+
 	for (let i = 0; i < days.length; i += 7) {
 		weeks.push({
 			start: days[i].day,

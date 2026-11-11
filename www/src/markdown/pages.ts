@@ -1,14 +1,16 @@
+import { META } from "@db-studio/shared/constants";
 import rawDocs from "virtual:raw-docs";
 import { type ChangelogEntry, changelog } from "@/lib/content/changelog";
 import { supportedDatabases } from "@/lib/content/databases";
+import { type EnginePage, enginePages } from "@/lib/content/engine-pages";
+import { INSTALL_COMMANDS } from "@/lib/content/install-commands";
 import { roadmapItems } from "@/lib/content/roadmap";
 import { SPONSOR_EMAIL, type Sponsor, sponsorTiers } from "@/lib/content/sponsors";
 import { readSponsors } from "@/lib/sponsors-store";
 import { mdxToMarkdown } from "./mdx-to-markdown";
 
-const SITE_URL = "https://dbstudio.sh";
-
 const docsMarkdown = new Map<string, string>();
+
 for (const [slug, raw] of Object.entries(rawDocs)) {
 	docsMarkdown.set(slug === "index" ? "/docs" : `/docs/${slug}`, mdxToMarkdown(raw));
 }
@@ -16,20 +18,27 @@ for (const [slug, raw] of Object.entries(rawDocs)) {
 const changelogEntryLine = ({ text, username }: ChangelogEntry): string => {
 	const usernames = username ? (Array.isArray(username) ? username : [username]) : [];
 	const credit = usernames.map((u) => `[@${u}](https://github.com/${u})`).join(", ");
+
 	return `- ${text}${credit ? ` — ${credit}` : ""}`;
 };
 
 const changelogMarkdown = (): string => {
 	const sections = changelog.map((item) => {
 		const lines = [`## v${item.version} — ${item.title} (${item.date})`];
+
 		if (item.tags?.length) lines.push(`Tags: ${item.tags.join(", ")}`);
-		if (item.image) lines.push(`![v${item.version}](${SITE_URL}${item.image})`);
+
+		if (item.image) lines.push(`![v${item.version}](${META.SITE_URL}${item.image})`);
+
 		if (item.features?.length)
 			lines.push("### Features", item.features.map(changelogEntryLine).join("\n"));
+
 		if (item.improvements?.length)
 			lines.push("### Improvements", item.improvements.map(changelogEntryLine).join("\n"));
+
 		if (item.bugsFixed?.length)
 			lines.push("### Bug fixes", item.bugsFixed.map(changelogEntryLine).join("\n"));
+
 		return lines.join("\n\n");
 	});
 
@@ -46,6 +55,7 @@ const roadmapMarkdown = (): string => {
 					}`,
 			)
 			.join("\n");
+
 		return `## ${section.title} (${section.status})\n\n${tasks}`;
 	});
 
@@ -63,7 +73,7 @@ Browse tables, edit records, design schemas, and run queries in a free, open-sou
 Launch instantly from your terminal, no installation needed:
 
 \`\`\`bash
-npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
+${INSTALL_COMMANDS.npx}    # or: ${INSTALL_COMMANDS.yarn} / ${INSTALL_COMMANDS.pnpm} / ${INSTALL_COMMANDS.bun}
 \`\`\`
 
 ## Works with your stack
@@ -71,7 +81,7 @@ npx db-studio    # or: yarn dlx db-studio / pnpm dlx db-studio / bunx db-studio
 ${supportedDatabases
 	.map(
 		({ name, slug, scheme }) =>
-			`- [${name}](${SITE_URL}/docs/databases#${slug}) — \`${scheme}\``,
+			`- [${name}](${META.SITE_URL}/docs/databases#${slug}) — \`${scheme}\``,
 	)
 	.join("\n")}
 
@@ -86,24 +96,48 @@ ${supportedDatabases
 
 ## Links
 
-- [Documentation](${SITE_URL}/docs)
-- [Getting Started](${SITE_URL}/docs/getting-started)
-- [Desktop App](${SITE_URL}/docs/desktop)
-- [FAQ](${SITE_URL}/docs/faq)
-- [Roadmap](${SITE_URL}/roadmap)
-- [Changelog](${SITE_URL}/changelog)
-- [GitHub](https://github.com/husamql3/db-studio)
+- [Documentation](${META.SITE_URL}/docs)
+- [Getting Started](${META.SITE_URL}/docs/getting-started)
+- [Desktop App](${META.SITE_URL}/docs/desktop)
+- [FAQ](${META.SITE_URL}/docs/faq)
+- [Roadmap](${META.SITE_URL}/roadmap)
+- [Changelog](${META.SITE_URL}/changelog)
+- [GitHub](${META.SITE_GITHUB_LINK})
 
 ## Sponsors
 
 ${sponsorTiers
 	.map(({ id, label, price, spots }) => {
 		const inTier = sponsors.filter((s) => s.tier === id);
+
 		return `- **${label}** (${price}, ${Math.max(0, spots - inTier.length)} of ${spots} open)${inTier.map((s) => `\n  - [${s.name}](${s.url})`).join("")}`;
 	})
 	.join("\n")}
 
 Interested in sponsoring db-studio? Reach out at ${SPONSOR_EMAIL}
+`;
+
+const engineMarkdown = (page: EnginePage): string => `# ${page.headline}
+
+${page.intro}
+
+\`\`\`bash
+${page.command}
+\`\`\`
+
+## What you can do with ${page.name}
+
+${page.highlights.map(({ title, text }) => `- **${title}** — ${text}`).join("\n")}
+
+## Good to know
+
+${page.limits.map((limit) => `- ${limit}`).join("\n")}
+
+Full details: [${page.name} docs](${META.SITE_URL}/docs/databases#${page.slug})
+
+## FAQ
+
+${page.faq.map(({ question, answer }) => `### ${question}\n\n${answer}`).join("\n\n")}
 `;
 
 /**
@@ -114,7 +148,14 @@ export const getMarkdownForPath = async (pathname: string): Promise<string | nul
 	const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
 	if (path === "/") return landingMarkdown(await readSponsors());
+
 	if (path === "/changelog") return changelogMarkdown();
+
 	if (path === "/roadmap") return roadmapMarkdown();
+
+	const enginePage = enginePages.find(({ slug }) => path === `/${slug}-gui`);
+
+	if (enginePage) return engineMarkdown(enginePage);
+
 	return docsMarkdown.get(path) ?? null;
 };

@@ -2,13 +2,14 @@ import { z } from "zod";
 
 export const AI_PROVIDERS = ["gemini", "openai", "anthropic", "grok", "openrouter"] as const;
 export const aiProviderSchema = z.enum(AI_PROVIDERS);
+
 export type AiProvider = z.infer<typeof aiProviderSchema>;
 
-export const AI_PROVIDER_OPTIONS: ReadonlyArray<{
-	id: AiProvider;
-	label: string;
-	models: ReadonlyArray<{ id: string; label: string }>;
-}> = [
+/** The header that carries a personal API key, as `@tanstack/ai/byok` reads it. */
+export const byokHeader = (provider: AiProvider) => `x-byok-${provider}` as const;
+export const BYOK_HEADERS = AI_PROVIDERS.map(byokHeader);
+
+export const AI_PROVIDER_OPTIONS = [
 	{
 		id: "gemini",
 		label: "Google Gemini",
@@ -49,7 +50,16 @@ export const AI_PROVIDER_OPTIONS: ReadonlyArray<{
 			{ id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6 via OpenRouter" },
 		],
 	},
-];
+] as const satisfies ReadonlyArray<{
+	id: AiProvider;
+	label: string;
+	models: ReadonlyArray<{ id: string; label: string }>;
+}>;
+
+export type AiModel<P extends AiProvider> = Extract<
+	(typeof AI_PROVIDER_OPTIONS)[number],
+	{ id: P }
+>["models"][number]["id"];
 
 export const getDefaultAiModel = (provider: AiProvider): string =>
 	AI_PROVIDER_OPTIONS.find((option) => option.id === provider)?.models[0]?.id ??

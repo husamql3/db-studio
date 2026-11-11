@@ -1,14 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import { useTableCols } from "@/features/schema";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTableCols } from "@/hooks/use-table-cols";
+import { useTableData } from "@/hooks/use-table-data";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
+import { useGridPage } from "../hooks/use-grid-page";
 import { useLiveTable } from "../hooks/use-live-table";
-import { useTableData } from "../hooks/use-table-data";
 import { useTableModel } from "../hooks/use-table-model";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { RowDetailsSheet } from "./row-details-sheet";
@@ -24,8 +25,10 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	const schemaName = useTableSchemaName();
 	const queryClient = useQueryClient();
 	const { selectedDatabase } = useDatabaseStore();
+
 	const { tableData, pageKey, isLoadingTableData, errorTableData, refetchTableData } =
-		useTableData({ tableName, schemaName });
+		useTableData(useGridPage(tableName, schemaName));
+
 	const { tableCols, isLoadingTableCols, errorTableCols } = useTableCols({
 		tableName,
 		schemaName,
@@ -43,6 +46,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 	// table instance (setOptions per render), so the memo must key on the
 	// row-model output itself, not the table, or the sheet keeps stale rows.
 	const rowModel = table.getRowModel();
+
 	const visibleRows = useMemo(
 		() => rowModel.rows.map((gridRow) => gridRow.original),
 		[rowModel],
@@ -70,6 +74,7 @@ export const TableTabContainer = ({ tableName }: { tableName: string }) => {
 				{ queryKey: tableKeys.list(selectedDatabase), exact: true },
 				{ cancelRefetch: false },
 			);
+
 			return refetchTableData();
 		},
 		isEditingCell,

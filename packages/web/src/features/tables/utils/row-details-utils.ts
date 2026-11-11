@@ -1,5 +1,6 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
+import { toWriteValues } from "@/utils/cell-variant";
 
 // Column defaults that mean the database fills the value itself
 // (serial sequences, identities, auto-increment, generated UUIDs).
@@ -19,6 +20,7 @@ export const isGeneratedColumn = (
 	column: Pick<ColumnInfoSchemaType, "columnDefault">,
 ): boolean => {
 	const columnDefault = column.columnDefault?.toLowerCase() ?? "";
+
 	return GENERATED_DEFAULT_PATTERNS.some((pattern) => columnDefault.includes(pattern));
 };
 
@@ -39,25 +41,11 @@ export const getIdentityColumnNames = (
 	tableCols: ColumnInfoSchemaType[] | undefined,
 ): string[] => {
 	const pkCols = getPrimaryKeyColumns(tableCols);
+
 	if (pkCols.length > 0) return pkCols.map((col) => col.columnName);
 	const idCol = tableCols?.find((col) => col.columnName === "id");
-	return idCol ? [idCol.columnName] : [];
-};
 
-export const getRecordIdentity = (
-	row: TableRecord | undefined,
-	tableCols: ColumnInfoSchemaType[] | undefined,
-): string | undefined => {
-	if (!row || !tableCols) return undefined;
-	const pkCols = tableCols.filter((col) => col.isPrimaryKey);
-	if (pkCols.length > 0) {
-		return JSON.stringify(pkCols.map((col) => [col.columnName, String(row[col.columnName])]));
-	}
-	const idCol = tableCols.find((col) => col.columnName === "id");
-	if (idCol && row[idCol.columnName] !== undefined && row[idCol.columnName] !== null) {
-		return JSON.stringify([idCol.columnName, String(row[idCol.columnName])]);
-	}
-	return undefined;
+	return idCol ? [idCol.columnName] : [];
 };
 
 export const toFormValues = (
@@ -65,9 +53,12 @@ export const toFormValues = (
 	tableCols: ColumnInfoSchemaType[] | undefined,
 ): Record<string, string> => {
 	const values: Record<string, string> = {};
+
 	if (!row || !tableCols) return values;
+
 	for (const col of tableCols) {
 		const value = row[col.columnName];
+
 		if (value === null || value === undefined) {
 			values[col.columnName] = "";
 		} else if (typeof value === "boolean") {
@@ -82,16 +73,24 @@ export const toFormValues = (
 			values[col.columnName] = String(value);
 		}
 	}
+
 	return values;
 };
 
 export const buildRowUpdates = (
 	dirtyFields: Partial<Record<string, boolean>>,
 	values: Record<string, string>,
-): Array<{ columnName: string; value: unknown }> =>
-	Object.keys(dirtyFields)
+	tableCols: ColumnInfoSchemaType[],
+): Array<{ columnName: string; value: unknown }> => {
+	const written = toWriteValues(values, tableCols);
+
+	return Object.keys(dirtyFields)
 		.filter((columnName) => dirtyFields[columnName])
-		.map((columnName) => ({ columnName, value: values[columnName] ?? "" }));
+		.map((columnName) => ({
+			columnName,
+			value: written[columnName] === undefined ? "" : written[columnName],
+		}));
+};
 
 // Separate seam so tests can mock clipboard access without patching globals.
 export const copyTextToClipboard = async (value: string): Promise<void> => {

@@ -1,44 +1,28 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
-import { z } from "zod";
+import { inProcessApp, writeArtifact } from "./lib.js";
 
-process.env.DATABASE_URL = "duckdb://:memory:";
-process.env.DB_STUDIO_TELEMETRY = "0";
-const { createServer } = await import("../src/utils/create-server.js");
-const { withDuckdbConnection } = await import("../src/db-manager.js");
-const { app } = createServer();
-const rowsSchema = z.object({
-	data: z.object({ rows: z.array(z.record(z.string(), z.unknown())) }),
-});
+// DuckDB shares one connection per database, so a transaction statement sent from the query
+// runner would roll back or commit the grid's writes. The runner must refuse every transaction
+// statement, alone or inside a batch, and still run quoted text that only looks like one.
+// Runs on an in-memory database.
+const { call, close, query } = await inProcessApp("duckdb://:memory:");
+const { connector } = await import("../src/open-connections.js");
 const evidence: Record<string, unknown> = {};
 
-const request = async (resource: string, body: unknown) => {
-	const response = await app.handle(
-		new Request(new URL(`/api/duckdb/${resource}?db=memory`, "http://localhost"), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body),
-		}),
-	);
-	const result: unknown = await response.json();
-	return { status: response.status, body: result };
-};
-const query = (sql: string) => request("query", { query: sql });
-const rows = async () =>
-	rowsSchema.parse((await query("SELECT * FROM tx_guard ORDER BY id")).body).data.rows;
+const run = (sql: string) => call("POST", "/query", { query: sql });
+const rows = () => query("SELECT * FROM tx_guard ORDER BY id");
 
 try {
-	assert.equal(
-		(await query("CREATE TABLE tx_guard (id INTEGER PRIMARY KEY, label VARCHAR)")).status,
-		200,
-	);
-	const begin = await query("BEGIN");
-	const inserted = await request("records", {
+	await query("CREATE TABLE tx_guard (id INTEGER PRIMARY KEY, label VARCHAR)");
+	const begin = await run("BEGIN");
+
+	const inserted = await call("POST", "/records", {
 		tableName: "tx_guard",
 		data: { id: 1, label: "saved" },
 	});
+
 	const beforeRollback = await rows();
-	const rollback = await query("ROLLBACK");
+	const rollback = await run("ROLLBACK");
 	const afterRollback = await rows();
 	evidence.gridInsert = {
 		beginStatus: begin.status,
@@ -49,6 +33,7 @@ try {
 	};
 
 	const rejected: Array<{ sql: string; status: number }> = [];
+
 	for (const sql of [
 		"/* outer /* nested */ comment */ START TRANSACTION; -- trailing",
 		"COMMIT",
@@ -58,16 +43,15 @@ try {
 		"INSERT INTO tx_guard VALUES (2, 'batch'); BEGIN",
 		"BEGIN; INSERT INTO tx_guard VALUES (3, 'batch'); COMMIT",
 	]) {
-		const result = await query(sql);
+		const result = await run(sql);
 		rejected.push({ sql, status: result.status });
 		// Reset leaked transactions on the broken version so every regression can be observed.
-		await withDuckdbConnection((conn) => conn.run("ROLLBACK").catch(() => {}));
+		await connector("duckdb").withConnection((conn) => conn.run("ROLLBACK").catch(() => {}));
 	}
+
 	evidence.rejected = rejected;
-	const allowed = await query("SELECT $$BEGIN; COMMIT$$ AS text; /* ignored ; */");
 	evidence.quotedText = {
-		status: allowed.status,
-		rows: rowsSchema.parse(allowed.body).data.rows,
+		rows: await query("SELECT $$BEGIN; COMMIT$$ AS text; /* ignored ; */"),
 	};
 	evidence.finalRows = await rows();
 
@@ -76,15 +60,11 @@ try {
 	assert.equal(rollback.status, 400);
 	assert.deepEqual(afterRollback, [{ id: 1, label: "saved" }]);
 	assert.ok(rejected.every((result) => result.status === 400));
-	assert.equal(allowed.status, 200);
 	assert.deepEqual(evidence.finalRows, [{ id: 1, label: "saved" }]);
 	console.log(
 		"PASS DuckDB runner requests cannot roll back grid writes or partly run batches",
 	);
 } finally {
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL("./artifacts/duckdb-transactions.json", import.meta.url),
-		`${JSON.stringify(evidence, null, 2)}\n`,
-	);
+	await writeArtifact("duckdb-transactions.json", evidence);
+	await close();
 }

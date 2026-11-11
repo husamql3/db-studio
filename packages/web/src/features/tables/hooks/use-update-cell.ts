@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
-import { Route } from "@/routes/_pathlessLayout/table/$table";
-import { updateRecords } from "@/shared/api";
+import { updateRecords, type ApiError, apiErrorMessage } from "@/shared/api";
 import { tableKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 import {
@@ -13,29 +12,28 @@ import {
 } from "../stores/update-cell.store";
 import { useEditScope } from "./use-edit-scope";
 
-export const useUpdateCell = () => {
+export const useUpdateCell = (table: string) => {
 	const queryClient = useQueryClient();
-	const { table } = Route.useParams();
 	const schemaName = useTableSchemaName();
 	const { removeUpdates } = useUpdateCellStore();
 	const { selectedDatabase } = useDatabaseStore();
+
 	const { tableCols } = useTableCols({
 		tableName: table,
 		schemaName: schemaName ?? undefined,
 	});
+
 	const editScope = useEditScope(table, tableCols);
 
 	const { mutateAsync: updateCellMutation, isPending: isUpdatingCell } = useMutation({
 		mutationFn: async (updates: CellUpdate[]) => {
-			if (!table) {
-				throw new Error("No table selected");
-			}
-
-			// Transform updates into the format the API expects. Composite keys are
-			// sent in full so an edit can never match more than its own record.
+			// Composite keys are sent in full so an edit can never match more than its own record.
 			const identityColumnNames = editScope.keyColumns;
-			const payload = {
+
+			const payload: Parameters<typeof updateRecords>[0] = {
 				tableName: table,
+				schemaName,
+				db: selectedDatabase,
 				updates: updates.map((update) => ({
 					rowData: update.rowData,
 					columnName: update.columnName,
@@ -43,38 +41,38 @@ export const useUpdateCell = () => {
 						? { value: null, useDefault: true }
 						: { value: update.newValue }),
 				})),
-				...(identityColumnNames.length > 0
-					? { primaryKey: identityColumnNames[0], primaryKeys: identityColumnNames }
-					: {}),
 			};
 
-			const res = await updateRecords({
-				...payload,
-				schemaName,
-				db: selectedDatabase,
-			});
+			if (identityColumnNames.length > 0) {
+				payload.primaryKey = identityColumnNames[0];
+				payload.primaryKeys = identityColumnNames;
+			}
+
+			const res = await updateRecords(payload);
+
 			return res.data.data;
 		},
 		onSuccess: async (_data, updates) => {
 			removeUpdates(updates);
 
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(table),
-					exact: false,
-				}),
-			]);
+			await queryClient.invalidateQueries({
+				queryKey: tableKeys.dataByTable(table),
+				exact: false,
+			});
 		},
 	});
 
 	const updateCell = async (updates: CellUpdate[]) => {
 		const count = updates.length;
-		return toast.promise(updateCellMutation(updates), {
-			loading: "Saving changes...",
-			success: (message) =>
-				message || `${count} ${count === 1 ? "change" : "changes"} saved successfully`,
-			error: (error: Error) => error.message || "Failed to save changes",
-		});
+
+		return toast
+			.promise(updateCellMutation(updates), {
+				loading: "Saving changes...",
+				success: (message) =>
+					message || `${count} ${count === 1 ? "change" : "changes"} saved successfully`,
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to save changes"),
+			})
+			.unwrap();
 	};
 
 	return {

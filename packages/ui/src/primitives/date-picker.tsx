@@ -40,6 +40,10 @@ function CalendarDropdownNav({ children }: DropdownNavProps) {
 	return <div className="flex w-full items-center gap-2">{children}</div>;
 }
 
+/** A picked date as the picker shows it unformatted, which is also how the grid shows it. */
+export const formatPickerValue = (date: Date, showTime: boolean) =>
+	format(date, showTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd");
+
 interface DatePickerProps {
 	value?: Date | null;
 	onChange?: (date: Date | null | undefined) => void;
@@ -51,10 +55,14 @@ interface DatePickerProps {
 	icon?: boolean;
 	isFormatted?: boolean;
 	showTime?: boolean;
+	/** Offers the NULL preset. */
+	nullable?: boolean;
 	modal?: boolean;
 	/** Controls the calendar; leave unset to let the trigger open and close it. */
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
+	/** Replaces closing on Escape. */
+	onEscapeKeyDown?: () => void;
 }
 
 export function DatePicker({
@@ -68,29 +76,38 @@ export function DatePicker({
 	icon = true,
 	isFormatted = true,
 	showTime = false,
+	nullable = false,
 	modal,
 	open: openProp,
 	onOpenChange,
+	onEscapeKeyDown,
 }: DatePickerProps) {
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
 	const open = openProp ?? uncontrolledOpen;
+
 	const setOpen = (next: boolean) => {
 		setUncontrolledOpen(next);
 		onOpenChange?.(next);
 	};
+
 	const [today] = useState<Date>(() => new Date());
 
 	const hours = value ? value.getHours() : 0;
 	const minutes = value ? value.getMinutes() : 0;
 	const seconds = value ? value.getSeconds() : 0;
 
-	const handleSelect = (date: Date | undefined) => {
-		if (date && value) {
-			date.setHours(value.getHours());
-			date.setMinutes(value.getMinutes());
-			date.setSeconds(value.getSeconds());
+	const handleSelect = (date: Date) => {
+		if (value) {
+			date.setHours(
+				value.getHours(),
+				value.getMinutes(),
+				value.getSeconds(),
+				value.getMilliseconds(),
+			);
 		}
+
 		onChange?.(date);
+
 		if (!showTime) {
 			setOpen(false);
 		}
@@ -98,14 +115,18 @@ export function DatePicker({
 
 	const handleTimeChange = (type: "hours" | "minutes" | "seconds", val: number) => {
 		const newDate = value ? new Date(value) : new Date();
+
 		if (type === "hours") newDate.setHours(val);
+
 		if (type === "minutes") newDate.setMinutes(val);
+
 		if (type === "seconds") newDate.setSeconds(val);
 		onChange?.(newDate);
 	};
 
 	const handlePreset = (preset: "NULL" | "NOW" | "TODAY" | "YESTERDAY" | "TOMORROW") => {
 		const today = startOfDay(new Date());
+
 		switch (preset) {
 			case "NULL":
 				onChange?.(null);
@@ -135,9 +156,7 @@ export function DatePicker({
 				? showTime
 					? format(value, "dd/MM/yyyy HH:mm:ss")
 					: format(value, "dd/MM/yyyy")
-				: showTime
-					? format(value, "yyyy-MM-dd HH:mm:ss")
-					: format(value, "yyyy-MM-dd")
+				: formatPickerValue(value, showTime)
 			: value === null
 				? "NULL"
 				: placeholder;
@@ -165,17 +184,26 @@ export function DatePicker({
 			<PopoverContent
 				className="w-auto p-0"
 				align="end"
+				onEscapeKeyDown={
+					onEscapeKeyDown &&
+					((event) => {
+						event.preventDefault();
+						onEscapeKeyDown();
+					})
+				}
 			>
 				<div className="flex">
 					<div className="flex flex-col gap-1 p-2 border-r">
-						<Button
-							variant="ghost"
-							size="sm"
-							className="justify-start text-xs h-7"
-							onClick={() => handlePreset("NULL")}
-						>
-							NULL
-						</Button>
+						{nullable && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="justify-start text-xs h-7"
+								onClick={() => handlePreset("NULL")}
+							>
+								NULL
+							</Button>
+						)}
 						<Button
 							variant="ghost"
 							size="sm"
@@ -214,6 +242,8 @@ export function DatePicker({
 						defaultMonth={value || today}
 						hideNavigation
 						mode="single"
+						// Clicking the selected day would otherwise deselect it; NULL is the only clear.
+						required
 						onSelect={handleSelect}
 						selected={value || undefined}
 						startMonth={new Date(startYear, 0)}
@@ -262,6 +292,7 @@ function TimeColumn({
 
 	useEffect(() => {
 		const selectedRef = itemRefs.current.get(selected);
+
 		if (selectedRef) {
 			selectedRef.scrollIntoView({ block: "center", behavior: "auto" });
 		}

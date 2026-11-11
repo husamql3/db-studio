@@ -5,10 +5,6 @@ import { adapterPlugin } from "@/routes/adapter.plugin.js";
 export const queryRoutes = new Elysia({ prefix: "/query" })
 	.use(adapterPlugin)
 
-	/**
-	 * POST /query
-	 * Executes a SQL query on the currently connected database
-	 */
 	.post(
 		"/",
 		async ({ adapter, query: { db }, body: { query } }) => ({

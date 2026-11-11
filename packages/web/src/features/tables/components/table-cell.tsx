@@ -1,6 +1,6 @@
 import type { Cell, Table } from "@tanstack/react-table";
 import { useMemo } from "react";
-import type { CellVariant, TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import {
 	CellContent,
 	TableBooleanCell,
@@ -26,24 +26,30 @@ export const TableCell = ({
 	// Memoized on the row-model identity + this row's data so the O(N) scan runs
 	// at most once per render pass per row model rather than on every cell render.
 	const rows = table.getRowModel().rows;
+
 	const rowIndex = useMemo(() => {
 		const displayRowIndex = rows.findIndex((row) => row.original === cell.row.original);
+
 		return displayRowIndex >= 0 ? displayRowIndex : cell.row.index;
 	}, [rows, cell.row.original, cell.row.index]);
+
 	const columnId = cell.column.id;
 
 	const isFocused =
 		meta?.focusedCell?.rowIndex === rowIndex && meta?.focusedCell?.columnId === columnId;
+
 	const isEditing =
 		meta?.editingCell?.rowIndex === rowIndex && meta?.editingCell?.columnId === columnId;
+
 	const isSelected = meta?.getIsCellSelected?.(rowIndex, columnId) ?? false;
 
-	const cellVariant = cell.column.columnDef.meta?.variant as CellVariant | undefined;
+	const cellVariant = cell.column.columnDef.meta?.variant;
 	const isForeignKey = cell.column.columnDef.meta?.isForeignKey;
 	const referencedTable = cell.column.columnDef.meta?.referencedTable;
 
 	if (meta?.canMutateRows === false) {
 		const value = cell.getValue();
+
 		return (
 			<TableCellWrapper
 				cell={cell}
@@ -77,18 +83,6 @@ export const TableCell = ({
 	}
 
 	switch (cellVariant) {
-		case "text":
-			return (
-				<TableTextCell
-					cell={cell}
-					table={table}
-					rowIndex={rowIndex}
-					columnId={columnId}
-					isEditing={isEditing}
-					isFocused={isFocused}
-					isSelected={isSelected}
-				/>
-			);
 		case "boolean":
 			return (
 				<TableBooleanCell
@@ -138,21 +132,8 @@ export const TableCell = ({
 				/>
 			);
 		case "json":
-			// return a json editor
 			return (
 				<TableJsonCell
-					cell={cell}
-					table={table}
-					rowIndex={rowIndex}
-					columnId={columnId}
-					isEditing={isEditing}
-					isFocused={isFocused}
-					isSelected={isSelected}
-				/>
-			);
-		case "array":
-			return (
-				<TableTextCell
 					cell={cell}
 					table={table}
 					rowIndex={rowIndex}

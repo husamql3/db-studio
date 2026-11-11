@@ -1,137 +1,22 @@
-import type { FilterType, SortDirection } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType, type FormColumnType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
+import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
 export const quoteDuckdbIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-export const whereSql = (conditions: string[]) =>
-	conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+export const duckdbFilters: FilterDialect = {
+	quote: quoteDuckdbIdent,
+	likeOperand: (column) => `CAST(${column} AS VARCHAR)`,
+	ilike: "keyword",
+};
 
-export function buildFilterConditions(filters: FilterType[]): {
-	conditions: string[];
-	values: unknown[];
-} {
-	const conditions: string[] = [];
-	const values: unknown[] = [];
-
-	for (const filter of filters) {
-		const col = quoteDuckdbIdent(filter.columnName);
-		const isNull = filter.value.toLowerCase() === "null";
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${col} ${filter.operator} ?`);
-				values.push(filter.value);
-				break;
-			case "is":
-				if (isNull) {
-					conditions.push(`${col} IS NULL`);
-				} else {
-					conditions.push(`${col} = ?`);
-					values.push(filter.value);
-				}
-				break;
-			case "is not":
-				if (isNull) {
-					conditions.push(`${col} IS NOT NULL`);
-				} else {
-					conditions.push(`${col} != ?`);
-					values.push(filter.value);
-				}
-				break;
-			case "like":
-			case "not like":
-			case "ilike":
-			case "not ilike":
-				conditions.push(`CAST(${col} AS VARCHAR) ${filter.operator.toUpperCase()} ?`);
-				values.push(filter.value);
-				break;
-		}
-	}
-
-	return { conditions, values };
-}
-
-export interface OrderTerm {
-	column: string;
-	direction: SortDirection;
-}
-
-/** NULLs sort last in either direction; a backward page reads that order reversed. */
-const placement = (term: OrderTerm, backward: boolean) => ({
-	descending: (term.direction === "desc") !== backward,
-	nullsLast: !backward,
-});
-
-export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
-	`ORDER BY ${terms
-		.map((term) => {
-			const { descending, nullsLast } = placement(term, backward);
-			return `${quoteDuckdbIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
-		})
-		.join(", ")}`;
-
-/**
- * Rows after the `cursor` row in `buildOrderBy(terms, backward)` order:
- * `(c1 after v1) OR (c1 = v1 AND c2 after v2) OR …`, where "after" follows each column's own
- * direction and NULL placement. A row-value comparison `(c1, c2) > (v1, v2)` cannot express
- * mixed directions and never matches NULL.
- */
-export function buildKeysetPredicate(
-	terms: OrderTerm[],
-	cursor: Record<string, unknown>,
-	backward: boolean,
-): { clause: string; values: unknown[] } {
-	const branches: string[] = [];
-	const values: unknown[] = [];
-	const equal: string[] = [];
-	const equalValues: unknown[] = [];
-
-	for (const term of terms) {
-		const col = quoteDuckdbIdent(term.column);
-		const value = cursor[term.column] ?? null;
-		const { descending, nullsLast } = placement(term, backward);
-
-		const after =
-			value === null
-				? nullsLast
-					? null
-					: `${col} IS NOT NULL`
-				: `${col} ${descending ? "<" : ">"} ?${nullsLast ? ` OR ${col} IS NULL` : ""}`;
-		if (after) {
-			branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
-			values.push(...equalValues, ...(value === null ? [] : [value]));
-		}
-
-		if (value === null) {
-			equal.push(`${col} IS NULL`);
-		} else {
-			equal.push(`${col} = ?`);
-			equalValues.push(value);
-		}
-	}
-
-	return { clause: branches.length ? `(${branches.join(" OR ")})` : "FALSE", values };
-}
-
-const SERIAL_TYPES = new Set([
-	"serial",
-	"serial4",
-	"bigserial",
-	"serial8",
-	"smallserial",
-	"serial2",
-]);
-
-export const isSerialType = (columnType: string) =>
-	SERIAL_TYPES.has(columnType.toLowerCase().trim());
+export const duckdbKeyset: KeysetDialect = { quote: quoteDuckdbIdent, nulls: "keyword" };
 
 /** Translate a PostgreSQL type name from the web form into a DuckDB column type. */
 export function mapColumnTypeToDuckdb(columnType: string, isArray: boolean): string {
 	const normalized = columnType.toLowerCase().trim();
-	const typeMap: Record<string, string> = {
+
+	const typeMap: Record<string, string> & Record<FormColumnType, string> = {
 		serial: "INTEGER",
 		serial4: "INTEGER",
 		bigserial: "BIGINT",
@@ -182,6 +67,114 @@ export function mapColumnTypeToDuckdb(columnType: string, isArray: boolean): str
 		line: "VARCHAR",
 		polygon: "VARCHAR",
 	};
+
 	const mapped = typeMap[normalized] ?? columnType.toUpperCase();
+
 	return isArray ? `${mapped}[]` : mapped;
+}
+
+/**
+ * Maps DuckDB column types (as reported by `duckdb_columns().data_type`) to generic DataTypes.
+ * LIST, ARRAY, STRUCT, MAP and UNION values arrive as JSON, so they render as json cells.
+ */
+export function mapDuckdbToDataType(duckdbType: string): DataTypes {
+	const normalized = duckdbType?.toLowerCase().trim() || "";
+
+	if (
+		normalized.endsWith("]") ||
+		normalized.startsWith("struct") ||
+		normalized.startsWith("map") ||
+		normalized.startsWith("union") ||
+		normalized === "json"
+	) {
+		return DataTypes.json;
+	}
+
+	if (normalized === "boolean" || normalized === "bool") return DataTypes.boolean;
+
+	if (normalized.startsWith("enum")) return DataTypes.enum;
+
+	if (normalized === "interval") return DataTypes.text;
+
+	if (
+		normalized === "date" ||
+		normalized.startsWith("timestamp") ||
+		normalized === "datetime"
+	) {
+		return DataTypes.date;
+	}
+
+	if (
+		normalized.includes("int") ||
+		normalized === "float" ||
+		normalized === "real" ||
+		normalized === "double" ||
+		normalized.startsWith("decimal") ||
+		normalized.startsWith("numeric") ||
+		normalized === "bignum"
+	) {
+		return DataTypes.number;
+	}
+
+	return DataTypes.text;
+}
+
+export function standardizeDuckdbDataTypeLabel(duckdbType: string): StandardizedDataType {
+	const normalized = duckdbType?.toLowerCase().trim() || "";
+
+	if (normalized.endsWith("]")) return StandardizedDataType.array;
+
+	if (
+		normalized.startsWith("struct") ||
+		normalized.startsWith("map") ||
+		normalized.startsWith("union") ||
+		normalized === "json"
+	) {
+		return StandardizedDataType.json;
+	}
+
+	if (normalized.startsWith("enum")) return StandardizedDataType.enum;
+
+	if (normalized === "interval") return StandardizedDataType.interval;
+
+	if (normalized === "tinyint" || normalized === "utinyint")
+		return StandardizedDataType.tinyint;
+
+	if (normalized === "smallint" || normalized === "usmallint")
+		return StandardizedDataType.smallint;
+
+	if (normalized === "integer" || normalized === "int") return StandardizedDataType.int;
+
+	if (normalized.includes("int") || normalized === "bignum")
+		return StandardizedDataType.bigint;
+
+	if (normalized.startsWith("decimal") || normalized.startsWith("numeric"))
+		return StandardizedDataType.numeric;
+
+	if (normalized === "float" || normalized === "real") return StandardizedDataType.float;
+
+	if (normalized === "double") return StandardizedDataType.double;
+
+	if (normalized === "boolean" || normalized === "bool") return StandardizedDataType.boolean;
+
+	if (normalized === "varchar" || normalized.startsWith("varchar("))
+		return StandardizedDataType.varchar;
+
+	if (normalized === "uuid") return StandardizedDataType.uuid;
+
+	if (normalized === "date") return StandardizedDataType.date;
+
+	if (normalized === "timestamp with time zone" || normalized === "timestamptz")
+		return StandardizedDataType.timestamptz;
+
+	if (normalized.startsWith("timestamp") || normalized === "datetime")
+		return StandardizedDataType.timestamp;
+
+	if (normalized.startsWith("time")) return StandardizedDataType.time;
+
+	if (normalized === "blob" || normalized === "bytea") return StandardizedDataType.blob;
+
+	if (normalized === "bit" || normalized === "bitstring") return StandardizedDataType.bit;
+
+	return StandardizedDataType.text;
 }
