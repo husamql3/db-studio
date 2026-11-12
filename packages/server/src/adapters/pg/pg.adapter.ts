@@ -184,6 +184,9 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 		// undefined_table: dropped, renamed, or a stale URL after switching databases.
 		if (e.code === "42P01") return { status: 404 };
 
+		// invalid_catalog_name: the database was dropped while open, or a stale ?db= names it.
+		if (e.code === "3D000") return { status: 404 };
+
 		const status = STATUS_BY_SQLSTATE_CLASS[e.code?.slice(0, 2) ?? ""];
 
 		return status ? { status } : undefined;
