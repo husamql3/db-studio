@@ -13,6 +13,7 @@ export const useExecuteQuery = () => {
 	const {
 		// `mutate` reports a failure through `executeQueryError` only, never as a rejection.
 		mutate: executeQuery,
+		mutateAsync: executeQueryAsync,
 		isPending: isExecutingQuery,
 		error: executeQueryError,
 	} = useMutation<ExecuteQueryResult, Error, { query: string }>({
@@ -34,6 +35,7 @@ export const useExecuteQuery = () => {
 
 	return {
 		executeQuery,
+		executeQueryAsync,
 		isExecutingQuery,
 		executeQueryError,
 	};

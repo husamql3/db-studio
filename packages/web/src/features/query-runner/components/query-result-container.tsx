@@ -1,6 +1,7 @@
 import type { ExecuteQueryResult } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import { Spinner } from "@db-studio/ui/spinner";
+import { cn } from "@db-studio/ui/utils";
 import JsonView from "@uiw/react-json-view";
 import { vscodeTheme } from "@uiw/react-json-view/vscode";
 import { useQueryState } from "nuqs";
@@ -14,11 +15,13 @@ export const QueryResultContainer = ({
 	isLoading,
 	error,
 	lastExecutedQuery,
+	layout = "overlay",
 }: {
 	results: ExecuteQueryResult | null;
 	isLoading: boolean;
 	error: Error | null;
 	lastExecutedQuery: string;
+	layout?: "overlay" | "inline";
 }) => {
 	const [showAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS);
 
@@ -87,8 +90,11 @@ export const QueryResultContainer = ({
 
 	return (
 		<div
-			className="absolute bottom-0 left-0 right-0 border-t border-border flex flex-col bg-background text-foreground w-full"
-			style={{ height: "calc(100vh - 400px)" }}
+			className={cn(
+				"border-t border-border flex flex-col bg-background text-foreground w-full",
+				layout === "inline" ? "min-h-0 flex-1" : "absolute bottom-0 left-0 right-0",
+			)}
+			style={layout === "overlay" ? { height: "calc(100vh - 400px)" } : undefined}
 		>
 			<div className="flex-1 overflow-auto w-full">
 				{isLoading ? (

@@ -13,6 +13,7 @@ import type {
 	DeleteRecordResult,
 	DeleteTableParams,
 	IndexInfoSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 	TableDataResultSchemaType,
@@ -509,6 +510,33 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				active_connections: pool.connectionsInUse,
 				max_connections: pool.poolMax,
 			};
+		});
+	}
+
+	async getRoutines(_params: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<RoutineInfoSchemaType[]> {
+		return this.withConnection(async (conn) => {
+			const rows = await this.rows<{
+				ROUTINE_NAME: string;
+				ROUTINE_TYPE: "function" | "procedure";
+			}>(
+				conn,
+				`SELECT object_name AS routine_name, LOWER(object_type) AS routine_type
+				FROM user_objects
+				WHERE object_type IN ('FUNCTION', 'PROCEDURE')
+				ORDER BY object_name`,
+			);
+
+			return rows.map((row) => ({
+				routineName: row.ROUTINE_NAME,
+				schemaName: null,
+				routineType: row.ROUTINE_TYPE,
+				signature: null,
+				returnType: null,
+				language: "PL/SQL",
+				definition: null,
+			}));
 		});
 	}
 

@@ -14,6 +14,7 @@ import { loadDriver } from "@/drivers.js";
 const pgError = (code: string, message: string) => {
 	const error = new DatabaseError(message, 0, "error");
 	error.code = code;
+
 	return error;
 };
 

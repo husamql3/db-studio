@@ -9,6 +9,7 @@ import type {
 	FieldDataType,
 	IndexInfoSchemaType,
 	RenameTableParamsSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
 import { connectionInfoSchema } from "@db-studio/shared/types";
@@ -303,6 +304,33 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			active_connections: result.active_connections,
 			max_connections: result.max_connections,
 		};
+	}
+
+	async getRoutines({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<RoutineInfoSchemaType[]> {
+		const pool = await connector("pg").pool(db);
+
+		const { rows } = await pool.query<RoutineInfoSchemaType>(`
+			SELECT p.proname AS "routineName",
+				n.nspname AS "schemaName",
+				CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END AS "routineType",
+				pg_get_function_identity_arguments(p.oid) AS signature,
+				CASE WHEN p.prokind = 'p' THEN NULL ELSE pg_get_function_result(p.oid) END AS "returnType",
+				l.lanname AS language,
+				pg_get_functiondef(p.oid) AS definition
+			FROM pg_catalog.pg_proc p
+			JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+			JOIN pg_catalog.pg_language l ON l.oid = p.prolang
+			WHERE p.prokind IN ('f', 'p')
+				AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+				AND n.nspname NOT LIKE 'pg_toast%'
+			ORDER BY n.nspname, p.proname, signature
+		`);
+
+		return rows;
 	}
 
 	/**

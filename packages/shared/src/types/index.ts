@@ -48,6 +48,8 @@ export * from "./rename-column.types.js";
 
 export * from "./rename-table.types.js";
 
+export * from "./routine-info.types.js";
+
 export * from "./server-logs.types.js";
 
 export * from "./table-data.types.js";

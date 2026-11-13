@@ -55,6 +55,12 @@ const rawDocs = (): Plugin => {
 };
 
 const config = defineConfig({
+	server: {
+		port: Number.parseInt(process.env.PORT ?? "3000", 10),
+	},
+	preview: {
+		port: Number.parseInt(process.env.PORT ?? "3000", 10),
+	},
 	plugins: [
 		cloudflare({ viteEnvironment: { name: "ssr" } }),
 		devtools(),
