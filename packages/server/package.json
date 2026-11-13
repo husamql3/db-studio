@@ -45,7 +45,6 @@
     "build": "tsup --minify",
     "prepack": "cd ../web && bun run build && cd ../server && bun run build",
     "start": "sh -c 'APP_PORT=${PORT:-3333}; portless proxy start >/dev/null && portless alias db-studio \"$APP_PORT\" --force >/dev/null && HOST=127.0.0.1 PORT=\"$APP_PORT\" DB_STUDIO_SERVER_URL=https://db-studio.localhost node dist/index.js'",
-    "format": "biome check --write --unsafe",
     "typecheck": "bun check",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -53,8 +52,12 @@
     "e2e": "tsx e2e/contract.ts",
     "e2e:perf": "tsx e2e/perf.ts",
     "e2e:grid": "tsx e2e/grid.ts",
+    "e2e:grid-clipboard": "tsx e2e/grid-clipboard.ts",
     "e2e:schema-routing": "tsx e2e/schema-routing.ts",
-    "e2e:visualizer": "tsx e2e/visualizer.ts"
+    "e2e:visualizer": "tsx e2e/visualizer.ts",
+    "e2e:connect-flow": "tsx e2e/connect-flow.ts",
+    "e2e:read-only": "tsx e2e/read-only.ts",
+    "e2e:row-estimates": "tsx e2e/row-estimates.ts"
   },
   "portless": {
     "name": "api.db-studio",
@@ -84,7 +87,6 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@db-studio/shared": "workspace:*",
     "@sentry/esbuild-plugin": "^5.4.0",
     "@types/mssql": "^12.3.0",

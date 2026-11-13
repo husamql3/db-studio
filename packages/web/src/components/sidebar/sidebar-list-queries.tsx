@@ -10,6 +10,7 @@ export const SidebarListQueries = () => {
 	const [searchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
+
 	const { folders, queries, getFavoriteQueries, getQueriesByFolder, toggleFolder } =
 		useQueriesStore();
 
@@ -45,7 +46,6 @@ export const SidebarListQueries = () => {
 
 	return (
 		<div className="flex-1 overflow-y-auto">
-			{/* Favorite button */}
 			<FolderToggleButton
 				name="Favorites"
 				isExpanded={favoritesExpanded}
@@ -53,7 +53,6 @@ export const SidebarListQueries = () => {
 				count={favoriteQueriesCount}
 			/>
 
-			{/* Favorite queries */}
 			{favoritesExpanded &&
 				favoriteQueries.map((query) => (
 					<SidebarListQueryItem
@@ -65,7 +64,6 @@ export const SidebarListQueries = () => {
 
 			<Separator className="bg-sidebar-border" />
 
-			{/* Queries */}
 			<FolderToggleButton
 				name="Queries"
 				isExpanded={queriesExpanded}

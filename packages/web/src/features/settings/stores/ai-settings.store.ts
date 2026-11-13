@@ -13,8 +13,8 @@ interface AiSettingsStore {
 export const useAiSettingsStore = create<AiSettingsStore>()(
 	persist(
 		(set) => ({
-			provider: "gemini",
-			model: getDefaultAiModel("gemini"),
+			provider: HOSTED_AI_PROVIDER,
+			model: getDefaultAiModel(HOSTED_AI_PROVIDER),
 			includeSchemaInAiContext: true,
 			setProvider: (provider) => set({ provider, model: getDefaultAiModel(provider) }),
 			setModel: (model) => set({ model }),
@@ -26,3 +26,4 @@ export const useAiSettingsStore = create<AiSettingsStore>()(
 );
 
 import { type AiProvider, getDefaultAiModel } from "@db-studio/shared/types";
+import { HOSTED_AI_PROVIDER } from "../byok";

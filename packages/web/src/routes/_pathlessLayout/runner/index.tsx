@@ -9,5 +9,6 @@ export const Route = createFileRoute("/_pathlessLayout/runner/")({
 
 function RouteComponent() {
 	const { cmd } = Route.useSearch();
+
 	return <RunnerScreen initialQuery={cmd} />;
 }

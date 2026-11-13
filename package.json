@@ -37,7 +37,8 @@
     "deploy:www": "turbo run deploy --filter=@db-studio/www",
     "deploy:www:preview": "turbo run deploy:preview --filter=@db-studio/www",
     "deploy:proxy": "turbo run deploy --filter=@db-studio/proxy",
-    "format": "turbo run format",
+    "format": "oxfmt && oxlint --fix",
+    "lint": "oxlint",
     "check:meta": "bun run --cwd www check-meta",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
@@ -47,12 +48,14 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@biomejs/biome": "^2.6.4",
     "turbo": "^2.11.10"
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.90.0",
     "husky": "^9.1.7",
     "knip": "^6.44.1",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
     "portless": "^0.15.12"
   },
   "peerDependencies": {

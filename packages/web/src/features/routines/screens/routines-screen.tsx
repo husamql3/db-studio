@@ -24,7 +24,7 @@ const RoutineDetail = ({ routine }: { routine: RoutineInfoSchemaType }) => {
 	const resultsId = useId();
 	const { selectedDatabase } = useDatabaseStore();
 	const queryClient = useQueryClient();
-	const { executeQuery, isExecutingQuery, executeQueryError } = useExecuteQuery();
+	const { executeQueryAsync, isExecutingQuery, executeQueryError } = useExecuteQuery();
 	const executingRef = useRef(false);
 
 	const handleExecute = async (query: string) => {
@@ -38,13 +38,15 @@ const RoutineDetail = ({ routine }: { routine: RoutineInfoSchemaType }) => {
 		setLastExecutedQuery(query);
 		setResult(null);
 		try {
-			const data = await executeQuery({ query });
+			const data = await executeQueryAsync({ query });
 			if (data) {
 				setResult(data);
 				void queryClient.invalidateQueries({
 					queryKey: routineKeys.database(selectedDatabase),
 				});
 			}
+		} catch {
+			// The mutation exposes the failure through executeQueryError below.
 		} finally {
 			executingRef.current = false;
 		}
@@ -175,7 +177,9 @@ export const RoutinesScreen = () => {
 	} = useSearch({
 		from: "/_pathlessLayout/routines",
 	});
+
 	const { routines, isLoadingRoutines, errorRoutines } = useRoutines();
+
 	const routine = routines?.find(
 		(item) =>
 			item.routineName === name &&

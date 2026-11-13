@@ -13,11 +13,9 @@
     "electron": "tsup && node scripts/ensure-electron.mjs && node scripts/launch-electron.mjs",
     "stage:server": "node scripts/stage-server.mjs",
     "package": "node scripts/package.mjs",
-    "typecheck": "bun check",
-    "format": "biome check --write --unsafe"
+    "typecheck": "bun check"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@types/node": "^26.6.6",
     "electron": "45.2.1",
     "electron-builder": "26.18.0",

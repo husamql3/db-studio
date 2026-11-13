@@ -1,5 +1,4 @@
 import type * as React from "react";
-
 import { cn } from "../utils";
 
 type InputVariant = "default" | "outline";

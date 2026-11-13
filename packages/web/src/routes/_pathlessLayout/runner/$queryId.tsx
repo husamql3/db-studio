@@ -7,5 +7,6 @@ export const Route = createFileRoute("/_pathlessLayout/runner/$queryId")({
 
 function RouteComponent() {
 	const { queryId } = Route.useParams();
+
 	return <RunnerScreen queryId={queryId} />;
 }

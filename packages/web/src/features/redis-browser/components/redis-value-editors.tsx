@@ -10,7 +10,7 @@ import { Input } from "@db-studio/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@db-studio/ui/toggle-group";
 import { Plus, Save, Search, Trash2 } from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { RedisCopyButton } from "./redis-copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { encodeTextValue, RedisValue, RedisValueInput } from "./redis-value";
 
 /**
@@ -25,10 +25,15 @@ export type RedisAct = (
 export type StreamDirection = "forward" | "backward";
 
 type RedisValueUnion = KeyDetailsResultSchemaType["value"];
+
 type HashValue = Extract<RedisValueUnion, { kind: "hash" }>;
+
 type ListValue = Extract<RedisValueUnion, { kind: "list" }>;
+
 type SetValue = Extract<RedisValueUnion, { kind: "set" }>;
+
 type ZsetValue = Extract<RedisValueUnion, { kind: "zset" }>;
+
 type StreamValue = Extract<RedisValueUnion, { kind: "stream" }>;
 
 const emptyValue = encodeTextValue("");
@@ -92,10 +97,12 @@ const collectionJson = (value: RedisValueUnion): string => {
 const useSyncedDraft = <T,>(server: T, revision: string): [T, (next: T) => void] => {
 	const [draft, setDraft] = useState(server);
 	const [synced, setSynced] = useState(revision);
+
 	if (synced !== revision) {
 		setSynced(revision);
 		setDraft(server);
 	}
+
 	return [draft, setDraft];
 };
 
@@ -152,9 +159,11 @@ const CollectionShell = ({
 						? `${loadedCount.toLocaleString()} of ${totalCount.toLocaleString()}`
 						: loadedCount.toLocaleString()}
 			</span>
-			<RedisCopyButton
-				text={copyJson}
+			<CopyButton
+				getValue={copyJson}
 				label="Copy loaded entries as JSON"
+				variant="ghost"
+				tooltip
 			/>
 		</div>
 		{header}
@@ -181,15 +190,19 @@ const AddPair = ({
 	const [second, setSecond] = useState<DraftValue>(emptyValue);
 	const [numeric, setNumeric] = useState("0");
 	const invalid = first === null || (!score && second === null);
+
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
+
 		if (first === null || second === null) return;
 		const saved = await onSave(first, score ? Number(numeric) : second);
+
 		if (!saved) return;
 		setFirst(emptyValue);
 		setSecond(emptyValue);
 		setNumeric("0");
 	};
+
 	return (
 		<form
 			onSubmit={submit}
@@ -243,6 +256,7 @@ const StringEditor = ({
 }) => {
 	const [draft, setDraft] = useSyncedDraft<DraftValue>(value, value.base64);
 	const dirty = draft !== null && draft.base64 !== value.base64;
+
 	return (
 		<div className="space-y-3">
 			{truncated && (
@@ -268,6 +282,7 @@ const StringEditor = ({
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
+
 					if (draft !== null && dirty) act({ action: "setString", value: draft });
 				}}
 				className="border border-border p-3"
@@ -305,6 +320,7 @@ const HashRow = ({
 }) => {
 	const [draft, setDraft] = useSyncedDraft<DraftValue>(value, value.base64);
 	const dirty = draft !== null && draft.base64 !== value.base64;
+
 	return (
 		<div className="grid min-h-8 grid-cols-[minmax(10rem,0.7fr)_1fr_5rem] items-center gap-2 border-b border-border px-2 py-1">
 			<RedisValue
@@ -354,11 +370,13 @@ const HashEditor = ({
 }) => {
 	const [filter, setFilter] = useState("");
 	const needle = filter.trim().toLowerCase();
+
 	const entries = needle
 		? value.entries.filter((entry) =>
 				matches(needle, textOf(entry.field), textOf(entry.value)),
 			)
 		: value.entries;
+
 	return (
 		<CollectionShell
 			filter={filter}
@@ -416,6 +434,7 @@ const ListRow = ({
 }) => {
 	const [draft, setDraft] = useSyncedDraft<DraftValue>(value, `${revision}:${value.base64}`);
 	const dirty = draft !== null && draft.base64 !== value.base64;
+
 	return (
 		<div className="grid min-h-8 grid-cols-[3rem_1fr_5rem] items-center gap-2 border-b border-border px-2 py-1">
 			<code className="text-xs text-muted-foreground">{index}</code>
@@ -465,14 +484,18 @@ const ListEditor = ({
 	const [filter, setFilter] = useState("");
 	const [item, setItem] = useState<DraftValue>(emptyValue);
 	const needle = filter.trim().toLowerCase();
+
 	const entries = needle
 		? value.entries.filter((entry) => matches(needle, entry.index, textOf(entry.value)))
 		: value.entries;
+
 	const push = async (side: "left" | "right") => {
 		if (item === null) return;
 		const saved = await act({ action: "pushList", side, value: item });
+
 		if (saved) setItem(emptyValue);
 	};
+
 	return (
 		<CollectionShell
 			filter={filter}
@@ -550,9 +573,11 @@ const SetEditor = ({
 	const [filter, setFilter] = useState("");
 	const [member, setMember] = useState<DraftValue>(emptyValue);
 	const needle = filter.trim().toLowerCase();
+
 	const members = needle
 		? value.members.filter((entry) => matches(needle, textOf(entry)))
 		: value.members;
+
 	return (
 		<CollectionShell
 			filter={filter}
@@ -571,8 +596,10 @@ const SetEditor = ({
 				<form
 					onSubmit={async (event) => {
 						event.preventDefault();
+
 						if (member === null) return;
 						const saved = await act({ action: "addSet", member });
+
 						if (saved) setMember(emptyValue);
 					}}
 					className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-border bg-muted/10 p-2"
@@ -637,6 +664,7 @@ const ZsetRow = ({
 	const parsedDraft = Number(draft);
 	const dirty = draft !== String(score);
 	const valid = Number.isFinite(parsedDraft);
+
 	return (
 		<div className="grid min-h-8 grid-cols-[1fr_8rem_5rem] items-center gap-2 border-b border-border px-2 py-1">
 			<RedisValue
@@ -689,9 +717,11 @@ const ZsetEditor = ({
 }) => {
 	const [filter, setFilter] = useState("");
 	const needle = filter.trim().toLowerCase();
+
 	const entries = needle
 		? value.entries.filter((entry) => matches(needle, textOf(entry.member), entry.score))
 		: value.entries;
+
 	return (
 		<CollectionShell
 			filter={filter}
@@ -752,6 +782,7 @@ const StreamEditor = ({
 }) => {
 	const [filter, setFilter] = useState("");
 	const needle = filter.trim().toLowerCase();
+
 	const entries = needle
 		? value.entries.filter((entry) =>
 				matches(
@@ -761,6 +792,7 @@ const StreamEditor = ({
 				),
 			)
 		: value.entries;
+
 	return (
 		<CollectionShell
 			filter={filter}
@@ -878,6 +910,7 @@ export const RedisValueEditor = ({
 	onStreamDirectionChange: (direction: StreamDirection) => void;
 }) => {
 	const value = detail.value;
+
 	switch (value.kind) {
 		case "string":
 			return (

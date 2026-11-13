@@ -1,5 +1,3 @@
-"use client";
-
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -37,19 +35,21 @@ import {
 	Table2,
 	Upload,
 } from "lucide-react";
-import { useAssistantRequestStore } from "@/features/ai-assistant";
+import { askAssistant } from "@/features/ai-assistant";
+import { openAddRecord } from "@/features/records";
 import { useCopyTableSchema } from "@/features/table-builder";
-import { useExportFile, useTablesList } from "@/features/tables";
-import { tableId } from "@/features/visualizer";
+import { useExportFile } from "@/features/tables";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import { useTablesList } from "@/hooks/use-tables-list";
 import { useTheme } from "@/hooks/use-theme";
+import { isMac } from "@/lib/platform";
 import { posthogAnalytics } from "@/lib/posthog";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
 import { CONSTANTS } from "@/utils/constants";
+import { tableId } from "@/utils/table-id";
 import {
 	NO_TABLE_HINT,
-	SCHEMALESS_HINT,
 	useCommandPaletteCapabilities,
 } from "./use-command-palette-capabilities";
 import { useCommandPaletteState } from "./use-command-palette-state";
@@ -58,12 +58,16 @@ export function CommandPalette() {
 	const navigate = useNavigate();
 	const openSchema = useTableSchemaName();
 	const { openOverlay } = useOverlayStore();
-	const { toggleSidebarOpen, toggleSidebarPinned, sidebar } = usePersonalPreferencesStore();
+
+	const {
+		sidebar: { mode: sidebarMode },
+		setSidebarMode,
+	} = usePersonalPreferencesStore();
+
 	const { toggleTheme, isDark } = useTheme();
 	const { tablesList, isLoadingTablesList, errorTablesList } = useTablesList();
 	const { exportFile, isExportingFile } = useExportFile();
 	const { copyTableSchema, isCopyingSchema } = useCopyTableSchema();
-	const { requestAssistant } = useAssistantRequestStore();
 
 	const {
 		open,
@@ -82,24 +86,20 @@ export function CommandPalette() {
 		pathname,
 		activeTable,
 		dbType,
-		isKeyValue,
-		isSchemaless,
 		canCreateTable,
 		canEditRecords,
 		recordsHint,
 		canEditSchema,
 		schemaHint,
-		hasIndexes,
+		hasSection,
 	} = useCommandPaletteCapabilities();
-
-	const isMac =
-		typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
 
 	const handleNavigateToTable = (tableName: string, schemaName: string | undefined) => {
 		handleAction(() => {
 			if (dbType) {
 				posthogAnalytics.capture("table_viewed", { db_type: dbType });
 			}
+
 			// Reset search params: sort/filter/cursor keys from the previous
 			// table must not leak into the newly opened one.
 			navigate({
@@ -107,13 +107,6 @@ export function CommandPalette() {
 				params: { table: tableName },
 				search: { [CONSTANTS.TABLE_SCHEMA]: schemaName },
 			});
-		});
-	};
-
-	const askAssistant = (prompt: string) => {
-		handleAction(() => {
-			requestAssistant(prompt);
-			openOverlay("chat.assistant");
 		});
 	};
 
@@ -126,9 +119,7 @@ export function CommandPalette() {
 			onOpenChange={handleOpenChange}
 			className="sm:max-w-lg"
 		>
-			{/* Custom input area with mode badge */}
 			<div className="flex items-center border-b border-input px-2 gap-2 w-full">
-				{/* Mode indicator badge */}
 				{mode === "tables" && (
 					<button
 						type="button"
@@ -155,7 +146,6 @@ export function CommandPalette() {
 					{mode === "tables" ? "No tables found." : "No results found."}
 				</CommandEmpty>
 
-				{/* Tables Mode - Only show tables */}
 				{mode === "tables" && !isLoadingTablesList && !errorTablesList && tablesList && (
 					<CommandGroup heading="Tables">
 						{tablesList.length === 0 ? (
@@ -193,11 +183,9 @@ export function CommandPalette() {
 					</div>
 				)}
 
-				{/* All Mode - Show everything */}
 				{mode === "all" && (
 					<>
-						{/* Quick Access - Tables shortcut */}
-						{!isKeyValue && (
+						{hasSection("table") && (
 							<>
 								<CommandGroup heading="Quick Access">
 									<CommandItem
@@ -222,9 +210,8 @@ export function CommandPalette() {
 							</>
 						)}
 
-						{/* Navigation */}
 						<CommandGroup heading="Go to">
-							{!isKeyValue && (
+							{hasSection("table") && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/" }))}
 									keywords={["go", "navigate", "home", "tables"]}
@@ -250,11 +237,11 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							{!isKeyValue && (
+							{hasSection("schema") && (
 								<CommandItem
-									disabled={!activeTable || isSchemaless}
+									disabled={!activeTable}
 									onSelect={() => {
-										if (!activeTable || isSchemaless) return;
+										if (!activeTable) return;
 										const table = activeTable;
 										handleAction(() =>
 											navigate({
@@ -270,16 +257,12 @@ export function CommandPalette() {
 									<div className="flex flex-col">
 										<span>Go to Schema</span>
 										<span className="text-xs text-muted-foreground">
-											{isSchemaless
-												? SCHEMALESS_HINT
-												: activeTable
-													? `View the schema of ${activeTable}`
-													: NO_TABLE_HINT}
+											{activeTable ? `View the schema of ${activeTable}` : NO_TABLE_HINT}
 										</span>
 									</div>
 								</CommandItem>
 							)}
-							{hasIndexes && (
+							{hasSection("indexes") && (
 								<CommandItem
 									disabled={!activeTable}
 									onSelect={() => {
@@ -304,7 +287,7 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isKeyValue && (
+							{hasSection("browser") && (
 								<CommandItem
 									onSelect={() => handleAction(() => navigate({ to: "/browser" }))}
 									keywords={["go", "navigate", "redis", "browser", "keys"]}
@@ -322,7 +305,6 @@ export function CommandPalette() {
 
 						<CommandSeparator />
 
-						{/* AI Assistant Section */}
 						<CommandGroup heading="AI Assistant">
 							<CommandItem
 								onSelect={() => handleAction(() => openOverlay("chat.assistant"))}
@@ -338,8 +320,10 @@ export function CommandPalette() {
 							</CommandItem>
 							<CommandItem
 								onSelect={() =>
-									askAssistant(
-										"Generate a query for this database. Ask me for the goal if it is unclear.",
+									handleAction(() =>
+										askAssistant(
+											"Generate a query for this database. Ask me for the goal if it is unclear.",
+										),
 									)
 								}
 								keywords={["ai", "generate", "sql", "query", "write"]}
@@ -352,33 +336,35 @@ export function CommandPalette() {
 									</span>
 								</div>
 							</CommandItem>
-							<CommandItem
-								disabled={!activeTable || isSchemaless}
-								onSelect={() => {
-									if (!activeTable || isSchemaless) return;
-									askAssistant(
-										`Explain the schema of table "${activeTable}": what each column stores and how it relates to other tables.`,
-									);
-								}}
-								keywords={["ai", "explain", "schema", "table", "understand"]}
-							>
-								<Brain className="mr-2 size-4" />
-								<div className="flex flex-col">
-									<span>Explain Table Schema</span>
-									<span className="text-xs text-muted-foreground">
-										{isSchemaless
-											? SCHEMALESS_HINT
-											: activeTable
+							{hasSection("schema") && (
+								<CommandItem
+									disabled={!activeTable}
+									onSelect={() => {
+										if (!activeTable) return;
+										const table = activeTable;
+										handleAction(() =>
+											askAssistant(
+												`Explain the schema of table "${table}": what each column stores and how it relates to other tables.`,
+											),
+										);
+									}}
+									keywords={["ai", "explain", "schema", "table", "understand"]}
+								>
+									<Brain className="mr-2 size-4" />
+									<div className="flex flex-col">
+										<span>Explain Table Schema</span>
+										<span className="text-xs text-muted-foreground">
+											{activeTable
 												? `Understand the structure of ${activeTable} with AI`
 												: NO_TABLE_HINT}
-									</span>
-								</div>
-							</CommandItem>
+										</span>
+									</div>
+								</CommandItem>
+							)}
 						</CommandGroup>
 
 						<CommandSeparator />
 
-						{/* Database Actions */}
 						<CommandGroup heading="Database Actions">
 							{canCreateTable && (
 								<CommandItem
@@ -396,13 +382,14 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{isKeyValue && (
+							{hasSection("browser") && (
 								<CommandItem
 									onSelect={() =>
 										handleAction(() => {
 											if (!pathname.startsWith("/browser")) {
 												navigate({ to: "/browser" });
 											}
+
 											openOverlay("redis-browser.create-key");
 										})
 									}
@@ -417,11 +404,11 @@ export function CommandPalette() {
 									</div>
 								</CommandItem>
 							)}
-							{!isKeyValue && (
+							{hasSection("table") && (
 								<>
 									<CommandItem
 										disabled={!canEditRecords}
-										onSelect={() => handleAction(() => openOverlay("records.add-record"))}
+										onSelect={() => handleAction(() => openAddRecord())}
 										keywords={["add", "new", "row", "record", "insert"]}
 									>
 										<Plus className="mr-2 size-4" />
@@ -462,7 +449,7 @@ export function CommandPalette() {
 											</span>
 										</div>
 									</CommandItem>
-									{hasIndexes && (
+									{hasSection("indexes") && (
 										<CommandItem
 											disabled={!activeTable}
 											onSelect={() => {
@@ -476,6 +463,7 @@ export function CommandPalette() {
 															search: { [CONSTANTS.TABLE_SCHEMA]: openSchema },
 														});
 													}
+
 													openOverlay("indexes.create-index");
 												});
 											}}
@@ -496,11 +484,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({
+												exportFile({
 													tableName,
 													schemaName: openSchema,
 													format: "csv",
-												}).catch(() => undefined);
+												});
 											});
 										}}
 										keywords={["export", "download", "csv"]}
@@ -519,11 +507,11 @@ export function CommandPalette() {
 											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void exportFile({
+												exportFile({
 													tableName,
 													schemaName: openSchema,
 													format: "json",
-												}).catch(() => undefined);
+												});
 											});
 										}}
 										keywords={["export", "download", "json"]}
@@ -539,12 +527,12 @@ export function CommandPalette() {
 										</div>
 									</CommandItem>
 									<CommandItem
-										disabled={!activeTable || isCopyingSchema || isSchemaless}
+										disabled={!activeTable || isCopyingSchema}
 										onSelect={() => {
-											if (!activeTable || isSchemaless) return;
+											if (!activeTable) return;
 											const tableName = activeTable;
 											handleAction(() => {
-												void copyTableSchema(tableName, openSchema).catch(() => undefined);
+												void copyTableSchema(tableName, openSchema);
 											});
 										}}
 										keywords={["copy", "schema", "ddl", "clipboard"]}
@@ -553,11 +541,9 @@ export function CommandPalette() {
 										<div className="flex flex-col">
 											<span>Copy Table Schema</span>
 											<span className="text-xs text-muted-foreground">
-												{isSchemaless
-													? SCHEMALESS_HINT
-													: activeTable
-														? `Copy the schema of ${activeTable} to the clipboard`
-														: NO_TABLE_HINT}
+												{activeTable
+													? `Copy the schema of ${activeTable} to the clipboard`
+													: NO_TABLE_HINT}
 											</span>
 										</div>
 									</CommandItem>
@@ -583,31 +569,38 @@ export function CommandPalette() {
 
 						<CommandSeparator />
 
-						{/* View & Settings */}
 						<CommandGroup heading="View & Settings">
 							<CommandItem
-								onSelect={() => handleAction(toggleSidebarOpen)}
+								onSelect={() =>
+									handleAction(() =>
+										setSidebarMode(sidebarMode === "hidden" ? "peek" : "hidden"),
+									)
+								}
 								keywords={["sidebar", "show", "hide", "toggle", "view"]}
 							>
 								<Sidebar className="mr-2 size-4" />
 								<div className="flex flex-col">
-									<span>{sidebar.isOpen ? "Hide" : "Show"} Sidebar</span>
+									<span>{sidebarMode === "hidden" ? "Show" : "Hide"} Sidebar</span>
 									<span className="text-xs text-muted-foreground">
 										Toggle sidebar visibility
 									</span>
 								</div>
 							</CommandItem>
 							<CommandItem
-								onSelect={() => handleAction(toggleSidebarPinned)}
+								onSelect={() =>
+									handleAction(() =>
+										setSidebarMode(sidebarMode === "pinned" ? "peek" : "pinned"),
+									)
+								}
 								keywords={["sidebar", "pin", "unpin"]}
 							>
-								{sidebar.isPinned ? (
+								{sidebarMode === "pinned" ? (
 									<PinOff className="mr-2 size-4" />
 								) : (
 									<Pin className="mr-2 size-4" />
 								)}
 								<div className="flex flex-col">
-									<span>{sidebar.isPinned ? "Unpin" : "Pin"} Sidebar</span>
+									<span>{sidebarMode === "pinned" ? "Unpin" : "Pin"} Sidebar</span>
 									<span className="text-xs text-muted-foreground">
 										Keep sidebar always visible
 									</span>
@@ -639,8 +632,7 @@ export function CommandPalette() {
 							</CommandItem>
 						</CommandGroup>
 
-						{/* Tables Navigation - Show top 5 tables in all mode */}
-						{!isKeyValue &&
+						{hasSection("table") &&
 							!isLoadingTablesList &&
 							!errorTablesList &&
 							tablesList &&

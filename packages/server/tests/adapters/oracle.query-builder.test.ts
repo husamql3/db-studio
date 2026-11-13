@@ -1,3 +1,14 @@
+import { describe, expect, it } from "vitest";
+import {
+	bindOracleValue,
+	buildOracleSelectList,
+	oracleFilters,
+	oraclePlaceholder,
+	quoteOracleIdent,
+} from "@/adapters/oracle/oracle.query-builder.js";
+import { buildFilterConditions, createBinds } from "@/adapters/sql-filters.js";
+import { offsetOrderBy } from "@/adapters/sql-pagination.js";
+import { groupKeyColumns } from "@/adapters/sql.adapter.js";
 /**
  * Oracle temporal and foreign-key failure modes covered here:
  *
@@ -17,15 +28,6 @@
  *    instead of matching the canonical string returned by table reads.
  */
 import { HTTPException } from "@/http-exception.js";
-import { describe, expect, it } from "vitest";
-import {
-	bindOracleValue,
-	buildFilterConditions,
-	buildOrderBy,
-	buildOracleSelectList,
-	createBinds,
-	groupOracleForeignKeys,
-} from "@/adapters/oracle/oracle.query-builder.js";
 
 describe("Oracle temporal SQL", () => {
 	it.each([
@@ -53,19 +55,22 @@ describe("Oracle temporal SQL", () => {
 			expectedValue: "2026-10-07T12:34:56.100000000+00:00",
 			expectedSql: `TO_TIMESTAMP_TZ(:1, 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')`,
 		},
-	])("binds $type through an explicit format", ({ type, input, expectedValue, expectedSql }) => {
-		const { values, bind } = createBinds();
-		expect(bindOracleValue(input, type, bind)).toBe(expectedSql);
-		expect(values).toEqual([expectedValue]);
-	});
+	])(
+		"binds $type through an explicit format",
+		({ type, input, expectedValue, expectedSql }) => {
+			const { values, bind } = createBinds(oraclePlaceholder);
+			expect(bindOracleValue(input, type, bind)).toBe(expectedSql);
+			expect(values).toEqual([expectedValue]);
+		},
+	);
 
 	it("rejects an invalid temporal value before Oracle can guess its format", () => {
-		const { bind } = createBinds();
+		const { bind } = createBinds(oraclePlaceholder);
 		expect(() => bindOracleValue("07/10/2026", "TIMESTAMP", bind)).toThrow(HTTPException);
 	});
 
 	it("keeps the temporal SQL shape when a nullable value is null", () => {
-		const { values, bind } = createBinds();
+		const { values, bind } = createBinds(oraclePlaceholder);
 		expect(bindOracleValue(null, "TIMESTAMP(9)", bind)).toBe(
 			`TO_TIMESTAMP(:1, 'YYYY-MM-DD"T"HH24:MI:SS.FF9')`,
 		);
@@ -88,18 +93,18 @@ describe("Oracle temporal SQL", () => {
 
 	it("qualifies native ordering when a temporal projection keeps the column name", () => {
 		expect(
-			buildOrderBy(
+			offsetOrderBy(
 				[
 					{ column: "zoned_at", direction: "asc" },
-					{ column: null, direction: "asc" },
+					{ column: "source.ROWID", direction: "asc", raw: true },
 				],
-				"source",
+				(name) => `source.${quoteOracleIdent(name)}`,
 			),
 		).toBe('ORDER BY source."zoned_at" ASC, source.ROWID ASC');
 	});
 
 	it("formats temporal LIKE operands but keeps range comparisons native", () => {
-		const { values, bind } = createBinds();
+		const { values, bind } = createBinds(oraclePlaceholder);
 		expect(
 			buildFilterConditions(
 				[
@@ -112,58 +117,54 @@ describe("Oracle temporal SQL", () => {
 					},
 				],
 				bind,
-				new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]),
+				oracleFilters(new Map([["zoned_at", "TIMESTAMP(9) WITH TIME ZONE"]]), bind),
 			),
 		).toEqual([
 			`TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM') LIKE :1`,
 			`UPPER(TO_CHAR("zoned_at", 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')) NOT LIKE UPPER(:2)`,
 			`"zoned_at" >= TO_TIMESTAMP_TZ(:3, 'YYYY-MM-DD"T"HH24:MI:SS.FF9TZH:TZM')`,
 		]);
-		expect(values).toEqual([
-			"2026-01%",
-			"%+05:00",
-			"2026-01-01T00:00:00.000000000+00:00",
-		]);
+		expect(values).toEqual(["2026-01%", "%+05:00", "2026-01-01T00:00:00.000000000+00:00"]);
 	});
 });
 
-describe("Oracle foreign-key metadata", () => {
+describe("foreign-key metadata", () => {
 	it("groups ordered composite columns by constraint", () => {
 		expect(
-			groupOracleForeignKeys([
+			groupKeyColumns([
 				{
-					CONSTRAINT_NAME: "child_parent_pair",
-					REFERENCING_TABLE: "child",
-					REFERENCING_COLUMN: "tenant_id",
-					REFERENCED_TABLE: "parent",
-					REFERENCED_COLUMN: "tenant_id",
+					constraintName: "child_parent_pair",
+					table: "child",
+					column: "tenant_id",
+					referencedTable: "parent",
+					referencedColumn: "tenant_id",
 				},
 				{
-					CONSTRAINT_NAME: "child_parent_pair",
-					REFERENCING_TABLE: "child",
-					REFERENCING_COLUMN: "item_id",
-					REFERENCED_TABLE: "parent",
-					REFERENCED_COLUMN: "item_id",
+					constraintName: "child_parent_pair",
+					table: "child",
+					column: "item_id",
+					referencedTable: "parent",
+					referencedColumn: "item_id",
 				},
 				{
-					CONSTRAINT_NAME: "audit_parent",
-					REFERENCING_TABLE: "audit",
-					REFERENCING_COLUMN: "parent_id",
-					REFERENCED_TABLE: "parent",
-					REFERENCED_COLUMN: "id",
+					constraintName: "audit_parent",
+					table: "audit",
+					column: "parent_id",
+					referencedTable: "parent",
+					referencedColumn: "id",
 				},
 			]),
 		).toEqual([
 			{
 				constraintName: "child_parent_pair",
-				referencingTable: "child",
+				table: "child",
 				columns: ["tenant_id", "item_id"],
 				referencedTable: "parent",
 				referencedColumns: ["tenant_id", "item_id"],
 			},
 			{
 				constraintName: "audit_parent",
-				referencingTable: "audit",
+				table: "audit",
 				columns: ["parent_id"],
 				referencedTable: "parent",
 				referencedColumns: ["id"],

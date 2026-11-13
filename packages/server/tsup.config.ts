@@ -1,7 +1,7 @@
-import { defineConfig } from "tsup";
-import { sentryEsbuildPlugin } from "@sentry/esbuild-plugin";
 import { cpSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { sentryEsbuildPlugin } from "@sentry/esbuild-plugin";
+import { defineConfig } from "tsup";
 import packageJson from "./package.json" with { type: "json" };
 
 const shouldUploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);

@@ -9,6 +9,7 @@ export type ColumnPrefs = {
 export type ColumnPrefKeyParts = {
 	dbType: string;
 	database: string;
+	schemaName: string | undefined;
 	tableName: string;
 };
 
@@ -21,24 +22,36 @@ export const sameColumnPrefs = (a: ColumnPrefs, b: ColumnPrefs): boolean =>
 	a.order.every((name, i) => name === b.order[i]) &&
 	a.hidden.every((name, i) => name === b.hidden[i]);
 
-/** JSON-encoded so a colon inside a database or table name cannot collide. */
+/**
+ * JSON-encoded so a colon inside a name cannot collide. A table without a schema keeps the
+ * three-part key used before the schema joined it, so its saved preferences still load.
+ */
 export const makeColumnPrefKey = ({
 	dbType,
 	database,
+	schemaName,
 	tableName,
-}: ColumnPrefKeyParts): string => JSON.stringify([dbType, database, tableName]);
+}: ColumnPrefKeyParts): string =>
+	JSON.stringify(
+		schemaName === undefined
+			? [dbType, database, tableName]
+			: [dbType, database, schemaName, tableName],
+	);
 
 const sanitize = (value: unknown): ColumnPrefs => {
 	const raw = (value ?? {}) as Partial<ColumnPrefs>;
 	const order = Array.isArray(raw.order) ? raw.order.filter((c) => typeof c === "string") : [];
+
 	const hidden = Array.isArray(raw.hidden)
 		? raw.hidden.filter((c) => typeof c === "string")
 		: [];
+
 	return { order, hidden };
 };
 
 const sanitizeAll = (value: unknown): Record<string, ColumnPrefs> => {
 	if (!value || typeof value !== "object") return {};
+
 	return Object.fromEntries(
 		Object.entries(value as Record<string, unknown>).map(([key, prefs]) => [
 			key,
@@ -69,6 +82,7 @@ export const useColumnPreferencesStore = create<ColumnPreferencesStore>()(
 			clearColumnPrefs: (parts) =>
 				set((state) => {
 					const { [makeColumnPrefKey(parts)]: _removed, ...rest } = state.prefsByTable;
+
 					return { prefsByTable: rest };
 				}),
 		}),
@@ -106,21 +120,25 @@ export const reconcileColumnPrefs = (
 	const schemaSet = new Set(schemaCols);
 	const seen = new Set<string>();
 	const order: string[] = [];
+
 	for (const name of prefs.order) {
 		if (schemaSet.has(name) && !seen.has(name)) {
 			order.push(name);
 			seen.add(name);
 		}
 	}
+
 	for (const name of schemaCols) {
 		if (!seen.has(name)) {
 			order.push(name);
 			seen.add(name);
 		}
 	}
+
 	const hidden = prefs.hidden.filter(
 		(name) => schemaSet.has(name) && typeof name === "string",
 	);
+
 	return { order, hidden };
 };
 
@@ -129,6 +147,7 @@ export const applyColumnPrefs = (schemaCols: string[], prefs: ColumnPrefs): stri
 	const { order, hidden } = reconcileColumnPrefs(schemaCols, prefs);
 	const hiddenSet = new Set(hidden);
 	const ordered = order.filter((name) => !hiddenSet.has(name));
+
 	return [...ordered].sort((a, b) => order.indexOf(a) - order.indexOf(b));
 };
 
@@ -145,15 +164,19 @@ export const reorderColumns = (
 	if (sourceCol === targetCol) return order;
 	const fromIndex = order.indexOf(sourceCol);
 	const targetIndex = order.indexOf(targetCol);
+
 	if (fromIndex === -1 || targetIndex === -1) return order;
 
 	const next = [...order];
 	next.splice(fromIndex, 1);
 	const newTargetIndex = next.indexOf(targetCol);
+
 	const insertIndex =
 		(position ?? (fromIndex < targetIndex ? "after" : "before")) === "after"
 			? newTargetIndex + 1
 			: newTargetIndex;
+
 	next.splice(insertIndex, 0, sourceCol);
+
 	return next;
 };

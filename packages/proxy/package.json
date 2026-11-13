@@ -10,7 +10,6 @@
     "start:app": "bun run build && bun run ./scripts/dev.js --remote",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "format": "biome check --write --unsafe",
     "typecheck": "bun check",
     "secrets:add": "wrangler secret bulk .env",
     "secrets:list": "wrangler secret list",
@@ -33,7 +32,6 @@
     "hono-rate-limiter": "^0.5.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "wrangler": "^4.156.0"
   }
 }

@@ -1,13 +1,14 @@
+import type { ConnectionUrl } from "@/connection-url.js";
+import { formatFileSize } from "@/file-size.js";
 import { HTTPException } from "@/http-exception.js";
 import {
-	formatFileSize,
 	type SqliteClient,
 	type SqlParam,
 	type SqlResult,
 	type SqlStatement,
 } from "@/sqlite-client.js";
 
-export interface D1Target {
+interface D1Target {
 	accountId: string;
 	databaseId: string;
 	token: string;
@@ -15,20 +16,25 @@ export interface D1Target {
 
 // The CLI redacts anything shaped like a connection URL from startup errors, so these
 // messages describe the URL instead of quoting an example.
-export const parseD1Url = (url: string): D1Target => {
-	const { host, pathname, searchParams } = new URL(url);
-	const databaseId = decodeURIComponent(pathname.slice(1));
-	const token = searchParams.get("authToken") || process.env.CLOUDFLARE_API_TOKEN;
+export const d1Target = ({ host, database, params }: ConnectionUrl): D1Target => {
+	const token = params.get("authToken") || process.env.CLOUDFLARE_API_TOKEN;
+
 	if (!host)
 		throw new Error("The Cloudflare D1 URL has no account id: put it where the host goes");
-	if (!databaseId)
+
+	if (!database)
 		throw new Error("The Cloudflare D1 URL has no database id: put it where the path goes");
+
 	if (!token)
 		throw new Error(
 			"The Cloudflare D1 URL has no authToken parameter and CLOUDFLARE_API_TOKEN is not set",
 		);
-	return { accountId: host, databaseId, token };
+
+	return { accountId: host, databaseId: database, token };
 };
+
+/** Cloudflare answered 401 or 403: the API token is wrong or may not reach this database. */
+export class D1TokenRefused extends Error {}
 
 interface D1Response<T> {
 	success: boolean;
@@ -84,29 +90,33 @@ export const createD1Client = ({ accountId, databaseId, token }: D1Target): Sqli
 			body: body === undefined ? undefined : JSON.stringify(body),
 			signal: AbortSignal.timeout(30_000),
 		});
+
 		const text = await res.text();
 		let parsed: D1Response<T> | undefined;
+
 		try {
 			parsed = JSON.parse(text) as D1Response<T>;
 		} catch {
 			parsed = undefined;
 		}
+
 		const message = parsed?.errors?.[0]?.message;
-		// BaseAdapter.wrapError maps "HTTP status 401/403" to 503, as for a bad libSQL token.
+
 		if (res.status === 401 || res.status === 403)
-			throw new Error(
-				`${message ?? "Cloudflare D1 refused the API token"} (HTTP status ${res.status})`,
-			);
+			throw new D1TokenRefused(message ?? "Cloudflare D1 refused the API token");
+
 		if (!parsed?.success || parsed.result === null)
 			throw new Error(
 				message ?? `Cloudflare D1 request failed with HTTP status ${res.status}`,
 			);
+
 		return parsed.result;
 	};
 
 	const batch = async (stmts: (SqlStatement | string)[]) => {
 		if (!stmts.length) return [];
 		const results = await request<D1RawResult[]>("/raw", { batch: stmts.map(toD1Statement) });
+
 		return results.map(toResult);
 	};
 
@@ -123,10 +133,12 @@ export const createD1Client = ({ accountId, databaseId, token }: D1Target): Sqli
 					message: `Cloudflare D1 always enforces foreign keys, so changing a column of a table that ${tables} ${verb} would delete or block their rows`,
 				});
 			}
+
 			await batch(statements);
 		},
 		info: async () => {
 			const { name, file_size } = await request<D1Database>("");
+
 			return { name, size: formatFileSize(file_size), version: "Cloudflare D1" };
 		},
 		close: () => {},

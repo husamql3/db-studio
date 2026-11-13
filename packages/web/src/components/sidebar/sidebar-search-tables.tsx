@@ -11,9 +11,11 @@ import { CONSTANTS } from "@/utils/constants";
 
 export const SidebarSearchTables = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
+
 	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});
+
 	const { openOverlay } = useOverlayStore();
 	const engine = useDatabaseEngine();
 
@@ -22,6 +24,7 @@ export const SidebarSearchTables = () => {
 		"/",
 		(event) => {
 			event.preventDefault();
+
 			if (inputRef.current) {
 				inputRef.current.focus();
 			}
@@ -46,7 +49,7 @@ export const SidebarSearchTables = () => {
 					/>
 					<Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">/</Kbd>
 				</div>
-				{engine?.dataModel !== "document" && (
+				{engine?.schemaMutation !== false && (
 					<Button
 						size="icon-lg"
 						className="shrink-0 rounded-sm"

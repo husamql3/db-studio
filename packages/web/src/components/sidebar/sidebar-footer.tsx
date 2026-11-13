@@ -8,31 +8,28 @@ import {
 } from "@db-studio/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { ConnectionMenu } from "@/features/connections";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDatabasesList } from "@/hooks/use-databases-list";
+import { homePath } from "@/lib/sections";
 import { useDatabaseStore } from "@/stores/database.store";
 
 /** One line: `● connection / database ⌄ ⟳`. The connection opens the switch menu. */
 export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
+
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const engine = useDatabaseEngine();
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
 	const busy = isLoadingDatabases || isRefetchingDatabases;
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
-		if (pathname === "/routines" && engine?.routines) {
-			void navigate({ to: "/routines", search: {} });
-			return;
-		}
-		navigate({ to: engine?.dataModel === "key-value" ? "/browser" : "/table", search: {} });
+		navigate({ to: homePath(engine), search: {} });
 	};
 
 	const handleRefresh = async () => {

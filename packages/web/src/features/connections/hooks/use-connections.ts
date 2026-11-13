@@ -6,24 +6,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useRowDetailsStore, useUpdateCellStore } from "@/features/tables";
 import {
 	connectSavedConnection,
 	connectUrl,
+	getConnectionId,
 	getConnections,
 	setConnectionId,
+	type ApiError,
+	apiErrorMessage,
 } from "@/shared/api";
 import { connectionKeys } from "@/shared/query/keys";
-import { useDatabaseStore } from "@/stores/database.store";
-import { useOverlayStore } from "@/stores/overlay.store";
+import { resetConnectionState } from "@/stores/connection-reset";
 
-type MutationError = Error & { details?: unknown };
-
-export const errorMessage = (error: MutationError) =>
-	(typeof error.details === "string" && error.details) || error.message;
-
-/** `connectionId` this tab works with; `undefined` until the server first answers. */
-let ownConnectionId: string | null | undefined;
+/** Whether this tab took the connection the server first named; once per page load. */
+let hasAdoptedConnection = false;
 
 /**
  * The saved connections and the one this tab has open. Refetched on focus to notice that the
@@ -34,17 +30,20 @@ export const useConnections = () => {
 		queryKey: connectionKeys.state(),
 		queryFn: async () => {
 			const state = (await getConnections()).data.data;
+
 			// The first answer names this tab's connection, or the latest for a new tab. Adopted
 			// here, before the app renders and sends database requests.
-			if (ownConnectionId === undefined) {
-				ownConnectionId = state.active?.connectionId ?? null;
-				setConnectionId(ownConnectionId);
+			if (!hasAdoptedConnection) {
+				hasAdoptedConnection = true;
+				setConnectionId(state.active?.connectionId ?? null);
 			}
+
 			return state;
 		},
 		refetchOnWindowFocus: true,
 		staleTime: 0,
 	});
+
 	return {
 		connections: data?.connections ?? [],
 		active: data?.active ?? null,
@@ -60,19 +59,16 @@ export const useConnections = () => {
 const useResetToConnection = () => {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
+
 	return async (state: ConnectionsStateSchemaType) => {
-		ownConnectionId = state.active?.connectionId ?? null;
-		setConnectionId(ownConnectionId);
+		setConnectionId(state.active?.connectionId ?? null);
 		// A focus refetch still in flight would answer for the previous connection after this.
 		await queryClient.cancelQueries({ queryKey: connectionKeys.state() });
 		queryClient.removeQueries({
 			predicate: (query) => query.queryKey[0] !== connectionKeys.state()[0],
 		});
 		queryClient.setQueryData(connectionKeys.state(), state);
-		useDatabaseStore.setState({ selectedDatabase: null, dbType: null });
-		useUpdateCellStore.getState().clearUpdates();
-		useRowDetailsStore.getState().clearRowDetails();
-		useOverlayStore.getState().closeAllOverlays();
+		resetConnectionState();
 		void navigate({ to: "/", search: {} });
 	};
 };
@@ -81,14 +77,14 @@ export const useConnect = () => {
 	const resetTo = useResetToConnection();
 	const { active } = useConnections();
 
-	const urlMutation = useMutation<ConnectionsStateSchemaType, MutationError, string>({
+	const urlMutation = useMutation<ConnectionsStateSchemaType, ApiError, string>({
 		mutationFn: async (url) => (await connectUrl(url)).data.data,
 		onSuccess: resetTo,
 	});
 
 	const savedMutation = useMutation<
 		ConnectionsStateSchemaType,
-		MutationError,
+		ApiError,
 		ConnectionSummarySchemaType
 	>({
 		mutationFn: async ({ id }) => (await connectSavedConnection(id)).data.data,
@@ -100,10 +96,10 @@ export const useConnect = () => {
 		toast.promise(urlMutation.mutateAsync(url), {
 			loading: "Connecting…",
 			success: "Connected",
-			error: (error: MutationError) =>
+			error: (error: ApiError) =>
 				active
-					? `${errorMessage(error)}. Still on the previous connection.`
-					: errorMessage(error),
+					? `${apiErrorMessage(error, "Failed to connect")}. Still on the previous connection.`
+					: apiErrorMessage(error, "Failed to connect"),
 		});
 
 	/** One click on a saved connection: the test runs behind a loading toast. */
@@ -111,16 +107,18 @@ export const useConnect = () => {
 		toast.promise(savedMutation.mutateAsync(connection), {
 			loading: `Connecting to ${connection.name}…`,
 			success: `Connected to ${connection.name}`,
-			error: (error: MutationError) =>
+			error: (error: ApiError) =>
 				active
-					? `${errorMessage(error)}. Still on the previous connection.`
-					: errorMessage(error),
+					? `${apiErrorMessage(error, "Failed to connect")}. Still on the previous connection.`
+					: apiErrorMessage(error, "Failed to connect"),
 		});
 
 	return {
 		connectUrl: connectPastedUrl,
 		isConnectingUrl: urlMutation.isPending,
-		urlError: urlMutation.error ? errorMessage(urlMutation.error) : null,
+		urlError: urlMutation.error
+			? apiErrorMessage(urlMutation.error, "Failed to connect")
+			: null,
 		clearUrlError: urlMutation.reset,
 		connectSaved,
 	};
@@ -142,13 +140,15 @@ export const useConnectionChangeWatcher = () => {
 		if (isLoading) return;
 		const previous = seen.current;
 		seen.current = connectionId;
+
 		if (
 			previous === undefined ||
 			previous === connectionId ||
-			connectionId === ownConnectionId
+			connectionId === getConnectionId()
 		) {
 			return;
 		}
+
 		void resetTo({ connections, active });
 		const name = connections.find((c) => c.id === active?.id)?.name;
 		toast.info(
