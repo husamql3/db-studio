@@ -16,37 +16,16 @@
  * runs with telemetry off. A JSON summary goes to e2e/artifacts/lazy-loading-<build>.json.
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
-import { type Browser, chromium } from "playwright-core";
+import type { Browser } from "playwright-core";
+import { cliPath, launchBrowser, requireDatabaseUrl, startCli, writeArtifact } from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("Set DATABASE_URL to the database the app should open");
+const { url: databaseUrl } = requireDatabaseUrl();
 const build = process.argv[2];
-const cli = fileURLToPath(
-	new URL(
-		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
-		import.meta.url,
-	),
-);
-const PORT = 4527;
-const BASE = `http://127.0.0.1:${PORT}`;
 
-const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-	cwd: tmpdir(),
-	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
-	stdio: "ignore",
+const { child: server, base: BASE } = await startCli({
+	cli: cliPath(build),
+	args: ["-d", databaseUrl],
 });
-for (;;) {
-	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
-	const ready = await fetch(`${BASE}/api/databases`)
-		.then((response) => response.ok)
-		.catch(() => false);
-	if (ready) break;
-	await new Promise((resolve) => setTimeout(resolve, 50));
-}
 
 /** Opens the app with telemetry reported on or off; returns what loaded and what was sent. */
 const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
@@ -54,6 +33,7 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 	let telemetryRequests = 0;
 	await context.route(/posthog\.com|sentry\.io/, (route) => {
 		telemetryRequests++;
+
 		return route.abort();
 	});
 	await context.route("**/api/telemetry/config", (route) =>
@@ -68,11 +48,17 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 	page.on("request", (request) => {
 		if (request.resourceType() === "script") scripts.push(new URL(request.url()).pathname);
 	});
+	const config = page.waitForResponse("**/api/telemetry/config");
 	await page.goto(`${BASE}/`);
 	await page.waitForSelector('a[href^="/table/"]');
-	// Telemetry starts after the config request; give it time to load and initialize.
-	await page.waitForTimeout(2_000);
+	// Telemetry starts after the config response: wait for it, then for the SDK chunks it
+	// requests to finish loading (no request for 500 ms).
+	await config;
+	await page.waitForLoadState("networkidle");
+
+	if (telemetryEnabled) await page.waitForFunction(() => "__SENTRY__" in globalThis);
 	const startupScripts = scripts.length;
+
 	return {
 		context,
 		page,
@@ -85,10 +71,9 @@ const openApp = async (browser: Browser, telemetryEnabled: boolean) => {
 };
 
 const summary: Record<string, unknown> = {};
-const browser = await chromium.launch({
-	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
-	headless: true,
-});
+
+const browser = await launchBrowser();
+
 try {
 	const off = await openApp(browser, false);
 	summary.telemetryOff = {
@@ -128,11 +113,7 @@ try {
 	await on.context.close();
 	console.log("PASS lazy loading", JSON.stringify(summary));
 } finally {
-	await mkdir(new URL("./artifacts/", import.meta.url), { recursive: true });
-	await writeFile(
-		new URL(`./artifacts/lazy-loading-${build ?? "dist"}.json`, import.meta.url),
-		`${JSON.stringify(summary, null, 2)}\n`,
-	);
+	await writeArtifact(`lazy-loading-${build ?? "dist"}.json`, summary);
 	await browser.close();
 	server.kill("SIGKILL");
 }

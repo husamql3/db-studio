@@ -13,46 +13,24 @@ import { cn } from "@db-studio/ui/utils";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
-import type { AddTableFormData, ForeignKeyData } from "@/features/table-builder/types";
-import { useTablesList } from "@/features/tables";
+import type { AddTableFormData } from "@/features/table-builder/types";
+import { useTablesList } from "@/hooks/use-tables-list";
 
 export const ReferencedTableField = ({ index }: { index: number }) => {
 	const [open, setOpen] = useState<boolean>(false);
 	const { tablesList, isLoadingTablesList } = useTablesList();
-	const { control, watch, setValue, getValues } = useFormContext<AddTableFormData>();
-
-	const columnName = watch(`fields.${index}.columnName`);
-
-	const ensureForeignKeyExists = () => {
-		const currentForeignKeys = getValues("foreignKeys") || [];
-		if (!currentForeignKeys[index]) {
-			const paddedArray: ForeignKeyData[] = [...currentForeignKeys];
-			paddedArray.push({
-				columnName: "",
-				referencedTable: "",
-				referencedColumn: "",
-				onUpdate: "NO ACTION" as const,
-				onDelete: "NO ACTION" as const,
-			});
-			setValue("foreignKeys", paddedArray);
-		}
-	};
+	const { control } = useFormContext<AddTableFormData>();
 
 	return (
 		<Controller
 			control={control}
-			name={`foreignKeys.${index}`}
+			name={`fields.${index}.foreignKey`}
 			render={({ field }) => (
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="referencedTable">Select a table to reference to</Label>
 					<Popover
 						modal={true}
-						onOpenChange={(isOpen) => {
-							if (isOpen) {
-								ensureForeignKeyExists();
-							}
-							setOpen(isOpen);
-						}}
+						onOpenChange={setOpen}
 						open={open}
 					>
 						<PopoverTrigger asChild>
@@ -94,11 +72,13 @@ export const ReferencedTableField = ({ index }: { index: number }) => {
 											<CommandItem
 												key={table.tableName}
 												onSelect={() => {
+													// A new table's columns differ, so the picked column resets.
 													field.onChange({
-														...field.value,
+														onUpdate: field.value?.onUpdate ?? "NO ACTION",
+														onDelete: field.value?.onDelete ?? "NO ACTION",
 														referencedTable: table.tableName,
+														referencedColumn: "",
 													});
-													setValue(`foreignKeys.${index}.columnName`, columnName);
 													setOpen(false);
 												}}
 												value={table.tableName}

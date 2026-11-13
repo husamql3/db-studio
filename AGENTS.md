@@ -17,8 +17,11 @@ bun run build
 # Run all tests
 bun run test
 
-# Lint & format (Biome)
+# Format (oxfmt) and lint (oxlint), with fixes
 bun run format
+
+# Lint only
+bun run lint
 
 # Type checking
 bun run typecheck
@@ -64,15 +67,15 @@ This is a **Bun + Turbo monorepo** with these packages:
 
 ### Server (`packages/server`)
 
-- **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.)
-- **Elysia app**: `src/utils/create-server.ts` — creates the app, registers adapters, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
-- **DB connections**: `src/db-manager.ts` owns connection creation and URL parsing; adapters import connection helpers through `src/adapters/connections.ts`.
-- **Open connections**: the server can start without a database URL; until one opens, database routes answer 409 and the web app shows `/connect`. Several connections stay open at once, one per browser tab: a tab keeps its `connectionId` in `sessionStorage` and sends it as `X-Connection-Id` on every request, and `db-manager.ts` answers from that connection (a request without one gets the latest opened; one naming a closed connection gets 409). Adapters stay connection-agnostic, so keep any per-connection cache keyed by the client, not a module or adapter field. `src/connection.ts` tests a URL before it opens it, reuses an already open URL, and saves it through `src/connections-store.ts` to `~/.dbstudio/connections.json` (`DB_STUDIO_CONFIG_DIR` overrides; owner-only file). Saved URLs never reach the browser: `/connections` returns masked URLs and takes ids. The server listens on `127.0.0.1` and refuses requests whose `Host` is not loopback unless `HOST` names another address.
-- **Adapters**: `src/adapters/` — Strategy + Template Method architecture. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse all route through registered adapters.
+- **CLI entry**: `src/index.ts` — uses `commander` to parse flags (`--env`, `--port`, `--database-url`, etc.); `src/cmd/` holds only CLI code (flags, `.env` loading, help and status output).
+- **Elysia app**: `src/app.ts` — creates the app, mounts routes, and serves the frontend build. `.wrap()` runs every request inside its request context (request ID, Sentry span, `server_operation` event); `.onError()` hands every failure to `handleError` in `src/middlewares/error-handler.ts`, which answers with the `ApiError` body.
+- **DB connections**: `src/connection-url.ts` parses a connection URL once (engine, host, port, credentials, database, file path) from the `DATABASE_ENGINES` protocol traits. `src/connectors/<engine>.ts` holds each engine's connection code: a connector opens its clients lazily, one per database where the engine has several, and has `ping()` and `close()`; concurrent first calls share one connect attempt. Adapters reach their database only through `connector("<engine>")` from `src/open-connections.ts`, e.g. `connector("pg").pool(db)`.
+- **Open connections**: the server can start without a database URL; until one opens, database routes answer 409 and the web app shows `/connect`. Several connections stay open at once, one per browser tab: a tab keeps its `connectionId` in `sessionStorage` and sends it as `X-Connection-Id` on every request, and `src/open-connections.ts`, the registry of open connections (each with its URL, read-only flag and connector), answers from that connection (a request without one gets the latest opened; one naming a closed connection gets 409). Adapters stay connection-agnostic, so keep any per-connection cache keyed by the client, not a module or adapter field. `src/connection.ts` tests a URL before it opens it (the connector's `ping()`, bounded by `STARTUP_TIMEOUT_MS`), reuses an already open URL, and saves it through `src/connections-store.ts` to `~/.dbstudio/connections.json` (`DB_STUDIO_CONFIG_DIR` overrides; owner-only file). Saved URLs never reach the browser: `/connections` returns masked URLs and takes ids. The server listens on `127.0.0.1` and refuses requests whose `Host` is not loopback unless `HOST` names another address.
+- **Adapters**: `src/adapters/` — one strategy class per engine. PostgreSQL, MySQL, SQL Server, MongoDB, SQLite, Redis, DuckDB, Oracle, and ClickHouse each route through their adapter.
 - **Adapter contract**: `src/adapters/adapter.interface.ts` defines `IDbAdapter`, the single interface routes depend on.
-- **Adapter registry**: `src/adapters/adapter.registry.ts` exports `adapterRegistry` and `getAdapter(dbType)`. `src/adapters/register.ts` registers each adapter before routes mount.
-- **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against the adapter registry and adds `dbType` and `adapter` to the context.
-- **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts`. It has no framework dependency; never import Elysia into adapters.
+- **Adapters map**: `src/adapters/adapter.registry.ts` exports `ADAPTERS`, one instance per engine (`satisfies Record<DatabaseTypeSchema, IDbAdapter>`, so typecheck fails until a new engine has one), and `isDatabaseType`.
+- **Routes**: `src/routes/` — each route file is an Elysia plugin (`new Elysia({ prefix })`). Routes under `/:dbType` `.use(adapterPlugin)` from `src/routes/adapter.plugin.ts`, which validates `:dbType` against `ADAPTERS`, checks it against the request's connection, and adds `dbType` and `adapter` to the context.
+- **Errors**: adapters throw `HTTPException(status, { message, cause })` from `src/http-exception.ts` for their own refusals and let driver errors escape to `handleError`, which classifies them with the engine's adapter (see Adapter Pattern). `HTTPException` has no framework dependency; never import Elysia into adapters.
 
 **Multi-database routing pattern**: requests under `/:dbType/*` resolve their adapter through `adapterPlugin`, then handlers call methods on the `adapter` from the context. Routes never branch on database type; database-specific behavior lives inside the adapter classes.
 
@@ -82,7 +85,8 @@ This is a **Bun + Turbo monorepo** with these packages:
 - TanStack Query for server state; Zustand for client state (`src/stores/`)
 - shadcn/ui primitives live in `packages/ui`; Monaco editor for JSON/query editing
 - API calls go through `src/shared/api/` — pure transport wrappers over Axios
-- Cell rendering: `CellVariant` = `"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`
+- App sections (`/table`, `/runner`, `/browser`, …) are listed once in `src/lib/sections.ts` with their icon, sidebar and the engines they apply to; the layout guard, nav rail, sidebar, command palette and page-view events read it
+- Cell rendering: a column's variant (`"text" | "boolean" | "number" | "enum" | "json" | "date" | "array"`) comes from `cellVariant()` in `src/utils/cell-variant.ts`, used by the grid and the add-record form
 
 **Feature-first structure** — domain logic lives in `src/features/`, not flat `src/hooks/` or `src/components/`:
 
@@ -94,13 +98,14 @@ src/
     table-builder/  — create table form, foreign key builder
     tables/         — table grid, cell editing, pagination, exports
     records/        — add record form, bulk insert sheets, FK reference picker
+    ai-assistant/   — chat sidebar, askAssistant(prompt), hosted quota (useAiQuota)
   shared/
     api/            — endpoint functions (pure transport wrappers)
-    query/          — query-key factories
+    query/          — query-key factories and the table cache refreshes (invalidate-table.ts)
   stores/           — app-wide Zustand: database, overlay registry, preferences
-  hooks/            — cross-cutting hooks (databases list, rate limit, theme)
+  hooks/            — cross-cutting hooks (databases list, engine, theme)
   routes/           — file-based routes; each renders a feature screen only
-  components/       — shell components (sidebar, chat, command palette)
+  components/       — shell components (sidebar, nav rail, command palette)
 ```
 
 Each feature folder follows this shape:
@@ -144,15 +149,16 @@ Three export paths:
 ### Key types
 
 - `DATABASE_TYPES = ["pg", "mysql", "mssql", "mongodb", "sqlite", "redis", "duckdb", "oracle", "clickhouse"]` in `database.types.ts`
-- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits (label, protocols, default port, data model, editor language, Live mode, schema selector, Indexes and Logs tabs); web reads it via `useDatabaseEngine()`
-- `CellVariant` / `DataTypes` — used for table cell rendering
+- `DATABASE_ENGINES` in `database-engines.types.ts` — per-engine traits, each field commented there (label, URL protocols, data model, editor language, and the capability flags the routes and web gate on); web reads it via `useDatabaseEngine()`
+- `DataTypes` — the cell variants a column type maps to
 
 ## Tooling
 
-- **Linter/Formatter**: Biome (tabs, 95-char width). Run `bun run format` to auto-fix.
+- **Formatter**: oxfmt (`.oxfmtrc.json`: tabs, 95-char width, sorted imports), JS/TS only.
+- **Linter**: oxlint (`.oxlintrc.json`) with the vendored [anti-slop](https://github.com/dmmulroy/anti-slop) rules in `tools/oxlint/anti-slop/` (ours to edit; `UPSTREAM.md` records the source commit). Rules set to `warn` are being worked down; turn one to `error` once it reaches zero. `bun run format` formats and applies lint fixes.
 - **Tests**: Vitest (`server`, `web`, `www`). Deliberately minimal — see [Testing](#testing) before adding any. Path aliases `@` → `./src` and `@db-studio/shared` → `../shared/src` are configured in each `vitest.config.ts`.
 - **Pre-commit hook**: runs `bun run format && bun run typecheck && bun run test && bun run build` via Husky.
-- **CI**: GitHub Actions on push to `stage` — build → biome format → tests.
+- **CI**: GitHub Actions on push to `stage` — build → oxfmt check, oxlint, typecheck, knip, tests.
 
 ## Conventions
 
@@ -165,12 +171,12 @@ Three export paths:
 - **PG specifics**: `$1/$2` placeholders, FK violation code `23503`; implemented in `PgAdapter`
 - **MySQL specifics**: backtick identifiers, `?` placeholders, no `RETURNING` clause, FK violation errno `1451`; `mysql2`'s `execute()` requires `as any` cast for `unknown[]` — this is expected, no suppression comment needed; implemented in `MySqlAdapter`
 - **MSSQL specifics**: bracket identifiers (`[col]`), named `@param` placeholders via `mssql` package, each value bound via `request.input(name, value)`; implemented in `MsSqlAdapter`
-- **MongoDB specifics**: no schema enforcement; `ObjectId` handling via `isValidObjectId` / `coerceObjectId` helpers in `db-manager.ts`; "tables" are collections; implemented in `MongoAdapter`.
+- **MongoDB specifics**: no schema enforcement beyond the `$jsonSchema` validator a created collection gets (`validationAction: "error"`); column changes edit that validator through `editFieldValidator`, keeping its validationAction, and take a BSON type or the type label `getTableColumns` gave the field (anything else is 400); `ObjectId` handling via `coerceObjectId` in `src/adapters/mongo/object-id.ts`; "tables" are collections; implemented in `MongoAdapter`.
 - **SQLite / libSQL specifics**: one `SqliteAdapter` on `@libsql/client` (`intMode: "bigint"`, rows normalized in `toRows`) serves `sqlite://` files (opened as `file:` URLs) and remote `libsql://` / Turso URLs (`?authToken=`, `?tls=0` for local sqld) under dbType `sqlite`; `PRAGMA foreign_keys` does not persist between requests on a remote server and is a no-op inside a transaction, so the table rebuild in `alterColumn` goes through `client.migrate()`. The adapter only sees the `SqliteClient` interface in `src/sqlite-client.ts` (`fromLibsql` wraps the libSQL client). Cloudflare D1 is a third protocol of the same engine: `d1://<account_id>/<database_id>?authToken=<api token>` (or `CLOUDFLARE_API_TOKEN`) goes through `src/d1-client.ts`, which calls the REST `/raw` endpoint, where one batch is one transaction and interactive transactions do not exist. So `updateRecords` is one write batch with a guard after each UPDATE that fails the batch when the UPDATE matched no row. D1 always enforces foreign keys and cannot suspend them, so `alterColumn` returns 400 for a table that other tables, or the table itself, reference. D1's internal `_cf_*` tables refuse every access and are hidden. D1 serializes integers as JSON doubles, so values past 2^53 arrive rounded; select them with `CAST(x AS TEXT)` to read them exactly.
-- **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`, no sort, no filters — adapter throws 400); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s; implemented in `RedisAdapter` using `ioredis`. Schema mutations (`createTable`/`deleteTable`/`addColumn`/etc.) all return 400.
-- **DuckDB specifics**: file-based like SQLite (`duckdb:///abs/path.duckdb` or `duckdb://./rel.duckdb`); one `DuckDBInstance` + connection per file via `@duckdb/node-api`, and every call goes through `withDuckdbConnection()`, which serializes access so transactions cannot interleave; the instance checkpoints on every commit (`checkpoint_threshold: "0b"`) because DuckDB cannot replay an `ALTER TABLE` on a table with a `nextval()` default from the WAL; a file locked by another process surfaces as 503; `"ident"` quoting, `?` placeholders; rows go through one boundary (`getRowObjectsJson()`, then safe-range BIGINT/HUGEINT to numbers); keyset pagination sorts NULLS LAST in both directions and builds a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …` honouring each column's direction and NULLs (`buildKeysetPredicate`), never a row-value tuple comparison; only the current schema (`main`) is listed; identity/serial columns become a `<table>_<column>_seq` sequence default; FK actions CASCADE/SET NULL/SET DEFAULT, ADD COLUMN with UNIQUE/PRIMARY KEY, and ALTER on tables other tables reference return 400; `forceDeleteRecords` uses the ordinary single-statement delete and refuses 400 when dependent rows exist, because DuckDB cannot delete a parent and its children in one atomic transaction; implemented in `DuckDbAdapter`.
+- **Redis specifics**: schemaless key-value store mapped onto six fixed type-tables (`strings`, `hashes`, `lists`, `sets`, `zsets`, `streams`) — one row per key with type-specific value column; logical DBs `0..N-1` (from `CONFIG GET databases`) appear as db-studio databases; pagination is forward-only via `SCAN` (no `prev`: the adapter answers 400; sort and filters: the route answers 400 through its `filterSort: false` trait); cluster mode is rejected at connect time; `executeQuery` accepts redis-cli style command strings (quote-aware tokenizer) and shapes replies via a command-name dispatch table with single-cell JSON fallback; per-type row counts cached for 30s and dropped after grid inserts and deletes and every key-browser write; implemented in `RedisAdapter` using `ioredis`. Schema mutations (create, rename, drop, column changes) return 400 through its `schemaMutation: false` trait.
+- **DuckDB specifics**: file-based like SQLite (`duckdb:///abs/path.duckdb` or `duckdb://./rel.duckdb`); one `DuckDBInstance` + connection per file via `@duckdb/node-api`, and every call goes through the connector's `withConnection()`, which serializes access so transactions cannot interleave; the instance checkpoints on every commit (`checkpoint_threshold: "0b"`) because DuckDB cannot replay an `ALTER TABLE` on a table with a `nextval()` default from the WAL; a file locked by another process surfaces as 503; `"ident"` quoting, `?` placeholders; rows go through one boundary (`getRowObjectsJson()`, then safe-range BIGINT/HUGEINT to numbers); keyset pagination as described under the Adapter Pattern; only the current schema (`main`) is listed; identity/serial columns become a `<table>_<column>_seq` sequence default; FK actions CASCADE/SET NULL/SET DEFAULT, ADD COLUMN with UNIQUE/PRIMARY KEY, and ALTER on tables other tables reference return 400; `forceDeleteRecords` uses the ordinary single-statement delete and refuses 400 when dependent rows exist, because DuckDB cannot delete a parent and its children in one atomic transaction; implemented in `DuckDbAdapter`.
 - **Oracle specifics**: `oracle://user:pass@host:1521/SERVICE` via `oracledb` in Thin mode (no Instant Client), one pool per process; the connected container (`CON_NAME`) is the only database and only the user's own tables (`USER_TABLES`) are listed; every identifier is quoted as stored, so `"ident"` quoting preserves case, and names containing `"` are rejected with 400 because Oracle cannot quote them; `:n` bind placeholders; OFFSET/FETCH pagination with an offset cursor like MSSQL, ordered by the user sort then the primary key (`ROWID` without one); `text` becomes `VARCHAR2(4000)`, not CLOB, so it stays sortable and comparable; DDL auto-commits, so every schema operation is a single statement that cannot half-apply; `oracleServerVersion >= 23ai` gates native `BOOLEAN` and `JSON` (older releases get `NUMBER(1)` and `CLOB`); array columns, ON UPDATE actions and ON DELETE SET DEFAULT return 400; implemented in `OracleAdapter`. Adapter-owned reads return `DATE` and `TIMESTAMP` columns as strings and preserve nine fractional digits. The query runner returns 400 for native temporal result columns because Thin mode converts them to millisecond-only JavaScript `Date` values. Select those columns with `TO_CHAR` and an explicit Oracle format.
-- **ClickHouse specifics**: OLAP engine over the HTTP interface via `@clickhouse/client` (`clickhouse://` → http, `clickhouses://` → https, one client per database in `db-manager.ts`); every request sets `wait_end_of_query = 1` so late server failures reach the API; row counts come from `system.tables.total_rows` (no `count()` scans); `isPrimaryKey` marks sorting-key columns, which are not unique, so pagination is OFFSET-based ordered by user sort, then the sorting key, then `_part`/`_part_offset`; inserts use `JSONEachRow`; grid updates, deletes, and force deletes return 400 because sorting keys cannot identify one row safely, while explicit query-runner mutations remain available and wait with `mutations_sync = 2`; created tables are `MergeTree ORDER BY (<pk>)`, identity/serial columns become `UInt64 DEFAULT generateSnowflakeID()`; no FKs or UNIQUE (400); JSON output quotes 64/128/256-bit integers and decimals so their exact values cross the JavaScript boundary as strings; implemented in `ClickhouseAdapter`.
+- **ClickHouse specifics**: OLAP engine over the HTTP interface via `@clickhouse/client` (`clickhouse://` → http, `clickhouses://` → https, one client per database in `src/connectors/clickhouse.ts`); every request sets `wait_end_of_query = 1` so late server failures reach the API; row counts come from `system.tables.total_rows` (no `count()` scans); `isPrimaryKey` marks sorting-key columns, which are not unique, so pagination is OFFSET-based ordered by user sort, then the sorting key, then `_part`/`_part_offset`; inserts use `JSONEachRow`; grid updates, deletes, and force deletes return 400 because sorting keys cannot identify one row safely, while explicit query-runner mutations remain available and wait with `mutations_sync = 2`; created tables are `MergeTree ORDER BY (<pk>)`, identity/serial columns become `UInt64 DEFAULT generateSnowflakeID()`; no FKs or UNIQUE (400); JSON output quotes 64/128/256-bit integers and decimals so their exact values cross the JavaScript boundary as strings; implemented in `ClickhouseAdapter`.
 
 ## Patterns
 
@@ -214,10 +220,10 @@ export * from "./database.types.js";
 export * from "./column-info.types.js";
 ```
 
-**TanStack Table module augmentation** (in `packages/web`):
+**TanStack Table module augmentation** (in `packages/web`; a merged declaration must repeat the library's type parameter names, so keep `TData`/`TValue`):
 ```ts
 declare module "@tanstack/react-table" {
-  interface ColumnMeta<_TData extends RowData, _TValue> {
+  interface ColumnMeta<TData extends RowData, TValue> {
     variant?: CellVariant;
     isPrimaryKey?: boolean;
     // ...
@@ -230,16 +236,14 @@ declare module "@tanstack/react-table" {
 **Feature hooks** (query, mutation, derived state scoped to one feature):
 Location: `packages/web/src/features/[feature]/hooks/use-[name].ts`
 
-**Cross-cutting hooks** (app-wide concerns: databases list, rate limit, theme):
+**Cross-cutting hooks** (app-wide concerns: databases list, engine, theme):
 Location: `packages/web/src/hooks/use-[name].ts`
 
 **Pattern** — return a named object (not a tuple):
 ```ts
 export const useDatabasesList = () => {
-  const { setDbType } = useDatabaseStore();
-
   const { data, isLoading } = useQuery({
-    queryKey: [CONSTANTS.CACHE_KEYS.DATABASES_LIST],
+    queryKey: databaseKeys.list(),
     queryFn: () => rootApi.get<BaseResponse<DatabaseListSchemaType>>("/databases"),
     select: (res) => res.data.data,
     staleTime: 1000 * 60 * 5,
@@ -251,7 +255,7 @@ export const useDatabasesList = () => {
 
 **Categories**:
 - **Data fetching**: `useQuery` from TanStack Query, return `{ data, isLoading, error, refetch }`
-- **Initialization**: use `useRef` guard to prevent double-init
+- **Initialization**: derive "initialized" from store state set in effects, not from a ref
 - **State helpers**: wrap store + derived logic, expose clean API
 
 ### Components
@@ -267,7 +271,7 @@ export const SidebarListTablesItem = ({ tableName, rowCount }: TableInfoSchemaTy
 export const MyComponent = ({ id, label }: SomeSchemaType) => { ... };
 ```
 
-**Imports order** (enforced by Biome):
+**Imports order** (sorted by oxfmt):
 1. External packages
 2. `@db-studio/shared/types`
 3. Local `@/` aliases
@@ -305,6 +309,7 @@ Rules:
 - Updates always produce new objects (immutable pattern via `set`)
 - Use `get()` for reading state inside derived/computed functions
 - No selectors — consumers destructure from the hook directly
+- A store holding state of the open connection (selections, edits, open sheets) registers its reset with `onConnectionReset` from `src/stores/connection-reset.ts`; switching connection runs them all
 
 ### Overlay Registry (`src/stores/overlay.store.ts`)
 
@@ -368,8 +373,9 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 **Rules**:
 - Chain every call on the instance; Elysia infers context and response types through the chain.
+- A new plugin's prefix goes in `API_ROOT_RESOURCES` or `API_DB_RESOURCES` (`@db-studio/shared/constants`), which server and web telemetry name requests from; `app.ts` fails typecheck until it does.
 - Validation via the route's `query` / `params` / `body` options with the Zod schemas from `@db-studio/shared/types`. A failure reaches `handleError` and answers 400 `{ error: "Validation error", details }`.
-- Query values reach the schema as raw strings: `create-server.ts` replaces Elysia's query parser, which JSON-parses `[...]`/`{...}` values and splits on commas.
+- Query values reach the schema as raw strings: `src/app.ts` replaces Elysia's query parser, which JSON-parses `[...]`/`{...}` values and splits on commas.
 - DB dispatch via the `adapter` that `adapterPlugin` adds — never switch/if-else on dbType in routes.
 - Return the `{ data }` envelope; use `status(409, { data })` for a non-200 success body and throw `HTTPException` for failures.
 - Return a stream as its body and put its headers on `set.headers`: Elysia on Node drops the headers of a returned chunked `Response`.
@@ -377,42 +383,33 @@ export const tablesRoutes = new Elysia({ prefix: "/tables" })
 
 ### Adapter Pattern
 
-**Architecture**: Strategy + Template Method. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`) registered at boot. SQL adapters extend `BaseAdapter`; MongoDB overrides the template methods that require document-store behavior.
+**Architecture**: Strategy. Each database is a single class (`PgAdapter`, `MySqlAdapter`, `MsSqlAdapter`, `MongoAdapter`, …) with one instance in `ADAPTERS`. Every adapter extends `BaseAdapter` and implements its own `getTableData()`. The relational engines (PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, Oracle) extend `SqlAdapter<Conn>`, which writes once what they do alike: record inserts (one INSERT builder on `writeTarget`, naming only the columns a record has so the rest take their DEFAULT), updates and bulk inserts, deletes and force deletes, table creation, column adds and drops, renames and drops, related rows of a refused delete, table and column checks, index create/drop, the table list and its row-count policy (also for an unfiltered page total), the query runner and the export. Each engine supplies small hooks (`connect`, `transaction`, `rows`, `execute`, `primaryKey`, `columnNames`, `referencingKeys`, `writeTarget`, `skippedInsertColumns`, `pageKey`, `columnDefinition` (shared by CREATE TABLE and ADD COLUMN), `addColumnSql`, `renameTableSql`, `dropTable`, `listIndexes`, `tableEstimates`, `runStatement`, …) and overrides a template only where its semantics differ (SQLite's one-batch writes, DuckDB's force-delete refusal, Oracle's typed binds and cycle refusal). ClickHouse has no row writes, foreign keys or indexes and extends `BaseAdapter` directly.
 
 **Key files**:
 - `src/adapters/adapter.interface.ts` — `IDbAdapter` interface and adapter method contract
-- `src/adapters/base.adapter.ts` — `BaseAdapter`: implements `getTableData()` and `exportTableData()` as template methods; provides `wrapError()`, `encodeCursor()`, `decodeCursor()`
-- `src/adapters/adapter.registry.ts` — `AdapterRegistry` singleton plus `getAdapter()`; `get()` throws `HTTPException(400)` for unregistered types
-- `src/adapters/register.ts` — `registerAdapters()` called at boot before routes mount
+- `src/adapters/base.adapter.ts` — `BaseAdapter`: `classifyError()`, key helpers, the methods every engine implements as `abstract`, and 501 defaults for the ones a trait can switch off
+- `src/adapters/cursor.ts` — `encodeCursor()` / `decodeCursor(cursor, schema)`: the validated base64url JSON cursors of the Mongo and Redis adapters
+- `src/adapters/sql-filters.ts` — the grid's filter conditions for every SQL engine; each builder supplies a `FilterDialect` (quote, LIKE operand, ILIKE strategy) and values bind through a `createBinds()` placeholder closure
+- `src/adapters/sql-pagination.ts` — ORDER BY terms (requested sorts, then key tie-breakers in the leading sort's direction) and cursors. PostgreSQL, MySQL, SQLite and DuckDB page by keyset through `SqlAdapter.keysetTableData`, ordered after the sorts by the primary key or a row id (`ctid`, `rowid`; a table with neither pages by OFFSET): NULLs last in both directions (MySQL orders by `col IS NULL` first, having no `NULLS LAST`) and a per-column predicate `(c1 after v1) OR (c1 = v1 AND c2 after v2) …`, never a row-value tuple comparison, which cannot mix directions or match NULL. SQL Server, Oracle and ClickHouse page by OFFSET
+- `src/adapters/sql.adapter.ts` — `SqlAdapter`: the shared relational templates and their engine hooks
+- `src/adapters/adapter.registry.ts` — `ADAPTERS`, the adapter of each engine
 - `src/adapters/[db]/[db].adapter.ts` — concrete adapter per database
-- `src/adapters/[db]/[db].query-builder.ts` — SQL construction helpers (WHERE, ORDER BY, cursor clauses)
+- `src/adapters/[db]/[db].query-builder.ts` — the dialect: its one identifier quote function (every identifier goes through it, escaping the quote character), filter and keyset dialects, type mapping
 - `src/adapters/mongo/mongo.pipeline-builder.ts` — MongoDB `$match`, `$sort`, skip/limit, and cursor helpers
-- `src/adapters/connections.ts` — adapter-facing barrel for connection helpers from `db-manager.ts`
 
 **Request flow**:
 ```
-Request → adapterPlugin validates dbType → getAdapter(dbType)
-  → adapterRegistry.get(dbType) returns the adapter
+Request → adapterPlugin validates dbType and the request's connection → ADAPTERS[dbType]
   → route calls adapter.someMethod(params)
+  → adapter reaches the database through connector("<engine>")
 ```
 
 **Implementing a method** (all adapters follow this structure):
 ```ts
 export class PgAdapter extends BaseAdapter {
-  // Abstract method implementations required by BaseAdapter
-  protected async runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T> {
-    const pool = getDbPool(db);
-    const result = await pool.query(sql, values);
-    return result.rows as T;
-  }
-
-  protected quoteIdentifier(name: string): string { return `"${name}"`; }
-  mapToUniversalType(nativeType: string): DataTypes { ... }
-  mapFromUniversalType(universalType: string): string { ... }
-
   // IDbAdapter method — validate, build SQL, execute
   async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-    const pool = getDbPool(params.db);
+    const pool = await connector("pg").pool(params.db);
     // 1. Assert table/column existence → throw HTTPException on failure
     // 2. Build SQL using query-builder helpers
     // 3. Execute
@@ -420,20 +417,18 @@ export class PgAdapter extends BaseAdapter {
 }
 ```
 
-**Template method `getTableData()`**: implemented once in `BaseAdapter`; calls `buildTableDataQuery()` → `runQuery()` → `normalizeRows()` → `buildCursors()`. Adapters only override if their DB requires a fundamentally different approach (e.g. `MsSqlAdapter` overrides because `mssql` requests need per-value `.input()` calls).
+**Unsupported operations**: the routes refuse, with `requireCapability(dbType, …)` from `src/routes/adapter.plugin.ts`, what an engine's `DATABASE_ENGINES` traits leave out (`indexes: false`, `serverLogs: false`, `schemaMutation: false`, `cellDefault: false`, `filterSort: false`, `rowMutation: false` with its `rowMutationReason`), so an adapter does not stub them. The key browser (`/keys`) serves the engines whose `dataModel` is `"key-value"`; `ADAPTERS` fails to typecheck until such an engine's adapter implements `IKeyValueAdapter`.
 
-**Overriding template methods**: any override that bypasses `BaseAdapter.getTableData()` MUST wrap its body in `try/catch` and call `throw this.wrapError(e)` — otherwise connection errors won't be surfaced as 503.
-
-**Error handling**: `BaseAdapter.wrapError(e)` maps connection errors (ECONNREFUSED, ETIMEDOUT, Login failed, etc.) to `HTTPException(503)` and all others to `HTTPException(500)`. It is called automatically by the template methods; manual calls are only needed in overrides.
+**Error handling**: let driver errors escape; `handleError` hands each one to `classifyError(e)` of the request's engine (the path's `:dbType`, else the request's connection), so a driver error gets the same status from every method. Each adapter recognises its own driver's errors in `classifyDriverError(e)` (PostgreSQL: SQLSTATE class 08 → 503, 22 → 400, 23 → 409, 42501 → 403; on every engine a constraint violation (duplicate key, foreign key, NOT NULL, CHECK, a MongoDB validator) → 409 and a value the column cannot hold → 400; a read-only refusal → 403 with `READ_ONLY_MESSAGE`; an engine limitation → 400; `indexError` adds only what index DDL alone raises), and `BaseAdapter` adds the socket errors every driver shares (503) and 500 for the rest. Catch a driver error only to do real work: roll back, or turn a specific error into a specific answer (FK violation → `relatedRecords`, missing table → 404).
 
 ### How To Add A New Database
 
 1. Create `src/adapters/<dbname>/<dbname>.adapter.ts` implementing `IDbAdapter`.
 2. Create `src/adapters/<dbname>/<dbname>.query-builder.ts` for SQL databases, or a domain-specific builder like `mongo.pipeline-builder.ts` for non-SQL databases.
-3. Add connection handling in `src/db-manager.ts` and expose adapter-facing helpers through `src/adapters/connections.ts`.
-4. Register the adapter in `src/adapters/register.ts`: `adapterRegistry.register("<dbname>", new MyAdapter())`.
+3. Add `src/connectors/<dbname>.ts` (its clients, `ping()` and `close()`) and add it to `CONNECTORS` in `src/connectors/index.ts`; the adapter reads it with `connector("<dbname>")`.
+4. Add the adapter to `ADAPTERS` in `src/adapters/adapter.registry.ts`: `<dbname>: new MyAdapter()`.
 5. Add `"<dbname>"` to `DATABASE_TYPES` in `packages/shared/src/types/database.types.ts`.
-6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do). It supplies the label, URL protocols, default port, data model, editor language, Live mode support, schema selector, read-only sessions (`readOnly`), Indexes tab support (`indexes`) and Logs tab support (`serverLogs`); an engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
+6. Add a `DATABASE_ENGINES` entry in `packages/shared/src/types/database-engines.types.ts` (typecheck fails until you do), filling every field the type requires; each is commented there. An engine with `serverLogs: true` implements `getServerLogs`, which answers `{ available: false, reason }` when the server keeps its log out of reach. The server and web read these fields instead of comparing `dbType` to literals, so do not add new `dbType === "<dbname>"` checks.
 
 ### Import Aliases
 
@@ -447,7 +442,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 import type { TableInfoSchemaType } from "@db-studio/shared/types";
 
 // server internal  →  @/ maps to ./src/
-import { getAdapter } from "@/adapters/adapter.registry.js"; // .js extension required (ESM)
+import { ADAPTERS } from "@/adapters/adapter.registry.js"; // .js extension required (ESM)
 import { PgAdapter } from "@/adapters/pg/pg.adapter.js";     // adapters follow the same rule
 ```
 
@@ -457,27 +452,19 @@ Wrap mutation calls with `toast.promise` for consistent loading/success/error fe
 
 **Pattern**:
 ```ts
-const addColumn = async (
-    data: AddColumnSchemaType,
-    options?: {
-        onSuccess?: () => void;
-        onError?: (error: MutationError) => void;
-    },
-) =>
-    toast.promise(addColumnMutation(data, options), {
+const addColumn = async (data: AddColumnSchemaType) =>
+    toast.promise(addColumnMutation(data), {
         loading: "Adding column...",
         success: (message) => message || "Column added successfully",
-        error: (error: MutationError) =>
-            (typeof error.details === "string" && error.details) ||
-            error.message ||
-            "Failed to add column",
+        error: (error: ApiError) => apiErrorMessage(error, "Failed to add column"),
     });
 ```
 
 **Rules**:
 - Always use `toast.promise` — never call `toast.success` / `toast.error` manually around mutations
 - `success` callback receives the mutation return value; prefer server message with a fallback string
-- `error` callback: check `error.details` (string) first, then `error.message`, then a static fallback
+- `toast.promise` returns the toast id at once and never rejects; a hook whose callers await the outcome returns `toast.promise(...).unwrap()`, and those callers catch the rejection (the toast already reported it)
+- `error` callback: `apiErrorMessage(error, fallback)` from `src/shared/api/client.ts` (server details, then message, then the fallback). Every failed request rejects with its `ApiError` (`status`, `details`, `requestId`); type mutations with it (`useMutation<Data, ApiError, Variables>`)
 
 ### Client API (`src/shared/api/`)
 
@@ -486,25 +473,22 @@ Canonical API layer — pure transport wrappers, no React or Zustand:
 ```txt
 src/shared/api/
   client.ts      — two Axios instances (rootApi + api) and setDbType()
+  connections.ts — open, saved and closed connections
   databases.ts   — database list endpoints
   tables.ts      — table data, schema, export endpoints
   records.ts     — record CRUD endpoints
   query.ts       — SQL query execution endpoint
-  chat.ts        — AI assistant endpoint
+  redis-keys.ts  — Redis key browser endpoints
+  logs.ts        — server log endpoint
+  chat.ts        — AI assistant rate limit and stream URL
+  telemetry.ts   — telemetry preference
   index.ts       — barrel re-export
 ```
 
 Two Axios instances in `client.ts`:
 - `rootApi` — unscoped base URL, used for `/databases` etc.
-- `api` — scoped to `/{dbType}`, base URL updated via `setDbType()`
+- `api` — scoped to `/{dbType}`; `useDatabaseStore`'s `setDbType` moves its base URL, so set the engine only through the store.
 
-```ts
-export const setDbType = (type: DatabaseTypeSchema): void => {
-  api.defaults.baseURL = `${getBaseUrl()}/${type}`;
-};
-```
-
-`src/lib/api.ts` is a legacy compatibility facade — do not add new code there.
 
 ### Testing
 

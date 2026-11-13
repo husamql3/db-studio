@@ -42,22 +42,28 @@ const TIMESTAMP =
 /** Reads a log timestamp, which PostgreSQL writes in `log_timezone`, as an ISO string in UTC. */
 const toIso = (text: string, logUtcOffsetMinutes: number): string | undefined => {
 	const m = TIMESTAMP.exec(text);
+
 	if (!m) return undefined;
 	const [, y, mo, d, h, mi, s, frac = "", zoneName, sign, offH, offM = "0"] = m;
+
 	const offset = sign
 		? (sign === "-" ? -1 : 1) * (Number(offH) * 60 + Number(offM))
 		: zoneName === "UTC" || zoneName === "GMT"
 			? 0
 			: logUtcOffsetMinutes;
+
 	const ms = Number(frac.padEnd(3, "0").slice(0, 3));
+
 	const utc =
 		Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), ms) -
 		offset * 60_000;
+
 	return new Date(utc).toISOString();
 };
 
 const toEntry = (raw: RawEntry): ServerLogEntrySchemaType => {
 	const duration = DURATION_LINE.exec(raw.message);
+
 	return {
 		ts: raw.ts,
 		level: LEVELS[raw.severity] ?? "debug",
@@ -75,10 +81,8 @@ const toEntry = (raw: RawEntry): ServerLogEntrySchemaType => {
 const isOwnQuery = (raw: RawEntry) =>
 	raw.message.includes(SERVER_LOGS_MARKER) || raw.statement?.includes(SERVER_LOGS_MARKER);
 
-// ─── stderr ──────────────────────────────────────────────────────────────────────────
-// The line prefix is whatever log_line_prefix says, so only the parts every prefix shares
-// are read: a timestamp if %m or %t is in it, and a pid if %p is wrapped in brackets.
-
+// A stderr line's prefix is whatever log_line_prefix says, so only the parts every prefix
+// shares are read: a timestamp if %m or %t is in it, and a pid if %p is wrapped in brackets.
 const STDERR_LINE =
 	/^(.*?)\b(DEBUG[1-5]|LOG|INFO|NOTICE|WARNING|ERROR|FATAL|PANIC|DETAIL|HINT|QUERY|CONTEXT|LOCATION|STATEMENT): {2}(.*)$/;
 
@@ -95,16 +99,20 @@ const parseStderr = (lines: string[], opts: ParseOptions): RawEntry[] => {
 			continues?.(line.slice(1));
 			continue;
 		}
+
 		const m = STDERR_LINE.exec(line);
+
 		if (!m) {
 			continues = null;
 			continue;
 		}
+
 		const [, prefix, severity, text] = m;
 		const current = entries.at(-1);
 
 		if (ATTACHED.has(severity)) {
 			if (!current) continue;
+
 			if (severity === "STATEMENT") {
 				current.statement = text;
 				continues = (more) => {
@@ -117,26 +125,29 @@ const parseStderr = (lines: string[], opts: ParseOptions): RawEntry[] => {
 					current.detail[key] = `${current.detail[key]}\n${more}`;
 				};
 			}
+
 			continue;
 		}
 
 		const ts = toIso(prefix, opts.logUtcOffsetMinutes) ?? current?.ts;
+
 		if (!ts) continue;
+
 		const entry: RawEntry = {
 			ts,
 			severity,
 			message: text,
 			detail: logDetail({ pid: /\[(\d+)\]/.exec(prefix)?.[1] }),
 		};
+
 		entries.push(entry);
 		continues = (more) => {
 			entry.message = `${entry.message}\n${more}`;
 		};
 	}
+
 	return entries;
 };
-
-// ─── csvlog ──────────────────────────────────────────────────────────────────────────
 
 /** Splits CSV into records; quoted fields may hold commas, `""` and newlines. */
 const parseCsv = (text: string): string[][] => {
@@ -147,6 +158,7 @@ const parseCsv = (text: string): string[][] => {
 
 	for (let i = 0; i < text.length; i++) {
 		const ch = text[i];
+
 		if (quoted) {
 			if (ch === '"' && text[i + 1] === '"') {
 				field += '"';
@@ -170,10 +182,12 @@ const parseCsv = (text: string): string[][] => {
 			field += ch;
 		}
 	}
+
 	if (field || record.length) {
 		record.push(field);
 		records.push(record);
 	}
+
 	return records;
 };
 
@@ -183,6 +197,7 @@ const parseCsvlog = (text: string, opts: ParseOptions): RawEntry[] => {
 	// A tail read can start inside a quoted field, so resume at the first line that opens a
 	// record rather than trusting the quote state.
 	let body = text;
+
 	if (opts.truncatedStart) {
 		const lines = text.split("\n");
 		const start = lines.findIndex((line, i) => i > 0 && RECORD_START.test(line));
@@ -190,8 +205,10 @@ const parseCsvlog = (text: string, opts: ParseOptions): RawEntry[] => {
 	}
 
 	const entries: RawEntry[] = [];
+
 	for (const f of parseCsv(body)) {
 		const ts = toIso(f[0] ?? "", opts.logUtcOffsetMinutes);
+
 		if (!ts || !f[11]) continue;
 		entries.push({
 			ts,
@@ -213,10 +230,9 @@ const parseCsvlog = (text: string, opts: ParseOptions): RawEntry[] => {
 			}),
 		});
 	}
+
 	return entries;
 };
-
-// ─── jsonlog ─────────────────────────────────────────────────────────────────────────
 
 interface JsonlogLine {
 	timestamp?: string;
@@ -238,14 +254,18 @@ interface JsonlogLine {
 
 const parseJsonlog = (lines: string[], opts: ParseOptions): RawEntry[] => {
 	const entries: RawEntry[] = [];
+
 	for (const line of lines) {
 		let json: JsonlogLine;
+
 		try {
 			json = JSON.parse(line) as JsonlogLine;
 		} catch {
 			continue;
 		}
+
 		const ts = toIso(json.timestamp ?? "", opts.logUtcOffsetMinutes);
+
 		if (!ts || !json.error_severity) continue;
 		entries.push({
 			ts,
@@ -267,6 +287,7 @@ const parseJsonlog = (lines: string[], opts: ParseOptions): RawEntry[] => {
 			}),
 		});
 	}
+
 	return entries;
 };
 
@@ -276,6 +297,7 @@ export const parsePgLog = (
 	opts: ParseOptions,
 ): ServerLogEntrySchemaType[] => {
 	const lines = text.split("\n");
+
 	if (opts.truncatedStart && format !== "csvlog") lines.shift();
 
 	const raw =

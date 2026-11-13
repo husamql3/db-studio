@@ -5,6 +5,7 @@ import { useDatabaseStore } from "@/stores/database.store";
 
 export const useRoutines = () => {
 	const { selectedDatabase } = useDatabaseStore();
+
 	const { data, isLoading, isRefetching, error, refetch } = useQuery({
 		queryKey: routineKeys.database(selectedDatabase),
 		queryFn: () => getRoutines(selectedDatabase),

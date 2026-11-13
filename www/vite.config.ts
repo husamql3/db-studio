@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import tailwindcss from "@tailwindcss/vite";
 import viteReact from "@vitejs/plugin-react";
 import mdx from "fumadocs-mdx/vite";
 import { defineConfig, type Plugin } from "vite";
@@ -18,6 +18,7 @@ const rawDocs = (): Plugin => {
 	const virtualId = "virtual:raw-docs";
 	const resolvedId = `\0${virtualId}`;
 	const docsDirectory = join(import.meta.dirname, "content/docs");
+
 	return {
 		name: "raw-docs",
 		resolveId(id) {
@@ -26,13 +27,16 @@ const rawDocs = (): Plugin => {
 		load(id) {
 			if (id !== resolvedId) return;
 			const files = readdirSync(docsDirectory).filter((file) => file.endsWith(".mdx"));
+
 			for (const file of files) this.addWatchFile(join(docsDirectory, file));
+
 			const docs = Object.fromEntries(
 				files.map((file) => [
 					file.replace(/\.mdx$/, ""),
 					readFileSync(join(docsDirectory, file), "utf8"),
 				]),
 			);
+
 			return `export default ${JSON.stringify(docs)}`;
 		},
 		hotUpdate({ file }) {
@@ -41,8 +45,10 @@ const rawDocs = (): Plugin => {
 			// environment's module graph rather than the deprecated server-wide one.
 			const { moduleGraph } = this.environment;
 			const module = moduleGraph.getModuleById(resolvedId);
+
 			if (!module) return;
 			moduleGraph.invalidateModule(module);
+
 			return [module];
 		},
 	};

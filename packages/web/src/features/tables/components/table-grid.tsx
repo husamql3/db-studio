@@ -1,6 +1,6 @@
 import { cn } from "@db-studio/ui/utils";
 import type { OnChangeFn, Row, RowSelectionState, Table } from "@tanstack/react-table";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { TableHeader } from "./header/table-header";
 import { TableContainer } from "./table-container";
 import { TableFooter } from "./table-footer";

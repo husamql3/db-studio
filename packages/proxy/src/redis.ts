@@ -1,25 +1,25 @@
 import { Redis } from "@upstash/redis/cloudflare";
-import type { Context } from "hono";
+import { env } from "cloudflare:workers";
 import { RedisStore } from "hono-rate-limiter";
 
+export const RATE_LIMIT_PREFIX = "rate:proxy:";
+
+let redis: Redis | undefined;
 const redisStores = new Map<string, RedisStore>();
 
-export const getRedisStore = (c: Context, prefix = "rate:proxy:"): RedisStore => {
-	const cached = redisStores.get(prefix);
-	if (cached) return cached;
+const getRedis = (): Redis =>
+	(redis ??= new Redis({
+		url: env.UPSTASH_REDIS_REST_URL,
+		token: env.UPSTASH_REDIS_REST_TOKEN,
+	}));
 
-	const redis = Redis.fromEnv({
-		UPSTASH_REDIS_REST_URL: c.env.UPSTASH_REDIS_REST_URL,
-		UPSTASH_REDIS_REST_TOKEN: c.env.UPSTASH_REDIS_REST_TOKEN,
-	});
-	const store = new RedisStore({ client: redis, prefix });
-	redisStores.set(prefix, store);
+export const getRedisStore = (prefix: string): RedisStore => {
+	let store = redisStores.get(prefix);
+
+	if (!store) {
+		store = new RedisStore({ client: getRedis(), prefix });
+		redisStores.set(prefix, store);
+	}
+
 	return store;
-};
-
-export const getRedis = (c: Context): Redis => {
-	return Redis.fromEnv({
-		UPSTASH_REDIS_REST_URL: c.env.UPSTASH_REDIS_REST_URL,
-		UPSTASH_REDIS_REST_TOKEN: c.env.UPSTASH_REDIS_REST_TOKEN,
-	});
 };

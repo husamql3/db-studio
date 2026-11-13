@@ -9,10 +9,8 @@ import type {
 	ConnectionInfoSchemaType,
 	CreateIndexParamsSchemaType,
 	CreateTableSchemaType,
-	CursorData,
 	DatabaseInfoSchemaType,
 	DatabaseSchemaType,
-	DataTypes,
 	DeleteColumnParamsSchemaType,
 	DeleteRecordParams,
 	DeleteRecordResult,
@@ -25,18 +23,12 @@ import type {
 	RenameTableParamsSchemaType,
 	RoutineInfoSchemaType,
 	ServerLogsResult,
-	SortDirection,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
 import type { GetTableDataParams, IDbAdapter } from "@/adapters/adapter.interface.js";
-import {
-	isPgDatabaseError,
-	isPgDataException,
-	isReadOnlyRefusal,
-	READ_ONLY_MESSAGE,
-} from "@/drivers.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
 
 /**
@@ -51,75 +43,62 @@ export interface RecordUpdateGroup {
 	rowUpdates: Array<{ columnName: string; value: unknown; useDefault?: boolean }>;
 }
 
-/** Bundles a paginated data query together with its companion COUNT query. */
-export interface QueryBundle {
-	/** Data query — the final bound parameter must be `limit + 1` for hasMore detection. */
-	sql: string;
-	values: unknown[];
-	/** COUNT query that reflects only the active filters (no cursor). */
-	countSql: string;
-	countValues: unknown[];
-}
-
-/** A single row after adapter-level normalization (column → CellValue). */
 export type NormalizedRow = Record<string, CellValue>;
 
-function notImplemented(method: string): never {
+/** The answer to a driver error: its status, and a message to send instead of the driver's. */
+export interface DriverErrorClass {
+	status: number;
+	message?: string;
+}
+
+/** For the engines that report a write refused on a read-only session. */
+export const READ_ONLY_MESSAGE =
+	"This database session is read-only. Disable read-only in Connections if enabled, or connect to a writable database.";
+
+const SOCKET_ERROR_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET"]);
+
+/** The server could not be reached. fetch-based drivers keep the socket error in `cause`. */
+const isSocketError = (e: Error): boolean => {
+	const code =
+		(e as { code?: unknown }).code ?? (e.cause as { code?: unknown } | undefined)?.code;
+
+	return (
+		(typeof code === "string" && SOCKET_ERROR_CODES.has(code)) ||
+		e.message.includes("ECONNREFUSED") ||
+		e.message.includes("connection refused")
+	);
+};
+
+/**
+ * `probe` answered once per client, such as a server's version or a feature it lacks. Keyed
+ * by client because tabs can work with two servers at once; a failed probe is forgotten, so
+ * the next call asks again.
+ */
+export const probeOnce = <K extends object, V>(probe: (client: K) => Promise<V>) => {
+	const answers = new WeakMap<K, Promise<V>>();
+
+	return (client: K): Promise<V> => {
+		let answer = answers.get(client);
+
+		if (!answer) {
+			answer = probe(client).catch((e: unknown) => {
+				answers.delete(client);
+				throw e;
+			});
+			answers.set(client, answer);
+		}
+
+		return answer;
+	};
+};
+
+export function notImplemented(method: string): never {
 	throw new HTTPException(501, {
 		message: `${method} is not implemented for this database type`,
 	});
 }
 
-function serverLogsNotSupported(): never {
-	throw new HTTPException(400, {
-		message: "Server logs are not supported for this database type",
-	});
-}
-
-function indexesNotSupported(): never {
-	throw new HTTPException(400, {
-		message: "Indexes are not supported for this database type",
-	});
-}
-
 export abstract class BaseAdapter implements IDbAdapter {
-	// =========================================================
-	// Abstract — every concrete adapter MUST implement these
-	// =========================================================
-
-	/** Execute a parameterised query and return the result rows. */
-	protected abstract runQuery<T>(db: string, sql: string, values: unknown[]): Promise<T>;
-
-	/**
-	 * Build a paginated data query and a companion COUNT query for getTableData().
-	 * The data query must append `limit + 1` as its final bound value so the
-	 * template method can detect whether a next page exists.
-	 */
-	protected abstract buildTableDataQuery(params: GetTableDataParams): QueryBundle;
-
-	/** Map raw DB rows to NormalizedRow records. */
-	protected abstract normalizeRows(rawRows: unknown[]): NormalizedRow[];
-
-	/**
-	 * Compute next/previous cursors from the final page rows.
-	 * Called after rows are trimmed to `limit` and reversed (for desc direction).
-	 */
-	protected abstract buildCursors(
-		params: GetTableDataParams,
-		rows: NormalizedRow[],
-		hasMore: boolean,
-	): { nextCursor: string | null; prevCursor: string | null };
-
-	/** Return the DB-specific quoted form of an identifier (table or column name). */
-	protected abstract quoteIdentifier(name: string): string;
-
-	abstract mapToUniversalType(nativeType: string): DataTypes;
-	abstract mapFromUniversalType(universalType: string): string;
-
-	// =========================================================
-	// Protected helpers — shared across all adapters
-	// =========================================================
-
 	/**
 	 * Delete requests carry one key column per row, so on a composite key they would match
 	 * every row sharing that column's value. Refuse until the request addresses whole keys.
@@ -133,81 +112,25 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 
 	/**
-	 * Wrap any thrown value in an HTTPException.
-	 * Detects connection errors for all supported databases and maps them to 503.
-	 * Concrete adapters can override to handle additional DB-specific error codes.
+	 * The status and message the API answers a failure with. Adapters recognise their own
+	 * driver's errors in `classifyDriverError`; this adds what every driver shares.
 	 */
-	protected wrapError(e: unknown): HTTPException {
+	classifyError(e: unknown): HTTPException {
 		if (e instanceof HTTPException) return e;
 
-		if (e instanceof Error) {
-			const err = e as { code?: string; errno?: number };
-			// fetch-based drivers (libSQL over HTTP) throw "fetch failed" and keep the socket error in `cause`
-			const code = err.code ?? (e.cause as { code?: string } | undefined)?.code;
+		if (!(e instanceof Error))
+			return new HTTPException(500, { message: "Internal server error", cause: e });
 
-			// Before the message checks below, whose words a table name in this message can contain.
-			// 42501: the connected role lacks a privilege or a row-level security policy refused the row.
-			// SQL Server 229/230: the login lacks a permission on a table or column.
-			const mssqlNumber = (e as { number?: number }).number;
-			if (
-				(isPgDatabaseError(e) && e.code === "42501") ||
-				(e.name === "RequestError" && (mssqlNumber === 229 || mssqlNumber === 230))
-			) {
-				return new HTTPException(403, { message: e.message, cause: e });
-			}
-			if (isPgDataException(e))
-				return new HTTPException(400, { message: e.message, cause: e });
-			if (isReadOnlyRefusal(e)) {
-				return new HTTPException(403, {
-					message: READ_ONLY_MESSAGE,
-					cause: e,
-				});
-			}
+		const { status, message = e.message } = this.classifyDriverError(e) ?? {
+			status: isSocketError(e) ? 503 : 500,
+		};
 
-			const isConnectionError =
-				code === "ECONNREFUSED" ||
-				code === "ENOTFOUND" ||
-				code === "ETIMEDOUT" ||
-				code === "ER_ACCESS_DENIED_ERROR" ||
-				code === "ER_BAD_HOST_ERROR" ||
-				code === "ECONNRESET" ||
-				e.name === "ConnectionError" || // mssql: login failure, connect timeout or socket error
-				err.errno === 1045 || // MySQL ER_ACCESS_DENIED_ERROR
-				err.errno === 2003 || // MySQL can't connect to server
-				err.errno === 2002 || // MySQL can't connect to local server
-				e.message.includes("ECONNREFUSED") ||
-				e.message.includes("connection refused") ||
-				e.message.includes("timeout expired") ||
-				e.message.includes("Connection terminated") ||
-				e.message.includes("MongoNetworkError") ||
-				e.message.includes("MongoServerSelectionError") ||
-				e.message.includes("Login failed") ||
-				/HTTP status (401|403)\b/.test(e.message) || // libSQL / Turso: bad or missing authToken
-				e.message.startsWith("NOAUTH") || // Redis: auth required
-				e.message.startsWith("WRONGPASS") || // Redis: invalid credentials
-				e.message.startsWith("LOADING") || // Redis: dataset loading
-				e.message.startsWith("BUSY") || // Redis: server busy
-				e.message.startsWith("READONLY") || // Redis: read-only replica
-				e.message.startsWith("CLUSTERDOWN") || // Redis: cluster down
-				e.message.includes("Redis cluster mode is not supported") ||
-				e.message.includes("Could not set lock on file") || // DuckDB: file locked by another process
-				// Oracle: no listener, unknown service/SID, bad credentials, locked account,
-				// timeout or lost connection; NJS-5xx are the thin driver's network errors
-				/^(ORA-(01017|03113|03114|03135|12170|12505|12514|12541|28000)|NJS-5(00|01|03|10|11|18|21)):/.test(
-					e.message,
-				) ||
-				e.message.includes("Authentication failed: password is incorrect") || // ClickHouse
-				e.message === "Timeout error." || // @clickhouse/client request timeout
-				(isPgDatabaseError(e) && e.code?.startsWith("08")); // PG connection exception class
+		return new HTTPException(status, { message, cause: e });
+	}
 
-			if (isConnectionError) {
-				return new HTTPException(503, { message: e.message, cause: e });
-			}
-
-			return new HTTPException(500, { message: e.message, cause: e });
-		}
-
-		return new HTTPException(500, { message: "Internal server error", cause: e });
+	/** This engine's driver errors that answer with another status than 500, if `e` is one. */
+	protected classifyDriverError(_e: Error): DriverErrorClass | undefined {
+		return undefined;
 	}
 
 	/**
@@ -224,6 +147,7 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 */
 	protected assertWholeKey(pkColumns: string[], keyColumns: string[]): void {
 		const missing = pkColumns.filter((column) => !keyColumns.includes(column));
+
 		if (missing.length > 0)
 			throw new HTTPException(400, {
 				message: `Updates must match on every primary key column; missing: ${missing.join(", ")}`,
@@ -235,19 +159,21 @@ export abstract class BaseAdapter implements IDbAdapter {
 	 * on every key column. Throws 400 when a key column is absent from the row.
 	 */
 	protected groupUpdatesByKey(
-		params: UpdateRecordsSchemaType,
+		updates: UpdateRecordsSchemaType["updates"],
 		keyColumns: string[],
 	): RecordUpdateGroup[] {
 		const groups = new Map<string, RecordUpdateGroup>();
 
-		for (const update of params.updates) {
+		for (const update of updates) {
 			const keyValues = keyColumns.map((column) => {
 				const value = update.rowData[column];
+
 				if (value === undefined || value === null) {
 					throw new HTTPException(400, {
 						message: `Primary key "${column}" not found in row data.`,
 					});
 				}
+
 				return value;
 			});
 
@@ -264,29 +190,13 @@ export abstract class BaseAdapter implements IDbAdapter {
 		return [...groups.values()];
 	}
 
-	/**
-	 * ORDER BY terms for a page: the requested sorts, then every key column not already
-	 * sorted on, as tie-breakers in the leading sort's direction so paging stays stable.
-	 */
-	protected orderTerms<K>(
-		sort: GetTableDataParams["sort"] = [],
-		order: SortDirection,
-		keyColumns: K[],
-	): Array<{ column: string | K; direction: SortDirection }> {
-		const sorts =
-			typeof sort === "string" ? (sort ? [{ columnName: sort, direction: order }] : []) : sort;
-		const tieBreakerDirection = sorts[0]?.direction ?? order;
-		return [
-			...sorts.map((s) => ({ column: s.columnName, direction: s.direction })),
-			...keyColumns
-				.filter((key) => !sorts.some((s) => s.columnName === key))
-				.map((column) => ({ column, direction: tieBreakerDirection })),
-		];
-	}
-
 	/** Human-readable `col = value` list used in "record not found" errors. */
 	protected describeKey(keyColumns: string[], keyValues: unknown[]): string {
 		return keyColumns.map((column, i) => `${column} = ${keyValues[i]}`).join(", ");
+	}
+
+	protected tableMissing(tableName: string) {
+		return new HTTPException(404, { message: `Table "${tableName}" does not exist` });
 	}
 
 	protected assertDifferentTableName(tableName: string, newTableName: string): void {
@@ -297,114 +207,44 @@ export abstract class BaseAdapter implements IDbAdapter {
 		}
 	}
 
-	/** Encode cursor data to a URL-safe base64 string. */
-	protected encodeCursor(data: CursorData): string {
-		return Buffer.from(JSON.stringify(data)).toString("base64url");
-	}
+	abstract getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType>;
 
-	/** Decode a base64url cursor string; returns null if malformed. */
-	protected decodeCursor(cursor: string): CursorData | null {
-		try {
-			return JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
-		} catch {
-			return null;
-		}
-	}
-
-	/**
-	 * Normalize a single raw row by casting each value to CellValue.
-	 * Convenience helper for use inside normalizeRows() implementations.
-	 */
-	protected normalizeRow(row: Record<string, unknown>): NormalizedRow {
-		const out: NormalizedRow = {};
-		for (const [k, v] of Object.entries(row)) {
-			out[k] = v as CellValue;
-		}
-		return out;
-	}
-
-	// =========================================================
-	// Template Methods — shared skeleton, DB-specific steps via abstract methods
-	// =========================================================
-
-	async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		try {
-			const { db, limit = 50, direction = "asc" } = params;
-			const bundle = this.buildTableDataQuery(params);
-
-			// The total (active filters, no cursor) and the page (limit+1 rows, to tell whether a
-			// next page exists) are independent, so a page costs the slower query, not both.
-			const [countRes, pageRows] = await Promise.all([
-				this.runQuery<Record<string, unknown>[]>(db, bundle.countSql, bundle.countValues),
-				this.runQuery<unknown[]>(db, bundle.sql, bundle.values),
-			]);
-			const total = Number(countRes[0]?.total ?? 0);
-
-			const hasMore = pageRows.length > limit;
-			const rawRows = hasMore ? pageRows.slice(0, limit) : pageRows;
-
-			let rows = this.normalizeRows(rawRows);
-			if (direction === "desc") rows = rows.reverse();
-
-			const { nextCursor, prevCursor } = this.buildCursors(params, rows, hasMore);
-
-			return {
-				data: rows,
-				meta: {
-					limit,
-					total,
-					hasNextPage: direction === "asc" ? hasMore : !!params.cursor,
-					hasPreviousPage: direction === "asc" ? !!params.cursor : hasMore,
-					nextCursor,
-					prevCursor,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
-	}
-
-	async exportTableData({
-		tableName,
-		db,
-	}: {
+	abstract exportTableData(params: {
 		tableName: string;
 		schemaName?: string;
 		db: DatabaseSchemaType["db"];
-	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		try {
-			const sql = `SELECT * FROM ${this.quoteIdentifier(tableName)}`;
-			const rows = await this.runQuery<Record<string, unknown>[]>(db, sql, []);
+	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }>;
 
-			if (!rows || rows.length === 0) {
-				throw new HTTPException(404, {
-					message: `Table "${tableName}" does not exist or has no data`,
-				});
-			}
+	abstract getDatabasesList(): Promise<DatabaseInfoSchemaType[]>;
+	abstract getCurrentDatabase(): Promise<DatabaseSchemaType>;
+	abstract getDatabaseConnectionInfo(server: ServerAddress): Promise<ConnectionInfoSchemaType>;
+	abstract getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]>;
 
-			const cols = Object.keys(rows[0]);
-			return { cols, rows };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
-	}
+	abstract getTableSchema(params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<string>;
 
-	// =========================================================
-	// Default stubs — override in concrete adapters
-	// =========================================================
+	abstract getTableColumns(params: {
+		tableName: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<ColumnInfoSchemaType[]>;
 
-	getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		return notImplemented("getDatabasesList");
-	}
-	getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		return notImplemented("getCurrentDatabase");
-	}
-	getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
-		return notImplemented("getDatabaseConnectionInfo");
-	}
-	getTablesList(_db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		return notImplemented("getTablesList");
-	}
+	abstract addRecord(params: {
+		db: DatabaseSchemaType["db"];
+		params: AddRecordSchemaType;
+	}): Promise<{ insertedCount: number }>;
+
+	abstract bulkInsertRecords(params: BulkInsertRecordsParams): Promise<BulkInsertResult>;
+
+	abstract executeQuery(params: {
+		query: string;
+		db: DatabaseSchemaType["db"];
+	}): Promise<ExecuteQueryResult>;
+
+	// Unreachable defaults: the routes refuse these operations, by the engine's DATABASE_ENGINES
+	// traits, for the engines that do not implement them.
+
 	createTable(_params: {
 		tableData: CreateTableSchemaType;
 		db: DatabaseSchemaType["db"];
@@ -417,22 +257,10 @@ export abstract class BaseAdapter implements IDbAdapter {
 	renameTable(_params: RenameTableParamsSchemaType): Promise<void> {
 		return notImplemented("renameTable");
 	}
-	getTableSchema(_params: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<string> {
-		return notImplemented("getTableSchema");
-	}
-	getTableColumns(_params: {
-		tableName: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ColumnInfoSchemaType[]> {
-		return notImplemented("getTableColumns");
-	}
 	addColumn(_params: AddColumnParamsSchemaType): Promise<void> {
 		return notImplemented("addColumn");
 	}
-	deleteColumn(_params: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
+	deleteColumn(_params: DeleteColumnParamsSchemaType): Promise<void> {
 		return notImplemented("deleteColumn");
 	}
 	alterColumn(_params: AlterColumnParamsSchemaType): Promise<void> {
@@ -445,25 +273,19 @@ export abstract class BaseAdapter implements IDbAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		return indexesNotSupported();
+		return notImplemented("index operations");
 	}
 	createIndex(_params: CreateIndexParamsSchemaType): Promise<void> {
-		return indexesNotSupported();
+		return notImplemented("index operations");
 	}
 	dropIndex(_params: DropIndexParamsSchemaType): Promise<void> {
-		return indexesNotSupported();
+		return notImplemented("index operations");
 	}
 	getServerLogs(_params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
-		return serverLogsNotSupported();
+		return notImplemented("getServerLogs");
 	}
 	getRoutines(_params: { db: DatabaseSchemaType["db"] }): Promise<RoutineInfoSchemaType[]> {
 		return notImplemented("getRoutines");
-	}
-	addRecord(_params: {
-		db: DatabaseSchemaType["db"];
-		params: AddRecordSchemaType;
-	}): Promise<{ insertedCount: number }> {
-		return notImplemented("addRecord");
 	}
 	updateRecords(_params: {
 		db: DatabaseSchemaType["db"];
@@ -476,14 +298,5 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	forceDeleteRecords(_params: DeleteRecordParams): Promise<{ deletedCount: number }> {
 		return notImplemented("forceDeleteRecords");
-	}
-	bulkInsertRecords(_params: BulkInsertRecordsParams): Promise<BulkInsertResult> {
-		return notImplemented("bulkInsertRecords");
-	}
-	executeQuery(_params: {
-		query: string;
-		db: DatabaseSchemaType["db"];
-	}): Promise<ExecuteQueryResult> {
-		return notImplemented("executeQuery");
 	}
 }

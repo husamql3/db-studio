@@ -24,30 +24,6 @@ export function baseOptions(): BaseLayoutProps {
 			enabled: false,
 		},
 		links: [
-			// {
-			// 	type: "button",
-			// 	text: "introduction",
-			// 	url: "/docs",
-			// 	external: false,
-			// },
-			// {
-			// 	type: "button",
-			// 	text: "getting started",
-			// 	url: "/docs/getting-started",
-			// 	external: false,
-			// },
-			// {
-			// 	type: "button",
-			// 	text: "migrate from prisma studio",
-			// 	url: "/docs/migrate-from-prisma-drizzle",
-			// 	external: false,
-			// },
-			// {
-			// 	type: "button",
-			// 	text: "faq",
-			// 	url: "/docs/faq",
-			// 	external: false,
-			// },
 			{
 				type: "icon",
 				icon: <FaXTwitter className="size-4" />,

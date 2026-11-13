@@ -6,6 +6,7 @@ import {
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
 import { Plus } from "lucide-react";
+import { openAddRecord } from "@/features/records";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const AddRecordMenu = () => {
@@ -28,9 +29,7 @@ export const AddRecordMenu = () => {
 				align="start"
 				className="w-48"
 			>
-				<DropdownMenuItem onClick={() => openOverlay("records.add-record")}>
-					Add Record
-				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => openAddRecord()}>Add Record</DropdownMenuItem>
 				<DropdownMenuItem onClick={() => openOverlay("records.bulk-insert-csv")}>
 					Add data from CSV
 				</DropdownMenuItem>

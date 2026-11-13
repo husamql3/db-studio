@@ -90,7 +90,9 @@ export const RoutinesScreen = () => {
 	} = useSearch({
 		from: "/_pathlessLayout/routines",
 	});
+
 	const { routines, isLoadingRoutines, errorRoutines } = useRoutines();
+
 	const routine = routines?.find(
 		(item) =>
 			item.routineName === name &&

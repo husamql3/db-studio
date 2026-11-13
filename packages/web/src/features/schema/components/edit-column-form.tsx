@@ -1,4 +1,4 @@
-import { alterColumnSchema, type ColumnInfoSchemaType } from "@db-studio/shared/types";
+import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { Checkbox } from "@db-studio/ui/checkbox";
 import { Input } from "@db-studio/ui/input";
 import { Label } from "@db-studio/ui/label";
@@ -7,54 +7,39 @@ import { useEffect } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
-import { DefaultValueField } from "@/features/table-builder/components/fields/default-value-field";
-import { FormActions } from "@/features/table-builder/components/fields/form-actions";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useAlterColumn } from "../hooks/use-alter-column";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
+import { columnFieldSchema } from "./column-fields/column-field-values";
+import { ColumnTypeField } from "./column-fields/column-type-field";
+import { DefaultValueField } from "./column-fields/default-value-field";
+import { FormActions } from "./column-fields/form-actions";
 
-const editColumnFormSchema = z.object({
-	fields: z.tuple([
-		z.object({
-			columnName: z.string(),
-			columnType: alterColumnSchema.shape.columnType,
-			defaultValue: z.string(),
-			isPrimaryKey: z.boolean(),
-			isNullable: alterColumnSchema.shape.isNullable,
-			isUnique: z.boolean(),
-			isIdentity: z.boolean(),
-			isArray: z.boolean(),
-		}),
-	]),
+const editColumnFormSchema = columnFieldSchema.pick({
+	columnType: true,
+	defaultValue: true,
+	isNullable: true,
 });
 
 type EditColumnFormValues = z.infer<typeof editColumnFormSchema>;
 
 const getDefaultValues = (column: ColumnInfoSchemaType | null): EditColumnFormValues => ({
-	fields: [
-		{
-			columnName: column?.columnName ?? "",
-			columnType: column?.dataTypeLabel ?? "",
-			defaultValue: column?.columnDefault ?? "",
-			isPrimaryKey: false,
-			isNullable: column?.isNullable ?? true,
-			isUnique: false,
-			isIdentity: false,
-			isArray: column?.dataType === "array",
-		},
-	],
+	columnType: column?.dataTypeLabel ?? "",
+	defaultValue: column?.columnDefault ?? "",
+	isNullable: column?.isNullable ?? true,
 });
 
 export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { editingColumn, setEditingColumn } = useSchemaEditStore();
+
 	const methods = useForm<EditColumnFormValues>({
 		mode: "onSubmit",
 		defaultValues: getDefaultValues(null),
 		resolver: zodResolver(editColumnFormSchema),
 	});
+
 	const { alterColumn, isAlteringColumn } = useAlterColumn({
 		tableName,
 		schemaName: useTableSchemaName(),
@@ -72,12 +57,12 @@ export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 	};
 
 	const handleSubmit = async (data: EditColumnFormValues) => {
-		await alterColumn({
-			columnType: data.fields[0].columnType,
-			isNullable: data.fields[0].isNullable,
-			defaultValue: data.fields[0].defaultValue,
-		});
-		methods.reset(getDefaultValues(null));
+		try {
+			await alterColumn(data);
+			methods.reset(getDefaultValues(null));
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
+		}
 	};
 
 	return (
@@ -113,20 +98,24 @@ export const EditColumnForm = ({ tableName }: { tableName: string }) => {
 
 						<div className="space-y-2">
 							<Label>Column type</Label>
-							<ColumnTypeField index={0} />
+							<ColumnTypeField
+								control={methods.control}
+								name="columnType"
+							/>
 						</div>
 
 						<div className="space-y-2">
 							<Label>Default value</Label>
 							<DefaultValueField
-								index={0}
-								isRequired={false}
+								id="defaultValue"
+								{...methods.register("defaultValue")}
+								invalid={Boolean(methods.formState.errors.defaultValue)}
 							/>
 						</div>
 
 						<Controller
 							control={methods.control}
-							name="fields.0.isNullable"
+							name="isNullable"
 							render={({ field }) => (
 								<div className="flex items-center gap-3 rounded-lg border border-border p-3">
 									<Checkbox

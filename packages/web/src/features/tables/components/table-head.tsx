@@ -1,6 +1,6 @@
 import type { Table } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import type { TableRecord } from "@/types/table.type";
+import type { TableRecord } from "@/features/tables/table.type";
 import { TableHeadRow } from "./table-head-row";
 
 interface TableHeadProps {
@@ -8,6 +8,7 @@ interface TableHeadProps {
 	table: Table<TableRecord>;
 	virtualPaddingLeft: number | undefined;
 	virtualPaddingRight: number | undefined;
+	tableName: string;
 }
 
 export const TableHead = ({
@@ -15,6 +16,7 @@ export const TableHead = ({
 	table,
 	virtualPaddingLeft,
 	virtualPaddingRight,
+	tableName,
 }: TableHeadProps) => {
 	return (
 		<thead className="h-9 grid sticky top-0 z-10 supports-backdrop-filter:backdrop-blur-sm">
@@ -26,6 +28,7 @@ export const TableHead = ({
 					key={headerGroup.id}
 					virtualPaddingLeft={virtualPaddingLeft}
 					virtualPaddingRight={virtualPaddingRight}
+					tableName={tableName}
 				/>
 			))}
 		</thead>

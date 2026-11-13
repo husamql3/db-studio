@@ -1,0 +1,63 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+	"categories": {
+		"correctness": "error"
+	},
+	"ignorePatterns": [
+		"t3-*/**",
+		".agents/**",
+		".claude/**",
+		".codex/**",
+		"marketing/**",
+		"tools/oxlint/anti-slop/**",
+		"**/routeTree.gen.ts",
+		"www/.source/**",
+		"packages/server/e2e/artifacts/**"
+	],
+	"jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
+	"rules": {
+		// Off in Biome too.
+		"jsx-a11y/no-static-element-interactions": "off",
+		"jsx-a11y/no-noninteractive-element-interactions": "off",
+		"jsx-a11y/click-events-have-key-events": "off",
+		"jsx-a11y/prefer-tag-over-role": "off",
+		"react/no-array-index-key": "off",
+		"react/no-children-prop": "off",
+		"react-hooks/exhaustive-deps": "off",
+		// Inputs that autofocus appear because the user just asked to type in them.
+		"jsx-a11y/no-autofocus": "off",
+		// Grid checkboxes are labelled by their row and column, which the rule cannot see.
+		"jsx-a11y/control-has-associated-label": "off",
+		// React Compiler rules; the apps do not use the compiler.
+		"react/refs": "off",
+		"react/set-state-in-effect": "off",
+		"react/preserve-manual-memoization": "off",
+		"react/incompatible-library": "off",
+		"react/purity": "off",
+		"react/static-components": "off",
+
+		// The rules below fail on the stricter anti-slop checks; "warn" rules are being
+		// worked down and become errors once they reach zero.
+
+		"oxc/no-accumulating-spread": "error",
+		"anti-slop/no-array-filter-map": "error",
+		"anti-slop/no-reduce-accumulator-copy": "error",
+		"anti-slop/no-chained-type-assertions": "error",
+		"anti-slop/no-conditional-empty-object-spread": "error",
+		"anti-slop/no-known-value-widening": "warn",
+		"anti-slop/no-module-mocking": "warn",
+		"anti-slop/no-object-parameters": "error",
+		"anti-slop/no-reflect-apply": "error",
+		"anti-slop/no-reflect-get": "error",
+		"anti-slop/no-runtime-typeof": "warn",
+		"anti-slop/no-shape-in-symbol-names": "warn",
+		"anti-slop/no-unknown-parameters": "warn",
+		"anti-slop/no-unknown-returns": "error",
+		"anti-slop/no-unknown-type-aliases": "error",
+		"anti-slop/no-unsafe-dictionary-type": "warn",
+		"anti-slop/no-widen-then-assert": "error",
+		"anti-slop/require-readable-spacing": "error",
+		"anti-slop/require-safety-comment-for-type-assertion": "warn"
+	}
+}

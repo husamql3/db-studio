@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+import { REQUEST_ID_PATTERN } from "@db-studio/shared/constants";
 import type { DatabaseTypeSchema } from "@db-studio/shared/types";
 import { HTTPException } from "@/http-exception.js";
 
@@ -13,15 +14,17 @@ type RequestContext = {
 
 /** Identifies this server process, so logs written outside a request still correlate. */
 const INSTANCE_ID = randomUUID();
-const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const requestContext = new AsyncLocalStorage<RequestContext>();
 
 /** A caller-supplied ID is kept only when it is a plain token, so it stays safe to log. */
 export const resolveRequestId = (incoming: string | undefined): string =>
-	incoming && REQUEST_ID.test(incoming) ? incoming : randomUUID();
+	incoming && REQUEST_ID_PATTERN.test(incoming) ? incoming : randomUUID();
 
 export const runWithRequestContext = <T>(context: RequestContext, callback: () => T): T =>
 	requestContext.run(context, callback);
+
+export const currentRequestContext = (): RequestContext | undefined =>
+	requestContext.getStore();
 
 export const currentRequestId = (): string | undefined => requestContext.getStore()?.requestId;
 
@@ -35,6 +38,7 @@ const safeErrorType = (error: unknown): string => {
 			: error instanceof Error
 				? error.name
 				: "Error";
+
 	return /^[A-Za-z][A-Za-z0-9]{0,49}$/.test(name) ? name : "Error";
 };
 
@@ -61,16 +65,23 @@ const CODELESS_FAILURES: Array<[RegExp, string]> = [
  */
 const safeErrorCode = (error: unknown): string | undefined => {
 	if (!(error instanceof Error)) return undefined;
+
 	const { code, errno, number, cause } = error as Error & {
 		code?: unknown;
 		errno?: unknown;
 		number?: unknown;
 	};
+
 	if (typeof number === "number" && Number.isSafeInteger(number)) return String(number);
+
 	if (typeof code === "string" && SAFE_CODE.test(code)) return code;
+
 	if (typeof code === "number" && Number.isSafeInteger(code)) return String(code);
+
 	if (typeof errno === "number" && Number.isSafeInteger(errno)) return String(errno);
+
 	if (error.name === "ReplyError") return error.message.match(/^[A-Z]{3,32}(?= |$)/)?.[0];
+
 	return (
 		CODELESS_FAILURES.find(([pattern]) => pattern.test(error.message))?.[1] ??
 		safeErrorCode(cause)
@@ -78,11 +89,13 @@ const safeErrorCode = (error: unknown): string | undefined => {
 };
 
 /** The error an HTTPException wraps is the one worth diagnosing. */
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- thrown values and Error.cause are unknown by definition
 export const diagnosticErrorFor = (error: unknown): unknown =>
 	error instanceof HTTPException && error.cause ? error.cause : error;
 
 export const errorFields = (error: unknown): { error_type: string; error_code?: string } => {
 	const diagnosticError = diagnosticErrorFor(error);
+
 	return {
 		error_type: safeErrorType(diagnosticError),
 		error_code: safeErrorCode(diagnosticError),

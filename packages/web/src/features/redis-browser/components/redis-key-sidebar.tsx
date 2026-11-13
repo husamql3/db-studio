@@ -28,6 +28,7 @@ import { RedisCreateKeySheet } from "./redis-create-key-sheet";
 import { bytesFromBase64Url } from "./redis-value";
 
 const KEY_TYPES = ["string", "hash", "list", "set", "zset", "stream"] as const;
+
 const TYPE_LABELS: Record<string, string> = {
 	string: "STR",
 	hash: "HASH",
@@ -39,21 +40,29 @@ const TYPE_LABELS: Record<string, string> = {
 
 const formatTtl = (ttlMs: number): string => {
 	if (ttlMs === -1) return "∞";
+
 	if (ttlMs < 0) return "gone";
+
 	if (ttlMs < 1_000) return `${ttlMs}ms`;
+
 	if (ttlMs < 60_000) return `${Math.ceil(ttlMs / 1_000)}s`;
+
 	if (ttlMs < 3_600_000) return `${Math.ceil(ttlMs / 60_000)}m`;
+
 	return `${Math.ceil(ttlMs / 3_600_000)}h`;
 };
 
 const formatMemory = (bytes: number | null): string => {
 	if (bytes === null) return "—";
+
 	if (bytes < 1_024) return `${bytes} B`;
+
 	return `${(bytes / 1_024).toFixed(1)} KiB`;
 };
 
 const formatKey = (base64: string, utf8?: string): string => {
 	if (utf8 !== undefined) return utf8 || "(empty key)";
+
 	return `0x${Array.from(bytesFromBase64Url(base64), (byte) =>
 		byte.toString(16).padStart(2, "0"),
 	).join("")}`;
@@ -68,26 +77,32 @@ export const RedisKeySidebar = () => {
 	const [exact, setExact] = useQueryState("glob", { defaultValue: "false" });
 	const exactPattern = exact === "true";
 	const query = useRedisKeys({ search: debouncedSearch, type, exactPattern });
+
 	const keys = useMemo(
 		() => query.data?.pages.flatMap((page) => page.keys) ?? [],
 		[query.data],
 	);
+
 	const parentRef = useRef<HTMLDivElement>(null);
+
 	const virtualizer = useVirtualizer({
 		count: keys.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 33,
 		overscan: 10,
 	});
+
 	const items = virtualizer.getVirtualItems();
 
 	useEffect(() => {
 		const timeout = window.setTimeout(() => setDebouncedSearch(search), 250);
+
 		return () => window.clearTimeout(timeout);
 	}, [search]);
 
 	useEffect(() => {
 		const last = items.at(-1);
+
 		if (
 			last &&
 			last.index >= keys.length - 5 &&
@@ -213,6 +228,7 @@ export const RedisKeySidebar = () => {
 							const key = keys[item.index];
 							const keyParam = key.key.base64 || "-";
 							const label = formatKey(key.key.base64, key.key.utf8);
+
 							return (
 								<Button
 									key={`${keyParam}-${item.index}`}

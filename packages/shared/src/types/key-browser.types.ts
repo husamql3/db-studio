@@ -9,6 +9,7 @@ export const redisKeyTypeSchema = z.enum([
 	"stream",
 	"unknown",
 ]);
+
 export type RedisKeyTypeSchemaType = z.infer<typeof redisKeyTypeSchema>;
 
 export const encodedRedisValueSchema = z.object({
@@ -21,6 +22,7 @@ export const encodedRedisValueSchema = z.object({
 		),
 	utf8: z.string().optional(),
 });
+
 export type EncodedRedisValueSchemaType = z.infer<typeof encodedRedisValueSchema>;
 
 export const keyScanQuerySchema = z.object({
@@ -35,6 +37,7 @@ export const keyScanQuerySchema = z.object({
 	exactPattern: z.stringbool().default(false),
 	type: redisKeyTypeSchema.exclude(["unknown"]).optional(),
 });
+
 export type KeyScanQuerySchemaType = z.infer<typeof keyScanQuerySchema>;
 
 export const redisKeySummarySchema = z.object({
@@ -43,13 +46,13 @@ export const redisKeySummarySchema = z.object({
 	ttlMs: z.number().int(),
 	memoryBytes: z.number().int().nonnegative().nullable(),
 });
-export type RedisKeySummarySchemaType = z.infer<typeof redisKeySummarySchema>;
 
 export const keyScanResultSchema = z.object({
 	keys: z.array(redisKeySummarySchema),
 	nextCursor: z.string().nullable(),
 	hasMore: z.boolean(),
 });
+
 export type KeyScanResultSchemaType = z.infer<typeof keyScanResultSchema>;
 
 export const keyDetailsQuerySchema = z.object({
@@ -63,6 +66,7 @@ export const keyDetailsQuerySchema = z.object({
 	full: z.stringbool().default(false),
 	direction: z.enum(["forward", "backward"]).default("forward"),
 });
+
 export type KeyDetailsQuerySchemaType = z.infer<typeof keyDetailsQuerySchema>;
 
 export const keyParamSchema = z.object({
@@ -129,7 +133,6 @@ export const redisKeyValueSchema = z.discriminatedUnion("kind", [
 	redisStreamValueSchema,
 	redisUnknownValueSchema,
 ]);
-export type RedisKeyValueSchemaType = z.infer<typeof redisKeyValueSchema>;
 
 export const keyDetailsResultSchema = redisKeySummarySchema.extend({
 	length: z.number().int().nonnegative().nullable(),
@@ -138,6 +141,7 @@ export const keyDetailsResultSchema = redisKeySummarySchema.extend({
 	nextCursor: z.string().nullable(),
 	hasMore: z.boolean(),
 });
+
 export type KeyDetailsResultSchemaType = z.infer<typeof keyDetailsResultSchema>;
 
 export const keyRawQuerySchema = z.object({
@@ -151,6 +155,7 @@ export const keyRawQuerySchema = z.object({
 		.default(1024 * 1024),
 	expectedRevision: z.string().optional(),
 });
+
 export type KeyRawQuerySchemaType = z.infer<typeof keyRawQuerySchema>;
 
 export const keyRawResultSchema = z.object({
@@ -159,6 +164,7 @@ export const keyRawResultSchema = z.object({
 	nextOffset: z.number().int().nonnegative().nullable(),
 	hasMore: z.boolean(),
 });
+
 export type KeyRawResultSchemaType = z.infer<typeof keyRawResultSchema>;
 
 const createStringValueSchema = z.object({
@@ -209,6 +215,7 @@ export const createKeySchema = z.object({
 	]),
 	ttlMs: z.number().int().positive().nullable().default(null),
 });
+
 export type CreateKeySchemaType = z.infer<typeof createKeySchema>;
 
 export const keyWriteResultSchema = z.object({
@@ -216,6 +223,7 @@ export const keyWriteResultSchema = z.object({
 	revision: z.string().nullable(),
 	deleted: z.boolean(),
 });
+
 export type KeyWriteResultSchemaType = z.infer<typeof keyWriteResultSchema>;
 
 const renameKeyActionSchema = z.object({
@@ -315,6 +323,7 @@ export const keyActionSchema = z.object({
 		deleteStreamKeyActionSchema,
 	]),
 });
+
 export type KeyActionSchemaType = z.infer<typeof keyActionSchema>;
 
 export const deleteKeyQuerySchema = z.object({
@@ -322,7 +331,9 @@ export const deleteKeyQuerySchema = z.object({
 	expectedRevision: z.string(),
 	force: z.stringbool().default(false),
 });
+
 export type DeleteKeyQuerySchemaType = z.infer<typeof deleteKeyQuerySchema>;
 
 export const deleteKeyResultSchema = z.object({ deleted: z.boolean() });
+
 export type DeleteKeyResultSchemaType = z.infer<typeof deleteKeyResultSchema>;

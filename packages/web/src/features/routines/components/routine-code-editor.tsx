@@ -26,6 +26,7 @@ export const RoutineCodeEditor = ({
 	useEffect(() => {
 		if (!containerRef.current) return;
 		registerMonacoThemes();
+
 		const editor = monaco.editor.create(containerRef.current, {
 			value,
 			language: "sql",
@@ -40,9 +41,11 @@ export const RoutineCodeEditor = ({
 			tabSize: preferences.tabSize,
 			wordWrap: preferences.wordWrap ? "on" : "off",
 		});
+
 		const changeSubscription = editor.onDidChangeModelContent(() => {
 			onChangeRef.current(editor.getValue());
 		});
+
 		editorRef.current = editor;
 
 		return () => {
@@ -58,6 +61,7 @@ export const RoutineCodeEditor = ({
 
 	useEffect(() => {
 		const editor = editorRef.current;
+
 		if (editor && editor.getValue() !== value) editor.setValue(value);
 	}, [value]);
 

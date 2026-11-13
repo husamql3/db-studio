@@ -1,21 +1,24 @@
 import { create } from "zustand";
-import type { EditScope } from "@/types/table.type";
-import { stableStringify } from "../utils/table-diff";
+import type { EditScope } from "@/features/tables/table.type";
+import { onConnectionReset } from "@/stores/connection-reset";
+import { getRowIdentity, stableStringify } from "../utils/table-diff";
 
 /** A pending value meaning "set this cell to its column default"; compared by identity. */
 export const CELL_DEFAULT = Object.freeze({ default: true });
 
 export type CellUpdate = {
 	scope: string;
-	rowData: Record<string, unknown>; // The entire row data
-	columnName: string; // The column identifier
-	newValue: unknown; // The new value
-	originalValue: unknown; // The original value for comparison
+	rowData: Record<string, unknown>;
+	columnName: string;
+	newValue: unknown;
+	originalValue: unknown;
 };
 
 type Change = [key: string, update: CellUpdate | undefined];
+
 /** One undoable edit: what its cells held before it. */
 type HistoryStep = { scope: string; previous: Change[] };
+
 type StagedEdit = {
 	rowData: Record<string, unknown>;
 	columnName: string;
@@ -57,19 +60,12 @@ type UpdateCellStore = {
 
 const GLOBAL_SCOPE: EditScope = { id: "global", keyColumns: [] };
 
-/** The key values that identify a row's drafts within a scope. */
-export const getRowIdentity = (rowData: Record<string, unknown>, scope = GLOBAL_SCOPE) =>
-	scope.keyColumns.length > 0
-		? scope.keyColumns.map((column) => rowData[column])
-		: (rowData.id ?? rowData._id ?? rowData);
-
 const getCellKey = (
 	rowData: Record<string, unknown>,
 	columnName: string,
 	scope = GLOBAL_SCOPE,
 ): string =>
-	// Keeps each key value's type, so a MongoDB `_id` of 1 and one of "1" stay two rows.
-	stableStringify([scope.id, getRowIdentity(rowData, scope), columnName]);
+	stableStringify([scope.id, getRowIdentity(rowData, scope.keyColumns), columnName]);
 
 const toChange = (
 	{ rowData, columnName, newValue, originalValue }: StagedEdit,
@@ -90,12 +86,16 @@ const commit = (
 ) => {
 	const updates = new Map(state.updates);
 	const previous: Change[] = [];
+
 	for (const [key, update] of changes) {
 		previous.push([key, updates.get(key)]);
+
 		if (update) updates.set(key, update);
 		else updates.delete(key);
 	}
+
 	if (previous.every(([, before], i) => before === changes[i][1])) return state;
+
 	return { updates, history: [...state.history, { scope, previous }] };
 };
 
@@ -126,9 +126,9 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 				: commit(
 						state,
 						scopeId,
-						[...state.updates]
-							.filter(([, update]) => update.scope === scopeId)
-							.map(([key]) => [key, undefined]),
+						[...state.updates].flatMap(([key, update]): Change[] =>
+							update.scope === scopeId ? [[key, undefined]] : [],
+						),
 					),
 		),
 
@@ -150,15 +150,19 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 	undo: (scopeId) => {
 		const { updates, history } = get();
 		const index = history.map((step) => step.scope).lastIndexOf(scopeId);
+
 		if (index < 0) return 0;
 		const next = new Map(updates);
 		const { previous } = history[index];
+
 		// Backwards, so a cell changed twice in one step ends at its first value.
 		for (const [key, update] of [...previous].reverse()) {
 			if (update) next.set(key, update);
 			else next.delete(key);
 		}
+
 		set({ updates: next, history: history.filter((_, i) => i !== index) });
+
 		return new Set(previous.map(([key]) => key)).size;
 	},
 
@@ -168,9 +172,13 @@ export const useUpdateCellStore = create<UpdateCellStore>()((set, get) => ({
 	// Every visible cell asks on every render; skip building its key while nothing is pending.
 	getUpdate: (rowData, columnName, scope) => {
 		const { updates } = get();
+
 		if (updates.size === 0) return null;
+
 		return updates.get(getCellKey(rowData, columnName, scope)) ?? null;
 	},
 
 	getUpdateCount: (scopeId) => get().getUpdates(scopeId).length,
 }));
+
+onConnectionReset(() => useUpdateCellStore.getState().clearUpdates());

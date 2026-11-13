@@ -4,14 +4,15 @@ import { cn } from "@db-studio/ui/utils";
 import { useCallback } from "react";
 import { useLiveModeStore } from "../../stores/live-mode.store";
 
-export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
+export const LiveModeToggle = () => {
 	const { isLive, status, isPulsing, setLive } = useLiveModeStore();
 
 	const handleToggle = useCallback(() => {
-		setLive(!isLive, tableName);
-	}, [isLive, tableName, setLive]);
+		setLive(!isLive);
+	}, [isLive, setLive]);
 
 	let tooltipText = "Live mode: Automatic updates (Off)";
+
 	if (status === "paused") {
 		tooltipText = "Live mode paused while editing. Click to resume.";
 	} else if (isLive && status === "healthy") {

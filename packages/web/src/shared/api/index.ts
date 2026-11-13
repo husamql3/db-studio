@@ -1,10 +1,21 @@
 export * from "./chat";
+
 export * from "./client";
+
 export * from "./connections";
+
 export * from "./databases";
+
 export * from "./logs";
+
 export * from "./query";
+
 export * from "./records";
+
 export * from "./redis-keys";
+
 export * from "./routines";
+
 export * from "./tables";
+
+export * from "./telemetry";

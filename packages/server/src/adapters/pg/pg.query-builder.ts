@@ -1,132 +1,18 @@
-import type { FilterType, SortDirection } from "@db-studio/shared/types";
+import { DataTypes, StandardizedDataType } from "@db-studio/shared/types";
+import type { FilterDialect } from "@/adapters/sql-filters.js";
+import type { KeysetDialect } from "@/adapters/sql-pagination.js";
 
-const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
+export const quotePgIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-export function buildWhereClause(filters: FilterType[]): {
-	clause: string;
-	values: unknown[];
-} {
-	if (filters.length === 0) {
-		return { clause: "", values: [] };
-	}
+export const pgFilters: FilterDialect = {
+	quote: quotePgIdent,
+	likeOperand: (column) => `${column}::text`,
+	ilike: "keyword",
+};
 
-	const conditions: string[] = [];
-	const values: unknown[] = [];
+export const pgPlaceholder = (position: number) => `$${position}`;
 
-	for (const filter of filters) {
-		const paramIndex = values.length + 1;
-		const columnName = quotePgIdent(filter.columnName);
-
-		switch (filter.operator) {
-			case "=":
-			case "!=":
-			case ">":
-			case ">=":
-			case "<":
-			case "<=":
-				conditions.push(`${columnName} ${filter.operator} $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "is":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${columnName} IS NULL`);
-				} else {
-					conditions.push(`${columnName} = $${paramIndex}`);
-					values.push(filter.value);
-				}
-				break;
-			case "is not":
-				if (filter.value.toLowerCase() === "null") {
-					conditions.push(`${columnName} IS NOT NULL`);
-				} else {
-					conditions.push(`${columnName} != $${paramIndex}`);
-					values.push(filter.value);
-				}
-				break;
-			case "like":
-				conditions.push(`${columnName}::text LIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "not like":
-				conditions.push(`${columnName}::text NOT LIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "ilike":
-				conditions.push(`${columnName}::text ILIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			case "not ilike":
-				conditions.push(`${columnName}::text NOT ILIKE $${paramIndex}`);
-				values.push(filter.value);
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (conditions.length === 0) {
-		return { clause: "", values: [] };
-	}
-
-	return { clause: `WHERE ${conditions.join(" AND ")}`, values };
-}
-
-export interface OrderTerm {
-	column: string;
-	direction: SortDirection;
-}
-
-/** NULLs sort last in either direction; a backward page reads that order reversed. */
-const placement = (term: OrderTerm, backward: boolean) => ({
-	descending: (term.direction === "desc") !== backward,
-	nullsLast: !backward,
-});
-
-export const buildOrderBy = (terms: OrderTerm[], backward = false) =>
-	`ORDER BY ${terms
-		.map((term) => {
-			const { descending, nullsLast } = placement(term, backward);
-			return `${quotePgIdent(term.column)} ${descending ? "DESC" : "ASC"} NULLS ${nullsLast ? "LAST" : "FIRST"}`;
-		})
-		.join(", ")}`;
-
-/**
- * Rows after the `cursor` row in `buildOrderBy(terms, backward)` order:
- * `(c1 after v1) OR (c1 = v1 AND c2 after v2) OR …`, where "after" follows each column's own
- * direction and NULL placement. A row-value comparison `(c1, c2) > (v1, v2)` cannot express
- * mixed directions and never matches NULL. Each non-NULL cursor value is one parameter,
- * numbered from `startParamIndex`, that later branches reference again.
- */
-export function buildKeysetPredicate(
-	terms: OrderTerm[],
-	cursor: Record<string, unknown>,
-	backward: boolean,
-	startParamIndex: number,
-): { clause: string; values: unknown[] } {
-	const branches: string[] = [];
-	const equal: string[] = [];
-	const values: unknown[] = [];
-
-	for (const term of terms) {
-		const col = quotePgIdent(term.column);
-		const value = cursor[term.column] ?? null;
-		const { descending, nullsLast } = placement(term, backward);
-		if (value !== null) values.push(value);
-		const param = `$${startParamIndex + values.length - 1}`;
-
-		const after =
-			value === null
-				? nullsLast
-					? null
-					: `${col} IS NOT NULL`
-				: `${col} ${descending ? "<" : ">"} ${param}${nullsLast ? ` OR ${col} IS NULL` : ""}`;
-		if (after) branches.push(`(${[...equal, `(${after})`].join(" AND ")})`);
-
-		equal.push(value === null ? `${col} IS NULL` : `${col} = ${param}`);
-	}
-
-	return { clause: branches.length ? `(${branches.join(" OR ")})` : "FALSE", values };
-}
+export const pgKeyset: KeysetDialect = { quote: quotePgIdent, nulls: "keyword" };
 
 /**
  * Postgres resolves a bare table name through search_path, but catalog queries
@@ -157,3 +43,261 @@ export const qualifiedTable = (tableName: string, schemaName?: string): string =
 	schemaName
 		? `${quotePgIdent(schemaName)}.${quotePgIdent(tableName)}`
 		: quotePgIdent(tableName);
+
+export function mapPostgresToDataType(pgType: string): DataTypes {
+	const normalized = pgType?.toLowerCase().trim() || "";
+
+	// information_schema reports every array column as `ARRAY`
+	if (normalized === "array" || normalized.includes("[]")) return DataTypes.array;
+
+	if (
+		normalized === "date" ||
+		normalized === "timestamp" ||
+		normalized === "timestamp without time zone" ||
+		normalized.startsWith("timestamp(") ||
+		normalized === "timestamp with time zone" ||
+		normalized === "timestamptz" ||
+		normalized.startsWith("timestamp with time zone(")
+	) {
+		return DataTypes.date;
+	}
+
+	if (
+		normalized === "integer" ||
+		normalized === "int" ||
+		normalized === "int4" ||
+		normalized === "bigint" ||
+		normalized === "int8" ||
+		normalized === "smallint" ||
+		normalized === "int2" ||
+		normalized === "decimal" ||
+		normalized.startsWith("decimal(") ||
+		normalized === "numeric" ||
+		normalized.startsWith("numeric(") ||
+		normalized === "real" ||
+		normalized === "float4" ||
+		normalized === "double precision" ||
+		normalized === "float8" ||
+		normalized === "float" ||
+		normalized === "serial" ||
+		normalized === "serial4" ||
+		normalized === "bigserial" ||
+		normalized === "serial8" ||
+		normalized === "money"
+	) {
+		return DataTypes.number;
+	}
+
+	if (normalized === "boolean" || normalized === "bool") {
+		return DataTypes.boolean;
+	}
+
+	if (normalized === "json" || normalized === "jsonb") {
+		return DataTypes.json;
+	}
+
+	if (
+		normalized.startsWith("user-defined") ||
+		normalized === "enum" ||
+		normalized === "text" ||
+		normalized === "xml"
+	) {
+		return DataTypes.text;
+	}
+
+	if (
+		normalized === "character varying" ||
+		normalized.startsWith("varchar") ||
+		normalized.startsWith("character varying(") ||
+		normalized === "character" ||
+		normalized.startsWith("char") ||
+		normalized.startsWith("character(") ||
+		normalized === "bpchar" ||
+		normalized === "uuid" ||
+		normalized === "interval" ||
+		normalized.startsWith("interval") ||
+		normalized === "bytea" ||
+		normalized === "point" ||
+		normalized === "line" ||
+		normalized === "polygon" ||
+		normalized === "inet" ||
+		normalized === "cidr" ||
+		normalized === "macaddr" ||
+		normalized === "macaddr8"
+	) {
+		return DataTypes.text;
+	}
+
+	return DataTypes.text;
+}
+
+export function standardizeDataTypeLabel(
+	pgType: string | null | undefined,
+): StandardizedDataType {
+	if (!pgType) {
+		return StandardizedDataType.text;
+	}
+
+	const normalized = pgType.toLowerCase().trim();
+
+	if (
+		normalized === "integer" ||
+		normalized === "int" ||
+		normalized === "int4" ||
+		normalized === "serial" ||
+		normalized === "serial4"
+	) {
+		return StandardizedDataType.int;
+	}
+
+	if (
+		normalized === "bigint" ||
+		normalized === "int8" ||
+		normalized === "bigserial" ||
+		normalized === "serial8"
+	) {
+		return StandardizedDataType.bigint;
+	}
+
+	if (normalized === "smallint" || normalized === "int2") {
+		return StandardizedDataType.smallint;
+	}
+
+	if (
+		normalized === "decimal" ||
+		normalized.startsWith("decimal(") ||
+		normalized === "numeric" ||
+		normalized.startsWith("numeric(")
+	) {
+		return StandardizedDataType.numeric;
+	}
+
+	if (normalized === "real" || normalized === "float4") {
+		return StandardizedDataType.float;
+	}
+
+	if (normalized === "double precision" || normalized === "float8" || normalized === "float") {
+		return StandardizedDataType.double;
+	}
+
+	if (normalized === "money") {
+		return StandardizedDataType.money;
+	}
+
+	if (normalized === "boolean" || normalized === "bool") {
+		return StandardizedDataType.boolean;
+	}
+
+	if (normalized === "text") {
+		return StandardizedDataType.text;
+	}
+
+	if (
+		normalized === "character varying" ||
+		normalized.startsWith("varchar") ||
+		normalized.startsWith("character varying(")
+	) {
+		return StandardizedDataType.varchar;
+	}
+
+	if (
+		normalized === "character" ||
+		normalized.startsWith("char") ||
+		normalized.startsWith("character(") ||
+		normalized === "bpchar"
+	) {
+		return StandardizedDataType.char;
+	}
+
+	if (normalized === "json") {
+		return StandardizedDataType.json;
+	}
+
+	if (normalized === "jsonb") {
+		return StandardizedDataType.jsonb;
+	}
+
+	if (normalized === "xml") {
+		return StandardizedDataType.xml;
+	}
+
+	if (normalized === "uuid") {
+		return StandardizedDataType.uuid;
+	}
+
+	if (normalized === "date") {
+		return StandardizedDataType.date;
+	}
+
+	if (
+		normalized === "time" ||
+		normalized === "time without time zone" ||
+		normalized.startsWith("time(")
+	) {
+		return StandardizedDataType.time;
+	}
+
+	if (
+		normalized === "timestamp" ||
+		normalized === "timestamp without time zone" ||
+		normalized.startsWith("timestamp(")
+	) {
+		return StandardizedDataType.timestamp;
+	}
+
+	if (
+		normalized === "timestamp with time zone" ||
+		normalized === "timestamptz" ||
+		normalized.startsWith("timestamp with time zone(")
+	) {
+		return StandardizedDataType.timestamptz;
+	}
+
+	if (normalized === "interval" || normalized.startsWith("interval")) {
+		return StandardizedDataType.interval;
+	}
+
+	if (normalized === "bytea") {
+		return StandardizedDataType.bytea;
+	}
+
+	if (normalized === "inet") {
+		return StandardizedDataType.inet;
+	}
+
+	if (normalized === "cidr") {
+		return StandardizedDataType.cidr;
+	}
+
+	if (normalized === "macaddr") {
+		return StandardizedDataType.macaddr;
+	}
+
+	if (normalized === "macaddr8") {
+		return StandardizedDataType.macaddr8;
+	}
+
+	if (normalized === "point") {
+		return StandardizedDataType.point;
+	}
+
+	if (normalized === "line") {
+		return StandardizedDataType.line;
+	}
+
+	if (normalized === "polygon") {
+		return StandardizedDataType.polygon;
+	}
+
+	// todo: handle array types
+	if (normalized.startsWith("array") || normalized.includes("[]")) {
+		return StandardizedDataType.text;
+	}
+
+	// User-defined types (enums)
+	if (normalized.startsWith("user-defined") || normalized === "enum") {
+		return StandardizedDataType.enum;
+	}
+
+	return StandardizedDataType.text;
+}

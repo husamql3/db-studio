@@ -18,9 +18,12 @@ export const SidebarContentRoutinesList = () => {
 	const [search, setSearch] = useState("");
 	const selected = useSearch({ from: "/_pathlessLayout/routines" });
 	const { routines = [], isLoadingRoutines, errorRoutines } = useRoutines();
+
 	const visible = useMemo(() => {
 		const needle = search.trim().toLowerCase();
+
 		if (!needle) return routines;
+
 		return routines.filter((routine) =>
 			[routine.schemaName, routine.routineName, routine.signature, routine.routineType]
 				.filter(Boolean)

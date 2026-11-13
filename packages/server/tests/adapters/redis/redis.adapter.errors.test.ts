@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { HTTPException } from "@/http-exception.js";
 import { RedisAdapter } from "@/adapters/redis/redis.adapter.js";
+import { UNSUPPORTED_SERVER_MODE } from "@/connectors/redis.js";
+import { HTTPException } from "@/http-exception.js";
 
 const wrap = (adapter: RedisAdapter, error: unknown): HTTPException =>
-	(adapter as unknown as { wrapError: (e: unknown) => HTTPException }).wrapError(error);
+	adapter.classifyError(error);
 
-describe("RedisAdapter — error mapping (wrapError)", () => {
+describe("RedisAdapter — error mapping (classifyError)", () => {
 	const adapter = new RedisAdapter();
 
 	const cases: { name: string; message: string }[] = [
@@ -28,7 +29,7 @@ describe("RedisAdapter — error mapping (wrapError)", () => {
 	}
 
 	it("maps cluster-not-supported rejection to 503", () => {
-		const wrapped = wrap(adapter, new Error("Redis cluster mode is not supported"));
+		const wrapped = wrap(adapter, new Error(UNSUPPORTED_SERVER_MODE));
 		expect(wrapped.status).toBe(503);
 	});
 
@@ -36,6 +37,7 @@ describe("RedisAdapter — error mapping (wrapError)", () => {
 		const error = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:6379"), {
 			code: "ECONNREFUSED",
 		});
+
 		expect(wrap(adapter, error).status).toBe(503);
 	});
 

@@ -45,6 +45,7 @@ export const DataGridBody = <TRow,>({
 		>
 			{virtualRows.map((virtualRow) => {
 				const row = rows[virtualRow.index] as Row<TRow>;
+
 				return (
 					<DataGridBodyRow
 						columnVirtualizer={columnVirtualizer}

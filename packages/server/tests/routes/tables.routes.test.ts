@@ -1,146 +1,123 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { createServer } from "@/utils/create-server.js";
-
-const mockDao = vi.hoisted(() => ({
-	createTable: vi.fn(),
-	getTableData: vi.fn(),
-}));
-
-vi.mock("@/adapters/adapter.registry.js", () => ({
-	getAdapter: vi.fn(() => mockDao),
-	adapterRegistry: {
-		register: vi.fn(),
-		get: vi.fn(() => mockDao),
-		has: vi.fn((type: string) => ["pg", "mysql", "mssql", "mongodb"].includes(type)),
-		getSupportedTypes: vi.fn(() => ["pg", "mysql", "mssql", "mongodb"]),
-	},
-}));
-
-vi.mock("@/db-manager.js", () => ({
-	getDbPool: vi.fn(() => ({ query: vi.fn() })),
-	getMysqlPool: vi.fn(() => ({ execute: vi.fn() })),
-	getDbType: vi.fn(() => "pg"),
-	latestConnectionId: vi.fn(() => null),
-	isValidObjectId: vi.fn(),
-	coerceObjectId: vi.fn(),
-}));
-
-const mockDataResponse = {
-	data: [{ id: 1, name: "John" }],
-	meta: {
-		limit: 50,
-		total: 1,
-		hasNextPage: false,
-		hasPreviousPage: false,
-		nextCursor: null,
-		prevCursor: null,
-	},
-};
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { openSqliteApp } from "../sqlite-app.js";
 
 describe("Tables Routes", () => {
-	let app: ReturnType<typeof createServer>["app"];
+	let sqlite: Awaited<ReturnType<typeof openSqliteApp>>;
 
-	beforeEach(() => {
-		vi.clearAllMocks();
-		app = createServer().app;
+	beforeAll(async () => {
+		sqlite = await openSqliteApp();
 	});
 
-	describe("POST /pg/tables", () => {
-		it("should return 400 when fields array is empty", async () => {
-			const res = await app.handle(new Request(new URL("/api/pg/tables?db=testdb", "http://localhost"), {
+	afterAll(() => sqlite.close());
+
+	const tableNames = async () => {
+		const res = await sqlite.request("/sqlite/tables?db=main");
+
+		return ((await res.json()).data as { tableName: string }[]).map((t) => t.tableName);
+	};
+
+	const names = async (query: string) => {
+		const res = await sqlite.request(`/sqlite/tables/users/data?db=main&${query}`);
+		expect(res.status).toBe(200);
+
+		return ((await res.json()).data.data as { name: string }[]).map((row) => row.name);
+	};
+
+	describe("POST /:dbType/tables", () => {
+		it("refuses a table without fields", async () => {
+			const res = await sqlite.request("/sqlite/tables?db=main", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ tableName: "empty_fields_table", fields: [] }),
-			}));
+				body: { tableName: "empty_fields_table", fields: [] },
+			});
 
 			expect(res.status).toBe(400);
-			expect(mockDao.createTable).not.toHaveBeenCalled();
+			expect(await tableNames()).not.toContain("empty_fields_table");
 		});
 
-		it("should return 400 when foreign key has invalid onDelete action", async () => {
-			const body = {
-				tableName: "bad_fk_table",
-				fields: [
-					{ columnName: "id", columnType: "SERIAL", isPrimaryKey: true },
-					{ columnName: "ref_id", columnType: "INTEGER" },
-				],
-				foreignKeys: [
-					{
-						columnName: "ref_id",
-						referencedTable: "other_table",
-						referencedColumn: "id",
-						onUpdate: "CASCADE",
-						onDelete: "INVALID_ACTION",
-					},
-				],
-			};
-
-			const res = await app.handle(new Request(new URL("/api/pg/tables?db=testdb", "http://localhost"), {
+		it("refuses a foreign key with an invalid onDelete action", async () => {
+			const res = await sqlite.request("/sqlite/tables?db=main", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			}));
+				body: {
+					tableName: "bad_fk_table",
+					fields: [
+						{ columnName: "id", columnType: "INTEGER", isPrimaryKey: true },
+						{ columnName: "ref_id", columnType: "INTEGER" },
+					],
+					foreignKeys: [
+						{
+							columnName: "ref_id",
+							referencedTable: "users",
+							referencedColumn: "id",
+							onUpdate: "CASCADE",
+							onDelete: "INVALID_ACTION",
+						},
+					],
+				},
+			});
 
 			expect(res.status).toBe(400);
-			expect(mockDao.createTable).not.toHaveBeenCalled();
+			expect(await tableNames()).not.toContain("bad_fk_table");
 		});
 	});
 
-	describe("GET /pg/tables/:tableName/data", () => {
-		it("should return 400 when a sort direction carries SQL (GHSA-vw88-9x6f-fcp5)", async () => {
-			const sort = encodeURIComponent(
-				JSON.stringify([{ columnName: "id", direction: "ASC, (SELECT pg_sleep(2))" }]),
+	describe("GET /:dbType/tables/:tableName/data", () => {
+		it.each([
+			[
+				"a sort direction carrying SQL (GHSA-vw88-9x6f-fcp5)",
+				`sort=${encodeURIComponent(JSON.stringify([{ columnName: "id", direction: "ASC, (SELECT 1)" }]))}`,
+			],
+			[
+				"a filter that is not a filter object",
+				`filters=${encodeURIComponent(JSON.stringify([{ columnName: "id", operator: "=" }]))}`,
+			],
+			["an invalid direction", "direction=invalid"],
+			["an invalid order", "order=invalid"],
+			["a limit that is not a number", "limit=abc"],
+			["a limit below one", "limit=0"],
+		])("refuses %s", async (_, query) => {
+			const res = await sqlite.request(`/sqlite/tables/users/data?db=main&${query}`);
+
+			expect(res.status).toBe(400);
+		});
+
+		it("reads filters that are not JSON as no filters", async () => {
+			expect(await names("filters=invalid-json")).toEqual(["Linus", "Ada"]);
+		});
+
+		it("reads a sort that is not JSON as one column sorted ascending", async () => {
+			expect(await names("sort=name")).toEqual(["Ada", "Linus"]);
+		});
+	});
+
+	describe("GET /:dbType/tables/:tableName/export", () => {
+		// A table name outside Latin-1 cannot go into a header as is, so the export threw.
+		it('exports a table whose name is not Latin-1 or holds a "', async () => {
+			const tableName = 'müşteri "vip"';
+
+			const created = await sqlite.request("/sqlite/tables?db=main", {
+				method: "POST",
+				body: {
+					tableName,
+					fields: [{ columnName: "id", columnType: "INTEGER", isPrimaryKey: true }],
+				},
+			});
+
+			expect(created.status).toBe(200);
+
+			const added = await sqlite.request("/sqlite/records?db=main", {
+				method: "POST",
+				body: { tableName, data: { id: 1 } },
+			});
+
+			expect(added.status).toBe(200);
+
+			const res = await sqlite.request(
+				`/sqlite/tables/${encodeURIComponent(tableName)}/export?db=main&format=csv`,
 			);
-			const res = await app.handle(new Request(new URL(`/api/pg/tables/users/data?db=testdb&sort=${sort}`, "http://localhost")));
-
-			expect(res.status).toBe(400);
-			expect(mockDao.getTableData).not.toHaveBeenCalled();
-		});
-
-		it("should return 400 when a filter is not a filter object", async () => {
-			const filters = encodeURIComponent(JSON.stringify([{ columnName: "id", operator: "=" }]));
-			const res = await app.handle(new Request(new URL(`/api/pg/tables/users/data?db=testdb&filters=${filters}`, "http://localhost")));
-
-			expect(res.status).toBe(400);
-			expect(mockDao.getTableData).not.toHaveBeenCalled();
-		});
-
-		it("should return 400 for invalid direction parameter", async () => {
-			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&direction=invalid", "http://localhost")));
-
-			expect(res.status).toBe(400);
-			expect(mockDao.getTableData).not.toHaveBeenCalled();
-		});
-
-		it("should return 400 for invalid order parameter", async () => {
-			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&order=invalid", "http://localhost")));
-
-			expect(res.status).toBe(400);
-			expect(mockDao.getTableData).not.toHaveBeenCalled();
-		});
-
-		it("should handle invalid JSON in filters gracefully", async () => {
-			mockDao.getTableData.mockResolvedValue(mockDataResponse);
-
-			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&filters=invalid-json", "http://localhost")));
 
 			expect(res.status).toBe(200);
-			// Invalid JSON should be parsed as empty array
-			expect(mockDao.getTableData).toHaveBeenCalledWith(
-				expect.objectContaining({ filters: [] }),
-			);
-		});
-
-		it("should handle invalid JSON in sort gracefully", async () => {
-			mockDao.getTableData.mockResolvedValue(mockDataResponse);
-
-			const res = await app.handle(new Request(new URL("/api/pg/tables/users/data?db=testdb&sort=invalid-json", "http://localhost")));
-
-			expect(res.status).toBe(200);
-			// Invalid JSON should be kept as a single-column sort string
-			expect(mockDao.getTableData).toHaveBeenCalledWith(
-				expect.objectContaining({ sort: "invalid-json" }),
+			expect(res.headers.get("content-disposition")).toBe(
+				`attachment; filename="m__teri _vip__export.csv"; filename*=UTF-8''m%C3%BC%C5%9Fteri%20%22vip%22_export.csv`,
 			);
 		});
 	});
