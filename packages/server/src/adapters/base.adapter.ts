@@ -21,6 +21,7 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
@@ -282,6 +283,9 @@ export abstract class BaseAdapter implements IDbAdapter {
 	}
 	getServerLogs(_params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult> {
 		return notImplemented("getServerLogs");
+	}
+	getRoutines(_params: { db: DatabaseSchemaType["db"] }): Promise<RoutineInfoSchemaType[]> {
+		return notImplemented("getRoutines");
 	}
 	updateRecords(_params: {
 		db: DatabaseSchemaType["db"];

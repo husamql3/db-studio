@@ -1,5 +1,6 @@
 import type { DatabaseEngine } from "@db-studio/shared/types";
 import {
+	Braces,
 	Columns3Cog,
 	FolderKey,
 	ListTree,
@@ -14,7 +15,7 @@ type Section = {
 	id: string;
 	icon: LucideIcon;
 	/** `data` is the key list on key-value engines and the table list elsewhere. */
-	sidebar: "data" | "queries" | null;
+	sidebar: "data" | "queries" | "routines" | null;
 	/** Opens on the selected table, so switching between these views keeps it. */
 	perTable: boolean;
 	appliesTo: (engine: DatabaseEngine) => boolean;
@@ -58,6 +59,13 @@ export const SECTIONS = [
 		sidebar: "data",
 		perTable: true,
 		appliesTo: (engine) => Boolean(engine.indexes),
+	},
+	{
+		id: "routines",
+		icon: Braces,
+		sidebar: "routines",
+		perTable: false,
+		appliesTo: (engine) => engine.routines,
 	},
 	{
 		id: "logs",
