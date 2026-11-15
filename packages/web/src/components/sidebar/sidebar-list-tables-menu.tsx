@@ -432,7 +432,7 @@ const ForceDeleteTableDialog = ({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-4 max-h-64 overflow-y-auto">
+				<div className="space-y-4 max-h-64 overflow-y-auto overscroll-contain">
 					{relatedRecords.map((related, idx) => (
 						<div
 							key={`${related.tableName}-${related.columnName}-${idx}`}

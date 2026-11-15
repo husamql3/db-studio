@@ -63,6 +63,7 @@ function SheetContent({
 	side = "right",
 	showCloseButton = true,
 	showOverlay = true,
+	forceMount,
 	...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
 	side?: "top" | "right" | "bottom" | "left";
@@ -70,9 +71,10 @@ function SheetContent({
 	showOverlay?: boolean;
 }) {
 	return (
-		<SheetPortal>
+		<SheetPortal forceMount={forceMount}>
 			{showOverlay && <SheetOverlay />}
 			<SheetPrimitive.Content
+				forceMount={forceMount}
 				data-slot="sheet-content"
 				data-side={side}
 				className={cn(

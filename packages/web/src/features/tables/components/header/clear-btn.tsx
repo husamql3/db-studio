@@ -17,9 +17,10 @@ export const ClearBtn = ({ tableName }: { tableName: string }) => {
 
 	return (
 		<Button
+			size="segment"
 			type="button"
 			variant="secondary"
-			className="h-8! border-l-0 border-y-0 border-r border-border rounded-none"
+			className="border-l-0 border-r border-border"
 			onClick={handleClearUpdates}
 			aria-label="Clear changes to the table"
 			disabled={isUpdatingCell}

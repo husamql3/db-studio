@@ -38,9 +38,10 @@ export const SaveBtn = ({
 
 	return (
 		<Button
+			size="segment"
 			type="button"
 			variant="default"
-			className="h-8! border-l-0 border-y-0 border-r border-border rounded-none bg-green-700 text-white hover:bg-green-800"
+			className="border-l-0 border-r border-border bg-green-700 text-white hover:bg-green-800"
 			onClick={handleSave}
 			aria-label="Save changes to the table"
 			disabled={isUpdatingCell || Boolean(disabledReason)}

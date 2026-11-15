@@ -51,20 +51,22 @@ export const TableSubScreen = ({
 		<div className="flex-1 flex flex-col overflow-hidden">
 			<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center bg-background text-foreground sticky top-0 left-0 right-0 z-0">
 				<Button
+					size="icon-segment"
 					type="button"
 					variant="ghost"
-					className="size-8! aspect-square border-x-0 border-y-0 border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+					className="border-x-0 border-border text-muted-foreground hover:text-foreground hover:bg-muted/60"
 					onClick={() => void refetch()}
 					aria-label={`Refetch ${subject} for ${tableName}`}
 					disabled={isRefetching}
 				>
-					<RefreshCw className="size-4" />
+					<RefreshCw />
 				</Button>
 
 				<Button
+					size="segment"
 					variant="ghost"
 					asChild
-					className="h-8! border-l border-y-0 border-r-0 border-border rounded-none flex items-center gap-2 text-muted-foreground hover:text-foreground"
+					className="border-l border-r-0 border-border text-muted-foreground hover:text-foreground"
 				>
 					<Link
 						to="/table/$table"
@@ -72,19 +74,20 @@ export const TableSubScreen = ({
 						search={{ [CONSTANTS.TABLE_SCHEMA]: schemaName }}
 						aria-label={`View data for ${tableName}`}
 					>
-						<Table2 className="size-4" />
+						<Table2 />
 						View data
 					</Link>
 				</Button>
 
 				{action && (
 					<Button
+						size="segment"
 						type="button"
 						variant="default"
-						className="h-8! border-l border-y-0 border-r-0 border-border rounded-none flex items-center gap-2"
+						className="border-l border-r-0 border-border"
 						onClick={action.onClick}
 					>
-						<Plus className="size-4" />
+						<Plus />
 						{action.label}
 					</Button>
 				)}

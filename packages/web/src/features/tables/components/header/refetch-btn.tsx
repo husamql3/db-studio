@@ -21,14 +21,15 @@ export const RefetchBtn = ({ tableName }: { tableName: string }) => {
 
 	return (
 		<Button
+			size="icon-segment"
 			type="button"
 			variant="ghost"
-			className="size-8! aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+			className="border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60"
 			onClick={handleRefetch}
 			aria-label="Refetch table data and columns"
 			disabled={isRefetchingTableData || isRefetchingTableCols}
 		>
-			<RefreshCw className="size-4" />
+			<RefreshCw />
 		</Button>
 	);
 };

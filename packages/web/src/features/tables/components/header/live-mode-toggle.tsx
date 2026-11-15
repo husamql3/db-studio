@@ -25,6 +25,7 @@ export const LiveModeToggle = () => {
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Button
+					size="segment"
 					type="button"
 					variant="ghost"
 					onClick={handleToggle}
@@ -32,7 +33,7 @@ export const LiveModeToggle = () => {
 					aria-pressed={isLive}
 					data-active={isLive}
 					className={cn(
-						"h-8! px-2.5 border-l-0 border-y-0 border-r border-border rounded-none text-xs font-medium gap-1.5 flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+						"border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60",
 						isLive && "text-foreground",
 					)}
 				>

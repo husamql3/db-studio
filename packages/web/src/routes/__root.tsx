@@ -86,8 +86,20 @@ export const Route = createRootRoute({
 		// A layout effect, so the first frame already has the stored theme.
 		useLayoutEffect(() => {
 			const root = document.documentElement;
+			// Without this, every color transition fires at once and the theme change smears.
+			const freeze = document.createElement("style");
+			freeze.textContent = "*,*::before,*::after{transition:none!important}";
+			document.head.appendChild(freeze);
 			root.classList.toggle("dark", resolvedTheme === "dark");
 			root.classList.toggle("light", resolvedTheme === "light");
+			// Force a style flush so the new colors apply while transitions are off.
+			void getComputedStyle(root).color;
+			const frame = requestAnimationFrame(() => freeze.remove());
+
+			return () => {
+				cancelAnimationFrame(frame);
+				freeze.remove();
+			};
 		}, [resolvedTheme]);
 		const pathname = useLocation({ select: (location) => location.pathname });
 		const { active, isLoading, error } = useConnections();
