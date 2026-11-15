@@ -18,6 +18,7 @@ export const ConnectUrlForm = () => {
 			className="space-y-1.5"
 			onSubmit={(e) => {
 				e.preventDefault();
+
 				if (url.trim()) connectUrl(url.trim());
 			}}
 		>

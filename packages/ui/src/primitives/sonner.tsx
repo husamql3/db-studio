@@ -1,13 +1,10 @@
 import { CircleCheck, Info, Loader2, OctagonAlert, TriangleAlert } from "lucide-react";
-import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
+/** Pass the app's resolved `theme`; sonner cannot see it otherwise. */
 const Toaster = ({ ...props }: ToasterProps) => {
-	const { theme = "system" } = useTheme();
-
 	return (
 		<Sonner
-			theme={theme as ToasterProps["theme"]}
 			className="toaster group"
 			icons={{
 				success: <CircleCheck className="size-4 text-emerald-500" />,

@@ -1,10 +1,11 @@
 import JsonView from "@uiw/react-json-view";
 import { ChevronDown } from "lucide-react";
 import type { CSSProperties } from "react";
-import { CellCopyButton } from "@/features/tables/components/cell-copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { TableFooter } from "@/features/tables/components/table-footer";
 import { useTheme } from "@/hooks/use-theme";
 import { usePersonalPreferencesStore } from "@/stores/personal-preferences.store";
+import { formatCellValue } from "@/utils/format-cell-value";
 
 /**
  * Colors from Monaco's built-in `vs-dark` / `vs` JSON token rules, which the db-studio Monaco
@@ -127,9 +128,9 @@ const DocumentCard = ({
 				>
 					{idLabel}
 				</span>
-				<CellCopyButton
+				<CopyButton
 					// The copy button hides empty values; copy null and "" as the header shows them.
-					value={doc._id === null || doc._id === "" ? idLabel : doc._id}
+					value={doc._id === null || doc._id === "" ? idLabel : formatCellValue(doc._id)}
 					className="static shrink-0 translate-y-0"
 				/>
 			</div>

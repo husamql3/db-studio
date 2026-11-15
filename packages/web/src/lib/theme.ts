@@ -1,14 +1,17 @@
 export type Theme = "dark" | "light" | "system";
-export type ResolvedTheme = "dark" | "light";
 
-export const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+type ResolvedTheme = "dark" | "light";
 
-export function getResolvedTheme(theme: Theme): ResolvedTheme {
-	if (theme === "system") {
-		if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-			return window.matchMedia(COLOR_SCHEME_QUERY).matches ? "dark" : "light";
-		}
-		return "dark";
-	}
-	return theme;
-}
+const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+export const systemPrefersDark = () => window.matchMedia(COLOR_SCHEME_QUERY).matches;
+
+export const subscribeToSystemTheme = (callback: () => void) => {
+	const query = window.matchMedia(COLOR_SCHEME_QUERY);
+	query.addEventListener("change", callback);
+
+	return () => query.removeEventListener("change", callback);
+};
+
+export const resolveTheme = (theme: Theme, prefersDark: boolean): ResolvedTheme =>
+	theme === "system" ? (prefersDark ? "dark" : "light") : theme;

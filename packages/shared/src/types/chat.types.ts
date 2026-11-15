@@ -40,3 +40,14 @@ export const chatSchema = chatBodySchema.transform((body) => ({
 	...body,
 	model: body.model ?? getDefaultAiModel(body.provider),
 }));
+
+/** What the server sends the proxy's POST /chat: the chat with its system prompt built. */
+export const proxyChatRequestSchema = z.object({
+	messages: chatBodySchema.shape.messages,
+	systemPrompt: z.string(),
+	conversationId: z.string().optional(),
+	provider: aiProviderSchema,
+	model: z.string().min(1),
+});
+
+export type ProxyChatRequestSchemaType = z.infer<typeof proxyChatRequestSchema>;

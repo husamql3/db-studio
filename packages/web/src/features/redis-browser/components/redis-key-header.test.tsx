@@ -30,6 +30,7 @@ const renderHeader = (props: Partial<HeaderProps> = {}) => {
 		onOpenRunner: vi.fn(),
 		onDelete: vi.fn(),
 	};
+
 	const detail = props.detail ?? makeDetail();
 	render(
 		<RedisKeyHeader
@@ -45,6 +46,7 @@ const renderHeader = (props: Partial<HeaderProps> = {}) => {
 		/>,
 		{ wrapper: TooltipProvider },
 	);
+
 	return handlers;
 };
 
@@ -55,6 +57,7 @@ const openEditPopover = () => {
 describe("TTL stat", () => {
 	it("counts a positive TTL down live", () => {
 		vi.useFakeTimers();
+
 		try {
 			renderHeader({
 				detail: makeDetail({ ttlMs: 90_000 }),

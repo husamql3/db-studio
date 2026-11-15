@@ -1,6 +1,5 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import type * as React from "react";
-
 import { cn } from "../utils";
 
 const Tabs = TabsPrimitive.Root;
@@ -19,6 +18,7 @@ const TabsList = ({
 		{...props}
 	/>
 );
+
 TabsList.displayName = TabsPrimitive.List.displayName;
 
 const TabsTrigger = ({
@@ -35,6 +35,7 @@ const TabsTrigger = ({
 		{...props}
 	/>
 );
+
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = ({
@@ -48,6 +49,7 @@ const TabsContent = ({
 		{...props}
 	/>
 );
+
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 
 export { Tabs, TabsContent, TabsList, TabsTrigger };

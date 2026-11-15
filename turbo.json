@@ -66,10 +66,6 @@
       "cache": false,
       "persistent": true
     },
-    "format": {
-      "outputs": [],
-      "cache": true
-    },
     "typecheck": {
       "dependsOn": [
         "^build"

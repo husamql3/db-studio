@@ -94,7 +94,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 				<script
 					type="application/ld+json"
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD built from META constants
 					dangerouslySetInnerHTML={{ __html: structuredData }}
 				/>
 			</head>

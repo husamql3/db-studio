@@ -10,5 +10,6 @@ import { CONSTANTS } from "@/utils/constants";
 export const useTableSchemaName = () => {
 	const search = useSearch({ strict: false });
 	const schemaName = CONSTANTS.TABLE_SCHEMA in search && search[CONSTANTS.TABLE_SCHEMA];
+
 	return typeof schemaName === "string" ? schemaName : undefined;
 };

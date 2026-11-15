@@ -19,13 +19,13 @@ export const ConnectionRenameInput = ({
 		if (finished.current) return;
 		finished.current = true;
 		const name = value.trim();
+
 		if (save && name && name !== connection.name) rename(name);
 		onDone();
 	};
 
 	return (
 		<input
-			// biome-ignore lint/a11y/noAutofocus: the field appears because the user chose Rename
 			autoFocus
 			aria-label="Connection name"
 			value={value}
@@ -35,7 +35,9 @@ export const ConnectionRenameInput = ({
 			onClick={(e) => e.stopPropagation()}
 			onKeyDown={(e) => {
 				e.stopPropagation();
+
 				if (e.key === "Enter") finish(true);
+
 				if (e.key === "Escape") finish(false);
 			}}
 			className="h-6 min-w-0 flex-1 rounded-sm border border-input bg-background px-1.5 text-sm outline-none focus:ring-2 focus:ring-ring/30"

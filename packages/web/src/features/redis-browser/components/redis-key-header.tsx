@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@db-studio/ui/tooltip";
 import { cn } from "@db-studio/ui/utils";
 import { ArrowRight, Pencil, RefreshCw, Terminal, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useReducer, useState } from "react";
-import { RedisCopyButton } from "./redis-copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { RedisValueInput } from "./redis-value";
 import type { RedisAct } from "./redis-value-editors";
 
@@ -25,18 +25,25 @@ const TTL_PRESETS = [
 
 const formatBytes = (bytes: number | null): string => {
 	if (bytes === null) return "—";
+
 	if (bytes < 1_024) return `${bytes} B`;
+
 	if (bytes < 1_048_576) return `${(bytes / 1_024).toFixed(1)} KiB`;
+
 	return `${(bytes / 1_048_576).toFixed(1)} MiB`;
 };
 
 const formatDuration = (ms: number): string => {
 	const seconds = Math.max(0, Math.ceil(ms / 1_000));
+
 	if (seconds < 60) return `${seconds}s`;
 	const minutes = Math.floor(seconds / 60);
+
 	if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
 	const hours = Math.floor(minutes / 60);
+
 	if (hours < 24) return `${hours}h ${minutes % 60}m`;
+
 	return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 };
 
@@ -46,6 +53,7 @@ const useSecondTick = (active: boolean) => {
 	useEffect(() => {
 		if (!active) return;
 		const id = window.setInterval(tick, 1_000);
+
 		return () => window.clearInterval(id);
 	}, [active]);
 };
@@ -86,8 +94,10 @@ export const RedisKeyHeader = ({
 
 	const remainingMs =
 		detail.ttlMs > 0 ? detail.ttlMs - (Date.now() - fetchedAt) : detail.ttlMs;
+
 	const persistent = detail.ttlMs === -1;
 	const expired = !persistent && remainingMs <= 0;
+
 	const stats: { name: string; value: ReactNode; hint: string; alert?: boolean }[] = [
 		{
 			name: "TTL",
@@ -135,9 +145,11 @@ export const RedisKeyHeader = ({
 						>
 							{label || "(empty key)"}
 						</code>
-						<RedisCopyButton
-							text={detail.key.utf8 ?? detail.key.base64}
+						<CopyButton
+							getValue={() => detail.key.utf8 ?? detail.key.base64}
 							label="Copy key name"
+							variant="ghost"
+							tooltip
 							className="shrink-0 text-muted-foreground"
 						/>
 						<Badge
@@ -219,6 +231,7 @@ export const RedisKeyHeader = ({
 										className="flex"
 										onSubmit={(event) => {
 											event.preventDefault();
+
 											if (rename === null || rename.base64 === detail.key.base64 || pending)
 												return;
 											act({ action: "rename", newKey: rename });
@@ -249,6 +262,7 @@ export const RedisKeyHeader = ({
 										className="flex"
 										onSubmit={(event) => {
 											event.preventDefault();
+
 											if (pending) return;
 											act({ action: "setTtl", ttlMs: ttl ? Number(ttl) * 1_000 : null });
 										}}

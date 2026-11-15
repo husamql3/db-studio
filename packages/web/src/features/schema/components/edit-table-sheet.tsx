@@ -19,11 +19,11 @@ import { type ReactNode, useEffect } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { type ColumnChange, planColumnChanges, useEditTable } from "../hooks/use-edit-table";
-import { useTableCols } from "../hooks/use-table-cols";
 import { useSchemaEditStore } from "../stores/schema-edit.store";
+import { ColumnTypeField } from "./column-fields/column-type-field";
 
 const editTableFormSchema = z.object({
 	fields: z
@@ -37,6 +37,7 @@ const editTableFormSchema = z.object({
 			const seen = new Set<string>();
 			fields.forEach((field, i) => {
 				const name = field.columnName.toLowerCase();
+
 				if (seen.has(name)) {
 					ctx.addIssue({
 						code: "custom",
@@ -44,6 +45,7 @@ const editTableFormSchema = z.object({
 						path: [i, "columnName"],
 					});
 				}
+
 				seen.add(name);
 			});
 		}),
@@ -60,6 +62,7 @@ const toValues = (tableCols: ColumnInfoSchemaType[]): EditTableFormValues => ({
 
 export const EditTableSheet = () => {
 	const { editingTable } = useSchemaEditStore();
+
 	// Remount per table so one table's form values never render against another's columns.
 	return (
 		<EditTableSheetContent
@@ -86,6 +89,7 @@ const EditTableSheetContent = ({
 		defaultValues: toValues(tableCols ?? []),
 		resolver: zodResolver(editTableFormSchema),
 	});
+
 	const { handleSubmit, watch, reset } = methods;
 
 	useEffect(() => {
@@ -106,6 +110,7 @@ const EditTableSheetContent = ({
 
 	const requestClose = () => {
 		if (isEditingTable) return;
+
 		if (hasChanges) {
 			openOverlay("schema.edit-table-discard-changes");
 		} else {
@@ -122,7 +127,9 @@ const EditTableSheetContent = ({
 	const onSubmit = async (values: EditTableFormValues) => {
 		if (!tableCols) return;
 		const planned = planColumnChanges(tableCols, values);
+
 		if (planned.length === 0) return;
+
 		try {
 			await editTable(planned);
 			reset(values);
@@ -259,7 +266,7 @@ const ColumnRow = ({
 	change: ColumnChange | undefined;
 	newColumnName: string;
 }) => {
-	const { register, formState } = useFormContext<EditTableFormValues>();
+	const { control, register, formState } = useFormContext<EditTableFormValues>();
 	const nameError = formState.errors.fields?.[index]?.columnName?.message;
 
 	return (
@@ -318,7 +325,10 @@ const ColumnRow = ({
 					/>
 					{nameError && <span className="text-xs text-destructive">{nameError}</span>}
 				</div>
-				<ColumnTypeField index={index} />
+				<ColumnTypeField
+					control={control}
+					name={`fields.${index}.columnType`}
+				/>
 			</div>
 		</div>
 	);

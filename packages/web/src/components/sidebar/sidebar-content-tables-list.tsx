@@ -10,14 +10,15 @@ import { useQueryState } from "nuqs";
 import { useMemo } from "react";
 import { SidebarListTables } from "@/components/sidebar/sidebar-list-tables";
 import { SidebarSearchTables } from "@/components/sidebar/sidebar-search-tables";
-import { useTablesList } from "@/features/tables";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
+import { useTablesList } from "@/hooks/use-tables-list";
 import { CONSTANTS } from "@/utils/constants";
 
 const SidebarSchemaDropdown = () => {
 	const [selectedSchema, setSelectedSchema] = useQueryState(CONSTANTS.ACTIVE_SCHEMA, {
-		defaultValue: "all",
+		defaultValue: CONSTANTS.ALL_SCHEMAS,
 	});
+
 	const engine = useDatabaseEngine();
 	const { tablesList = [] } = useTablesList();
 
@@ -27,6 +28,7 @@ const SidebarSchemaDropdown = () => {
 				new Set(
 					tablesList.reduce<string[]>((acc, table) => {
 						if (table.schemaName) acc.push(table.schemaName);
+
 						return acc;
 					}, []),
 				),
@@ -51,7 +53,7 @@ const SidebarSchemaDropdown = () => {
 					<SelectValue placeholder="Select schema" />
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value="all">All schemas</SelectItem>
+					<SelectItem value={CONSTANTS.ALL_SCHEMAS}>All schemas</SelectItem>
 					{schemas.map((schema) => (
 						<SelectItem
 							key={schema}

@@ -6,6 +6,7 @@ import {
 	DropdownMenuTrigger,
 } from "@db-studio/ui/dropdown-menu";
 import { Plus } from "lucide-react";
+import { openAddRecord } from "@/features/records";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export const AddRecordMenu = () => {
@@ -15,12 +16,13 @@ export const AddRecordMenu = () => {
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
+					size="segment"
 					type="button"
 					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none flex items-center gap-2"
+					className="border-l-0 border-r border-border"
 					aria-label="Add records to the table"
 				>
-					<Plus className="size-4" />
+					<Plus />
 					Add Record
 				</Button>
 			</DropdownMenuTrigger>
@@ -28,9 +30,7 @@ export const AddRecordMenu = () => {
 				align="start"
 				className="w-48"
 			>
-				<DropdownMenuItem onClick={() => openOverlay("records.add-record")}>
-					Add Record
-				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => openAddRecord()}>Add Record</DropdownMenuItem>
 				<DropdownMenuItem onClick={() => openOverlay("records.bulk-insert-csv")}>
 					Add data from CSV
 				</DropdownMenuItem>

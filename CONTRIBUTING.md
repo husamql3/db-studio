@@ -248,13 +248,13 @@ We use Vitest to run our test suite through Turborepo. Please avoid running bare
 
 ### Formatting and Linting
 
-We use Biome for fast, consistent formatting and linting:
+We use oxfmt for formatting and oxlint for linting:
 
 ```bash
 bun run format
 ```
 
-This checks configured files (as specified in `biome.json`) and automatically formats them according to project rules.
+This formats JS and TS files (configured in `.oxfmtrc.json`), then applies oxlint's automatic fixes and reports what remains (rules in `.oxlintrc.json`). Run `bun run lint` to lint without changing files.
 
 ### Type Checking
 
@@ -264,7 +264,7 @@ Verify that TypeScript compiles across all configured packages without errors:
 bun run typecheck
 ```
 
-Our pre-commit hooks run Biome formatting, type checking, tests, and the project build
+Our pre-commit hooks run formatting and linting, type checking, tests, and the project build
 (`bun run format && bun run typecheck && bun run test && bun run build`) automatically
 before every commit, so checking these locally helps your commits pass on the first try.
 
@@ -342,7 +342,7 @@ Examples:
 2. Open a Pull Request targeting the `stage` branch.
 3. Keep your PR title clear and descriptive, matching your commit format or branch name.
 4. Fill in the PR template: describe your changes, why they are needed, link any related issues (such as `Closes #142`), and add before/after screenshots or recordings.
-5. Automated CI checks will run project build, Biome formatting checks, TypeScript type checking, and tests on pull requests targeting `stage` or `main` (and on pushes to `stage`). Maintainers will review your PR and provide feedback.
+5. Automated CI checks will run project build, oxfmt and oxlint checks, TypeScript type checking, and tests on pull requests targeting `stage` or `main` (and on pushes to `stage`). Maintainers will review your PR and provide feedback.
 
 ## First-Time Contributors
 

@@ -15,6 +15,7 @@ export const SectionHeader = ({
 	className?: string;
 }) => {
 	const Heading = level === 1 ? "h1" : "h2";
+
 	return (
 		<header className={cn("flex flex-col gap-2 px-5 pt-10 pb-6 md:px-8", className)}>
 			<p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">

@@ -24,53 +24,65 @@ import type {
 	ServerLogEntrySchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
+	StandardizedDataType,
 	TableDataResultSchemaType,
 	TableInfoSchemaType,
 	UpdateRecordsSchemaType,
 } from "@db-studio/shared/types";
-import type { Db, IndexDescriptionInfo } from "mongodb";
+import type { CollectionInfo, Db, IndexDescriptionInfo } from "mongodb";
 import type { GetTableDataParams } from "@/adapters/adapter.interface.js";
-import { BaseAdapter, type NormalizedRow, type QueryBundle } from "@/adapters/base.adapter.js";
-import {
-	getConnectionUrl,
-	getMongoClient,
-	getMongoDb,
-	getMongoDbName,
-} from "@/adapters/connections.js";
+import { BaseAdapter, type DriverErrorClass } from "@/adapters/base.adapter.js";
+import { visibleMongoDatabases } from "@/adapters/mongo/mongo-database-visibility.js";
 import { logDetail, logsUnavailable, newestEntries } from "@/adapters/server-logs.js";
-import { coerceObjectId, isValidObjectId } from "@/db-manager.js";
+import type { ServerAddress } from "@/connection-url.js";
 import { HTTPException } from "@/http-exception.js";
+import { connector } from "@/open-connections.js";
 import { errorFields, writeOperationalLog } from "@/operational-log.js";
-import { visibleMongoDatabases } from "@/utils/mongo-database-visibility.js";
-import { parseDatabaseUrl } from "@/utils/parse-database-url.js";
 import {
 	buildMatchStage,
 	buildSortStage,
 	decodeMongoCursor,
 	encodeMongoCursor,
 } from "./mongo.pipeline-builder.js";
+import { coerceObjectId } from "./object-id.js";
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- walks arbitrary BSON documents; anything it does not convert passes through
 const normalizeValue = (value: unknown): unknown => {
 	if (value instanceof Date) return value.toISOString();
+
 	if (typeof value === "bigint") return value.toString();
+
 	if (value && typeof value === "object") {
-		if ("_bsontype" in value && (value as { _bsontype?: string })._bsontype === "ObjectId") {
-			return (value as unknown as { toHexString: () => string }).toHexString();
+		if (
+			"_bsontype" in value &&
+			value._bsontype === "ObjectId" &&
+			"toHexString" in value &&
+			typeof value.toHexString === "function"
+		) {
+			return value.toHexString();
 		}
+
 		if (Array.isArray(value)) return value.map((item) => normalizeValue(item));
+
 		return Object.fromEntries(
 			Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, normalizeValue(v)]),
 		);
 	}
+
 	return value;
 };
 
 const normalizeDoc = (doc: unknown): Record<string, unknown> =>
 	normalizeValue(doc) as Record<string, unknown>;
+
+/** A record from the grid as a document to insert: an empty `_id` lets MongoDB assign one. */
+const toInsertDoc = (record: Record<string, unknown>): Record<string, unknown> => {
+	const doc = normalizeDoc(record);
+
+	if (doc._id === "" || doc._id === null) delete doc._id;
+
+	return doc;
+};
 
 const INDEX_DEFINITION_OPTIONS = [
 	"sparse",
@@ -84,6 +96,7 @@ const toIndexInfo = (index: IndexDescriptionInfo): IndexInfoSchemaType => {
 	const isPrimary = indexName === "_id_";
 	const keyValues = Object.values(index.key);
 	const weights = index.weights;
+
 	// A text index stores its text part as `_fts`/`_ftsx`; the indexed fields are in `weights`.
 	const columns = weights
 		? Object.keys(index.key).flatMap((field) =>
@@ -92,12 +105,16 @@ const toIndexInfo = (index: IndexDescriptionInfo): IndexInfoSchemaType => {
 		: Object.keys(index.key);
 
 	const options: Record<string, unknown> = {};
+
 	if (weights) options.weights = weights;
+
 	for (const option of INDEX_DEFINITION_OPTIONS) {
 		const value = index[option];
+
 		if (value !== undefined && value !== null && value !== false)
 			options[option] = normalizeValue(value);
 	}
+
 	const isPlain = keyValues.every((value) => value === 1) && Object.keys(options).length === 0;
 
 	return {
@@ -113,54 +130,29 @@ const toIndexInfo = (index: IndexDescriptionInfo): IndexInfoSchemaType => {
 	};
 };
 
-/** 85 IndexOptionsConflict, 86 IndexKeySpecsConflict, 11000 duplicate key on a unique build. */
-const INDEX_CONFLICT_CODES = new Set([85, 86, 11000]);
+const UNREACHABLE_ERRORS = new Set([
+	"MongoNetworkError",
+	"MongoServerSelectionError",
+	"MongoTopologyClosedError",
+]);
 
-const inferValueType = (value: unknown): DataTypes => {
-	if (value instanceof Date) return "date";
-	if (value && typeof value === "object") {
-		if (Array.isArray(value)) return "array";
-		if ("_bsontype" in value) return "text";
-		return "json";
-	}
-	if (typeof value === "boolean") return "boolean";
-	if (typeof value === "number" || typeof value === "bigint") return "number";
-	return "text";
-};
+/** 85 IndexOptionsConflict, 86 IndexKeySpecsConflict. */
+const INDEX_CONFLICT_CODES = new Set([85, 86]);
 
-const dataTypeLabel = (dt: DataTypes): string => {
-	switch (dt) {
-		case "number":
-			return "numeric";
-		case "boolean":
-			return "boolean";
-		case "json":
-			return "json";
-		case "date":
-			return "date";
-		case "array":
-			return "array";
-		case "enum":
-			return "enum";
-		default:
-			return "text";
-	}
-};
-
-const canCoerce = (value: unknown): boolean =>
-	typeof value === "string" && isValidObjectId(value);
-
-const toMongoId = (value: unknown) => coerceObjectId(value as string);
+/** A duplicate key (11000), also on a unique index build, or a document the validator refuses (121). */
+const CONFLICT_CODES = new Set<unknown>([11000, 121]);
 
 const formatBytes = (bytes: number): string => {
 	if (!Number.isFinite(bytes)) return "n/a";
 	const units = ["B", "KB", "MB", "GB", "TB"];
 	let v = bytes;
 	let i = 0;
+
 	while (v >= 1024 && i < units.length - 1) {
 		v /= 1024;
 		i++;
 	}
+
 	return `${v.toFixed(1)} ${units[i]}`;
 };
 
@@ -186,46 +178,113 @@ const MONGO_BSON_TYPES = new Set([
 	"decimal",
 	"minKey",
 	"maxKey",
+	// $jsonSchema's alias for int, long, double and decimal.
+	"number",
 ]);
 
-const mapBsonType = (rawType: string): string => {
-	const n = rawType.trim();
-	if (MONGO_BSON_TYPES.has(n)) return n;
-	switch (n.toLowerCase()) {
-		case "boolean":
-			return "bool";
-		case "objectid":
-			return "objectId";
-		case "binary":
-			return "binData";
-		default:
-			return n;
+/**
+ * The cell type and type label `getTableColumns` gives a field of each BSON type a sampled value
+ * can have. A type with no closer label is labeled with its BSON type, which `toBsonType` takes
+ * back, so saving an edit form unchanged keeps the field's type.
+ */
+const BSON_COLUMN_TYPES = {
+	string: { dataType: "text", label: "text" },
+	int: { dataType: "number", label: "numeric" },
+	long: { dataType: "number", label: "numeric" },
+	double: { dataType: "number", label: "numeric" },
+	decimal: { dataType: "text", label: "decimal" },
+	object: { dataType: "json", label: "json" },
+	array: { dataType: "array", label: "array" },
+	// A BSON Date is a UTC instant, labeled like PostgreSQL's timestamptz.
+	date: { dataType: "date", label: "timestamptz" },
+	bool: { dataType: "boolean", label: "boolean" },
+	objectId: { dataType: "text", label: "objectId" },
+	binData: { dataType: "text", label: "binData" },
+	timestamp: { dataType: "text", label: "timestamp" },
+	regex: { dataType: "text", label: "regex" },
+	javascript: { dataType: "text", label: "javascript" },
+	symbol: { dataType: "text", label: "symbol" },
+	minKey: { dataType: "text", label: "minKey" },
+	maxKey: { dataType: "text", label: "maxKey" },
+} as const satisfies Record<string, { dataType: DataTypes; label: StandardizedDataType }>;
+
+type SampledBsonType = keyof typeof BSON_COLUMN_TYPES | "null";
+
+/** The BSON type each label stands for; "numeric" is $jsonSchema's "number", any number type. */
+const LABEL_BSON_TYPES = new Map<string, string>(
+	Object.entries(BSON_COLUMN_TYPES).map(([bsonType, { label }]) => [
+		label,
+		label === "numeric" ? "number" : bsonType,
+	]),
+);
+
+/** The BSON type a column type names, as a BSON type or a `getTableColumns` label; 400 otherwise. */
+const toBsonType = (columnType: string, columnName: string): string => {
+	const bsonType = LABEL_BSON_TYPES.get(columnType) ?? columnType;
+
+	if (!MONGO_BSON_TYPES.has(bsonType)) {
+		throw new HTTPException(400, {
+			message: `Unsupported MongoDB BSON type "${columnType}" for field "${columnName}"`,
+		});
 	}
+
+	return bsonType;
 };
 
-const inferBsonType = (value: unknown): string => {
+/** The BSON type of each `_bsontype` the driver's wrapper classes carry. */
+const WRAPPER_BSON_TYPES = new Map<string, SampledBsonType>([
+	["ObjectId", "objectId"],
+	["Decimal128", "decimal"],
+	["Binary", "binData"],
+	["Timestamp", "timestamp"],
+	["BSONRegExp", "regex"],
+	["Code", "javascript"],
+	["BSONSymbol", "symbol"],
+	["MinKey", "minKey"],
+	["MaxKey", "maxKey"],
+	["Long", "long"],
+	["Int32", "int"],
+	["Double", "double"],
+]);
+
+const inferBsonType = (value: unknown): SampledBsonType => {
 	if (value === null || value === undefined) return "null";
+
 	if (value instanceof Date) return "date";
+
+	if (value instanceof RegExp) return "regex";
+
 	if (typeof value === "boolean") return "bool";
+
 	if (typeof value === "number") return Number.isInteger(value) ? "int" : "double";
+
 	if (typeof value === "bigint") return "long";
+
 	if (Array.isArray(value)) return "array";
+
 	if (typeof value === "object") {
 		const bson = (value as { _bsontype?: string })._bsontype;
-		if (bson === "ObjectId") return "objectId";
-		if (bson === "Decimal128") return "decimal";
-		if (bson === "Binary") return "binData";
-		if (bson === "Timestamp") return "timestamp";
-		if (bson) return bson.toLowerCase();
-		return "object";
+
+		// A DBRef is a document holding $ref and $id.
+		return WRAPPER_BSON_TYPES.get(bson ?? "") ?? "object";
 	}
+
 	return "string";
 };
+
+type FieldDefault =
+	| string
+	| number
+	| boolean
+	| Date
+	| null
+	| FieldDefault[]
+	| { [key: string]: FieldDefault };
 
 const resolveFieldDefault = (
 	defaultValue: string | null | undefined,
 	columnType: string,
-): unknown => {
+): FieldDefault => {
 	if (defaultValue !== undefined && defaultValue !== null && defaultValue.trim() !== "") {
 		try {
 			return JSON.parse(defaultValue);
@@ -233,9 +292,11 @@ const resolveFieldDefault = (
 			return defaultValue;
 		}
 	}
+
 	switch (columnType) {
 		case "string":
 			return "";
+		case "number":
 		case "int":
 		case "long":
 		case "double":
@@ -254,31 +315,131 @@ const resolveFieldDefault = (
 	}
 };
 
+/** The collection's `listCollections` entry; 404 when there is none. */
+const assertCollection = async (mongoDb: Db, name: string) => {
+	const [info] = await mongoDb.listCollections<CollectionInfo>({ name }).toArray();
+
+	if (!info) throw new HTTPException(404, { message: `Collection "${name}" does not exist` });
+
+	return info;
+};
+
+interface CollectionValidator {
+	options?: {
+		validator?: {
+			$jsonSchema?: { properties?: Record<string, unknown>; required?: string[] };
+		};
+	};
+}
+
+/**
+ * Changes one field's entry in the collection's `$jsonSchema` validator, keeping the rest of it,
+ * the validator's other query-operator rules (collMod replaces the whole validator) and its
+ * validationAction: `next` without a `type` moves the entry to `next.name`, with a `type`
+ * replaces it (required unless nullable), and no `next` removes it. A collection without a
+ * validator gets a "warn" one only when a type is set.
+ */
+const editFieldValidator = async (
+	mongoDb: Db,
+	tableName: string,
+	info: CollectionValidator,
+	columnName: string,
+	next?: { name: string; type?: { bsonType: string; isNullable: boolean } },
+) => {
+	const validator = info.options?.validator;
+	const { required: oldRequired = [], ...schema } = validator?.$jsonSchema ?? {};
+	const { [columnName]: property, ...properties } = schema.properties ?? {};
+
+	if (!next?.type && property === undefined && !oldRequired.includes(columnName)) return;
+
+	const required = oldRequired.filter((name) => name !== columnName);
+
+	if (next) {
+		const { name, type } = next;
+
+		if (type) {
+			const { bsonType, isNullable } = type;
+			properties[name] = { bsonType: isNullable ? [bsonType, "null"] : bsonType };
+		} else if (property !== undefined) {
+			properties[name] = property;
+		}
+
+		if (type ? !type.isNullable : oldRequired.includes(columnName)) required.push(name);
+	}
+
+	await mongoDb.command({
+		collMod: tableName,
+		validator: {
+			...validator,
+			$jsonSchema: {
+				...schema,
+				bsonType: "object",
+				properties,
+				// $jsonSchema refuses an empty `required`.
+				...(required.length > 0 && { required }),
+			},
+		},
+		...(!validator && { validationAction: "warn" }),
+	});
+};
+
+/**
+ * One pass over the first 200 documents: per field, in first-seen order, every BSON type seen
+ * in the order seen, and whether some sampled document holds null or lacks the field.
+ */
+const sampleFields = async (mongoDb: Db, tableName: string) => {
+	const docs = await mongoDb.collection(tableName).find({}).limit(200).toArray();
+
+	const fields = new Map<string, { bsonTypes: Set<SampledBsonType>; present: number }>();
+
+	for (const doc of docs) {
+		for (const [key, value] of Object.entries(doc)) {
+			const field = fields.get(key) ?? { bsonTypes: new Set(), present: 0 };
+			field.bsonTypes.add(inferBsonType(value));
+			field.present += 1;
+			fields.set(key, field);
+		}
+	}
+
+	return {
+		sampled: docs.length,
+		fields: [...fields].map(([name, { bsonTypes, present }]) => ({
+			name,
+			bsonTypes,
+			isNullable: bsonTypes.has("null") || present < docs.length,
+		})),
+	};
+};
+
 const normalizeIdFilter = (filter: Record<string, unknown>): Record<string, unknown> => {
 	if (filter._id && typeof filter._id === "string") {
-		return { ...filter, _id: toMongoId(filter._id) };
+		return { ...filter, _id: coerceObjectId(filter._id) };
 	}
+
 	if (filter._id && typeof filter._id === "object") {
 		const obj = filter._id as Record<string, unknown>;
+
 		if (Array.isArray(obj.$in)) {
 			return {
 				...filter,
 				_id: {
 					...obj,
-					$in: obj.$in.map((v) => (typeof v === "string" ? toMongoId(v) : v)),
+					$in: obj.$in.map((v) => coerceObjectId(v)),
 				},
 			};
 		}
+
 		if (Array.isArray(obj.$nin)) {
 			return {
 				...filter,
 				_id: {
 					...obj,
-					$nin: obj.$nin.map((v) => (typeof v === "string" ? toMongoId(v) : v)),
+					$nin: obj.$nin.map((v) => coerceObjectId(v)),
 				},
 			};
 		}
 	}
+
 	return filter;
 };
 
@@ -304,12 +465,9 @@ type MongoQueryPayload = {
 	skip?: number;
 };
 
-// ---------------------------------------------------------------------------
-// MongoAdapter
-// ---------------------------------------------------------------------------
-
 const MONGO_UNAUTHORIZED = 13;
 const MONGO_ATLAS_ERROR = 8000;
+
 /** The log id MongoDB gives to a slow operation. */
 const MONGO_SLOW_QUERY = 51803;
 
@@ -341,12 +499,14 @@ const toServerLogEntry = ({
 }: MongoLogLine): ServerLogEntrySchemaType => {
 	if (id === MONGO_SLOW_QUERY) {
 		const { ns, command, durationMillis, ...rest } = attr;
+
 		// Driver bookkeeping such as $db, lsid and $clusterTime says nothing about the query.
 		const query = Object.fromEntries(
 			Object.entries((command ?? {}) as Record<string, unknown>).filter(
 				([key]) => !key.startsWith("$") && key !== "lsid",
 			),
 		);
+
 		return {
 			ts: new Date(t.$date).toISOString(),
 			level: MONGO_LOG_LEVELS[s] ?? "debug",
@@ -357,6 +517,7 @@ const toServerLogEntry = ({
 			detail: logDetail({ id, ctx, ...rest }),
 		};
 	}
+
 	return {
 		ts: new Date(t.$date).toISOString(),
 		level: MONGO_LOG_LEVELS[s] ?? "debug",
@@ -368,138 +529,54 @@ const toServerLogEntry = ({
 };
 
 export class MongoAdapter extends BaseAdapter {
-	// -----------------------------------------------------------------------
-	// Abstract stubs — MongoDB does not use SQL
-	// -----------------------------------------------------------------------
+	protected override classifyDriverError(e: Error): DriverErrorClass | undefined {
+		if (
+			UNREACHABLE_ERRORS.has(e.name) ||
+			e.message.includes("MongoNetworkError") ||
+			e.message.includes("MongoServerSelectionError")
+		)
+			return { status: 503 };
 
-	protected runQuery<T>(): Promise<T> {
-		throw new HTTPException(501, { message: "runQuery is not supported for MongoDB" });
+		if ("code" in e && CONFLICT_CODES.has(e.code)) return { status: 409 };
+
+		return undefined;
 	}
-
-	protected buildTableDataQuery(_params: GetTableDataParams): QueryBundle {
-		throw new HTTPException(501, {
-			message: "buildTableDataQuery is not supported for MongoDB",
-		});
-	}
-
-	protected normalizeRows(rawRows: unknown[]): NormalizedRow[] {
-		return rawRows.map((row) => this.normalizeRow(normalizeDoc(row)));
-	}
-
-	protected buildCursors(): { nextCursor: string | null; prevCursor: string | null } {
-		return { nextCursor: null, prevCursor: null };
-	}
-
-	protected quoteIdentifier(name: string): string {
-		return name;
-	}
-
-	// -----------------------------------------------------------------------
-	// Type mapping
-	// -----------------------------------------------------------------------
-
-	mapToUniversalType(nativeType: string): DataTypes {
-		switch (nativeType.toLowerCase()) {
-			case "int":
-			case "long":
-			case "double":
-			case "decimal":
-				return "number";
-			case "bool":
-				return "boolean";
-			case "date":
-				return "date";
-			case "array":
-				return "array";
-			case "object":
-				return "json";
-			default:
-				return "text";
-		}
-	}
-
-	mapFromUniversalType(universalType: string): string {
-		switch (universalType) {
-			case "number":
-				return "double";
-			case "boolean":
-				return "bool";
-			case "date":
-				return "date";
-			case "array":
-				return "array";
-			case "json":
-				return "object";
-			default:
-				return "string";
-		}
-	}
-
-	// -----------------------------------------------------------------------
-	// wrapError override — adds MongoDB-specific connection error names
-	// -----------------------------------------------------------------------
-
-	protected override wrapError(e: unknown): HTTPException {
-		if (e instanceof HTTPException) return e;
-		if (e instanceof Error) {
-			const name = (e as { name?: string }).name ?? "";
-			if (
-				name === "MongoNetworkError" ||
-				name === "MongoServerSelectionError" ||
-				name === "MongoTopologyClosedError"
-			) {
-				return new HTTPException(503, { message: e.message, cause: e });
-			}
-		}
-		return super.wrapError(e);
-	}
-
-	// -----------------------------------------------------------------------
-	// getTableData — full override (skip/limit pagination)
-	// -----------------------------------------------------------------------
 
 	override async getTableData(params: GetTableDataParams): Promise<TableDataResultSchemaType> {
-		try {
-			const { tableName, db, cursor, limit, direction = "asc", sort, order, filters } = params;
+		const { tableName, db, cursor, limit, direction = "asc", sort = [], filters } = params;
 
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const filterObj = buildMatchStage(filters ?? []);
-			const sortObj = buildSortStage(sort ?? "", order);
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
+		const filterObj = buildMatchStage(filters ?? []);
+		const sortObj = buildSortStage(sort);
 
-			const safeLimit = limit && limit > 0 ? limit : 50;
-			const decodedOffset = decodeMongoCursor(cursor);
-			const offset = Number.isFinite(decodedOffset) && decodedOffset >= 0 ? decodedOffset : 0;
-			const skip = direction === "desc" ? Math.max(offset - safeLimit, 0) : offset;
+		const safeLimit = limit && limit > 0 ? limit : 50;
+		const decodedOffset = decodeMongoCursor(cursor);
+		const offset = Number.isFinite(decodedOffset) && decodedOffset >= 0 ? decodedOffset : 0;
+		// A cursor is the offset of a page boundary: `asc` reads the page starting there,
+		// `desc` the page ending just before it.
+		const skip = direction === "desc" ? Math.max(offset - safeLimit, 0) : offset;
 
-			const [total, rows] = await Promise.all([
-				collection.countDocuments(filterObj),
-				collection.find(filterObj).sort(sortObj).skip(skip).limit(safeLimit).toArray(),
-			]);
+		const [total, rows] = await Promise.all([
+			collection.countDocuments(filterObj),
+			collection.find(filterObj).sort(sortObj).skip(skip).limit(safeLimit).toArray(),
+		]);
 
-			const normalizedRows = rows.map((row) => normalizeDoc(row));
-			const nextOffset = skip + safeLimit;
-			const prevOffset = Math.max(skip - safeLimit, 0);
+		const normalizedRows = rows.map((row) => normalizeDoc(row));
+		const nextOffset = skip + safeLimit;
 
-			return {
-				data: normalizedRows,
-				meta: {
-					limit: safeLimit,
-					total,
-					hasNextPage: nextOffset < total,
-					hasPreviousPage: skip > 0,
-					nextCursor: nextOffset < total ? encodeMongoCursor(nextOffset) : null,
-					prevCursor: skip > 0 ? encodeMongoCursor(prevOffset) : null,
-				},
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return {
+			data: normalizedRows,
+			meta: {
+				limit: safeLimit,
+				total,
+				hasNextPage: nextOffset < total,
+				hasPreviousPage: skip > 0,
+				nextCursor: nextOffset < total ? encodeMongoCursor(nextOffset) : null,
+				prevCursor: skip > 0 ? encodeMongoCursor(skip) : null,
+			},
+		};
 	}
-
-	// -----------------------------------------------------------------------
-	// exportTableData — full override (no SELECT * in Mongo)
-	// -----------------------------------------------------------------------
 
 	override async exportTableData({
 		tableName,
@@ -508,98 +585,82 @@ export class MongoAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<{ cols: string[]; rows: Record<string, unknown>[] }> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const rows = await collection.find({}).limit(10000).toArray();
-			// Nested documents stay nested: the JSON export needs the real structure,
-			// and `getExportFile` flattens them for the CSV/XLSX sheet writer.
-			const normalized = rows.map((row) => normalizeDoc(row));
-			const cols = Array.from(new Set(normalized.flatMap((row) => Object.keys(row))));
-			return { cols, rows: normalized };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
+		const rows = await collection.find({}).limit(10000).toArray();
+		// Nested documents stay nested: the JSON export needs the real structure,
+		// and `getExportFile` flattens them for the CSV/XLSX sheet writer.
+		const normalized = rows.map((row) => normalizeDoc(row));
+		const cols = Array.from(new Set(normalized.flatMap((row) => Object.keys(row))));
+
+		return { cols, rows: normalized };
 	}
 
-	// -----------------------------------------------------------------------
-	// Database operations
-	// -----------------------------------------------------------------------
-
 	override async getDatabasesList(): Promise<DatabaseInfoSchemaType[]> {
-		try {
-			const client = await getMongoClient();
-			const admin = client.db().admin();
-			const result = await admin.listDatabases();
-			const databases = result.databases ?? [];
-			if (!databases[0]) {
-				throw new HTTPException(500, { message: "No databases returned from MongoDB" });
-			}
-			return visibleMongoDatabases(databases, getMongoDbName()).map((db) => ({
-				name: db.name,
-				size: formatBytes(db.sizeOnDisk ?? 0),
-				owner: "n/a",
-				encoding: "n/a",
-			}));
-		} catch (e) {
-			throw this.wrapError(e);
+		const client = await connector("mongodb").client();
+		const admin = client.db().admin();
+		const result = await admin.listDatabases();
+		const databases = result.databases ?? [];
+
+		if (!databases[0]) {
+			throw new HTTPException(500, { message: "No databases returned from MongoDB" });
 		}
+
+		return visibleMongoDatabases(databases, connector("mongodb").dbName).map((db) => ({
+			name: db.name,
+			size: formatBytes(db.sizeOnDisk ?? 0),
+			owner: "n/a",
+			encoding: "n/a",
+		}));
 	}
 
 	override async getCurrentDatabase(): Promise<DatabaseSchemaType> {
-		return { db: getMongoDbName() };
+		return { db: connector("mongodb").dbName };
 	}
 
-	override async getDatabaseConnectionInfo(): Promise<ConnectionInfoSchemaType> {
+	override async getDatabaseConnectionInfo(
+		server: ServerAddress,
+	): Promise<ConnectionInfoSchemaType> {
+		const client = await connector("mongodb").client();
+		const admin = client.db().admin();
+
+		let serverStatus: {
+			version?: string;
+			connections?: { current?: number; available?: number };
+		} = {};
+
 		try {
-			const client = await getMongoClient();
-			const admin = client.db().admin();
-			const urlDefaults = parseDatabaseUrl(getConnectionUrl());
-			let serverStatus: {
-				version?: string;
-				connections?: { current?: number; available?: number };
-			} = {};
-			try {
-				serverStatus = await admin.serverStatus();
-			} catch (error) {
-				writeOperationalLog("warn", "db_server_status_failed", errorFields(error));
-			}
-			return {
-				host: urlDefaults.host,
-				port: urlDefaults.port,
-				user: "n/a",
-				database: getMongoDbName(),
-				version: serverStatus.version ?? "unknown",
-				active_connections: serverStatus.connections?.current ?? 0,
-				max_connections:
-					(serverStatus.connections?.current ?? 0) +
-					(serverStatus.connections?.available ?? 0),
-			};
-		} catch (e) {
-			throw this.wrapError(e);
+			serverStatus = await admin.serverStatus();
+		} catch (error) {
+			writeOperationalLog("warn", "db_server_status_failed", errorFields(error));
 		}
-	}
 
-	// -----------------------------------------------------------------------
-	// Table operations
-	// -----------------------------------------------------------------------
+		return {
+			host: server.host,
+			port: server.port,
+			user: "n/a",
+			database: connector("mongodb").dbName,
+			version: serverStatus.version ?? "unknown",
+			active_connections: serverStatus.connections?.current ?? 0,
+			max_connections:
+				(serverStatus.connections?.current ?? 0) + (serverStatus.connections?.available ?? 0),
+		};
+	}
 
 	override async getTablesList(db: DatabaseSchemaType["db"]): Promise<TableInfoSchemaType[]> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const collections = await mongoDb.listCollections().toArray();
-			const results: TableInfoSchemaType[] = [];
-			for (const col of collections) {
-				// MongoDB reserves `system.*` for internal collections. A database with a view
-				// holds `system.views`, which no role may count, so listing it failed every request.
-				if (col.name.startsWith("system.")) continue;
-				const rowCount = await mongoDb.collection(col.name).estimatedDocumentCount();
-				results.push({ tableName: col.name, rowCount });
-			}
-			return results;
-		} catch (e) {
-			throw this.wrapError(e);
+		const mongoDb = await connector("mongodb").db(db);
+		const collections = await mongoDb.listCollections().toArray();
+		const results: TableInfoSchemaType[] = [];
+
+		for (const col of collections) {
+			// MongoDB reserves `system.*` for internal collections. A database with a view
+			// holds `system.views`, which no role may count, so listing it failed every request.
+			if (col.name.startsWith("system.")) continue;
+			const rowCount = await mongoDb.collection(col.name).estimatedDocumentCount();
+			results.push({ tableName: col.name, rowCount });
 		}
+
+		return results;
 	}
 
 	override async createTable({
@@ -609,94 +670,80 @@ export class MongoAdapter extends BaseAdapter {
 		tableData: CreateTableSchemaType;
 		db: DatabaseSchemaType["db"];
 	}): Promise<void> {
-		try {
-			const tableName = tableData?.tableName ?? "";
-			const mongoDb = await getMongoDb(db);
-			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-			if (collections.length > 0) {
-				throw new HTTPException(400, {
-					message: `Collection "${tableName}" already exists`,
-				});
-			}
+		const { tableName, fields } = tableData;
+		const mongoDb = await connector("mongodb").db(db);
+		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
 
-			const fields = tableData?.fields ?? [];
-			if (fields.length === 0) {
-				await mongoDb.createCollection(tableName);
-				return;
-			}
-
-			const properties: Record<string, unknown> = {};
-			const required: string[] = [];
-			for (const field of fields) {
-				const bsonType = mapBsonType(field.columnType);
-				if (!MONGO_BSON_TYPES.has(bsonType)) {
-					throw new HTTPException(400, {
-						message: `Unsupported MongoDB BSON type "${field.columnType}" for field "${field.columnName}"`,
-					});
-				}
-				if (field.isArray) {
-					properties[field.columnName] = {
-						bsonType: "array",
-						...(bsonType !== "array" ? { items: { bsonType } } : {}),
-					};
-				} else {
-					properties[field.columnName] = { bsonType };
-				}
-				if (!field.isNullable) required.push(field.columnName);
-			}
-
-			await mongoDb.createCollection(tableName, {
-				validator: {
-					$jsonSchema: {
-						bsonType: "object",
-						required,
-						properties,
-						additionalProperties: true,
-					},
-				},
-				validationAction: "error",
+		if (collections.length > 0) {
+			throw new HTTPException(409, {
+				message: `Collection "${tableName}" already exists`,
 			});
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		if (fields.length === 0) {
+			await mongoDb.createCollection(tableName);
+
+			return;
+		}
+
+		const properties: Record<string, unknown> = {};
+		const required: string[] = [];
+
+		for (const field of fields) {
+			const bsonType = toBsonType(field.columnType, field.columnName);
+
+			if (field.isArray) {
+				const property: Record<string, unknown> = { bsonType: "array" };
+
+				if (bsonType !== "array") property.items = { bsonType };
+
+				properties[field.columnName] = property;
+			} else {
+				properties[field.columnName] = { bsonType };
+			}
+
+			if (!field.isNullable) required.push(field.columnName);
+		}
+
+		await mongoDb.createCollection(tableName, {
+			validator: {
+				$jsonSchema: {
+					bsonType: "object",
+					...(required.length > 0 && { required }),
+					properties,
+					additionalProperties: true,
+				},
+			},
+			validationAction: "error",
+		});
 	}
 
 	override async deleteTable({
 		tableName,
 		db,
 	}: DeleteTableParams): Promise<DeleteTableResult> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const rowCount = await collection.estimatedDocumentCount();
-			await collection.drop();
-			return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
+		const rowCount = await collection.estimatedDocumentCount();
+		await collection.drop();
+
+		return { deletedCount: rowCount, fkViolation: false, relatedRecords: [] };
 	}
 
 	override async renameTable(params: RenameTableParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, newTableName, db } = params;
-			this.assertDifferentTableName(tableName, newTableName);
-			const mongoDb = await getMongoDb(db);
-			const existing = await mongoDb.listCollections({ name: tableName }).toArray();
-			if (existing.length === 0) {
-				throw new HTTPException(404, {
-					message: `Collection "${tableName}" does not exist`,
-				});
-			}
-			const target = await mongoDb.listCollections({ name: newTableName }).toArray();
-			if (target.length > 0) {
-				throw new HTTPException(409, {
-					message: `Collection "${newTableName}" already exists`,
-				});
-			}
-			await mongoDb.collection(tableName).rename(newTableName);
-		} catch (e) {
-			throw this.wrapError(e);
+		const { tableName, newTableName, db } = params;
+		this.assertDifferentTableName(tableName, newTableName);
+		const mongoDb = await connector("mongodb").db(db);
+		await assertCollection(mongoDb, tableName);
+		const target = await mongoDb.listCollections({ name: newTableName }).toArray();
+
+		if (target.length > 0) {
+			throw new HTTPException(409, {
+				message: `Collection "${newTableName}" already exists`,
+			});
 		}
+
+		await mongoDb.collection(tableName).rename(newTableName);
 	}
 
 	override async getTableSchema({
@@ -706,65 +753,37 @@ export class MongoAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<string> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-			if (collections.length === 0) {
-				throw new HTTPException(404, {
-					message: `Collection "${tableName}" does not exist`,
-				});
-			}
+		const mongoDb = await connector("mongodb").db(db);
+		await assertCollection(mongoDb, tableName);
+		const { sampled, fields } = await sampleFields(mongoDb, tableName);
+		const totalDocs = await mongoDb.collection(tableName).estimatedDocumentCount();
 
-			const collection = mongoDb.collection(tableName);
-			const docs = await collection.find({}).limit(200).toArray();
-			const totalDocs = await collection.estimatedDocumentCount();
+		const properties: Record<string, unknown> = {};
+		const required: string[] = [];
 
-			const fieldTypes = new Map<string, Set<string>>();
-			const fieldPresence = new Map<string, number>();
-			for (const doc of docs) {
-				for (const [key, value] of Object.entries(doc)) {
-					const bsonType = inferBsonType(value);
-					if (!fieldTypes.has(key)) {
-						fieldTypes.set(key, new Set());
-						fieldPresence.set(key, 0);
-					}
-					fieldTypes.get(key)?.add(bsonType);
-					fieldPresence.set(key, (fieldPresence.get(key) ?? 0) + 1);
-				}
-			}
+		for (const { name, bsonTypes, isNullable } of fields) {
+			const typeList = Array.from(bsonTypes).filter((t) => t !== "null");
 
-			const properties: Record<string, unknown> = {};
-			const required: string[] = [];
-			for (const [field, types] of fieldTypes.entries()) {
-				const presence = fieldPresence.get(field) ?? 0;
-				const typeList = Array.from(types).filter((t) => t !== "null");
-				const isNullable = types.has("null") || presence < docs.length;
-				if (presence === docs.length && docs.length > 0 && !isNullable) required.push(field);
-				properties[field] =
-					typeList.length === 1
-						? { bsonType: isNullable ? [typeList[0], "null"] : typeList[0] }
-						: { bsonType: isNullable ? [...typeList, "null"] : typeList };
-			}
-
-			const schema = {
-				collection: tableName,
-				estimatedDocumentCount: totalDocs,
-				sampledDocuments: docs.length,
-				jsonSchema: {
-					bsonType: "object",
-					required: required.length > 0 ? required : undefined,
-					properties,
-				},
-			};
-			return JSON.stringify(schema, null, 2);
-		} catch (e) {
-			throw this.wrapError(e);
+			if (!isNullable) required.push(name);
+			properties[name] =
+				typeList.length === 1
+					? { bsonType: isNullable ? [typeList[0], "null"] : typeList[0] }
+					: { bsonType: isNullable ? [...typeList, "null"] : typeList };
 		}
-	}
 
-	// -----------------------------------------------------------------------
-	// Column operations
-	// -----------------------------------------------------------------------
+		const schema = {
+			collection: tableName,
+			estimatedDocumentCount: totalDocs,
+			sampledDocuments: sampled,
+			jsonSchema: {
+				bsonType: "object",
+				required: required.length > 0 ? required : undefined,
+				properties,
+			},
+		};
+
+		return JSON.stringify(schema, null, 2);
+	}
 
 	override async getTableColumns({
 		tableName,
@@ -773,269 +792,131 @@ export class MongoAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ColumnInfoSchemaType[]> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const documents = await collection.find({}).limit(200).toArray();
-			const totalDocs = documents.length;
+		const { fields } = await sampleFields(await connector("mongodb").db(db), tableName);
 
-			const columnMap = new Map<
-				string,
-				{ types: Set<DataTypes>; nullable: boolean; presentCount: number }
-			>();
+		if (!fields.some((field) => field.name === "_id"))
+			fields.push({ name: "_id", bsonTypes: new Set(), isNullable: false });
 
-			const ensureColumn = (columnName: string, value: unknown) => {
-				const dt = inferValueType(value);
-				if (!columnMap.has(columnName)) {
-					columnMap.set(columnName, {
-						types: new Set([dt]),
-						nullable: false,
-						presentCount: 1,
-					});
-				} else {
-					const entry = columnMap.get(columnName)!;
-					entry.types.add(dt);
-					entry.presentCount += 1;
-				}
+		return fields.map(({ name: columnName, bsonTypes, isNullable }) => {
+			// A field reports the type of its first non-null sampled value; one only seen null is text.
+			const bsonType = [...bsonTypes].find((type) => type !== "null") ?? "string";
+			const { dataType, label } = BSON_COLUMN_TYPES[bsonType];
+
+			return {
+				columnName,
+				dataType,
+				dataTypeLabel: label,
+				isNullable,
+				columnDefault: null,
+				isPrimaryKey: columnName === "_id",
+				isForeignKey: false,
+				referencedTable: null,
+				referencedColumn: null,
+				enumValues: null,
 			};
-
-			for (const doc of documents) {
-				for (const [key, value] of Object.entries(doc)) {
-					if (value === null || value === undefined) {
-						if (!columnMap.has(key)) {
-							columnMap.set(key, {
-								types: new Set(["text"]),
-								nullable: true,
-								presentCount: 1,
-							});
-						} else {
-							const entry = columnMap.get(key)!;
-							entry.nullable = true;
-							entry.presentCount += 1;
-						}
-						continue;
-					}
-					ensureColumn(key, value);
-				}
-			}
-
-			if (totalDocs > 0) {
-				for (const entry of columnMap.values()) {
-					if (entry.presentCount < totalDocs) entry.nullable = true;
-				}
-			}
-
-			if (!columnMap.has("_id")) {
-				columnMap.set("_id", {
-					types: new Set(["text"]),
-					nullable: false,
-					presentCount: totalDocs,
-				});
-			}
-
-			return Array.from(columnMap.entries()).map(([columnName, meta]) => {
-				const dt = (meta.types.values().next().value ?? "text") as DataTypes;
-				return {
-					columnName,
-					dataType: dt,
-					dataTypeLabel: dataTypeLabel(dt) as ColumnInfoSchemaType["dataTypeLabel"],
-					isNullable: meta.nullable,
-					columnDefault: null,
-					isPrimaryKey: columnName === "_id",
-					isForeignKey: false,
-					referencedTable: null,
-					referencedColumn: null,
-					enumValues: null,
-				};
-			});
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		});
 	}
 
 	override async addColumn(params: AddColumnParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, columnName, columnType, defaultValue, isNullable, db } = params;
-			const mongoDb = await getMongoDb(db);
-			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-			if (collections.length === 0) {
-				throw new HTTPException(404, {
-					message: `Collection "${tableName}" does not exist`,
-				});
-			}
+		const { tableName, columnName, defaultValue, isNullable, db } = params;
+		const bsonType = toBsonType(params.columnType, columnName);
+		const mongoDb = await connector("mongodb").db(db);
+		const info = await assertCollection(mongoDb, tableName);
 
-			const conflict = await mongoDb
-				.collection(tableName)
-				.findOne({ [columnName]: { $exists: true } });
-			if (conflict) {
-				throw new HTTPException(409, {
-					message: `Field "${columnName}" already exists in collection "${tableName}"`,
-				});
-			}
+		const conflict = await mongoDb
+			.collection(tableName)
+			.findOne({ [columnName]: { $exists: true } });
 
-			const resolvedDefault = resolveFieldDefault(defaultValue, columnType);
-			await mongoDb
-				.collection(tableName)
-				.updateMany({}, { $set: { [columnName]: resolvedDefault } });
-
-			const collInfo = collections[0] as {
-				options?: {
-					validator?: {
-						$jsonSchema?: {
-							properties?: Record<string, unknown>;
-							required?: string[];
-						};
-					};
-				};
-			};
-			const existingSchema = collInfo.options?.validator?.$jsonSchema ?? {};
-			const properties: Record<string, unknown> = {
-				...((existingSchema.properties as Record<string, unknown>) ?? {}),
-				[columnName]: { bsonType: isNullable ? [columnType, "null"] : columnType },
-			};
-			const required: string[] = [...(existingSchema.required ?? [])];
-			if (!isNullable && !required.includes(columnName)) required.push(columnName);
-
-			await mongoDb.command({
-				collMod: tableName,
-				validator: {
-					$jsonSchema: {
-						...existingSchema,
-						bsonType: "object",
-						properties,
-						...(required.length > 0 ? { required } : {}),
-					},
-				},
-				validationAction: "warn",
+		if (conflict) {
+			throw new HTTPException(409, {
+				message: `Field "${columnName}" already exists in collection "${tableName}"`,
 			});
-		} catch (e) {
-			throw this.wrapError(e);
 		}
+
+		const resolvedDefault = resolveFieldDefault(defaultValue, bsonType);
+		await mongoDb
+			.collection(tableName)
+			.updateMany({}, { $set: { [columnName]: resolvedDefault } });
+
+		await editFieldValidator(mongoDb, tableName, info, columnName, {
+			name: columnName,
+			type: { bsonType, isNullable },
+		});
 	}
 
 	override async deleteColumn({
 		tableName,
 		columnName,
 		db,
-	}: DeleteColumnParamsSchemaType): Promise<{ deletedCount: number }> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const result = await collection.updateMany({}, { $unset: { [columnName]: "" } });
-			return { deletedCount: result.modifiedCount };
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+	}: DeleteColumnParamsSchemaType): Promise<void> {
+		const mongoDb = await connector("mongodb").db(db);
+		const info = await assertCollection(mongoDb, tableName);
+		// A field the validator requires cannot be unset while it does.
+		await editFieldValidator(mongoDb, tableName, info, columnName);
+		await mongoDb.collection(tableName).updateMany({}, { $unset: { [columnName]: "" } });
 	}
 
 	override async alterColumn(params: AlterColumnParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, columnName, columnType, isNullable, db } = params;
-			const mongoDb = await getMongoDb(db);
-			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-			if (collections.length === 0) {
-				throw new HTTPException(404, {
-					message: `Collection "${tableName}" does not exist`,
-				});
-			}
-			if (columnName === "_id") {
-				throw new HTTPException(400, { message: 'Cannot alter the "_id" field' });
-			}
+		const { tableName, columnName, columnType, isNullable, db } = params;
+		const mongoDb = await connector("mongodb").db(db);
+		const info = await assertCollection(mongoDb, tableName);
 
-			const collInfo = collections[0] as {
-				options?: {
-					validator?: {
-						$jsonSchema?: {
-							properties?: Record<string, unknown>;
-							required?: string[];
-						};
-					};
-				};
-			};
-			const existingSchema = collInfo.options?.validator?.$jsonSchema ?? {};
-			const properties: Record<string, unknown> = {
-				...((existingSchema.properties as Record<string, unknown>) ?? {}),
-			};
-			const required: string[] = [...(existingSchema.required ?? [])];
-
-			properties[columnName] = {
-				bsonType: isNullable ? [columnType, "null"] : columnType,
-			};
-
-			const reqIndex = required.indexOf(columnName);
-			if (!isNullable && reqIndex === -1) required.push(columnName);
-			else if (isNullable && reqIndex !== -1) required.splice(reqIndex, 1);
-
-			await mongoDb.command({
-				collMod: tableName,
-				validator: {
-					$jsonSchema: {
-						...existingSchema,
-						bsonType: "object",
-						properties,
-						...(required.length > 0 ? { required } : {}),
-					},
-				},
-				validationAction: "warn",
-			});
-		} catch (e) {
-			throw this.wrapError(e);
+		if (columnName === "_id") {
+			throw new HTTPException(400, { message: 'Cannot alter the "_id" field' });
 		}
+
+		await editFieldValidator(mongoDb, tableName, info, columnName, {
+			name: columnName,
+			type: { bsonType: toBsonType(columnType, columnName), isNullable },
+		});
 	}
 
 	override async renameColumn(params: RenameColumnParamsSchemaType): Promise<void> {
-		try {
-			const { tableName, columnName, newColumnName, db } = params;
-			const mongoDb = await getMongoDb(db);
-			const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-			if (collections.length === 0) {
-				throw new HTTPException(404, {
-					message: `Collection "${tableName}" does not exist`,
-				});
-			}
-			if (columnName === "_id") {
-				throw new HTTPException(400, { message: 'Cannot rename the "_id" field' });
-			}
+		const { tableName, columnName, newColumnName, db } = params;
+		const mongoDb = await connector("mongodb").db(db);
+		const info = await assertCollection(mongoDb, tableName);
 
-			const sample = await mongoDb
-				.collection(tableName)
-				.findOne({ [columnName]: { $exists: true } });
-			if (!sample) {
-				throw new HTTPException(404, {
-					message: `Field "${columnName}" does not exist in collection "${tableName}"`,
-				});
-			}
-
-			const conflict = await mongoDb
-				.collection(tableName)
-				.findOne({ [newColumnName]: { $exists: true } });
-			if (conflict) {
-				throw new HTTPException(409, {
-					message: `Field "${newColumnName}" already exists in collection "${tableName}"`,
-				});
-			}
-
-			await mongoDb
-				.collection(tableName)
-				.updateMany(
-					{ [columnName]: { $exists: true } },
-					{ $rename: { [columnName]: newColumnName } },
-				);
-		} catch (e) {
-			throw this.wrapError(e);
+		if (columnName === "_id") {
+			throw new HTTPException(400, { message: 'Cannot rename the "_id" field' });
 		}
-	}
 
-	// -----------------------------------------------------------------------
-	// Indexes
-	// -----------------------------------------------------------------------
+		const sample = await mongoDb
+			.collection(tableName)
+			.findOne({ [columnName]: { $exists: true } });
+
+		if (!sample) {
+			throw new HTTPException(404, {
+				message: `Field "${columnName}" does not exist in collection "${tableName}"`,
+			});
+		}
+
+		const conflict = await mongoDb
+			.collection(tableName)
+			.findOne({ [newColumnName]: { $exists: true } });
+
+		if (conflict) {
+			throw new HTTPException(409, {
+				message: `Field "${newColumnName}" already exists in collection "${tableName}"`,
+			});
+		}
+
+		await editFieldValidator(mongoDb, tableName, info, columnName, { name: newColumnName });
+		await mongoDb
+			.collection(tableName)
+			.updateMany(
+				{ [columnName]: { $exists: true } },
+				{ $rename: { [columnName]: newColumnName } },
+			);
+	}
 
 	override async getServerLogs(): Promise<ServerLogsResult> {
 		try {
-			const client = await getMongoClient();
+			const client = await connector("mongodb").client();
+
 			const { log } = (await client.db("admin").command({ getLog: "global" })) as {
 				log: string[];
 			};
+
 			const entries = log.flatMap((line) => {
 				try {
 					return [toServerLogEntry(JSON.parse(line) as MongoLogLine)];
@@ -1044,6 +925,7 @@ export class MongoAdapter extends BaseAdapter {
 					return [];
 				}
 			});
+
 			return {
 				available: true,
 				source: "getLog: 'global' (the server keeps the newest 1024 entries)",
@@ -1051,28 +933,28 @@ export class MongoAdapter extends BaseAdapter {
 			};
 		} catch (e) {
 			const code = (e as { code?: unknown }).code;
+
 			if (code === MONGO_UNAUTHORIZED) {
 				return logsUnavailable(
 					"Reading the server log needs the getLog action, which the clusterMonitor role grants.",
 				);
 			}
+
 			if (code === MONGO_ATLAS_ERROR) {
 				return logsUnavailable("This Atlas tier does not allow getLog.");
 			}
-			throw this.wrapError(e);
+
+			throw e;
 		}
 	}
 
 	private async listIndexes(mongoDb: Db, tableName: string): Promise<IndexInfoSchemaType[]> {
-		const collections = await mongoDb.listCollections({ name: tableName }).toArray();
-		if (collections.length === 0) {
-			throw new HTTPException(404, {
-				message: `Collection "${tableName}" does not exist`,
-			});
-		}
+		await assertCollection(mongoDb, tableName);
+
 		const indexes = (await mongoDb.collection(tableName).listIndexes().toArray()).map(
 			toIndexInfo,
 		);
+
 		return indexes.sort(
 			(a, b) =>
 				Number(b.kind === "primary") - Number(a.kind === "primary") ||
@@ -1087,29 +969,30 @@ export class MongoAdapter extends BaseAdapter {
 		tableName: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<IndexInfoSchemaType[]> {
-		try {
-			return await this.listIndexes(await getMongoDb(db), tableName);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		return await this.listIndexes(await connector("mongodb").db(db), tableName);
 	}
 
 	override async createIndex(params: CreateIndexParamsSchemaType): Promise<void> {
 		const { tableName, indexName, columns, isUnique, method, db } = params;
+
 		try {
 			if (method !== undefined)
 				throw new HTTPException(400, { message: `Unsupported index method "${method}"` });
+
 			const invalid = columns.find((path) =>
 				path.split(".").some((segment) => segment === "" || segment.startsWith("$")),
 			);
+
 			if (invalid !== undefined)
 				throw new HTTPException(400, { message: `Invalid field path "${invalid}"` });
+
 			if (new Set(columns).size !== columns.length)
 				throw new HTTPException(400, { message: "A field can appear only once in an index" });
 
-			const mongoDb = await getMongoDb(db);
+			const mongoDb = await connector("mongodb").db(db);
 			// MongoDB answers ok when the name and spec both match an existing index.
 			const existing = await this.listIndexes(mongoDb, tableName);
+
 			if (existing.some((index) => index.indexName === indexName))
 				throw new HTTPException(409, {
 					message: `Index "${indexName}" already exists on collection "${tableName}"`,
@@ -1123,9 +1006,10 @@ export class MongoAdapter extends BaseAdapter {
 				});
 		} catch (e) {
 			const code = (e as { code?: unknown }).code;
+
 			if (e instanceof Error && typeof code === "number" && INDEX_CONFLICT_CODES.has(code))
 				throw new HTTPException(409, { message: e.message, cause: e });
-			throw this.wrapError(e);
+			throw e;
 		}
 	}
 
@@ -1134,28 +1018,23 @@ export class MongoAdapter extends BaseAdapter {
 		indexName,
 		db,
 	}: DropIndexParamsSchemaType): Promise<void> {
-		try {
-			const mongoDb = await getMongoDb(db);
-			const index = (await this.listIndexes(mongoDb, tableName)).find(
-				(candidate) => candidate.indexName === indexName,
-			);
-			if (!index)
-				throw new HTTPException(404, {
-					message: `Index "${indexName}" does not exist on collection "${tableName}"`,
-				});
-			if (index.kind === "primary")
-				throw new HTTPException(400, {
-					message: `Index "${indexName}" backs the primary key and cannot be dropped`,
-				});
-			await mongoDb.collection(tableName).dropIndex(indexName);
-		} catch (e) {
-			throw this.wrapError(e);
-		}
-	}
+		const mongoDb = await connector("mongodb").db(db);
 
-	// -----------------------------------------------------------------------
-	// Record operations
-	// -----------------------------------------------------------------------
+		const index = (await this.listIndexes(mongoDb, tableName)).find(
+			(candidate) => candidate.indexName === indexName,
+		);
+
+		if (!index)
+			throw new HTTPException(404, {
+				message: `Index "${indexName}" does not exist on collection "${tableName}"`,
+			});
+
+		if (index.kind === "primary")
+			throw new HTTPException(400, {
+				message: `Index "${indexName}" backs the primary key and cannot be dropped`,
+			});
+		await mongoDb.collection(tableName).dropIndex(indexName);
+	}
 
 	override async addRecord({
 		db,
@@ -1164,22 +1043,18 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 		params: AddRecordSchemaType;
 	}): Promise<{ insertedCount: number }> {
-		try {
-			const { tableName, data } = params;
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const payload = normalizeDoc(data);
-			if (payload._id === "" || payload._id === null) delete payload._id;
-			const result = await collection.insertOne(payload);
-			if (!result.insertedId) {
-				throw new HTTPException(500, {
-					message: `Failed to insert record into "${tableName}"`,
-				});
-			}
-			return { insertedCount: 1 };
-		} catch (e) {
-			throw this.wrapError(e);
+		const { tableName, data } = params;
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
+		const result = await collection.insertOne(toInsertDoc(data));
+
+		if (!result.insertedId) {
+			throw new HTTPException(500, {
+				message: `Failed to insert record into "${tableName}"`,
+			});
 		}
+
+		return { insertedCount: 1 };
 	}
 
 	override async updateRecords({
@@ -1189,108 +1064,92 @@ export class MongoAdapter extends BaseAdapter {
 		db: DatabaseSchemaType["db"];
 		params: UpdateRecordsSchemaType;
 	}): Promise<{ updatedCount: number }> {
-		try {
-			const { tableName } = params;
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
+		const { tableName } = params;
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
 
-			let totalUpdated = 0;
-			const keyColumns = this.resolveKeyColumns(params).map((column) => column || "_id");
-			const groups = this.groupUpdatesByKey(
-				{ ...params, primaryKeys: keyColumns },
-				keyColumns,
-			);
+		let totalUpdated = 0;
+		const keyColumns = this.resolveKeyColumns(params).map((column) => column || "_id");
 
-			for (const { keyValues, rowUpdates } of groups) {
-				// MongoDB rejects $set on the immutable _id field, so surface it as a
-				// client error instead of letting the driver fail mid-write.
-				if (rowUpdates.some((update) => update.columnName === "_id")) {
-					throw new HTTPException(400, {
-						message: 'The "_id" field is immutable and cannot be updated.',
-					});
-				}
+		const groups = this.groupUpdatesByKey(params.updates, keyColumns);
 
-				const updateSet: Record<string, unknown> = {};
-				for (const update of rowUpdates) updateSet[update.columnName] = update.value;
-
-				const filter: Record<string, unknown> = {};
-				keyColumns.forEach((column, i) => {
-					const value = keyValues[i];
-					filter[column] = column === "_id" && canCoerce(value) ? toMongoId(value) : value;
+		for (const { keyValues, rowUpdates } of groups) {
+			// MongoDB rejects $set on the immutable _id field, so surface it as a
+			// client error instead of letting the driver fail mid-write.
+			if (rowUpdates.some((update) => update.columnName === "_id")) {
+				throw new HTTPException(400, {
+					message: 'The "_id" field is immutable and cannot be updated.',
 				});
-
-				const result = await collection.updateOne(filter, { $set: updateSet });
-				if (result.matchedCount === 0) {
-					throw new HTTPException(404, {
-						message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in "${tableName}"`,
-					});
-				}
-				totalUpdated += result.modifiedCount;
 			}
 
-			return { updatedCount: totalUpdated };
-		} catch (e) {
-			throw this.wrapError(e);
+			const updateSet: Record<string, unknown> = {};
+
+			for (const update of rowUpdates) updateSet[update.columnName] = update.value;
+
+			const filter: Record<string, unknown> = {};
+			keyColumns.forEach((column, i) => {
+				const value = keyValues[i];
+				filter[column] = column === "_id" ? coerceObjectId(value) : value;
+			});
+
+			const result = await collection.updateOne(filter, { $set: updateSet });
+
+			if (result.matchedCount === 0) {
+				throw new HTTPException(404, {
+					message: `Record with ${this.describeKey(keyColumns, keyValues)} not found in "${tableName}"`,
+				});
+			}
+
+			totalUpdated += result.modifiedCount;
 		}
+
+		return { updatedCount: totalUpdated };
 	}
 
 	override async deleteRecords(params: DeleteRecordParams): Promise<DeleteRecordResult> {
-		try {
-			const { tableName, primaryKeys, db } = params;
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const pkColumn = primaryKeys[0]?.columnName ?? "_id";
-			const pkValues = primaryKeys.map((pk) =>
-				pkColumn === "_id" && canCoerce(pk.value) ? toMongoId(pk.value) : pk.value,
-			);
-			const result = await collection.deleteMany({ [pkColumn]: { $in: pkValues } });
-			return {
-				deletedCount: result.deletedCount ?? 0,
-				fkViolation: false,
-				relatedRecords: [],
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
+		const { tableName, primaryKeys, db } = params;
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
+		const pkColumn = primaryKeys[0]?.columnName ?? "_id";
+
+		const pkValues = primaryKeys.map((pk) =>
+			pkColumn === "_id" ? coerceObjectId(pk.value) : pk.value,
+		);
+
+		const result = await collection.deleteMany({ [pkColumn]: { $in: pkValues } });
+
+		return {
+			deletedCount: result.deletedCount,
+			fkViolation: false,
+			relatedRecords: [],
+		};
 	}
 
 	override async forceDeleteRecords(
 		params: DeleteRecordParams,
 	): Promise<{ deletedCount: number }> {
 		const result = await this.deleteRecords(params);
+
 		return { deletedCount: result.deletedCount };
 	}
 
 	override async bulkInsertRecords(
 		params: BulkInsertRecordsParams,
 	): Promise<BulkInsertResult> {
-		try {
-			const { tableName, records, db } = params;
-			if (!records || records.length === 0) {
-				throw new HTTPException(400, { message: "At least one record is required" });
-			}
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(tableName);
-			const docs = records.map((record) => {
-				const normalized = normalizeDoc(record);
-				if (normalized._id === "" || normalized._id === null) delete normalized._id;
-				return normalized;
-			});
-			const result = await collection.insertMany(docs, { ordered: false });
-			return {
-				success: true,
-				message: `Successfully inserted ${result.insertedCount} record${result.insertedCount !== 1 ? "s" : ""}`,
-				successCount: result.insertedCount,
-				failureCount: records.length - result.insertedCount,
-			};
-		} catch (e) {
-			throw this.wrapError(e);
-		}
-	}
+		const { tableName, records, db } = params;
 
-	// -----------------------------------------------------------------------
-	// Query execution
-	// -----------------------------------------------------------------------
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(tableName);
+
+		const result = await collection.insertMany(records.map(toInsertDoc), { ordered: false });
+
+		return {
+			success: true,
+			message: `Successfully inserted ${result.insertedCount} record${result.insertedCount !== 1 ? "s" : ""}`,
+			successCount: result.insertedCount,
+			failureCount: records.length - result.insertedCount,
+		};
+	}
 
 	override async executeQuery({
 		query,
@@ -1299,123 +1158,139 @@ export class MongoAdapter extends BaseAdapter {
 		query: string;
 		db: DatabaseSchemaType["db"];
 	}): Promise<ExecuteQueryResult> {
-		try {
-			if (!query?.trim()) {
-				throw new HTTPException(400, { message: "Query is required" });
-			}
-
-			let payload: MongoQueryPayload;
-			try {
-				payload = JSON.parse(query) as MongoQueryPayload;
-			} catch {
-				throw new HTTPException(400, { message: "Mongo query must be valid JSON" });
-			}
-
-			if (!payload.collection || !payload.operation) {
-				throw new HTTPException(400, {
-					message: "Mongo query must include collection and operation",
-				});
-			}
-
-			const mongoDb = await getMongoDb(db);
-			const collection = mongoDb.collection(payload.collection);
-
-			const startTime = performance.now();
-			let rows: Record<string, unknown>[] = [];
-			let rowCount = 0;
-			let message: string | undefined;
-
-			switch (payload.operation) {
-				case "find": {
-					const filter = normalizeIdFilter(payload.filter ?? {});
-					const cursor = collection.find(filter, payload.options ?? {});
-					cursor.sort(payload.sort ?? buildSortStage("", undefined));
-					if (payload.skip) cursor.skip(payload.skip);
-					if (payload.limit) cursor.limit(payload.limit);
-					rows = await cursor.toArray();
-					rowCount = rows.length;
-					break;
-				}
-				case "aggregate": {
-					rows = await collection
-						.aggregate(payload.pipeline ?? [], payload.options ?? {})
-						.toArray();
-					rowCount = rows.length;
-					break;
-				}
-				case "insertOne": {
-					const doc = payload.document as Record<string, unknown> | undefined;
-					if (!doc) throw new HTTPException(400, { message: "document is required" });
-					const result = await collection.insertOne(doc);
-					rowCount = result.insertedId ? 1 : 0;
-					message = "OK";
-					break;
-				}
-				case "insertMany": {
-					const docs = payload.document as Record<string, unknown>[] | undefined;
-					if (!Array.isArray(docs))
-						throw new HTTPException(400, { message: "document array is required" });
-					const result = await collection.insertMany(docs);
-					rowCount = result.insertedCount ?? 0;
-					message = "OK";
-					break;
-				}
-				case "updateOne": {
-					const filter = normalizeIdFilter(payload.filter ?? {});
-					if (!payload.update) throw new HTTPException(400, { message: "update is required" });
-					const result = await collection.updateOne(
-						filter,
-						payload.update,
-						payload.options ?? {},
-					);
-					rowCount = result.matchedCount ?? 0;
-					message = `OK (${result.modifiedCount ?? 0} modified)`;
-					break;
-				}
-				case "updateMany": {
-					const filter = normalizeIdFilter(payload.filter ?? {});
-					if (!payload.update) throw new HTTPException(400, { message: "update is required" });
-					const result = await collection.updateMany(
-						filter,
-						payload.update,
-						payload.options ?? {},
-					);
-					rowCount = result.matchedCount ?? 0;
-					message = `OK (${result.modifiedCount ?? 0} modified)`;
-					break;
-				}
-				case "deleteOne": {
-					const filter = normalizeIdFilter(payload.filter ?? {});
-					const result = await collection.deleteOne(filter, payload.options ?? {});
-					rowCount = result.deletedCount ?? 0;
-					message = "OK";
-					break;
-				}
-				case "deleteMany": {
-					const filter = normalizeIdFilter(payload.filter ?? {});
-					const result = await collection.deleteMany(filter, payload.options ?? {});
-					rowCount = result.deletedCount ?? 0;
-					message = "OK";
-					break;
-				}
-				case "count": {
-					const filter = normalizeIdFilter(payload.filter ?? {});
-					rowCount = await collection.countDocuments(filter);
-					rows = [{ count: rowCount }];
-					message = "OK";
-					break;
-				}
-				default:
-					throw new HTTPException(400, { message: "Unsupported Mongo operation" });
-			}
-
-			const duration = performance.now() - startTime;
-			const normalizedRows = rows.map((row) => normalizeDoc(row));
-			const columns = normalizedRows[0] ? Object.keys(normalizedRows[0]) : [];
-
-			return { columns, rows: normalizedRows, rowCount, duration, message };
-		} catch (e) {
-			throw this.wrapError(e);
+		if (!query.trim()) {
+			throw new HTTPException(400, { message: "Query is required" });
 		}
+
+		let payload: MongoQueryPayload;
+
+		try {
+			payload = JSON.parse(query) as MongoQueryPayload;
+		} catch {
+			throw new HTTPException(400, { message: "Mongo query must be valid JSON" });
+		}
+
+		if (!payload.collection || !payload.operation) {
+			throw new HTTPException(400, {
+				message: "Mongo query must include collection and operation",
+			});
+		}
+
+		const mongoDb = await connector("mongodb").db(db);
+		const collection = mongoDb.collection(payload.collection);
+
+		const startTime = performance.now();
+		let rows: Record<string, unknown>[] = [];
+		let rowCount = 0;
+		let message: string | undefined;
+
+		switch (payload.operation) {
+			case "find": {
+				const filter = normalizeIdFilter(payload.filter ?? {});
+				const cursor = collection.find(filter, payload.options ?? {});
+				cursor.sort(payload.sort ?? buildSortStage([]));
+
+				if (payload.skip) cursor.skip(payload.skip);
+
+				if (payload.limit) cursor.limit(payload.limit);
+				rows = await cursor.toArray();
+				rowCount = rows.length;
+				break;
+			}
+
+			case "aggregate": {
+				rows = await collection
+					.aggregate(payload.pipeline ?? [], payload.options ?? {})
+					.toArray();
+				rowCount = rows.length;
+				break;
+			}
+
+			case "insertOne": {
+				const doc = payload.document as Record<string, unknown> | undefined;
+
+				if (!doc) throw new HTTPException(400, { message: "document is required" });
+				const result = await collection.insertOne(doc);
+				rowCount = result.insertedId ? 1 : 0;
+				message = "OK";
+				break;
+			}
+
+			case "insertMany": {
+				const docs = payload.document as Record<string, unknown>[] | undefined;
+
+				if (!Array.isArray(docs))
+					throw new HTTPException(400, { message: "document array is required" });
+				const result = await collection.insertMany(docs);
+				rowCount = result.insertedCount;
+				message = "OK";
+				break;
+			}
+
+			case "updateOne": {
+				const filter = normalizeIdFilter(payload.filter ?? {});
+
+				if (!payload.update) throw new HTTPException(400, { message: "update is required" });
+
+				const result = await collection.updateOne(
+					filter,
+					payload.update,
+					payload.options ?? {},
+				);
+
+				rowCount = result.matchedCount;
+				message = `OK (${result.modifiedCount} modified)`;
+				break;
+			}
+
+			case "updateMany": {
+				const filter = normalizeIdFilter(payload.filter ?? {});
+
+				if (!payload.update) throw new HTTPException(400, { message: "update is required" });
+
+				const result = await collection.updateMany(
+					filter,
+					payload.update,
+					payload.options ?? {},
+				);
+
+				rowCount = result.matchedCount;
+				message = `OK (${result.modifiedCount} modified)`;
+				break;
+			}
+
+			case "deleteOne": {
+				const filter = normalizeIdFilter(payload.filter ?? {});
+				const result = await collection.deleteOne(filter, payload.options ?? {});
+				rowCount = result.deletedCount;
+				message = "OK";
+				break;
+			}
+
+			case "deleteMany": {
+				const filter = normalizeIdFilter(payload.filter ?? {});
+				const result = await collection.deleteMany(filter, payload.options ?? {});
+				rowCount = result.deletedCount;
+				message = "OK";
+				break;
+			}
+
+			case "count": {
+				const filter = normalizeIdFilter(payload.filter ?? {});
+				rowCount = await collection.countDocuments(filter);
+				rows = [{ count: rowCount }];
+				message = "OK";
+				break;
+			}
+
+			default:
+				throw new HTTPException(400, { message: "Unsupported Mongo operation" });
+		}
+
+		const duration = performance.now() - startTime;
+		const normalizedRows = rows.map((row) => normalizeDoc(row));
+		const columns = normalizedRows[0] ? Object.keys(normalizedRows[0]) : [];
+
+		return { columns, rows: normalizedRows, rowCount, duration, message };
 	}
 }

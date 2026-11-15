@@ -9,14 +9,12 @@ import {
 	keyScanQuerySchema,
 } from "@db-studio/shared/types";
 import { Elysia } from "elysia";
-import { assertKeyValueAdapter } from "@/adapters/adapter.registry.js";
+import { keyValueAdapter } from "@/adapters/adapter.registry.js";
 import { adapterPlugin } from "@/routes/adapter.plugin.js";
 
 export const keysRoutes = new Elysia({ prefix: "/keys" })
 	.use(adapterPlugin)
-	.resolve(({ adapter, dbType }) => ({
-		keyValueAdapter: assertKeyValueAdapter(adapter, dbType),
-	}))
+	.resolve(({ dbType }) => ({ keyValueAdapter: keyValueAdapter(dbType) }))
 	.get(
 		"/",
 		async ({ keyValueAdapter, query }) => ({ data: await keyValueAdapter.scanKeys(query) }),

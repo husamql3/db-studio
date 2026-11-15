@@ -1,7 +1,14 @@
 import { cn } from "@db-studio/ui/utils";
 import type { Cell, Table } from "@tanstack/react-table";
-import { type ComponentProps, type KeyboardEvent, type MouseEvent, useCallback } from "react";
-import type { NavigationDirection, TableRecord } from "@/types/table.type";
+import {
+	type ComponentProps,
+	type KeyboardEvent,
+	type MouseEvent,
+	useCallback,
+	useEffect,
+	useRef,
+} from "react";
+import type { NavigationDirection, TableRecord } from "@/features/tables/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
 
@@ -23,6 +30,11 @@ interface TableCellWrapperProps<TData> extends ComponentProps<"div"> {
 	isEditing: boolean;
 	isFocused: boolean;
 	isSelected: boolean;
+	/**
+	 * Whether the cell's editor popover is open. Given, Escape and Tab end an edit whose editor
+	 * has not opened yet.
+	 */
+	editorOpen?: boolean;
 }
 
 export function TableCellWrapper<TData>({
@@ -33,6 +45,8 @@ export function TableCellWrapper<TData>({
 	isEditing,
 	isFocused,
 	isSelected,
+	editorOpen,
+	ref,
 	className,
 	onClick: onClickProp,
 	onKeyDown: onKeyDownProp,
@@ -42,7 +56,22 @@ export function TableCellWrapper<TData>({
 
 	const meta = table.options.meta;
 
-	// Check if this cell has a pending update
+	const elementRef = useRef<HTMLDivElement | null>(null);
+
+	const setRef = useCallback(
+		(node: HTMLDivElement | null) => {
+			elementRef.current = node;
+
+			if (typeof ref === "function") ref(node);
+			else if (ref) ref.current = node;
+		},
+		[ref],
+	);
+
+	useEffect(() => {
+		if (isFocused && !isEditing) elementRef.current?.focus();
+	}, [isFocused, isEditing]);
+
 	const rowData = cell.row.original as Record<string, unknown>;
 	const hasUpdate = !!getUpdate(rowData, columnId, table.options.meta?.editScope);
 
@@ -63,9 +92,8 @@ export function TableCellWrapper<TData>({
 		(event: MouseEvent) => {
 			// The editor keeps the browser's menu for cut, copy and paste.
 			if (isEditing) event.stopPropagation();
-			else meta?.onCellContextMenu?.(rowIndex, columnId, event);
 		},
-		[meta, rowIndex, columnId, isEditing],
+		[isEditing],
 	);
 
 	const onMouseDown = useCallback(
@@ -86,12 +114,6 @@ export function TableCellWrapper<TData>({
 		[meta, rowIndex, columnId, isEditing],
 	);
 
-	const onMouseUp = useCallback(() => {
-		if (!isEditing) {
-			meta?.onCellMouseUp?.();
-		}
-	}, [meta, isEditing]);
-
 	const onDoubleClick = useCallback(
 		(event: MouseEvent) => {
 			if (!isEditing) {
@@ -104,6 +126,16 @@ export function TableCellWrapper<TData>({
 
 	const onKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLDivElement>) => {
+			if (isEditing && editorOpen === false) {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.();
+				} else if (event.key === "Tab") {
+					event.preventDefault();
+					meta?.onCellEditingStop?.({ direction: event.shiftKey ? "left" : "right" });
+				}
+			}
+
 			onKeyDownProp?.(event);
 
 			if (event.defaultPrevented) return;
@@ -111,11 +143,14 @@ export function TableCellWrapper<TData>({
 			if (!isFocused || isEditing) return;
 
 			const direction = NAVIGATION_KEYS[event.key];
+
 			if (direction) {
 				const resolved = event.key === "Tab" && event.shiftKey ? "left" : direction;
 				const moved = meta?.onCellNavigate?.(rowIndex, columnId, resolved) ?? false;
+
 				// Tab at the grid's edge falls through so focus can leave the grid.
 				if (moved || event.key !== "Tab") event.preventDefault();
+
 				return;
 			}
 
@@ -123,6 +158,7 @@ export function TableCellWrapper<TData>({
 				event.preventDefault();
 				event.stopPropagation();
 				meta?.onCellEditingStart?.(rowIndex, columnId);
+
 				return;
 			}
 
@@ -130,6 +166,7 @@ export function TableCellWrapper<TData>({
 				event.preventDefault();
 				event.stopPropagation();
 				meta?.onRowDetailsOpen?.(rowIndex);
+
 				return;
 			}
 
@@ -139,13 +176,15 @@ export function TableCellWrapper<TData>({
 				meta?.onCellEditingStart?.(rowIndex, columnId);
 			}
 		},
-		[onKeyDownProp, isFocused, isEditing, meta, rowIndex, columnId],
+		[onKeyDownProp, isFocused, isEditing, editorOpen, meta, rowIndex, columnId],
 	);
+
 	const { highlightedCellKeys } = useLiveModeStore();
 	const isCellHighlighted = highlightedCellKeys.has(`${cell.row.id}:${columnId}`);
 
 	return (
 		<div
+			ref={setRef}
 			role="button"
 			data-slot="grid-cell-wrapper"
 			data-editing={isEditing ? "" : undefined}
@@ -171,7 +210,6 @@ export function TableCellWrapper<TData>({
 			onDoubleClick={onDoubleClick}
 			onMouseDown={onMouseDown}
 			onMouseEnter={onMouseEnter}
-			onMouseUp={onMouseUp}
 			onKeyDown={onKeyDown}
 			{...props}
 		/>

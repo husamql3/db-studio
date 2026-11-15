@@ -4,17 +4,16 @@
   "type": "module",
   "scripts": {
     "dev": "portless run",
-    "dev:app": "vite dev --host 127.0.0.1 --port=${PORT:-3000}",
+    "dev:app": "vite dev --host 127.0.0.1",
     "build": "vite build",
     "preview": "portless www.db-studio bun run preview:app",
-    "preview:app": "vite preview --host --port=${PORT:-3000}",
+    "preview:app": "vite preview --host",
     "deploy": "bun run build && wrangler deploy",
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",
     "check-meta": "bunx check-site-meta",
     "typecheck": "bun check",
-    "test": "vitest run",
-    "format": "biome check --write --unsafe"
+    "test": "vitest run"
   },
   "portless": {
     "name": "www.db-studio",
@@ -49,7 +48,6 @@
     "vite-tsconfig-paths": "^6.1.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@cloudflare/vite-plugin": "^1.66.0",
     "@tanstack/devtools-vite": "^0.8.6",
     "@types/node": "^26.6.6",

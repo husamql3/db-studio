@@ -1,25 +1,31 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { databaseName, requireDatabaseUrl, startCli, writeArtifact } from "./lib.js";
 
 /**
  * Pins the HTTP layer (routing, validation, errors, CORS, request IDs, static files, SPA
- * fallback, chat streaming) of a running server so a framework swap can be diffed old-vs-new.
- * Start the server with DB_STUDIO_PROXY_URL=http://127.0.0.1:4998 and
- * ALLOWED_ORIGINS=https://allowed.example; this script serves the fake AI proxy on 4998.
- * Usage: tsx e2e/http-surface.ts <baseUrl> <label>
+ * fallback, chat streaming) of the source server so a framework swap can be diffed old-vs-new.
+ * Starts `src/index.ts` with tsx on a free port, behind a fake AI proxy on another free port,
+ * with ALLOWED_ORIGINS=https://allowed.example. Needs the web build in packages/web/dist.
+ * Usage: DATABASE_URL=postgresql://... bunx tsx e2e/http-surface.ts <label>
  */
 
-const [baseUrl, label] = process.argv.slice(2);
-if (!baseUrl || !label) {
-	console.error("usage: tsx e2e/http-surface.ts <baseUrl> <label>");
+const label = process.argv[2];
+
+if (!label) {
+	console.error("usage: DATABASE_URL=postgresql://... bunx tsx e2e/http-surface.ts <label>");
 	process.exit(2);
 }
 
 const REQUEST_ID = "pin-request-0001";
-const DB = "dbstudio";
+
+const { url: databaseUrl } = requireDatabaseUrl("pg");
+const DB = databaseName(databaseUrl);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 const RECORDED_HEADERS = [
 	"content-type",
 	"content-disposition",
@@ -47,14 +53,21 @@ type Probe = {
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");
 const asset = (await readdir(path.join(webDist, "assets"))).sort()[0];
 
-const shape = (value: unknown): unknown => {
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
+type JsonOutline = string | JsonOutline[] | { [key: string]: JsonOutline };
+
+const shape = (value: Json): JsonOutline => {
 	if (Array.isArray(value)) return value.length ? [shape(value[0])] : [];
+
 	if (value && typeof value === "object")
 		return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shape(v)]));
+
 	return typeof value;
 };
 
 const STREAM_GAP_MS = 300;
+
 const fakeProxy = createServer(async (req, res) => {
 	if (req.url === "/chat/limit") {
 		res.writeHead(200, { "content-type": "application/json" });
@@ -66,16 +79,22 @@ const fakeProxy = createServer(async (req, res) => {
 				requestId: req.headers["x-request-id"],
 			}),
 		);
+
 		return;
 	}
+
 	let raw = "";
+
 	for await (const chunk of req) raw += chunk;
 	const payload = JSON.parse(raw);
+
 	if (payload.messages[0]?.content === "reject") {
 		res.writeHead(401, { "content-type": "application/json" });
 		res.end(JSON.stringify({ error: "bad key" }));
+
 		return;
 	}
+
 	res.writeHead(200, {
 		"content-type": "text/event-stream",
 		"cache-control": "no-cache",
@@ -87,7 +106,28 @@ const fakeProxy = createServer(async (req, res) => {
 	await new Promise((r) => setTimeout(r, STREAM_GAP_MS));
 	res.end("data: [DONE]\n\n");
 });
-await new Promise<void>((resolve) => fakeProxy.listen(4998, "127.0.0.1", resolve));
+
+await new Promise<void>((resolve) => fakeProxy.listen(0, "127.0.0.1", resolve));
+
+// SAFETY: a TCP server listening on a host and port has an AddressInfo address.
+const proxyPort = (fakeProxy.address() as AddressInfo).port;
+
+const serverDir = fileURLToPath(new URL("..", import.meta.url));
+
+// The source server finds the web build at ../web/dist from its working directory.
+const server = await startCli({
+	cli: path.join(serverDir, "src/index.ts"),
+	args: ["--database-url", databaseUrl],
+	cwd: serverDir,
+	readyPath: "/api/databases/current",
+	env: {
+		NODE_OPTIONS: `--import ${import.meta.resolve("tsx")}`,
+		ALLOWED_ORIGINS: "https://allowed.example",
+		DB_STUDIO_PROXY_URL: `http://127.0.0.1:${proxyPort}`,
+	},
+});
+
+const baseUrl = server.base;
 
 const chatBody = (content: string) => ({
 	provider: "openai",
@@ -268,47 +308,60 @@ const probes: Probe[] = [
 	{ name: "drop scratch table", method: "DELETE", path: `/api/pg/tables/http_pin?db=${DB}` },
 ];
 
-const dropTimings = (value: unknown): unknown => {
+const dropTimings = (value: Json): Json => {
 	if (Array.isArray(value)) return value.map(dropTimings);
+
 	if (value && typeof value === "object")
 		return Object.fromEntries(
 			Object.entries(value).map(([k, v]) => [k, k === "duration" ? "<ms>" : dropTimings(v)]),
 		);
+
 	return value;
 };
 
 const normalizeRequestId = (value: string | null, sent: string | undefined) => {
 	if (value === null) return null;
+
 	if (value === sent) return "<echoed>";
+
 	return UUID.test(value) ? "<generated uuid>" : value;
 };
 
 const results = [];
+
 for (const probe of probes) {
 	const sentId = probe.headers?.["x-request-id"] ?? REQUEST_ID;
 	const headers: Record<string, string> = { "x-request-id": REQUEST_ID, ...probe.headers };
+
 	if (probe.body !== undefined) headers["content-type"] = "application/json";
+
 	const res = await fetch(`${baseUrl}${probe.path}`, {
 		method: probe.method ?? "GET",
 		headers,
 		body: probe.rawBody ?? (probe.body === undefined ? undefined : JSON.stringify(probe.body)),
 		redirect: "manual",
 	});
+
 	const startedAt = performance.now();
 	let firstChunkAt = 0;
 	let text = "";
 	const decoder = new TextDecoder();
+
 	for await (const chunk of res.body ?? []) {
 		firstChunkAt ||= performance.now();
 		text += decoder.decode(chunk, { stream: true });
 	}
+
 	const streamed =
 		firstChunkAt - startedAt < STREAM_GAP_MS &&
 		performance.now() - firstChunkAt >= STREAM_GAP_MS - 50;
+
 	let body: unknown;
+
 	try {
 		const json = JSON.parse(text);
 		body = probe.shapeOnly ? shape(json) : dropTimings(json);
+
 		if (body && typeof body === "object" && "requestId" in body) {
 			const { requestId } = body as { requestId: string };
 			(body as { requestId: string }).requestId = normalizeRequestId(requestId, sentId) ?? "";
@@ -318,6 +371,7 @@ for (const probe of probes) {
 			? `<html ${text.length > 0 ? "non-empty" : "empty"}>`
 			: text.slice(0, 400);
 	}
+
 	results.push({
 		name: probe.name,
 		status: res.status,
@@ -325,37 +379,45 @@ for (const probe of probes) {
 		headers: Object.fromEntries(
 			RECORDED_HEADERS.flatMap((h) => {
 				const v = res.headers.get(h);
+
 				return v === null
 					? []
 					: [[h, h === "content-disposition" || h === "content-type" ? v : v.toLowerCase()]];
 			}),
 		),
 		body,
-		...(probe.name === "chat stream" ? { streamed } : {}),
+		// JSON.stringify drops an undefined value, so other probes record no `streamed` key.
+		streamed: probe.name === "chat stream" ? streamed : undefined,
 	});
 	console.log(`${res.status}  ${probe.name}`);
 }
 
 const CONCURRENT = 40;
+
 const concurrent = await Promise.all(
 	Array.from({ length: CONCURRENT }, async (_, i) => {
 		const id = `pin-concurrent-${String(i).padStart(4, "0")}`;
+
 		const res = await fetch(`${baseUrl}/api/pg/tables/http_pin_missing_${i}/data?db=${DB}`, {
 			headers: { "x-request-id": id },
 		});
+
 		const body = (await res.json()) as { requestId?: string };
+
 		return body.requestId === id && res.headers.get("x-request-id") === id;
 	}),
 );
+
 results.push({
 	name: "concurrent requests keep their own request id",
 	requests: CONCURRENT,
 	mismatches: concurrent.filter((ok) => !ok).length,
 });
 
-const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "artifacts");
-await mkdir(outDir, { recursive: true });
-const out = path.join(outDir, `http-surface-${label}.json`);
-await writeFile(out, `${JSON.stringify(results, null, 2)}\n`);
+const out = await writeArtifact(`http-surface-${label}.json`, results);
+
 console.log(`wrote ${path.relative(process.cwd(), out)}`);
+
+server.child.kill();
+
 fakeProxy.close();

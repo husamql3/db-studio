@@ -43,6 +43,7 @@ const layoutNodes = ({ tables, edges }: CanvasProps): VisualizerTableNode[] => {
 		width: tableWidth(table),
 		height: HEADER_HEIGHT + table.columns.length * ROW_HEIGHT + 2,
 	}));
+
 	const positions = layoutGraph(sized, edges);
 
 	return tables.map((table, i) => ({
@@ -93,14 +94,17 @@ const Canvas = ({ tables, edges }: CanvasProps) => {
 	const focusedFromCanvas = useRef(false);
 	useEffect(() => {
 		if (!measured) return;
+
 		if (focused && !focusedFromCanvas.current) {
 			void fitView({ nodes: [{ id: focused }], duration: 400, maxZoom: 1.1 });
 		} else if (!fitted.current) {
 			void fitView();
 		}
+
 		fitted.current = true;
 		focusedFromCanvas.current = false;
 	}, [focused, measured, fitView]);
+
 	const focusFromCanvas = (id: string) => {
 		focusedFromCanvas.current = true;
 		void setFocused(id || null);
@@ -118,8 +122,10 @@ const Canvas = ({ tables, edges }: CanvasProps) => {
 			highlightedColumns: near?.columns ?? new Set<string>(),
 		},
 	}));
+
 	const displayEdges = edges.map((edge) => {
 		const highlighted = near?.edgeIds.has(edge.id) ?? false;
+
 		return toFlowEdge(edge, highlighted, near !== null && !highlighted);
 	});
 

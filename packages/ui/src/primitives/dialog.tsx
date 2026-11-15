@@ -69,6 +69,7 @@ function DialogContent({
 	animated?: boolean;
 }) {
 	const instant = !animated && "data-open:animate-none data-closed:animate-none";
+
 	return (
 		<DialogPortal>
 			<DialogOverlay className={cn(instant)} />

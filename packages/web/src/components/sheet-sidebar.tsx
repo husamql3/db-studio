@@ -69,7 +69,9 @@ export const SheetSidebar = ({
 					)}
 				</SheetHeader>
 
-				<div className={cn(contentClassName, "overflow-y-auto")}>{children}</div>
+				<div className={cn(contentClassName, "overflow-y-auto overscroll-contain")}>
+					{children}
+				</div>
 			</SheetContent>
 		</Sheet>
 	);

@@ -1,3 +1,4 @@
+import type { RelatedRecord } from "@db-studio/shared/types";
 import { Button } from "@db-studio/ui/button";
 import {
 	Dialog,
@@ -7,7 +8,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@db-studio/ui/dialog";
-import type { RelatedRecord } from "../../hooks/use-delete-cell";
 
 export const ForceDeleteDialog = ({
 	isOpenFkDialog,
@@ -64,7 +64,7 @@ export const ForceDeleteDialog = ({
 
 const RelatedRecordsView = ({ relatedRecords }: { relatedRecords: RelatedRecord[] }) => {
 	return (
-		<div className="space-y-4 max-h-64 overflow-y-auto">
+		<div className="space-y-4 max-h-64 overflow-y-auto overscroll-contain">
 			{relatedRecords.map((related, idx) => (
 				<div
 					key={`${related.tableName}-${related.columnName}-${idx}`}

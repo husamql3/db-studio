@@ -6,7 +6,6 @@ src/
 # Config files
 tsconfig.json
 tsup.config.ts
-biome.json
 
 # Development
 node_modules/

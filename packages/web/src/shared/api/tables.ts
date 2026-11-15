@@ -94,15 +94,17 @@ export const deleteTable = ({
 
 export const renameTable = ({
 	tableName,
+	schemaName,
 	data,
 	db,
 }: {
 	tableName: string;
+	schemaName?: string;
 	data: RenameTableSchemaType;
 	db?: string | null;
 }) =>
 	api.patch<BaseResponse<string>>(`/tables/${encodeURIComponent(tableName)}/rename`, data, {
-		params: { db: db ?? "" },
+		params: { db: db ?? "", schemaName },
 	});
 
 export const addColumn = ({

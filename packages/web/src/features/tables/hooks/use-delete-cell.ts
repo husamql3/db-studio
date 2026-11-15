@@ -1,19 +1,13 @@
-import type { ColumnInfoSchemaType, DeleteRecordResult } from "@db-studio/shared/types";
+import type { DeleteRecordResult } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AxiosError } from "axios";
 import { toast } from "sonner";
-import { useTableCols } from "@/features/schema";
+import type { TableRecord } from "@/features/tables/table.type";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { posthogAnalytics } from "@/lib/posthog";
-import { deleteRecords } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { type ApiError, apiErrorMessage, deleteRecords } from "@/shared/api";
+import { invalidateTableRows } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
-
-export interface RelatedRecord {
-	tableName: string;
-	columnName: string;
-	constraintName: string;
-	records: Array<Record<string, unknown>>;
-}
+import { getIdentityColumnNames } from "../utils/row-details-utils";
 
 export const useDeleteCells = ({
 	tableName,
@@ -27,129 +21,64 @@ export const useDeleteCells = ({
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
 	const {
-		mutateAsync: deleteCellsAsync,
+		mutateAsync,
 		isPending: isDeletingCells,
 		reset: resetDeleteResult,
-		error: deleteCellsError,
-	} = useMutation({
-		mutationFn: async ({
-			rowData,
-			force = false,
-		}: {
-			rowData: Record<string, unknown>[];
-			force?: boolean;
-		}) => {
-			if (!tableName) {
-				throw new Error("No active table selected");
-			}
+	} = useMutation<DeleteRecordResult, ApiError, { rows: TableRecord[]; force: boolean }>({
+		mutationFn: async ({ rows, force }) => {
+			// Rows are identified as an update identifies them.
+			const keyColumns = getIdentityColumnNames(tableCols);
 
-			if (!tableCols || tableCols.length === 0) {
-				throw new Error("No table columns found");
-			}
+			if (keyColumns.length === 0) throw new Error("No primary key found for this table");
 
-			const result = await deleteCellsService(
+			// The delete endpoint matches every row on one key column.
+			if (keyColumns.length > 1)
+				throw new Error(
+					"Deleting rows from tables with a composite primary key is not supported yet.",
+				);
+
+			const [keyColumn] = keyColumns;
+
+			const { status, data: body } = await deleteRecords({
 				tableName,
 				schemaName,
-				tableCols,
-				rowData,
+				primaryKeys: rows.map((row) => ({ columnName: keyColumn, value: row[keyColumn] })),
 				force,
-				selectedDatabase || undefined,
-			);
-			return result;
+				db: selectedDatabase,
+			});
+
+			if ("error" in body) {
+				throw Object.assign(new Error(body.error), { status, details: body.details });
+			}
+
+			return body.data;
 		},
-		onSuccess: async (result: DeleteRecordResult | { deletedCount: number }) => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.lists(),
-				}),
-			]);
+		onSuccess: async (result) => {
+			if (result.fkViolation) return;
+
+			await invalidateTableRows(queryClient, tableName);
+
 			if (dbType) posthogAnalytics.capture("record_deleted", { db_type: dbType });
-			return result;
 		},
 	});
 
-	const deleteCells = async (
-		rowData: Record<string, unknown>[],
-	): Promise<{ deletedCount: number }> => {
-		const promise = deleteCellsAsync({ rowData, force: false });
+	/**
+	 * Resolves with `fkViolation` when other rows reference these; `force` deletes those
+	 * referencing rows too.
+	 */
+	const deleteCells = (rows: TableRecord[], { force = false }: { force?: boolean } = {}) => {
+		const promise = mutateAsync({ rows, force });
 		toast.promise(promise, {
 			loading: "Deleting records...",
-			success: (result) => `Deleted ${result.deletedCount} records from "${tableName}"`,
-			error: (error: Error) => error.message || "Failed to delete records",
+			success: (result) =>
+				result.fkViolation
+					? `Other records reference these records in "${tableName}"`
+					: `Deleted ${result.deletedCount} records from "${tableName}"`,
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to delete records"),
 		});
+
 		return promise;
 	};
 
-	const forceDeleteCells = async (
-		rowData: Record<string, unknown>[],
-	): Promise<{ deletedCount: number }> => {
-		const promise = deleteCellsAsync({ rowData, force: true });
-		toast.promise(promise, {
-			loading: "Deleting records...",
-			success: (result) => `Deleted ${result.deletedCount} records from "${tableName}"`,
-			error: (error: Error) => error.message || "Failed to delete records",
-		});
-		return promise;
-	};
-
-	return {
-		deleteCells,
-		forceDeleteCells,
-		isDeletingCells,
-		resetDeleteResult,
-		deleteCellsError,
-	};
-};
-
-const deleteCellsService = async (
-	tableName: string,
-	schemaName: string | undefined,
-	tableCols: ColumnInfoSchemaType[],
-	rowData: Record<string, unknown>[],
-	force: boolean,
-	database?: string,
-): Promise<DeleteRecordResult | { deletedCount: number }> => {
-	// Find primary key column
-	const primaryKeyCol = tableCols.find((col) => col.isPrimaryKey);
-	if (!primaryKeyCol) {
-		throw new Error("No primary key found for this table");
-	}
-
-	// Extract primary key values from each row
-	const primaryKeys = rowData.map((row) => ({
-		columnName: primaryKeyCol.columnName,
-		value: row[primaryKeyCol.columnName],
-	}));
-
-	const payload = {
-		tableName,
-		schemaName,
-		primaryKeys,
-	};
-
-	try {
-		const res = await deleteRecords({
-			...payload,
-			force,
-			db: database,
-		});
-		return {
-			deletedCount: res.data.data.deletedCount,
-			fkViolation: res.data.data.fkViolation,
-			relatedRecords: res.data.data.relatedRecords,
-		};
-	} catch (error) {
-		// For FK violations (409), we return the result with relatedRecords instead of throwing
-		const axiosError = error as AxiosError<{ deletedCount: number }>;
-		if (axiosError.response?.status === 409) {
-			return {
-				deletedCount: axiosError.response.data.deletedCount,
-			};
-		}
-		throw error;
-	}
+	return { deleteCells, isDeletingCells, resetDeleteResult };
 };

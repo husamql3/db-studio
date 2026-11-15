@@ -21,10 +21,11 @@ export const useCommandPaletteState = () => {
 		(isOpen: boolean) => {
 			if (isOpen) {
 				openOverlay("command-palette.root");
+
 				return;
 			}
+
 			closeOverlay("command-palette.root");
-			// Reset state when the dialog closes
 			setMode("all");
 			setInputValue("");
 		},
@@ -44,7 +45,6 @@ export const useCommandPaletteState = () => {
 	const switchToTablesMode = useCallback(() => {
 		setMode("tables");
 		setInputValue("");
-		// Focus input after mode switch
 		setTimeout(() => inputRef.current?.focus(), 0);
 	}, []);
 
@@ -54,7 +54,6 @@ export const useCommandPaletteState = () => {
 		setTimeout(() => inputRef.current?.focus(), 0);
 	}, []);
 
-	// Handle input changes - detect mode triggers
 	const handleInputChange = useCallback(
 		(value: string) => {
 			// Detect ">" prefix to switch to tables mode, keeping anything typed
@@ -62,16 +61,19 @@ export const useCommandPaletteState = () => {
 			if (mode === "all" && value.startsWith(">")) {
 				switchToTablesMode();
 				setInputValue(value.slice(1));
+
 				return;
 			}
-			// Also detect "table " or "tables " as triggers
+
 			if (
 				mode === "all" &&
 				(value.toLowerCase() === "table " || value.toLowerCase() === "tables ")
 			) {
 				switchToTablesMode();
+
 				return;
 			}
+
 			setInputValue(value);
 		},
 		[mode, switchToTablesMode],

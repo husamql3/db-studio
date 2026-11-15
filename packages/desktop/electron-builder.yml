@@ -10,7 +10,7 @@ directories:
   buildResources: build
 
 # Main is fully bundled, so no node_modules ship in the asar. Without the exclusion
-# electron-builder falls back to the monorepo root and drags in biome/turbo binaries.
+# electron-builder falls back to the monorepo root and drags in oxlint/turbo binaries.
 files:
   - dist-electron/**
   - package.json

@@ -1,21 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/db-manager.js", () => ({
-	isValidObjectId: vi.fn((value: unknown) => value === "507f1f77bcf86cd799439011"),
-	coerceObjectId: vi.fn((value: unknown) => ({ objectId: value })),
-}));
-
+import { ObjectId } from "mongodb";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
 	buildMatchStage,
 	buildSortStage,
 	decodeMongoCursor,
 	encodeMongoCursor,
 } from "@/adapters/mongo/mongo.pipeline-builder.js";
+import { loadDriver } from "@/drivers.js";
 
 describe("Mongo pipeline builder", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
+	// ObjectId coercion uses the driver a connection loads.
+	beforeAll(() => loadDriver("mongodb"));
 
 	it("builds $match conditions for comparison, regex, null, and ObjectId values", () => {
 		const result = buildMatchStage([
@@ -46,7 +41,7 @@ describe("Mongo pipeline builder", () => {
 				{ hidden: { $not: { $regex: "C\\?", $options: "i" } } },
 				{ deletedAt: null },
 				{ archivedAt: { $ne: null } },
-				{ _id: { objectId: "507f1f77bcf86cd799439011" } },
+				{ _id: new ObjectId("507f1f77bcf86cd799439011") },
 				{ fallback: true },
 			],
 		});
@@ -54,10 +49,10 @@ describe("Mongo pipeline builder", () => {
 	});
 
 	it("builds sort stages and defaults to _id ascending", () => {
-		expect(buildSortStage(undefined)).toEqual({ _id: 1 });
 		expect(buildSortStage([])).toEqual({ _id: 1 });
-		expect(buildSortStage("")).toEqual({ _id: 1 });
-		expect(buildSortStage("createdAt", "desc")).toEqual({ createdAt: -1 });
+		expect(buildSortStage([{ columnName: "createdAt", direction: "desc" }])).toEqual({
+			createdAt: -1,
+		});
 		expect(
 			buildSortStage([
 				{ columnName: "score", direction: "desc" },

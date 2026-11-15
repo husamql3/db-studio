@@ -91,6 +91,7 @@ export const TableView = ({ results }: { results: ExecuteQueryResult | null }) =
 			>
 				{items.map((virtualRow) => {
 					const row = rows[virtualRow.index];
+
 					return (
 						<div
 							key={row.id}

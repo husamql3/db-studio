@@ -1,11 +1,9 @@
 export const META = {
-	//* author
 	AUTHOR: "Hüsam 🥑 <husam@ql3.dev>",
 	AUTHOR_NAME: "Hüsam",
 	AUTHOR_AVATAR: "/avocado.png",
 	AUTHOR_USERNAME: "husamql3",
 	AUTHOR_GITHUB_LINK: "https://github.com/husamql3",
-	//* site
 	SITE_DESCRIPTION:
 		"Every database. One studio. Browse tables, edit records, and run queries in a free, open-source database GUI.",
 	SITE_KEYWORDS: [
@@ -25,6 +23,7 @@ export const META = {
 	SITE_URL: "https://dbstudio.sh",
 	SITE_X_LINK: "https://x.com/dbstudio_sh",
 	SITE_GITHUB_LINK: "https://github.com/husamql3/db-studio",
+	SITE_NPM_LINK: "https://www.npmjs.com/package/db-studio",
 	SITE_GITHUB_NEW_ISSUE_LINK: "https://github.com/husamql3/db-studio/issues/new/choose",
 	SITE_DOCS_LINK: "https://dbstudio.sh/docs",
 	SITE_CHANGELOG_LINK: "https://dbstudio.sh/changelog",

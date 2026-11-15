@@ -1,5 +1,6 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { create } from "zustand";
+import { onConnectionReset } from "@/stores/connection-reset";
 
 type SchemaEditState = {
 	editingColumn: ColumnInfoSchemaType | null;
@@ -14,3 +15,7 @@ export const useSchemaEditStore = create<SchemaEditState>()((set) => ({
 	editingTable: null,
 	setEditingTable: (table) => set({ editingTable: table }),
 }));
+
+onConnectionReset(() =>
+	useSchemaEditStore.setState(useSchemaEditStore.getInitialState(), true),
+);

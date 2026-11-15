@@ -7,11 +7,9 @@
     "./constants": "./src/constants/index.ts"
   },
   "scripts": {
-    "format": "biome check --write --unsafe",
     "build": "tsc"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@types/bun": "latest"
   },
   "peerDependencies": {

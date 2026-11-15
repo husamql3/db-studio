@@ -14,12 +14,14 @@ import { toast } from "sonner";
 import { ConnectionMenu } from "@/features/connections";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDatabasesList } from "@/hooks/use-databases-list";
+import { homePath } from "@/lib/sections";
 import { useDatabaseStore } from "@/stores/database.store";
 
 /** One line: `● connection / database ⌄ ⟳`. The connection opens the switch menu. */
 export function SidebarFooter() {
 	const { databases, isLoadingDatabases, refetchDatabases, isRefetchingDatabases } =
 		useDatabasesList();
+
 	const { selectedDatabase, setSelectedDatabase } = useDatabaseStore();
 	const engine = useDatabaseEngine();
 	const navigate = useNavigate();
@@ -27,7 +29,7 @@ export function SidebarFooter() {
 
 	const handleDatabaseChange = (value: string) => {
 		setSelectedDatabase(value);
-		navigate({ to: engine?.dataModel === "key-value" ? "/browser" : "/table", search: {} });
+		navigate({ to: homePath(engine), search: {} });
 	};
 
 	const handleRefresh = async () => {

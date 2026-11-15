@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { ArrowUpRight, Diamond, KeyRound, Link2, Table2 } from "lucide-react";
 import type { GraphTable } from "@/features/visualizer/lib/schema-graph";
+import { CONSTANTS } from "@/utils/constants";
 
 export const HEADER_HEIGHT = 36;
 export const ROW_HEIGHT = 28;
@@ -63,7 +64,7 @@ export const VisualizerTableNodeView = ({ data }: NodeProps<VisualizerTableNode>
 			>
 				<Table2 className="size-4 shrink-0 text-muted-foreground" />
 				<span className="flex-1 truncate">
-					{table.schemaName && table.schemaName !== "public" && (
+					{table.schemaName && table.schemaName !== CONSTANTS.DEFAULT_SCHEMA && (
 						<span className="text-muted-foreground">{table.schemaName}.</span>
 					)}
 					{table.tableName}
@@ -71,6 +72,7 @@ export const VisualizerTableNodeView = ({ data }: NodeProps<VisualizerTableNode>
 				<Link
 					to="/table/$table"
 					params={{ table: table.tableName }}
+					search={{ [CONSTANTS.TABLE_SCHEMA]: table.schemaName }}
 					aria-label={`Open ${table.tableName}`}
 					title="Open table"
 					className="nodrag rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"

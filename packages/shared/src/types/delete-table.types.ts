@@ -9,8 +9,6 @@ export const deleteTableQuerySchema = tableQuerySchema.extend({
 		.transform((val) => val === "true"),
 });
 
-export type DeleteTableQuerySchemaType = z.infer<typeof deleteTableQuerySchema>;
-
 export type DeleteTableParams = {
 	tableName: string;
 	schemaName?: string;

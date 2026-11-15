@@ -12,6 +12,7 @@ export const SidebarSearchQueriesList = () => {
 	const { addQuery, addFolder } = useQueriesStore();
 	const navigate = useNavigate();
 	const inputRef = useRef<HTMLInputElement>(null);
+
 	const [searchTerm, setSearchTerm] = useQueryState(CONSTANTS.SIDEBAR_SEARCH, {
 		defaultValue: "",
 	});

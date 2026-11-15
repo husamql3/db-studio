@@ -2,15 +2,17 @@ import { Alert } from "@db-studio/ui/alert";
 import { Button } from "@db-studio/ui/button";
 import { SheetClose } from "@db-studio/ui/sheet";
 import { useEffect } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { useTableCols } from "@/features/schema";
+import { useTableCols } from "@/hooks/use-table-cols";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
+import type { AddRecordFormData } from "@/shared/api";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { type AddRecordFormData, useCreateRecord } from "../hooks/use-create-record";
+import { toWriteValues } from "@/utils/cell-variant";
+import { useCreateRecord } from "../hooks/use-create-record";
 import { useAddRecordStore } from "../stores/add-record.store";
 import { AddRecordField } from "./add-record-field";
-import { RecordReferenceSheet } from "./record-reference-sheet";
+import { RecordFormProvider } from "./record-form-provider";
 
 export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
@@ -18,23 +20,20 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const { tableCols, isLoadingTableCols } = useTableCols({ tableName, schemaName });
 	const { createRecord, isCreatingRecord } = useCreateRecord({ tableName, schemaName });
 	const methods = useForm<AddRecordFormData>();
-	const { prefill, setPrefill } = useAddRecordStore();
+	const { prefill, clearPrefill } = useAddRecordStore();
 
 	// Prefilled values count as edits, so a duplicate can be saved as it opens.
 	useEffect(() => {
 		if (!prefill) return;
 		methods.reset(prefill, { keepDefaultValues: true });
-		setPrefill(null);
-	}, [prefill, methods, setPrefill]);
+		clearPrefill();
+	}, [prefill, methods, clearPrefill]);
 
 	const onSubmit = async (data: AddRecordFormData) => {
-		createRecord(data, {
+		createRecord(toWriteValues(data, tableCols ?? []), {
 			onSuccess: () => {
 				methods.reset();
 				closeOverlay("records.add-record");
-			},
-			onError: (error) => {
-				console.error("Failed to create record:", error);
 			},
 		});
 	};
@@ -47,20 +46,19 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 	const renderFormContent = () => {
 		if (tableCols && tableCols.length > 0) {
 			return (
-				<FormProvider {...methods}>
+				<RecordFormProvider methods={methods}>
 					<form
 						onSubmit={methods.handleSubmit(onSubmit)}
 						className="flex flex-col h-full"
 					>
 						<div className="space-y-6">
-							{tableCols && tableCols.length > 0 && !isLoadingTableCols
-								? tableCols.map((col) => (
-										<AddRecordField
-											key={col.columnName}
-											{...col}
-										/>
-									))
-								: null}
+							{!isLoadingTableCols &&
+								tableCols.map((col) => (
+									<AddRecordField
+										key={col.columnName}
+										{...col}
+									/>
+								))}
 						</div>
 
 						<div className="flex justify-end gap-2 py-6">
@@ -86,9 +84,7 @@ export const AddRecordForm = ({ tableName }: { tableName: string }) => {
 							</Button>
 						</div>
 					</form>
-
-					<RecordReferenceSheet />
-				</FormProvider>
+				</RecordFormProvider>
 			);
 		}
 

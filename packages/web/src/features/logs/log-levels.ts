@@ -28,13 +28,17 @@ export const LEVEL_LABEL: Record<ServerLogLevel, string> = {
 
 export const formatDuration = (ms: number) => {
 	if (ms < 1000) return `${ms < 10 ? ms.toFixed(1) : Math.round(ms)} ms`;
+
 	if (ms < 60_000) return `${(ms / 1000).toFixed(2)} s`;
+
 	return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 };
 
 /** Over 1 s reads as slow and over 5 s as very slow, on every engine. */
 export const durationTone = (ms: number) => {
 	if (ms >= 5000) return "text-destructive";
+
 	if (ms >= 1000) return "text-amber-500";
+
 	return "text-muted-foreground/60";
 };

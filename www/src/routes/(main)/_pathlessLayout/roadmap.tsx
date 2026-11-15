@@ -8,7 +8,7 @@ import {
 	type RoadmapItemTask,
 	roadmapItems,
 } from "@/lib/content/roadmap";
-import { getStatusLabel, getStatusStyles, getTaskIconClass } from "@/lib/roadmap-helpers";
+import { ROADMAP_STATUS } from "@/lib/roadmap-helpers";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -80,10 +80,10 @@ function RouteComponent() {
 								<span
 									className={cn(
 										"rounded-[3px] border px-1.5 py-0.5 text-[10px]",
-										getStatusStyles(item.status),
+										ROADMAP_STATUS[item.status].badgeClass,
 									)}
 								>
-									{getStatusLabel(item.status)}
+									{ROADMAP_STATUS[item.status].label}
 								</span>
 							</div>
 							<Progress tasks={item.items} />
@@ -92,6 +92,7 @@ function RouteComponent() {
 						<ul className="flex max-w-2xl flex-col gap-2.5">
 							{item.items.map((task: RoadmapItemTask) => {
 								const Icon = TASK_ICONS[task.status];
+
 								return (
 									<li
 										key={task.title}
@@ -103,10 +104,10 @@ function RouteComponent() {
 										)}
 									>
 										<Icon
-											aria-label={getStatusLabel(task.status)}
+											aria-label={ROADMAP_STATUS[task.status].label}
 											className={cn(
 												"mt-[3px] size-3.5 shrink-0",
-												getTaskIconClass(task.status),
+												ROADMAP_STATUS[task.status].taskIconClass,
 											)}
 										/>
 										{task.title}

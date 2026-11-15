@@ -39,8 +39,10 @@ export const RedisCreateKeySheet = () => {
 		// A stale null `second` from a previously-selected type must not block
 		// types that never render the second input.
 		const pairValue = needsSecond ? second : emptyValue;
+
 		if (key === null || first === null || pairValue === null) return;
 		let value: CreateKeySchemaType["value"];
+
 		switch (type) {
 			case "string":
 				value = { kind: "string", value: first };

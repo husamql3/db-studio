@@ -1,13 +1,13 @@
 import type { ServerLogEntrySchemaType } from "@db-studio/shared/types";
 import { cn } from "@db-studio/ui/utils";
 import { format } from "date-fns";
+import { CopyButton } from "@/components/copy-button";
 import {
 	durationTone,
 	formatDuration,
 	LEVEL_LABEL,
 	LEVEL_TEXT,
 } from "@/features/logs/log-levels";
-import { CellCopyButton } from "@/features/tables";
 
 /**
  * One log entry as a line of text: time, level, duration, message. Clicking it opens
@@ -77,7 +77,7 @@ export const LogLine = ({
 							<dt>{key}</dt>
 							<dd className="group relative whitespace-pre-wrap break-words pr-6 text-foreground/80">
 								{value}
-								<CellCopyButton value={value} />
+								<CopyButton value={value} />
 							</dd>
 						</div>
 					))}

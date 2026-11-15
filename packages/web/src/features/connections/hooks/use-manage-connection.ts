@@ -5,11 +5,14 @@ import type {
 } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { deleteConnection, updateConnection } from "@/shared/api";
+import {
+	deleteConnection,
+	updateConnection,
+	type ApiError,
+	apiErrorMessage,
+} from "@/shared/api";
 import { connectionKeys } from "@/shared/query/keys";
-import { errorMessage, useConnect, useConnections } from "./use-connections";
-
-type MutationError = Error & { details?: unknown };
+import { useConnect, useConnections } from "./use-connections";
 
 /** Rename, recolor, switch read-only or forget a saved connection. Forgetting the open one leaves it open. */
 export const useManageConnection = (connection: ConnectionSummarySchemaType) => {
@@ -26,7 +29,7 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 
 	const updateMutation = useMutation<
 		ConnectionSummarySchemaType,
-		MutationError,
+		ApiError,
 		UpdateConnectionSchemaType
 	>({
 		mutationFn: async (data) => (await updateConnection(connection.id, data)).data.data,
@@ -37,7 +40,7 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 			})),
 	});
 
-	const deleteMutation = useMutation<string, MutationError, void>({
+	const deleteMutation = useMutation<string, ApiError, void>({
 		mutationFn: async () => (await deleteConnection(connection.id)).data.data,
 		onSuccess: () =>
 			setState((state) => ({
@@ -51,13 +54,13 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 		toast.promise(updateMutation.mutateAsync({ name }), {
 			loading: "Renaming connection…",
 			success: "Connection renamed",
-			error: (error: MutationError) => errorMessage(error) || "Failed to rename connection",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to rename connection"),
 		});
 
 	/** The dot changes in place, so only a failure is worth a toast. */
 	const setColor = (color: UpdateConnectionSchemaType["color"]) =>
 		toast.promise(updateMutation.mutateAsync({ color }), {
-			error: (error: MutationError) => errorMessage(error) || "Failed to change the color",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to change the color"),
 		});
 
 	/** The server closes the connection open in the old mode, so this tab reconnects to it. */
@@ -67,8 +70,7 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 				if (active?.id === updated.id) void connectSaved(updated);
 			}),
 			{
-				error: (error: MutationError) =>
-					errorMessage(error) || "Failed to change read-only mode",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to change read-only mode"),
 			},
 		);
 
@@ -76,7 +78,7 @@ export const useManageConnection = (connection: ConnectionSummarySchemaType) => 
 		toast.promise(deleteMutation.mutateAsync(), {
 			loading: "Removing connection…",
 			success: "Connection removed",
-			error: (error: MutationError) => errorMessage(error) || "Failed to remove connection",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to remove connection"),
 		});
 
 	return { rename, setColor, setReadOnly, remove };

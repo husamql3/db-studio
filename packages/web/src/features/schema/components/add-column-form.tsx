@@ -1,57 +1,32 @@
-import { addColumnSchema } from "@db-studio/shared/types";
 import { Label } from "@db-studio/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
-import { z } from "zod";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { SheetSidebar } from "@/components/sheet-sidebar";
-import { AdvancedOptions } from "@/features/table-builder/components/fields/advanced-options";
-import { ColumnNameField } from "@/features/table-builder/components/fields/column-name-field";
-import { ColumnTypeField } from "@/features/table-builder/components/fields/column-type-field";
-import { DefaultValueField } from "@/features/table-builder/components/fields/default-value-field";
-import { FormActions } from "@/features/table-builder/components/fields/form-actions";
-import { PrimaryField } from "@/features/table-builder/components/fields/primary-field";
 import { useTableSchemaName } from "@/hooks/use-table-schema-name";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { useAddColumn } from "../hooks/use-add-column";
-
-const addColumnFormSchema = z.object({
-	fields: z.tuple([
-		z.object({
-			columnName: addColumnSchema.shape.columnName,
-			columnType: addColumnSchema.shape.columnType,
-			defaultValue: z.string(),
-			isPrimaryKey: z.boolean(),
-			isNullable: z.boolean(),
-			isUnique: z.boolean(),
-			isIdentity: z.boolean(),
-			isArray: z.boolean(),
-		}),
-	]),
-});
-
-type AddColumnFormValues = z.infer<typeof addColumnFormSchema>;
-
-const defaultValues: AddColumnFormValues = {
-	fields: [
-		{
-			columnName: "",
-			columnType: "",
-			defaultValue: "",
-			isPrimaryKey: false,
-			isNullable: true,
-			isUnique: false,
-			isIdentity: false,
-			isArray: false,
-		},
-	],
-};
+import { AdvancedOptions } from "./column-fields/advanced-options";
+import {
+	type ColumnFieldValues,
+	columnFieldSchema,
+	DEFAULT_COLUMN_FIELD,
+} from "./column-fields/column-field-values";
+import { ColumnNameField } from "./column-fields/column-name-field";
+import { ColumnTypeField } from "./column-fields/column-type-field";
+import { DefaultValueField } from "./column-fields/default-value-field";
+import { FormActions } from "./column-fields/form-actions";
+import { PrimaryField } from "./column-fields/primary-field";
 
 const AddColumnFormContent = () => {
-	const methods = useFormContext<AddColumnFormValues>();
-	const isPrimaryKey = useWatch({
-		control: methods.control,
-		name: "fields.0.isPrimaryKey",
-	});
+	const {
+		control,
+		register,
+		setValue,
+		watch,
+		formState: { errors },
+	} = useFormContext<ColumnFieldValues>();
+
+	const values = watch();
 
 	return (
 		<div className="space-y-4">
@@ -65,19 +40,35 @@ const AddColumnFormContent = () => {
 			<div className="px-2 py-3">
 				<div className="grid grid-cols-4 gap-4">
 					<ColumnNameField
-						index={0}
-						showForeignKeyButton={false}
+						id="columnName"
+						{...register("columnName")}
+						invalid={Boolean(errors.columnName)}
 					/>
-					<ColumnTypeField index={0} />
+					<ColumnTypeField
+						control={control}
+						name="columnType"
+						onIncompatibleOptions={(options) => {
+							for (const option of options) setValue(option, false);
+						}}
+					/>
 					<DefaultValueField
-						index={0}
-						isRequired={false}
+						id="defaultValue"
+						{...register("defaultValue")}
+						invalid={Boolean(errors.defaultValue)}
 					/>
 					<div className="flex gap-2">
-						<PrimaryField index={0} />
+						<PrimaryField
+							id="isPrimaryKey"
+							checked={values.isPrimaryKey}
+							onCheckedChange={(checked) => {
+								setValue("isPrimaryKey", checked);
+								setValue("isNullable", false);
+							}}
+						/>
 						<AdvancedOptions
-							index={0}
-							isDisabled={Boolean(isPrimaryKey)}
+							idPrefix="0"
+							values={values}
+							onChange={(option, checked) => setValue(option, checked)}
 						/>
 					</div>
 				</div>
@@ -88,25 +79,30 @@ const AddColumnFormContent = () => {
 
 export const AddColumnForm = ({ tableName }: { tableName: string }) => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
+
 	const { addColumn, isAddingColumn } = useAddColumn({
 		tableName,
 		schemaName: useTableSchemaName(),
 	});
 
-	const methods = useForm<AddColumnFormValues>({
+	const methods = useForm<ColumnFieldValues>({
 		mode: "onSubmit",
-		defaultValues,
-		resolver: zodResolver(addColumnFormSchema),
+		defaultValues: DEFAULT_COLUMN_FIELD,
+		resolver: zodResolver(columnFieldSchema),
 	});
 
 	const handleCancel = () => {
-		methods.reset(defaultValues);
+		methods.reset(DEFAULT_COLUMN_FIELD);
 		closeOverlay("schema.add-column");
 	};
 
-	const handleSubmit = async (data: AddColumnFormValues) => {
-		await addColumn(data.fields[0]);
-		methods.reset(defaultValues);
+	const handleSubmit = async (data: ColumnFieldValues) => {
+		try {
+			await addColumn(data);
+			methods.reset(DEFAULT_COLUMN_FIELD);
+		} catch {
+			// The mutation hook already reported the failure through toast.promise.
+		}
 	};
 
 	return (

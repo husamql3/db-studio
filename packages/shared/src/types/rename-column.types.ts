@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { databaseSchema, tableQuerySchema } from "./database.types.js";
+import { tableQuerySchema } from "./database.types.js";
 import { deleteColumnParamSchema } from "./delete-column.types.js";
 
 export const renameColumnSchema = z.object({
@@ -8,16 +8,9 @@ export const renameColumnSchema = z.object({
 
 export type RenameColumnSchemaType = z.infer<typeof renameColumnSchema>;
 
-export const renameColumnParamSchema = deleteColumnParamSchema;
-
-export type RenameColumnParamSchemaType = z.infer<typeof renameColumnParamSchema>;
-
-export const renameColumnParamsSchema = z.object({
-	db: databaseSchema.shape.db,
-	tableName: deleteColumnParamSchema.shape.tableName,
-	schemaName: tableQuerySchema.shape.schemaName,
-	columnName: deleteColumnParamSchema.shape.columnName,
-	newColumnName: renameColumnSchema.shape.newColumnName,
+export const renameColumnParamsSchema = renameColumnSchema.extend({
+	...tableQuerySchema.shape,
+	...deleteColumnParamSchema.shape,
 });
 
 export type RenameColumnParamsSchemaType = z.infer<typeof renameColumnParamsSchema>;

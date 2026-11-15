@@ -4,14 +4,15 @@ import { cn } from "@db-studio/ui/utils";
 import { useCallback } from "react";
 import { useLiveModeStore } from "../../stores/live-mode.store";
 
-export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
+export const LiveModeToggle = () => {
 	const { isLive, status, isPulsing, setLive } = useLiveModeStore();
 
 	const handleToggle = useCallback(() => {
-		setLive(!isLive, tableName);
-	}, [isLive, tableName, setLive]);
+		setLive(!isLive);
+	}, [isLive, setLive]);
 
 	let tooltipText = "Live mode: Automatic updates (Off)";
+
 	if (status === "paused") {
 		tooltipText = "Live mode paused while editing. Click to resume.";
 	} else if (isLive && status === "healthy") {
@@ -24,6 +25,7 @@ export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Button
+					size="segment"
 					type="button"
 					variant="ghost"
 					onClick={handleToggle}
@@ -31,7 +33,7 @@ export const LiveModeToggle = ({ tableName }: { tableName: string }) => {
 					aria-pressed={isLive}
 					data-active={isLive}
 					className={cn(
-						"h-8! px-2.5 border-l-0 border-y-0 border-r border-border rounded-none text-xs font-medium gap-1.5 flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+						"border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60",
 						isLive && "text-foreground",
 					)}
 				>

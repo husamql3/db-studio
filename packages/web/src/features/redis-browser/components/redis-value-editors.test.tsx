@@ -41,6 +41,7 @@ const renderEditor = (
 	overrides: { act?: RedisAct; streamDirection?: StreamDirection } = {},
 ) => {
 	const act = overrides.act ?? vi.fn<RedisAct>().mockResolvedValue(true);
+
 	const props = {
 		detail,
 		act,
@@ -50,7 +51,9 @@ const renderEditor = (
 		streamDirection: overrides.streamDirection ?? ("forward" as const),
 		onStreamDirectionChange: vi.fn(),
 	};
+
 	const view = render(<RedisValueEditor {...props} />, { wrapper: TooltipProvider });
+
 	return { ...view, props };
 };
 
@@ -108,6 +111,7 @@ describe("hash row editing", () => {
 			},
 			{ revision: "rev-2" },
 		);
+
 		rerender(
 			<RedisValueEditor
 				{...props}

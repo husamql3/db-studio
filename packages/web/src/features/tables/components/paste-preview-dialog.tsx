@@ -42,7 +42,7 @@ export const PastePreviewDialog = ({
 							: ""}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
-				<div className="max-h-64 overflow-auto">
+				<div className="max-h-64 overflow-auto overscroll-contain">
 					<table className="w-full table-fixed font-mono text-xs">
 						<thead className="sticky top-0 bg-background text-left text-[0.625rem] text-muted-foreground">
 							<tr className="h-7 border-b">

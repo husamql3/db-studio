@@ -3,7 +3,6 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
 		"./data-grid": "./src/data-display/data-grid/data-grid.tsx",
 		"./styles.css": "./src/styles.css",
 		"./utils": "./src/utils.ts",
@@ -15,7 +14,6 @@
 	"scripts": {
 		"build": "bun check",
 		"typecheck": "bun check",
-		"format": "biome check --write --unsafe",
 		"storybook": "storybook dev -p 6006 -c .storybook",
 		"build-storybook": "storybook build -c .storybook"
 	},
@@ -45,14 +43,12 @@
 		"cmdk": "^1.1.1",
 		"date-fns": "^4.4.0",
 		"lucide-react": "^1.66.0",
-		"next-themes": "^0.4.6",
 		"react-day-picker": "^10.0.2",
 		"sonner": "^2.0.8",
 		"tailwind-merge": "^3.7.0",
 		"vaul": "^1.1.2"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.6.4",
 		"@storybook/react-vite": "^10.6.5",
 		"@tailwindcss/vite": "^4.3.3",
 		"storybook": "^10.6.5",

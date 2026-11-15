@@ -1,9 +1,9 @@
 import type { ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { TableRecord } from "@/features/tables/table.type";
 import { useDatabaseEngine } from "@/hooks/use-database-engine";
 import { useDatabaseStore } from "@/stores/database.store";
 import { useOverlayStore } from "@/stores/overlay.store";
-import type { TableRecord } from "@/types/table.type";
 import { useLiveModeStore } from "../stores/live-mode.store";
 import { useRowDetailsStore } from "../stores/row-details.store";
 import { useUpdateCellStore } from "../stores/update-cell.store";
@@ -15,7 +15,7 @@ interface UseLiveTableProps {
 	tableName: string;
 	tableCols?: ColumnInfoSchemaType[];
 	tableDataRows: TableRecord[];
-	refetchTableData: () => Promise<unknown>;
+	refetchTableData: () => Promise<{ isError: boolean }>;
 	isEditingCell?: boolean;
 }
 
@@ -28,19 +28,9 @@ export const useLiveTable = ({
 }: UseLiveTableProps) => {
 	const canLiveMode = useDatabaseEngine()?.liveMode ?? false;
 
-	const {
-		isLive,
-		status,
-		isPulsing,
-		setLive,
-		pauseLive,
-		setStatus,
-		triggerPulse,
-		setHighlights,
-		isRowHighlighted,
-		isCellHighlighted,
-		reset,
-	} = useLiveModeStore();
+	const { isLive, pauseLive, setStatus, triggerPulse, setHighlights, reset } =
+		useLiveModeStore();
+
 	const { selectedDatabase } = useDatabaseStore();
 	const { updates } = useUpdateCellStore();
 	const { openOverlays } = useOverlayStore();
@@ -67,34 +57,36 @@ export const useLiveTable = ({
 	const selectedDatabaseRef = useRef(selectedDatabase);
 	selectedDatabaseRef.current = selectedDatabase;
 
-	// Pause Live mode when editing begins
 	useEffect(() => {
 		if (isLive && isEditing) {
 			pauseLive();
 		}
 	}, [isLive, isEditing, pauseLive]);
 
-	// Diff rows and trigger visual highlights when tableDataRows changes during Live mode
 	useEffect(() => {
 		if (isLive && prevRowsRef.current !== null) {
 			const diff = diffTableRows(prevRowsRef.current, tableDataRows, pkCols);
+
 			if (diff.hasVisibleChanges) {
 				triggerPulse();
 				setHighlights(diff.insertedRowIds, diff.changedCellKeys);
 			}
 		}
+
 		prevRowsRef.current = tableDataRows;
 	}, [tableDataRows, isLive, pkCols, triggerPulse, setHighlights]);
 
-	// Polling execution helper
 	const executePoll = useCallback(async () => {
 		if (typeof document !== "undefined" && document.hidden) {
 			return;
 		}
+
 		if (isEditing) {
 			pauseLive();
+
 			return;
 		}
+
 		if (pollInFlightRef.current) return;
 
 		const currentGeneration = useLiveModeStore.getState().generation;
@@ -105,6 +97,7 @@ export const useLiveTable = ({
 		try {
 			const res = await refetchRef.current();
 			const liveState = useLiveModeStore.getState();
+
 			if (
 				liveState.generation !== currentGeneration ||
 				!liveState.isLive ||
@@ -114,13 +107,14 @@ export const useLiveTable = ({
 				return;
 			}
 
-			if (res && typeof res === "object" && "isError" in res && res.isError) {
+			if (res.isError) {
 				setStatus("disconnected");
 			} else {
 				setStatus("healthy");
 			}
 		} catch {
 			const liveState = useLiveModeStore.getState();
+
 			if (
 				liveState.generation !== currentGeneration ||
 				!liveState.isLive ||
@@ -136,13 +130,11 @@ export const useLiveTable = ({
 		}
 	}, [isEditing, pauseLive, setStatus]);
 
-	// 1-second polling interval lifecycle
 	useEffect(() => {
 		if (!isLive || !canLiveMode) {
 			return;
 		}
 
-		// Execute immediate poll upon enabling Live mode
 		executePoll();
 
 		const intervalId = setInterval(() => {
@@ -154,7 +146,6 @@ export const useLiveTable = ({
 		};
 	}, [isLive, canLiveMode, executePoll]);
 
-	// Stop polling when tab is hidden, poll immediately when tab becomes visible
 	useEffect(() => {
 		if (!isLive || !canLiveMode) return;
 
@@ -165,34 +156,15 @@ export const useLiveTable = ({
 		};
 
 		document.addEventListener("visibilitychange", handleVisibilityChange);
+
 		return () => {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
 		};
 	}, [isLive, canLiveMode, executePoll]);
 
-	// Cleanup on table, database, or route switch
 	useEffect(() => {
 		return () => {
 			reset();
 		};
 	}, [tableName, selectedDatabase, reset]);
-
-	const toggleLive = useCallback(() => {
-		if (!canLiveMode) return;
-		if (isLive) {
-			setLive(false);
-		} else {
-			setLive(true, tableName);
-		}
-	}, [canLiveMode, isLive, tableName, setLive]);
-
-	return {
-		canLiveMode,
-		isLive,
-		status,
-		isPulsing,
-		isRowHighlighted,
-		isCellHighlighted,
-		toggleLive,
-	};
 };

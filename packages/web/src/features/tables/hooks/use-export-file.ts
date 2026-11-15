@@ -2,7 +2,7 @@ import type { FormatType } from "@db-studio/shared/types";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { posthogAnalytics } from "@/lib/posthog";
-import { exportTable } from "@/shared/api";
+import { type ApiError, apiErrorMessage, exportTable } from "@/shared/api";
 import { useDatabaseStore } from "@/stores/database.store";
 
 type ExportFileParams = {
@@ -14,7 +14,11 @@ type ExportFileParams = {
 export const useExportFile = () => {
 	const { selectedDatabase, dbType } = useDatabaseStore();
 
-	const { mutateAsync: exportFileMutation, isPending: isExportingFile } = useMutation({
+	const { mutateAsync: exportFileMutation, isPending: isExportingFile } = useMutation<
+		void,
+		ApiError,
+		ExportFileParams
+	>({
 		mutationFn: async ({ tableName, schemaName, format }: ExportFileParams) => {
 			const response = await exportTable({
 				tableName,
@@ -23,18 +27,16 @@ export const useExportFile = () => {
 				db: selectedDatabase,
 			});
 
-			const contentDispositionHeader = response.headers["content-disposition"];
-			const contentDisposition =
-				typeof contentDispositionHeader === "string" ? contentDispositionHeader : undefined;
-			const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-			const filename = filenameMatch?.[1] || `${tableName}_export.${format}`;
+			const filename = `${tableName}_export.${format}`;
 			const contentTypeHeader = response.headers["content-type"];
+
 			const contentType =
 				typeof contentTypeHeader === "string" ? contentTypeHeader : "application/octet-stream";
 
 			const blob = new Blob([response.data], {
 				type: contentType,
 			});
+
 			const url = window.URL.createObjectURL(blob);
 			const link = document.createElement("a");
 			link.href = url;
@@ -48,13 +50,13 @@ export const useExportFile = () => {
 		},
 	});
 
-	const exportFile = async (params: ExportFileParams) => {
-		return toast.promise(exportFileMutation(params), {
+	// The toast reports a failure; the returned toast id never rejects.
+	const exportFile = (params: ExportFileParams) =>
+		toast.promise(exportFileMutation(params), {
 			loading: "Exporting file...",
 			success: "File exported successfully",
-			error: (error: Error) => error.message || "Failed to export file",
+			error: (error: ApiError) => apiErrorMessage(error, "Failed to export file"),
 		});
-	};
 
 	return {
 		exportFile,

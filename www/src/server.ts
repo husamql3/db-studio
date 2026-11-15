@@ -1,8 +1,9 @@
+import { META } from "@db-studio/shared/constants";
 import handler from "@tanstack/react-start/server-entry";
 import { getMarkdownForPath } from "./markdown/pages";
 import { prefersMarkdown } from "./markdown/prefers-markdown";
 
-const CANONICAL_HOST = "dbstudio.sh";
+const CANONICAL_HOST = new URL(META.SITE_URL).hostname;
 
 const markdownResponse = (body: string | null, status: number): Response =>
 	new Response(body, {
@@ -16,6 +17,7 @@ const markdownResponse = (body: string | null, status: number): Response =>
 
 const withVaryAccept = (response: Response): Response => {
 	const vary = response.headers.get("vary") ?? "";
+
 	if (
 		vary
 			.split(",")
@@ -23,8 +25,10 @@ const withVaryAccept = (response: Response): Response => {
 	) {
 		return response;
 	}
+
 	const patched = new Response(response.body, response);
 	patched.headers.append("vary", "Accept");
+
 	return patched;
 };
 
@@ -35,6 +39,7 @@ export default {
 		// 301 www (and any other non-canonical host alias) to the apex domain
 		if (url.hostname !== CANONICAL_HOST && url.hostname.endsWith(`.${CANONICAL_HOST}`)) {
 			url.hostname = CANONICAL_HOST;
+
 			return Response.redirect(url.toString(), 301);
 		}
 
@@ -47,9 +52,11 @@ export default {
 		// (Start's SSR handler would otherwise 500 on non-HTML Accept headers).
 		if (isPageRequest && prefersMarkdown(request.headers.get("accept"))) {
 			const markdown = await getMarkdownForPath(url.pathname);
+
 			if (markdown !== null) {
 				return markdownResponse(request.method === "HEAD" ? null : markdown, 200);
 			}
+
 			return markdownResponse(
 				request.method === "HEAD"
 					? null
@@ -59,6 +66,7 @@ export default {
 		}
 
 		const response = await handler.fetch(request);
+
 		return isPageRequest ? withVaryAccept(response) : response;
 	},
 } satisfies ExportedHandler<Env>;

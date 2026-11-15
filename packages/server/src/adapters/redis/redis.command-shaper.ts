@@ -5,7 +5,30 @@ type ShapeFn = (reply: unknown) => Pick<ExecuteQueryResult, "columns" | "rows" |
 const isStringArray = (v: unknown): v is string[] =>
 	Array.isArray(v) && v.every((x) => typeof x === "string" || x === null);
 
-const isFlatPairArray = (v: unknown): v is unknown[] => Array.isArray(v) && v.length % 2 === 0;
+/** `[a, b, c, d]` as `[[a, b], [c, d]]`: the field/value and member/score replies Redis flattens. */
+export const pairs = <T>(flat: readonly T[]): Array<[T, T]> => {
+	const out: Array<[T, T]> = [];
+
+	for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]]);
+
+	return out;
+};
+
+/**
+ * The field/value or member/score pairs of a reply, or null when it has none: RESP2 flattens
+ * them (`[a, b, c, d]`), RESP3 (ioredis's default protocol) nests them (`[[a, b], [c, d]]`).
+ */
+const replyPairs = (reply: unknown): Array<[unknown, unknown]> | null => {
+	if (!Array.isArray(reply)) return null;
+
+	if (
+		reply.every((item): item is [unknown, unknown] => Array.isArray(item) && item.length === 2)
+	) {
+		return reply;
+	}
+
+	return reply.length % 2 === 0 ? pairs(reply) : null;
+};
 
 /**
  * Tokenize a redis-cli style command line into an argv array.
@@ -39,6 +62,7 @@ export function tokenizeCommand(input: string): string[] {
 				i += 2;
 				continue;
 			}
+
 			if (ch === '"') inDouble = false;
 			else cur += ch;
 			i++;
@@ -50,16 +74,19 @@ export function tokenizeCommand(input: string): string[] {
 			i++;
 			continue;
 		}
+
 		if (ch === '"') {
 			inDouble = true;
 			i++;
 			continue;
 		}
+
 		if (ch === " " || ch === "\t" || ch === "\n") {
 			if (cur.length > 0) {
 				out.push(cur);
 				cur = "";
 			}
+
 			i++;
 			continue;
 		}
@@ -71,7 +98,9 @@ export function tokenizeCommand(input: string): string[] {
 	if (inSingle || inDouble) {
 		throw new Error("Unterminated quoted string in command");
 	}
+
 	if (cur.length > 0) out.push(cur);
+
 	return out;
 }
 
@@ -89,6 +118,7 @@ const scalarShape: ShapeFn = (reply) => {
 			rowCount: 0,
 		};
 	}
+
 	return {
 		columns: ["value"],
 		rows: [{ value: reply as string | number }],
@@ -104,6 +134,7 @@ const statusShape: ShapeFn = (reply) => ({
 
 const flatArrayShape: ShapeFn = (reply) => {
 	if (!Array.isArray(reply)) return singleCellFallback(reply);
+
 	return {
 		columns: ["#", "value"],
 		rows: reply.map((v, idx) => ({ "#": idx, value: v as unknown })),
@@ -112,20 +143,20 @@ const flatArrayShape: ShapeFn = (reply) => {
 };
 
 const pairArrayShape: ShapeFn = (reply) => {
-	if (!isFlatPairArray(reply)) return singleCellFallback(reply);
-	const rows: Record<string, unknown>[] = [];
-	for (let i = 0; i < reply.length; i += 2) {
-		rows.push({ field: reply[i], value: reply[i + 1] });
-	}
+	const entries = replyPairs(reply);
+
+	if (!entries) return singleCellFallback(reply);
+	const rows = entries.map(([field, value]) => ({ field, value }));
+
 	return { columns: ["field", "value"], rows, rowCount: rows.length };
 };
 
 const zrangeWithScoresShape: ShapeFn = (reply) => {
-	if (!isFlatPairArray(reply)) return flatArrayShape(reply);
-	const rows: Record<string, unknown>[] = [];
-	for (let i = 0; i < reply.length; i += 2) {
-		rows.push({ member: reply[i], score: reply[i + 1] });
-	}
+	const entries = replyPairs(reply);
+
+	if (!entries) return flatArrayShape(reply);
+	const rows = entries.map(([member, score]) => ({ member, score }));
+
 	return { columns: ["member", "score"], rows, rowCount: rows.length };
 };
 
@@ -133,39 +164,43 @@ const infoShape: ShapeFn = (reply) => {
 	if (typeof reply !== "string") return singleCellFallback(reply);
 	const rows: Record<string, unknown>[] = [];
 	let section = "";
+
 	for (const line of reply.split(/\r?\n/)) {
 		if (!line.trim()) continue;
+
 		if (line.startsWith("#")) {
 			section = line.replace(/^#\s*/, "").trim();
 			continue;
 		}
+
 		const idx = line.indexOf(":");
+
 		if (idx < 0) continue;
 		rows.push({ section, key: line.slice(0, idx), value: line.slice(idx + 1) });
 	}
+
 	return { columns: ["section", "key", "value"], rows, rowCount: rows.length };
 };
 
 const xrangeShape: ShapeFn = (reply) => {
 	if (!Array.isArray(reply)) return singleCellFallback(reply);
+
 	const rows = reply.map((entry) => {
 		if (!Array.isArray(entry) || entry.length < 2) return { id: null, fields: null };
 		const [id, fields] = entry;
-		const fieldsObj: Record<string, unknown> = {};
-		if (Array.isArray(fields)) {
-			for (let i = 0; i < fields.length; i += 2) {
-				fieldsObj[String(fields[i])] = fields[i + 1];
-			}
-		}
-		return { id, fields: fieldsObj };
+
+		return {
+			id,
+			fields: Object.fromEntries(
+				(replyPairs(fields) ?? []).map(([field, value]) => [String(field), value]),
+			),
+		};
 	});
+
 	return { columns: ["id", "fields"], rows, rowCount: rows.length };
 };
 
-/**
- * Dispatch table keyed on the canonical (uppercase) command name.
- * If a command isn't found here, the reply is wrapped as a single-cell JSON row.
- */
+/** Keyed by uppercase command name; a command missing here replies as a single-cell JSON row. */
 const COMMAND_SHAPES: Record<string, ShapeFn> = {
 	PING: statusShape,
 	GET: scalarShape,
@@ -195,7 +230,8 @@ const COMMAND_SHAPES: Record<string, ShapeFn> = {
 	HVALS: flatArrayShape,
 	"CONFIG GET": pairArrayShape,
 
-	ZRANGE: flatArrayShape, // becomes pair-shaped only with WITHSCORES; caller can post-process
+	// shapeReply answers ZRANGE … WITHSCORES with member/score rows before this table.
+	ZRANGE: flatArrayShape,
 	INFO: infoShape,
 	XRANGE: xrangeShape,
 	XREVRANGE: xrangeShape,
@@ -211,10 +247,9 @@ export function shapeReply(
 ): Pick<ExecuteQueryResult, "columns" | "rows" | "rowCount"> {
 	if (argv.length === 0) return singleCellFallback(reply);
 
-	const cmd = argv[0]?.toUpperCase() ?? "";
+	const cmd = argv[0].toUpperCase();
 	const subcmd = argv[1]?.toUpperCase();
 
-	// Special case: ZRANGE … WITHSCORES → pair shape with {member, score}
 	if (
 		(cmd === "ZRANGE" || cmd === "ZREVRANGE" || cmd === "ZRANGEBYSCORE") &&
 		argv.some((a) => a.toUpperCase() === "WITHSCORES")
@@ -226,16 +261,19 @@ export function shapeReply(
 	if (subcmd) {
 		const compound = `${cmd} ${subcmd}`;
 		const shaper = COMMAND_SHAPES[compound];
+
 		if (shaper) return shaper(reply);
 	}
 
 	const shaper = COMMAND_SHAPES[cmd];
+
 	if (shaper) return shaper(reply);
 
 	// Heuristic for unknown commands
 	if (typeof reply === "string" || typeof reply === "number" || reply === null) {
 		return scalarShape(reply);
 	}
+
 	if (isStringArray(reply)) return flatArrayShape(reply);
 
 	return singleCellFallback(reply);

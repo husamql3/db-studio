@@ -1,4 +1,5 @@
 "use client";
+
 import {
 	AccordionContent,
 	AccordionHeader,
@@ -49,6 +50,7 @@ const CopyLinkButton = ({ id }: { id: string }) => {
 	const [checked, onClick] = useCopyButton(() => {
 		const url = new URL(window.location.href);
 		url.hash = id;
+
 		return navigator.clipboard.writeText(url.toString());
 	});
 

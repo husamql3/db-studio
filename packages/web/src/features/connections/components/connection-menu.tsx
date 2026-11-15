@@ -8,8 +8,8 @@ import {
 } from "@db-studio/ui/dropdown-menu";
 import { Link } from "@tanstack/react-router";
 import { Check, Lock, Settings2 } from "lucide-react";
-import { useDatabaseConnectionInfo } from "@/hooks/use-databases-list";
 import { useConnect, useConnections } from "../hooks/use-connections";
+import { useDatabaseConnectionInfo } from "../hooks/use-database-connection-info";
 import { formatLastUsed } from "../utils/format-last-used";
 import { ConnectionColorDot } from "./connection-color-dot";
 
@@ -24,6 +24,7 @@ export const ConnectionMenu = ({ databasesCount }: { databasesCount: number }) =
 	const { connectSaved } = useConnect();
 	const { connectionInfo } = useDatabaseConnectionInfo();
 	const current = connections.find((c) => c.id === active?.id);
+
 	const name =
 		current?.name ?? (active ? DATABASE_ENGINES[active.dbType].label : "Not connected");
 
@@ -81,6 +82,7 @@ export const ConnectionMenu = ({ databasesCount }: { databasesCount: number }) =
 					</p>
 					{connections.slice(0, RECENT_COUNT).map((connection) => {
 						const isActive = connection.id === active?.id;
+
 						return (
 							<DropdownMenuItem
 								key={connection.id}

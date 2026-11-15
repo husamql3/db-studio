@@ -1,13 +1,9 @@
 import type { AlterColumnSchemaType, ColumnInfoSchemaType } from "@db-studio/shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { alterColumn, renameColumn } from "@/shared/api";
-import { tableKeys } from "@/shared/query/keys";
+import { alterColumn, renameColumn, type ApiError, apiErrorMessage } from "@/shared/api";
+import { invalidateTable } from "@/shared/query/invalidate-table";
 import { useDatabaseStore } from "@/stores/database.store";
-
-type MutationError = Error & {
-	details?: unknown;
-};
 
 export type ColumnChange = {
 	columnName: string;
@@ -21,7 +17,9 @@ export const planColumnChanges = (
 ): ColumnChange[] =>
 	tableCols.flatMap((col, i) => {
 		const value = values.fields[i];
+
 		if (!value) return [];
+
 		const alter =
 			value.columnType !== col.dataTypeLabel
 				? {
@@ -30,8 +28,10 @@ export const planColumnChanges = (
 						defaultValue: col.columnDefault,
 					}
 				: undefined;
+
 		const trimmedName = value.columnName.trim();
 		const newColumnName = trimmedName !== col.columnName ? trimmedName : undefined;
+
 		return alter || newColumnName !== undefined
 			? [{ columnName: col.columnName, alter, newColumnName }]
 			: [];
@@ -49,7 +49,7 @@ export const useEditTable = ({
 
 	const { mutateAsync: editTableMutation, isPending: isEditingTable } = useMutation<
 		number,
-		MutationError,
+		ApiError,
 		ColumnChange[]
 	>({
 		mutationFn: async (changes) => {
@@ -63,6 +63,7 @@ export const useEditTable = ({
 						db: selectedDatabase,
 					});
 				}
+
 				if (newColumnName !== undefined) {
 					await renameColumn({
 						tableName,
@@ -73,20 +74,12 @@ export const useEditTable = ({
 					});
 				}
 			}
+
 			return changes.length;
 		},
 		// Earlier columns may have applied before a failure, so refresh either way.
 		onSettled: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.columnsByTable(tableName),
-					exact: false,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: tableKeys.dataByTable(tableName),
-					exact: false,
-				}),
-			]);
+			await invalidateTable(queryClient, tableName);
 		},
 	});
 
@@ -95,10 +88,7 @@ export const useEditTable = ({
 			.promise(editTableMutation(changes), {
 				loading: "Saving table changes...",
 				success: (count) => `Updated ${count} ${count === 1 ? "column" : "columns"}`,
-				error: (error: MutationError) =>
-					(typeof error.details === "string" && error.details) ||
-					error.message ||
-					"Failed to update table",
+				error: (error: ApiError) => apiErrorMessage(error, "Failed to update table"),
 			})
 			.unwrap();
 

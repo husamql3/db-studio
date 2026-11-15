@@ -19,6 +19,7 @@ function DataGridColumnResizerImpl<TRow>({
 		table.setColumnSizing((old) => {
 			const newSizing = { ...old };
 			delete newSizing[header.column.id];
+
 			return newSizing;
 		});
 	}, [header.column.id, table]);
@@ -45,17 +46,19 @@ function DataGridColumnResizerImpl<TRow>({
 
 export const DataGridColumnResizer = memo(
 	DataGridColumnResizerImpl,
-	// biome-ignore lint/suspicious/noExplicitAny: generic memo comparison
 	(prev: DataGridColumnResizerProps<any>, next: DataGridColumnResizerProps<any>) => {
 		const prevColumn = prev.header.column;
 		const nextColumn = next.header.column;
+
 		if (
 			prevColumn.getIsResizing() !== nextColumn.getIsResizing() ||
 			prevColumn.getSize() !== nextColumn.getSize()
 		) {
 			return false;
 		}
+
 		if (prev.label !== next.label) return false;
+
 		return true;
 	},
 ) as typeof DataGridColumnResizerImpl;

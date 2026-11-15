@@ -13,7 +13,6 @@ type JsonEditorProps = {
 	value: string;
 	onChange: (value: string) => void;
 	onSave: () => void;
-	onCancel: () => void;
 	className?: string;
 };
 
@@ -22,17 +21,11 @@ type JsonEditorProps = {
  * Mounts once and syncs value/theme/preferences through effects so typing never
  * recreates the editor.
  */
-export const JsonEditor = ({
-	value,
-	onChange,
-	onSave,
-	onCancel,
-	className,
-}: JsonEditorProps) => {
+export const JsonEditor = ({ value, onChange, onSave, className }: JsonEditorProps) => {
 	const hostRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-	const handlersRef = useRef({ onChange, onSave, onCancel });
-	handlersRef.current = { onChange, onSave, onCancel };
+	const handlersRef = useRef({ onChange, onSave });
+	handlersRef.current = { onChange, onSave };
 
 	const { isDark } = useTheme();
 	const { editor: editorPreferences } = usePersonalPreferencesStore();
@@ -63,25 +56,21 @@ export const JsonEditor = ({
 			padding: { top: 6, bottom: 6 },
 			scrollbar: { horizontal: "hidden", vertical: "auto", useShadows: false },
 		});
+
 		editorRef.current = instance;
 
 		const model = instance.getModel();
+
 		if (model) {
 			instance.setPosition(model.getFullModelRange().getEndPosition());
 		}
+
 		instance.focus();
 
 		const disposables = [
 			instance.onDidChangeModelContent(() =>
 				handlersRef.current.onChange(instance.getValue()),
 			),
-			instance.onKeyDown((event) => {
-				if (event.keyCode === monaco.KeyCode.Escape) {
-					event.preventDefault();
-					event.stopPropagation();
-					handlersRef.current.onCancel();
-				}
-			}),
 			instance.addAction({
 				id: "db-studio.save-json-cell",
 				label: "Save changes",
@@ -111,6 +100,7 @@ export const JsonEditor = ({
 
 	useEffect(() => {
 		const instance = editorRef.current;
+
 		if (instance && instance.getValue() !== value) {
 			instance.setValue(value);
 		}

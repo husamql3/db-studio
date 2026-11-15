@@ -67,12 +67,14 @@ describe("RedisValueInput invalid drafts", () => {
 
 	it("commits null for unparseable hex instead of keeping the stale value", () => {
 		const onChange = vi.fn();
+
 		const { rerender } = render(
 			<RedisValueInput
 				value={binary}
 				onChange={onChange}
 			/>,
 		);
+
 		const input = screen.getByRole("textbox");
 
 		fireEvent.change(input, { target: { value: "fsdasfdadsa" } });
@@ -92,12 +94,14 @@ describe("RedisValueInput invalid drafts", () => {
 
 	it("recovers once the hex draft parses again", () => {
 		const onChange = vi.fn();
+
 		const { rerender } = render(
 			<RedisValueInput
 				value={binary}
 				onChange={onChange}
 			/>,
 		);
+
 		const input = screen.getByRole("textbox");
 
 		fireEvent.change(input, { target: { value: "zz" } });

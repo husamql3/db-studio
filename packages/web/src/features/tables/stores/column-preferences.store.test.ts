@@ -8,7 +8,13 @@ import {
 	useColumnPreferencesStore,
 } from "./column-preferences.store";
 
-const parts = { dbType: "pg", database: "dbstudio", tableName: "users" };
+const parts = {
+	dbType: "pg",
+	database: "dbstudio",
+	schemaName: undefined,
+	tableName: "users",
+};
+
 const store = () => useColumnPreferencesStore.getState();
 
 beforeEach(() => {
@@ -17,17 +23,20 @@ beforeEach(() => {
 
 describe("column preferences store", () => {
 	it("produces distinct keys when database or table names contain colons", () => {
-		const keyA = makeColumnPrefKey({ dbType: "pg", database: "a:b", tableName: "c" });
-		const keyB = makeColumnPrefKey({ dbType: "pg", database: "a", tableName: "b:c" });
+		const keyA = makeColumnPrefKey({ ...parts, database: "a:b", tableName: "c" });
+		const keyB = makeColumnPrefKey({ ...parts, database: "a", tableName: "b:c" });
 		expect(keyA).not.toBe(keyB);
 	});
 
-	it("sanitizes corrupt or partial payloads on write", () => {
-		store().setColumnPrefs(parts, {
-			order: ["a", 42, null],
-			hidden: "oops",
-		} as never);
-		expect(getColumnPrefs(parts)).toEqual({ order: ["a"], hidden: [] });
+	it("keeps one schema's table apart from a same-named table in another schema", () => {
+		store().setColumnPrefs(
+			{ ...parts, schemaName: "auth" },
+			{ order: ["id"], hidden: ["id"] },
+		);
+		expect(getColumnPrefs({ ...parts, schemaName: "public" })).toEqual({
+			order: [],
+			hidden: [],
+		});
 	});
 
 	it("discards a persisted payload that is not an object", () => {

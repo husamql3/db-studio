@@ -2,9 +2,11 @@
 	if (location.hostname !== "dbstudio.sh" || document.getElementById("ga4-tag")) return;
 
 	window.dataLayer = window.dataLayer || [];
+
 	function gtag() {
 		window.dataLayer.push(arguments);
 	}
+
 	window.gtag = gtag;
 	gtag("js", new Date());
 	gtag("config", "G-PTKK3W2G0T", {
@@ -30,10 +32,19 @@
 	// Site header, footer, or the heading of the section the click came from.
 	function clickLocation(el) {
 		if (el.closest("header.sticky")) return "header";
+
 		if (el.closest("footer")) return "footer";
+
 		if (location.pathname.startsWith("/docs")) return "docs";
 		const heading = el.closest("section")?.querySelector("h1, h2")?.textContent;
-		return heading ? heading.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 100) : "content";
+
+		return heading
+			? heading
+					.trim()
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, "_")
+					.slice(0, 100)
+			: "content";
 	}
 
 	function trackClick(event) {
@@ -45,32 +56,39 @@
 			return;
 
 		const install = event.target.closest("[data-analytics-install]");
+
 		if (install) {
 			gtag("event", "copy_install_command", {
 				package_manager: install.dataset.analyticsInstall,
 				click_location: clickLocation(install),
 			});
+
 			return;
 		}
 
 		// fumadocs code blocks label their copy button "Copy Text" until it flips to "Copied Text".
 		const copyCode = event.target.closest('button[aria-label="Copy Text"]');
+
 		if (copyCode) {
 			const code = copyCode.closest("figure")?.querySelector("pre")?.textContent?.trim();
 			gtag("event", "copy_code", {
 				click_target: (code?.split("\n")[0] || "code").slice(0, 100),
 				click_location: clickLocation(copyCode),
 			});
+
 			return;
 		}
 
 		const link = event.target.closest("a[href]");
+
 		if (!link) return;
 		const url = new URL(link.href);
+
 		if (url.protocol !== "https:" && url.protocol !== "http:") return;
 
 		let eventName;
 		let target;
+
 		if (url.hostname === "github.com" && url.pathname.startsWith("/husamql3/db-studio")) {
 			eventName = "github_click";
 			target = url.pathname.slice("/husamql3/db-studio".length).replace(/^\//, "") || "repo";

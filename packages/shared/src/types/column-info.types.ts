@@ -3,6 +3,7 @@ import { z } from "zod";
 const dataTypes = ["text", "boolean", "number", "enum", "json", "date", "array"] as const;
 
 export const dataTypesSchema = z.enum(dataTypes);
+
 export type DataTypes = z.infer<typeof dataTypesSchema>;
 
 export const DataTypes = {
@@ -75,9 +76,22 @@ const standardizedDataTypes = [
 	"enum",
 	// MySQL set type
 	"set",
+	// MongoDB BSON types with no closer label
+	"decimal",
+	"objectId",
+	"binData",
+	"regex",
+	"javascript",
+	"symbol",
+	"minKey",
+	"maxKey",
 ] as const;
 
 export const standardizedDataTypeSchema = z.enum(standardizedDataTypes);
+
+export const StandardizedDataType = standardizedDataTypeSchema.enum;
+
+export type StandardizedDataType = z.infer<typeof standardizedDataTypeSchema>;
 
 export const columnInfoSchema = z.object({
 	columnName: z.string(),

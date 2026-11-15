@@ -4,114 +4,28 @@ const mockGetMongoClient = vi.hoisted(() => vi.fn());
 const mockGetMongoDb = vi.hoisted(() => vi.fn());
 const mockGetMongoDbName = vi.hoisted(() => vi.fn(() => "appdb"));
 
-vi.mock("@/adapters/connections.js", () => ({
-	getMongoClient: mockGetMongoClient,
-	getMongoDb: mockGetMongoDb,
-	getMongoDbName: mockGetMongoDbName,
-}));
-
-vi.mock("@/db-manager.js", () => ({
-	isValidObjectId: vi.fn(() => false),
-	coerceObjectId: vi.fn((value: unknown) => value),
+vi.mock("@/open-connections.js", () => ({
+	connector: () => ({
+		client: mockGetMongoClient,
+		db: mockGetMongoDb,
+		dbName: mockGetMongoDbName(),
+	}),
 }));
 
 import { MongoAdapter } from "@/adapters/mongo/mongo.adapter.js";
 
-const docs = [
-	{ _id: "1", name: "Ada", age: 36 },
-	{ _id: "2", name: "Linus", age: 55 },
-];
+const admin = { listDatabases: vi.fn() };
 
-function cursor(data: Record<string, unknown>[] = docs) {
-	const chain = {
-		sort: vi.fn(),
-		skip: vi.fn(),
-		limit: vi.fn(),
-		toArray: vi.fn(async () => data),
-	};
-	chain.sort.mockReturnValue(chain);
-	chain.skip.mockReturnValue(chain);
-	chain.limit.mockReturnValue(chain);
-	return chain;
-}
-
-function createMongoMocks() {
-	const collection = {
-		countDocuments: vi.fn(async () => docs.length),
-		estimatedDocumentCount: vi.fn(async () => docs.length),
-		find: vi.fn(() => cursor()),
-		aggregate: vi.fn(() => cursor([{ total: docs.length }])),
-		findOne: vi.fn(async (filter: Record<string, unknown>) => {
-			if ("name" in filter) return { name: "Ada" };
-			return null;
-		}),
-		updateMany: vi.fn(async () => ({ matchedCount: 2, modifiedCount: 2 })),
-		updateOne: vi.fn(async () => ({ matchedCount: 1, modifiedCount: 1 })),
-		insertOne: vi.fn(async () => ({ insertedId: "inserted" as string | null })),
-		insertMany: vi.fn(async (records: unknown[]) => ({ insertedCount: records.length })),
-		deleteOne: vi.fn(async () => ({ deletedCount: 1 })),
-		deleteMany: vi.fn(async () => ({ deletedCount: 1 })),
-		drop: vi.fn(async () => true),
-		rename: vi.fn(async () => ({})),
-	};
-
-	const mongoDb = {
-		collection: vi.fn(() => collection),
-		createCollection: vi.fn(async () => ({})),
-		command: vi.fn(async () => ({ ok: 1 })),
-		listCollections: vi.fn((filter?: { name?: string }) => ({
-			toArray: vi.fn(async () => {
-				if (filter?.name === "new_users" || filter?.name === "empty" || filter?.name === "other") return [];
-				return [{ name: filter?.name ?? "users", options: { validator: { $jsonSchema: {} } } }];
-			}),
-		})),
-	};
-
-	const admin = {
-		listDatabases: vi.fn(async () => ({
-			databases: [{ name: "appdb", sizeOnDisk: 1024 }],
-		})),
-		serverStatus: vi.fn(async () => ({
-			version: "7.0.0",
-			connections: { current: 3, available: 97 },
-		})),
-	};
-	const client = {
-		db: vi.fn(() => ({
-			admin: vi.fn(() => admin),
-		})),
-	};
-
-	return { collection, mongoDb, admin, client };
-}
-
-describe("MongoAdapter integration scaffold", () => {
+describe("MongoAdapter.getDatabasesList", () => {
 	let adapter: MongoAdapter;
-	let mocks: ReturnType<typeof createMongoMocks>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		adapter = new MongoAdapter();
-		mocks = createMongoMocks();
-		mockGetMongoDb.mockResolvedValue(mocks.mongoDb);
-		mockGetMongoClient.mockResolvedValue(mocks.client);
-		mockGetMongoDbName.mockReturnValue("appdb");
+		mockGetMongoClient.mockResolvedValue({ db: () => ({ admin: () => admin }) });
 	});
 
-	it("maps Mongo native types to and from the universal type set", () => {
-		expect(adapter.mapToUniversalType("bool")).toBe("boolean");
-		expect(adapter.mapToUniversalType("date")).toBe("date");
-		expect(adapter.mapToUniversalType("array")).toBe("array");
-		expect(adapter.mapToUniversalType("object")).toBe("json");
-		expect(adapter.mapToUniversalType("unknown")).toBe("text");
-		expect(adapter.mapFromUniversalType("number")).toBe("double");
-		expect(adapter.mapFromUniversalType("boolean")).toBe("bool");
-		expect(adapter.mapFromUniversalType("date")).toBe("date");
-		expect(adapter.mapFromUniversalType("array")).toBe("array");
-		expect(adapter.mapFromUniversalType("unknown")).toBe("string");
-	});
-
-	describe("getDatabasesList system filtering", () => {
+	describe("system database filtering", () => {
 		const systemRows = [
 			{ name: "admin", sizeOnDisk: 40960 },
 			{ name: "config", sizeOnDisk: 1024 },
@@ -121,14 +35,14 @@ describe("MongoAdapter integration scaffold", () => {
 
 		it("filters admin/config/local when current is a user db", async () => {
 			mockGetMongoDbName.mockReturnValue("myapp");
-			mocks.admin.listDatabases.mockResolvedValue({ databases: systemRows });
+			admin.listDatabases.mockResolvedValue({ databases: systemRows });
 			const result = await adapter.getDatabasesList();
 			expect(result.map((d) => d.name)).toEqual(["myapp"]);
 		});
 
 		it("keeps the current db when it is a system db", async () => {
 			mockGetMongoDbName.mockReturnValue("admin");
-			mocks.admin.listDatabases.mockResolvedValue({ databases: systemRows });
+			admin.listDatabases.mockResolvedValue({ databases: systemRows });
 			const result = await adapter.getDatabasesList();
 			expect(result.map((d) => d.name)).toEqual(["admin", "myapp"]);
 		});
@@ -138,7 +52,7 @@ describe("MongoAdapter integration scaffold", () => {
 		// rule surfaced exactly the admin/config/local entries #277 asked us to hide.
 		it("shows the connected db and still hides system dbs when the connected db is empty", async () => {
 			mockGetMongoDbName.mockReturnValue("testdb");
-			mocks.admin.listDatabases.mockResolvedValue({
+			admin.listDatabases.mockResolvedValue({
 				databases: [
 					{ name: "admin", sizeOnDisk: 40960 },
 					{ name: "local", sizeOnDisk: 1024 },
@@ -150,43 +64,56 @@ describe("MongoAdapter integration scaffold", () => {
 	});
 });
 
-describe("MongoAdapter.exportTableData", () => {
-	let adapter: MongoAdapter;
+describe("MongoAdapter.updateRecords", () => {
+	const updateOne = vi.fn(async () => ({ matchedCount: 1, modifiedCount: 1 }));
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		adapter = new MongoAdapter();
+		mockGetMongoDb.mockResolvedValue({ collection: () => ({ updateOne }) });
 	});
 
-	const mockCollectionWith = (docs: unknown[]) => {
-		const collection = { find: vi.fn(() => ({ limit: vi.fn(() => ({ toArray: vi.fn(async () => docs) })) })) };
-		mockGetMongoDb.mockResolvedValue({ collection: vi.fn(() => collection) });
-	};
+	it("filters on every key column of a composite key", async () => {
+		await expect(
+			new MongoAdapter().updateRecords({
+				db: "appdb",
+				params: {
+					tableName: "members",
+					primaryKey: "tenant_id",
+					primaryKeys: ["tenant_id", "user_id"],
+					updates: [
+						{
+							columnName: "name",
+							value: "Grace",
+							rowData: { tenant_id: 7, user_id: 42, name: "Ada" },
+						},
+					],
+				},
+			}),
+		).resolves.toEqual({ updatedCount: 1 });
 
-	it("keeps compound values nested so the JSON export stays structured", async () => {
-		mockCollectionWith([
-			{
-				_id: "1",
-				name: "Ada",
-				age: 36,
-				active: true,
-				retired: null,
-				profile: { role: "admin" },
-				tags: ["a", "b"],
-			},
-		]);
-		const { cols, rows } = await adapter.exportTableData({ tableName: "users", db: "appdb" });
-		expect(cols).toEqual(
-			expect.arrayContaining(["_id", "name", "age", "active", "retired", "profile", "tags"]),
+		expect(updateOne).toHaveBeenCalledWith(
+			{ tenant_id: 7, user_id: 42 },
+			{ $set: { name: "Grace" } },
 		);
-		expect(rows[0]).toEqual({
-			_id: "1",
-			name: "Ada",
-			age: 36,
-			active: true,
-			retired: null,
-			profile: { role: "admin" },
-			tags: ["a", "b"],
-		});
+	});
+
+	it("rejects an attempt to update the immutable _id field", async () => {
+		await expect(
+			new MongoAdapter().updateRecords({
+				db: "appdb",
+				params: {
+					tableName: "users",
+					primaryKey: "_id",
+					updates: [
+						{
+							columnName: "_id",
+							value: "other",
+							rowData: { _id: "507f1f77bcf86cd799439011" },
+						},
+					],
+				},
+			}),
+		).rejects.toMatchObject({ status: 400 });
+		expect(updateOne).not.toHaveBeenCalled();
 	});
 });

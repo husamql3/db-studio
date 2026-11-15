@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	test: {
@@ -15,7 +15,6 @@ export default defineConfig({
 			// only ever gets met by writing the mock-heavy tests AGENTS.md forbids. Feature
 			// verification lives in E2E runs and their artifacts.
 		},
-		setupFiles: ["./tests/setup.ts"],
 	},
 	resolve: {
 		alias: {

@@ -22,6 +22,7 @@ import { SqlServer } from "@/components/ui/svgs/sqlServer";
 import { TidbIcon } from "@/components/ui/svgs/tidbIcon";
 import { TursoWordmarkDark } from "@/components/ui/svgs/tursoWordmarkDark";
 import { changelog } from "@/lib/content/changelog";
+import { enginePages } from "@/lib/content/engine-pages";
 import { seoHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { getHomeStats } from "@/utils/get-home-stats";
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/(main)/_pathlessLayout/")({
 	component: App,
 	loader: async () => {
 		const [stats, sponsors] = await Promise.all([getHomeStats(), getSponsors()]);
+
 		return { stats, sponsors };
 	},
 	head: () =>
@@ -53,7 +55,13 @@ const iconLogo = (name: string, Icon: typeof OracleIcon) => (
 	</>
 );
 
-/** Engine logos, each linking to its section on /docs/databases. */
+const LOGO_TILE =
+	"group flex h-24 items-center justify-center px-4 transition-colors duration-200 hover:bg-white/[0.025]";
+
+const LOGO =
+	"flex items-center gap-2 opacity-60 brightness-0 invert transition-opacity duration-200 group-hover:opacity-100";
+
+/** Engine logos, each linking to its GUI page, or its section on /docs/databases without one. */
 const LOGOS = [
 	{
 		slug: "postgresql",
@@ -80,9 +88,12 @@ function DemoVideo() {
 
 	useEffect(() => {
 		const video = videoRef.current;
+
 		if (!video) return;
+
 		// A cached video can load before hydration attaches onLoadedData.
 		if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) setLoaded(true);
+
 		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 		video.play().catch(() => {});
 	}, []);
@@ -129,6 +140,7 @@ type HighEntropyNavigator = Navigator & {
 /** Picks the installer for this machine, or null when there is no desktop build for it. */
 async function detectDownload(): Promise<Download | null> {
 	const ua = navigator.userAgent;
+
 	// iPadOS reports itself as a Mac; touch points tell them apart.
 	if (/Macintosh/.test(ua) && navigator.maxTouchPoints < 2) {
 		// Only Chromium exposes the CPU; Safari and Firefox report Intel on every Mac, so they get arm64.
@@ -136,11 +148,15 @@ async function detectDownload(): Promise<Download | null> {
 			?.getHighEntropyValues(["architecture"])
 			.then((v) => v.architecture)
 			.catch(() => undefined);
+
 		return { os: "macOS", file: `db-studio-mac-${arch === "x86" ? "x64" : "arm64"}.dmg` };
 	}
+
 	if (/Windows/.test(ua)) return { os: "Windows", file: "db-studio-win-x64.exe" };
+
 	if (/Linux x86_64/.test(ua) && !/Android/.test(ua))
 		return { os: "Linux", file: "db-studio-linux-x86_64.AppImage" };
+
 	return null;
 }
 
@@ -164,6 +180,7 @@ function DownloadButton() {
 
 function Hero({ stars }: { stars: number }) {
 	const latest = changelog[0];
+
 	return (
 		<section className="relative overflow-hidden px-5 pt-16 pb-14 md:px-8 md:pt-24 md:pb-20">
 			{/* A faint grid that fades out from the top-left corner, behind the copy. */}
@@ -229,6 +246,7 @@ function Hero({ stars }: { stars: number }) {
 
 function App() {
 	const { stats, sponsors } = Route.useLoaderData();
+
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 border-x">
 			<Hero stars={stats.stars} />
@@ -249,18 +267,27 @@ function App() {
 							key={slug}
 							className="bg-background"
 						>
-							<Link
-								to="/docs/$"
-								params={{ _splat: "databases" }}
-								hash={slug}
-								aria-label={`${name} docs`}
-								className="group flex h-24 items-center justify-center px-4 transition-colors duration-200 hover:bg-white/[0.025]"
-							>
-								{/* brightness-0 + invert flattens the brand colors to white on the dark-only site. */}
-								<span className="flex items-center gap-2 opacity-60 brightness-0 invert transition-opacity duration-200 group-hover:opacity-100">
-									{logo}
-								</span>
-							</Link>
+							{/* brightness-0 + invert flattens the brand colors to white on the dark-only site. */}
+							{enginePages.some((page) => page.slug === slug) ? (
+								<Link
+									to="/{$engine}-gui"
+									params={{ engine: slug }}
+									aria-label={`${name} GUI`}
+									className={LOGO_TILE}
+								>
+									<span className={LOGO}>{logo}</span>
+								</Link>
+							) : (
+								<Link
+									to="/docs/$"
+									params={{ _splat: "databases" }}
+									hash={slug}
+									aria-label={`${name} docs`}
+									className={LOGO_TILE}
+								>
+									<span className={LOGO}>{logo}</span>
+								</Link>
+							)}
 						</li>
 					))}
 				</ul>

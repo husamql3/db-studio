@@ -26,22 +26,6 @@ export type DeleteRecordResult = {
 	relatedRecords: RelatedRecord[];
 };
 
-export type ForeignKeyConstraint = {
-	constraintName: string;
-	referencingTable: string;
-	referencingColumn: string;
-	referencedTable: string;
-	referencedColumn: string;
-};
-
-export type ForeignKeyConstraintRow = {
-	constraint_name: string;
-	referencing_table: string;
-	referencing_column: string;
-	referenced_table: string;
-	referenced_column: string;
-};
-
 export type RelatedRecord = {
 	tableName: string;
 	columnName: string;

@@ -1,4 +1,5 @@
 import type {
+	ApiError as ApiErrorBody,
 	BaseResponse,
 	BulkInsertResult,
 	DeleteRecordResult,
@@ -6,6 +7,9 @@ import type {
 import { api } from "./client";
 
 export type AddRecordFormData = Record<string, string>;
+
+/** A record's values as written; NULL is null. */
+export type RecordValues = Record<string, string | null>;
 
 export const createRecord = ({
 	tableName,
@@ -15,7 +19,7 @@ export const createRecord = ({
 }: {
 	tableName: string;
 	schemaName?: string;
-	data: AddRecordFormData;
+	data: RecordValues;
 	db?: string | null;
 }) =>
 	api.post<BaseResponse<string>>(
@@ -49,8 +53,9 @@ export const updateRecords = ({
 		{
 			tableName,
 			updates,
-			...(primaryKey ? { primaryKey } : {}),
-			...(primaryKeys?.length ? { primaryKeys } : {}),
+			// JSON drops undefined keys, so a missing or empty key hint is not sent.
+			primaryKey: primaryKey || undefined,
+			primaryKeys: primaryKeys?.length ? primaryKeys : undefined,
 		},
 		{ params: { db: db ?? "", schemaName } },
 	);
@@ -85,7 +90,13 @@ export const deleteRecords = ({
 	force?: boolean;
 	db?: string | null;
 }) =>
-	api.delete<BaseResponse<DeleteRecordResult>>(force ? "/records/force" : "/records", {
-		data: { tableName, primaryKeys },
-		params: { db: db ?? "", schemaName },
-	});
+	api.delete<BaseResponse<DeleteRecordResult> | ApiErrorBody>(
+		force ? "/records/force" : "/records",
+		{
+			data: { tableName, primaryKeys },
+			params: { db: db ?? "", schemaName },
+			// Rows that other rows reference answer 409 with `fkViolation` and `relatedRecords`;
+			// any other conflict answers 409 with an error body.
+			validateStatus: (status) => (status >= 200 && status < 300) || status === 409,
+		},
+	);

@@ -21,6 +21,7 @@ const VARIANTS = [
 ] as const;
 
 const { width, height } = await sharp(basePath).metadata();
+
 if (!width || !height) throw new Error(`Could not read dimensions of ${basePath}`);
 
 // Dot sized ~35% of the icon width, tucked inside the rounded corner so it
@@ -35,6 +36,7 @@ for (const { file, color } of VARIANTS) {
 			<circle cx="${center}" cy="${center}" r="${radius}" fill="${color}" stroke="#000000" stroke-width="${stroke}" />
 		</svg>`,
 	);
+
 	const outPath = path.join(publicDir, file);
 	await sharp(basePath)
 		.composite([{ input: overlay }])

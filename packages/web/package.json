@@ -9,7 +9,6 @@
     "typecheck": "bun check",
     "start": "portless web.db-studio bun run start:app",
     "start:app": "vite preview --host --port=${PORT:-3000}",
-    "format": "biome check --write --unsafe",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -40,7 +39,6 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.66.0",
     "monaco-editor": "^0.57.0",
-    "nanoid": "^6.0.2",
     "nuqs": "^2.10.2",
     "posthog-js": "^1.444.0",
     "react": "^19.3.1",
@@ -59,7 +57,6 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
     "@sentry/vite-plugin": "^5.4.0",
     "@tanstack/ai-devtools-core": "^0.5.2",
     "@tanstack/devtools-vite": "^0.8.6",

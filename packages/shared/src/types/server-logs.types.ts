@@ -3,6 +3,7 @@ import { z } from "zod";
 export const SERVER_LOG_LEVELS = ["fatal", "error", "warning", "info", "debug"] as const;
 
 export const serverLogLevelSchema = z.enum(SERVER_LOG_LEVELS);
+
 export type ServerLogLevel = z.infer<typeof serverLogLevelSchema>;
 
 export const serverLogEntrySchema = z.object({

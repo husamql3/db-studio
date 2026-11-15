@@ -2,9 +2,10 @@ import { Button } from "@db-studio/ui/button";
 import { useCallback } from "react";
 import { useUpdateCell } from "../../hooks/use-update-cell";
 import { useUpdateCellStore } from "../../stores/update-cell.store";
-export const ClearBtn = () => {
+
+export const ClearBtn = ({ tableName }: { tableName: string }) => {
 	const { getUpdateCount, clearUpdates } = useUpdateCellStore();
-	const { isUpdatingCell, editScope } = useUpdateCell();
+	const { isUpdatingCell, editScope } = useUpdateCell(tableName);
 
 	const handleClearUpdates = useCallback(() => {
 		clearUpdates(editScope.id);
@@ -16,9 +17,10 @@ export const ClearBtn = () => {
 
 	return (
 		<Button
+			size="segment"
 			type="button"
 			variant="secondary"
-			className="h-8! border-l-0 border-y-0 border-r border-border rounded-none"
+			className="border-l-0 border-r border-border"
 			onClick={handleClearUpdates}
 			aria-label="Clear changes to the table"
 			disabled={isUpdatingCell}

@@ -7,5 +7,6 @@ export const Route = createFileRoute("/_pathlessLayout/table/$table")({
 
 function RouteComponent() {
 	const { table } = Route.useParams();
+
 	return <TableScreen tableName={table} />;
 }

@@ -2,99 +2,39 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { SheetSidebar } from "@/components/sheet-sidebar";
+import { DEFAULT_COLUMN_FIELD, FormActions } from "@/features/schema";
 import { useOverlayStore } from "@/stores/overlay.store";
-import { FormActions } from "../components/fields/form-actions";
 import { FormContent } from "../components/form-content";
 import { TableNameField } from "../components/table-name-field";
 import { useCreateTable } from "../hooks/use-create-table";
-import { type AddTableFormData, addTableSchema } from "../types";
+import { type AddTableFormData, addTableSchema, toCreateTablePayload } from "../types";
 
 const defaultValues = {
 	tableName: "",
-	fields: [
-		{
-			columnName: "",
-			columnType: "",
-			defaultValue: "",
-			isPrimaryKey: false,
-			isNullable: true,
-			isUnique: false,
-			isIdentity: false,
-			isArray: false,
-		},
-	],
-	foreignKeys: undefined,
+	fields: [DEFAULT_COLUMN_FIELD],
 } satisfies AddTableFormData;
 
 export const TableBuilderOverlay = () => {
 	const { closeOverlay, isOverlayOpen } = useOverlayStore();
 	const { createTable, isCreatingTable } = useCreateTable();
+
 	const methods = useForm({
 		mode: "onSubmit",
 		defaultValues,
 		resolver: zodResolver(addTableSchema),
 	});
 
-	const onSubmit = async (data: AddTableFormData) => {
-		const cleanedData = {
-			...data,
-			foreignKeys: data.foreignKeys?.filter((fk) => {
-				if (fk === null) return true;
-				return fk.columnName && fk.referencedTable && fk.referencedColumn;
-			}),
-		};
-
-		try {
-			await createTable(cleanedData, {
-				onSuccess: () => {
-					methods.reset();
-				},
-				onError: (error) => {
-					console.error("Error creating table:", error);
-				},
-			});
-		} catch (error) {
-			console.error("Error creating table:", error);
-		}
-	};
+	const onSubmit = (data: AddTableFormData) =>
+		createTable(toCreateTablePayload(data), { onSuccess: () => methods.reset() });
 
 	const onError = (errors: FieldErrors<AddTableFormData>) => {
-		if (errors.tableName?.message) {
-			toast.error(errors.tableName.message);
-			return;
-		}
+		const fieldMessage = (Array.isArray(errors.fields) ? errors.fields : [])
+			.map((field) => field?.columnName?.message ?? field?.columnType?.message)
+			.find(Boolean);
 
-		if (errors.fields && Array.isArray(errors.fields)) {
-			for (const field of errors.fields) {
-				if (field?.columnName?.message) {
-					toast.error(field.columnName.message);
-					return;
-				}
-				if (field?.columnType?.message) {
-					toast.error(field.columnType.message);
-					return;
-				}
-			}
-		}
-
-		if (errors.foreignKeys && Array.isArray(errors.foreignKeys)) {
-			for (const fk of errors.foreignKeys) {
-				if (fk?.columnName?.message) {
-					toast.error(fk.columnName.message);
-					return;
-				}
-				if (fk?.referencedTable?.message) {
-					toast.error(fk.referencedTable.message);
-					return;
-				}
-				if (fk?.referencedColumn?.message) {
-					toast.error(fk.referencedColumn.message);
-					return;
-				}
-			}
-		}
-
-		toast.error("Please check the form for errors");
+		toast.error(
+			errors.tableName?.message ?? fieldMessage ?? "Please check the form for errors",
+		);
 	};
 
 	const handleCancel = () => {

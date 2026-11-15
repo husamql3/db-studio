@@ -3,6 +3,7 @@
 // to ensure they are completely tree-shaken from the bundle
 
 export default {};
+
 export const TanStackDevtools = () => null;
 export const ReactQueryDevtools = () => null;
 export const TanStackRouterDevtoolsPanel = () => null;

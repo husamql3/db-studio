@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const STORAGE_KEY = "dbstudio-queries";
+
 type Query = {
 	id: string;
 	name: string;
@@ -8,7 +10,6 @@ type Query = {
 	query: string;
 	isFavorite: boolean;
 	folderId?: string;
-	isSelected: boolean;
 };
 
 type QueryFolder = {
@@ -22,27 +23,21 @@ type QueriesStore = {
 	folders: QueryFolder[];
 	queries: Query[];
 
-	// folder ops
 	addFolder: (folder: QueryFolder) => void;
 	updateFolder: (id: string, updates: Partial<QueryFolder>) => void;
 	deleteFolder: (id: string) => void;
 	toggleFolder: (id: string) => void;
-	toggleFavoriteFolder: (id: string) => void;
 
-	// query ops
-	addQuery: (name?: string, folderId?: string) => string;
+	/** Saves a new query and returns its id. */
+	addQuery: (query?: string, options?: { name?: string; folderId?: string }) => string;
 	updateQuery: (id: string, updates: Partial<Query>) => void;
 	deleteQuery: (id: string) => void;
 	moveQuery: (queryId: string, folderId?: string) => void;
 	toggleFavorite: (id: string) => void;
 
-	// helpers
 	getQueriesByFolder: (folderId?: string) => Query[];
 	getFavoriteQueries: () => Query[];
-	getFavoriteFolders: () => QueryFolder[];
 	getQuery: (id: string) => Query | undefined;
-	setSelectedQuery: (id: string) => void;
-	getSelectedQuery: () => Query | undefined;
 };
 
 export const useQueriesStore = create<QueriesStore>()(
@@ -71,26 +66,21 @@ export const useQueriesStore = create<QueriesStore>()(
 					),
 				})),
 
-			toggleFavoriteFolder: (id) =>
-				set((state) => ({
-					folders: state.folders.map((f) =>
-						f.id === id ? { ...f, isFavorite: !f.isFavorite } : f,
-					),
-				})),
-
-			addQuery: (name?: string, folderId?: string) => {
+			addQuery: (query = "", { name, folderId } = {}) => {
 				const newId = Math.random().toString(36).substring(2, 15);
+
 				const newQuery: Query = {
 					id: newId,
 					name: name ?? "Untitled Query",
-					query: "",
+					query,
 					isFavorite: false,
-					isSelected: false,
-					folderId: folderId ?? undefined,
+					folderId,
 				};
+
 				set((state) => ({
 					queries: [...state.queries, newQuery],
 				}));
+
 				return newId;
 			},
 
@@ -118,6 +108,7 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			getQueriesByFolder: (folderId) => {
 				const state = get();
+
 				return state.queries
 					.filter((q) => q.folderId === folderId && !q.isFavorite)
 					.sort((a, b) => a.name.localeCompare(b.name));
@@ -125,40 +116,23 @@ export const useQueriesStore = create<QueriesStore>()(
 
 			getFavoriteQueries: () => {
 				const state = get();
+
 				return state.queries
 					.filter((q) => q.isFavorite)
 					.sort((a, b) => a.name.localeCompare(b.name));
 			},
 
-			getFavoriteFolders: () => {
-				const state = get();
-				return state.folders.filter((f) => f.isFavorite);
-			},
-
 			getQuery: (id) => {
 				const state = get();
+
 				return state.queries.find((q) => q.id === id);
 			},
-
-			setSelectedQuery: (id) =>
-				set((state) => ({
-					queries: state.queries.map((q) =>
-						q.id === id ? { ...q, isSelected: true } : { ...q, isSelected: false },
-					),
-				})),
-
-			getSelectedQuery: () => {
-				const state = get();
-				return state.queries.find((q) => q.isSelected);
-			},
 		}),
-		{
-			name: "dbstudio-queries",
-		},
+		{ name: STORAGE_KEY },
 	),
 );
 
 // Another tab saved queries: reload them, or this tab's next save would drop that tab's work.
 window.addEventListener("storage", (event) => {
-	if (event.key === "dbstudio-queries") void useQueriesStore.persist.rehydrate();
+	if (event.key === STORAGE_KEY) void useQueriesStore.persist.rehydrate();
 });

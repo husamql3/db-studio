@@ -16,6 +16,7 @@ import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as mainPathlessLayoutIndexRouteImport } from './routes/(main)/_pathlessLayout/index'
 import { Route as mainPathlessLayoutChangelogRouteImport } from './routes/(main)/_pathlessLayout/changelog'
 import { Route as mainPathlessLayoutRoadmapRouteImport } from './routes/(main)/_pathlessLayout/roadmap'
+import { Route as mainPathlessLayoutChar123engineChar125GuiRouteImport } from './routes/(main)/_pathlessLayout/{$engine}-gui'
 import { Route as ApiSponsorsLogoIdRouteImport } from './routes/api/sponsors/logo.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -54,6 +55,12 @@ const mainPathlessLayoutRoadmapRoute =
     path: '/roadmap',
     getParentRoute: () => mainPathlessLayoutRoute,
   } as any)
+const mainPathlessLayoutChar123engineChar125GuiRoute =
+  mainPathlessLayoutChar123engineChar125GuiRouteImport.update({
+    id: '/{$engine}-gui',
+    path: '/{$engine}-gui',
+    getParentRoute: () => mainPathlessLayoutRoute,
+  } as any)
 const ApiSponsorsLogoIdRoute = ApiSponsorsLogoIdRouteImport.update({
   id: '/api/sponsors/logo/$id',
   path: '/api/sponsors/logo/$id',
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
   '/roadmap': typeof mainPathlessLayoutRoadmapRoute
+  '/{$engine}-gui': typeof mainPathlessLayoutChar123engineChar125GuiRoute
   '/': typeof mainPathlessLayoutIndexRoute
   '/api/sponsors/logo/$id': typeof ApiSponsorsLogoIdRoute
 }
@@ -75,6 +83,7 @@ export interface FileRoutesByTo {
   '/docs/$': typeof DocsSplatRoute
   '/changelog': typeof mainPathlessLayoutChangelogRoute
   '/roadmap': typeof mainPathlessLayoutRoadmapRoute
+  '/{$engine}-gui': typeof mainPathlessLayoutChar123engineChar125GuiRoute
   '/': typeof mainPathlessLayoutIndexRoute
   '/api/sponsors/logo/$id': typeof ApiSponsorsLogoIdRoute
 }
@@ -86,6 +95,7 @@ export interface FileRoutesById {
   '/docs/$': typeof DocsSplatRoute
   '/(main)/_pathlessLayout/changelog': typeof mainPathlessLayoutChangelogRoute
   '/(main)/_pathlessLayout/roadmap': typeof mainPathlessLayoutRoadmapRoute
+  '/(main)/_pathlessLayout/{$engine}-gui': typeof mainPathlessLayoutChar123engineChar125GuiRoute
   '/(main)/_pathlessLayout/': typeof mainPathlessLayoutIndexRoute
   '/api/sponsors/logo/$id': typeof ApiSponsorsLogoIdRoute
 }
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/changelog'
     | '/roadmap'
+    | '/{$engine}-gui'
     | '/'
     | '/api/sponsors/logo/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/changelog'
     | '/roadmap'
+    | '/{$engine}-gui'
     | '/'
     | '/api/sponsors/logo/$id'
   id:
@@ -116,6 +128,7 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/(main)/_pathlessLayout/changelog'
     | '/(main)/_pathlessLayout/roadmap'
+    | '/(main)/_pathlessLayout/{$engine}-gui'
     | '/(main)/_pathlessLayout/'
     | '/api/sponsors/logo/$id'
   fileRoutesById: FileRoutesById
@@ -179,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof mainPathlessLayoutRoadmapRouteImport
       parentRoute: typeof mainPathlessLayoutRoute
     }
+    '/(main)/_pathlessLayout/{$engine}-gui': {
+      id: '/(main)/_pathlessLayout/{$engine}-gui'
+      path: '/{$engine}-gui'
+      fullPath: '/{$engine}-gui'
+      preLoaderRoute: typeof mainPathlessLayoutChar123engineChar125GuiRouteImport
+      parentRoute: typeof mainPathlessLayoutRoute
+    }
     '/api/sponsors/logo/$id': {
       id: '/api/sponsors/logo/$id'
       path: '/api/sponsors/logo/$id'
@@ -192,12 +212,15 @@ declare module '@tanstack/react-router' {
 interface mainPathlessLayoutRouteChildren {
   mainPathlessLayoutChangelogRoute: typeof mainPathlessLayoutChangelogRoute
   mainPathlessLayoutRoadmapRoute: typeof mainPathlessLayoutRoadmapRoute
+  mainPathlessLayoutChar123engineChar125GuiRoute: typeof mainPathlessLayoutChar123engineChar125GuiRoute
   mainPathlessLayoutIndexRoute: typeof mainPathlessLayoutIndexRoute
 }
 
 const mainPathlessLayoutRouteChildren: mainPathlessLayoutRouteChildren = {
   mainPathlessLayoutChangelogRoute: mainPathlessLayoutChangelogRoute,
   mainPathlessLayoutRoadmapRoute: mainPathlessLayoutRoadmapRoute,
+  mainPathlessLayoutChar123engineChar125GuiRoute:
+    mainPathlessLayoutChar123engineChar125GuiRoute,
   mainPathlessLayoutIndexRoute: mainPathlessLayoutIndexRoute,
 }
 

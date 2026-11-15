@@ -18,35 +18,33 @@
  * JSON summary go to e2e/artifacts/schema-routing-<build>/.
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
 import pg from "pg";
-import { chromium, type Page } from "playwright-core";
+import type { Page } from "playwright-core";
+import {
+	ARTIFACTS_DIR,
+	cliPath,
+	databaseName,
+	launchBrowser,
+	requireDatabaseUrl,
+	startCli,
+	writeArtifact,
+} from "./lib.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl?.startsWith("postgresql://")) {
-	throw new Error("Set DATABASE_URL to the PostgreSQL database seeded by init-db:pgsql");
-}
-const db = new URL(databaseUrl).pathname.slice(1);
+const { url: databaseUrl } = requireDatabaseUrl("pg");
+const db = databaseName(databaseUrl);
 const build = process.argv[2];
-const cli = fileURLToPath(
-	new URL(
-		build ? `./artifacts/builds/${build}/index.js` : "../dist/index.js",
-		import.meta.url,
-	),
-);
-const outDir = new URL(`./artifacts/schema-routing-${build ?? "dist"}/`, import.meta.url);
-const PORT = 4526;
-const BASE = `http://127.0.0.1:${PORT}`;
-const API = `${BASE}/api/pg`;
+const outDir = `schema-routing-${build ?? "dist"}`;
 const TABLE = "e2e_same_name";
 
 const client = new pg.Client({ connectionString: databaseUrl });
+
 await client.connect();
+
 const dropTables = () => client.query(`DROP TABLE IF EXISTS public.${TABLE}, hr.${TABLE}`);
+
 await dropTables();
+
 // `public` is first on the search path, so a bare name always resolves to it.
 await client.query(`
 	CREATE TABLE public.${TABLE} (id int PRIMARY KEY, origin text NOT NULL);
@@ -55,36 +53,30 @@ await client.query(`
 	CREATE INDEX e2e_same_name_hr_origin ON hr.${TABLE} (origin);
 	INSERT INTO hr.${TABLE} VALUES (1, 'from-hr', 'x');
 `);
+
 const rowsOf = async (schema: string) =>
 	(await client.query(`SELECT id, origin FROM ${schema}.${TABLE} ORDER BY id`)).rows;
 
-const server = spawn("node", [cli, "--no-open", "-p", String(PORT), "-d", databaseUrl], {
-	cwd: tmpdir(),
-	env: { ...process.env, NODE_ENV: "production", DB_STUDIO_TELEMETRY: "0", HOST: "127.0.0.1" },
-	stdio: "ignore",
+const { child: server, base: BASE } = await startCli({
+	cli: cliPath(build),
+	args: ["-d", databaseUrl],
 });
-process.on("exit", () => server.kill("SIGKILL"));
-const deadline = Date.now() + 30_000;
-for (;;) {
-	if (server.exitCode !== null) throw new Error(`server exited with ${server.exitCode}`);
-	if (Date.now() > deadline) throw new Error("server not ready after 30s");
-	const ready = await fetch(`${BASE}/api/databases`)
-		.then((response) => response.ok)
-		.catch(() => false);
-	if (ready) break;
-	await new Promise((resolve) => setTimeout(resolve, 50));
-}
+
+const API = `${BASE}/api/pg`;
 
 const api = async (method: string, path: string, schemaName: string, body?: unknown) => {
 	const url = new URL(`${API}${path}`);
 	url.searchParams.set("db", db);
 	url.searchParams.set("schemaName", schemaName);
+
 	const response = await fetch(url, {
 		method,
 		headers: body ? { "content-type": "application/json" } : undefined,
 		body: body ? JSON.stringify(body) : undefined,
 	});
+
 	assert.equal(response.ok, true, `${method} ${path} answered ${response.status}`);
+
 	return response;
 };
 
@@ -95,6 +87,7 @@ const gridState = async (page: Page) => {
 		.getByText(/^from-/)
 		.first()
 		.waitFor();
+
 	return {
 		path: url.pathname,
 		tableSchema: url.searchParams.get("tableSchema"),
@@ -104,20 +97,22 @@ const gridState = async (page: Page) => {
 
 const activeSidebarEntries = (page: Page) =>
 	page.evaluate(() =>
-		[...document.querySelectorAll("li")]
-			.filter((li) => li.querySelector(".bg-primary"))
-			.map((li) => li.querySelector("a")?.textContent?.trim() ?? ""),
+		[...document.querySelectorAll("li")].flatMap((li) =>
+			li.querySelector(".bg-primary")
+				? [li.querySelector("a")?.textContent?.trim() ?? ""]
+				: [],
+		),
 	);
 
 const summary: Record<string, unknown> = {};
-await mkdir(outDir, { recursive: true });
+
 const shot = (page: Page, name: string) =>
-	page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, outDir)) });
-const browser = await chromium.launch({
-	channel: process.env.PERF_BROWSER_CHANNEL ?? "chrome",
-	headless: true,
-});
+	page.screenshot({ path: path.join(ARTIFACTS_DIR, outDir, `${name}.png`) });
+
+const browser = await launchBrowser();
+
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
 try {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -194,9 +189,11 @@ try {
 		tableName: TABLE,
 		primaryKeys: [{ columnName: "id", value: 3 }],
 	});
+
 	const exported = await (
 		await api("GET", `/tables/${TABLE}/export?format=json`, "hr")
 	).text();
+
 	summary.api = {
 		hrColumns: columns.data.map((column: { columnName: string }) => column.columnName),
 		hrRows: await rowsOf("hr"),
@@ -223,7 +220,7 @@ try {
 	await shot(page, "failure");
 	throw error;
 } finally {
-	await writeFile(new URL("summary.json", outDir), `${JSON.stringify(summary, null, 2)}\n`);
+	await writeArtifact(`${outDir}/summary.json`, summary);
 	await browser.close();
 	server.kill("SIGKILL");
 	await dropTables();
