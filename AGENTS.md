@@ -311,6 +311,10 @@ Rules:
 - No selectors — consumers destructure from the hook directly
 - A store holding state of the open connection (selections, edits, open sheets) registers its reset with `onConnectionReset` from `src/stores/connection-reset.ts`; switching connection runs them all
 
+### UI design
+
+`.better-web-ui.md` holds the design context for the web app: who it is for, its tone, and five layout principles (reuse the runner for SQL, `h-8` segmented toolbars, hierarchy through weight and muted color, one sidebar list grammar, one-line empty states). Read it before building or restyling a screen.
+
 ### Overlay Registry (`src/stores/overlay.store.ts`)
 
 All sheets, drawers, and modal overlays are controlled through a single typed registry.

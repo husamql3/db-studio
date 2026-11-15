@@ -14,9 +14,5 @@ export const Route = createFileRoute("/_pathlessLayout/routines")({
 });
 
 function RouteComponent() {
-	return (
-		<main className="flex-1 overflow-hidden">
-			<RoutinesScreen />
-		</main>
-	);
+	return <RoutinesScreen />;
 }
