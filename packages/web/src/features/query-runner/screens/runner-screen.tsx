@@ -25,9 +25,11 @@ type QueryResult = {
 export const RunnerScreen = ({
 	queryId,
 	initialQuery,
+	minimalToolbar = false,
 }: {
 	queryId?: string;
 	initialQuery?: string;
+	minimalToolbar?: boolean;
 }) => {
 	const navigate = useNavigate();
 	const editorRef = useRef<CodeEditorHandle>(null);
@@ -116,6 +118,7 @@ export const RunnerScreen = ({
 				hasUnsavedChanges={hasUnsavedChanges}
 				queryResult={queryResult?.data ?? null}
 				currentQuery={currentQuery}
+				minimal={minimalToolbar}
 			/>
 
 			<Suspense fallback={<div className="flex-1 bg-background size-full" />}>
@@ -132,12 +135,14 @@ export const RunnerScreen = ({
 				/>
 			</Suspense>
 
-			<QueryResultContainer
-				results={queryResult?.data ?? null}
-				isLoading={isExecutingQuery}
-				error={executeQueryError}
-				lastExecutedQuery={lastExecutedQuery}
-			/>
+			{lastExecutedQuery && (
+				<QueryResultContainer
+					results={queryResult?.data ?? null}
+					isLoading={isExecutingQuery}
+					error={executeQueryError}
+					lastExecutedQuery={lastExecutedQuery}
+				/>
+			)}
 		</div>
 	);
 };

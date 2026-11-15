@@ -12,7 +12,7 @@ import { ListFilter, RefreshCw, Search, WrapText } from "lucide-react";
 import { LEVEL_DOT } from "@/features/logs/log-levels";
 
 const toolbarButton =
-	"h-8! px-2.5 border-l-0 border-y-0 border-r border-border rounded-none text-xs font-medium gap-1.5 flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors";
+	"border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60";
 
 export const LogsToolbar = ({
 	live,
@@ -46,14 +46,15 @@ export const LogsToolbar = ({
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button
+						size="icon-segment"
 						type="button"
 						variant="ghost"
 						onClick={refetch}
 						disabled={isRefetching}
 						aria-label="Reload the server log"
-						className="size-8! aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+						className="border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60"
 					>
-						<RefreshCw className={cn("size-4", isRefetching && "animate-spin")} />
+						<RefreshCw className={cn(isRefetching && "animate-spin")} />
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom">Reload</TooltipContent>
@@ -62,6 +63,7 @@ export const LogsToolbar = ({
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button
+						size="segment"
 						type="button"
 						variant="ghost"
 						onClick={() => onLiveChange(!live)}
@@ -90,11 +92,12 @@ export const LogsToolbar = ({
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button
+						size="segment"
 						type="button"
 						variant="ghost"
 						className={cn(toolbarButton, hiddenLevels.size > 0 && "text-foreground")}
 					>
-						<ListFilter className="size-4" />
+						<ListFilter />
 						Severity
 						{hiddenLevels.size > 0 && (
 							<span className="text-muted-foreground">
@@ -141,17 +144,18 @@ export const LogsToolbar = ({
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button
+						size="icon-segment"
 						type="button"
 						variant="ghost"
 						onClick={() => onWrapChange(!wrap)}
 						aria-pressed={wrap}
 						aria-label="Wrap long lines"
 						className={cn(
-							"size-8! aspect-square border-l border-y-0 border-r-0 border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+							"border-l border-r-0 border-border text-muted-foreground hover:text-foreground hover:bg-muted/60",
 							wrap && "bg-muted text-foreground",
 						)}
 					>
-						<WrapText className="size-4" />
+						<WrapText />
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom">Wrap long lines</TooltipContent>

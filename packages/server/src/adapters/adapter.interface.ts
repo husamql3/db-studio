@@ -21,6 +21,7 @@ import type {
 	IndexInfoSchemaType,
 	RenameColumnParamsSchemaType,
 	RenameTableParamsSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogsResult,
 	SortDirection,
 	SortType,
@@ -108,6 +109,7 @@ export interface IDbAdapter {
 
 	/** The newest entries of the server's own log, or why the server keeps it out of reach. */
 	getServerLogs(params: { db: DatabaseSchemaType["db"] }): Promise<ServerLogsResult>;
+	getRoutines(params: { db: DatabaseSchemaType["db"] }): Promise<RoutineInfoSchemaType[]>;
 
 	/** The status and message the API answers a failure of this engine's request with. */
 	classifyError(e: unknown): HTTPException;

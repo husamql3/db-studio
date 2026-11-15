@@ -5,4 +5,11 @@
 export const API_ROOT_RESOURCES = ["connections", "databases", "chat", "telemetry"] as const;
 
 /** The route prefixes mounted under `API_PREFIX/:dbType`. */
-export const API_DB_RESOURCES = ["tables", "records", "query", "keys", "logs"] as const;
+export const API_DB_RESOURCES = [
+	"tables",
+	"records",
+	"query",
+	"keys",
+	"routines",
+	"logs",
+] as const;

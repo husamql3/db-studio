@@ -10,6 +10,7 @@ import type {
 	FieldDataType,
 	ForeignKeyDataType,
 	IndexInfoSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogEntrySchemaType,
 	ServerLogsResult,
 	TableDataResultSchemaType,
@@ -303,6 +304,32 @@ export class MsSqlAdapter extends SqlAdapter<MssqlConn> {
 			active_connections: Number(info.active_connections ?? 0),
 			max_connections: Number(info.max_connections),
 		};
+	}
+
+	async getRoutines({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<RoutineInfoSchemaType[]> {
+		const pool = await connector("mssql").pool(db);
+
+		const result = await pool.request().query<RoutineInfoSchemaType>(`
+			SELECT o.name AS routineName,
+				s.name AS schemaName,
+				CASE WHEN o.type IN ('P', 'PC') THEN 'procedure' ELSE 'function' END AS routineType,
+				NULL AS signature,
+				NULL AS returnType,
+				CASE WHEN o.type IN ('PC', 'FS', 'FT') THEN 'CLR' ELSE 'T-SQL' END AS language,
+				m.definition AS definition
+			FROM sys.objects o
+			JOIN sys.schemas s ON s.schema_id = o.schema_id
+			LEFT JOIN sys.sql_modules m ON m.object_id = o.object_id
+			WHERE o.type IN ('P', 'PC', 'FN', 'IF', 'TF', 'FS', 'FT')
+				AND o.is_ms_shipped = 0
+			ORDER BY s.name, o.name
+		`);
+
+		return result.recordset;
 	}
 
 	/** A login may see tables it cannot read; those keep their estimate. */

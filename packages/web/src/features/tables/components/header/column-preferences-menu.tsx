@@ -67,16 +67,17 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 		<Popover>
 			<PopoverTrigger asChild>
 				<Button
+					size="icon-segment"
 					type="button"
 					variant="ghost"
 					className={cn(
-						"size-8! aspect-square border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+						"border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60",
 						isCustomized && "text-foreground",
 					)}
 					aria-label="Manage columns"
 					data-active={isCustomized}
 				>
-					<Settings2 className="size-4" />
+					<Settings2 />
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -109,7 +110,7 @@ export const ColumnPreferencesMenu = ({ tableName }: { tableName: string }) => {
 				</div>
 				<Separator className="my-0" />
 				<div
-					className="max-h-72 overflow-y-auto py-1"
+					className="max-h-72 overflow-y-auto overscroll-contain py-1"
 					role="list"
 					aria-label="Database columns"
 					onDragOver={(e) => {

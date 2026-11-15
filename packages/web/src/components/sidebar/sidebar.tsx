@@ -4,17 +4,21 @@ import { SidebarContentTablesList } from "@/components/sidebar/sidebar-content-t
 import { SidebarFooter } from "@/components/sidebar/sidebar-footer";
 import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
 import { RedisKeySidebar } from "@/features/redis-browser";
+import { SidebarContentRoutinesList } from "@/features/routines";
 import { useIsKeyValue } from "@/hooks/use-is-key-value";
 import { sectionOf } from "@/lib/sections";
 
 export const Sidebar = () => {
 	const { pathname } = useLocation();
 	const isKeyValue = useIsKeyValue();
+	const sidebar = sectionOf(pathname)?.sidebar;
 
 	return (
 		<SidebarWrapper>
-			{sectionOf(pathname)?.sidebar === "queries" ? (
+			{sidebar === "queries" ? (
 				<SidebarContentQueriesList />
+			) : sidebar === "routines" ? (
+				<SidebarContentRoutinesList />
 			) : isKeyValue ? (
 				<RedisKeySidebar />
 			) : (

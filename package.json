@@ -5,7 +5,7 @@
     "www"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "portless proxy start && turbo run dev",
     "dev:web": "turbo run dev --filter=@db-studio/web",
     "dev:server": "turbo run dev --filter=db-studio",
     "dev:proxy": "turbo run dev --filter=@db-studio/proxy",

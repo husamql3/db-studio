@@ -75,13 +75,22 @@
 	--rail-sidebar-duration: 250ms;
 }
 
-.sidebar-behind-rail[data-state="open"] {
-	animation: sidebar-behind-rail-in var(--rail-sidebar-duration) var(--rail-sidebar-ease);
+/* Transitions, not keyframes: a toggle mid-flight reverses from where the panel is, in step
+   with .rail-content. The panel stays mounted (forceMount); visibility flips after the exit so
+   a closed panel takes no focus or hover. */
+.sidebar-behind-rail {
+	animation: none;
+	transition:
+		transform var(--rail-sidebar-duration) var(--rail-sidebar-ease),
+		clip-path var(--rail-sidebar-duration) var(--rail-sidebar-ease),
+		visibility 0s;
 }
 
 .sidebar-behind-rail[data-state="closed"] {
-	animation: sidebar-behind-rail-out var(--rail-sidebar-duration) var(--rail-sidebar-ease)
-		forwards;
+	transform: translateX(-100%);
+	clip-path: inset(0 0 0 100%);
+	visibility: hidden;
+	transition-delay: 0s, 0s, var(--rail-sidebar-duration);
 }
 
 .rail-content {
@@ -94,8 +103,10 @@ body:has(#resize-overlay) .rail-content {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.sidebar-behind-rail[data-state] {
-		animation-duration: 1ms;
+	.sidebar-behind-rail,
+	.sidebar-behind-rail[data-state="closed"] {
+		transition-duration: 0s;
+		transition-delay: 0s;
 	}
 
 	.rail-content {
@@ -103,24 +114,3 @@ body:has(#resize-overlay) .rail-content {
 	}
 }
 
-@keyframes sidebar-behind-rail-in {
-	from {
-		transform: translateX(-100%);
-		clip-path: inset(0 0 0 100%);
-	}
-	to {
-		transform: translateX(0);
-		clip-path: inset(0);
-	}
-}
-
-@keyframes sidebar-behind-rail-out {
-	from {
-		transform: translateX(0);
-		clip-path: inset(0);
-	}
-	to {
-		transform: translateX(-100%);
-		clip-path: inset(0 0 0 100%);
-	}
-}

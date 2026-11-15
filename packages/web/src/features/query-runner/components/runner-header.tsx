@@ -28,6 +28,7 @@ export const RunnerHeader = ({
 	hasUnsavedChanges,
 	queryResult,
 	currentQuery,
+	minimal = false,
 }: {
 	isExecutingQuery: boolean;
 	handleButtonClick: () => void;
@@ -39,16 +40,21 @@ export const RunnerHeader = ({
 	hasUnsavedChanges: boolean;
 	queryResult: ExecuteQueryResult | null;
 	currentQuery: string;
+	/** Hides the actions that only apply to saved runner queries (and Generate). */
+	minimal?: boolean;
 }) => {
-	const [showAs, setShowAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS);
+	const [showAs, setShowAs] = useQueryState(RUNNER_STATE_KEYS.SHOW_AS, {
+		defaultValue: "table",
+	});
 
 	return (
 		<header className="max-h-8 overflow-hidden border-b border-border w-full flex items-center justify-between bg-background text-foreground sticky top-0 left-0 right-0 z-0">
 			<div className="flex items-center">
 				<Button
+					size="segment"
 					type="button"
 					variant="default"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none bg-green-700 text-white hover:bg-green-800 gap-1 disabled:opacity-50"
+					className="border-l-0 border-r border-border bg-green-700 text-white hover:bg-green-800 disabled:opacity-50"
 					onClick={handleButtonClick}
 					disabled={isExecutingQuery}
 					aria-label="Run the query"
@@ -58,31 +64,35 @@ export const RunnerHeader = ({
 					<CornerDownLeft className="size-3" />
 				</Button>
 
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
-							aria-label="Generate a query with AI"
-							onClick={() =>
-								askAssistant(
-									"Generate a query for this database. Ask me for the goal if it is unclear.",
-								)
-							}
-						>
-							<Sparkles className="size-3" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Generate with AI</TooltipContent>
-				</Tooltip>
+				{!minimal && (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								size="segment"
+								type="button"
+								variant="ghost"
+								className="border-l-0 border-r border-border"
+								aria-label="Generate a query with AI"
+								onClick={() =>
+									askAssistant(
+										"Generate a query for this database. Ask me for the goal if it is unclear.",
+									)
+								}
+							>
+								<Sparkles />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Generate with AI</TooltipContent>
+					</Tooltip>
+				)}
 
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<Button
+							size="segment"
 							type="button"
 							variant="ghost"
-							className="h-8! border-l-0 border-y-0 border-r border-zinc-800 rounded-none"
+							className="border-l-0 border-r border-border"
 							aria-label="Optimize the query with AI"
 							disabled={!currentQuery.trim() || isExecutingQuery}
 							onClick={() =>
@@ -91,45 +101,48 @@ export const RunnerHeader = ({
 								)
 							}
 						>
-							<Zap className="size-3" />
+							<Zap />
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent>Optimize with AI</TooltipContent>
 				</Tooltip>
 
-				<Button
-					type="button"
-					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-					aria-label="Format the query"
-					onClick={handleFormatQuery}
-				>
-					Format <AlignLeft className="size-3" />
-				</Button>
+				{!minimal && (
+					<>
+						<Button
+							size="segment"
+							type="button"
+							variant="ghost"
+							className="border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60"
+							aria-label="Format the query"
+							onClick={handleFormatQuery}
+						>
+							Format <AlignLeft />
+						</Button>
 
-				<Button
-					type="button"
-					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-					aria-label="Save the query"
-					onClick={handleSaveQuery}
-				>
-					Save <Save className="size-3" />
-				</Button>
+						<Button
+							size="segment"
+							type="button"
+							variant="ghost"
+							className="border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60"
+							aria-label="Save the query"
+							onClick={handleSaveQuery}
+						>
+							Save <Save />
+						</Button>
 
-				<Button
-					type="button"
-					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-					aria-label="Favorite the query"
-					onClick={handleFavorite}
-				>
-					{isFavorite ? (
-						<Heart className="size-3 fill-current" />
-					) : (
-						<Heart className="size-3" />
-					)}
-				</Button>
+						<Button
+							size="segment"
+							type="button"
+							variant="ghost"
+							className="border-l-0 border-r border-border text-muted-foreground hover:text-foreground hover:bg-muted/60"
+							aria-label="Favorite the query"
+							onClick={handleFavorite}
+						>
+							{isFavorite ? <Heart className="fill-current" /> : <Heart />}
+						</Button>
+					</>
+				)}
 
 				{queryId && hasUnsavedChanges && (
 					<span className="text-xs px-2 text-muted-foreground">Unsaved changes</span>
@@ -151,10 +164,10 @@ export const RunnerHeader = ({
 					type="single"
 					variant="ghost"
 					onValueChange={(value) => {
-						if (value === showAs) return;
-						setShowAs(value);
+						// Clicking the active view sends "", which would leave neither view selected.
+						if (value) setShowAs(value);
 					}}
-					value={showAs ?? undefined}
+					value={showAs}
 					className="h-8! rounded-none! border-l! border-border!"
 				>
 					<Tooltip>

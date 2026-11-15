@@ -60,6 +60,7 @@ export const SidebarWrapper = ({ children }: { children: ReactNode }) => {
 			<SheetTrigger className="sr-only">Open Sidebar</SheetTrigger>
 			<SheetContent
 				side="left"
+				forceMount
 				showCloseButton={false}
 				showOverlay={!isPinned}
 				className={cn(

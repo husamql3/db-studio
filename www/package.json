@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "portless run",
-    "dev:app": "vite dev --host 127.0.0.1 --port=${PORT:-3000}",
+    "dev:app": "vite dev --host 127.0.0.1",
     "build": "vite build",
     "preview": "portless www.db-studio bun run preview:app",
-    "preview:app": "vite preview --host --port=${PORT:-3000}",
+    "preview:app": "vite preview --host",
     "deploy": "bun run build && wrangler deploy",
     "deploy:preview": "bun run build && wrangler deploy --env preview",
     "cf-typegen": "wrangler types",

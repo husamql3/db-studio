@@ -4,7 +4,7 @@ import type * as React from "react";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
-	"focus-visible:border-ring cursor-pointer focus-visible:ring-ring/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-sm border border-transparent bg-clip-padding text-xs/relaxed font-medium focus-visible:ring-[2px] aria-invalid:ring-[2px] [&_svg:not([class*='size-'])]:size-4 inline-flex items-center justify-center whitespace-nowrap transition-[color,background-color,border-color,box-shadow,scale] duration-150 ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none shrink-0 [&_svg]:shrink-0 outline-none group/button select-none",
+	"focus-visible:border-ring cursor-pointer focus-visible:ring-ring/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-sm border border-transparent bg-clip-padding text-xs/relaxed font-medium focus-visible:ring-[2px] aria-invalid:ring-[2px] [&_svg:not([class*='size-'])]:size-4 inline-flex items-center justify-center whitespace-nowrap transition-[color,background-color,border-color,box-shadow,scale] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none shrink-0 [&_svg]:shrink-0 outline-none group/button select-none",
 	{
 		variants: {
 			variant: {
@@ -29,8 +29,20 @@ const buttonVariants = cva(
 				"icon-xs": "size-5 rounded-sm [&_svg:not([class*='size-'])]:size-2.5",
 				"icon-sm": "size-6 [&_svg:not([class*='size-'])]:size-3",
 				"icon-lg": "size-8 [&_svg:not([class*='size-'])]:size-4",
+				// A square cell of an edge-to-edge h-8 toolbar; callers add the divider side.
+				segment:
+					"h-8 gap-1.5 rounded-none border-y-0 px-2.5 [&_svg:not([class*='size-'])]:size-3.5",
+				"icon-segment":
+					"size-8 rounded-none border-y-0 [&_svg:not([class*='size-'])]:size-3.5",
 			},
 		},
+		// Toolbar segments share borders, so scaling one opens gaps between them.
+		compoundVariants: [
+			{
+				size: ["default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"],
+				class: "motion-safe:active:scale-[0.96]",
+			},
+		],
 		defaultVariants: {
 			variant: "default",
 			size: "default",

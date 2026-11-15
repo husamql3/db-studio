@@ -104,9 +104,10 @@ export const ReviewBtn = ({ tableName }: { tableName: string }) => {
 		>
 			<PopoverTrigger asChild>
 				<Button
+					size="segment"
 					type="button"
 					variant="ghost"
-					className="h-8! border-l-0 border-y-0 border-r border-border rounded-none"
+					className="border-l-0 border-r border-border"
 					aria-label="Review unsaved changes"
 				>
 					Review
@@ -128,7 +129,7 @@ export const ReviewBtn = ({ tableName }: { tableName: string }) => {
 						undo last
 					</span>
 				</div>
-				<div className="max-h-96 overflow-auto font-mono">
+				<div className="max-h-96 overflow-auto overscroll-contain font-mono">
 					{[...rows.values()].map((cells, index) => (
 						<section key={getRecordKey(cells[0].rowData, editScope.keyColumns)}>
 							<h3 className="sticky top-0 z-10 flex min-h-6 items-center py-1 border-b bg-popover px-3 text-[0.625rem] text-muted-foreground">

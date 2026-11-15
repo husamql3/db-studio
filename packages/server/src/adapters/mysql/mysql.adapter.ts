@@ -7,6 +7,7 @@ import type {
 	DeleteTableParams,
 	FieldDataType,
 	IndexInfoSchemaType,
+	RoutineInfoSchemaType,
 	ServerLogLevel,
 	ServerLogsResult,
 } from "@db-studio/shared/types";
@@ -248,6 +249,29 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 			active_connections: Number((connRows as Array<{ cnt: number }>)[0]?.cnt ?? 0),
 			max_connections: Number(info.max_connections),
 		};
+	}
+
+	async getRoutines({
+		db,
+	}: {
+		db: DatabaseSchemaType["db"];
+	}): Promise<RoutineInfoSchemaType[]> {
+		const pool = await connector("mysql").pool(db);
+
+		const [rows] = await pool.execute<RowDataPacket[]>(`
+			SELECT ROUTINE_NAME AS routineName,
+				ROUTINE_SCHEMA AS schemaName,
+				LOWER(ROUTINE_TYPE) AS routineType,
+				NULL AS signature,
+				CASE WHEN ROUTINE_TYPE = 'FUNCTION' THEN DATA_TYPE ELSE NULL END AS returnType,
+				EXTERNAL_LANGUAGE AS language,
+				ROUTINE_DEFINITION AS definition
+			FROM information_schema.ROUTINES
+			WHERE ROUTINE_SCHEMA = DATABASE()
+			ORDER BY ROUTINE_NAME
+		`);
+
+		return rows as RoutineInfoSchemaType[];
 	}
 
 	protected columnDefinition(
