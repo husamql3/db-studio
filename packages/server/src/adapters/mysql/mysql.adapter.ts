@@ -264,14 +264,27 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 				LOWER(ROUTINE_TYPE) AS routineType,
 				NULL AS signature,
 				CASE WHEN ROUTINE_TYPE = 'FUNCTION' THEN DATA_TYPE ELSE NULL END AS returnType,
-				EXTERNAL_LANGUAGE AS language,
-				ROUTINE_DEFINITION AS definition
+				EXTERNAL_LANGUAGE AS language
 			FROM information_schema.ROUTINES
 			WHERE ROUTINE_SCHEMA = DATABASE()
 			ORDER BY ROUTINE_NAME
 		`);
 
-		return rows as RoutineInfoSchemaType[];
+		const routines = rows as Omit<RoutineInfoSchemaType, "definition">[];
+
+		// ROUTINE_DEFINITION holds only the body; SHOW CREATE gives a statement the runner can run.
+		// Its column is NULL when the user may not read the routine's source.
+		return Promise.all(
+			routines.map(async (routine) => {
+				const kind = routine.routineType === "procedure" ? "Procedure" : "Function";
+
+				const [created] = await pool.query<RowDataPacket[]>(
+					`SHOW CREATE ${kind.toUpperCase()} ${quoteMysqlIdent(routine.routineName)}`,
+				);
+
+				return { ...routine, definition: created[0]?.[`Create ${kind}`] ?? null };
+			}),
+		);
 	}
 
 	protected columnDefinition(
@@ -517,10 +530,15 @@ export class MySqlAdapter extends SqlAdapter<Connection> {
 	}
 
 	protected async runStatement(conn: Connection, statement: string) {
-		const [result, fields] = (await conn.execute(statement)) as [
-			RowDataPacket[] | ResultSetHeader,
-			FieldPacket[],
-		];
+		// The prepared protocol refuses some statements (CREATE FUNCTION, CREATE PROCEDURE, …,
+		// ER_UNSUPPORTED_PS); those go through the text protocol instead.
+		const [result, fields] = (await conn
+			.execute(statement)
+			.catch((error: unknown) =>
+				error instanceof Error && "errno" in error && error.errno === 1295
+					? conn.query(statement)
+					: Promise.reject(error),
+			)) as [RowDataPacket[] | ResultSetHeader, FieldPacket[]];
 
 		if (!Array.isArray(result)) return { affected: result.affectedRows };
 

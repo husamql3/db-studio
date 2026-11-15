@@ -330,6 +330,13 @@ export class PgAdapter extends SqlAdapter<PgQueryable> {
 			WHERE p.prokind IN ('f', 'p')
 				AND n.nspname NOT IN ('pg_catalog', 'information_schema')
 				AND n.nspname NOT LIKE 'pg_toast%'
+				-- Functions an extension installed (pgcrypto, PostGIS, …) are not the user's routines.
+				AND NOT EXISTS (
+					SELECT 1 FROM pg_catalog.pg_depend d
+					WHERE d.classid = 'pg_catalog.pg_proc'::regclass
+						AND d.objid = p.oid
+						AND d.deptype = 'e'
+				)
 			ORDER BY n.nspname, p.proname, signature
 		`);
 

@@ -528,15 +528,38 @@ export class OracleAdapter extends SqlAdapter<Connection> {
 				ORDER BY object_name`,
 			);
 
-			return rows.map((row) => ({
-				routineName: row.ROUTINE_NAME,
-				schemaName: null,
-				routineType: row.ROUTINE_TYPE,
-				signature: null,
-				returnType: null,
-				language: "PL/SQL",
-				definition: null,
-			}));
+			const lines = await this.rows<{ NAME: string; TYPE: string; TEXT: string }>(
+				conn,
+				`SELECT name, type, text
+				FROM user_source
+				WHERE type IN ('FUNCTION', 'PROCEDURE')
+				ORDER BY name, type, line`,
+			);
+			// USER_SOURCE starts at "FUNCTION name …"; the prefix makes it a statement the runner
+			// recognises as PL/SQL and that replaces the routine when run.
+
+			const sources = new Map<string, string>();
+
+			for (const line of lines) {
+				const key = `${line.TYPE}\u0000${line.NAME}`;
+				sources.set(key, (sources.get(key) ?? "") + line.TEXT);
+			}
+
+			return rows.map((row) => {
+				const source = sources.get(
+					`${row.ROUTINE_TYPE.toUpperCase()}\u0000${row.ROUTINE_NAME}`,
+				);
+
+				return {
+					routineName: row.ROUTINE_NAME,
+					schemaName: null,
+					routineType: row.ROUTINE_TYPE,
+					signature: null,
+					returnType: null,
+					language: "PL/SQL",
+					definition: source ? `CREATE OR REPLACE ${source}` : null,
+				};
+			});
 		});
 	}
 

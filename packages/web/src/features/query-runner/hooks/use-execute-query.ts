@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { posthogAnalytics } from "@/lib/posthog";
 import { executeQuery as executeQueryRequest } from "@/shared/api";
 import { invalidateAllTables } from "@/shared/query/invalidate-table";
-import { redisKeyBrowserKeys } from "@/shared/query/keys";
+import { redisKeyBrowserKeys, routineKeys } from "@/shared/query/keys";
 import { useDatabaseStore } from "@/stores/database.store";
 
 export const useExecuteQuery = () => {
@@ -21,12 +21,13 @@ export const useExecuteQuery = () => {
 
 			return res.data.data;
 		},
-		// A query can change any table's rows, columns or indexes, create and drop tables, or
-		// write Redis keys.
+		// A query can change any table's rows, columns or indexes, create and drop tables or
+		// routines, or write Redis keys.
 		// Not awaited: the result shows while the other screens refetch.
 		onSuccess: () => {
 			invalidateAllTables(queryClient);
 			queryClient.invalidateQueries({ queryKey: redisKeyBrowserKeys.all });
+			queryClient.invalidateQueries({ queryKey: routineKeys.all });
 
 			if (dbType) posthogAnalytics.capture("query_executed", { db_type: dbType });
 		},

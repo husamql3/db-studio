@@ -69,11 +69,8 @@ export const RoutinesScreen = () => {
 
 	if (!routine) return <ScreenMessage>This routine no longer exists</ScreenMessage>;
 
-	if (!routine.definition) {
-		return <ScreenMessage>The database does not expose this routine's source</ScreenMessage>;
-	}
-
-	const definition = routine.definition;
+	// Without source (encrypted or wrapped routines) the runner still opens, to call the routine.
+	const { definition } = routine;
 
 	return (
 		<div className="flex flex-1 flex-col overflow-hidden">
@@ -98,23 +95,28 @@ export const RoutinesScreen = () => {
 						{routine.language}
 					</span>
 				)}
-				<Button
-					size="segment"
-					type="button"
-					variant="ghost"
-					className="border-r-0 border-l border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-					aria-label="Copy the routine definition"
-					onClick={() => {
-						void navigator.clipboard.writeText(definition);
-						toast.success("Routine code copied");
-					}}
-				>
-					Copy definition <Copy />
-				</Button>
+				{definition && (
+					<Button
+						size="segment"
+						type="button"
+						variant="ghost"
+						className="border-r-0 border-l border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+						aria-label="Copy the routine definition"
+						onClick={() => {
+							void navigator.clipboard.writeText(definition);
+							toast.success("Routine code copied");
+						}}
+					>
+						Copy definition <Copy />
+					</Button>
+				)}
 			</header>
 			<RunnerScreen
 				key={`${selectedDatabase}\u0000${routine.schemaName ?? ""}\u0000${routine.routineName}\u0000${routine.signature ?? ""}\u0000${routine.routineType}`}
-				initialQuery={definition}
+				initialQuery={
+					definition ??
+					`-- The database does not expose the source of ${routine.routineName}.\n-- Call it here.\n`
+				}
 				minimalToolbar
 			/>
 		</div>

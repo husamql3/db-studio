@@ -46,7 +46,8 @@ type Capability =
 	| "cellDefault"
 	| "schemaMutation"
 	| "sort"
-	| "filter";
+	| "filter"
+	| "routines";
 
 /** Why the engine cannot do an operation its traits leave out, or undefined when it can. */
 const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
@@ -75,6 +76,10 @@ const unsupportedReason = (engine: DatabaseEngine, capability: Capability) => {
 			return engine.filterSort
 				? undefined
 				: `Filtering is not supported for ${engine.label} tables`;
+		case "routines":
+			return engine.routines
+				? undefined
+				: `${engine.label} has no stored procedures or functions`;
 	}
 };
 
